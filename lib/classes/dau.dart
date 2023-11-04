@@ -1,5 +1,4 @@
 class DAUComp {
-  // commit this
   String year;
   List<DAURound> dauRounds = [];
 
