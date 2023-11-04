@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1008137398618",
+    "firebase_url": "https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "dau-footy-tipping-f8a42",
+    "storage_bucket": "dau-footy-tipping-f8a42.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1008137398618:android:dae59f80f55edf7bd6ab63",
+        "android_client_info": {
+          "package_name": "coach.interview.daufootytipping"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyu88ewPz06H4PFrhZqENRmd1AmjbYFwU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
