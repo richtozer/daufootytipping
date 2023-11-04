@@ -21,15 +21,15 @@ class HomePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               IconButton(
-                icon: Icon(Icons.sports_rugby, size: 30),
+                icon: const Icon(Icons.sports_rugby, size: 30),
                 onPressed: () {},
               ),
               IconButton(
-                icon: Icon(Icons.auto_awesome, size: 30),
+                icon: const Icon(Icons.auto_awesome, size: 30),
                 onPressed: () {},
               ),
               IconButton(
-                icon: Icon(Icons.settings, size: 30),
+                icon: const Icon(Icons.settings, size: 30),
                 onPressed: () {
                   signUserOut();
                 },
@@ -40,7 +40,7 @@ class HomePage extends StatelessWidget {
         body: Center(
             child: Column(children: [
           Text('LOGGED IN AS: $useremail'),
-          RoundTile(),
+          const RoundTile(),
         ])));
   }
 }

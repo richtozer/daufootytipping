@@ -55,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
           title: Center(
             child: Text(
               error,
-              style: TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         );
@@ -109,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 5),
 
               // welcome!
-              Text(
+              const Text(
                 'DAU Footy Tipping 2024',
                 style: TextStyle(
                   fontSize: 18,
@@ -118,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 25),
 
-              Text(
+              const Text(
                 'Please log in',
                 style: TextStyle(
                   fontSize: 16,
@@ -146,8 +146,8 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 10),
 
               // forgot password?
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25.0),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 25.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -178,8 +178,8 @@ class _LoginPageState extends State<LoginPage> {
                         color: Colors.grey[400],
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10.0),
                       child: Text(
                         'Or continue with',
                       ),
@@ -214,13 +214,13 @@ class _LoginPageState extends State<LoginPage> {
 
               // not a member? register now
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(
+                const Text(
                   'Not a tipper?',
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 InkWell(
                   onTap: () => launchUrl(emailLaunchUri),
-                  child: Text(
+                  child: const Text(
                     'Click here',
                     style: TextStyle(
                         decoration: TextDecoration.underline,
