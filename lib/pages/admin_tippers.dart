@@ -2,19 +2,26 @@ import 'package:daufootytipping/classes/footytipping_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class AdminPage extends StatelessWidget {
-  const AdminPage({super.key});
+class TippersAdminPage extends StatelessWidget {
+  const TippersAdminPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: const Text('Provider Example'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {},
+          ),
+          title: const Text('Tippers Administration'),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {},
+          child: const Icon(Icons.add),
         ),
         body: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(children: [
-              const Text('Tippers'),
               Consumer<FootyTippingModel>(builder: (context, model, child) {
                 return Expanded(
                   child: ListView(
@@ -22,9 +29,12 @@ class AdminPage extends StatelessWidget {
                       ...model.tippers.map(
                         (tipper) => Card(
                           child: ListTile(
-                            leading: const Icon(Icons.abc),
+                            leading: tipper.active
+                                ? const Icon(Icons.person)
+                                : const Icon(Icons.person_off),
                             title: Text(tipper.name),
-                            subtitle: Text(tipper.tipperRole.toString()),
+                            subtitle: Text(
+                                '${tipper.tipperRole.name} | ${tipper.email}'),
                           ),
                         ),
                       ),

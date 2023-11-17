@@ -1,7 +1,7 @@
-import 'package:daufootytipping/pages/login_page.dart';
+import 'package:daufootytipping/pages/user_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:daufootytipping/pages/home_page.dart';
+import 'package:daufootytipping/pages/user_home.dart';
 
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});

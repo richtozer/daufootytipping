@@ -3,8 +3,10 @@ import 'package:daufootytipping/classes/dau.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
-// this provider model is based on the examples in this good Youtube tutorial:
-// https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
+// define some constants for firestore database locations
+const tippersPath = '/Tippers';
+const teamsPath = '/Teams';
+const dauCompsPath = '/DAUComps';
 
 class FootyTippingModel extends ChangeNotifier {
   static const tippersPath = 'Tippers';
@@ -26,14 +28,18 @@ class FootyTippingModel extends ChangeNotifier {
     _listenToTippers();
   }
 
+  // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
     _tippersStream = _db.child(tippersPath).onValue.listen((event) {
       final allTippers =
           Map<String, dynamic>.from(event.snapshot.value as dynamic);
-      _tippers = allTippers.values
-          .map((tipperasJSON) =>
-              Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON)))
-          .toList();
+
+      _tippers = allTippers.entries.map((entry) {
+        String key = entry.key; // Retrieve the Firebase key
+        dynamic tipperasJSON = entry.value;
+
+        return Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
+      }).toList();
 
       notifyListeners();
     });

@@ -1,9 +1,9 @@
+import 'package:daufootytipping/classes/footytipping_model.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:daufootytipping/classes/dau.dart';
 
 class DatabaseService {
   final _db = FirebaseDatabase.instance.ref();
-  final _db2 = FirebaseDatabase.instance.ref();
 
   getDAUComps() async {
     DatabaseReference dauComps = FirebaseDatabase.instance.ref(dauCompsPath);
@@ -50,7 +50,7 @@ class DatabaseService {
     final postData = tipperData.toJson();
 
     // Get a key for a new Post.
-    final newTipperKey = _db2.child(tippersPath).push().key;
+    final newTipperKey = _db.child(tippersPath).push().key;
 
     // Write the new post's data simultaneously in the posts list and the
     // user's post list.

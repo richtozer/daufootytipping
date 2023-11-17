@@ -1,7 +1,7 @@
 import 'package:daufootytipping/classes/database_services.dart';
 import 'package:daufootytipping/classes/footytipping_model.dart';
 import 'package:daufootytipping/classes/dau.dart';
-import 'package:daufootytipping/pages/admin_page.dart';
+import 'package:daufootytipping/pages/admin_tippers.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +13,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  createRecord();
+  //createRecord();
 
   runApp(const MyApp());
 }
@@ -30,8 +30,8 @@ Future<void> createRecord() async {
       name: 'first last',
       active: true,
       tipperRole: TipperRole.tipper);
-  DatabaseService ds2 = DatabaseService();
-  ds2.addTipper(tp);
+
+  ds.addTipper(tp);
 }
 
 class MyApp extends StatelessWidget {
@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
             ),
             darkTheme: ThemeData.dark(),
             themeMode: ThemeMode.light,
-            home: const AdminPage(),
+            home: const TippersAdminPage(),
           );
         });
   }

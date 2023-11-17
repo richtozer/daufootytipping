@@ -1,12 +1,5 @@
-import 'dart:html';
-
 import 'package:uuid/uuid.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:json_annotation/json_annotation.dart';
-
-const tippersPath = '/Tippers';
-const teamsPath = '/Teams';
-const dauCompsPath = '/DAUComps';
 
 class DAUComp {
   final String? id;
@@ -112,7 +105,7 @@ class Team {
 enum TipperRole { admin, tipper }
 
 class Tipper {
-  final String? uid;
+  String? dbkey;
   final String authuid;
   final String email;
   final String name;
@@ -121,16 +114,16 @@ class Tipper {
 
   //constructor
   Tipper(
-      {this.uid,
+      {this.dbkey,
       required this.authuid,
       required this.email,
       required this.name,
       required this.active,
       required this.tipperRole});
 
-  factory Tipper.fromJson(Map<String, dynamic> data) {
+  factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
     return Tipper(
-        uid: data['hello'],
+        dbkey: key ?? '<no key>',
         authuid: data['authuid'] ?? '',
         email: data['email'] ?? '',
         name: data['name'] ?? '',
