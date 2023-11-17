@@ -2,15 +2,27 @@ import 'package:daufootytipping/components/round_tile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class HomePage extends StatelessWidget {
-  HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
   final useremail = FirebaseAuth.instance.currentUser?.email;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   // sign user out
   void signUserOut() {
     FirebaseAuth.instance.signOut();
   }
+
+  void getRounds() {}
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +38,9 @@ class HomePage extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.auto_awesome, size: 30),
-                onPressed: () {},
+                onPressed: () {
+                  getRounds();
+                },
               ),
               IconButton(
                 icon: const Icon(Icons.settings, size: 30),

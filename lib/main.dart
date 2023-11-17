@@ -1,6 +1,10 @@
+import 'package:daufootytipping/classes/database_services.dart';
+import 'package:daufootytipping/classes/footytipping_model.dart';
+import 'package:daufootytipping/classes/dau.dart';
+import 'package:daufootytipping/pages/admin_page.dart';
 import 'package:flutter/material.dart';
-import 'pages/auth_page.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -9,7 +13,25 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  createRecord();
+
   runApp(const MyApp());
+}
+
+Future<void> createRecord() async {
+  DAUComp dc =
+      DAUComp('999', '2030', Uri(path: 'test://'), Uri(path: 'test2://'));
+  DatabaseService ds = DatabaseService();
+  ds.addDAUComp(dc);
+
+  Tipper tp = Tipper(
+      authuid: DateTime.now().millisecondsSinceEpoch.toString(),
+      email: 'testing@test.com',
+      name: 'first last',
+      active: true,
+      tipperRole: TipperRole.tipper);
+  DatabaseService ds2 = DatabaseService();
+  ds2.addTipper(tp);
 }
 
 class MyApp extends StatelessWidget {
@@ -17,11 +39,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      //hide the debug banner
-      //debugShowCheckedModeBanner: false,
-      //load the login page
-      home: AuthPage(),
-    );
+    return ChangeNotifierProvider(
+        create: (context) => FootyTippingModel(),
+        builder: (context, provider) {
+          return MaterialApp(
+            title: 'State Example',
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+            ),
+            darkTheme: ThemeData.dark(),
+            themeMode: ThemeMode.light,
+            home: const AdminPage(),
+          );
+        });
   }
 }
