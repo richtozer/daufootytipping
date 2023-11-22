@@ -13,7 +13,20 @@
           "package_name": "coach.interview.daufootytipping"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1008137398618-fnp182b8skq0qksl7u2kdfejbh6cl7aq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "coach.interview.daufootytipping",
+            "certificate_hash": "01eddcf1262663248d32b50e500ffa6333512aa4"
+          }
+        },
+        {
+          "client_id": "1008137398618-8mdfc8u9h5b2ujf9qsj67kfsafokdsho.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCyu88ewPz06H4PFrhZqENRmd1AmjbYFwU"
@@ -21,7 +34,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1008137398618-8mdfc8u9h5b2ujf9qsj67kfsafokdsho.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1008137398618-5v7nuhp6qaef6uorfoe2j4mgv6ls613q.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "coach.interview.daufootytipping.RunnerTests"
+              }
+            }
+          ]
         }
       }
     }

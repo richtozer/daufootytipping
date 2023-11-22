@@ -1,8 +1,8 @@
-import 'package:daufootytipping/components/round_tile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
+  static const String route = '/';
   const HomePage({super.key});
 
   @override
@@ -54,7 +54,6 @@ class _HomePageState extends State<HomePage> {
         body: Center(
             child: Column(children: [
           Text('LOGGED IN AS: $useremail'),
-          const RoundTile(),
         ])));
   }
 }

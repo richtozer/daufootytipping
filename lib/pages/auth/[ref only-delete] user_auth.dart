@@ -1,7 +1,6 @@
-import 'package:daufootytipping/pages/user_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:daufootytipping/pages/user_home.dart';
+import 'package:daufootytipping/pages/home/user_home.dart';
 
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
@@ -19,7 +18,7 @@ class AuthPage extends StatelessWidget {
           }
           //user is not logged on
           else {
-            return const LoginPage();
+            return const HomePage();
           }
         },
       ),

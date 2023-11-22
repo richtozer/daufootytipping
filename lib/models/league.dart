@@ -1,0 +1,1 @@
+enum League { nrl, afl }

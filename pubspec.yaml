@@ -43,10 +43,22 @@ dependencies:
   firebase_database: ^10.3.4
   provider: ^6.1.1
   json_annotation: ^4.8.1
+  email_validator: ^2.1.17
+  toggle_switch: ^2.1.0
+  firebase_ui_auth: ^1.10.0
+  firebase_ui_oauth_google: ^1.2.14
+  firebase_ui_localizations: ^1.8.0
+  flutter_localizations:
+    sdk: flutter
+  firebase_ui_oauth_facebook: ^1.2.14
+  firebase_ui_oauth_apple: ^1.2.14
+  firebase_ui_oauth_twitter: ^1.2.14
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -67,8 +79,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-   - lib/images/
+  # assets:
+  # - lib
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
@@ -95,3 +107,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+  fonts:
+  - family: SocialIcons
+    fonts:
+      - asset: packages/firebase_ui_auth/fonts/SocialIcons.ttf
