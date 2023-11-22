@@ -9,10 +9,6 @@ import '../admin_tippers/admin_tippers_viewmodel.dart';
 class TipperAdminAddPage extends StatefulWidget {
   static const String route = '/AdminTippersAdd';
 
-  //final TippersViewModel tipperViewModel;
-
-  //constructor
-  //const TipperAdminAddPage(this.tipperViewModel, {super.key});
   const TipperAdminAddPage({super.key});
 
   @override
@@ -169,12 +165,15 @@ class _FormAddTipperState extends State<TipperAdminAddPage> {
                             // if the saving flag is set
                             tipperViewModel.savingTipper
                                 ? null
-                                : () {
+                                : () async {
                                     // Validate will return true if the form is valid, or false if
                                     // the form is invalid.
-                                    if (_formKey.currentState!.validate()) {
+                                    final isValid =
+                                        _formKey.currentState!.validate();
+                                    if (isValid) {
                                       print('saving');
-                                      _addTipper(context, tipperViewModel);
+                                      await _addTipper(
+                                          context, tipperViewModel);
                                     }
                                   },
                         child: const Text('Add'),
@@ -187,9 +186,6 @@ class _FormAddTipperState extends State<TipperAdminAddPage> {
                   ],
                 );
               }),
-
-              // check the viewmodel to see if we are processing a save,
-              // if so, show a progress indicator
             ],
           ),
         ),

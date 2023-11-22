@@ -1,18 +1,19 @@
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
-
-import '../admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:provider/provider.dart';
 
 class TipperAdminEditPage extends StatefulWidget {
   static const String route = '/AdminTippersEdit';
 
-  final TippersViewModel tipperViewModel;
+  //final TippersViewModel tipperViewModel;
   final Tipper tipper;
 
   //constructor
-  const TipperAdminEditPage(this.tipperViewModel, this.tipper, {super.key});
+  //const TipperAdminEditPage(this.tipperViewModel, this.tipper, {super.key});
+  const TipperAdminEditPage(this.tipper, {super.key});
 
   @override
   State<TipperAdminEditPage> createState() => _FormEditTipperState();
@@ -45,7 +46,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     super.dispose();
   }
 
-  Future<void> _saveTipper(BuildContext context) async {
+  Future<void> _saveTipper(BuildContext context, TippersViewModel model) async {
     try {
       //create a new temp Tipper object to pass the changes to the viewmodel
       Tipper tipperEdited = Tipper(
@@ -56,7 +57,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           active: active,
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 
-      await widget.tipperViewModel.editTipper(tipperEdited);
+      await model.editTipper(tipperEdited);
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
@@ -160,30 +161,39 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   ),
                 ],
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: ElevatedButton(
-                  onPressed:
-                      // swallow any double presses of Save button
-                      // if the saving flag is set
-                      widget.tipperViewModel.savingTipper
-                          ? null
-                          : () {
-                              // Validate will return true if the form is valid, or false if
-                              // the form is invalid.
-                              if (_formKey.currentState!.validate()) {
-                                _saveTipper(context);
-                              }
-                            },
-                  child: const Text('Save'),
-                ),
-              ),
-              // check the viewmodel to see if we are processing a save,
-              // if so, show a progress indicator
-              if (widget.tipperViewModel.savingTipper) ...const <Widget>[
-                SizedBox(height: 32),
-                CircularProgressIndicator(),
-              ]
+              Consumer<TippersViewModel>(
+                  builder: (context, tipperViewModel, child) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: ElevatedButton(
+                        onPressed:
+                            // swallow any double presses of Save button
+                            // if the saving flag is set
+                            tipperViewModel.savingTipper
+                                ? null
+                                : () async {
+                                    // Validate will return true if the form is valid, or false if
+                                    // the form is invalid.
+                                    final isValid =
+                                        _formKey.currentState!.validate();
+                                    if (isValid) {
+                                      print('saving');
+                                      await _saveTipper(
+                                          context, tipperViewModel);
+                                    }
+                                  },
+                        child: const Text('Save'),
+                      ),
+                    ),
+                    if (tipperViewModel.savingTipper) ...const <Widget>[
+                      SizedBox(height: 32),
+                      CircularProgressIndicator(),
+                    ]
+                  ],
+                );
+              }),
             ],
           ),
         ),

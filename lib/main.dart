@@ -25,10 +25,10 @@ Future<void> main() async {
     MultiProvider(
       providers: <SingleChildWidget>[
         ChangeNotifierProvider<AuthViewModel>(
-          create: (BuildContext context) => AuthViewModel(),
+          create: (_) => AuthViewModel(),
         ),
         ChangeNotifierProvider<TippersViewModel>(
-          create: (BuildContext context) => TippersViewModel(),
+          create: (_) => TippersViewModel(),
         ),
       ],
       child: const MyApp(initialRoute),
@@ -46,9 +46,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'DAU Footy Tipping',
       theme: ThemeData(
-        primarySwatch: Colors.green,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+          primarySwatch: Colors.green,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+          fontFamily: 'Raleway'),
       initialRoute: initialRoute,
       onGenerateRoute: (RouteSettings settings) {
         switch (settings.name) {
@@ -82,7 +82,7 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(
               builder: (_) => Consumer<TippersViewModel>(
                 builder: (_, TippersViewModel viewModel, __) =>
-                    TipperAdminEditPage(viewModel, tipper),
+                    TipperAdminEditPage(tipper),
               ),
             );
 

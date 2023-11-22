@@ -49,6 +49,9 @@ class TippersViewModel extends ChangeNotifier {
   Future<void> editTipper(Tipper tipper) async {
     try {
       _savingTipper = true;
+      notifyListeners();
+
+      await Future.delayed(const Duration(seconds: 3), () {});
 
       // Implement the logic to edit the tipper in Firebase here
       final Map<String, Map> updates = {};
@@ -64,8 +67,9 @@ class TippersViewModel extends ChangeNotifier {
   Future<void> addTipper(Tipper tipperData) async {
     try {
       _savingTipper = true;
+      notifyListeners();
 
-      await Future.delayed(const Duration(seconds: 10), () {});
+      await Future.delayed(const Duration(seconds: 3), () {});
 
       // A post entry.
       final postData = tipperData.toJson();
