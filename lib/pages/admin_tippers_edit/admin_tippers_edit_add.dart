@@ -1,34 +1,41 @@
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:provider/provider.dart';
 
-import '../admin_tippers/admin_tippers_viewmodel.dart';
+class TipperAdminEditPage extends StatefulWidget {
+  static const String route = '/AdminTippersEdit';
 
-class TipperAdminAddPage extends StatefulWidget {
-  static const String route = '/AdminTippersAdd';
+  //final TippersViewModel tipperViewModel;
+  final Tipper tipper;
 
-  const TipperAdminAddPage({super.key});
+  //constructor
+  //const TipperAdminEditPage(this.tipperViewModel, this.tipper, {super.key});
+  const TipperAdminEditPage(this.tipper, {super.key});
 
   @override
-  State<TipperAdminAddPage> createState() => _FormAddTipperState();
+  State<TipperAdminEditPage> createState() => _FormEditTipperState();
 }
 
-class _FormAddTipperState extends State<TipperAdminAddPage> {
+class _FormEditTipperState extends State<TipperAdminEditPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _tipperNameController;
   late TextEditingController _tipperEmailController;
   final FocusNode _emailFocusNode = FocusNode();
-
-  late bool active = true;
-  late bool admin = false;
+  late Tipper tipper;
+  late bool active;
+  late bool admin;
 
   @override
   void initState() {
     super.initState();
-    _tipperNameController = TextEditingController();
-    _tipperEmailController = TextEditingController();
+    tipper = widget.tipper;
+    active = tipper.active;
+    admin = (tipper.tipperRole == TipperRole.admin) ? true : false;
+    _tipperNameController = TextEditingController(text: tipper.name);
+    _tipperEmailController = TextEditingController(text: tipper.email);
   }
 
   @override
@@ -39,36 +46,39 @@ class _FormAddTipperState extends State<TipperAdminAddPage> {
     super.dispose();
   }
 
-  Future<void> _addTipper(BuildContext context, TippersViewModel model) async {
+  Future<void> _saveTipper(BuildContext context, TippersViewModel model) async {
     try {
-      //create a new temp Tipper object to pass to the viewmodel
-      Tipper newTipper = Tipper(
+      //create a new temp Tipper object to pass the changes to the viewmodel
+      Tipper tipperEdited = Tipper(
           name: _tipperNameController.text,
           email: _tipperEmailController.text,
-          authuid: 'unknown',
+          dbkey: tipper.dbkey,
+          authuid: tipper.authuid,
           active: active,
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 
-      await model.addTipper(newTipper);
+      await model.editTipper(tipperEdited);
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
       //}
     } on Exception {
-      await showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          content: const Text('Failed to add the new tipper'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            )
-          ],
-        ),
-      );
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: const Text('Failed to update the tipper'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -76,7 +86,7 @@ class _FormAddTipperState extends State<TipperAdminAddPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Tipper'),
+        title: const Text('Edit Tipper'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -171,12 +181,11 @@ class _FormAddTipperState extends State<TipperAdminAddPage> {
                                     final isValid =
                                         _formKey.currentState!.validate();
                                     if (isValid) {
-                                      print('saving');
-                                      await _addTipper(
+                                      await _saveTipper(
                                           context, tipperViewModel);
                                     }
                                   },
-                        child: const Text('Add'),
+                        child: const Text('Save'),
                       ),
                     ),
                     if (tipperViewModel.savingTipper) ...const <Widget>[

@@ -30,19 +30,21 @@ class TippersViewModel extends ChangeNotifier {
   // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
     _tippersStream = _db.child(tippersPath).onValue.listen((event) {
-      final allTippers =
-          Map<String, dynamic>.from(event.snapshot.value as dynamic);
+      if (event.snapshot.exists) {
+        final allTippers =
+            Map<String, dynamic>.from(event.snapshot.value as dynamic);
 
-      _tippers = allTippers.entries.map((entry) {
-        String key = entry.key; // Retrieve the Firebase key
-        dynamic tipperasJSON = entry.value;
+        _tippers = allTippers.entries.map((entry) {
+          String key = entry.key; // Retrieve the Firebase key
+          dynamic tipperasJSON = entry.value;
 
-        return Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
-      }).toList();
+          return Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
+        }).toList();
 
-      _tippers.sort();
+        _tippers.sort();
 
-      notifyListeners();
+        notifyListeners();
+      }
     });
   }
 
@@ -50,8 +52,6 @@ class TippersViewModel extends ChangeNotifier {
     try {
       _savingTipper = true;
       notifyListeners();
-
-      await Future.delayed(const Duration(seconds: 3), () {});
 
       // Implement the logic to edit the tipper in Firebase here
       final Map<String, Map> updates = {};
@@ -68,8 +68,6 @@ class TippersViewModel extends ChangeNotifier {
     try {
       _savingTipper = true;
       notifyListeners();
-
-      await Future.delayed(const Duration(seconds: 3), () {});
 
       // A post entry.
       final postData = tipperData.toJson();

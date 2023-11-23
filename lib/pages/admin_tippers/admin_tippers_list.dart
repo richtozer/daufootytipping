@@ -1,20 +1,15 @@
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_tippers_add/admin_tippers_add.dart';
-import 'package:daufootytipping/pages/admin_tippers_edit/admin_tippers_edit.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'admin_tippers_viewmodel.dart';
 
 class TippersAdminPage extends StatelessWidget {
   static const String route = '/AdminTippers';
-
-  //final TippersViewModel tipperViewModel;
-  //const TippersAdminPage(this.tipperViewModel, {super.key});
-
   const TippersAdminPage({super.key});
 
   Future<void> _addTipper(BuildContext context) async {
-    await Navigator.of(context).pushNamed(TipperAdminAddPage.route);
+    await Navigator.of(context).pushNamed(TipperAdminEditPage.route);
   }
 
   Future<void> _editTipper(Tipper tipper, BuildContext context) async {

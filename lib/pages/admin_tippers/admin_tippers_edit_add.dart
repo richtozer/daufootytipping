@@ -9,7 +9,7 @@ class TipperAdminEditPage extends StatefulWidget {
   static const String route = '/AdminTippersEdit';
 
   //final TippersViewModel tipperViewModel;
-  final Tipper tipper;
+  final Tipper? tipper;
 
   //constructor
   //const TipperAdminEditPage(this.tipperViewModel, this.tipper, {super.key});
@@ -24,18 +24,19 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late TextEditingController _tipperNameController;
   late TextEditingController _tipperEmailController;
   final FocusNode _emailFocusNode = FocusNode();
-  late Tipper tipper;
-  late bool active;
+  late Tipper? tipper;
+  late bool active = true;
   late bool admin;
+  late bool disableBackButton = false;
 
   @override
   void initState() {
     super.initState();
     tipper = widget.tipper;
-    active = tipper.active;
-    admin = (tipper.tipperRole == TipperRole.admin) ? true : false;
-    _tipperNameController = TextEditingController(text: tipper.name);
-    _tipperEmailController = TextEditingController(text: tipper.email);
+    active = tipper?.active == null ? true : tipper!.active;
+    admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
+    _tipperNameController = TextEditingController(text: tipper?.name);
+    _tipperEmailController = TextEditingController(text: tipper?.email);
   }
 
   @override
@@ -52,31 +53,40 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       Tipper tipperEdited = Tipper(
           name: _tipperNameController.text,
           email: _tipperEmailController.text,
-          dbkey: tipper.dbkey,
-          authuid: tipper.authuid,
+          dbkey: tipper?.dbkey,
+          authuid:
+              '[firebase uid goes here]', //TODO authuid should be populated in
           active: active,
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 
-      await model.editTipper(tipperEdited);
+      if (tipper != null) {
+        await model.editTipper(tipperEdited);
+      } else {
+        await model.addTipper(tipperEdited);
+      }
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
       //}
     } on Exception {
-      await showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          content: const Text('Failed to update the tipper'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            )
-          ],
-        ),
-      );
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: tipper != null
+                ? const Text('Failed to update the Tipper record')
+                : const Text('Failed to create a new Tipper record'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -84,7 +94,23 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Tipper'),
+        leading: Builder(
+          builder: (BuildContext context) {
+            return IconButton(
+              icon: disableBackButton
+                  ? const Icon(Icons.hourglass_bottom)
+                  : const Icon(Icons.arrow_back),
+              onPressed: disableBackButton
+                  ? null
+                  : () {
+                      Navigator.maybePop(context);
+                    },
+            );
+          },
+        ),
+        title: tipper == null
+            ? const Text('New Tipper')
+            : const Text('Edit Tipper'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -179,12 +205,15 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                     final isValid =
                                         _formKey.currentState!.validate();
                                     if (isValid) {
-                                      print('saving');
+                                      disableBackButton = true;
                                       await _saveTipper(
                                           context, tipperViewModel);
+                                      disableBackButton = false;
                                     }
                                   },
-                        child: const Text('Save'),
+                        child: tipper == null
+                            ? const Text('Add')
+                            : const Text('Save'),
                       ),
                     ),
                     if (tipperViewModel.savingTipper) ...const <Widget>[

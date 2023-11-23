@@ -1,8 +1,8 @@
 class DAURound implements Comparable<DAURound> {
   String? dbkey;
   final String dAUroundName;
-  final int? aflRoundNumber;
-  final int? nrlRoundNumber;
+  final int aflRoundNumber;
+  final int nrlRoundNumber;
   final DateTime roundKickoffTimeUTC;
 
   // counstructor
@@ -10,8 +10,8 @@ class DAURound implements Comparable<DAURound> {
       {this.dbkey,
       required this.dAUroundName,
       required this.roundKickoffTimeUTC,
-      this.aflRoundNumber,
-      this.nrlRoundNumber});
+      required this.aflRoundNumber,
+      required this.nrlRoundNumber});
 
   factory DAURound.fromJson(Map<String, dynamic> data, String? key) {
     return DAURound(
@@ -31,7 +31,7 @@ class DAURound implements Comparable<DAURound> {
       };
 
   @override
-  // method used to sort DAURounds in a List
+  // method used to provide default sort for DAURounds in a List[]
   int compareTo(DAURound other) {
     return roundKickoffTimeUTC.compareTo(other.roundKickoffTimeUTC);
   }

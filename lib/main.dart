@@ -1,8 +1,12 @@
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
+import 'package:daufootytipping/pages/admin_home/admin_home.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers_add/admin_tippers_add.dart';
-import 'package:daufootytipping/pages/admin_tippers_edit/admin_tippers_edit.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/pages/auth/user_auth.dart';
 import 'package:daufootytipping/pages/auth/user_auth_model.dart';
 import 'package:daufootytipping/pages/home/user_home.dart';
@@ -19,7 +23,7 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   //const String initialRoute = UserAuthPage.route;
-  const String initialRoute = TippersAdminPage.route;
+  const String initialRoute = AdminHomePage.route;
 
   runApp(
     MultiProvider(
@@ -29,6 +33,9 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider<TippersViewModel>(
           create: (_) => TippersViewModel(),
+        ),
+        ChangeNotifierProvider<DAUCompsViewModel>(
+          create: (_) => DAUCompsViewModel(),
         ),
       ],
       child: const MyApp(initialRoute),
@@ -78,7 +85,8 @@ class MyApp extends StatelessWidget {
             );
 
           case TipperAdminEditPage.route:
-            final Tipper tipper = settings.arguments as Tipper;
+            final Tipper? tipper = settings.arguments
+                as Tipper?; // for adding new Tipper records, arguments will have a nul DAUComp
             return MaterialPageRoute(
               builder: (_) => Consumer<TippersViewModel>(
                 builder: (_, TippersViewModel viewModel, __) =>
@@ -86,12 +94,25 @@ class MyApp extends StatelessWidget {
               ),
             );
 
-          case TipperAdminAddPage.route:
+          case DAUCompsAdminEditPage.route:
+            final DAUComp? daucomp = settings.arguments
+                as DAUComp?; // for adding new DAUComp records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
-                    const TipperAdminAddPage(),
+              builder: (_) => Consumer<DAUCompsViewModel>(
+                builder: (_, DAUCompsViewModel viewModel, __) =>
+                    DAUCompsAdminEditPage(daucomp),
               ),
+            );
+          case DAUCompsListPage.route:
+            return MaterialPageRoute(
+              builder: (_) => Consumer<DAUCompsViewModel>(
+                builder: (_, DAUCompsViewModel viewModel, __) =>
+                    const DAUCompsListPage(),
+              ),
+            );
+          case AdminHomePage.route:
+            return MaterialPageRoute(
+              builder: (_) => const AdminHomePage(),
             );
         }
         return null;
