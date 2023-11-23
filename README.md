@@ -1,16 +1,40 @@
-# daufootytipping
+Useful links:
 
-A new Flutter project.
+Integrate Firebase Realtime with Google sheets
+https://gist.github.com/CodingDoug/44ad12f4836e79ca9fa11ba5af6955f7
 
-## Getting Started
+Firestore provider model is based on the examples in this good Youtube tutorial:
 
-This project is a starting point for a Flutter application.
+https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
 
-A few resources to get you started if this is your first Flutter project:
+==========================================
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+! Provider CheatSheet
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+// Step 1: Create Model class
+class Counter extends ChangeNotifier {
+  int count = 0;
+
+  void increase() {
+    count++;
+    notifyListeners();
+  }
+}
+
+// Step 2: Wrap root widget in MultiProvider, Also initialise Counter() here
+MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => Counter()),
+  ],
+  child: MaterialApp(),
+)
+
+// Step 3: Read value
+final count = Provider.of<Counter>(context).count;
+
+// Step 4: Write value
+Provider.of<Counter>(context, listen: false).increase();
+
+
+
+

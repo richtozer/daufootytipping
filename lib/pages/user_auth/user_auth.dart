@@ -1,4 +1,4 @@
-import 'package:daufootytipping/pages/auth/user_auth_model.dart';
+import 'package:daufootytipping/pages/user_auth/user_auth_model.dart';
 import 'package:flutter/material.dart';
 
 class UserAuthPage extends StatelessWidget {
