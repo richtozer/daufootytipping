@@ -1,8 +1,36 @@
-class Team {
+import 'package:daufootytipping/models/league.dart';
+
+class Team implements Comparable<Team> {
+  String dbkey;
   final String name;
-  final Uri logoURI;
-  final String teamUuid;
+  final League league;
+  Uri? logoURI;
 
   //constructor
-  Team(this.name, this.logoURI, this.teamUuid);
+  Team(
+      {required this.dbkey,
+      required this.name,
+      required this.league,
+      this.logoURI});
+
+  factory Team.fromJson(Map<String, dynamic> data, String key) {
+    return Team(
+      dbkey: key,
+      name: data['name'],
+      league: League.values.byName(data['league']),
+      logoURI: Uri.parse(data['logoURI']),
+    );
+  }
+
+  Map toJson() => {
+        'name': name,
+        'logoURI': logoURI.toString(),
+        'league': league.name,
+      };
+
+  @override
+  // method used to provide default sort for DAUComp(s) in a List[]
+  int compareTo(Team other) {
+    return dbkey.compareTo(other.dbkey);
+  }
 }

@@ -1,3 +1,6 @@
+
+curl -X PUT -d '{ "rules": { ".read": true } }' https://dau-footy-tipping-f8a42-default-rtdb.firebaseio.com/.settings/rules.json?auth=FIREBASE_SECRET
+
 Useful links:
 
 Integrate Firebase Realtime with Google sheets

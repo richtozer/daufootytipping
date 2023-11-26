@@ -1,5 +1,10 @@
 import 'dart:async';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
+import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -45,7 +50,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> editDAUComp(DAUComp daucomp) async {
+  Future<void> editDAUComp(
+      DAUComp daucomp, TeamsViewModel teamsViewModel) async {
     try {
       _savingDAUComp = true;
       notifyListeners();
@@ -53,34 +59,52 @@ class DAUCompsViewModel extends ChangeNotifier {
       // update the record in firebase
       final Map<String, Map> updates = {};
       updates['$daucompsPath/${daucomp.dbkey}'] = daucomp.toJson();
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
       _db.update(updates);
+
+      //TODO this is a test - remove this next line of code
+      getNetworkFixtureData(daucomp, teamsViewModel);
     } finally {
       _savingDAUComp = false;
       notifyListeners();
     }
   }
 
-  Future<void> addDAUComp(DAUComp newdaucomp) async {
+  Future<void> addDAUComp(
+      DAUComp newdaucomp, TeamsViewModel teamsViewModel) async {
     try {
       _savingDAUComp = true;
       notifyListeners();
 
-      // A post entry.
+      // add a new record to the firebase
       final postData = newdaucomp.toJson();
-
-      // Get a key for a new Post.
       final newdaucompKey = _db.child(daucompsPath).push().key;
 
-      // Write the new post's data simultaneously in the posts list and the
-      // user's post list.
       final Map<String, Map> updates = {};
       updates['$daucompsPath/$newdaucompKey'] = postData;
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
+      //updates['blah'] = postData;
       _db.update(updates);
+
+      // as this is a new comp, lets do the first time population of game and dauround data from the fixture json service
+      getNetworkFixtureData(newdaucomp, teamsViewModel);
     } finally {
       _savingDAUComp = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> getNetworkFixtureData(
+      DAUComp newdaucomp, TeamsViewModel teamsViewModel) async {
+    FixtureDownloadService fds = FixtureDownloadService();
+
+    List<Game> nrlGames =
+        await fds.getLeagueFixture(newdaucomp.nrlFixtureJsonURL, League.nrl);
+
+    List<Game> aflGames =
+        await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
+
+    for (Game game in nrlGames) {
+      GamesViewModel gamesViewModel = GamesViewModel();
+      gamesViewModel.addGame(game, teamsViewModel);
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
 import 'package:daufootytipping/pages/admin_home/admin_home.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
@@ -17,6 +18,9 @@ import 'package:provider/single_child_widget.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
+  //testing
+  Uri afl = Uri.parse('https://fixturedownload.com/feed/json/afl-2024');
+
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
@@ -36,6 +40,9 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider<DAUCompsViewModel>(
           create: (_) => DAUCompsViewModel(),
+        ),
+        ChangeNotifierProvider<TeamsViewModel>(
+          create: (_) => TeamsViewModel(),
         ),
       ],
       child: const MyApp(initialRoute),
@@ -79,7 +86,6 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(
               builder: (_) => Consumer<TippersViewModel>(
                 builder: (_, TippersViewModel viewModel, __) =>
-                    //TippersAdminPage(viewModel),
                     const TippersAdminPage(),
               ),
             );
@@ -98,11 +104,13 @@ class MyApp extends StatelessWidget {
             final DAUComp? daucomp = settings.arguments
                 as DAUComp?; // for adding new DAUComp records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer<DAUCompsViewModel>(
-                builder: (_, DAUCompsViewModel viewModel, __) =>
+              builder: (_) => Consumer2<DAUCompsViewModel, TeamsViewModel>(
+                builder: (_, DAUCompsViewModel viewModel,
+                        TeamsViewModel viewModel2, __) =>
                     DAUCompsAdminEditPage(daucomp),
               ),
             );
+
           case DAUCompsListPage.route:
             return MaterialPageRoute(
               builder: (_) => Consumer<DAUCompsViewModel>(
@@ -110,6 +118,7 @@ class MyApp extends StatelessWidget {
                     const DAUCompsListPage(),
               ),
             );
+
           case AdminHomePage.route:
             return MaterialPageRoute(
               builder: (_) => const AdminHomePage(),

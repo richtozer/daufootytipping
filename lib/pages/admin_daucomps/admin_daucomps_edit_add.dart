@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -43,23 +44,21 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
     super.dispose();
   }
 
-  Future<void> _saveDAUComp(
-      BuildContext context, DAUCompsViewModel model) async {
+  Future<void> _saveDAUComp(BuildContext context, DAUCompsViewModel model,
+      TeamsViewModel teamsViewModel) async {
     try {
       //create a new temp DAUComp object to pass the changes to the viewmodel
       DAUComp daucompEdited = DAUComp(
         name: _daucompNameController.text,
         dbkey: daucomp?.dbkey,
-        aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController
-            .text), //TODO  https://fixturedownload.com/feed/json/afl-2023
-        nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController
-            .text), // TODO 'https://fixturedownload.com/feed/json/nrl-2023')
+        aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController.text),
+        nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController.text),
       );
 
       if (daucomp != null) {
-        await model.editDAUComp(daucompEdited);
+        await model.editDAUComp(daucompEdited, teamsViewModel);
       } else {
-        await model.addDAUComp(daucompEdited);
+        await model.addDAUComp(daucompEdited, teamsViewModel);
       }
 
       // navigate to the previous page
@@ -143,6 +142,7 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                   const Text('AFL Fixture JSON URL:'),
                   Expanded(
                     child: TextFormField(
+                        enableInteractiveSelection: true,
                         controller: _daucompAflJsonURLController,
                         decoration: const InputDecoration(
                           hintText: 'enter URL here',
@@ -169,6 +169,7 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                   const Text('NRL Fixture JSON URL:'),
                   Expanded(
                     child: TextFormField(
+                        enableInteractiveSelection: true,
                         controller: _daucompNrlJsonURLController,
                         decoration: const InputDecoration(
                           hintText: 'DAU Comp name',
@@ -190,8 +191,8 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                   )
                 ],
               ),
-              Consumer<DAUCompsViewModel>(
-                  builder: (context, daucompViewModel, child) {
+              Consumer2<DAUCompsViewModel, TeamsViewModel>(
+                  builder: (context, daucompViewModel, teamViewModel, child) {
                 return Column(
                   children: [
                     Padding(
@@ -209,8 +210,8 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                                         _formKey.currentState!.validate();
                                     if (isValid) {
                                       disableBackButton = true;
-                                      await _saveDAUComp(
-                                          context, daucompViewModel);
+                                      await _saveDAUComp(context,
+                                          daucompViewModel, teamViewModel);
                                       disableBackButton = false;
                                     }
                                   },

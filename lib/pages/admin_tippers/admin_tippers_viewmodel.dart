@@ -44,6 +44,27 @@ class TippersViewModel extends ChangeNotifier {
         _tippers.sort();
 
         notifyListeners();
+
+        /* TODO - while the above code works fine, it would not work if we added the
+        firebase OrderbyValue() method. 
+
+        https://stackoverflow.com/questions/61333194/flutter-firebase-real-time-database-orderbychild-has-no-impact-on-query-result
+      
+        The code below does sort of work, but the List[] keeps growing and items get 
+        duplicated in the UI. 
+
+      if (event.snapshot.exists) {
+        // we need to use a foreach loop here to get data to orderbychild()
+        event.snapshot.children.forEach((tipperRecordJSON) {
+          String key =
+              tipperRecordJSON.key as String; // Retrieve the Firebase key
+          dynamic tipperasJSON = tipperRecordJSON.value;
+
+          final tipper =
+              Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
+          _tippers.add(tipper);
+        });
+        */
       }
     });
   }
