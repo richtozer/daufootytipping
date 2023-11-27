@@ -1,4 +1,5 @@
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
+import 'package:daufootytipping/pages/user_tips/tips_demo.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +13,10 @@ class AdminHomePage extends StatelessWidget {
 
   Future<void> _adminDAUComps(BuildContext context) async {
     await Navigator.of(context).pushNamed(DAUCompsListPage.route);
+  }
+
+  Future<void> _adminGames(BuildContext context) async {
+    await Navigator.of(context).pushNamed(AdminGamePage.route);
   }
 
   @override
@@ -47,6 +52,17 @@ class AdminHomePage extends StatelessWidget {
                 onTap: () async {
                   // Trigger edit functionality
                   await _adminDAUComps(context);
+                },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.games),
+                title: const Text('Admin Games'),
+                onTap: () async {
+                  // Trigger edit functionality
+                  await _adminGames(context);
                 },
               ),
             ),

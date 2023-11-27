@@ -4,6 +4,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
 import 'package:daufootytipping/pages/admin_home/admin_home.dart';
+import 'package:daufootytipping/pages/user_tips/tips_demo.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -18,9 +19,6 @@ import 'package:provider/single_child_widget.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
-  //testing
-  Uri afl = Uri.parse('https://fixturedownload.com/feed/json/afl-2024');
-
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
@@ -122,6 +120,11 @@ class MyApp extends StatelessWidget {
           case AdminHomePage.route:
             return MaterialPageRoute(
               builder: (_) => const AdminHomePage(),
+            );
+
+          case AdminGamePage.route:
+            return MaterialPageRoute(
+              builder: (_) => const AdminGamePage(),
             );
         }
         return null;

@@ -51,11 +51,21 @@ class TeamsViewModel extends ChangeNotifier {
       _savingTeam = true;
       notifyListeners();
 
-      // Implement the logic to edit the team in Firebase here
-      final Map<String, Map> updates = {};
-      updates['$teamsPath/${team.dbkey}'] = team.toJson();
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
-      _db.update(updates);
+      //let check if the team record already exists
+      Team? foundTeam = teams
+          .firstWhereOrNull((existingTeam) => existingTeam.dbkey == team.dbkey);
+
+      //only edit the team if it already exists, otherwise ignore
+      if (foundTeam != null) {
+        // Implement the logic to edit the team in Firebase here
+
+        final Map<String, Map> updates = {};
+        updates['$teamsPath/${team.dbkey}'] = team.toJson();
+        //updates['/user-posts/$uid/$newPostKey'] = postData;
+        _db.update(updates);
+      } else {
+        log('Team: ${team.dbkey} does not exist in the database, ignoring edit request');
+      }
     } finally {
       _savingTeam = false;
       notifyListeners();

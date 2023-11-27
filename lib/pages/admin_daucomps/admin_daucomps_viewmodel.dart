@@ -106,6 +106,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       GamesViewModel gamesViewModel = GamesViewModel();
       gamesViewModel.addGame(game, teamsViewModel);
     }
+
+    for (Game game in aflGames) {
+      GamesViewModel gamesViewModel = GamesViewModel();
+      gamesViewModel.addGame(game, teamsViewModel);
+    }
   }
 
   @override

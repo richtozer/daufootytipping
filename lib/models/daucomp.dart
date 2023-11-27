@@ -28,9 +28,7 @@ class DAUComp implements Comparable<DAUComp> {
       dbkey: key,
       name: data['name'] ?? '',
       aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
-      //Uri.parse(Uri.decodeComponent(data['aflFixtureJsonURL'])),
       nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
-      //Uri.parse(Uri.decodeComponent(data['nrlFixtureJsonURL'])),
       dauRounds: dauRounds,
     );
   }
@@ -43,8 +41,6 @@ class DAUComp implements Comparable<DAUComp> {
 
     return {
       'name': name,
-      //'aflFixtureJsonURL': Uri.encodeComponent(aflFixtureJsonURL.toString()),
-      //'nrlFixtureJsonURL': Uri.encodeComponent(nrlFixtureJsonURL.toString()),
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
       if (dauRoundsData != null) 'dauRounds': dauRoundsData,

@@ -104,6 +104,34 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
             );
           },
         ),
+        actions: <Widget>[
+          Builder(
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: disableBackButton
+                    ? const Icon(Icons.hourglass_bottom)
+                    : const Icon(Icons.save),
+                onPressed: disableBackButton
+                    ? null
+                    : () async {
+                        // Validate will return true if the form is valid, or false if
+                        // the form is invalid.
+                        final isValid = _formKey.currentState!.validate();
+                        if (isValid) {
+                          disableBackButton = true;
+                          await _saveDAUComp(
+                              context,
+                              Provider.of<DAUCompsViewModel>(context,
+                                  listen: false),
+                              Provider.of<TeamsViewModel>(context,
+                                  listen: false));
+                          disableBackButton = false;
+                        }
+                      },
+              );
+            },
+          ),
+        ],
         title: daucomp == null
             ? const Text('New DAU Comp')
             : const Text('Edit DAU Comp'),
@@ -191,42 +219,6 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                   )
                 ],
               ),
-              Consumer2<DAUCompsViewModel, TeamsViewModel>(
-                  builder: (context, daucompViewModel, teamViewModel, child) {
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: ElevatedButton(
-                        onPressed:
-                            // swallow any double presses of Save button
-                            // if the saving flag is set
-                            daucompViewModel.savingDAUComp
-                                ? null
-                                : () async {
-                                    // Validate will return true if the form is valid, or false if
-                                    // the form is invalid.
-                                    final isValid =
-                                        _formKey.currentState!.validate();
-                                    if (isValid) {
-                                      disableBackButton = true;
-                                      await _saveDAUComp(context,
-                                          daucompViewModel, teamViewModel);
-                                      disableBackButton = false;
-                                    }
-                                  },
-                        child: daucomp == null
-                            ? const Text('Add')
-                            : const Text('Save'),
-                      ),
-                    ),
-                    if (daucompViewModel.savingDAUComp) ...const <Widget>[
-                      SizedBox(height: 32),
-                      CircularProgressIndicator(),
-                    ]
-                  ],
-                );
-              }),
             ],
           ),
         ),
