@@ -1,0 +1,175 @@
+import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+// this class only supports updating Team records. for referencial
+// integrity reasons, we do not allow teams to be deleted
+
+class TeamEditPage extends StatefulWidget {
+  static const String route = '/AdminTeamEdit';
+
+  final Team? team; //if this is an edit for a new comp, this will stay null
+
+  const TeamEditPage(this.team, {super.key});
+
+  @override
+  State<TeamEditPage> createState() => _TeamEditPageState();
+}
+
+class _TeamEditPageState extends State<TeamEditPage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late TextEditingController _teamNameController;
+
+  late Team? team;
+  late bool disableBackButton = false;
+  late bool disableSaves = true;
+
+  @override
+  void initState() {
+    super.initState();
+    team = widget.team;
+    _teamNameController = TextEditingController(text: team?.name);
+  }
+
+  @override
+  void dispose() {
+    _teamNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveTeam(
+      BuildContext context, TeamsViewModel model, Team oldTeam) async {
+    try {
+      //create a new temp team object to pass the changes to the viewmodel
+      Team teamEdited = Team(
+          name: _teamNameController.text,
+          dbkey: oldTeam.dbkey,
+          league: oldTeam.league,
+          logoURI: oldTeam.logoURI);
+
+      await model.editTeam(teamEdited);
+
+      // navigate to the previous page
+      if (context.mounted) Navigator.of(context).pop(true);
+      //}
+    } on Exception {
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: const Text('Failed to update the team record'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: Builder(
+          builder: (BuildContext context) {
+            return IconButton(
+              icon: disableBackButton
+                  ? const Icon(Icons.hourglass_bottom)
+                  : const Icon(Icons.arrow_back),
+              onPressed: disableBackButton
+                  ? null
+                  : () {
+                      Navigator.maybePop(context);
+                    },
+            );
+          },
+        ),
+        actions: <Widget>[
+          Builder(
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: disableSaves
+                    ? const ImageIcon(null)
+                    : const Icon(Icons.save),
+                onPressed: disableSaves
+                    ? null
+                    : () async {
+                        // Validate will return true if the form is valid, or false if
+                        // the form is invalid.
+                        final isValid = _formKey.currentState!.validate();
+                        if (isValid) {
+                          setState(() {
+                            disableSaves = true;
+                          });
+                          disableBackButton = true;
+                          await _saveTeam(
+                              context,
+                              Provider.of<TeamsViewModel>(context,
+                                  listen: false),
+                              team!);
+                          setState(() {
+                            disableSaves = false;
+                          });
+                        }
+                      },
+              );
+            },
+          ),
+        ],
+        title: const Text('Edit Team'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: [
+                  const Text('Name:'),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _teamNameController,
+                      onChanged: (String value) {
+                        if (team?.name != value) {
+                          //something has changed, allow saves
+                          setState(() {
+                            disableSaves = false;
+                          });
+                        } else {
+                          setState(() {
+                            disableSaves = true;
+                          });
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Team name',
+                      ),
+                      onFieldSubmitted: (_) {
+                        // TODO move focus to next field?
+                      },
+                      validator: (String? value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a team name';
+                        }
+                        return null;
+                      },
+                    ),
+                  )
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

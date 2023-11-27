@@ -1,3 +1,7 @@
+// TODO figure out a way to keep this mock code
+// out of the produciton release to avoid code bloat
+// e.g. if (!kReleaseMode) {
+
 const mockNrl2024Full = [
   {
     "MatchNumber": 1,

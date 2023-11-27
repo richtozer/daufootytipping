@@ -31,6 +31,6 @@ class Team implements Comparable<Team> {
   @override
   // method used to provide default sort for DAUComp(s) in a List[]
   int compareTo(Team other) {
-    return dbkey.compareTo(other.dbkey);
+    return name.compareTo(other.name);
   }
 }

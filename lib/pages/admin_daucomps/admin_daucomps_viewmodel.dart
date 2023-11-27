@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -55,6 +56,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     try {
       _savingDAUComp = true;
       notifyListeners();
+
+//TODO test slow saves - in UI the back back should be disabled during the wait
+      await Future.delayed(const Duration(seconds: 5), () {
+        log('delayed save');
+      });
+
+      //TODO only saved changed attributes to the firebase database
 
       // update the record in firebase
       final Map<String, Map> updates = {};

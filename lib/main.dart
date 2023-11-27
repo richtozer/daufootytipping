@@ -1,10 +1,12 @@
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
 import 'package:daufootytipping/pages/admin_home/admin_home.dart';
-import 'package:daufootytipping/pages/user_tips/tips_demo.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -122,9 +124,15 @@ class MyApp extends StatelessWidget {
               builder: (_) => const AdminHomePage(),
             );
 
-          case AdminGamePage.route:
+          case TeamsListPage.route:
             return MaterialPageRoute(
-              builder: (_) => const AdminGamePage(),
+              builder: (_) => const TeamsListPage(),
+            );
+
+          case TeamEditPage.route:
+            final Team? team = settings.arguments as Team?;
+            return MaterialPageRoute(
+              builder: (_) => TeamEditPage(team),
             );
         }
         return null;

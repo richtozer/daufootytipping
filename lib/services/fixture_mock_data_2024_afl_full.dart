@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
+// TODO figure out a way to keep this mock code
+// out of the produciton release to avoid code bloat
+// e.g. if (!kReleaseMode) {
 
-if (!kReleaseMode) {
 const mockAfl2024Full = [
   {
     "MatchNumber": 1,
@@ -2280,4 +2281,3 @@ const mockAfl2024Full = [
     "AwayTeamScore": null
   }
 ];
-    }

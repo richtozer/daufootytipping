@@ -13,12 +13,15 @@ class TeamsViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _teamsStream;
   bool _savingTeam = false;
+  Map _groupedTeams = {};
 
   //property
   bool get savingTeam => _savingTeam;
 
   //property
   List<Team> get teams => _teams;
+  //property
+  Map get groupedTeams => _groupedTeams;
 
   //constructor
   TeamsViewModel() {
@@ -40,6 +43,7 @@ class TeamsViewModel extends ChangeNotifier {
         }).toList();
 
         _teams.sort(); //TODO - consider replacing with Firebase orderby method
+        _groupedTeams = groupBy(_teams, (team) => team.league.name);
 
         notifyListeners();
       }
@@ -50,6 +54,13 @@ class TeamsViewModel extends ChangeNotifier {
     try {
       _savingTeam = true;
       notifyListeners();
+
+      //TODO test slow saves - in UI the back back should be disabled during the wait
+      await Future.delayed(const Duration(seconds: 5), () {
+        log('delayed save');
+      });
+
+      //TODO only saved changed attributes to the firebase database
 
       //let check if the team record already exists
       Team? foundTeam = teams

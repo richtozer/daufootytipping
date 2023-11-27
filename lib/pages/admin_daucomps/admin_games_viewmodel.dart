@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
@@ -46,6 +47,13 @@ class GamesViewModel extends ChangeNotifier {
     try {
       _savingGame = true;
       notifyListeners();
+
+      //TODO test slow saves - in UI the back back should be disabled during the wait
+      await Future.delayed(const Duration(seconds: 5), () {
+        log('delayed save');
+      });
+
+      //TODO only saved changed attributes to the firebase database
 
       // Implement the logic to edit the game in Firebase here
       final Map<String, Map> updates = {};

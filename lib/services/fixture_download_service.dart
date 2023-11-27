@@ -55,7 +55,8 @@ class FixtureDownloadService {
           res.map((gameAsJson) => fromFixtureJson(gameAsJson, league)).toList();
       return games;
     }
-    throw Exception('Could not get the league fixture list');
+    throw Exception(
+        'Could not receive the league fixture list: ${endpoint.toString()}');
   }
 
   Game fromFixtureJson(Map<String, dynamic> data, League league) {

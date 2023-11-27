@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -73,6 +74,13 @@ class TippersViewModel extends ChangeNotifier {
     try {
       _savingTipper = true;
       notifyListeners();
+
+      //TODO test slow saves - in UI the back back should be disabled during the wait
+      await Future.delayed(const Duration(seconds: 5), () {
+        log('delayed save');
+      });
+
+      //TODO only saved changed attributes to the firebase database
 
       // Implement the logic to edit the tipper in Firebase here
       final Map<String, Map> updates = {};
