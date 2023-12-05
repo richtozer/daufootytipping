@@ -49,7 +49,9 @@ class DAUCompsListPage extends StatelessWidget {
                           child: ListTile(
                             dense: true,
                             isThreeLine: true,
-                            leading: const Icon(Icons.ballot),
+                            leading: daucomp.active
+                                ? const Icon(Icons.ballot)
+                                : const Icon(Icons.ballot_outlined),
                             trailing: const Icon(Icons.edit),
                             title: Text(daucomp.name),
                             subtitle: Text(

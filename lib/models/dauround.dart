@@ -3,13 +3,14 @@ class DAURound implements Comparable<DAURound> {
   final String dAUroundName;
   final int aflRoundNumber;
   final int nrlRoundNumber;
-  final DateTime roundKickoffTimeUTC;
+  final DateTime
+      roundEndTimeUTC; //typically around midnight (AEST) - on the day of the last game. In UTC lets say 16h00 to be safe
 
   // counstructor
   DAURound(
       {this.dbkey,
       required this.dAUroundName,
-      required this.roundKickoffTimeUTC,
+      required this.roundEndTimeUTC,
       required this.aflRoundNumber,
       required this.nrlRoundNumber});
 
@@ -19,13 +20,13 @@ class DAURound implements Comparable<DAURound> {
       dAUroundName: data['dAUroundName'] ?? '',
       aflRoundNumber: data['aflRoundNumber'] ?? 0,
       nrlRoundNumber: data['nrlRoundNumber'] ?? 0,
-      roundKickoffTimeUTC: data['roundKickoffTimeUTC'],
+      roundEndTimeUTC: data['roundEndTimeUTC'],
     );
   }
 
   Map toJson() => {
         'dAUroundName': dAUroundName,
-        'roundKickoffTimeUTC': roundKickoffTimeUTC,
+        'roundEndTimeUTC': roundEndTimeUTC,
         'aflRoundNumber': aflRoundNumber,
         'nrlRoundNumber': nrlRoundNumber,
       };
@@ -33,6 +34,6 @@ class DAURound implements Comparable<DAURound> {
   @override
   // method used to provide default sort for DAURounds in a List[]
   int compareTo(DAURound other) {
-    return roundKickoffTimeUTC.compareTo(other.roundKickoffTimeUTC);
+    return roundEndTimeUTC.compareTo(other.roundEndTimeUTC);
   }
 }

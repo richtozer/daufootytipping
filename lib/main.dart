@@ -12,7 +12,6 @@ import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
-import 'package:daufootytipping/pages/user_auth/user_auth_model.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -21,22 +20,20 @@ import 'package:provider/single_child_widget.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
+  // Do not to start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  //const String initialRoute = UserAuthPage.route;
-  const String initialRoute = AdminHomePage.route;
+  const String initialRoute = UserAuthPage.route;
+  //const String initialRoute = AdminHomePage.route;
 
   runApp(
     MultiProvider(
       providers: <SingleChildWidget>[
-        ChangeNotifierProvider<AuthViewModel>(
-          create: (_) => AuthViewModel(),
-        ),
-        ChangeNotifierProvider<TippersViewModel>(
-          create: (_) => TippersViewModel(),
+        ChangeNotifierProvider<TipperViewModel>(
+          create: (_) => TipperViewModel(),
         ),
         ChangeNotifierProvider<DAUCompsViewModel>(
           create: (_) => DAUCompsViewModel(),
@@ -68,24 +65,26 @@ class MyApp extends StatelessWidget {
         switch (settings.name) {
           case HomePage.route:
             return MaterialPageRoute(
-              builder: (_) => Consumer<AuthViewModel>(
-                builder: (_, AuthViewModel viewModel, __) =>
+              builder: (_) => Consumer<TipperViewModel>(
+                builder: (_, TipperViewModel viewModel, __) =>
                     //HomePage(viewModel),
                     const HomePage(),
               ),
             );
           case UserAuthPage.route:
             return MaterialPageRoute(
-              builder: (_) => Consumer<AuthViewModel>(
-                builder: (_, AuthViewModel viewModel, __) =>
-                    UserAuthPage(viewModel),
+              builder: (_) => Consumer<TipperViewModel>(
+                builder: (_, TipperViewModel viewModel, __) =>
+                    const UserAuthPage(),
               ),
             );
 
           case TippersAdminPage.route:
+            // check if they are logged in
+
             return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
+              builder: (_) => Consumer<TipperViewModel>(
+                builder: (_, TipperViewModel viewModel, __) =>
                     const TippersAdminPage(),
               ),
             );
@@ -94,8 +93,8 @@ class MyApp extends StatelessWidget {
             final Tipper? tipper = settings.arguments
                 as Tipper?; // for adding new Tipper records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
+              builder: (_) => Consumer<TipperViewModel>(
+                builder: (_, TipperViewModel viewModel, __) =>
                     TipperAdminEditPage(tipper),
               ),
             );

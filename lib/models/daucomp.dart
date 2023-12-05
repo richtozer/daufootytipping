@@ -6,6 +6,8 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
   List<DAURound>? dauRounds = [];
+  final bool
+      active; // TODO we should regularly download fixture updates for active comps only - 1) honor this flag in the code and 2) allow a way for it to be set to false - either automatically or by admin
 
   //constructor
   DAUComp({
@@ -14,6 +16,7 @@ class DAUComp implements Comparable<DAUComp> {
     required this.aflFixtureJsonURL,
     required this.nrlFixtureJsonURL,
     this.dauRounds,
+    this.active = true,
   });
 
   factory DAUComp.fromJson(Map<String, dynamic> data, String? key) {
@@ -30,6 +33,7 @@ class DAUComp implements Comparable<DAUComp> {
       aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
       nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
       dauRounds: dauRounds,
+      active: data['active'] ?? true,
     );
   }
 
@@ -44,6 +48,7 @@ class DAUComp implements Comparable<DAUComp> {
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
       if (dauRoundsData != null) 'dauRounds': dauRoundsData,
+      'active': active,
     };
   }
 

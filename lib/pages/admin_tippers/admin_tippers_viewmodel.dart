@@ -1,35 +1,43 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:flutter/material.dart';
+import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database locations
 const tippersPath = '/Tippers';
 
-class TippersViewModel extends ChangeNotifier {
+class TipperViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
 
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
+  late Tipper _currentTipper;
 
   List<Tipper> get tippers => _tippers;
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
+  Tipper get currentTipper => _currentTipper;
 
   //List<Tipper> get admins =>
   //    _tippers.where((tipper) => tipper.name.contains('Phil'));
   //List<Team> get teams => _teams;
 
   //constructor
-  TippersViewModel() {
+  TipperViewModel() {
     _listenToTippers();
   }
 
   // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
+    late StreamSubscription<DatabaseEvent> _tippersStream;
+
     _tippersStream = _db.child(tippersPath).onValue.listen((event) {
       if (event.snapshot.exists) {
         final allTippers =
@@ -70,23 +78,84 @@ class TippersViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> editTipper(Tipper tipper) async {
+  void linkTipper(User? firebaseUser) async {
+    //see if we can find an existing Tipper record using uid
+    Tipper? foundTipper = await findTipperByUid(firebaseUser!.uid);
+
+    if (foundTipper != null) {
+      //we found an existing Tipper record using uid, so use it
+      _currentTipper = foundTipper;
+    } else {
+      //if we can't find an existing Tipper record using uid, see if we can find an existing Tipper record using email
+
+      Tipper? foundTipper = await findTipperByEmail(firebaseUser.email!);
+      if (foundTipper != null) {
+        //update the tipper record to use the firebase uid
+        Tipper updateTipper = Tipper(
+          dbkey: foundTipper.dbkey,
+          authuid: firebaseUser.uid,
+          email: foundTipper.email,
+          name: foundTipper.name,
+          active: foundTipper.active,
+          tipperRole: foundTipper.tipperRole,
+        );
+
+        //update the tipper record in the database
+        editTipper(updateTipper);
+
+        //save the current logged on tipper to the model for later use
+        _currentTipper = updateTipper;
+      } else {
+        //otherwise create a new tipper record and link it to the firebase user, set active to false and tipperrole to tipper
+        _currentTipper = Tipper(
+          name: firebaseUser.email!,
+          email: firebaseUser.email!,
+          authuid: firebaseUser.uid,
+          active: false,
+          tipperRole: TipperRole.tipper,
+        );
+        addTipper(_currentTipper);
+      }
+    }
+  }
+
+  Future<void> editTipper(Tipper updatedTipper) async {
     try {
       _savingTipper = true;
       notifyListeners();
 
-      //TODO test slow saves - in UI the back back should be disabled during the wait
-      await Future.delayed(const Duration(seconds: 5), () {
-        log('delayed save');
-      });
+      //the original Tipper record should be in our list of tippers
+      Tipper? originalTipper = _tippers.firstWhereOrNull(
+          (existingTipper) => existingTipper.dbkey == updatedTipper.dbkey);
 
-      //TODO only saved changed attributes to the firebase database
+      //only edit the tipper record if it already exists, otherwise ignore
+      if (originalTipper != null) {
+        // Convert the original and updated tippers to JSON
+        Map<String, dynamic> originalJson = originalTipper.toJson();
+        Map<String, dynamic> updatedJson = updatedTipper.toJson();
 
-      // Implement the logic to edit the tipper in Firebase here
-      final Map<String, Map> updates = {};
-      updates['$tippersPath/${tipper.dbkey}'] = tipper.toJson();
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
-      _db.update(updates);
+        // Use JsonDiffer to get the differences
+        JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
+        DiffNode diff = differ.diff();
+
+        // Initialize an empty map to hold all updates
+        Map<String, dynamic> updates = {};
+
+        // transform the changes from JsonDiffer format to Firebase format
+        Map changed = diff.changed;
+        changed.keys.toList().forEach((key) {
+          if (changed[key] is List && (changed[key] as List).isNotEmpty) {
+            // Add the update to the updates map
+            updates['$tippersPath/${updatedTipper.dbkey}/$key'] =
+                changed[key][1];
+          }
+        });
+
+        // Apply any updates to Firebase
+        _db.update(updates);
+      } else {
+        log('Tipper: ${updatedTipper.dbkey} does not exist in the database, ignoring edit request');
+      }
     } finally {
       _savingTipper = false;
       notifyListeners();
@@ -114,6 +183,32 @@ class TippersViewModel extends ChangeNotifier {
       _savingTipper = false;
       notifyListeners();
     }
+  }
+
+  Future<Tipper?> findTipperByField(String field, String value) async {
+    DatabaseReference dbTippers = _db.child(tippersPath);
+    DatabaseEvent event =
+        await dbTippers.orderByChild(field).equalTo(value).once();
+
+    if (event.snapshot.value != null) {
+      Map<dynamic, dynamic> dataSnapshot =
+          event.snapshot.value as Map<dynamic, dynamic>;
+      for (var entry in dataSnapshot.entries) {
+        if (entry.value is Map) {
+          return Tipper.fromJson(
+              Map<String, dynamic>.from(entry.value as Map), entry.key!);
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<Tipper?> findTipperByUid(String authuid) async {
+    return findTipperByField('authuid', authuid);
+  }
+
+  Future<Tipper?> findTipperByEmail(String email) async {
+    return findTipperByField('email', email);
   }
 
   @override

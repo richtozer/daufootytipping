@@ -20,7 +20,7 @@ class FixtureDownloadService {
 
     // if we are debuging code? if so, mock the JSON fixture services network call
     if (!kReleaseMode) {
-      var mockdata;
+      List<Map<String, Object?>> mockdata;
 
       switch (endpoint.toString()) {
         case 'https://fixturedownload.com/feed/json/afl-2024':
@@ -30,7 +30,7 @@ class FixtureDownloadService {
           mockdata = mockNrl2024Full;
           break;
         default:
-          throw Exception('Could not match the endpoint to a mock data');
+          throw Exception('Could not match the endpoint to mock data');
       }
 
       final dioAdapter = DioAdapter(dio: dio);
@@ -62,7 +62,7 @@ class FixtureDownloadService {
   Game fromFixtureJson(Map<String, dynamic> data, League league) {
     return Game(
       dbkey:
-          '${league.name}-${data['RoundNumber']}-${data['MatchNumber']}', //create a unique based on league, roune number and match number
+          '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, roune number and match number. Pad the numbers so they sort correctly in the firebase console
       league: league,
       homeTeam: Team(
           name: data['HomeTeam'],

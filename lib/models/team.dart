@@ -21,12 +21,13 @@ class Team implements Comparable<Team> {
       logoURI: Uri.parse(data['logoURI']),
     );
   }
-
-  Map toJson() => {
-        'name': name,
-        'logoURI': logoURI.toString(),
-        'league': league.name,
-      };
+  toJson() {
+    return {
+      'name': name,
+      'logoURI': logoURI.toString(),
+      'league': league.name,
+    };
+  }
 
   @override
   // method used to provide default sort for DAUComp(s) in a List[]

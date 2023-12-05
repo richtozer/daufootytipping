@@ -4,9 +4,10 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database location
-const teamsPath = '/Teams';
+const teamsPathRoot = '/Teams';
 
 class TeamsViewModel extends ChangeNotifier {
   List<Team> _teams = [];
@@ -30,7 +31,7 @@ class TeamsViewModel extends ChangeNotifier {
 
   // monitor changes to teams records in DB and notify listeners of any changes
   void _listenToTeams() async {
-    _teamsStream = _db.child(teamsPath).onValue.listen((event) {
+    _teamsStream = _db.child(teamsPathRoot).onValue.listen((event) {
       if (event.snapshot.exists) {
         final allTeams =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
@@ -50,32 +51,43 @@ class TeamsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> editTeam(Team team) async {
+  // this function should only be called by the fixture download service
+  Future<void> editTeam(Team updatedTeam) async {
     try {
       _savingTeam = true;
       notifyListeners();
 
-      //TODO test slow saves - in UI the back back should be disabled during the wait
-      await Future.delayed(const Duration(seconds: 5), () {
-        log('delayed save');
-      });
+      //the original Team record should be in our list of teams
+      Team? originalTeam = _teams.firstWhereOrNull(
+          (existingTeam) => existingTeam.dbkey == updatedTeam.dbkey);
 
-      //TODO only saved changed attributes to the firebase database
+      //only edit the Team record if it already exists, otherwise ignore
+      if (originalTeam != null) {
+        // Convert the original and updated tippers to JSON
+        Map<String, dynamic> originalJson = originalTeam.toJson();
+        Map<String, dynamic> updatedJson = updatedTeam.toJson();
 
-      //let check if the team record already exists
-      Team? foundTeam = teams
-          .firstWhereOrNull((existingTeam) => existingTeam.dbkey == team.dbkey);
+        // Use JsonDiffer to get the differences
+        JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
+        DiffNode diff = differ.diff();
 
-      //only edit the team if it already exists, otherwise ignore
-      if (foundTeam != null) {
-        // Implement the logic to edit the team in Firebase here
+        // Initialize an empty map to hold all updates
+        Map<String, dynamic> updates = {};
 
-        final Map<String, Map> updates = {};
-        updates['$teamsPath/${team.dbkey}'] = team.toJson();
-        //updates['/user-posts/$uid/$newPostKey'] = postData;
+        // transform the changes from JsonDiffer format to Firebase format
+        Map changed = diff.changed;
+        changed.keys.toList().forEach((key) {
+          if (changed[key] is List && (changed[key] as List).isNotEmpty) {
+            // Add the update to the updates map
+            updates['$teamsPathRoot/${updatedTeam.dbkey}/$key'] =
+                changed[key][1];
+          }
+        });
+
+        // Apply any updates to Firebase
         _db.update(updates);
       } else {
-        log('Team: ${team.dbkey} does not exist in the database, ignoring edit request');
+        log('Team: ${updatedTeam.dbkey} does not exist in the database, ignoring edit request');
       }
     } finally {
       _savingTeam = false;
@@ -83,6 +95,7 @@ class TeamsViewModel extends ChangeNotifier {
     }
   }
 
+// this function should only be called by the fixture download service
   Future<void> addTeam(Team team) async {
     try {
       _savingTeam = true;
@@ -98,7 +111,7 @@ class TeamsViewModel extends ChangeNotifier {
         final postData = team.toJson();
 
         final Map<String, Map> updates = {};
-        updates['$teamsPath/${team.dbkey}'] = postData;
+        updates['$teamsPathRoot/${team.dbkey}'] = postData;
         //updates['/user-posts/$uid/$newPostKey'] = postData;
         _db.update(updates);
       } else {
@@ -108,6 +121,11 @@ class TeamsViewModel extends ChangeNotifier {
       _savingTeam = false;
       notifyListeners();
     }
+  }
+
+  // this function finds the provided Team dbKey in the _Teams list and returns it
+  Team? findTeam(String teamDbKey) {
+    return _teams.firstWhereOrNull((team) => team.dbkey == teamDbKey);
   }
 
   @override

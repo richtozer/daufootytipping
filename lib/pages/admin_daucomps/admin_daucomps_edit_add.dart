@@ -27,6 +27,8 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
   late DAUComp? daucomp;
   late bool disableBackButton = false;
 
+  //todo add the saving logic, icons to this add/edit page
+
   @override
   void initState() {
     super.initState();
@@ -218,6 +220,10 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                         }),
                   )
                 ],
+              ),
+              const Card(
+                child: ListTile(
+                    title: Text('Games'), trailing: Icon(Icons.arrow_forward)),
               ),
             ],
           ),

@@ -1,30 +1,36 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
 // define  constant for firestore database location
-const gamesPath = '/Games';
+const gamesPathRoot = '/DAUCompsGames';
 
 class GamesViewModel extends ChangeNotifier {
   List<Game> _games = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
-  List<Game> get games => _games;
   bool _savingGame = false;
+  String parentDAUCompDBkey;
+  TeamsViewModel teamsViewModel;
+
+  List<Game> get games => _games;
   bool get savingGame => _savingGame;
 
   //constructor
-  GamesViewModel() {
-    //_listenToGames();  //TODO - enable this method
+  GamesViewModel(this.parentDAUCompDBkey, this.teamsViewModel) {
+    _listenToGames();
   }
 
   // monitor changes to games records in DB and notify listeners of any changes
   void _listenToGames() {
-    _gamesStream = _db.child(gamesPath).onValue.listen((event) {
+    _gamesStream =
+        _db.child('$gamesPathRoot/$parentDAUCompDBkey').onValue.listen((event) {
       if (event.snapshot.exists) {
         final allGames =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
@@ -33,7 +39,12 @@ class GamesViewModel extends ChangeNotifier {
           String key = entry.key; // Retrieve the Firebase key
           dynamic gameAsJSON = entry.value;
 
-          return Game.fromJson(Map<String, dynamic>.from(gameAsJSON), key);
+          //we need to find and deserialize the home and away teams first before we can deserialize the game
+          Team? homeTeam = teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
+          Team? awayTeam = teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
+
+          return Game.fromJson(
+              Map<String, dynamic>.from(gameAsJSON), key, homeTeam!, awayTeam!);
         }).toList();
 
         _games.sort(); //TODO - consider replacing with Firebase orderby method
@@ -43,12 +54,13 @@ class GamesViewModel extends ChangeNotifier {
     });
   }
 
+  // this function should only be triggered by fixture download service
   Future<void> editGame(Game game) async {
     try {
       _savingGame = true;
       notifyListeners();
 
-      //TODO test slow saves - in UI the back back should be disabled during the wait
+      //TODO test slow saves - in UI the back button should be disabled during the wait
       await Future.delayed(const Duration(seconds: 5), () {
         log('delayed save');
       });
@@ -57,7 +69,8 @@ class GamesViewModel extends ChangeNotifier {
 
       // Implement the logic to edit the game in Firebase here
       final Map<String, Map> updates = {};
-      updates['$gamesPath/${game.dbkey}'] = game.toJson();
+      updates['$gamesPathRoot/$parentDAUCompDBkey/${game.dbkey}'] =
+          game.toJson();
       //updates['/user-posts/$uid/$newPostKey'] = postData;
       _db.update(updates);
     } finally {
@@ -66,13 +79,10 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> addGame(Game gameData, TeamsViewModel teamsViewModel) async {
+  Future<void> addGame(Game gameData, DAUComp daucomp) async {
     try {
       _savingGame = true;
       notifyListeners();
-
-      //before we add a game entry, lets make sure the teams are represented in the DB
-      //TeamsViewModel teamsViewModel = TeamsViewModel();
 
       teamsViewModel.addTeam(gameData.awayTeam);
       teamsViewModel.addTeam(gameData.homeTeam);
@@ -83,7 +93,8 @@ class GamesViewModel extends ChangeNotifier {
       // Write the new post's data simultaneously in the posts list and the
       // user's post list.
       final Map<String, Map> updates = {};
-      updates['$gamesPath/${gameData.dbkey}'] = postData;
+      updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
+          postData;
       //updates['/user-posts/$uid/$newPostKey'] = postData;
       _db.update(updates);
     } finally {

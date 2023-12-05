@@ -28,6 +28,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late bool active = true;
   late bool admin;
   late bool disableBackButton = false;
+  late bool disableSaves = true;
+  late int changes = 0;
 
   @override
   void initState() {
@@ -47,7 +49,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     super.dispose();
   }
 
-  Future<void> _saveTipper(BuildContext context, TippersViewModel model) async {
+  Future<void> _saveTipper(BuildContext context, TipperViewModel model) async {
     try {
       //create a new temp Tipper object to pass the changes to the viewmodel
       Tipper tipperEdited = Tipper(
@@ -98,7 +100,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           builder: (BuildContext context) {
             return IconButton(
               icon: disableBackButton
-                  ? const Icon(Icons.hourglass_bottom)
+                  ? const ImageIcon(
+                      null) // dont show anything clickable while saving is in progress
                   : const Icon(Icons.arrow_back),
               onPressed: disableBackButton
                   ? null
@@ -108,6 +111,38 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             );
           },
         ),
+        actions: <Widget>[
+          Builder(
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: disableSaves
+                    ? const ImageIcon(null) //show nothing if they cant save
+                    : const Icon(Icons.save),
+                onPressed: disableSaves
+                    ? null
+                    : () async {
+                        // Validate will return true if the form is valid, or false if
+                        // the form is invalid.
+                        final isValid = _formKey.currentState!.validate();
+                        if (isValid) {
+                          setState(() {
+                            disableSaves = true;
+                          });
+                          disableBackButton = true;
+                          const CircularProgressIndicator();
+                          await _saveTipper(
+                              context,
+                              Provider.of<TipperViewModel>(context,
+                                  listen: false));
+                          setState(() {
+                            disableSaves = false;
+                          });
+                        }
+                      },
+              );
+            },
+          ),
+        ],
         title: tipper == null
             ? const Text('New Tipper')
             : const Text('Edit Tipper'),
@@ -124,6 +159,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   const Text('Name:'),
                   Expanded(
                     child: TextFormField(
+                      enabled: !disableBackButton,
                       controller: _tipperNameController,
                       decoration: const InputDecoration(
                         hintText: 'Tipper name',
@@ -138,6 +174,28 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                         }
                         return null;
                       },
+                      onChanged: (String value) {
+                        if (tipper?.name != value) {
+                          //something has changed, maybe allow saves
+                          setState(() {
+                            changes++; //increment the number of changes
+                            if (changes == 0) {
+                              disableSaves = true;
+                            } else {
+                              disableSaves = false;
+                            }
+                          });
+                        } else {
+                          setState(() {
+                            changes--; //decrement the number of changes, maybe stop saves
+                            if (changes == 0) {
+                              disableSaves = true;
+                            } else {
+                              disableSaves = false;
+                            }
+                          });
+                        }
+                      },
                     ),
                   )
                 ],
@@ -147,6 +205,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   const Text('Email:'),
                   Expanded(
                     child: TextFormField(
+                      enabled: !disableBackButton,
                       controller: _tipperEmailController,
                       decoration: const InputDecoration(
                         hintText: 'Tipper email',
@@ -156,6 +215,28 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           return 'Please enter a valid email';
                         }
                         return null;
+                      },
+                      onChanged: (String value) {
+                        if (tipper?.email != value) {
+                          //something has changed, maybe allow saves
+                          setState(() {
+                            changes++; //increment the number of changes
+                            if (changes == 0) {
+                              disableSaves = true;
+                            } else {
+                              disableSaves = false;
+                            }
+                          });
+                        } else {
+                          setState(() {
+                            changes--; //decrement the number of changes, maybe stop saves
+                            if (changes == 0) {
+                              disableSaves = true;
+                            } else {
+                              disableSaves = false;
+                            }
+                          });
+                        }
                       },
                     ),
                   ),
@@ -170,6 +251,27 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     setState(() {
                       active = value;
                     });
+
+                    if (tipper?.active != value) {
+                      //something has changed, maybe allow saves
+                      setState(() {
+                        changes++; //increment the number of changes
+                        if (changes == 0) {
+                          disableSaves = true;
+                        } else {
+                          disableSaves = false;
+                        }
+                      });
+                    } else {
+                      setState(() {
+                        changes--; //decrement the number of changes, maybe stop saves
+                        if (changes == 0) {
+                          disableSaves = true;
+                        } else {
+                          disableSaves = false;
+                        }
+                      });
+                    }
                   },
                 ),
               ]),
@@ -183,46 +285,33 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       setState(() {
                         admin = value;
                       });
+
+                      if (tipper!.tipperRole.index.isEven
+                          ? false
+                          : true == value) {
+                        //something has changed, maybe allow saves
+                        setState(() {
+                          changes++; //increment the number of changes
+                          if (changes == 0) {
+                            disableSaves = true;
+                          } else {
+                            disableSaves = false;
+                          }
+                        });
+                      } else {
+                        setState(() {
+                          changes--; //decrement the number of changes, maybe stop saves
+                          if (changes == 0) {
+                            disableSaves = true;
+                          } else {
+                            disableSaves = false;
+                          }
+                        });
+                      }
                     },
                   ),
                 ],
               ),
-              Consumer<TippersViewModel>(
-                  builder: (context, tipperViewModel, child) {
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: ElevatedButton(
-                        onPressed:
-                            // swallow any double presses of Save button
-                            // if the saving flag is set
-                            tipperViewModel.savingTipper
-                                ? null
-                                : () async {
-                                    // Validate will return true if the form is valid, or false if
-                                    // the form is invalid.
-                                    final isValid =
-                                        _formKey.currentState!.validate();
-                                    if (isValid) {
-                                      disableBackButton = true;
-                                      await _saveTipper(
-                                          context, tipperViewModel);
-                                      disableBackButton = false;
-                                    }
-                                  },
-                        child: tipper == null
-                            ? const Text('Add')
-                            : const Text('Save'),
-                      ),
-                    ),
-                    if (tipperViewModel.savingTipper) ...const <Widget>[
-                      SizedBox(height: 32),
-                      CircularProgressIndicator(),
-                    ]
-                  ],
-                );
-              }),
             ],
           ),
         ),

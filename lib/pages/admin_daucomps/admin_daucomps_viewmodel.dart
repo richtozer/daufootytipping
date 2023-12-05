@@ -15,6 +15,8 @@ const daucompsPath = '/DAUComps';
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
 
+  String selectedDAUCompDBKey = '';
+
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _daucompsStream;
@@ -92,6 +94,9 @@ class DAUCompsViewModel extends ChangeNotifier {
       //updates['blah'] = postData;
       _db.update(updates);
 
+      //update the dbkey in the local object
+      newdaucomp.dbkey = newdaucompKey;
+
       // as this is a new comp, lets do the first time population of game and dauround data from the fixture json service
       getNetworkFixtureData(newdaucomp, teamsViewModel);
     } finally {
@@ -110,15 +115,18 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Game> aflGames =
         await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
 
+    GamesViewModel gamesViewModel =
+        GamesViewModel(newdaucomp.dbkey!, teamsViewModel);
     for (Game game in nrlGames) {
-      GamesViewModel gamesViewModel = GamesViewModel();
-      gamesViewModel.addGame(game, teamsViewModel);
+      gamesViewModel.addGame(game, newdaucomp);
     }
 
     for (Game game in aflGames) {
-      GamesViewModel gamesViewModel = GamesViewModel();
-      gamesViewModel.addGame(game, teamsViewModel);
+      gamesViewModel.addGame(game, newdaucomp);
     }
+
+    // lets also create DAURounds based on the game data
+    //TODO - gamesViewModel.games;
   }
 
   @override
@@ -127,3 +135,4 @@ class DAUCompsViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
+

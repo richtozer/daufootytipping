@@ -21,52 +21,42 @@ class AdminHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
+    return ListView(
+      children: [
+        Card(
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.people),
+            title: const Text('Admin Tippers'),
+            onTap: () async {
+              // Trigger edit functionality
+              await _adminTippers(context);
             },
           ),
-          title: const Text('Admin Home'),
         ),
-        body: ListView(
-          children: [
-            Card(
-              child: ListTile(
-                dense: true,
-                leading: const Icon(Icons.people),
-                title: const Text('Admin Tippers'),
-                onTap: () async {
-                  // Trigger edit functionality
-                  await _adminTippers(context);
-                },
-              ),
-            ),
-            Card(
-              child: ListTile(
-                dense: true,
-                leading: const Icon(Icons.sports_rugby),
-                title: const Text('Admin DAU Comps'),
-                onTap: () async {
-                  // Trigger edit functionality
-                  await _adminDAUComps(context);
-                },
-              ),
-            ),
-            Card(
-              child: ListTile(
-                dense: true,
-                leading: const Icon(Icons.games),
-                title: const Text('Admin Teams'),
-                onTap: () async {
-                  // Trigger admin functionality
-                  await _adminTeams(context);
-                },
-              ),
-            ),
-          ],
-        ));
+        Card(
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.sports_rugby),
+            title: const Text('Admin DAU Comps'),
+            onTap: () async {
+              // Trigger edit functionality
+              await _adminDAUComps(context);
+            },
+          ),
+        ),
+        Card(
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.games),
+            title: const Text('Admin Teams'),
+            onTap: () async {
+              // Trigger admin functionality
+              await _adminTeams(context);
+            },
+          ),
+        ),
+      ],
+    );
   }
 }

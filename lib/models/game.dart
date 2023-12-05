@@ -2,7 +2,7 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 
-class Game {
+class Game implements Comparable<Game> {
   final String dbkey;
   final League league;
   final Team homeTeam;
@@ -28,12 +28,13 @@ class Game {
     this.scoring,
   });
 
-  factory Game.fromJson(Map<String, dynamic> data, String key) {
+  factory Game.fromJson(
+      Map<String, dynamic> data, String key, Team homeTeam, Team awayTeam) {
     return Game(
       dbkey: key,
       league: League.values.byName(data['league']),
-      homeTeam: data['homeTeam'],
-      awayTeam: data['awayTeam'],
+      homeTeam: homeTeam,
+      awayTeam: awayTeam,
       location: data['location'],
       startTimeUTC: data['startTimeUTC'],
       roundNumber: data['roundNumber'],
@@ -45,8 +46,8 @@ class Game {
 
   Map toJson() => {
         'league': league.name,
-        'homeTeam': homeTeam.dbkey,
-        'awayTeam': awayTeam.dbkey,
+        'homeTeamDbKey': homeTeam.dbkey,
+        'awayTeamDbKey': awayTeam.dbkey,
         'location': location,
         'startTimeUTC': startTimeUTC.toString(),
         'roundNumber': roundNumber,
@@ -54,4 +55,11 @@ class Game {
         'dauRoundkey': dauRoundkey,
         'scoring': scoring,
       };
+
+  @override
+  // method used to provide default sort for Games in a List[]
+  int compareTo(Game other) {
+    return startTimeUTC
+        .compareTo(other.startTimeUTC); //sort by the Game start time
+  }
 }

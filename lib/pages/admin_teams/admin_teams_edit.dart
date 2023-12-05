@@ -81,7 +81,8 @@ class _TeamEditPageState extends State<TeamEditPage> {
           builder: (BuildContext context) {
             return IconButton(
               icon: disableBackButton
-                  ? const Icon(Icons.hourglass_bottom)
+                  ? const ImageIcon(
+                      null) // dont show anything clickable while saving is in progress
                   : const Icon(Icons.arrow_back),
               onPressed: disableBackButton
                   ? null
@@ -96,7 +97,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
             builder: (BuildContext context) {
               return IconButton(
                 icon: disableSaves
-                    ? const ImageIcon(null)
+                    ? const Icon(Icons.hourglass_bottom)
                     : const Icon(Icons.save),
                 onPressed: disableSaves
                     ? null
@@ -137,6 +138,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                   const Text('Name:'),
                   Expanded(
                     child: TextFormField(
+                      enabled: !disableBackButton,
                       controller: _teamNameController,
                       onChanged: (String value) {
                         if (team?.name != value) {
