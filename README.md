@@ -12,6 +12,8 @@ https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
 
 ==========================================
 
+https://docs.flutter.dev/data-and-backend/state-mgmt/simple
+
 ! Provider CheatSheet
 
 // Step 1: Create Model class

@@ -1,7 +1,11 @@
-import 'package:daufootytipping/pages/admin_home/admin_home.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
   static const String route = '/';
@@ -43,7 +47,7 @@ class _HomePageState extends State<HomePage> {
     ),
   ];
 
-  Widget diag() {
+  Widget aboutDialog() {
     return ElevatedButton(
       child: const Text('About this application'),
       onPressed: () {
@@ -56,6 +60,31 @@ class _HomePageState extends State<HomePage> {
           children: aboutBoxChildren,
         );
       },
+    );
+  }
+
+  Flexible adminFunctions() {
+    return Flexible(
+      child: Column(children: [
+        ElevatedButton(
+          child: const Text('Admin Tippers'),
+          onPressed: () {
+            Navigator.of(context).pushNamed(TippersAdminPage.route);
+          },
+        ),
+        ElevatedButton(
+          child: const Text('Admin Teams'),
+          onPressed: () {
+            Navigator.of(context).pushNamed(TeamsListPage.route);
+          },
+        ),
+        ElevatedButton(
+          child: const Text('Admin DAU Comps'),
+          onPressed: () {
+            Navigator.of(context).pushNamed(DAUCompsListPage.route);
+          },
+        )
+      ]),
     );
   }
 
@@ -94,11 +123,19 @@ class _HomePageState extends State<HomePage> {
                       }),
                     ],
                   ))),
-          SliverToBoxAdapter(child: Center(child: diag())),
-          admin
-              ? const SliverToBoxAdapter(child: Center(child: AdminHomePage()))
-              : const SliverToBoxAdapter(
-                  child: Center(child: SizedBox.shrink())),
+          SliverToBoxAdapter(child: Center(child: aboutDialog())),
+          Consumer<TipperViewModel>(
+              // fix this is not refreshing UI in realtime, either change to Provider.of or fix - posible fix is to use a builder:
+              builder: (_, TipperViewModel viewModel, __) {
+            if (viewModel.currentTipper != null &&
+                viewModel.currentTipper?.tipperRole == TipperRole.admin) {
+              return SliverToBoxAdapter(child: Center(child: adminFunctions()));
+            } else {
+              // we cannot identify their role at this time, do not display admin functionality
+              return const SliverToBoxAdapter(
+                  child: Center(child: Text("No Admin Access")));
+            }
+          })
         ])
       ];
     }

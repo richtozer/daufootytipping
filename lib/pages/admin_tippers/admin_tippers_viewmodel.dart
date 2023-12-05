@@ -17,13 +17,13 @@ class TipperViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
-  late Tipper _currentTipper;
+  Tipper? _currentTipper;
 
   List<Tipper> get tippers => _tippers;
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
-  Tipper get currentTipper => _currentTipper;
+  Tipper? get currentTipper => _currentTipper;
 
   //List<Tipper> get admins =>
   //    _tippers.where((tipper) => tipper.name.contains('Phil'));
@@ -36,9 +36,9 @@ class TipperViewModel extends ChangeNotifier {
 
   // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
-    late StreamSubscription<DatabaseEvent> _tippersStream;
+    late StreamSubscription<DatabaseEvent> tippersStream;
 
-    _tippersStream = _db.child(tippersPath).onValue.listen((event) {
+    tippersStream = _db.child(tippersPath).onValue.listen((event) {
       if (event.snapshot.exists) {
         final allTippers =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
@@ -114,7 +114,7 @@ class TipperViewModel extends ChangeNotifier {
           active: false,
           tipperRole: TipperRole.tipper,
         );
-        addTipper(_currentTipper);
+        addTipper(_currentTipper!);
       }
     }
   }
