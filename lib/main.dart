@@ -1,9 +1,11 @@
+import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_home/admin_home.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
@@ -27,7 +29,10 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   const String initialRoute = UserAuthPage.route;
-  //const String initialRoute = AdminHomePage.route;
+  const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7';
+
+  setupLocator();
+  TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
 
   runApp(
     MultiProvider(
@@ -38,14 +43,16 @@ Future<void> main() async {
         ChangeNotifierProvider<DAUCompsViewModel>(
           create: (_) => DAUCompsViewModel(),
         ),
-        ChangeNotifierProvider<TeamsViewModel>(
-          create: (_) => TeamsViewModel(),
+        ChangeNotifierProvider<GamesViewModel>(
+          create: (_) => GamesViewModel(currentDAUComp, teamsViewModel),
         ),
       ],
       child: const MyApp(initialRoute),
     ),
   );
 }
+
+class GetIt {}
 
 class MyApp extends StatelessWidget {
   final String initialRoute;
@@ -103,9 +110,8 @@ class MyApp extends StatelessWidget {
             final DAUComp? daucomp = settings.arguments
                 as DAUComp?; // for adding new DAUComp records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer2<DAUCompsViewModel, TeamsViewModel>(
-                builder: (_, DAUCompsViewModel viewModel,
-                        TeamsViewModel viewModel2, __) =>
+              builder: (_) => Consumer<DAUCompsViewModel>(
+                builder: (_, DAUCompsViewModel viewModel, __) =>
                     DAUCompsAdminEditPage(daucomp),
               ),
             );

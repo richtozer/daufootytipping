@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -25,6 +26,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
+  bool _initialLoadComplete = false;
 
   //constructor
   DAUCompsViewModel() {
@@ -47,15 +49,19 @@ class DAUCompsViewModel extends ChangeNotifier {
         }).toList();
 
         _daucomps.sort();
+        _initialLoadComplete = true;
 
         notifyListeners();
       }
     });
   }
 
-  Future<void> editDAUComp(
-      DAUComp daucomp, TeamsViewModel teamsViewModel) async {
+  void editDAUComp(DAUComp daucomp) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial DAUComps load to complete');
+        await Future.delayed(const Duration(seconds: 1));
+      }
       _savingDAUComp = true;
       notifyListeners();
 
@@ -72,16 +78,19 @@ class DAUCompsViewModel extends ChangeNotifier {
       _db.update(updates);
 
       //TODO this is a test - remove this next line of code
-      getNetworkFixtureData(daucomp, teamsViewModel);
+      getNetworkFixtureData(daucomp);
     } finally {
       _savingDAUComp = false;
       notifyListeners();
     }
   }
 
-  Future<void> addDAUComp(
-      DAUComp newdaucomp, TeamsViewModel teamsViewModel) async {
+  void addDAUComp(DAUComp newdaucomp) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial DAUComps load to complete');
+        await Future.delayed(const Duration(seconds: 1));
+      }
       _savingDAUComp = true;
       notifyListeners();
 
@@ -98,15 +107,19 @@ class DAUCompsViewModel extends ChangeNotifier {
       newdaucomp.dbkey = newdaucompKey;
 
       // as this is a new comp, lets do the first time population of game and dauround data from the fixture json service
-      getNetworkFixtureData(newdaucomp, teamsViewModel);
+      getNetworkFixtureData(newdaucomp);
     } finally {
       _savingDAUComp = false;
       notifyListeners();
     }
   }
 
-  Future<void> getNetworkFixtureData(
-      DAUComp newdaucomp, TeamsViewModel teamsViewModel) async {
+  void getNetworkFixtureData(DAUComp newdaucomp) async {
+    while (!_initialLoadComplete) {
+      log('Waiting for initial DAUComps load to complete');
+      await Future.delayed(const Duration(seconds: 1));
+    }
+
     FixtureDownloadService fds = FixtureDownloadService();
 
     List<Game> nrlGames =
@@ -114,6 +127,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     List<Game> aflGames =
         await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
+
+    TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
 
     GamesViewModel gamesViewModel =
         GamesViewModel(newdaucomp.dbkey!, teamsViewModel);
@@ -135,4 +150,3 @@ class DAUCompsViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-

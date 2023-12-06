@@ -16,47 +16,66 @@ class GamesViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
   bool _savingGame = false;
+  bool _initialLoadComplete = false;
   String parentDAUCompDBkey;
-  TeamsViewModel teamsViewModel;
+
+  final TeamsViewModel _teamsViewModel;
 
   List<Game> get games => _games;
   bool get savingGame => _savingGame;
 
   //constructor
-  GamesViewModel(this.parentDAUCompDBkey, this.teamsViewModel) {
+  GamesViewModel(this.parentDAUCompDBkey, this._teamsViewModel) {
     _listenToGames();
   }
 
-  // monitor changes to games records in DB and notify listeners of any changes
   void _listenToGames() {
     _gamesStream =
         _db.child('$gamesPathRoot/$parentDAUCompDBkey').onValue.listen((event) {
-      if (event.snapshot.exists) {
-        final allGames =
-            Map<String, dynamic>.from(event.snapshot.value as dynamic);
-
-        _games = allGames.entries.map((entry) {
-          String key = entry.key; // Retrieve the Firebase key
-          dynamic gameAsJSON = entry.value;
-
-          //we need to find and deserialize the home and away teams first before we can deserialize the game
-          Team? homeTeam = teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
-          Team? awayTeam = teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
-
-          return Game.fromJson(
-              Map<String, dynamic>.from(gameAsJSON), key, homeTeam!, awayTeam!);
-        }).toList();
-
-        _games.sort(); //TODO - consider replacing with Firebase orderby method
-
-        notifyListeners();
-      }
+      _handleEvent(event);
     });
   }
 
+  Future<void> _handleEvent(DatabaseEvent event) async {
+    if (event.snapshot.exists) {
+      final allGames =
+          Map<String, dynamic>.from(event.snapshot.value as dynamic);
+
+      List<Game?> gamesList =
+          await Future.wait(allGames.entries.map((entry) async {
+        String key = entry.key; // Retrieve the Firebase key
+        dynamic gameAsJSON = entry.value;
+
+        //we need to find and deserialize the home and away teams first before we can deserialize the game
+        Team? homeTeam =
+            await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
+        Team? awayTeam =
+            await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
+
+        if (homeTeam != null && awayTeam != null) {
+          return Game.fromJson(
+              Map<String, dynamic>.from(gameAsJSON), key, homeTeam, awayTeam);
+        } else {
+          // Handle the case where homeTeam or awayTeam is null
+          return null;
+        }
+      }).toList());
+
+      // Copilot suggested Filtering out null values //TODO not sure we want to do this
+      _games = gamesList.where((game) => game != null).cast<Game>().toList();
+      _initialLoadComplete = true;
+
+      notifyListeners();
+    }
+  }
+
   // this function should only be triggered by fixture download service
-  Future<void> editGame(Game game) async {
+  void editGame(Game game) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial Game load to complete');
+        await Future.delayed(const Duration(seconds: 1));
+      }
       _savingGame = true;
       notifyListeners();
 
@@ -79,19 +98,24 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> addGame(Game gameData, DAUComp daucomp) async {
+  void addGame(Game gameData, DAUComp daucomp) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial Game load to complete');
+        await Future.delayed(const Duration(seconds: 1));
+      }
+
       _savingGame = true;
       notifyListeners();
 
-      teamsViewModel.addTeam(gameData.awayTeam);
-      teamsViewModel.addTeam(gameData.homeTeam);
+      _teamsViewModel.addTeam(gameData.awayTeam);
+      _teamsViewModel.addTeam(gameData.homeTeam);
 
-      // A post entry.
+      // A post entry. //TODO
       final postData = gameData.toJson();
 
       // Write the new post's data simultaneously in the posts list and the
-      // user's post list.
+      // user's post list. //TODO
       final Map<String, Map> updates = {};
       updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
           postData;

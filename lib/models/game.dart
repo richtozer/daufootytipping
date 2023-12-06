@@ -2,6 +2,12 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 
+enum GameState {
+  notStarted,
+  resultKnown,
+  resultNotKnown,
+}
+
 class Game implements Comparable<Game> {
   final String dbkey;
   final League league;
@@ -28,6 +34,22 @@ class Game implements Comparable<Game> {
     this.scoring,
   });
 
+  // this getter will return the gamestate based on the current time and the game start time
+  // the possible gamestates are: 'notStarted', 'inProgress', 'finished'
+  GameState get gameState {
+    final now = DateTime.now().toUtc();
+    if (now.isBefore(startTimeUTC)) {
+      return GameState.notStarted;
+    } else if (now.isAfter(startTimeUTC.add(const Duration(hours: 2))) &&
+        scoring != null &&
+        scoring?.awayTeamScore != null &&
+        scoring?.homeTeamScore != null) {
+      return GameState.resultKnown;
+    } else {
+      return GameState.resultNotKnown;
+    }
+  }
+
   factory Game.fromJson(
       Map<String, dynamic> data, String key, Team homeTeam, Team awayTeam) {
     return Game(
@@ -36,7 +58,7 @@ class Game implements Comparable<Game> {
       homeTeam: homeTeam,
       awayTeam: awayTeam,
       location: data['location'],
-      startTimeUTC: data['startTimeUTC'],
+      startTimeUTC: DateTime.parse(data['startTimeUTC']),
       roundNumber: data['roundNumber'],
       matchNumber: data['matchNumber'],
       dauRoundkey: data['dauRoundkey'],

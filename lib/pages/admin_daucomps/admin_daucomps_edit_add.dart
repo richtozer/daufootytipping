@@ -1,6 +1,5 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -46,8 +45,7 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
     super.dispose();
   }
 
-  Future<void> _saveDAUComp(BuildContext context, DAUCompsViewModel model,
-      TeamsViewModel teamsViewModel) async {
+  void _saveDAUComp(BuildContext context, DAUCompsViewModel model) {
     try {
       //create a new temp DAUComp object to pass the changes to the viewmodel
       DAUComp daucompEdited = DAUComp(
@@ -58,9 +56,9 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
       );
 
       if (daucomp != null) {
-        await model.editDAUComp(daucompEdited, teamsViewModel);
+        model.editDAUComp(daucompEdited);
       } else {
-        await model.addDAUComp(daucompEdited, teamsViewModel);
+        model.addDAUComp(daucompEdited);
       }
 
       // navigate to the previous page
@@ -68,7 +66,7 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
       //}
     } on Exception {
       if (context.mounted) {
-        await showDialog(
+        showDialog(
           context: context,
           builder: (_) => AlertDialog(
             content: daucomp != null
@@ -121,11 +119,9 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                         final isValid = _formKey.currentState!.validate();
                         if (isValid) {
                           disableBackButton = true;
-                          await _saveDAUComp(
+                          _saveDAUComp(
                               context,
                               Provider.of<DAUCompsViewModel>(context,
-                                  listen: false),
-                              Provider.of<TeamsViewModel>(context,
                                   listen: false));
                           disableBackButton = false;
                         }

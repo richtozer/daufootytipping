@@ -49,7 +49,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     super.dispose();
   }
 
-  Future<void> _saveTipper(BuildContext context, TipperViewModel model) async {
+  void _saveTipper(BuildContext context, TipperViewModel model) {
     try {
       //create a new temp Tipper object to pass the changes to the viewmodel
       Tipper tipperEdited = Tipper(
@@ -62,9 +62,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 
       if (tipper != null) {
-        await model.editTipper(tipperEdited);
+        model.editTipper(tipperEdited);
       } else {
-        await model.addTipper(tipperEdited);
+        model.addTipper(tipperEdited);
       }
 
       // navigate to the previous page
@@ -72,7 +72,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       //}
     } on Exception {
       if (context.mounted) {
-        await showDialog(
+        showDialog(
           context: context,
           builder: (_) => AlertDialog(
             content: tipper != null
@@ -130,7 +130,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           });
                           disableBackButton = true;
                           const CircularProgressIndicator();
-                          await _saveTipper(
+                          _saveTipper(
                               context,
                               Provider.of<TipperViewModel>(context,
                                   listen: false));

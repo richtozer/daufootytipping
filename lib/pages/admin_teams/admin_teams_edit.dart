@@ -38,7 +38,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
     super.dispose();
   }
 
-  Future<void> _saveTeam(
+  void _saveTeam(
       BuildContext context, TeamsViewModel model, Team oldTeam) async {
     try {
       //create a new temp team object to pass the changes to the viewmodel
@@ -48,7 +48,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
           league: oldTeam.league,
           logoURI: oldTeam.logoURI);
 
-      await model.editTeam(teamEdited);
+      model.editTeam(teamEdited);
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
@@ -110,7 +110,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                             disableSaves = true;
                           });
                           disableBackButton = true;
-                          await _saveTeam(
+                          _saveTeam(
                               context,
                               Provider.of<TeamsViewModel>(context,
                                   listen: false),

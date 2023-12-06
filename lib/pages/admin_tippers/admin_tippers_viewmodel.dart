@@ -10,6 +10,7 @@ import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database locations
 const tippersPath = '/Tippers';
+bool _initialLoadComplete = false;
 
 class TipperViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
@@ -36,9 +37,7 @@ class TipperViewModel extends ChangeNotifier {
 
   // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
-    late StreamSubscription<DatabaseEvent> tippersStream;
-
-    tippersStream = _db.child(tippersPath).onValue.listen((event) {
+    _tippersStream = _db.child(tippersPath).onValue.listen((event) {
       if (event.snapshot.exists) {
         final allTippers =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
@@ -51,6 +50,8 @@ class TipperViewModel extends ChangeNotifier {
         }).toList();
 
         _tippers.sort();
+
+        _initialLoadComplete = true;
 
         notifyListeners();
 
@@ -79,6 +80,11 @@ class TipperViewModel extends ChangeNotifier {
   }
 
   void linkTipper(User? firebaseUser) async {
+    while (!_initialLoadComplete) {
+      log('Waiting for initial Tipper load to complete, linktipper()');
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    log('tipper load complete, linkTipper()');
     //see if we can find an existing Tipper record using uid
     Tipper? foundTipper = await findTipperByUid(firebaseUser!.uid);
 
@@ -119,8 +125,13 @@ class TipperViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> editTipper(Tipper updatedTipper) async {
+  void editTipper(Tipper updatedTipper) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial Tipper load to complete, edittipper()');
+        await Future.delayed(const Duration(seconds: 1));
+      }
+      log('tipper load complete, editTipper()');
       _savingTipper = true;
       notifyListeners();
 
@@ -162,8 +173,13 @@ class TipperViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> addTipper(Tipper tipperData) async {
+  void addTipper(Tipper tipperData) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial Tipper load to complete, addTipper()');
+        await Future.delayed(const Duration(seconds: 1));
+      }
+      log('tipper load complete, addTipper()');
       _savingTipper = true;
       notifyListeners();
 
@@ -185,30 +201,22 @@ class TipperViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Tipper?> findTipperByField(String field, String value) async {
-    DatabaseReference dbTippers = _db.child(tippersPath);
-    DatabaseEvent event =
-        await dbTippers.orderByChild(field).equalTo(value).once();
-
-    if (event.snapshot.value != null) {
-      Map<dynamic, dynamic> dataSnapshot =
-          event.snapshot.value as Map<dynamic, dynamic>;
-      for (var entry in dataSnapshot.entries) {
-        if (entry.value is Map) {
-          return Tipper.fromJson(
-              Map<String, dynamic>.from(entry.value as Map), entry.key!);
-        }
-      }
-    }
-    return null;
-  }
-
   Future<Tipper?> findTipperByUid(String authuid) async {
-    return findTipperByField('authuid', authuid);
+    while (!_initialLoadComplete) {
+      log('Waiting for initial tipper load to complete, findtipperbyuid()');
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    log('tipper load complete, findtipperbyuid()');
+    return _tippers.firstWhereOrNull((tipper) => tipper.authuid == authuid);
   }
 
   Future<Tipper?> findTipperByEmail(String email) async {
-    return findTipperByField('email', email);
+    while (!_initialLoadComplete) {
+      log('Waiting for initial tipper load to complete, findtipperbyemail()');
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    log('tipper load complete, findtipperbyemail()');
+    return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
   }
 
   @override

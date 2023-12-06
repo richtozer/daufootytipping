@@ -14,6 +14,7 @@ class TeamsViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _teamsStream;
   bool _savingTeam = false;
+  bool _initialLoadComplete = false;
   Map _groupedTeams = {};
 
   //property
@@ -30,7 +31,7 @@ class TeamsViewModel extends ChangeNotifier {
   }
 
   // monitor changes to teams records in DB and notify listeners of any changes
-  void _listenToTeams() async {
+  void _listenToTeams() {
     _teamsStream = _db.child(teamsPathRoot).onValue.listen((event) {
       if (event.snapshot.exists) {
         final allTeams =
@@ -46,14 +47,21 @@ class TeamsViewModel extends ChangeNotifier {
         _teams.sort(); //TODO - consider replacing with Firebase orderby method
         _groupedTeams = groupBy(_teams, (team) => team.league.name);
 
+        _initialLoadComplete = true;
+
         notifyListeners();
       }
     });
   }
 
   // this function should only be called by the fixture download service
-  Future<void> editTeam(Team updatedTeam) async {
+  void editTeam(Team updatedTeam) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial Team load to complete in editTeam');
+        await Future.delayed(const Duration(seconds: 1));
+      }
+
       _savingTeam = true;
       notifyListeners();
 
@@ -96,8 +104,12 @@ class TeamsViewModel extends ChangeNotifier {
   }
 
 // this function should only be called by the fixture download service
-  Future<void> addTeam(Team team) async {
+  void addTeam(Team team) async {
     try {
+      while (!_initialLoadComplete) {
+        log('Waiting for initial Team load to complete in addTeam');
+        await Future.delayed(const Duration(seconds: 1));
+      }
       _savingTeam = true;
       notifyListeners();
 
@@ -124,7 +136,11 @@ class TeamsViewModel extends ChangeNotifier {
   }
 
   // this function finds the provided Team dbKey in the _Teams list and returns it
-  Team? findTeam(String teamDbKey) {
+  Future<Team?> findTeam(String teamDbKey) async {
+    while (!_initialLoadComplete) {
+      log('Waiting for initial team load to complete in findTeam');
+      await Future.delayed(const Duration(seconds: 1));
+    }
     return _teams.firstWhereOrNull((team) => team.dbkey == teamDbKey);
   }
 

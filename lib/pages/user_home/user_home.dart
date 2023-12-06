@@ -3,6 +3,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_tips/tips_demo.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -63,8 +64,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Flexible adminFunctions() {
-    return Flexible(
+  Card adminFunctions() {
+    return Card(
       child: Column(children: [
         ElevatedButton(
           child: const Text('Admin Tippers'),
@@ -92,22 +93,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     List<Widget> content() {
       return [
-        CustomScrollView(
-          slivers: <Widget>[
-            SliverFixedExtentList(
-              itemExtent: 50.0,
-              delegate: SliverChildBuilderDelegate(
-                (BuildContext context, int index) {
-                  return Container(
-                    alignment: Alignment.center,
-                    color: Colors.green[100 * (index % 9)],
-                    child: Text('Game $index'),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+        const GamesList(),
         const Center(
           child: Text("Comp Stats Page"),
         ),
