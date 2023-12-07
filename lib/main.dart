@@ -29,7 +29,7 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   const String initialRoute = UserAuthPage.route;
-  const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7';
+  const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
 
   setupLocator();
   TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
@@ -44,6 +44,7 @@ Future<void> main() async {
           create: (_) => DAUCompsViewModel(),
         ),
         ChangeNotifierProvider<GamesViewModel>(
+          //TODO consider removing
           create: (_) => GamesViewModel(currentDAUComp, teamsViewModel),
         ),
       ],
@@ -51,8 +52,6 @@ Future<void> main() async {
     ),
   );
 }
-
-class GetIt {}
 
 class MyApp extends StatelessWidget {
   final String initialRoute;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -16,8 +17,12 @@ class GamesViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
   bool _savingGame = false;
-  bool _initialLoadComplete = false;
+  bool _initialLoadComplete =
+      true; //TODO if our concunrrency model is ok now, we can remove this check
   String parentDAUCompDBkey;
+
+  Map _groupedGames = {};
+  Map get groupedGames => _groupedGames;
 
   final TeamsViewModel _teamsViewModel;
 
@@ -61,12 +66,16 @@ class GamesViewModel extends ChangeNotifier {
         }
       }).toList());
 
-      // Copilot suggested Filtering out null values //TODO not sure we want to do this
       _games = gamesList.where((game) => game != null).cast<Game>().toList();
-      _initialLoadComplete = true;
+      _games.sort();
 
-      notifyListeners();
+      _groupedGames = groupBy(_games, (game) => game.gameState);
+    } else {
+      log('No games found for DAUComp $parentDAUCompDBkey');
     }
+    _initialLoadComplete = true;
+
+    notifyListeners();
   }
 
   // this function should only be triggered by fixture download service

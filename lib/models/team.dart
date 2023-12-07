@@ -30,7 +30,7 @@ class Team implements Comparable<Team> {
   }
 
   @override
-  // method used to provide default sort for DAUComp(s) in a List[]
+  // method used to provide default sort for Teams in a List[]
   int compareTo(Team other) {
     return name.compareTo(other.name);
   }

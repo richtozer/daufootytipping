@@ -46,11 +46,12 @@ class TeamsViewModel extends ChangeNotifier {
 
         _teams.sort(); //TODO - consider replacing with Firebase orderby method
         _groupedTeams = groupBy(_teams, (team) => team.league.name);
-
-        _initialLoadComplete = true;
-
-        notifyListeners();
+      } else {
+        log('No teams found in database');
       }
+
+      _initialLoadComplete = true;
+      notifyListeners();
     });
   }
 
@@ -71,7 +72,7 @@ class TeamsViewModel extends ChangeNotifier {
 
       //only edit the Team record if it already exists, otherwise ignore
       if (originalTeam != null) {
-        // Convert the original and updated tippers to JSON
+        // Convert the original and updated Team records to JSON
         Map<String, dynamic> originalJson = originalTeam.toJson();
         Map<String, dynamic> updatedJson = updatedTeam.toJson();
 

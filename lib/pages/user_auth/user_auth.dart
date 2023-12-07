@@ -73,7 +73,9 @@ class UserAuthPage extends StatelessWidget {
         //if not create a Tipper record for them.
 
         TipperViewModel tipperViewModel = Provider.of<TipperViewModel>(context);
-        tipperViewModel.linkTipper(user);
+        if (tipperViewModel.currentTipperIndex == -1) {
+          tipperViewModel.linkTipper(user);
+        }
 
         return const HomePage();
       },

@@ -25,45 +25,49 @@ class TeamsListPage extends StatelessWidget {
           ),
           title: const Text('Admin Teams'),
         ),
-        body: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Consumer<TeamsViewModel>(
-                builder: (context, teamsViewModel, child) {
-              return ListView.builder(
-                itemCount: teamsViewModel.groupedTeams.length,
-                itemBuilder: (BuildContext context, int index) {
-                  String league =
-                      teamsViewModel.groupedTeams.keys.elementAt(index);
-                  List itemsInCategory = teamsViewModel.groupedTeams[league]!;
+        body: ChangeNotifierProvider<TeamsViewModel>(
+            create: (context) => TeamsViewModel(),
+            child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Consumer<TeamsViewModel>(
+                    builder: (context, teamsViewModel, child) {
+                  return ListView.builder(
+                    itemCount: teamsViewModel.groupedTeams.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      String league =
+                          teamsViewModel.groupedTeams.keys.elementAt(index);
+                      List itemsInCategory =
+                          teamsViewModel.groupedTeams[league]!;
 
-                  // Return a widget representing the category and its items
-                  return Column(
-                    children: [
-                      Text(league.toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const ClampingScrollPhysics(),
-                        itemCount: itemsInCategory.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          Team team = itemsInCategory[index];
-                          // Return a widget representing the item
-                          return ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.ballot),
-                            trailing: const Icon(Icons.edit),
-                            title: Text(team.name),
-                            onTap: () async {
-                              // Trigger edit functionality
-                              await _editTeam(team, context);
+                      // Return a widget representing the category and its items
+                      return Column(
+                        children: [
+                          Text(league.toUpperCase(),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const ClampingScrollPhysics(),
+                            itemCount: itemsInCategory.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              Team team = itemsInCategory[index];
+                              // Return a widget representing the item
+                              return ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.ballot),
+                                trailing: const Icon(Icons.edit),
+                                title: Text(team.name),
+                                onTap: () async {
+                                  // Trigger edit functionality
+                                  await _editTeam(team, context);
+                                },
+                              );
                             },
-                          );
-                        },
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   );
-                },
-              );
-            })));
+                }))));
   }
 }
