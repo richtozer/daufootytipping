@@ -2,10 +2,10 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart'
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class TipsList extends StatelessWidget {
+class TippingList extends StatelessWidget {
   static const String route = '/GamesList';
 
-  const TipsList({super.key});
+  const TippingList({super.key});
 
   @override
   Widget build(BuildContext context) {

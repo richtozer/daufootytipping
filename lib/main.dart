@@ -1,25 +1,19 @@
-import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_home/admin_home.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
-import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:provider/single_child_widget.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -30,28 +24,8 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   const String initialRoute = UserAuthPage.route;
-  const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
 
-  setupLocator(currentDAUComp);
-  TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
-
-  runApp(
-    MultiProvider(
-      providers: <SingleChildWidget>[
-        ChangeNotifierProvider<TippersViewModel>(
-          create: (_) => TippersViewModel(),
-        ),
-        ChangeNotifierProvider<DAUCompsViewModel>(
-          create: (_) => DAUCompsViewModel(),
-        ),
-        ChangeNotifierProvider<GamesViewModel>(
-          create: (_) => GamesViewModel(
-              currentDAUComp, teamsViewModel, locator<DAURoundsViewModel>()),
-        ),
-      ],
-      child: const MyApp(initialRoute),
-    ),
-  );
+  runApp(const MyApp(initialRoute));
 }
 
 class MyApp extends StatelessWidget {
@@ -70,50 +44,35 @@ class MyApp extends StatelessWidget {
       initialRoute: initialRoute,
       onGenerateRoute: (RouteSettings settings) {
         switch (settings.name) {
-          case HomePage.route:
+          /* case HomePage.route:
             return MaterialPageRoute(
               builder: (_) => Consumer<TippersViewModel>(
                 builder: (_, TippersViewModel viewModel, __) =>
                     //HomePage(viewModel),
                     const HomePage(),
               ),
-            );
+            ); */
           case UserAuthPage.route:
             return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
-                    const UserAuthPage(),
-              ),
+              builder: (_) => UserAuthPage(),
             );
-
           case TippersAdminPage.route:
-            // check if they are logged in
-
             return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
-                    const TippersAdminPage(),
-              ),
+              builder: (_) => const TippersAdminPage(),
             );
 
           case TipperAdminEditPage.route:
             final Tipper? tipper = settings.arguments
                 as Tipper?; // for adding new Tipper records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
-                    TipperAdminEditPage(tipper),
-              ),
+              builder: (_) => TipperAdminEditPage(tipper),
             );
 
           case DAUCompsAdminEditPage.route:
             final DAUComp? daucomp = settings.arguments
                 as DAUComp?; // for adding new DAUComp records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer<DAUCompsViewModel>(
-                builder: (_, DAUCompsViewModel viewModel, __) =>
-                    DAUCompsAdminEditPage(daucomp),
-              ),
+              builder: (_) => DAUCompsAdminEditPage(daucomp),
             );
 
           case DAUCompsListPage.route:

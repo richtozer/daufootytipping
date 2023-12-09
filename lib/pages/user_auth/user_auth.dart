@@ -1,3 +1,8 @@
+import 'package:daufootytipping/locator.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
@@ -5,10 +10,15 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 
 class UserAuthPage extends StatelessWidget {
   static const String route = '/UserAuthPage';
-  const UserAuthPage({super.key});
+  static const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //
+
+  UserAuthPage({super.key}) {
+    setupLocator(currentDAUComp);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,17 +76,18 @@ class UserAuthPage extends StatelessWidget {
           throw Exception('User email not verified');
         }
 
-        //at this point we have a verfied logged on user - as we send them
-        //to the home page, make sure they are represented in the realtime database
-        // as a tipper linked to their firebase auth record,
-        //if not create a Tipper record for them.
-        TippersViewModel tipperViewModel =
-            Provider.of<TippersViewModel>(context);
-        if (tipperViewModel.currentTipperIndex == -1) {
-          tipperViewModel.linkTipper(user);
-        }
-
-        return const HomePage();
+        return MultiProvider(providers: <SingleChildWidget>[
+          ChangeNotifierProvider<TippersViewModel>(
+            create: (_) => TippersViewModel(),
+          ),
+          ChangeNotifierProvider<DAUCompsViewModel>(
+            create: (_) => DAUCompsViewModel(),
+          ),
+          ChangeNotifierProvider<GamesViewModel>(
+            create: (_) =>
+                GamesViewModel(currentDAUComp, locator<DAURoundsViewModel>()),
+          ),
+        ], child: HomePage(user));
       },
     );
   }

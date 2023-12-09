@@ -2,13 +2,16 @@ import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart
 
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
   static const String route = '/';
-  const HomePage({super.key});
+  final User user;
+
+  const HomePage(this.user, {super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -22,7 +25,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
   }
 
-  final admin = false;
+  //final admin = false;
 
   void onTabTapped(int index) {
     setState(() {
@@ -34,12 +37,21 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     List<Widget> content() {
       return [
-        const TipsList(),
+        const TippingList(), //display games overlayed with tips for the logged on tipper
         const Center(
           child: Text("Comp Stats Page"),
         ),
-        const Profile(),
+        const Profile(), //display profile and settings for the logged on tipper
       ];
+    }
+
+    //at this point we have a verfied logged on user - as we send them
+    //to the home page, make sure they are represented in the realtime database
+    // as a tipper linked to their firebase auth record,
+    //if not create a Tipper record for them.
+    TippersViewModel tipperViewModel = Provider.of<TippersViewModel>(context);
+    if (tipperViewModel.currentTipperIndex == -1) {
+      tipperViewModel.linkTipper(widget.user);
     }
 
     List<Widget> destinationContent = content();

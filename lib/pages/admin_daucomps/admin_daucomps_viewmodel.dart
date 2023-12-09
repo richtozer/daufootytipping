@@ -133,7 +133,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     DAURoundsViewModel dauRoundsViewModel = locator<DAURoundsViewModel>();
 
     GamesViewModel gamesViewModel =
-        GamesViewModel(newdaucomp.dbkey!, teamsViewModel, dauRoundsViewModel);
+        GamesViewModel(newdaucomp.dbkey!, dauRoundsViewModel);
     for (Game game in nrlGames) {
       gamesViewModel.addGame(game, newdaucomp);
     }
