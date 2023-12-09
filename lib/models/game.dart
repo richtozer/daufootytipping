@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -17,7 +18,7 @@ class Game implements Comparable<Game> {
   final DateTime startTimeUTC;
   final int roundNumber;
   final int matchNumber;
-  String? dauRoundkey;
+  DAURound? dauRound;
   Scoring? scoring; // this should be null until game kickoff
 
   //constructor
@@ -30,7 +31,7 @@ class Game implements Comparable<Game> {
     required this.startTimeUTC,
     required this.roundNumber,
     required this.matchNumber,
-    this.dauRoundkey,
+    this.dauRound,
     this.scoring,
   });
 
@@ -50,8 +51,8 @@ class Game implements Comparable<Game> {
     }
   }
 
-  factory Game.fromJson(
-      Map<String, dynamic> data, String key, Team homeTeam, Team awayTeam) {
+  factory Game.fromJson(Map<String, dynamic> data, String key, Team homeTeam,
+      Team awayTeam, DAURound? dauRound) {
     return Game(
       dbkey: key,
       league: League.values.byName(data['league']),
@@ -61,7 +62,7 @@ class Game implements Comparable<Game> {
       startTimeUTC: DateTime.parse(data['startTimeUTC']),
       roundNumber: data['roundNumber'],
       matchNumber: data['matchNumber'],
-      dauRoundkey: data['dauRoundkey'],
+      dauRound: dauRound,
       scoring: data['scoring'],
     );
   }
@@ -74,7 +75,7 @@ class Game implements Comparable<Game> {
         'startTimeUTC': startTimeUTC.toString(),
         'roundNumber': roundNumber,
         'matchNumber': matchNumber,
-        'dauRoundkey': dauRoundkey,
+        'dauRoundDbkey': dauRound?.dbkey,
         'scoring': scoring,
       };
 

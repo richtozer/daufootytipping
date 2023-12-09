@@ -16,11 +16,12 @@ class Tip implements Comparable<Tip> {
       required this.tip,
       required this.submittedTimeUTC});
 
-  factory Tip.fromJson(Map<String, dynamic> data, String key) {
+  factory Tip.fromJson(
+      Map<String, dynamic> data, String key, Tipper tipper, Game game) {
     return Tip(
         dbkey: key,
-        game: data['gameDbkey'] ?? '',
-        tipper: data['tipperDbkey'] ?? '',
+        game: game,
+        tipper: tipper,
         tip: GameResult.values.byName(data['tip']),
         submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']));
   }

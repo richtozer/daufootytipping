@@ -54,25 +54,24 @@ class UserAuthPage extends StatelessWidget {
           );
         }
 
+        //once we pass signin we have a firebase auth user context
         User? user = snapshot.data;
         if (user == null) {
           throw Exception('No user context found');
         }
-
         if (user.isAnonymous) {
           throw Exception('User is anonymous');
         }
-
         if (user.emailVerified == false) {
           throw Exception('User email not verified');
         }
 
-        //at this point we have a verfied logged on user - before we send them
-        //to the home page, we need to check if they are a tipper.
-        //make sure they are represented in the realtime database as a tipper,
+        //at this point we have a verfied logged on user - as we send them
+        //to the home page, make sure they are represented in the realtime database
+        // as a tipper linked to their firebase auth record,
         //if not create a Tipper record for them.
-
-        TipperViewModel tipperViewModel = Provider.of<TipperViewModel>(context);
+        TippersViewModel tipperViewModel =
+            Provider.of<TippersViewModel>(context);
         if (tipperViewModel.currentTipperIndex == -1) {
           tipperViewModel.linkTipper(user);
         }

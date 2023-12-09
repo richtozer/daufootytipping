@@ -4,6 +4,7 @@ import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
@@ -129,9 +130,10 @@ class DAUCompsViewModel extends ChangeNotifier {
         await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
 
     TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
+    DAURoundsViewModel dauRoundsViewModel = locator<DAURoundsViewModel>();
 
     GamesViewModel gamesViewModel =
-        GamesViewModel(newdaucomp.dbkey!, teamsViewModel);
+        GamesViewModel(newdaucomp.dbkey!, teamsViewModel, dauRoundsViewModel);
     for (Game game in nrlGames) {
       gamesViewModel.addGame(game, newdaucomp);
     }

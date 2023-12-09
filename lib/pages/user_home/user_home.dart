@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> {
 
     List<Widget> destinationContent = content();
 
-    return Consumer<TipperViewModel>(
+    return Consumer<TippersViewModel>(
         builder: (context, tipperViewModel, child) {
       return Scaffold(
           body: Center(
@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
             selectedIndex: _currentIndex,
             destinations: [
               NavigationDestination(
-                enabled: tipperViewModel.currentTipperIndex < 0
+                enabled: tipperViewModel.currentTipperIndex == -1
                     ? false
                     : tipperViewModel
                         .tippers[tipperViewModel.currentTipperIndex].active,
@@ -65,7 +65,7 @@ class _HomePageState extends State<HomePage> {
                 label: 'T  I  P  S',
               ),
               NavigationDestination(
-                enabled: tipperViewModel.currentTipperIndex < 0
+                enabled: tipperViewModel.currentTipperIndex == -1
                     ? false
                     : tipperViewModel
                         .tippers[tipperViewModel.currentTipperIndex].active,

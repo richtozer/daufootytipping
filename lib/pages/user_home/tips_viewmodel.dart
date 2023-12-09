@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -15,19 +18,24 @@ class TipsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
   bool _initialLoadComplete = false;
-  Tipper tipper;
+  late Tipper currentTipper;
+  final TippersViewModel _tippersViewModel;
+  final GamesViewModel _gamesViewModel;
 
   List<Tip> get tips => _tips;
   bool get savingTip => _savingTip;
 
   //constructor
-  TipsViewModel(this.tipper) {
+  TipsViewModel(
+      this.currentTipper, this._tippersViewModel, this._gamesViewModel) {
     _listenToTips();
   }
 
   void _listenToTips() {
-    _tipsStream =
-        _db.child('$tipsPathRoot/${tipper.dbkey}').onValue.listen((event) {
+    _tipsStream = _db
+        .child('$tipsPathRoot/${currentTipper.dbkey}')
+        .onValue
+        .listen((event) {
       _handleEvent(event);
     });
   }
@@ -42,12 +50,14 @@ class TipsViewModel extends ChangeNotifier {
         String key = entry.key; // Retrieve the Firebase key
         dynamic tipAsJSON = entry.value;
 
-        //we need to find and deserialize the home and away teams first before we can deserialize the game
-        //Team? homeTeam = _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
-        //Team? awayTeam = _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
+        //we need to find and deserialize the Tipper and Game first before we can deserialize the game
+        Tipper tipper =
+            await _tippersViewModel.findTipper(tipAsJSON['tipperDbkey']);
+        Game game = await _gamesViewModel.findGame(tipAsJSON['gameDbkey']);
 
         //if (homeTeam != null && awayTeam != null) {
-        return Tip.fromJson(Map<String, dynamic>.from(tipAsJSON), key);
+        return Tip.fromJson(
+            Map<String, dynamic>.from(tipAsJSON), key, tipper, game);
         //} else {
         // Handle the case where homeTeam or awayTeam is null
         // return null;
@@ -57,7 +67,7 @@ class TipsViewModel extends ChangeNotifier {
       _tips = tipsList.where((game) => game != null).cast<Tip>().toList();
       _tips.sort();
     } else {
-      log('No tips found for Tipper ${tipper.name}');
+      log('No tips found for Tipper ${currentTipper.name}');
     }
     _initialLoadComplete = true;
 

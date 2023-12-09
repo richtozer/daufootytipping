@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_home/admin_home.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
@@ -31,21 +32,21 @@ Future<void> main() async {
   const String initialRoute = UserAuthPage.route;
   const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
 
-  setupLocator();
+  setupLocator(currentDAUComp);
   TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
 
   runApp(
     MultiProvider(
       providers: <SingleChildWidget>[
-        ChangeNotifierProvider<TipperViewModel>(
-          create: (_) => TipperViewModel(),
+        ChangeNotifierProvider<TippersViewModel>(
+          create: (_) => TippersViewModel(),
         ),
         ChangeNotifierProvider<DAUCompsViewModel>(
           create: (_) => DAUCompsViewModel(),
         ),
         ChangeNotifierProvider<GamesViewModel>(
-          //TODO consider removing
-          create: (_) => GamesViewModel(currentDAUComp, teamsViewModel),
+          create: (_) => GamesViewModel(
+              currentDAUComp, teamsViewModel, locator<DAURoundsViewModel>()),
         ),
       ],
       child: const MyApp(initialRoute),
@@ -71,16 +72,16 @@ class MyApp extends StatelessWidget {
         switch (settings.name) {
           case HomePage.route:
             return MaterialPageRoute(
-              builder: (_) => Consumer<TipperViewModel>(
-                builder: (_, TipperViewModel viewModel, __) =>
+              builder: (_) => Consumer<TippersViewModel>(
+                builder: (_, TippersViewModel viewModel, __) =>
                     //HomePage(viewModel),
                     const HomePage(),
               ),
             );
           case UserAuthPage.route:
             return MaterialPageRoute(
-              builder: (_) => Consumer<TipperViewModel>(
-                builder: (_, TipperViewModel viewModel, __) =>
+              builder: (_) => Consumer<TippersViewModel>(
+                builder: (_, TippersViewModel viewModel, __) =>
                     const UserAuthPage(),
               ),
             );
@@ -89,8 +90,8 @@ class MyApp extends StatelessWidget {
             // check if they are logged in
 
             return MaterialPageRoute(
-              builder: (_) => Consumer<TipperViewModel>(
-                builder: (_, TipperViewModel viewModel, __) =>
+              builder: (_) => Consumer<TippersViewModel>(
+                builder: (_, TippersViewModel viewModel, __) =>
                     const TippersAdminPage(),
               ),
             );
@@ -99,8 +100,8 @@ class MyApp extends StatelessWidget {
             final Tipper? tipper = settings.arguments
                 as Tipper?; // for adding new Tipper records, arguments will have a nul DAUComp
             return MaterialPageRoute(
-              builder: (_) => Consumer<TipperViewModel>(
-                builder: (_, TipperViewModel viewModel, __) =>
+              builder: (_) => Consumer<TippersViewModel>(
+                builder: (_, TippersViewModel viewModel, __) =>
                     TipperAdminEditPage(tipper),
               ),
             );

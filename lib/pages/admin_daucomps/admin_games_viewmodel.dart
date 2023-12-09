@@ -3,8 +3,10 @@ import 'dart:developer';
 
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -25,12 +27,14 @@ class GamesViewModel extends ChangeNotifier {
   Map get groupedGames => _groupedGames;
 
   final TeamsViewModel _teamsViewModel;
+  final DAURoundsViewModel _dauRoundsViewModel;
 
   List<Game> get games => _games;
   bool get savingGame => _savingGame;
 
   //constructor
-  GamesViewModel(this.parentDAUCompDBkey, this._teamsViewModel) {
+  GamesViewModel(
+      this.parentDAUCompDBkey, this._teamsViewModel, this._dauRoundsViewModel) {
     _listenToGames();
   }
 
@@ -51,15 +55,23 @@ class GamesViewModel extends ChangeNotifier {
         String key = entry.key; // Retrieve the Firebase key
         dynamic gameAsJSON = entry.value;
 
-        //we need to find and deserialize the home and away teams first before we can deserialize the game
+        //we need to find and deserialize the DAuROund, home and away teams first before we can deserialize the game
         Team? homeTeam =
             await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
         Team? awayTeam =
             await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
 
+        DAURound? dauRound;
+        if (gameAsJSON['dauRoundDbkey'] != null) {
+          dauRound = await _dauRoundsViewModel
+              .findDAURound(gameAsJSON['dauRoundDbkey']);
+        } else {
+          dauRound = null;
+        }
+
         if (homeTeam != null && awayTeam != null) {
-          return Game.fromJson(
-              Map<String, dynamic>.from(gameAsJSON), key, homeTeam, awayTeam);
+          return Game.fromJson(Map<String, dynamic>.from(gameAsJSON), key,
+              homeTeam, awayTeam, dauRound);
         } else {
           // Handle the case where homeTeam or awayTeam is null
           return null;
@@ -134,6 +146,15 @@ class GamesViewModel extends ChangeNotifier {
       _savingGame = false;
       notifyListeners();
     }
+  }
+
+  // this function finds the provided Game dbKey in the _Games list and returns it
+  Future<Game> findGame(String gameDbKey) async {
+    while (!_initialLoadComplete) {
+      log('Waiting for initial Game load to complete in findGame');
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    return _games.firstWhere((game) => game.dbkey == gameDbKey);
   }
 
   @override

@@ -49,7 +49,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     super.dispose();
   }
 
-  void _saveTipper(BuildContext context, TipperViewModel model) {
+  void _saveTipper(BuildContext context, TippersViewModel model) {
     try {
       //create a new temp Tipper object to pass the changes to the viewmodel
       Tipper tipperEdited = Tipper(
@@ -132,7 +132,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           const CircularProgressIndicator();
                           _saveTipper(
                               context,
-                              Provider.of<TipperViewModel>(context,
+                              Provider.of<TippersViewModel>(context,
                                   listen: false));
                           setState(() {
                             disableSaves = false;

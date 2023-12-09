@@ -55,7 +55,6 @@ class TeamsViewModel extends ChangeNotifier {
     });
   }
 
-  // this function should only be called by the fixture download service
   void editTeam(Team updatedTeam) async {
     try {
       while (!_initialLoadComplete) {
@@ -64,7 +63,7 @@ class TeamsViewModel extends ChangeNotifier {
       }
 
       _savingTeam = true;
-      notifyListeners();
+      notifyListeners(); //TODO this line throws as exception see - https://github.com/richtozer/daufootytipping/issues/1
 
       //the original Team record should be in our list of teams
       Team? originalTeam = _teams.firstWhereOrNull(

@@ -44,7 +44,7 @@ class TippersAdminPage extends StatelessWidget {
                 Chip(label: Text('Active')),
                 Chip(label: Text('Disabled')),
               ]),
-              Consumer<TipperViewModel>(
+              Consumer<TippersViewModel>(
                   builder: (context, tipperViewModel, child) {
                 return Expanded(
                   child: ListView(
