@@ -3,31 +3,36 @@ import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 
 class TeamsListPage extends StatelessWidget {
-  static const String route = '/AdminTeams';
-
   const TeamsListPage({super.key});
 
-  Future<void> _editTeam(Team team, BuildContext context) async {
-    await Navigator.of(context).pushNamed(TeamEditPage.route, arguments: team);
+  Future<void> _editTeam(
+      Team team, TeamsViewModel teamsViewModel, BuildContext context) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TeamEditPage(team, teamsViewModel),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          title: const Text('Admin Teams'),
-        ),
-        body: ChangeNotifierProvider<TeamsViewModel>(
-            create: (context) => TeamsViewModel(),
-            child: Padding(
+    return ChangeNotifierProvider<TeamsViewModel>(
+        create: (_) => TeamsViewModel(),
+        child: Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              title: const Text('Admin Teams'),
+            ),
+            body: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Consumer<TeamsViewModel>(
                     builder: (context, teamsViewModel, child) {
@@ -59,7 +64,8 @@ class TeamsListPage extends StatelessWidget {
                                 title: Text(team.name),
                                 onTap: () async {
                                   // Trigger edit functionality
-                                  await _editTeam(team, context);
+                                  await _editTeam(
+                                      team, teamsViewModel, context);
                                 },
                               );
                             },

@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -129,8 +128,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Game> aflGames =
         await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
 
-    TeamsViewModel teamsViewModel = locator<TeamsViewModel>();
-    DAURoundsViewModel dauRoundsViewModel = locator<DAURoundsViewModel>();
+    DAURoundsViewModel dauRoundsViewModel =
+        locator<DAURoundsViewModel>(); //TODO move to admin home page
 
     GamesViewModel gamesViewModel =
         GamesViewModel(newdaucomp.dbkey!, dauRoundsViewModel);

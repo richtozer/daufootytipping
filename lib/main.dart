@@ -1,106 +1,35 @@
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
-import 'package:daufootytipping/pages/admin_home/admin_home.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
+import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
   // Do not to start running the application widget code until the Flutter framework is completely booted
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized(); //TODO remove hardcoding
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  const String initialRoute = UserAuthPage.route;
+  const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
+  setupLocator(currentDAUComp);
 
-  runApp(const MyApp(initialRoute));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final String initialRoute;
-
-  const MyApp(this.initialRoute, {super.key});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DAU Footy Tipping',
       theme: ThemeData(
-          primarySwatch: Colors.green,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-          fontFamily: 'Raleway'),
-      initialRoute: initialRoute,
-      onGenerateRoute: (RouteSettings settings) {
-        switch (settings.name) {
-          /* case HomePage.route:
-            return MaterialPageRoute(
-              builder: (_) => Consumer<TippersViewModel>(
-                builder: (_, TippersViewModel viewModel, __) =>
-                    //HomePage(viewModel),
-                    const HomePage(),
-              ),
-            ); */
-          case UserAuthPage.route:
-            return MaterialPageRoute(
-              builder: (_) => UserAuthPage(),
-            );
-          case TippersAdminPage.route:
-            return MaterialPageRoute(
-              builder: (_) => const TippersAdminPage(),
-            );
-
-          case TipperAdminEditPage.route:
-            final Tipper? tipper = settings.arguments
-                as Tipper?; // for adding new Tipper records, arguments will have a nul DAUComp
-            return MaterialPageRoute(
-              builder: (_) => TipperAdminEditPage(tipper),
-            );
-
-          case DAUCompsAdminEditPage.route:
-            final DAUComp? daucomp = settings.arguments
-                as DAUComp?; // for adding new DAUComp records, arguments will have a nul DAUComp
-            return MaterialPageRoute(
-              builder: (_) => DAUCompsAdminEditPage(daucomp),
-            );
-
-          case DAUCompsListPage.route:
-            return MaterialPageRoute(
-              builder: (_) => Consumer<DAUCompsViewModel>(
-                builder: (_, DAUCompsViewModel viewModel, __) =>
-                    const DAUCompsListPage(),
-              ),
-            );
-
-          case AdminHomePage.route:
-            return MaterialPageRoute(
-              builder: (_) => const AdminHomePage(),
-            );
-
-          case TeamsListPage.route:
-            return MaterialPageRoute(
-              builder: (_) => const TeamsListPage(),
-            );
-
-          case TeamEditPage.route:
-            final Team? team = settings.arguments as Team?;
-            return MaterialPageRoute(
-              builder: (_) => TeamEditPage(team),
-            );
-        }
-        return null;
-      },
+        primaryColor: Colors.green[800],
+        brightness: Brightness.light,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: const UserAuthPage(),
     );
   }
 }

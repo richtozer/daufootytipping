@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class TippingList extends StatelessWidget {
-  static const String route = '/GamesList';
-
   const TippingList({super.key});
 
   @override

@@ -7,11 +7,10 @@ import 'package:provider/provider.dart';
 // integrity reasons, we do not allow teams to be deleted
 
 class TeamEditPage extends StatefulWidget {
-  static const String route = '/AdminTeamEdit';
-
+  final TeamsViewModel teamsViewModel;
   final Team? team; //if this is an edit for a new Team, this will stay null
 
-  const TeamEditPage(this.team, {super.key});
+  const TeamEditPage(this.team, this.teamsViewModel, {super.key});
 
   @override
   State<TeamEditPage> createState() => _TeamEditPageState();
@@ -38,8 +37,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
     super.dispose();
   }
 
-  void _saveTeam(
-      BuildContext context, TeamsViewModel model, Team oldTeam) async {
+  void _saveTeam(BuildContext context, Team oldTeam) async {
     try {
       //create a new temp team object to pass the changes to the viewmodel
       Team teamEdited = Team(
@@ -48,7 +46,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
           league: oldTeam.league,
           logoURI: oldTeam.logoURI);
 
-      model.editTeam(teamEdited);
+      widget.teamsViewModel.editTeam(teamEdited);
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
@@ -113,11 +111,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                                   disableSaves = true;
                                 });
                                 disableBackButton = true;
-                                _saveTeam(
-                                    context,
-                                    Provider.of<TeamsViewModel>(context,
-                                        listen: false),
-                                    team!);
+                                _saveTeam(context, team!);
                                 setState(() {
                                   disableSaves = false;
                                 });

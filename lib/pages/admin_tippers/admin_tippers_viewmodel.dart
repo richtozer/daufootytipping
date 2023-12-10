@@ -84,6 +84,7 @@ class TippersViewModel extends ChangeNotifier {
           _tippers.add(tipper);
         });
         */
+      log('XXX ${_tippers.length} tippers found in database');
     } else {
       log('XXX No tippers found in database');
     }
@@ -129,8 +130,9 @@ class TippersViewModel extends ChangeNotifier {
           //update the tipper record in the database
           editTipper(updateTipper);
 
-          //save the current logged on tipper to the model for later use
+          //save the index of the current logged on tipper to the model for later use
           _currentTipperIndex = (_tippers.indexOf(updateTipper));
+        } else {
           //otherwise create a new tipper record and link it to the firebase user, set active to false and tipperrole to tipper
           Tipper newTipper = Tipper(
             name: firebaseUser.email!,
@@ -140,7 +142,9 @@ class TippersViewModel extends ChangeNotifier {
             tipperRole: TipperRole.tipper,
           );
           addTipper(newTipper);
-          _currentTipperIndex = (_tippers.indexOf(newTipper));
+
+          //save the index of the current logged on tipper to the model for later use
+          _currentTipperIndex = (_tippers.length - 1);
         }
       }
     } finally {

@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
-  static const String route = '/';
   final User user;
 
   const HomePage(this.user, {super.key});

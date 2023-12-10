@@ -3,17 +3,14 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
-import 'package:provider/provider.dart';
 
 class TipperAdminEditPage extends StatefulWidget {
-  static const String route = '/AdminTippersEdit';
-
-  //final TippersViewModel tipperViewModel;
+  final TippersViewModel tippersViewModel;
   final Tipper? tipper;
 
   //constructor
-  //const TipperAdminEditPage(this.tipperViewModel, this.tipper, {super.key});
-  const TipperAdminEditPage(this.tipper, {super.key});
+  const TipperAdminEditPage(this.tippersViewModel, this.tipper, {super.key});
+  //const TipperAdminEditPage(this.tipper, {super.key});
 
   @override
   State<TipperAdminEditPage> createState() => _FormEditTipperState();
@@ -25,6 +22,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late TextEditingController _tipperEmailController;
   final FocusNode _emailFocusNode = FocusNode();
   late Tipper? tipper;
+  late TippersViewModel tippersViewModel;
   late bool active = true;
   late bool admin;
   late bool disableBackButton = false;
@@ -35,6 +33,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   void initState() {
     super.initState();
     tipper = widget.tipper;
+    tippersViewModel = widget.tippersViewModel;
     active = tipper?.active == null ? true : tipper!.active;
     admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
     _tipperNameController = TextEditingController(text: tipper?.name);
@@ -49,7 +48,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     super.dispose();
   }
 
-  void _saveTipper(BuildContext context, TippersViewModel model) {
+  void _saveTipper(BuildContext context) {
     try {
       //create a new temp Tipper object to pass the changes to the viewmodel
       Tipper tipperEdited = Tipper(
@@ -62,9 +61,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 
       if (tipper != null) {
-        model.editTipper(tipperEdited);
+        tippersViewModel.editTipper(tipperEdited);
       } else {
-        model.addTipper(tipperEdited);
+        tippersViewModel.addTipper(tipperEdited);
       }
 
       // navigate to the previous page
@@ -131,9 +130,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           disableBackButton = true;
                           const CircularProgressIndicator();
                           _saveTipper(
-                              context,
-                              Provider.of<TippersViewModel>(context,
-                                  listen: false));
+                              context); //save the tipper and pop the page
                           setState(() {
                             disableSaves = false;
                           });

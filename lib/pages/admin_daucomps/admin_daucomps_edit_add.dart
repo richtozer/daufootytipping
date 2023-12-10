@@ -1,18 +1,16 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 // this class supports both creating and updating DAUComp records.
 // it has 2 modes, then daucomp is null it is in new record mode,
 // when it is not null it is in edit record mode
 class DAUCompsAdminEditPage extends StatefulWidget {
-  static const String route = '/AdminDAUCompsEdit';
-
   final DAUComp?
       daucomp; //if this is an edit for a new comp, this will stay null
+  final DAUCompsViewModel dauCompViewModel;
 
-  const DAUCompsAdminEditPage(this.daucomp, {super.key});
+  const DAUCompsAdminEditPage(this.daucomp, this.dauCompViewModel, {super.key});
 
   @override
   State<DAUCompsAdminEditPage> createState() => _FormEditDAUCompsState();
@@ -45,7 +43,7 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
     super.dispose();
   }
 
-  void _saveDAUComp(BuildContext context, DAUCompsViewModel model) {
+  void _saveDAUComp(BuildContext context) {
     try {
       //create a new temp DAUComp object to pass the changes to the viewmodel
       DAUComp daucompEdited = DAUComp(
@@ -56,9 +54,9 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
       );
 
       if (daucomp != null) {
-        model.editDAUComp(daucompEdited);
+        widget.dauCompViewModel.editDAUComp(daucompEdited);
       } else {
-        model.addDAUComp(daucompEdited);
+        widget.dauCompViewModel.addDAUComp(daucompEdited);
       }
 
       // navigate to the previous page
@@ -119,10 +117,7 @@ class _FormEditDAUCompsState extends State<DAUCompsAdminEditPage> {
                         final isValid = _formKey.currentState!.validate();
                         if (isValid) {
                           disableBackButton = true;
-                          _saveDAUComp(
-                              context,
-                              Provider.of<DAUCompsViewModel>(context,
-                                  listen: false));
+                          _saveDAUComp(context);
                           disableBackButton = false;
                         }
                       },

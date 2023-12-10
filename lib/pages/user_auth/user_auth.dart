@@ -2,7 +2,7 @@ import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daurounds_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
+
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
@@ -13,12 +13,10 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 class UserAuthPage extends StatelessWidget {
-  static const String route = '/UserAuthPage';
-  static const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //
+  static const String currentDAUComp =
+      '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
 
-  UserAuthPage({super.key}) {
-    setupLocator(currentDAUComp);
-  }
+  const UserAuthPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -79,9 +77,6 @@ class UserAuthPage extends StatelessWidget {
         return MultiProvider(providers: <SingleChildWidget>[
           ChangeNotifierProvider<TippersViewModel>(
             create: (_) => TippersViewModel(),
-          ),
-          ChangeNotifierProvider<DAUCompsViewModel>(
-            create: (_) => DAUCompsViewModel(),
           ),
           ChangeNotifierProvider<GamesViewModel>(
             create: (_) =>

@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class Profile extends StatelessWidget {
-  static const String route = '/GamesList';
-
   const Profile({super.key});
 
   @override
