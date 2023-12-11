@@ -27,7 +27,7 @@ class GamesViewModel extends ChangeNotifier {
   Map _groupedGames = {};
   Map get groupedGames => _groupedGames;
 
-  final DAURoundsViewModel _dauRoundsViewModel;
+  final DAURoundsViewModel _dauRoundsViewModel = locator<DAURoundsViewModel>();
 
   List<Game> get games => _games;
   bool get savingGame => _savingGame;
@@ -35,7 +35,7 @@ class GamesViewModel extends ChangeNotifier {
   late TeamsViewModel _teamsViewModel;
 
   //constructor
-  GamesViewModel(this.parentDAUCompDBkey, this._dauRoundsViewModel) {
+  GamesViewModel(this.parentDAUCompDBkey) {
     _teamsViewModel = locator<TeamsViewModel>();
     _listenToGames();
   }

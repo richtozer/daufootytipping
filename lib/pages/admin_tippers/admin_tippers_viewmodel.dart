@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database locations
@@ -149,6 +150,9 @@ class TippersViewModel extends ChangeNotifier {
       }
     } finally {
       _linkingUnderway = false;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 

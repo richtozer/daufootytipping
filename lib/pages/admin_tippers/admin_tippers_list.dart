@@ -1,7 +1,6 @@
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:provider/single_child_widget.dart';
 import 'admin_tippers_viewmodel.dart';
 
 class TippersAdminPage extends StatelessWidget {

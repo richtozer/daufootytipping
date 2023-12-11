@@ -47,6 +47,10 @@ MultiProvider adminFunctions(context) {
                 ),
               );
             },
+          ),
+          ElevatedButton(
+            child: const Text('Crash App'),
+            onPressed: () => throw Exception(),
           )
         ]),
       ));

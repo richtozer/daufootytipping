@@ -44,15 +44,6 @@ class _HomePageState extends State<HomePage> {
       ];
     }
 
-    //at this point we have a verfied logged on user - as we send them
-    //to the home page, make sure they are represented in the realtime database
-    // as a tipper linked to their firebase auth record,
-    //if not create a Tipper record for them.
-    TippersViewModel tipperViewModel = Provider.of<TippersViewModel>(context);
-    if (tipperViewModel.currentTipperIndex == -1) {
-      tipperViewModel.linkTipper(widget.user);
-    }
-
     List<Widget> destinationContent = content();
 
     return Consumer<TippersViewModel>(

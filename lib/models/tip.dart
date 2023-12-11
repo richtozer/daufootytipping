@@ -22,15 +22,15 @@ class Tip implements Comparable<Tip> {
         dbkey: key,
         game: game,
         tipper: tipper,
-        tip: GameResult.values.byName(data['tip']),
+        tip: GameResult.values.byName(data['gameResult']),
         submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']));
   }
 
   toJson() {
     return {
-      'gameDbkey': game.dbkey, // save to the database as a reference
-      'tipperDbkey': tipper.dbkey, //save to the database as a reference
-      'gameResult': tip.toString(),
+      //'gameDbkey': game.dbkey, // save to the database as a reference
+      //'tipperDbkey': tipper.dbkey, //save to the database as a reference
+      'gameResult': tip.name,
       'submittedTimeUTC': submittedTimeUTC.toString(),
     };
   }

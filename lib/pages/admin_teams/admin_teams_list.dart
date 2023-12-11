@@ -3,7 +3,6 @@ import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:provider/single_child_widget.dart';
 
 class TeamsListPage extends StatelessWidget {
   const TeamsListPage({super.key});
