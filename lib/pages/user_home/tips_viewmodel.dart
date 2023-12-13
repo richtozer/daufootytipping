@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -26,6 +27,7 @@ class TipsViewModel extends ChangeNotifier {
   List<Tip> get tips => _tips;
   List<Game> get games => _gamesViewModel.games;
   bool get savingTip => _savingTip;
+  GamesViewModel get gamesViewModel => _gamesViewModel;
 
   //constructor
   TipsViewModel(this.parentDAUCompDBkey, this._tippersViewModel) {
@@ -96,11 +98,6 @@ class TipsViewModel extends ChangeNotifier {
 
   void addTip(Tip tip) async {
     try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial Tip load to complete');
-        await Future.delayed(const Duration(seconds: 1));
-      }
-
       _savingTip = true;
       notifyListeners();
 
@@ -114,8 +111,6 @@ class TipsViewModel extends ChangeNotifier {
           .push()
           .key;
 
-      // Write the new post's data simultaneously in the posts list and the
-      // user's post list. //TODO
       final Map<String, Map> updates = {};
       updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}/$newTipKey'] =
           tipJson;
@@ -126,13 +121,31 @@ class TipsViewModel extends ChangeNotifier {
     }
   }
 
-  Tip? getLatestGameTip(String gameDbkey) {
+  Tip? getLatestGameTip(Game game) {
     while (!_initialLoadComplete) {
       log('Waiting for initial tips load to complete, getLatestGameTip()');
       Future.delayed(const Duration(seconds: 1));
     }
     log('tips load complete, getLatestGameTip()');
-    return _tips.firstWhereOrNull((tip) => tip.game.dbkey == gameDbkey);
+    Tip? foundTip =
+        _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);
+    if (foundTip != null) {
+      return foundTip;
+    } else {
+      if (game.gameState == GameState.notStarted) {
+        return null; //game has not started yet, so assign a null tip
+      } else {
+        return Tip(
+            tip: GameResult
+                .d, //if the game is in the past and there is no tip from Tipper, then default to a Away win
+            submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0,
+                isUtc:
+                    true), //set the submitted time to the epoch to indicate that this is a default tip
+            game: game,
+            tipper: _tippersViewModel
+                .tippers[_tippersViewModel.currentTipperIndex]);
+      }
+    }
   }
 
   @override

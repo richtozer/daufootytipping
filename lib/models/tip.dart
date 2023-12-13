@@ -16,6 +16,11 @@ class Tip implements Comparable<Tip> {
       required this.tip,
       required this.submittedTimeUTC});
 
+  bool isDefaultTip() {
+    return (submittedTimeUTC ==
+        DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true));
+  }
+
   factory Tip.fromJson(
       Map<String, dynamic> data, String key, Tipper tipper, Game game) {
     return Tip(

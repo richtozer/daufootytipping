@@ -1,7 +1,7 @@
 import 'package:daufootytipping/models/tipper.dart';
 
 class CroudSourcedScore {
-  DateTime submittedTimeUTC = DateTime.now();
+  DateTime submittedTimeUTC = DateTime.now().toUtc();
   Tipper tipper;
   ScoreTeam scoreTeam;
   int interimScore;

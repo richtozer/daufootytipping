@@ -33,13 +33,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'DAU Footy Tipping',
-      theme: ThemeData(
-        primaryColor: Colors.green[800],
-        brightness: Brightness.light,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
       home: UserAuthPage(),
     );
   }

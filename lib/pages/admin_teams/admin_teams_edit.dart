@@ -19,6 +19,7 @@ class TeamEditPage extends StatefulWidget {
 class _TeamEditPageState extends State<TeamEditPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _teamNameController;
+  late TextEditingController _teamLogoURIController;
 
   late Team? team;
   late bool disableBackButton = false;
@@ -29,6 +30,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
     super.initState();
     team = widget.team;
     _teamNameController = TextEditingController(text: team?.name);
+    _teamLogoURIController = TextEditingController(text: team?.logoURI);
   }
 
   @override
@@ -44,7 +46,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
           name: _teamNameController.text,
           dbkey: oldTeam.dbkey,
           league: oldTeam.league,
-          logoURI: oldTeam.logoURI);
+          logoURI: _teamLogoURIController.text);
 
       widget.teamsViewModel.editTeam(teamEdited);
 
@@ -159,6 +161,41 @@ class _TeamEditPageState extends State<TeamEditPage> {
                       validator: (String? value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter a team name';
+                        }
+                        return null;
+                      },
+                    ),
+                  )
+                ],
+              ),
+              Row(
+                children: [
+                  const Text('Logo:'),
+                  Expanded(
+                    child: TextFormField(
+                      enabled: !disableBackButton,
+                      controller: _teamLogoURIController,
+                      onChanged: (String value) {
+                        if (team?.logoURI != value) {
+                          //something has changed, allow saves
+                          setState(() {
+                            disableSaves = false;
+                          });
+                        } else {
+                          setState(() {
+                            disableSaves = true;
+                          });
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Logo',
+                      ),
+                      onFieldSubmitted: (_) {
+                        // TODO move focus to next field?
+                      },
+                      validator: (String? value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a team logo link';
                         }
                         return null;
                       },

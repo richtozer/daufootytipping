@@ -6,6 +6,4 @@ final locator = GetIt.I;
 
 void setupLocator(String currentDAUComp) {
   locator.registerSingleton<TeamsViewModel>(TeamsViewModel());
-  locator.registerSingleton<DAURoundsViewModel>(
-      DAURoundsViewModel(currentDAUComp));
 }

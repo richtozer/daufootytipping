@@ -1,10 +1,12 @@
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class Team implements Comparable<Team> {
   String dbkey;
   final String name;
   final League league;
-  Uri? logoURI;
+  String? logoURI;
 
   //constructor
   Team(
@@ -18,15 +20,33 @@ class Team implements Comparable<Team> {
       dbkey: key,
       name: data['name'],
       league: League.values.byName(data['league']),
-      logoURI: Uri.parse(data['logoURI']),
+      logoURI: data['logoURI'] == null ? null : data['logoURI'] as String,
     );
   }
   toJson() {
     return {
       'name': name,
-      'logoURI': logoURI.toString(),
+      'logoURI': logoURI,
       'league': league.name,
     };
+  }
+
+  SvgPicture getHomeTeamLogo(Game game) {
+    return SvgPicture.asset(
+        game.homeTeam.logoURI != null
+            ? game.homeTeam.logoURI!
+            : 'assets/teams/nrl.svg',
+        height: 20,
+        width: 20);
+  }
+
+  SvgPicture getAwayTeamLogo(Game game) {
+    return SvgPicture.asset(
+        game.awayTeam.logoURI != null
+            ? game.awayTeam.logoURI!
+            : 'assets/teams/nrl.svg',
+        height: 20,
+        width: 20);
   }
 
   @override
