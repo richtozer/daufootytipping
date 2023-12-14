@@ -63,11 +63,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       _savingDAUComp = true;
       notifyListeners();
 
-//TODO test slow saves - in UI the back back should be disabled during the wait
-      await Future.delayed(const Duration(seconds: 5), () {
-        log('delayed save');
-      });
-
       //TODO only saved changed attributes to the firebase database
 
       // update the record in firebase
@@ -126,17 +121,23 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Game> aflGames =
         await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
 
-    GamesViewModel gamesViewModel = GamesViewModel(newdaucomp.dbkey!);
+    GamesViewModel gamesViewModel =
+        GamesViewModel(newdaucomp.dbkey!); //get the provider instance
+
+    List<Future> gamesFuture = []; //TODO use this wait pattern elsewhere
+
     for (Game game in nrlGames) {
-      gamesViewModel.addGame(game, newdaucomp);
+      gamesFuture.add(gamesViewModel.addGame(game, newdaucomp));
     }
 
     for (Game game in aflGames) {
-      gamesViewModel.addGame(game, newdaucomp);
+      gamesFuture.add(gamesViewModel.addGame(game, newdaucomp));
     }
 
-    // lets also create DAURounds based on the game data
-    //TODO - gamesViewModel.games;
+    await Future.wait(gamesFuture);
+
+    //once all the data is loaded, update the combinedRound field
+    gamesViewModel.updateCombinedRoundNumber();
   }
 
   @override

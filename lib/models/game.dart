@@ -70,7 +70,7 @@ class Game implements Comparable<Game> {
     );
   }
 
-  Map toJson() => {
+  Map<String, dynamic> toJson() => {
         'league': league.name,
         'homeTeamDbKey': homeTeam.dbkey,
         'awayTeamDbKey': awayTeam.dbkey,

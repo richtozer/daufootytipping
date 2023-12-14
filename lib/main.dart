@@ -1,9 +1,12 @@
 import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbols.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -33,9 +36,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'DAU Footy Tipping',
-      home: UserAuthPage(),
+    return ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: const MaterialApp(
+        title: 'DAU Footy Tipping',
+        home: UserAuthPage(),
+      ),
     );
   }
 }

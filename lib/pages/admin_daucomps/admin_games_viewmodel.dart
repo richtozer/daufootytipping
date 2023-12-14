@@ -4,11 +4,11 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database location
 const gamesPathRoot = '/DAUCompsGames';
@@ -61,7 +61,7 @@ class GamesViewModel extends ChangeNotifier {
         String key = entry.key; // Retrieve the Firebase key
         dynamic gameAsJSON = entry.value;
 
-        //we need to find and deserialize the DAuROund, home and away teams first before we can deserialize the game
+        //we need to find and deserialize the home and away teams first before we can deserialize the game
         Team? homeTeam =
             await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
         Team? awayTeam =
@@ -78,20 +78,18 @@ class GamesViewModel extends ChangeNotifier {
 
       _games = gamesList.where((game) => game != null).cast<Game>().toList();
       _games.sort();
-
-      _nestedGroups = groupBy(_games, (game) => game.combinedRoundNumber);
-
-      updateCombinedRoundNumber();
     } else {
       log('No games found for DAUComp $parentDAUCompDBkey');
     }
+
+    _nestedGroups = groupBy(_games, (game) => game.combinedRoundNumber);
     _initialLoadComplete = true;
 
     notifyListeners();
   }
 
   // this function should only be triggered by fixture download service
-  void editGame(Game game) async {
+  void editGame(Game updatedGame) async {
     try {
       while (!_initialLoadComplete) {
         log('Waiting for initial Game load to complete');
@@ -100,32 +98,53 @@ class GamesViewModel extends ChangeNotifier {
       _savingGame = true;
       notifyListeners();
 
-      //TODO test slow saves - in UI the back button should be disabled during the wait
+      /*//TODO test slow saves - in UI the back button should be disabled during the wait
       await Future.delayed(const Duration(seconds: 5), () {
         log('delayed save');
       });
+      */
 
-      //TODO only saved changed attributes to the firebase database
+      //the original Game record should be in our list of games
+      Game? originalGame = await findGame(updatedGame.dbkey);
 
-      // Implement the logic to edit the game in Firebase here
-      final Map<String, Map> updates = {};
-      updates['$gamesPathRoot/$parentDAUCompDBkey/${game.dbkey}'] =
-          game.toJson();
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
-      _db.update(updates);
+      //only edit the tipper record if it already exists, otherwise ignore
+      if (originalGame != null) {
+        // Convert the original and updated game to JSON
+        Map<String, dynamic> originalJson = originalGame.toJson();
+        Map<String, dynamic> updatedJson = updatedGame.toJson();
+
+        // Use JsonDiffer to get the differences
+        JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
+        DiffNode diff = differ.diff();
+
+        // Initialize an empty map to hold all updates
+        Map<String, dynamic> updates = {};
+
+        //log('Game: $gamesPathRoot/${updatedGame.dbkey} has: ${diff.changed.length} changes.');
+        // transform the changes from JsonDiffer format to Firebase format
+        Map changed = diff.changed;
+        changed.keys.toList().forEach((key) {
+          if (changed[key] is List && (changed[key] as List).isNotEmpty) {
+            // Add the update to the updates map
+            updates['$gamesPathRoot/$parentDAUCompDBkey/${updatedGame.dbkey}/$key'] =
+                changed[key][1];
+
+            // Apply any updates to Firebase
+            _db.update(updates);
+            log('Game updated in db to: $updates');
+          }
+        });
+      } else {
+        log('Game: ${updatedGame.dbkey} does not exist in the database, ignoring edit request');
+      }
     } finally {
       _savingGame = false;
       notifyListeners();
     }
   }
 
-  void addGame(Game gameData, DAUComp daucomp) async {
+  Future<void> addGame(Game gameData, DAUComp daucomp) async {
     try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial Game load to complete');
-        await Future.delayed(const Duration(seconds: 1));
-      }
-
       _savingGame = true;
       notifyListeners();
 
@@ -141,7 +160,7 @@ class GamesViewModel extends ChangeNotifier {
       updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
           postData;
       //updates['/user-posts/$uid/$newPostKey'] = postData;
-      _db.update(updates);
+      await _db.update(updates);
     } finally {
       _savingGame = false;
       notifyListeners();
@@ -149,12 +168,12 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   // this function finds the provided Game dbKey in the _Games list and returns it
-  Future<Game> findGame(String gameDbKey) async {
+  Future<Game?> findGame(String gameDbKey) async {
     while (!_initialLoadComplete) {
       log('Waiting for initial Game load to complete in findGame');
       await Future.delayed(const Duration(seconds: 1));
     }
-    return _games.firstWhere((game) => game.dbkey == gameDbKey);
+    return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
   // lets group the games for NRL and AFL into our own combined rounds based on this logic:
@@ -171,6 +190,8 @@ class GamesViewModel extends ChangeNotifier {
   // 11) Update Game.combinedRoundNumber for each game in the combined rounds
 
   void updateCombinedRoundNumber() {
+    log('In updateCombinedRoundNumber()');
+
     // Group games by league and round number
     var groups = groupBy(_games, (g) => '${g.league}-${g.roundNumber}');
 
@@ -221,10 +242,25 @@ class GamesViewModel extends ChangeNotifier {
     // Update combined round number for each game
     for (var i = 0; i < combinedRounds.length; i++) {
       for (var game in combinedRounds[i]) {
-        game.setCombinedRoundNumber = i + 1;
-        editGame(game); //write changes to firebase
+        if (game.combinedRoundNumber != i + 1) {
+          log('Updating combined round number for game: ${game.dbkey}');
+          Game updatedGame = Game(
+              matchNumber: game.matchNumber,
+              awayTeam: game.awayTeam,
+              homeTeam: game.homeTeam,
+              league: game.league,
+              roundNumber: game.roundNumber,
+              startTimeUTC: game.startTimeUTC,
+              location: game.location,
+              dbkey: game.dbkey,
+              combinedRoundNumber: i + 1);
+          editGame(updatedGame); //write changes to firebase
+        } else {
+          log('Game: ${game.dbkey} already has combined round number: ${game.combinedRoundNumber}');
+        }
       }
     }
+    log('out updateCombinedRoundNumber()');
   }
 
   @override

@@ -18,7 +18,6 @@ class TipsViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
-  bool _initialLoadComplete = true;
 
   final TippersViewModel _tippersViewModel;
   late GamesViewModel _gamesViewModel;
@@ -28,6 +27,7 @@ class TipsViewModel extends ChangeNotifier {
   List<Game> get games => _gamesViewModel.games;
   bool get savingTip => _savingTip;
   GamesViewModel get gamesViewModel => _gamesViewModel;
+  Completer<void> _initialLoadCompleter = Completer();
 
   //constructor
   TipsViewModel(this.parentDAUCompDBkey, this._tippersViewModel) {
@@ -62,7 +62,9 @@ class TipsViewModel extends ChangeNotifier {
     } else {
       log('No tips found for Tipper ${_tippersViewModel.tippers[_tippersViewModel.currentTipperIndex].name}');
     }
-    _initialLoadComplete = true;
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
+    }
 
     notifyListeners();
   }
@@ -88,8 +90,9 @@ class TipsViewModel extends ChangeNotifier {
         String key = entry.key;
         Map<String, dynamic> data = entry.value;
 
-        Game game = await _gamesViewModel.findGame(gameKey);
-        return Tip.fromJson(data, key, tipper, game);
+        Game? game = await _gamesViewModel.findGame(gameKey);
+        assert(game != null);
+        return Tip.fromJson(data, key, tipper, game!);
       }));
     }
 
@@ -121,11 +124,8 @@ class TipsViewModel extends ChangeNotifier {
     }
   }
 
-  Tip? getLatestGameTip(Game game) {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial tips load to complete, getLatestGameTip()');
-      Future.delayed(const Duration(seconds: 1));
-    }
+  Future<Tip?> getLatestGameTip(Game game) async {
+    await _initialLoadCompleter.future;
     log('tips load complete, getLatestGameTip()');
     Tip? foundTip =
         _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);

@@ -1,10 +1,10 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/user_daurounds.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:flutter/material.dart';
@@ -39,9 +39,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     List<Widget> content() {
       return [
-        //const Placeholder(),
-        const DAURoundsPage(),
-        //const TippingList(), //display games overlayed with tips for the logged on tipper
+        const TipsPage(),
         const Center(
           child: Text("Comp Stats Page"),
         ),
