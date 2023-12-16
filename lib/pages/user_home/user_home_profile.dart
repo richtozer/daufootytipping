@@ -26,9 +26,8 @@ class Profile extends StatelessWidget {
               ))),
       SliverToBoxAdapter(child: Center(child: aboutDialog(context))),
       Consumer<TippersViewModel>(builder: (_, TippersViewModel viewModel, __) {
-        if (viewModel.currentTipperIndex > -1 &&
-            viewModel.tippers[viewModel.currentTipperIndex].tipperRole ==
-                TipperRole.admin) {
+        if (viewModel.getcurrentTipper().then((tipperRole) => tipperRole) ==
+            TipperRole.admin) {
           return SliverToBoxAdapter(
               child: Center(child: adminFunctions(context)));
         } else {

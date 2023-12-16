@@ -1,5 +1,3 @@
-import 'package:daufootytipping/models/game.dart';
-
 class DAUComp implements Comparable<DAUComp> {
   String? dbkey;
   final String name;

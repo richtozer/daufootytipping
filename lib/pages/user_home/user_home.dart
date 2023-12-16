@@ -1,10 +1,7 @@
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:flutter/material.dart';
@@ -62,18 +59,12 @@ class _HomePageState extends State<HomePage> {
             selectedIndex: _currentIndex,
             destinations: [
               NavigationDestination(
-                enabled: tipperViewModel.currentTipperIndex == -1
-                    ? false
-                    : tipperViewModel
-                        .tippers[tipperViewModel.currentTipperIndex].active,
+                //enabled: tipperViewModel.getcurrentTipper().then((tipper) => tipper.active  ),
                 icon: const Icon(Icons.sports_rugby),
                 label: 'T  I  P  S',
               ),
               NavigationDestination(
-                enabled: tipperViewModel.currentTipperIndex == -1
-                    ? false
-                    : tipperViewModel
-                        .tippers[tipperViewModel.currentTipperIndex].active,
+                //enabled: tipperViewModel.getcurrentTipper().active,
                 icon: const Icon(Icons.auto_graph),
                 label: 'S  T  A  T  S',
               ),

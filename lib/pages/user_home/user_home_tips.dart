@@ -12,23 +12,15 @@ class TipsPage extends StatefulWidget {
   const TipsPage({super.key});
 
   @override
-  _TipsPageState createState() => _TipsPageState();
+  State<TipsPage> createState() => _TipsPageState();
 }
 
 class _TipsPageState extends State<TipsPage> {
-  final ScrollController _scrollController = ScrollController();
-
-  double _scrollPosition = 0.0;
+  final bucket = PageStorageBucket();
 
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollPosition);
-      }
-    });
   }
 
   @override
@@ -38,10 +30,8 @@ class _TipsPageState extends State<TipsPage> {
         return FutureBuilder<Map<int, List<Game>>>(
           future: tipsViewModel.gamesViewModel.nestedGames,
           builder: (context, snapshot) {
-            // Save the current scroll position
-            if (_scrollController.hasClients) {
-              _scrollPosition = _scrollController.offset;
-            }
+            final appStateNotifier =
+                Provider.of<AppState>(context, listen: false);
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const CircularProgressIndicator(); // Show loading spinner while waiting for data
             } else if (snapshot.hasError) {
@@ -49,108 +39,122 @@ class _TipsPageState extends State<TipsPage> {
                   'Error: ${snapshot.error}'); // Show error message if something went wrong
             } else {
               var nestedGroups = snapshot.data;
-              return CustomScrollView(
-                controller: _scrollController,
-                slivers: <Widget>[
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (BuildContext context, int index) {
-                        var combinedRoundNumber =
-                            nestedGroups.keys.elementAt(index);
-                        var games = nestedGroups[combinedRoundNumber];
+              return PageStorage(
+                bucket: bucket, //TODO this is not working, investigate
+                child: CustomScrollView(
+                  //key: const PageStorageKey<String>('myScrollableList'),
+                  slivers: <Widget>[
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (BuildContext context, int index) {
+                          var combinedRoundNumber =
+                              nestedGroups.keys.elementAt(index);
+                          var games = nestedGroups[combinedRoundNumber];
 
-                        final expansionStateNotifier =
-                            Provider.of<AppState>(context, listen: false);
-
-                        return ExpansionTile(
-                          initiallyExpanded:
-                              expansionStateNotifier.expandedStates[index],
-                          onExpansionChanged: (bool expanded) {
-                            setState(() {
-                              expansionStateNotifier.expandedStates[index] =
-                                  expanded;
-                            });
-                          },
-                          title: Text(
-                              'Round: $combinedRoundNumber Total: ${games!.length}'),
-                          children: [
-                            ExpansionTile(
-                              initiallyExpanded: expansionStateNotifier
-                                  .expandedStates[index + 1],
-                              onExpansionChanged: (bool expanded) {
-                                setState(() {
-                                  expansionStateNotifier
-                                      .expandedStates[index + 1] = expanded;
-                                });
+                          return ExpansionTile(
+                            initiallyExpanded:
+                                appStateNotifier.expandedStates[index],
+                            onExpansionChanged: (bool expanded) {
+                              setState(() {
+                                appStateNotifier.expandedStates[index] =
+                                    expanded;
+                              });
+                            },
+                            title: FutureBuilder<int>(
+                              future: tipsViewModel
+                                  .countTipsOutstanding(combinedRoundNumber),
+                              builder: (BuildContext context,
+                                  AsyncSnapshot<int> snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const CircularProgressIndicator();
+                                } else if (snapshot.hasError) {
+                                  return Text('Error: ${snapshot.error}');
+                                } else {
+                                  return Text(
+                                      'Round: $combinedRoundNumber Tipped: ${snapshot.data} / ${games!.length}');
+                                }
                               },
-                              leading: SvgPicture.asset(
-                                League.nrl.logo,
-                                height: 20.0,
-                                width: 20.0,
-                                fit: BoxFit
-                                    .contain, // This makes sure the whole SVG fits within the bounds
-                              ),
-                              title: const Text('N R L'),
-                              children: games
-                                  .where((game) => game.league == League.nrl)
-                                  .map((game) {
-                                return Column(
-                                  children: [
-                                    ListTile(
-                                      title: Text(
-                                          '${game.homeTeam.name} v ${game.awayTeam.name}'),
-                                      subtitle: Text(
-                                          '${DateFormat('EEE dd MMM hh:mm a').format(game.startTimeUTC.toLocal())} - ${game.location}'),
-                                      // Add more properties of the game as needed
-                                    ),
-                                    BuildChoiceChips(tipsViewModel,
-                                        game), // Add your custom widget here
-                                  ],
-                                );
-                              }).toList(),
                             ),
-                            ExpansionTile(
-                              initiallyExpanded: expansionStateNotifier
-                                  .expandedStates[index + 2],
-                              onExpansionChanged: (bool expanded) {
-                                setState(() {
-                                  expansionStateNotifier
-                                      .expandedStates[index + 2] = expanded;
-                                });
-                              },
-                              title: const Text('A F L'),
-                              leading: SvgPicture.asset(
-                                League.afl.logo,
-                                height: 20.0,
-                                width: 20.0,
-                                fit: BoxFit
-                                    .contain, // This makes sure the whole SVG fits within the bounds
+                            children: [
+                              ExpansionTile(
+                                initiallyExpanded:
+                                    appStateNotifier.expandedStates[index + 1],
+                                onExpansionChanged: (bool expanded) {
+                                  setState(() {
+                                    appStateNotifier.expandedStates[index + 1] =
+                                        expanded;
+                                  });
+                                },
+                                leading: SvgPicture.asset(
+                                  League.nrl.logo,
+                                  height: 20.0,
+                                  width: 20.0,
+                                  fit: BoxFit
+                                      .contain, // This makes sure the whole SVG fits within the bounds
+                                ),
+                                title: const Text('N R L'),
+                                children: games!
+                                    .where((game) => game.league == League.nrl)
+                                    .map((game) {
+                                  return Column(
+                                    children: [
+                                      ListTile(
+                                        title: Text(
+                                            '${game.homeTeam.name} v ${game.awayTeam.name}'),
+                                        subtitle: Text(
+                                            '${DateFormat('EEE dd MMM hh:mm a').format(game.startTimeUTC.toLocal())} - ${game.location}'),
+                                        // Add more properties of the game as needed
+                                      ),
+                                      BuildChoiceChips(tipsViewModel,
+                                          game), // Add your custom widget here
+                                    ],
+                                  );
+                                }).toList(),
                               ),
-                              children: games
-                                  .where((game) => game.league == League.afl)
-                                  .map((game) {
-                                return Column(
-                                  children: [
-                                    ListTile(
-                                      title: Text(
-                                          '${game.homeTeam.name} v ${game.awayTeam.name}'),
-                                      subtitle: Text(
-                                          '${DateFormat('EEE dd MMM hh:mm a').format(game.startTimeUTC.toLocal())} - ${game.location}'),
-                                      // Add more properties of the game as needed
-                                    ),
-                                    BuildChoiceChips(tipsViewModel,
-                                        game), // Add your custom widget here
-                                  ],
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        );
-                      },
-                      childCount: nestedGroups!.length,
+                              ExpansionTile(
+                                initiallyExpanded:
+                                    appStateNotifier.expandedStates[index + 2],
+                                onExpansionChanged: (bool expanded) {
+                                  setState(() {
+                                    appStateNotifier.expandedStates[index + 2] =
+                                        expanded;
+                                  });
+                                },
+                                title: const Text('A F L'),
+                                leading: SvgPicture.asset(
+                                  League.afl.logo,
+                                  height: 20.0,
+                                  width: 20.0,
+                                  fit: BoxFit
+                                      .contain, // This makes sure the whole SVG fits within the bounds
+                                ),
+                                children: games
+                                    .where((game) => game.league == League.afl)
+                                    .map((game) {
+                                  return Column(
+                                    children: [
+                                      ListTile(
+                                        title: Text(
+                                            '${game.homeTeam.name} v ${game.awayTeam.name}'),
+                                        subtitle: Text(
+                                            '${DateFormat('EEE dd MMM hh:mm a').format(game.startTimeUTC.toLocal())} - ${game.location}'),
+                                        // Add more properties of the game as needed
+                                      ),
+                                      BuildChoiceChips(tipsViewModel,
+                                          game), // Add your custom widget here
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          );
+                        },
+                        childCount: nestedGroups!.length,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             }
           },

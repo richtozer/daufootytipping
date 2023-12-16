@@ -78,15 +78,10 @@ class UserAuthPage extends StatelessWidget {
 
               return Consumer<TippersViewModel>(
                   builder: (context, tippersViewModel, child) {
-                if (tippersViewModel.currentTipperIndex == -1) {
-                  tippersViewModel.linkTipper(user);
-                  return const CircularProgressIndicator();
-                } else {
-                  return ChangeNotifierProvider<TipsViewModel>(
-                      create: (_) =>
-                          TipsViewModel(currentDAUComp, tippersViewModel),
-                      child: HomePage(user));
-                }
+                return ChangeNotifierProvider<TipsViewModel>(
+                    create: (_) =>
+                        TipsViewModel(currentDAUComp, tippersViewModel),
+                    child: HomePage(user));
               });
             }));
   }

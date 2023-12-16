@@ -15,8 +15,6 @@ const tippersPath = '/Tippers';
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
 
-  bool _initialLoadComplete = false;
-  bool _linkingUnderway = false;
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
@@ -28,12 +26,20 @@ class TippersViewModel extends ChangeNotifier {
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
-  bool get initialLoadComplete => _initialLoadComplete;
-  int _currentTipperIndex =
-      -1; //assume we dont know the current tipper index at startup
 
-  int get currentTipperIndex {
-    return _currentTipperIndex;
+  final Completer<void> _initialLoadCompleter = Completer<void>();
+
+  Tipper? _currentTipper;
+
+  Future<Tipper> getcurrentTipper() async {
+    _currentTipper ??=
+        await linkTipper(); //if _currentTipper is null, then call linkTipper() to find the current tipper
+
+    if (_currentTipper == null) {
+      throw Exception(
+          'Tipper not found in database or not linked to firebase user');
+    }
+    return _currentTipper!;
   }
 
   //constructor
@@ -89,34 +95,28 @@ class TippersViewModel extends ChangeNotifier {
     } else {
       log('XXX No tippers found in database');
     }
-    _initialLoadComplete = true;
+    _initialLoadCompleter.complete();
     notifyListeners();
   }
 
-  void linkTipper(User? firebaseUser) async {
+  Future<Tipper> linkTipper() async {
     try {
-      if (_linkingUnderway) {
-        log('linking is already underway');
-        return; // do nothing if linking is already underway
-      } else {
-        _linkingUnderway = true;
-      }
-
-      while (!_initialLoadComplete) {
-        log('Waiting for initial Tipper load to complete, linktipper()');
-        await Future.delayed(const Duration(seconds: 1));
-      }
+      log('Waiting for initial Tipper load to complete, linktipper()');
+      await _initialLoadCompleter.future;
       log('tipper load complete, linkTipper()');
+
+      User? firebaseUser = FirebaseAuth.instance.currentUser;
+
       //see if we can find an existing Tipper record using uid
-      Tipper? foundTipper = findTipperByUid(firebaseUser!.uid);
+      Tipper? foundTipper = await findTipperByUid(firebaseUser!.uid);
 
       if (foundTipper != null) {
         //we found an existing Tipper record using uid, so use it
-        _currentTipperIndex = (_tippers.indexOf(foundTipper));
+        return foundTipper;
       } else {
         //if we can't find an existing Tipper record using uid, see if we can find an existing Tipper record using email
 
-        Tipper? foundTipper = findTipperByEmail(firebaseUser.email!);
+        Tipper? foundTipper = await findTipperByEmail(firebaseUser.email!);
         if (foundTipper != null) {
           //update the tipper record to use the firebase uid
           Tipper updateTipper = Tipper(
@@ -132,7 +132,7 @@ class TippersViewModel extends ChangeNotifier {
           editTipper(updateTipper);
 
           //save the index of the current logged on tipper to the model for later use
-          _currentTipperIndex = (_tippers.indexOf(updateTipper));
+          return updateTipper;
         } else {
           //otherwise create a new tipper record and link it to the firebase user, set active to false and tipperrole to tipper
           Tipper newTipper = Tipper(
@@ -145,11 +145,10 @@ class TippersViewModel extends ChangeNotifier {
           addTipper(newTipper);
 
           //save the index of the current logged on tipper to the model for later use
-          _currentTipperIndex = (_tippers.length - 1);
+          return newTipper;
         }
       }
     } finally {
-      _linkingUnderway = false;
       SchedulerBinding.instance.addPostFrameCallback((_) {
         notifyListeners();
       });
@@ -158,11 +157,10 @@ class TippersViewModel extends ChangeNotifier {
 
   void editTipper(Tipper updatedTipper) async {
     try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial Tipper load to complete, edittipper()');
-        await Future.delayed(const Duration(seconds: 1));
-      }
+      log('Waiting for initial Tipper load to complete, edittipper()');
+      await _initialLoadCompleter.future;
       log('tipper load complete, editTipper()');
+
       _savingTipper = true;
       notifyListeners();
 
@@ -204,13 +202,11 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  String? addTipper(Tipper tipperData) {
+  Future<String?> addTipper(Tipper tipperData) async {
     final String? dbkey;
     try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial Tipper load to complete, addTipper()');
-        Future.delayed(const Duration(seconds: 1));
-      }
+      log('Waiting for initial Tipper load to complete, addTipper()');
+      await _initialLoadCompleter.future;
       log('tipper load complete, addTipper()');
       _savingTipper = true;
       notifyListeners();
@@ -238,30 +234,24 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Tipper? findTipperByUid(String authuid) {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial tipper load to complete, findtipperbyuid()');
-      Future.delayed(const Duration(seconds: 1));
-    }
+  Future<Tipper?> findTipperByUid(String authuid) async {
+    log('Waiting for initial tipper load to complete, findtipperbyuid()');
+    await _initialLoadCompleter.future;
     log('tipper load complete, findtipperbyuid()');
     return _tippers.firstWhereOrNull((tipper) => tipper.authuid == authuid);
   }
 
-  Tipper? findTipperByEmail(String email) {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial tipper load to complete, findtipperbyemail()');
-      Future.delayed(const Duration(seconds: 1));
-    }
+  Future<Tipper?> findTipperByEmail(String email) async {
+    log('Waiting for initial tipper load to complete, findtipperbyemail()');
+    await _initialLoadCompleter.future;
     log('tipper load complete, findtipperbyemail()');
     return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
   }
 
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
   Future<Tipper> findTipper(String tipperDbKey) async {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial Tipper load to complete in findTipper()');
-      await Future.delayed(const Duration(seconds: 1));
-    }
+    log('Waiting for initial Tipper load to complete in findTipper()');
+    await _initialLoadCompleter.future;
     return _tippers.firstWhere((tipper) => tipper.dbkey == tipperDbKey);
   }
 

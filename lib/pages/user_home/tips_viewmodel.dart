@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -22,12 +23,14 @@ class TipsViewModel extends ChangeNotifier {
   final TippersViewModel _tippersViewModel;
   late GamesViewModel _gamesViewModel;
   final String parentDAUCompDBkey;
+  final Completer<void> _initialLoadCompleter = Completer();
 
   List<Tip> get tips => _tips;
   List<Game> get games => _gamesViewModel.games;
   bool get savingTip => _savingTip;
   GamesViewModel get gamesViewModel => _gamesViewModel;
-  Completer<void> _initialLoadCompleter = Completer();
+
+  TippersViewModel get tippersViewModel => _tippersViewModel;
 
   //constructor
   TipsViewModel(this.parentDAUCompDBkey, this._tippersViewModel) {
@@ -41,10 +44,11 @@ class TipsViewModel extends ChangeNotifier {
     notifyListeners(); //notify our consumers that the data may have changed to the gamesviewmodel.games data
   }
 
-  void _listenToTips() {
+  void _listenToTips() async {
+    Tipper? currentTipper = await _tippersViewModel.getcurrentTipper();
+
     _tipsStream = _db
-        .child(
-            '$tipsPathRoot/$parentDAUCompDBkey/${_tippersViewModel.tippers[_tippersViewModel.currentTipperIndex].dbkey}')
+        .child('$tipsPathRoot/$parentDAUCompDBkey/${currentTipper.dbkey}')
         .onValue
         .listen((event) {
       _handleEvent(event);
@@ -56,11 +60,11 @@ class TipsViewModel extends ChangeNotifier {
       final allTips =
           deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
 
-      _tips = await deserializeTips(allTips,
-          _tippersViewModel.tippers[_tippersViewModel.currentTipperIndex]);
+      _tips =
+          await deserializeTips(allTips, _tippersViewModel.getcurrentTipper());
       _tips.sort();
     } else {
-      log('No tips found for Tipper ${_tippersViewModel.tippers[_tippersViewModel.currentTipperIndex].name}');
+      log('No tips found for Tipper ${_tippersViewModel.getcurrentTipper().then((currentTipper) => currentTipper.name)}');
     }
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
@@ -81,6 +85,8 @@ class TipsViewModel extends ChangeNotifier {
 
   Future<List<Tip>> deserializeTips(Map<String, dynamic> json, tipper) async {
     List<Future<Tip>> futureTips = [];
+    Tipper futureTipper =
+        await tipper; //its important we wait for the tipper to be resolved before we attempt to deserailise any tips in this function
 
     for (var entry in json.entries) {
       String gameKey = entry.key;
@@ -92,7 +98,7 @@ class TipsViewModel extends ChangeNotifier {
 
         Game? game = await _gamesViewModel.findGame(gameKey);
         assert(game != null);
-        return Tip.fromJson(data, key, tipper, game!);
+        return Tip.fromJson(data, key, futureTipper, game!);
       }));
     }
 
@@ -118,6 +124,7 @@ class TipsViewModel extends ChangeNotifier {
       updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}/$newTipKey'] =
           tipJson;
       _db.update(updates);
+      log('new tip logged: ${updates.toString()}');
     } finally {
       _savingTip = false;
       notifyListeners();
@@ -126,10 +133,11 @@ class TipsViewModel extends ChangeNotifier {
 
   Future<Tip?> getLatestGameTip(Game game) async {
     await _initialLoadCompleter.future;
-    log('tips load complete, getLatestGameTip()');
+    log('tips load complete, getLatestGameTip(${game.dbkey})');
     Tip? foundTip =
         _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);
     if (foundTip != null) {
+      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam} vs ${game.awayTeam}  )');
       return foundTip;
     } else {
       if (game.gameState == GameState.notStarted) {
@@ -142,10 +150,30 @@ class TipsViewModel extends ChangeNotifier {
                 isUtc:
                     true), //set the submitted time to the epoch to indicate that this is a default tip
             game: game,
-            tipper: _tippersViewModel
-                .tippers[_tippersViewModel.currentTipperIndex]);
+            tipper: await _tippersViewModel.getcurrentTipper());
       }
     }
+  }
+
+  Future<int> countTipsOutstanding(int combinedRound) async {
+    await _initialLoadCompleter.future;
+    log('tips load complete, countTipsOutstanding(combinedRound: $combinedRound)');
+
+    int tipsLodged = 0;
+
+    List<Game>? combinedRoundGames = games
+        .where((game) => game.combinedRoundNumber == combinedRound)
+        .toList();
+    for (var game in combinedRoundGames) {
+      //count the number of tips lodged for this combined round
+      getLatestGameTip(game).then((tip) {
+        if (tip != null) {
+          tipsLodged++;
+        }
+      });
+    }
+
+    return Future<int>.value(tipsLodged);
   }
 
   @override
