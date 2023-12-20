@@ -2,7 +2,7 @@ import 'package:daufootytipping/models/tipperrole.dart';
 
 class Tipper implements Comparable<Tipper> {
   String? dbkey;
-  final String authuid;
+  String authuid;
   final String email;
   final String name;
   final bool active;
@@ -25,6 +25,19 @@ class Tipper implements Comparable<Tipper> {
         name: data['name'] ?? '',
         active: data['active'] ?? false,
         tipperRole: TipperRole.values.byName(data['tipperRole']));
+  }
+
+  static List<Tipper?> fromJsonList(dynamic json) {
+    final allTippers = Map<String, dynamic>.from(json as dynamic);
+
+    List<Tipper?> tippersList = allTippers.entries.map((entry) {
+      String key = entry.key; // Retrieve the Firebase key
+      dynamic tipperasJSON = entry.value;
+
+      return Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
+    }).toList();
+
+    return tippersList;
   }
 
   toJson() {

@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_settings_about.dart';
@@ -7,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class Profile extends StatelessWidget {
-  const Profile({super.key});
+  const Profile(this.currentTipper, {super.key});
+
+  final Tipper currentTipper;
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +29,8 @@ class Profile extends StatelessWidget {
               ))),
       SliverToBoxAdapter(child: Center(child: aboutDialog(context))),
       Consumer<TippersViewModel>(builder: (_, TippersViewModel viewModel, __) {
-        if (viewModel.getcurrentTipper().then((tipperRole) => tipperRole) ==
-            TipperRole.admin) {
+        //if (viewModel.getcurrentTipper().then((tipperRole) => tipperRole) ==
+        if (currentTipper.tipperRole == TipperRole.admin) {
           return SliverToBoxAdapter(
               child: Center(child: adminFunctions(context)));
         } else {

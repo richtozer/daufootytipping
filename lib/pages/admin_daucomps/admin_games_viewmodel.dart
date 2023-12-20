@@ -6,44 +6,37 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:json_diff/json_diff.dart';
 
-// define  constant for firestore database location
 const gamesPathRoot = '/DAUCompsGames';
 
 class GamesViewModel extends ChangeNotifier {
+  // Properties
   List<Game> _games = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
-
   late Map<int, List<Game>> _nestedGroups;
-
   bool _savingGame = false;
-  bool _initialLoadComplete =
-      false; //TODO if our concunrrency model is ok now, we can remove this check
+  Completer<void> _initialLoadCompleter = Completer<void>();
+
   String parentDAUCompDBkey;
-
-  Future<Map<int, List<Game>>> get nestedGames async {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial Game load to complete');
-      await Future.delayed(const Duration(seconds: 1));
-    }
-    return _nestedGroups;
-  }
-
-  List<Game> get games => _games;
-  bool get savingGame => _savingGame;
-
   late TeamsViewModel _teamsViewModel;
 
-  //constructor
+  // Getters
+  List<Game> get games => _games;
+  bool get savingGame => _savingGame;
+  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
+
+  // Constructor
   GamesViewModel(this.parentDAUCompDBkey) {
     _teamsViewModel = locator<TeamsViewModel>();
     _listenToGames();
   }
 
+  // Database listeners
   void _listenToGames() {
     _gamesStream =
         _db.child('$gamesPathRoot/$parentDAUCompDBkey').onValue.listen((event) {
@@ -52,49 +45,86 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
-    if (event.snapshot.exists) {
-      final allGames =
-          Map<String, dynamic>.from(event.snapshot.value as dynamic);
+    try {
+      if (event.snapshot.exists) {
+        final allGames =
+            Map<String, dynamic>.from(event.snapshot.value as dynamic);
 
-      List<Game?> gamesList =
-          await Future.wait(allGames.entries.map((entry) async {
-        String key = entry.key; // Retrieve the Firebase key
-        dynamic gameAsJSON = entry.value;
+        List<Game?> gamesList =
+            await Future.wait(allGames.entries.map((entry) async {
+          String key = entry.key; // Retrieve the Firebase key
+          dynamic gameAsJSON = entry.value;
 
-        //we need to find and deserialize the home and away teams first before we can deserialize the game
-        Team? homeTeam =
-            await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
-        Team? awayTeam =
-            await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
+          //we need to find and deserialize the home and away teams first before we can deserialize the game
+          Team? homeTeam =
+              await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
+          Team? awayTeam =
+              await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
 
-        if (homeTeam != null && awayTeam != null) {
-          return Game.fromJson(
-              Map<String, dynamic>.from(gameAsJSON), key, homeTeam, awayTeam);
-        } else {
-          // Handle the case where homeTeam or awayTeam is null
-          return null;
-        }
-      }).toList());
+          if (homeTeam != null && awayTeam != null) {
+            return Game.fromJson(
+                Map<String, dynamic>.from(gameAsJSON), key, homeTeam, awayTeam);
+          } else {
+            // Handle the case where homeTeam or awayTeam is null
+            return null;
+          }
+        }).toList());
 
-      _games = gamesList.where((game) => game != null).cast<Game>().toList();
-      _games.sort();
-    } else {
-      log('No games found for DAUComp $parentDAUCompDBkey');
+        _games = gamesList.where((game) => game != null).cast<Game>().toList();
+        _games.sort();
+      } else {
+        log('No games found for DAUComp $parentDAUCompDBkey');
+      }
+    } catch (e) {
+      log('Error in GamesViewModel_handleEvent: $e');
+    } finally {
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+      notifyListeners();
     }
-
-    _nestedGroups = groupBy(_games, (game) => game.combinedRoundNumber);
-    _initialLoadComplete = true;
-
-    notifyListeners();
   }
 
-  // this function should only be triggered by fixture download service
+  // Game operations
+  Future<Map<int, List<Game>>> getNestedGames() async {
+    log('getNestedGames() waiting for initial Game load to complete');
+    await initialLoadComplete;
+    log('getNestedGames() COMPLETED waiting for initial Game load to complete');
+
+    _nestedGroups = groupBy(_games, (game) => game.combinedRoundNumber);
+
+    return _nestedGroups;
+  }
+
+  Future<void> addGame(Game gameData, DAUComp daucomp) async {
+    try {
+      _savingGame = true;
+      notifyListeners();
+
+      _teamsViewModel.addTeam(gameData.awayTeam);
+      _teamsViewModel.addTeam(gameData.homeTeam);
+
+      // A post entry. //TODO
+      final postData = gameData.toJson();
+
+      // Write the new post's data simultaneously in the posts list and the
+      // user's post list. //TODO
+      final Map<String, Map> updates = {};
+      updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
+          postData;
+      //updates['/user-posts/$uid/$newPostKey'] = postData;
+      await _db.update(updates);
+    } finally {
+      _savingGame = false;
+      notifyListeners();
+    }
+  }
+
   void editGame(Game updatedGame) async {
     try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial Game load to complete');
-        await Future.delayed(const Duration(seconds: 1));
-      }
+      //await _initialLoadCompleter.future;
+      log('Waiting for initial Game load to complete');
+
       _savingGame = true;
       notifyListeners();
 
@@ -132,10 +162,27 @@ class GamesViewModel extends ChangeNotifier {
             // Apply any updates to Firebase
             _db.update(updates);
             log('Game updated in db to: $updates');
+
+            // Log the event to Firebase Analytics
+            FirebaseAnalytics.instance.logEvent(
+              name: 'game_updated',
+              parameters: <String, dynamic>{
+                'game_key': updatedGame.dbkey,
+                'update': updates,
+              },
+            );
           }
         });
       } else {
         log('Game: ${updatedGame.dbkey} does not exist in the database, ignoring edit request');
+
+        // Log the event to Firebase Analytics
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'game_update_attempted_nonexistent',
+          parameters: <String, dynamic>{
+            'game_key': updatedGame.dbkey,
+          },
+        );
       }
     } finally {
       _savingGame = false;
@@ -143,36 +190,9 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> addGame(Game gameData, DAUComp daucomp) async {
-    try {
-      _savingGame = true;
-      notifyListeners();
-
-      _teamsViewModel.addTeam(gameData.awayTeam);
-      _teamsViewModel.addTeam(gameData.homeTeam);
-
-      // A post entry. //TODO
-      final postData = gameData.toJson();
-
-      // Write the new post's data simultaneously in the posts list and the
-      // user's post list. //TODO
-      final Map<String, Map> updates = {};
-      updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
-          postData;
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
-      await _db.update(updates);
-    } finally {
-      _savingGame = false;
-      notifyListeners();
-    }
-  }
-
-  // this function finds the provided Game dbKey in the _Games list and returns it
   Future<Game?> findGame(String gameDbKey) async {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial Game load to complete in findGame');
-      await Future.delayed(const Duration(seconds: 1));
-    }
+    //await _initialLoadCompleter.future;
+    log('Waiting for initial Game load to complete  findGame()');
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
@@ -189,6 +209,7 @@ class GamesViewModel extends ChangeNotifier {
   // 10) repeat steps 7-9 until all groups have been processed into combined rounds
   // 11) Update Game.combinedRoundNumber for each game in the combined rounds
 
+  // Game grouping and sorting
   void updateCombinedRoundNumber() {
     log('In updateCombinedRoundNumber()');
 
@@ -263,9 +284,16 @@ class GamesViewModel extends ChangeNotifier {
     log('out updateCombinedRoundNumber()');
   }
 
+  // Cleanup
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
+
+    // create a new Completer if the old one was completed:
+    if (_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter = Completer<void>();
+    }
+
     super.dispose();
   }
 }

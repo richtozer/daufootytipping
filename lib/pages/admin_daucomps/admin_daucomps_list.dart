@@ -43,7 +43,9 @@ class DAUCompsListPage extends StatelessWidget {
             ),
             floatingActionButton: FloatingActionButton(
               onPressed: () async {
-                //await _addDAUComp(daucompsViewModel, context); TODO fix this
+                DAUCompsViewModel daucompsViewModel =
+                    Provider.of<DAUCompsViewModel>(context, listen: false);
+                await _addDAUComp(daucompsViewModel, context);
               },
               child: const Icon(Icons.add),
             ),

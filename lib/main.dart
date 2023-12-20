@@ -1,6 +1,7 @@
 import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -10,10 +11,14 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   // Do not to start running the application widget code until the Flutter framework is completely booted
-  WidgetsFlutterBinding.ensureInitialized(); //TODO remove hardcoding
+  WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // setup some default analytics parameters
+  await FirebaseAnalytics.instance
+      .setDefaultEventParameters({'version': '1.2.3'});
 
   const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
   setupLocator(currentDAUComp);

@@ -1,30 +1,25 @@
+import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
-
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
-  final User user;
+  const HomePage(this.currentTipper, {super.key});
 
-  const HomePage(this.user, {super.key});
+  final Tipper currentTipper;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0; // default to tips page
-
+class _HomePageState extends State<HomePage>
+    with AutomaticKeepAliveClientMixin<HomePage> {
   @override
-  void initState() {
-    super.initState();
-  }
+  bool get wantKeepAlive => true;
 
-  //final admin = false;
+  int _currentIndex = 0; // default to tips page
 
   void onTabTapped(int index) {
     setState(() {
@@ -34,21 +29,24 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     List<Widget> content() {
       return [
-        const TipsPage(),
-        const Center(
-          child: Text("Comp Stats Page"),
+        TipsPage(widget.currentTipper), // Pass currentTipper to TipsPage
+        Center(
+          child: Text('Comp Stats Page ${widget.currentTipper.name}'),
         ),
-        const Profile(), //display profile and settings for the logged on tipper
+        Profile(widget
+            .currentTipper), // Display profile and settings for the logged on tipper
       ];
     }
 
     List<Widget> destinationContent = content();
 
     return Consumer<TippersViewModel>(
-        builder: (context, tipperViewModel, child) {
-      return Scaffold(
+      builder: (context, tipperViewModel, child) {
+        return Scaffold(
           body: Center(
             child: (destinationContent[_currentIndex]),
           ),
@@ -59,12 +57,12 @@ class _HomePageState extends State<HomePage> {
             selectedIndex: _currentIndex,
             destinations: [
               NavigationDestination(
-                //enabled: tipperViewModel.getcurrentTipper().then((tipper) => tipper.active  ),
+                enabled: widget.currentTipper.active,
                 icon: const Icon(Icons.sports_rugby),
-                label: 'T  I  P  S',
+                label: 'T  I  P  S  ${widget.currentTipper.tipperRole.name}',
               ),
               NavigationDestination(
-                //enabled: tipperViewModel.getcurrentTipper().active,
+                enabled: widget.currentTipper.active,
                 icon: const Icon(Icons.auto_graph),
                 label: 'S  T  A  T  S',
               ),
@@ -73,7 +71,9 @@ class _HomePageState extends State<HomePage> {
                 label: 'P  R  O  F  I  L  E',
               ),
             ],
-          ));
-    });
+          ),
+        );
+      },
+    );
   }
 }

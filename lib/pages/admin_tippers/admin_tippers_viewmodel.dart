@@ -2,11 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database locations
@@ -18,9 +15,6 @@ class TippersViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
-  //int _currentTipperIndex =
-  //  -1; //we need to use an index to track the current tipper -
-  // our consumers in the widget tree are only listening for changes to the List<Tipper> _tippers
 
   List<Tipper> get tippers => _tippers;
 
@@ -28,19 +22,6 @@ class TippersViewModel extends ChangeNotifier {
   bool get savingTipper => _savingTipper;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
-
-  Tipper? _currentTipper;
-
-  Future<Tipper> getcurrentTipper() async {
-    _currentTipper ??=
-        await linkTipper(); //if _currentTipper is null, then call linkTipper() to find the current tipper
-
-    if (_currentTipper == null) {
-      throw Exception(
-          'Tipper not found in database or not linked to firebase user');
-    }
-    return _currentTipper!;
-  }
 
   //constructor
   TippersViewModel() {
@@ -56,16 +37,7 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     if (event.snapshot.exists) {
-      final allTippers =
-          Map<String, dynamic>.from(event.snapshot.value as dynamic);
-
-      List<Tipper?> tippersList =
-          await Future.wait(allTippers.entries.map((entry) async {
-        String key = entry.key; // Retrieve the Firebase key
-        dynamic tipperasJSON = entry.value;
-
-        return Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
-      }).toList());
+      List<Tipper?> tippersList = Tipper.fromJsonList(event.snapshot.value);
 
       _tippers =
           tippersList.where((game) => game != null).cast<Tipper>().toList();
@@ -95,64 +67,10 @@ class TippersViewModel extends ChangeNotifier {
     } else {
       log('XXX No tippers found in database');
     }
-    _initialLoadCompleter.complete();
-    notifyListeners();
-  }
-
-  Future<Tipper> linkTipper() async {
-    try {
-      log('Waiting for initial Tipper load to complete, linktipper()');
-      await _initialLoadCompleter.future;
-      log('tipper load complete, linkTipper()');
-
-      User? firebaseUser = FirebaseAuth.instance.currentUser;
-
-      //see if we can find an existing Tipper record using uid
-      Tipper? foundTipper = await findTipperByUid(firebaseUser!.uid);
-
-      if (foundTipper != null) {
-        //we found an existing Tipper record using uid, so use it
-        return foundTipper;
-      } else {
-        //if we can't find an existing Tipper record using uid, see if we can find an existing Tipper record using email
-
-        Tipper? foundTipper = await findTipperByEmail(firebaseUser.email!);
-        if (foundTipper != null) {
-          //update the tipper record to use the firebase uid
-          Tipper updateTipper = Tipper(
-            dbkey: foundTipper.dbkey,
-            authuid: firebaseUser.uid,
-            email: foundTipper.email,
-            name: foundTipper.name,
-            active: foundTipper.active,
-            tipperRole: foundTipper.tipperRole,
-          );
-
-          //update the tipper record in the database
-          editTipper(updateTipper);
-
-          //save the index of the current logged on tipper to the model for later use
-          return updateTipper;
-        } else {
-          //otherwise create a new tipper record and link it to the firebase user, set active to false and tipperrole to tipper
-          Tipper newTipper = Tipper(
-            name: firebaseUser.email!,
-            email: firebaseUser.email!,
-            authuid: firebaseUser.uid,
-            active: false,
-            tipperRole: TipperRole.tipper,
-          );
-          addTipper(newTipper);
-
-          //save the index of the current logged on tipper to the model for later use
-          return newTipper;
-        }
-      }
-    } finally {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        notifyListeners();
-      });
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
     }
+    notifyListeners();
   }
 
   void editTipper(Tipper updatedTipper) async {

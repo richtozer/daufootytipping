@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:developer';
-
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -20,7 +19,6 @@ class TipsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
 
-  final TippersViewModel _tippersViewModel;
   late GamesViewModel _gamesViewModel;
   final String parentDAUCompDBkey;
   final Completer<void> _initialLoadCompleter = Completer();
@@ -29,24 +27,21 @@ class TipsViewModel extends ChangeNotifier {
   List<Game> get games => _gamesViewModel.games;
   bool get savingTip => _savingTip;
   GamesViewModel get gamesViewModel => _gamesViewModel;
-
-  TippersViewModel get tippersViewModel => _tippersViewModel;
+  Tipper currentTipper;
 
   //constructor
-  TipsViewModel(this.parentDAUCompDBkey, this._tippersViewModel) {
+  TipsViewModel(this.currentTipper, this.parentDAUCompDBkey) {
     _gamesViewModel = GamesViewModel(parentDAUCompDBkey);
     _gamesViewModel.addListener(
-        update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data may have changed
+        update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
   void update() {
-    notifyListeners(); //notify our consumers that the data may have changed to the gamesviewmodel.games data
+    notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
   }
 
   void _listenToTips() async {
-    Tipper? currentTipper = await _tippersViewModel.getcurrentTipper();
-
     _tipsStream = _db
         .child('$tipsPathRoot/$parentDAUCompDBkey/${currentTipper.dbkey}')
         .onValue
@@ -60,11 +55,10 @@ class TipsViewModel extends ChangeNotifier {
       final allTips =
           deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
 
-      _tips =
-          await deserializeTips(allTips, _tippersViewModel.getcurrentTipper());
+      _tips = await deserializeTips(allTips, currentTipper);
       _tips.sort();
     } else {
-      log('No tips found for Tipper ${_tippersViewModel.getcurrentTipper().then((currentTipper) => currentTipper.name)}');
+      log('No tips found for Tipper ${currentTipper.name}');
     }
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
@@ -111,7 +105,7 @@ class TipsViewModel extends ChangeNotifier {
       notifyListeners();
 
       // create a json representation of the tip
-      final tipJson = tip.toJson();
+      final tipJson = await tip.toJson();
 
       //get a unique db key for this tip
       final newTipKey = _db
@@ -125,6 +119,16 @@ class TipsViewModel extends ChangeNotifier {
           tipJson;
       _db.update(updates);
       log('new tip logged: ${updates.toString()}');
+
+      await FirebaseAnalytics.instance
+          .logEvent(name: 'tip_submitted', parameters: {
+        'tipper': tip.tipper.name,
+        'comp': parentDAUCompDBkey,
+        'game':
+            'Round: ${tip.game.combinedRoundNumber}, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
+        'tip': tip.tip.toString(),
+        'submittedTimeUTC': tip.submittedTimeUTC.toString(),
+      });
     } finally {
       _savingTip = false;
       notifyListeners();
@@ -137,7 +141,7 @@ class TipsViewModel extends ChangeNotifier {
     Tip? foundTip =
         _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);
     if (foundTip != null) {
-      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam} vs ${game.awayTeam}  )');
+      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name}  )');
       return foundTip;
     } else {
       if (game.gameState == GameState.notStarted) {
@@ -150,14 +154,18 @@ class TipsViewModel extends ChangeNotifier {
                 isUtc:
                     true), //set the submitted time to the epoch to indicate that this is a default tip
             game: game,
-            tipper: await _tippersViewModel.getcurrentTipper());
+            tipper: currentTipper);
       }
     }
   }
 
-  Future<int> countTipsOutstanding(int combinedRound) async {
-    await _initialLoadCompleter.future;
-    log('tips load complete, countTipsOutstanding(combinedRound: $combinedRound)');
+  Future<int> countTipsLodgedForRound(int combinedRound) async {
+    if (_initialLoadCompleter.isCompleted) {
+      log('tips load already complete, countTipsOutstanding(combinedRound: $combinedRound)');
+    } else {
+      log('Waiting for initial Tip load to complete, countTipsOutstanding(combinedRound: $combinedRound)');
+      await _initialLoadCompleter.future;
+    }
 
     int tipsLodged = 0;
 
@@ -166,12 +174,13 @@ class TipsViewModel extends ChangeNotifier {
         .toList();
     for (var game in combinedRoundGames) {
       //count the number of tips lodged for this combined round
-      getLatestGameTip(game).then((tip) {
+      await getLatestGameTip(game).then((tip) {
         if (tip != null) {
           tipsLodged++;
         }
       });
     }
+    log(' $tipsLodged tips Lodged for combinedround $combinedRound');
 
     return Future<int>.value(tipsLodged);
   }

@@ -33,6 +33,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   dio: ^5.3.4
   email_validator: ^2.1.17
+  firebase_analytics: ^10.7.4
   firebase_auth: ^4.14.0
   firebase_core: ^2.22.0
   firebase_crashlytics: ^3.4.8

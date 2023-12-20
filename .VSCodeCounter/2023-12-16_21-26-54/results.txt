@@ -1,0 +1,194 @@
+Date : 2023-12-16 21:26:54
+Directory : /Users/richardtozer/dev/projects/daufootytipping
+Total : 107 files,  9960 codes, 696 comments, 655 blanks, all 11311 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| Dart       |         37 |      7,235 |        401 |        353 |      7,989 |
+| XML        |         28 |      1,516 |         66 |         31 |      1,613 |
+| C++        |         16 |        561 |        121 |        182 |        864 |
+| JSON       |          9 |        340 |          1 |          5 |        346 |
+| Groovy     |          3 |         96 |          7 |         22 |        125 |
+| Swift      |          6 |         81 |          7 |         21 |        109 |
+| YAML       |          3 |         54 |         77 |         13 |        144 |
+| HTML       |          1 |         38 |         16 |          6 |         60 |
+| Markdown   |          2 |         31 |          0 |         20 |         51 |
+| Properties |          2 |          8 |          0 |          2 |         10 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                  | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                     |        107 |      9,960 |        696 |        655 |     11,311 |
+| . (Files)                                                                                                             |          6 |        105 |         78 |         32 |        215 |
+| android                                                                                                               |         13 |        224 |         54 |         34 |        312 |
+| android (Files)                                                                                                       |          3 |         48 |          2 |         11 |         61 |
+| android/app                                                                                                           |          9 |        171 |         52 |         22 |        245 |
+| android/app (Files)                                                                                                   |          2 |        106 |          5 |         12 |        123 |
+| android/app/src                                                                                                       |          7 |         65 |         47 |         10 |        122 |
+| android/app/src/debug                                                                                                 |          1 |          3 |          4 |          1 |          8 |
+| android/app/src/main                                                                                                  |          5 |         59 |         39 |          8 |        106 |
+| android/app/src/main (Files)                                                                                          |          1 |         33 |          7 |          2 |         42 |
+| android/app/src/main/res                                                                                              |          4 |         26 |         32 |          6 |         64 |
+| android/app/src/main/res/drawable                                                                                     |          1 |          4 |          7 |          2 |         13 |
+| android/app/src/main/res/drawable-v21                                                                                 |          1 |          4 |          7 |          2 |         13 |
+| android/app/src/main/res/values                                                                                       |          1 |          9 |          9 |          1 |         19 |
+| android/app/src/main/res/values-night                                                                                 |          1 |          9 |          9 |          1 |         19 |
+| android/app/src/profile                                                                                               |          1 |          3 |          4 |          1 |          8 |
+| android/gradle                                                                                                        |          1 |          5 |          0 |          1 |          6 |
+| android/gradle/wrapper                                                                                                |          1 |          5 |          0 |          1 |          6 |
+| assets                                                                                                                |         18 |      1,044 |         17 |         18 |      1,079 |
+| assets/teams                                                                                                          |         18 |      1,044 |         17 |         18 |      1,079 |
+| ios                                                                                                                   |          9 |        248 |          4 |         14 |        266 |
+| ios (Files)                                                                                                           |          1 |          7 |          0 |          0 |          7 |
+| ios/Runner                                                                                                            |          7 |        234 |          2 |         10 |        246 |
+| ios/Runner (Files)                                                                                                    |          2 |         22 |          0 |          4 |         26 |
+| ios/Runner/Assets.xcassets                                                                                            |          3 |        148 |          0 |          4 |        152 |
+| ios/Runner/Assets.xcassets/AppIcon.appiconset                                                                         |          1 |        122 |          0 |          1 |        123 |
+| ios/Runner/Assets.xcassets/LaunchImage.imageset                                                                       |          2 |         26 |          0 |          3 |         29 |
+| ios/Runner/Base.lproj                                                                                                 |          2 |         64 |          2 |          2 |         68 |
+| ios/RunnerTests                                                                                                       |          1 |          7 |          2 |          4 |         13 |
+| lib                                                                                                                   |         37 |      7,235 |        401 |        353 |      7,989 |
+| lib (Files)                                                                                                           |          3 |        112 |         16 |         18 |        146 |
+| lib/models                                                                                                            |         10 |        349 |         61 |         51 |        461 |
+| lib/pages                                                                                                             |         21 |      2,178 |        312 |        270 |      2,760 |
+| lib/pages/admin_daucomps                                                                                              |          6 |        595 |        199 |         96 |        890 |
+| lib/pages/admin_teams                                                                                                 |          3 |        368 |         34 |         43 |        445 |
+| lib/pages/admin_tippers                                                                                               |          3 |        534 |         60 |         59 |        653 |
+| lib/pages/user_auth                                                                                                   |          1 |         77 |          5 |          7 |         89 |
+| lib/pages/user_home                                                                                                   |          8 |        604 |         14 |         65 |        683 |
+| lib/services                                                                                                          |          3 |      4,596 |         12 |         14 |      4,622 |
+| linux                                                                                                                 |          5 |        106 |         27 |         38 |        171 |
+| linux (Files)                                                                                                         |          3 |         86 |         18 |         27 |        131 |
+| linux/flutter                                                                                                         |          2 |         20 |          9 |         11 |         40 |
+| macos                                                                                                                 |          7 |        471 |          5 |         16 |        492 |
+| macos (Files)                                                                                                         |          1 |          7 |          0 |          0 |          7 |
+| macos/Flutter                                                                                                         |          1 |         26 |          3 |          4 |         33 |
+| macos/Runner                                                                                                          |          4 |        431 |          0 |          8 |        439 |
+| macos/Runner (Files)                                                                                                  |          2 |         20 |          0 |          6 |         26 |
+| macos/Runner/Assets.xcassets                                                                                          |          1 |         68 |          0 |          1 |         69 |
+| macos/Runner/Assets.xcassets/AppIcon.appiconset                                                                       |          1 |         68 |          0 |          1 |         69 |
+| macos/Runner/Base.lproj                                                                                               |          1 |        343 |          0 |          1 |        344 |
+| macos/RunnerTests                                                                                                     |          1 |          7 |          2 |          4 |         13 |
+| web                                                                                                                   |          2 |         73 |         16 |          7 |         96 |
+| windows                                                                                                               |         10 |        454 |         94 |        143 |        691 |
+| windows/flutter                                                                                                       |          2 |         26 |          9 |         11 |         46 |
+| windows/runner                                                                                                        |          8 |        428 |         85 |        132 |        645 |
++-----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                                              | language   | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| /Users/richardtozer/dev/projects/daufootytipping/README.md                                                            | Markdown   |         28 |          0 |         18 |         46 |
+| /Users/richardtozer/dev/projects/daufootytipping/analysis_options.yaml                                                | YAML       |          3 |         22 |          4 |         29 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/build.gradle                                             | Groovy     |         51 |          5 |         12 |         68 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/google-services.json                                     | JSON       |         55 |          0 |          0 |         55 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/debug/AndroidManifest.xml                            | XML        |          3 |          4 |          1 |          8 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/main/AndroidManifest.xml                             | XML        |         33 |          7 |          2 |         42 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/main/res/drawable-v21/launch_background.xml          | XML        |          4 |          7 |          2 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/main/res/drawable/launch_background.xml              | XML        |          4 |          7 |          2 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/main/res/values-night/styles.xml                     | XML        |          9 |          9 |          1 |         19 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/main/res/values/styles.xml                           | XML        |          9 |          9 |          1 |         19 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/profile/AndroidManifest.xml                          | XML        |          3 |          4 |          1 |          8 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/build.gradle                                                 | Groovy     |         29 |          2 |          5 |         36 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/gradle.properties                                            | Properties |          3 |          0 |          1 |          4 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/gradle/wrapper/gradle-wrapper.properties                     | Properties |          5 |          0 |          1 |          6 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/settings.gradle                                              | Groovy     |         16 |          0 |          5 |         21 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Auckland_colours.svg                                    | XML        |         70 |          1 |          1 |         72 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Brisbane_colours.svg                                    | XML        |         66 |          1 |          1 |         68 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Canberra_colours.svg                                    | XML        |         68 |          1 |          2 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Canterbury_colours.svg                                  | XML        |         62 |          1 |          1 |         64 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Cronulla_colours.svg                                    | XML        |         69 |          1 |          1 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Eastern_Suburbs_colours.svg                             | XML        |         69 |          1 |          1 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Gold_Coast_Titans_colours.svg                           | XML        |         69 |          1 |          1 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Manly_Sea_Eagles_colours.svg                            | XML        |         62 |          1 |          1 |         64 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Melbourne_colours.svg                                   | XML        |         69 |          1 |          1 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Newcastle_colours.svg                                   | XML        |         62 |          1 |          1 |         64 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/North_Queensland_colours.svg                            | XML        |         69 |          1 |          1 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Parramatta_colours.svg                                  | XML        |         62 |          1 |          1 |         64 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Penrith_Panthers_square_flag_icon_with_2020_colours.svg | XML        |         16 |          1 |          1 |         18 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/South_Sydney_colours.svg                                | XML        |         62 |          1 |          1 |         64 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/St._George_colours.svg                                  | XML        |         62 |          1 |          1 |         64 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/Wests_Tigers_colours.svg                                | XML        |         69 |          1 |          1 |         71 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/afl.svg                                                 | XML        |         37 |          1 |          1 |         39 |
+| /Users/richardtozer/dev/projects/daufootytipping/assets/teams/nrl.svg                                                 | XML        |          1 |          0 |          0 |          1 |
+| /Users/richardtozer/dev/projects/daufootytipping/database.rules.json                                                  | JSON       |          6 |          1 |          0 |          7 |
+| /Users/richardtozer/dev/projects/daufootytipping/devtools_options.yaml                                                | YAML       |          1 |          0 |          1 |          2 |
+| /Users/richardtozer/dev/projects/daufootytipping/firebase.json                                                        | JSON       |         17 |          0 |          1 |         18 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/AppDelegate.swift                                         | Swift      |         21 |          0 |          3 |         24 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json          | JSON       |        122 |          0 |          1 |        123 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json        | JSON       |         23 |          0 |          1 |         24 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md            | Markdown   |          3 |          0 |          2 |          5 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Base.lproj/LaunchScreen.storyboard                        | XML        |         36 |          1 |          1 |         38 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Base.lproj/Main.storyboard                                | XML        |         28 |          1 |          1 |         30 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Runner-Bridging-Header.h                                  | C++        |          1 |          0 |          1 |          2 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/RunnerTests/RunnerTests.swift                                    | Swift      |          7 |          2 |          4 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/firebase_app_id_file.json                                        | JSON       |          7 |          0 |          0 |          7 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/firebase_options.dart                                            | Dart       |         72 |         12 |          6 |         90 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/locator.dart                                                     | Dart       |          6 |          0 |          3 |          9 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/main.dart                                                        | Dart       |         34 |          4 |          9 |         47 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/crowdsourcedscore.dart                                    | Dart       |          9 |          1 |          4 |         14 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/daucomp.dart                                              | Dart       |         36 |          3 |          6 |         45 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/dauround.dart                                             | Dart       |          2 |         45 |          1 |         48 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/game.dart                                                 | Dart       |         79 |          4 |          9 |         92 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/game_scoring.dart                                         | Dart       |         80 |          0 |          8 |         88 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/league.dart                                               | Dart       |         11 |          0 |          2 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/team.dart                                                 | Dart       |         53 |          2 |          7 |         62 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/tip.dart                                                  | Dart       |         39 |          3 |          7 |         49 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/tipper.dart                                               | Dart       |         39 |          2 |          6 |         47 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/tipperrole.dart                                           | Dart       |          1 |          1 |          1 |          3 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_daucomps_edit_add.dart                | Dart       |        200 |         12 |         14 |        226 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_daucomps_list.dart                    | Dart       |         78 |          2 |          5 |         85 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_daucomps_viewmodel.dart               | Dart       |        104 |         11 |         34 |        149 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_daurounds_viewmodel.dart              | Dart       |          0 |        134 |          0 |        134 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_games_list.dart                       | Dart       |         20 |          0 |          4 |         24 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_games_viewmodel.dart                  | Dart       |        193 |         40 |         39 |        272 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_teams/admin_teams_edit.dart                          | Dart       |        189 |         11 |         13 |        213 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_teams/admin_teams_list.dart                          | Dart       |         71 |          3 |          5 |         79 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_teams/admin_teams_viewmodel.dart                     | Dart       |        108 |         20 |         25 |        153 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_tippers/admin_tippers_edit_add.dart                  | Dart       |        294 |         12 |         13 |        319 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_tippers/admin_tippers_list.dart                      | Dart       |         66 |          1 |          3 |         70 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_tippers/admin_tippers_viewmodel.dart                 | Dart       |        174 |         47 |         43 |        264 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_auth/user_auth.dart                                   | Dart       |         77 |          5 |          7 |         89 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/appstate_viewmodel.dart                          | Dart       |         10 |          1 |          2 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/tips_viewmodel.dart                              | Dart       |        151 |          5 |         30 |        186 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home.dart                                   | Dart       |         64 |          3 |         13 |         80 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_profile.dart                           | Dart       |         37 |          2 |          3 |         42 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips.dart                              | Dart       |        156 |          3 |          7 |        166 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips_tipchoice.dart                    | Dart       |         99 |          0 |          5 |        104 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_settings_about.dart                         | Dart       |         31 |          0 |          3 |         34 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_settings_adminfunctions.dart                | Dart       |         56 |          0 |          2 |         58 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/services/fixture_download_service.dart                           | Dart       |         71 |          6 |         10 |         87 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/services/fixture_mock_data_2024_afl_full.dart                    | Dart       |      2,279 |          3 |          2 |      2,284 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/services/fixture_mock_data_2024_nrl_full.dart                    | Dart       |      2,246 |          3 |          2 |      2,251 |
+| /Users/richardtozer/dev/projects/daufootytipping/linux/flutter/generated_plugin_registrant.cc                         | C++        |         15 |          4 |          5 |         24 |
+| /Users/richardtozer/dev/projects/daufootytipping/linux/flutter/generated_plugin_registrant.h                          | C++        |          5 |          5 |          6 |         16 |
+| /Users/richardtozer/dev/projects/daufootytipping/linux/main.cc                                                        | C++        |          5 |          0 |          2 |          7 |
+| /Users/richardtozer/dev/projects/daufootytipping/linux/my_application.cc                                              | C++        |         74 |         11 |         20 |        105 |
+| /Users/richardtozer/dev/projects/daufootytipping/linux/my_application.h                                               | C++        |          7 |          7 |          5 |         19 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/Flutter/GeneratedPluginRegistrant.swift                        | Swift      |         26 |          3 |          4 |         33 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/Runner/AppDelegate.swift                                       | Swift      |          8 |          0 |          2 |         10 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json        | JSON       |         68 |          0 |          1 |         69 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/Runner/Base.lproj/MainMenu.xib                                 | XML        |        343 |          0 |          1 |        344 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/Runner/MainFlutterWindow.swift                                 | Swift      |         12 |          0 |          4 |         16 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/RunnerTests/RunnerTests.swift                                  | Swift      |          7 |          2 |          4 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/firebase_app_id_file.json                                      | JSON       |          7 |          0 |          0 |          7 |
+| /Users/richardtozer/dev/projects/daufootytipping/pubspec.yaml                                                         | YAML       |         50 |         55 |          8 |        113 |
+| /Users/richardtozer/dev/projects/daufootytipping/web/index.html                                                       | HTML       |         38 |         16 |          6 |         60 |
+| /Users/richardtozer/dev/projects/daufootytipping/web/manifest.json                                                    | JSON       |         35 |          0 |          1 |         36 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/flutter/generated_plugin_registrant.cc                       | C++        |         21 |          4 |          5 |         30 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/flutter/generated_plugin_registrant.h                        | C++        |          5 |          5 |          6 |         16 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/flutter_window.cpp                                    | C++        |         49 |          7 |         16 |         72 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/flutter_window.h                                      | C++        |         20 |          5 |          9 |         34 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/main.cpp                                              | C++        |         30 |          4 |         10 |         44 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/resource.h                                            | C++        |          9 |          6 |          2 |         17 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/utils.cpp                                             | C++        |         54 |          2 |         10 |         66 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/utils.h                                               | C++        |          8 |          6 |          6 |         20 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/win32_window.cpp                                      | C++        |        210 |         24 |         55 |        289 |
+| /Users/richardtozer/dev/projects/daufootytipping/windows/runner/win32_window.h                                        | C++        |         48 |         31 |         24 |        103 |
+| Total                                                                                                                 |            |      9,960 |        696 |        655 |     11,311 |
++-----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
