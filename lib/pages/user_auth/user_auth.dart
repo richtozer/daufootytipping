@@ -3,6 +3,7 @@ import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart
 import 'package:daufootytipping/pages/user_auth/auth_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
+import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
@@ -11,10 +12,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class UserAuthPage extends StatelessWidget {
-  static const String currentDAUComp =
-      '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
+  UserAuthPage({super.key}) {
+    remoteConfigService.initialize();
+    currentDAUComp =
+        remoteConfigService.remoteConfig.getString('currentDAUComp');
+  }
+  late String currentDAUComp;
 
-  const UserAuthPage({super.key});
+  final RemoteConfigService remoteConfigService = RemoteConfigService();
 
   @override
   Widget build(BuildContext context) {
@@ -88,18 +93,16 @@ class UserAuthPage extends StatelessWidget {
             future: authViewModel.getCurrentTipper(),
             builder: (BuildContext context, AsyncSnapshot<Tipper> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const CircularProgressIndicator(); // or your own loading widget
+                return const Center(
+                    child:
+                        CircularProgressIndicator()); // or your own loading widget
               } else if (snapshot.hasError) {
                 return Text('Error: ${snapshot.error}');
               } else {
                 Tipper currentTipper = snapshot.data as Tipper;
                 return Consumer<TippersViewModel>(
                   builder: (context, tippersViewModel, child) {
-                    return ChangeNotifierProvider<TipsViewModel>(
-                      create: (_) =>
-                          TipsViewModel(currentTipper, currentDAUComp),
-                      child: HomePage(currentTipper),
-                    );
+                    return HomePage(currentTipper, currentDAUComp);
                   },
                 );
               }

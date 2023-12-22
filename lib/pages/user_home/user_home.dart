@@ -6,19 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage(this.currentTipper, {super.key});
+  const HomePage(this.currentTipper, this.parentDAUCompDBkey, {super.key});
 
   final Tipper currentTipper;
+  final String parentDAUCompDBkey;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with AutomaticKeepAliveClientMixin<HomePage> {
-  @override
-  bool get wantKeepAlive => true;
-
+class _HomePageState extends State<HomePage> {
   int _currentIndex = 0; // default to tips page
 
   void onTabTapped(int index) {
@@ -29,11 +26,12 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    // super.build(context);
 
     List<Widget> content() {
       return [
-        TipsPage(widget.currentTipper), // Pass currentTipper to TipsPage
+        TipsPage(widget.currentTipper,
+            widget.parentDAUCompDBkey), // Pass currentTipper to TipsPage
         Center(
           child: Text('Comp Stats Page ${widget.currentTipper.name}'),
         ),
@@ -44,36 +42,36 @@ class _HomePageState extends State<HomePage>
 
     List<Widget> destinationContent = content();
 
-    return Consumer<TippersViewModel>(
-      builder: (context, tipperViewModel, child) {
-        return Scaffold(
-          body: Center(
-            child: (destinationContent[_currentIndex]),
+    return Scaffold(
+      body: Center(
+        child: (destinationContent[_currentIndex]),
+      ),
+      bottomNavigationBar: NavigationBar(
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0.0),
+        ),
+        indicatorColor: const Color(0xFF789697),
+        onDestinationSelected: (int index) {
+          onTabTapped(index);
+        },
+        selectedIndex: _currentIndex,
+        destinations: [
+          NavigationDestination(
+            enabled: widget.currentTipper.active,
+            icon: const Icon(Icons.sports_rugby),
+            label: 'T  I  P  S',
           ),
-          bottomNavigationBar: NavigationBar(
-            onDestinationSelected: (int index) {
-              onTabTapped(index);
-            },
-            selectedIndex: _currentIndex,
-            destinations: [
-              NavigationDestination(
-                enabled: widget.currentTipper.active,
-                icon: const Icon(Icons.sports_rugby),
-                label: 'T  I  P  S  ${widget.currentTipper.tipperRole.name}',
-              ),
-              NavigationDestination(
-                enabled: widget.currentTipper.active,
-                icon: const Icon(Icons.auto_graph),
-                label: 'S  T  A  T  S',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.person),
-                label: 'P  R  O  F  I  L  E',
-              ),
-            ],
+          NavigationDestination(
+            enabled: widget.currentTipper.active,
+            icon: const Icon(Icons.auto_graph),
+            label: 'S  T  A  T  S',
           ),
-        );
-      },
+          const NavigationDestination(
+            icon: Icon(Icons.person),
+            label: 'P  R  O  F  I  L  E',
+          ),
+        ],
+      ),
     );
   }
 }

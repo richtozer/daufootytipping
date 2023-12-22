@@ -1,6 +1,7 @@
 import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -20,8 +21,8 @@ Future<void> main() async {
   await FirebaseAnalytics.instance
       .setDefaultEventParameters({'version': '1.2.3'});
 
-  const String currentDAUComp = '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
-  setupLocator(currentDAUComp);
+  //String currentDAUComp = remoteConfig.getString('currentDAUComp');
+  setupLocator();
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -42,7 +43,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState(),
-      child: const MaterialApp(
+      child: MaterialApp(
+        theme: myTheme,
         title: 'DAU Footy Tipping',
         home: UserAuthPage(),
       ),

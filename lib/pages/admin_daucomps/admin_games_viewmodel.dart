@@ -122,8 +122,8 @@ class GamesViewModel extends ChangeNotifier {
 
   void editGame(Game updatedGame) async {
     try {
-      //await _initialLoadCompleter.future;
-      log('Waiting for initial Game load to complete');
+      await _initialLoadCompleter.future;
+      log('Initial game load to complete. editGame()');
 
       _savingGame = true;
       notifyListeners();
@@ -191,8 +191,8 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<Game?> findGame(String gameDbKey) async {
-    //await _initialLoadCompleter.future;
-    log('Waiting for initial Game load to complete  findGame()');
+    await _initialLoadCompleter.future;
+    log('initial Game load to complete  findGame()');
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 

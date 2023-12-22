@@ -38,6 +38,7 @@ dependencies:
   firebase_core: ^2.22.0
   firebase_crashlytics: ^3.4.8
   firebase_database: ^10.3.4
+  firebase_remote_config: ^4.3.8
   firebase_ui_auth: ^1.10.0
   firebase_ui_localizations: ^1.8.0
   firebase_ui_oauth_apple: ^1.2.14
@@ -50,6 +51,8 @@ dependencies:
     sdk: flutter
   flutter_svg: ^2.0.9
   get_it: ^7.6.4
+  googleapis: ^12.0.0
+  http: ^1.1.2
   http_mock_adapter: ^0.6.1
   intl: ^0.18.1
   json_annotation: ^4.8.1

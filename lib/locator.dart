@@ -3,6 +3,6 @@ import 'package:get_it/get_it.dart';
 
 final locator = GetIt.I;
 
-void setupLocator(String currentDAUComp) {
+void setupLocator() {
   locator.registerSingleton<TeamsViewModel>(TeamsViewModel());
 }
