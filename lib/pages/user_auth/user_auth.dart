@@ -1,7 +1,6 @@
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/auth_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -41,7 +40,7 @@ class UserAuthPage extends StatelessWidget {
                   padding: EdgeInsets.all(20),
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: Icon(Icons.sports_rugby),
+                    child: Icon(Icons.sports_rugby, size: 100),
                   ),
                 );
               },

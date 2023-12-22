@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
-import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -32,7 +31,7 @@ class GamesViewModel extends ChangeNotifier {
 
   // Constructor
   GamesViewModel(this.parentDAUCompDBkey) {
-    _teamsViewModel = locator<TeamsViewModel>();
+    _teamsViewModel = TeamsViewModel();
     _listenToGames();
   }
 

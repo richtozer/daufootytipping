@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
