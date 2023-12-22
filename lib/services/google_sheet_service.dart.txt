@@ -1,0 +1,47 @@
+import 'package:http/http.dart' as http;
+import 'package:googleapis/sheets/v4.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+
+class TippingService {
+  final String spreadsheetId =
+      '1N2jjee5CPwvTlvfUQydO_IVvQqzhr2EMdV7lxb6w1Iw'; // Replace with actual spreadsheet ID
+  final String sheetName = 'SubmittedTips';
+
+  Future<void> submitTips(
+      String tipperId, String nrlTips, String aflTips, int roundNumber) async {
+    try {
+      // Get authenticated client
+      http.Client client = http.Client();
+
+      // Open the spreadsheet
+      final spreadsheet =
+          await SheetsApi(client).spreadsheets.get(spreadsheetId);
+      final sheet = spreadsheet.sheets[sheetName];
+
+      // Prepare data to be written
+      final values = [
+        [
+          DateTime.now().millisecondsSinceEpoch,
+          roundNumber,
+          tipperId,
+          nrlTips + aflTips,
+          // ...other fields
+        ]
+      ];
+
+      // Insert data into the sheet
+      await SheetsApi(client).spreadsheets.values.append(
+        spreadsheetId,
+        range: '$sheetName!A2', // Append to the first empty row
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        body: {'values': values},
+      );
+    } catch (error, stackTrace) {
+      FirebaseCrashlytics.instance.recordError(error, stackTrace);
+      rethrow; // Rethrow to allow for further handling
+    }
+  }
+
+  // TODO: Implement getAuthenticatedClient() to obtain a Sheets API client using the Google account token
+}

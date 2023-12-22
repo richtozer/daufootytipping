@@ -69,7 +69,6 @@ class DAURoundsViewModel extends ChangeNotifier {
         await Future.delayed(const Duration(seconds: 1));
       }
       _savingDAURound = true;
-      notifyListeners();
 
       //TODO test slow saves - in UI the back button should be disabled during the wait
       await Future.delayed(const Duration(seconds: 5), () {
@@ -86,7 +85,6 @@ class DAURoundsViewModel extends ChangeNotifier {
       _db.update(updates);
     } finally {
       _savingDAURound = false;
-      notifyListeners();
     }
   }
 
@@ -98,7 +96,7 @@ class DAURoundsViewModel extends ChangeNotifier {
       }
 
       _savingDAURound = true;
-      notifyListeners();
+
 
       // A post entry. //TODO
       final postData = gameData.toJson();
@@ -112,7 +110,6 @@ class DAURoundsViewModel extends ChangeNotifier {
       _db.update(updates);
     } finally {
       _savingDAURound = false;
-      notifyListeners();
     }
   }
 

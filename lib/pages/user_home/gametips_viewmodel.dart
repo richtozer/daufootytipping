@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 // define  constant for firestore database location
 const tipsPathRoot = '/Tips';
 
-class TipsViewModel extends ChangeNotifier {
+class GameTipsViewModel extends ChangeNotifier {
   List<Tip> _tips = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
@@ -21,6 +21,7 @@ class TipsViewModel extends ChangeNotifier {
 
   late GamesViewModel _gamesViewModel;
   final String parentDAUCompDBkey;
+  final Game game;
   final Completer<void> _initialLoadCompleter = Completer();
 
   List<Tip> get tips => _tips;
@@ -31,7 +32,7 @@ class TipsViewModel extends ChangeNotifier {
   final Map<String, Tip?> _gameTipsCache = {};
 
   //constructor
-  TipsViewModel(this.currentTipper, this.parentDAUCompDBkey) {
+  GameTipsViewModel(this.currentTipper, this.parentDAUCompDBkey, this.game) {
     _gamesViewModel = GamesViewModel(parentDAUCompDBkey);
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
@@ -44,7 +45,8 @@ class TipsViewModel extends ChangeNotifier {
 
   void _listenToTips() async {
     _tipsStream = _db
-        .child('$tipsPathRoot/$parentDAUCompDBkey/${currentTipper.dbkey}')
+        .child(
+            '$tipsPathRoot/$parentDAUCompDBkey/${currentTipper.dbkey}/${game.dbkey}')
         .onValue
         .listen((event) {
       _handleEvent(event);
@@ -59,7 +61,7 @@ class TipsViewModel extends ChangeNotifier {
       _tips = await deserializeTips(allTips, currentTipper);
       _tips.sort();
     } else {
-      log('No tips found for Tipper ${currentTipper.name}');
+      log('No tips found for Tipper ${currentTipper.name} in game ${game.dbkey}');
     }
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
@@ -83,19 +85,13 @@ class TipsViewModel extends ChangeNotifier {
     Tipper futureTipper =
         await tipper; //its important we wait for the tipper to be resolved before we attempt to deserailise any tips in this function
 
-    for (var entry in json.entries) {
-      String gameKey = entry.key;
-      Map<String, dynamic> tipData = entry.value;
+    futureTips.addAll(json.entries.map((entry) async {
+      String key = entry.key;
+      Map<String, dynamic> data = entry.value;
 
-      futureTips.addAll(tipData.entries.map((entry) async {
-        String key = entry.key;
-        Map<String, dynamic> data = entry.value;
-
-        Game? game = await _gamesViewModel.findGame(gameKey);
-        assert(game != null);
-        return Tip.fromJson(data, key, futureTipper, game!);
-      }));
-    }
+      return Tip.fromJson(data, key, futureTipper, game);
+    }));
+    //}
 
     return await Future.wait(futureTips);
   }
@@ -103,7 +99,6 @@ class TipsViewModel extends ChangeNotifier {
   void addTip(Tip tip) async {
     try {
       _savingTip = true;
-      notifyListeners();
 
       // create a json representation of the tip
       final tipJson = await tip.toJson();
@@ -135,18 +130,17 @@ class TipsViewModel extends ChangeNotifier {
       });
     } finally {
       _savingTip = false;
-      notifyListeners();
     }
   }
 
-  Future<Tip?> getLatestGameTip(Game game) async {
+  Future<Tip?> getLatestGameTip() async {
     if (!_gameTipsCache.containsKey(game.dbkey)) {
-      _gameTipsCache[game.dbkey] = await getLatestGameTipFromDb(game);
+      _gameTipsCache[game.dbkey] = await getLatestGameTipFromDb();
     }
     return _gameTipsCache[game.dbkey];
   }
 
-  Future<Tip?> getLatestGameTipFromDb(Game game) async {
+  Future<Tip?> getLatestGameTipFromDb() async {
     await _initialLoadCompleter.future;
     log('tips load complete, getLatestGameTip(${game.dbkey})');
     Tip? foundTip =
@@ -168,32 +162,6 @@ class TipsViewModel extends ChangeNotifier {
             tipper: currentTipper);
       }
     }
-  }
-
-  Future<int> countTipsLodgedForRound(int combinedRound) async {
-    if (_initialLoadCompleter.isCompleted) {
-      log('tips load already complete, countTipsOutstanding(combinedRound: $combinedRound)');
-    } else {
-      log('Waiting for initial Tip load to complete, countTipsOutstanding(combinedRound: $combinedRound)');
-      await _initialLoadCompleter.future;
-    }
-
-    int tipsLodged = 0;
-
-    List<Game>? combinedRoundGames = games
-        .where((game) => game.combinedRoundNumber == combinedRound)
-        .toList();
-    for (var game in combinedRoundGames) {
-      //count the number of tips lodged for this combined round
-      await getLatestGameTip(game).then((tip) {
-        if (tip != null) {
-          tipsLodged++;
-        }
-      });
-    }
-    log(' $tipsLodged tips Lodged for combinedround $combinedRound');
-
-    return Future<int>.value(tipsLodged);
   }
 
   @override

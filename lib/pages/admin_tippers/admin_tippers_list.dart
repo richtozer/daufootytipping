@@ -5,8 +5,6 @@ import 'admin_tippers_viewmodel.dart';
 
 class TippersAdminPage extends StatelessWidget {
   const TippersAdminPage({super.key});
-  static const String currentDAUComp =
-      '-Nk88l-ww9pYF1j_jUq7'; //TODO remove hardcoding
 
   @override
   Widget build(BuildContext context) {
