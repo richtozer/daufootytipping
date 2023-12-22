@@ -1,4 +1,3 @@
-import 'package:daufootytipping/locator.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
@@ -21,8 +20,7 @@ Future<void> main() async {
   await FirebaseAnalytics.instance
       .setDefaultEventParameters({'version': '1.2.3'});
 
-  //String currentDAUComp = remoteConfig.getString('currentDAUComp');
-  setupLocator();
+  //setupLocator();
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
