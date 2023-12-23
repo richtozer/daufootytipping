@@ -1,3 +1,4 @@
+#redo
 #!/bin/s
 chmod +x $0
 
