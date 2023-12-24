@@ -141,12 +141,8 @@ class TippersViewModel extends ChangeNotifier {
       //updates['/user-posts/$uid/$newPostKey'] = postData;
       _db.update(updates);
 
-      if (dbkey != null) {
-        return dbkey;
-      } else {
-        return null;
-      }
-    } finally {
+      return dbkey;
+        } finally {
       _savingTipper = false;
       notifyListeners();
     }

@@ -8,7 +8,7 @@
         </intent>
     </queries>
     <application
-        android:label="daufootytipping"
+        android:label="DAU Footy Tipping"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
