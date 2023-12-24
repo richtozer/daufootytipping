@@ -22,7 +22,8 @@ Widget aboutDialog(context) {
     onPressed: () {
       showAboutDialog(
         context: context,
-        applicationIcon: const FlutterLogo(),
+        applicationIcon:
+            Expanded(child: Image.asset('assets/icon/AppIcon.png')),
         applicationName: 'DAU Footy Tipping',
         applicationVersion: 'January 2024',
         applicationLegalese: '\u{a9} 2024 The DAU Footy Tipping Authors',
