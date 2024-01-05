@@ -28,12 +28,14 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  carousel_slider: ^4.2.1
   cloud_firestore: ^4.13.0
   collection: ^1.18.0
   cupertino_icons: ^1.0.2
   dio: ^5.3.4
   email_validator: ^2.1.17
   firebase_analytics: ^10.7.4
+  firebase_app_check: ^0.2.1+8
   firebase_auth: ^4.14.0
   firebase_core: ^2.22.0
   firebase_crashlytics: ^3.4.8
@@ -47,11 +49,13 @@ dependencies:
   firebase_ui_oauth_twitter: ^1.2.14
   flutter:
     sdk: flutter
+  flutter_dotenv: ^5.1.0
   flutter_localizations:
     sdk: flutter
   flutter_svg: ^2.0.9
   get_it: ^7.6.4
-  googleapis: ^12.0.0
+  googleapis: ^11.4.0
+  gsheets: ^0.5.0
   http: ^1.1.2
   http_mock_adapter: ^0.6.1
   intl: ^0.18.1
@@ -65,6 +69,8 @@ dependencies:
 dev_dependencies:
   build_runner: ^2.4.6
   flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^3.0.1
+  test: ^1.24.9
 
 flutter_icons:
   android: true
@@ -72,7 +78,7 @@ flutter_icons:
   ios: true
   remove_alpha_ios: true
   image_path: "assets/icon/AppIcon.png"
-  min_sdk_android: 21 #
+  min_sdk_android: 21
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -97,6 +103,7 @@ flutter:
   assets:
     - assets/teams/
     - assets/icon/
+    - .env
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
   # For details regarding adding assets from package dependencies, see

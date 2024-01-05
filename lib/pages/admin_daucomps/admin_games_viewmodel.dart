@@ -3,6 +3,8 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -54,6 +56,12 @@ class GamesViewModel extends ChangeNotifier {
           String key = entry.key; // Retrieve the Firebase key
           dynamic gameAsJSON = entry.value;
 
+          //we need to deserialize the locationlatlng before we can deserialize the game
+          LatLng? locationLatLng;
+          if (gameAsJSON['locationLatLng'] != null) {
+            locationLatLng = LatLng.fromJson(
+                Map<String, dynamic>.from(gameAsJSON['locationLatLng']));
+          }
           //we need to find and deserialize the home and away teams first before we can deserialize the game
           Team? homeTeam =
               await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
@@ -61,11 +69,12 @@ class GamesViewModel extends ChangeNotifier {
               await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
 
           if (homeTeam != null && awayTeam != null) {
-            return Game.fromJson(
-                Map<String, dynamic>.from(gameAsJSON), key, homeTeam, awayTeam);
+            return Game.fromJson(Map<String, dynamic>.from(gameAsJSON), key,
+                homeTeam, awayTeam, locationLatLng);
           } else {
             // Handle the case where homeTeam or awayTeam is null
-            return null;
+            throw Exception(
+                'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null');
           }
         }).toList());
 
@@ -76,12 +85,46 @@ class GamesViewModel extends ChangeNotifier {
       }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
+      rethrow;
     } finally {
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.complete();
       }
       notifyListeners();
     }
+  }
+
+  //method to get a List<int> of the combined round numbers
+  Future<List<int>> getCombinedRoundNumbers() async {
+    log('getCombinedRoundNumbers() waiting for initial Game load to complete');
+    await initialLoadComplete;
+    log('getCombinedRoundNumbers() COMPLETED waiting for initial Game load to complete');
+
+    List<int> combinedRoundNumbers = [];
+    for (var game in _games) {
+      if (!combinedRoundNumbers.contains(game.combinedRoundNumber)) {
+        combinedRoundNumbers.add(game.combinedRoundNumber);
+      }
+    }
+    combinedRoundNumbers.sort();
+    return combinedRoundNumbers;
+  }
+
+  //method to get a List<Game> of the games for a given combined round number and league
+  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague(
+      int combinedRoundNumber, League league) async {
+    log('getGamesForCombinedRoundNumberAndLeague() waiting for initial Game load to complete');
+    await initialLoadComplete;
+    log('getGamesForCombinedRoundNumberAndLeague() COMPLETED waiting for initial Game load to complete');
+
+    List<Game> gamesForCombinedRoundNumberAndLeague = [];
+    for (var game in _games) {
+      if (game.combinedRoundNumber == combinedRoundNumber &&
+          game.league == league) {
+        gamesForCombinedRoundNumberAndLeague.add(game);
+      }
+    }
+    return gamesForCombinedRoundNumberAndLeague;
   }
 
   // Game operations
@@ -281,6 +324,15 @@ class GamesViewModel extends ChangeNotifier {
       }
     }
     log('out updateCombinedRoundNumber()');
+  }
+
+  List<String> getAllRoundsDefaultTips() {
+    var groups = groupBy(_games, (g) => '${g.combinedRoundNumber}-${g.league}');
+
+    String defaultNrlTips = 'z'.padLeft(8, 'z');
+    String defaultAflTips = 'z'.padLeft(9, 'z');
+
+    return ['hi', 'there'];
   }
 
   // Cleanup

@@ -6,6 +6,7 @@ import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,10 +14,10 @@ import 'package:provider/provider.dart';
 class UserAuthPage extends StatelessWidget {
   UserAuthPage({super.key}) {
     remoteConfigService.initialize();
-    currentDAUComp =
-        remoteConfigService.remoteConfig.getString('currentDAUComp');
+    //currentDAUComp =
+    //    remoteConfigService.remoteConfig.getString('currentDAUComp');
   }
-  late String currentDAUComp;
+  //late String currentDAUComp;
 
   final RemoteConfigService remoteConfigService = RemoteConfigService();
 
@@ -32,15 +33,18 @@ class UserAuthPage extends StatelessWidget {
                 "1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com"; //TODO remove hardcoding
             return SignInScreen(
               providers: [
-                EmailAuthProvider(),
+                AppleProvider(),
                 GoogleProvider(clientId: clientId),
+                EmailAuthProvider(),
               ],
               headerBuilder: (context, constraints, shrinkOffset) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: Icon(Icons.sports_rugby, size: 100),
+                    child: Image(
+                      image: AssetImage('assets/icon/AppIcon.png'),
+                    ),
                   ),
                 );
               },
@@ -58,7 +62,7 @@ class UserAuthPage extends StatelessWidget {
                 return const Padding(
                   padding: EdgeInsets.only(top: 16),
                   child: Text(
-                    'By signing in, you agree to our terms and conditions.',
+                    'By signing in, you ackonwledge you are a paid up member of DAU Footy Tipping.',
                     style: TextStyle(color: Colors.grey),
                   ),
                 );
@@ -98,6 +102,10 @@ class UserAuthPage extends StatelessWidget {
               } else if (snapshot.hasError) {
                 return Text('Error: ${snapshot.error}');
               } else {
+                RemoteConfigService remoteConfigService = RemoteConfigService();
+                String currentDAUComp = remoteConfigService.remoteConfig
+                    .getString('currentDAUComp');
+
                 Tipper currentTipper = snapshot.data as Tipper;
                 return Consumer<TippersViewModel>(
                   builder: (context, tippersViewModel, child) {

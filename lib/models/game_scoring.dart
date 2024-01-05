@@ -1,4 +1,5 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
+import 'package:daufootytipping/models/league.dart';
 
 enum GameResult { a, b, c, d, e, z }
 
@@ -25,11 +26,11 @@ extension GameResultString on GameResult {
       case GameResult.a:
         return 'Home team wins by 13 points or more';
       case GameResult.b:
-        return 'Home teams wins by 0-12 point margin';
+        return 'Home teams wins by 1-12 point margin';
       case GameResult.c:
         return 'Draw';
       case GameResult.d:
-        return 'Away team wins by a 0-12 point margin';
+        return 'Away team wins by a 1-12 point margin';
       case GameResult.e:
         return 'Away team wins by 13 points or more';
       case GameResult.z:
@@ -59,11 +60,11 @@ extension GameResultString on GameResult {
       case GameResult.a:
         return 'Home team wins by 31 points or more';
       case GameResult.b:
-        return 'Home teams wins by 0-30 point margin';
+        return 'Home teams wins by 1-30 point margin';
       case GameResult.c:
         return 'Draw';
       case GameResult.d:
-        return 'Away team wins by a 0-30 point margin';
+        return 'Away team wins by a 1-30 point margin';
       case GameResult.e:
         return 'Away team wins by 31 points or more';
       case GameResult.z:
@@ -84,4 +85,116 @@ class Scoring {
   GameResult gameResult = GameResult.z; // use 'z' until game result is known
 
   Scoring({this.homeTeamScore, this.awayTeamScore});
+
+  static int calculateScore(
+      League gameLeague, GameResult gameResult, GameResult tip) {
+    //TODO consider moving these structures to firebase config
+    final nrlScoreLookupTable = {
+      GameResult.a: {
+        GameResult.a: 4,
+        GameResult.b: 2,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: -2,
+        GameResult.z: 0
+      },
+      GameResult.b: {
+        GameResult.a: 1,
+        GameResult.b: 2,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: -2,
+        GameResult.z: 0
+      },
+      GameResult.c: {
+        GameResult.a: 0,
+        GameResult.b: 1,
+        GameResult.c: 50,
+        GameResult.d: 1,
+        GameResult.e: 0,
+        GameResult.z: 0
+      },
+      GameResult.d: {
+        GameResult.a: -2,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 2,
+        GameResult.e: 1,
+        GameResult.z: 0
+      },
+      GameResult.e: {
+        GameResult.a: -2,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 2,
+        GameResult.e: 4,
+        GameResult.z: 0
+      },
+      GameResult.z: {
+        GameResult.a: 0,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: 0,
+        GameResult.z: 0
+      },
+    };
+
+    final aflScoreLookupTable = {
+      GameResult.a: {
+        GameResult.a: 4,
+        GameResult.b: 2,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: -2,
+        GameResult.z: 0
+      },
+      GameResult.b: {
+        GameResult.a: 1,
+        GameResult.b: 2,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: -2,
+        GameResult.z: 0
+      },
+      GameResult.c: {
+        GameResult.a: 0,
+        GameResult.b: 1,
+        GameResult.c: 20,
+        GameResult.d: 1,
+        GameResult.e: 0,
+        GameResult.z: 0
+      },
+      GameResult.d: {
+        GameResult.a: -2,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 2,
+        GameResult.e: 1,
+        GameResult.z: 0
+      },
+      GameResult.e: {
+        GameResult.a: -2,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 2,
+        GameResult.e: 4,
+        GameResult.z: 0
+      },
+      GameResult.z: {
+        GameResult.a: 0,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: 0,
+        GameResult.z: 0
+      },
+    };
+
+    if (gameLeague == League.nrl) {
+      return nrlScoreLookupTable[gameResult]![tip]!;
+    } else {
+      return aflScoreLookupTable[gameResult]![tip]!;
+    }
+  }
 }

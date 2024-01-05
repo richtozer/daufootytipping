@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
 
 enum GameState {
@@ -14,6 +15,7 @@ class Game implements Comparable<Game> {
   final Team homeTeam;
   final Team awayTeam;
   final String location;
+  final LatLng? locationLatLong;
   final DateTime startTimeUTC;
   final int roundNumber;
   final int matchNumber;
@@ -31,6 +33,7 @@ class Game implements Comparable<Game> {
     required this.homeTeam,
     required this.awayTeam,
     required this.location,
+    this.locationLatLong,
     required this.startTimeUTC,
     required this.roundNumber,
     required this.matchNumber,
@@ -54,14 +57,15 @@ class Game implements Comparable<Game> {
     }
   }
 
-  factory Game.fromJson(
-      Map<String, dynamic> data, String key, Team homeTeam, Team awayTeam) {
+  factory Game.fromJson(Map<String, dynamic> data, String key, Team homeTeam,
+      Team awayTeam, LatLng? locationLatLong) {
     return Game(
       dbkey: key,
       league: League.values.byName(data['league']),
       homeTeam: homeTeam,
       awayTeam: awayTeam,
       location: data['location'],
+      locationLatLong: locationLatLong,
       startTimeUTC: DateTime.parse(data['startTimeUTC']),
       roundNumber: data['roundNumber'],
       matchNumber: data['matchNumber'],
@@ -75,6 +79,7 @@ class Game implements Comparable<Game> {
         'homeTeamDbKey': homeTeam.dbkey,
         'awayTeamDbKey': awayTeam.dbkey,
         'location': location,
+        'locationLatLong': locationLatLong?.toJson(),
         'startTimeUTC': startTimeUTC.toString(),
         'roundNumber': roundNumber,
         'matchNumber': matchNumber,

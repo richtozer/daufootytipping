@@ -3,12 +3,14 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 
 // define  constant for firestore database location
 const tipsPathRoot = '/Tips';
@@ -19,23 +21,21 @@ class GameTipsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
 
-  late GamesViewModel _gamesViewModel;
   final String parentDAUCompDBkey;
   final Game game;
   final Completer<void> _initialLoadCompleter = Completer();
 
   List<Tip> get tips => _tips;
-  List<Game> get games => _gamesViewModel.games;
+
   bool get savingTip => _savingTip;
-  GamesViewModel get gamesViewModel => _gamesViewModel;
+
   Tipper currentTipper;
   final Map<String, Tip?> _gameTipsCache = {};
 
+  LegacyTippingService tippingService = GetIt.instance<LegacyTippingService>();
+
   //constructor
   GameTipsViewModel(this.currentTipper, this.parentDAUCompDBkey, this.game) {
-    _gamesViewModel = GamesViewModel(parentDAUCompDBkey);
-    _gamesViewModel.addListener(
-        update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
@@ -116,6 +116,10 @@ class GameTipsViewModel extends ChangeNotifier {
       _db.update(updates);
       log('new tip logged: ${updates.toString()}');
 
+      tippingService.submitTips(currentTipper.name, 'zzzzzzzz', 'zzzzzzzzz',
+          tip.game.combinedRoundNumber);
+      log('legacy tip logged: ${updates.toString()}');
+
       //invalidate any cache version
       _gameTipsCache.removeWhere((key, value) => key == tip.game.dbkey);
 
@@ -137,16 +141,17 @@ class GameTipsViewModel extends ChangeNotifier {
     if (!_gameTipsCache.containsKey(game.dbkey)) {
       _gameTipsCache[game.dbkey] = await getLatestGameTipFromDb();
     }
+    log('getting tips from  GameTipsViewModel.getLatestGameTip(${game.dbkey})');
     return _gameTipsCache[game.dbkey];
   }
 
   Future<Tip?> getLatestGameTipFromDb() async {
     await _initialLoadCompleter.future;
-    log('tips load complete, getLatestGameTip(${game.dbkey})');
+    log('tips load complete, GameTipsViewModel.getLatestGameTip(${game.dbkey})');
     Tip? foundTip =
         _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);
     if (foundTip != null) {
-      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name}  )');
+      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name} GameTipsViewModel.getLatestGameTipFromDb()');
       return foundTip;
     } else {
       if (game.gameState == GameState.notStarted) {
@@ -164,10 +169,17 @@ class GameTipsViewModel extends ChangeNotifier {
     }
   }
 
+  LatLng? getLatLng() {
+    if (game.locationLatLong != null) {
+      return game.locationLatLong!;
+    } else {
+      return null;
+    }
+  }
+
   @override
   void dispose() {
     _tipsStream.cancel(); // stop listening to stream
-    _gamesViewModel.removeListener(update);
     super.dispose();
   }
 }

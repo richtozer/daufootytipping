@@ -42,6 +42,7 @@ class _HomePageState extends State<HomePage> {
     List<Widget> destinationContent = content();
 
     return Scaffold(
+      appBar: AppBar(title: const Text('DAU Footy Tipping')),
       body: Center(
         child: (destinationContent[_currentIndex]),
       ),
