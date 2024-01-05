@@ -148,11 +148,11 @@ class TipsViewModel extends ChangeNotifier {
 
   Future<Tip?> getLatestGameTipFromDb(Game game) async {
     await _initialLoadCompleter.future;
-    log('tips load complete, getLatestGameTip(${game.dbkey})');
+    log('tips load complete, TipsViewModel.getLatestGameTipFromDb(${game.dbkey})');
     Tip? foundTip =
         _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);
     if (foundTip != null) {
-      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name}  )');
+      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name}, TipsViewModel.getLatestGameTipFromDb()');
       return foundTip;
     } else {
       if (game.gameState == GameState.notStarted) {

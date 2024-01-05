@@ -1,0 +1,100 @@
+Date : 2024-01-05 20:02:42
+Directory : /Users/richardtozer/dev/projects/daufootytipping
+Total : 41 files,  820 codes, 67 comments, 144 blanks, all 1031 lines
+
+Languages
++--------------+------------+------------+------------+------------+------------+
+| language     | files      | code       | comment    | blank      | total      |
++--------------+------------+------------+------------+------------+------------+
+| Dart         |         29 |        830 |         50 |        118 |        998 |
+| Shell Script |          2 |         37 |         17 |         16 |         70 |
+| YAML         |          3 |         35 |          0 |          3 |         38 |
+| Swift        |          1 |          8 |          0 |          0 |          8 |
+| XML          |          1 |          6 |          0 |          0 |          6 |
+| Gradle       |          2 |          3 |          0 |          3 |          6 |
+| Markdown     |          1 |          3 |          0 |          3 |          6 |
+| JSON         |          2 |       -102 |          0 |          1 |       -101 |
++--------------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                         | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                            |         41 |        820 |         67 |        144 |      1,031 |
+| . (Files)                                                                                                    |          5 |         63 |          5 |         10 |         78 |
+| android                                                                                                      |          3 |          9 |          0 |          3 |         12 |
+| android (Files)                                                                                              |          1 |          2 |          0 |          3 |          5 |
+| android/app                                                                                                  |          2 |          7 |          0 |          0 |          7 |
+| android/app (Files)                                                                                          |          1 |          1 |          0 |          0 |          1 |
+| android/app/src                                                                                              |          1 |          6 |          0 |          0 |          6 |
+| android/app/src/main                                                                                         |          1 |          6 |          0 |          0 |          6 |
+| android/app/src/main/res                                                                                     |          1 |          6 |          0 |          0 |          6 |
+| android/app/src/main/res/mipmap-anydpi-v26                                                                   |          1 |          6 |          0 |          0 |          6 |
+| ios                                                                                                          |          3 |        -90 |         12 |         13 |        -65 |
+| ios/Runner                                                                                                   |          2 |       -102 |          0 |          1 |       -101 |
+| ios/Runner/Assets.xcassets                                                                                   |          2 |       -102 |          0 |          1 |       -101 |
+| ios/Runner/Assets.xcassets (Files)                                                                           |          1 |          6 |          0 |          1 |          7 |
+| ios/Runner/Assets.xcassets/AppIcon.appiconset                                                                |          1 |       -108 |          0 |          0 |       -108 |
+| ios/ci_scripts                                                                                               |          1 |         12 |         12 |         12 |         36 |
+| lib                                                                                                          |         28 |        809 |         48 |        115 |        972 |
+| lib (Files)                                                                                                  |          3 |         13 |         14 |          2 |         29 |
+| lib/models                                                                                                   |          4 |        135 |          1 |         11 |        147 |
+| lib/pages                                                                                                    |         18 |        561 |          2 |         72 |        635 |
+| lib/pages/admin_daucomps                                                                                     |          3 |         59 |          5 |          5 |         69 |
+| lib/pages/admin_teams                                                                                        |          1 |         -5 |        -20 |          5 |        -20 |
+| lib/pages/admin_tippers                                                                                      |          2 |        -64 |        -11 |        -13 |        -88 |
+| lib/pages/user_auth                                                                                          |          2 |        172 |          8 |         23 |        203 |
+| lib/pages/user_home                                                                                          |         10 |        399 |         20 |         52 |        471 |
+| lib/services                                                                                                 |          3 |        100 |         31 |         30 |        161 |
+| macos                                                                                                        |          1 |          8 |          0 |          0 |          8 |
+| macos/Flutter                                                                                                |          1 |          8 |          0 |          0 |          8 |
+| test                                                                                                         |          1 |         21 |          2 |          3 |         26 |
++--------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| filename                                                                                                     | language     | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| /Users/richardtozer/dev/projects/daufootytipping/README.md                                                   | Markdown     |          3 |          0 |          3 |          6 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/build.gradle                                    | Gradle       |          1 |          0 |          0 |          1 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml  | XML          |          6 |          0 |          0 |          6 |
+| /Users/richardtozer/dev/projects/daufootytipping/android/build.gradle                                        | Gradle       |          2 |          0 |          3 |          5 |
+| /Users/richardtozer/dev/projects/daufootytipping/cleanup.sh                                                  | Shell Script |         25 |          5 |          4 |         34 |
+| /Users/richardtozer/dev/projects/daufootytipping/devtools_options.yaml                                       | YAML         |          1 |          0 |         -1 |          0 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json | JSON         |       -108 |          0 |          0 |       -108 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/Runner/Assets.xcassets/Contents.json                    | JSON         |          6 |          0 |          1 |          7 |
+| /Users/richardtozer/dev/projects/daufootytipping/ios/ci_scripts/ci_post_clone.sh                             | Shell Script |         12 |         12 |         12 |         36 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/locator.dart                                            | Dart         |         -6 |          0 |         -3 |         -9 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/main.dart                                               | Dart         |         14 |         14 |          3 |         31 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/game.dart                                        | Dart         |          5 |          0 |          0 |          5 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/game_scoring.dart                                | Dart         |        109 |          1 |          3 |        113 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/location_latlong.dart                            | Dart         |         12 |          0 |          4 |         16 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/models/tipper.dart                                      | Dart         |          9 |          0 |          4 |         13 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_daucomps_list.dart           | Dart         |          3 |         -1 |          0 |          2 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_daurounds_viewmodel.dart     | Dart         |          0 |         -3 |          0 |         -3 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_daucomps/admin_games_viewmodel.dart         | Dart         |         56 |          9 |          5 |         70 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_teams/admin_teams_viewmodel.dart            | Dart         |         -5 |        -20 |          5 |        -20 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_tippers/admin_tippers_list.dart             | Dart         |         -2 |          0 |          0 |         -2 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/admin_tippers/admin_tippers_viewmodel.dart        | Dart         |        -62 |        -11 |        -13 |        -86 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_auth/auth_viewmodel.dart                     | Dart         |        144 |          5 |         20 |        169 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_auth/user_auth.dart                          | Dart         |         28 |          3 |          3 |         34 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/gametips_viewmodel.dart                 | Dart         |        150 |          6 |         30 |        186 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/tips_viewmodel.dart                     | Dart         |         19 |          1 |          0 |         20 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home.dart                          | Dart         |          2 |         -2 |         -2 |         -2 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_profile.dart                  | Dart         |          1 |          1 |          1 |          3 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips.dart                     | Dart         |          0 |         12 |          5 |         17 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips_gameinfo.dart            | Dart         |         44 |          0 |          4 |         48 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips_gamelistitem.dart        | Dart         |        159 |          1 |          9 |        169 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips_livescoring.dart         | Dart         |         29 |          0 |          3 |         32 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_home_tips_tipchoice.dart           | Dart         |         -6 |          1 |          2 |         -3 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/pages/user_home/user_settings_about.dart                | Dart         |          1 |          0 |          0 |          1 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/services/firebase_remoteconfig_service.dart             | Dart         |         14 |          0 |          6 |         20 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/services/google_geocoding_api.dart                      | Dart         |         33 |          0 |          8 |         41 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/services/google_sheet_service.dart.dart                 | Dart         |         53 |         31 |         16 |        100 |
+| /Users/richardtozer/dev/projects/daufootytipping/lib/theme_data.dart                                         | Dart         |          5 |          0 |          2 |          7 |
+| /Users/richardtozer/dev/projects/daufootytipping/macos/Flutter/GeneratedPluginRegistrant.swift               | Swift        |          8 |          0 |          0 |          8 |
+| /Users/richardtozer/dev/projects/daufootytipping/package_rename_config.yaml                                  | YAML         |         14 |          0 |          3 |         17 |
+| /Users/richardtozer/dev/projects/daufootytipping/pubspec.yaml                                                | YAML         |         20 |          0 |          1 |         21 |
+| /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart                                 | Dart         |         21 |          2 |          3 |         26 |
+| Total                                                                                                        |              |        820 |         67 |        144 |      1,031 |
++--------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+

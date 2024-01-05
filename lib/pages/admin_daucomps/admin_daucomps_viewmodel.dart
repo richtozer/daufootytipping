@@ -138,6 +138,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     //once all the data is loaded, update the combinedRound field
     gamesViewModel.updateCombinedRoundNumber();
+
+    //from the gamesviewmodel, get the count of nrl and afl rounds per combinedround and create a list
   }
 
   @override
