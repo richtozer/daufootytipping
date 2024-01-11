@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
-
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:gsheets/gsheets.dart';
 
@@ -9,7 +9,7 @@ https://itnext.io/dart-working-with-google-sheets-793ed322daa0
 */
 
 class LegacyTippingService {
-  Completer<void> _initialLoadCompleter = Completer<void>();
+  final Completer<void> _initialLoadCompleter = Completer<void>();
 
   late final GSheets gsheets;
   late final Worksheet sheet;
@@ -58,20 +58,97 @@ class LegacyTippingService {
     log('Initial legacy gsheet load complete. Found ${rows.length} rows.');
   }
 
-  Future<void> submitDefaultTips(String tipperName, gamecounts) async {
+  Future<void> submitDefaultTips(
+      String tipperName, GamesViewModel gamesViewModel) async {
     await _initialLoadCompleter.future;
     log('Initial legacy gsheet load complete. submitDefaultTips()');
-// Find the row with the matching TipperName
+
+    //get the total number of combined rounds
+    List<int> combinedRounds = await gamesViewModel.getCombinedRoundNumbers();
+
+    //udate the header row, from column c, with the combined rounds numbers
+    await sheet.values.insertRow(1, combinedRounds, fromColumn: 3);
+
+    int currentCombinedRound = await gamesViewModel
+        .getCurrentCombinedRoundNumber(); //TODO test what happens when this increments
+
+    // Find the row with the matching TipperName
     final rowToUpdate = rows.indexWhere((row) => row[0] == tipperName);
+
+    List<String> existingTips = [];
 
     if (rowToUpdate == -1) {
       // If a matching row is not found, throw exception
       throw Exception(
           'Tipper $tipperName cannot be found in the legacy tipping sheet AppTips tab');
     } else {
-      // update existing row - insert  for both NRL and AFL tips where no tip exists, do this for every combined round
-      //await sheet.values.insertRow(rowToUpdate + 1, ['0'],
-      //    fromColumn: dauRoundNumber + 2);
+      //make sure we preserve any existing tips in the sheet, before we update the row with the default tips
+      //starting from column of the current round + 2 (as the first two columns are the tipper name and the comp name)
+
+      for (var combinedRound in combinedRounds.sublist(currentCombinedRound)) {
+        if (rows[rowToUpdate].length > 2) {
+          existingTips.add(rows[rowToUpdate][combinedRound]);
+        } else {
+          existingTips.add(''); //TODO test this
+        }
+      }
+    }
+
+    // loop through the combinedRounds from the GamesViewmodel starting at the current combined round and create default tips
+    List<String> newDefaultTips = [];
+    for (int roundNumber in combinedRounds.sublist(currentCombinedRound - 1)) {
+      String defaultTips = await gamesViewModel
+          .getDefaultTipsForCombinedRoundNumber(roundNumber);
+      newDefaultTips.add(defaultTips);
+    }
+
+    // compare existingTips with newDefaultTips:
+    //  1) If the entire row is the same, character for charactor, then don't update the row
+    //  2) If they are different, note the poistion of the "a","b","c","d" and "e" tips and make sure they are preserved in the update.
+    //  Any 'D' or 'z' tips can be overwritten as needed in the update
+    if (existingTips.join() == newDefaultTips.join()) {
+      log('No change to default tips for $tipperName');
+      return;
+    } else {
+      // loop through the existingTips and preserve any 'a','b','c','d' or 'e' tips
+      for (int i = 0; i < existingTips.length; i++) {
+        for (int j = 0; j < 17; j++) {
+          if (existingTips[i][j] == 'a' ||
+              existingTips[i][j] == 'b' ||
+              existingTips[i][j] == 'c' ||
+              existingTips[i][j] == 'd' ||
+              existingTips[i][j] == 'e') {
+            newDefaultTips[i].replaceRange(j, j + 1, existingTips[i][j]);
+          }
+        }
+      }
+
+      int maxAttempts = 5;
+      for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          await sheet.values.insertRow(rowToUpdate + 1, newDefaultTips,
+              fromColumn: currentCombinedRound + 2);
+          break; // If the request is successful, break out of the loop
+        } catch (e) {
+          log('Error ${e.toString()} submitting default tips for $tipperName, attempt $attempt of $maxAttempts');
+          await Future.delayed(
+              const Duration(seconds: 10)); // Wait for 60 seconds
+        }
+      }
+    }
+  }
+
+  Future<void> saveToGoogleSheets(List<Map<String, dynamic>> rows) async {
+    int maxAttempts = 5;
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await sheet.values.map.appendRows(rows);
+        break; // If the request is successful, break out of the loop
+      } catch (e) {
+        log('Error ${e.toString()} submitting default tips for all tippers');
+
+        await Future.delayed(const Duration(seconds: 5)); // Wait for 5 seconds
+      }
     }
   }
 
@@ -95,8 +172,6 @@ class LegacyTippingService {
 }
 
 /*
-
-
   factory Product.fromGsheets(Map<String, dynamic> json) {
     return Product(
       id: int.tryParse(json['id'] ?? ''),

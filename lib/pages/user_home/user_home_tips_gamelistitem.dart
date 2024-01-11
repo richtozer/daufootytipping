@@ -124,7 +124,9 @@ class _GameListItemState extends State<GameListItem> {
                           .entries
                           .map((entry) {
                         return GestureDetector(
-                          onTap: () => _controller.animateToPage(entry.key),
+                          onTap: () {
+                            _controller.animateToPage(entry.key);
+                          },
                           child: Container(
                             width: 6.0,
                             height: 6.0,
@@ -155,7 +157,13 @@ class _GameListItemState extends State<GameListItem> {
   List<Widget> carouselItems(GameTipsViewModel gameTipsViewModel) {
     if (widget.game.gameState == GameState.notStarted) {
       return [
-        TipChoice(gameTipsViewModel.getLatestGameTip(), gameTipsViewModel),
+        Consumer<GameTipsViewModel>(
+          builder: (context, gameTipsViewModel, child) {
+            final gameTip = gameTipsViewModel.getLatestGameTip();
+            // Use gameTip in your widget
+            return TipChoice(gameTip, gameTipsViewModel);
+          },
+        ),
         GameInfo(widget: widget, gameTipsViewModel: gameTipsViewModel),
       ];
     } else {

@@ -32,7 +32,7 @@ class _TipsPageBody extends StatefulWidget {
   final String currentDAUCompDBkey;
   final GamesViewModel gamesViewModel;
 
-  _TipsPageBody(
+  const _TipsPageBody(
       this.currentTipper, this.gamesViewModel, this.currentDAUCompDBkey);
 
   @override
@@ -46,7 +46,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    /*WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.hasClients) {
         double itemHeight = 100; // Replace with your actual item height
         int index = 5; // Replace with your actual index
@@ -58,6 +58,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
         );
       }
     });
+    */
   }
 
   @override

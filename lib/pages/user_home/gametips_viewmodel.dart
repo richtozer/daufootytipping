@@ -30,7 +30,7 @@ class GameTipsViewModel extends ChangeNotifier {
   bool get savingTip => _savingTip;
 
   Tipper currentTipper;
-  final Map<String, Tip?> _gameTipsCache = {};
+  //final Map<String, Tip?> _gameTipsCache = {};  TODO this cache is not working as expected, so we are not using it for now. to repo: a) reenable cache, b) change tip for a game c) result should be that UI updates immediately, however it does not.  The UI only updates when the user navigates away from the page and then back again.  This is not ideal, but it is not a high priority to fix.
 
   LegacyTippingService tippingService = GetIt.instance<LegacyTippingService>();
 
@@ -113,7 +113,7 @@ class GameTipsViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}/$newTipKey'] =
           tipJson;
-      _db.update(updates);
+      await _db.update(updates);
       log('new tip logged: ${updates.toString()}');
 
       tippingService.submitTips(currentTipper.name, 'zzzzzzzz', 'zzzzzzzzz',
@@ -121,7 +121,7 @@ class GameTipsViewModel extends ChangeNotifier {
       log('legacy tip logged: ${updates.toString()}');
 
       //invalidate any cache version
-      _gameTipsCache.removeWhere((key, value) => key == tip.game.dbkey);
+      //_gameTipsCache.removeWhere((key, value) => key == tip.game.dbkey);
 
       await FirebaseAnalytics.instance
           .logEvent(name: 'tip_submitted', parameters: {
@@ -138,11 +138,15 @@ class GameTipsViewModel extends ChangeNotifier {
   }
 
   Future<Tip?> getLatestGameTip() async {
-    if (!_gameTipsCache.containsKey(game.dbkey)) {
-      _gameTipsCache[game.dbkey] = await getLatestGameTipFromDb();
-    }
-    log('getting tips from  GameTipsViewModel.getLatestGameTip(${game.dbkey})');
-    return _gameTipsCache[game.dbkey];
+    //if (!_gameTipsCache.containsKey(game.dbkey)) {
+    //  log('getting DB tip - GameTipsViewModel.getLatestGameTip(${game.dbkey})');
+    //  _gameTipsCache[game.dbkey] = await getLatestGameTipFromDb();
+    //} else {
+    //  log('getting cached tip - GameTipsViewModel.getLatestGameTip(${game.dbkey})');
+    //}
+    //return _gameTipsCache[game.dbkey];
+
+    return await getLatestGameTipFromDb();
   }
 
   Future<Tip?> getLatestGameTipFromDb() async {

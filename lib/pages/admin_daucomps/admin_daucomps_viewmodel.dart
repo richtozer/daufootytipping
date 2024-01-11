@@ -3,10 +3,14 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
+import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 
 // define  constant for firestore database locations
 const daucompsPath = '/DAUComps';
@@ -68,7 +72,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       // update the record in firebase
       final Map<String, Map> updates = {};
       updates['$daucompsPath/${daucomp.dbkey}'] = daucomp.toJson();
-      _db.update(updates);
+      await _db.update(updates);
 
       //TODO this is a test - remove this next line of code
       getNetworkFixtureData(daucomp);
@@ -93,8 +97,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       final Map<String, Map> updates = {};
       updates['$daucompsPath/$newdaucompKey'] = postData;
-      //updates['blah'] = postData;
-      _db.update(updates);
+
+      await _db.update(updates);
 
       //update the dbkey in the local object
       newdaucomp.dbkey = newdaucompKey;
@@ -127,17 +131,28 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Future> gamesFuture = []; //TODO use this wait pattern elsewhere
 
     for (Game game in nrlGames) {
-      gamesFuture.add(gamesViewModel.addGame(game, newdaucomp));
+      gamesFuture.add(gamesViewModel.updateGame(game));
     }
 
     for (Game game in aflGames) {
-      gamesFuture.add(gamesViewModel.addGame(game, newdaucomp));
+      gamesFuture.add(gamesViewModel.updateGame(game));
     }
 
     await Future.wait(gamesFuture);
 
     //once all the data is loaded, update the combinedRound field
     gamesViewModel.updateCombinedRoundNumber();
+
+    //update the legacy tipping sheet with the default tips
+    LegacyTippingService tippingService =
+        GetIt.instance<LegacyTippingService>();
+
+    //loop through all the tippers, and assign them default tips
+    TippersViewModel tippersViewModel = TippersViewModel();
+    List<Tipper> tippers = await tippersViewModel.getTippers();
+    for (Tipper tipper in tippers) {
+      tippingService.submitDefaultTips(tipper.name, gamesViewModel);
+    }
 
     //from the gamesviewmodel, get the count of nrl and afl rounds per combinedround and create a list
   }
