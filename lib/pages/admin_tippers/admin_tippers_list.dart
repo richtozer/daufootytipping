@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -32,35 +33,46 @@ class TippersAdminPage extends StatelessWidget {
                   Consumer<TippersViewModel>(
                       builder: (context, tipperViewModel, child) {
                     return Expanded(
-                      child: ListView(
-                        children: [
-                          ...tipperViewModel.tippers.map(
-                            (tipper) => Card(
-                              child: ListTile(
-                                dense: true,
-                                isThreeLine: true,
-                                leading: tipper.active
-                                    ? const Icon(Icons.person)
-                                    : const Icon(Icons.person_off),
-                                title: Text(tipper.name),
-                                subtitle: Text(
-                                    '${tipper.tipperRole.name}\n${tipper.email}'),
-                                onTap: () async {
-                                  // Trigger edit functionality
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => TipperAdminEditPage(
-                                          tipperViewModel, tipper),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                        child: FutureBuilder<List<Tipper>>(
+                      future: tipperViewModel.getTippers(),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<List<Tipper>> snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const CircularProgressIndicator(); // Show a loading spinner while waiting
+                        } else if (snapshot.hasError) {
+                          return Text(
+                              'Error: ${snapshot.error}'); // Show error message if something went wrong
+                        } else {
+                          return ListView(
+                            children: snapshot.data!
+                                .map((tipper) => Card(
+                                      child: ListTile(
+                                        dense: true,
+                                        isThreeLine: true,
+                                        leading: tipper.active
+                                            ? const Icon(Icons.person)
+                                            : const Icon(Icons.person_off),
+                                        title: Text(tipper.name),
+                                        subtitle: Text(
+                                            '${tipper.tipperRole.name}\n${tipper.email}'),
+                                        onTap: () async {
+                                          // Trigger edit functionality
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      TipperAdminEditPage(
+                                                          tipperViewModel,
+                                                          tipper)));
+                                        },
+                                      ),
+                                    ))
+                                .toList(),
+                          );
+                        }
+                      },
+                    ));
                   }),
                 ]))));
   }

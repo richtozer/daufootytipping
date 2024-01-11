@@ -56,7 +56,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           email: _tipperEmailController.text,
           dbkey: tipper?.dbkey,
           authuid:
-              '[firebase uid goes here]', //TODO authuid should be populated in
+              tipper?.authuid ?? '[New tipper - UID not known at this time]',
           active: active,
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 

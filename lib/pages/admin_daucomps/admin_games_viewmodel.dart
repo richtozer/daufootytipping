@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
-import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
@@ -98,7 +97,7 @@ class GamesViewModel extends ChangeNotifier {
   Future<List<int>> getCombinedRoundNumbers() async {
     log('getCombinedRoundNumbers() waiting for initial Game load to complete');
     await initialLoadComplete;
-    log('getCombinedRoundNumbers() COMPLETED waiting for initial Game load to complete');
+    log('getCombinedRoundNumbers() initial Game load COMPLETED');
 
     List<int> combinedRoundNumbers = [];
     for (var game in _games) {
@@ -138,23 +137,81 @@ class GamesViewModel extends ChangeNotifier {
     return _nestedGroups;
   }
 
-  Future<void> addGame(Game gameData, DAUComp daucomp) async {
+  //method to get a List<Game> of the games for a given combined round number and league
+  Future<String> getDefaultTipsForCombinedRoundNumber(
+      int combinedRoundNumber) async {
+    log('getDefaultTipsForCombinedRoundNumber() waiting for initial Game load to complete');
+    await initialLoadComplete;
+    log('getDefaultTipsForCombinedRoundNumber() initial Game load to COMPLETED');
+
+    //filter _games to find all games where combinedRoundNumber == combinedRoundNumber and league == league
+    List<Game> filteredNrlGames = _games
+        .where((game) =>
+            game.combinedRoundNumber == combinedRoundNumber &&
+            game.league == League.nrl)
+        .toList();
+
+    List<Game> filteredAflGames = _games
+        .where((game) =>
+            game.combinedRoundNumber == combinedRoundNumber &&
+            game.league == League.afl)
+        .toList();
+
+    String defaultRoundNrlTips = 'D' * filteredNrlGames.length;
+    defaultRoundNrlTips = defaultRoundNrlTips.padRight(
+      8,
+      'z',
+    );
+
+    String defaultRoundAflTips = 'D' * filteredAflGames.length;
+    defaultRoundAflTips = defaultRoundAflTips.padRight(
+      9,
+      'z',
+    );
+
+    return defaultRoundNrlTips + defaultRoundAflTips;
+  }
+
+  Future<void> updateGame(Game updatedGame) async {
+    await _initialLoadCompleter.future;
+    _savingGame = true;
+    notifyListeners();
+
+    Game? originalGame = _games.firstWhereOrNull(
+        (existingGame) => existingGame.dbkey == updatedGame.dbkey);
+
+    if (originalGame != null) {
+      // preserve the original game's locationLatLng and combinedRoundNumber
+      //updatedGame.locationLatLng = originalGame.locationLatLng;
+      if (originalGame.combinedRoundNumber != 0) {
+        updatedGame.combinedRoundNumber = originalGame.combinedRoundNumber;
+      }
+
+      _editGame(updatedGame, originalGame);
+    } else {
+      log('Game: ${updatedGame.dbkey} does not exist in the database, adding record');
+      _addGame(updatedGame);
+    }
+
+    _savingGame = false;
+    notifyListeners();
+  }
+
+  Future<void> _addGame(Game gameData) async {
     try {
       _savingGame = true;
       notifyListeners();
 
+      //make sure the related team records exist
       _teamsViewModel.addTeam(gameData.awayTeam);
       _teamsViewModel.addTeam(gameData.homeTeam);
 
-      // A post entry. //TODO
       final postData = gameData.toJson();
 
-      // Write the new post's data simultaneously in the posts list and the
-      // user's post list. //TODO
       final Map<String, Map> updates = {};
       updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
           postData;
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
+
       await _db.update(updates);
     } finally {
       _savingGame = false;
@@ -162,74 +219,53 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
-  void editGame(Game updatedGame) async {
-    try {
-      await _initialLoadCompleter.future;
-      log('Initial game load to complete. editGame()');
+  Future<void> _editGame(Game updatedGame, Game originalGame) async {
+    await _initialLoadCompleter.future;
+    log('Initial game load to complete. editGame()');
 
-      _savingGame = true;
-      notifyListeners();
+    // Convert the original and updated game to JSON
+    Map<String, dynamic> originalJson = originalGame.toJson();
+    Map<String, dynamic> updatedJson = updatedGame.toJson();
 
-      /*//TODO test slow saves - in UI the back button should be disabled during the wait
-      await Future.delayed(const Duration(seconds: 5), () {
-        log('delayed save');
-      });
-      */
+    // Use JsonDiffer to get the differences
+    JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
+    DiffNode diff = differ.diff();
 
-      //the original Game record should be in our list of games
-      Game? originalGame = await findGame(updatedGame.dbkey);
+    // Initialize an empty map to hold all updates
+    Map<String, dynamic> updates = {};
 
-      //only edit the tipper record if it already exists, otherwise ignore
-      if (originalGame != null) {
-        // Convert the original and updated game to JSON
-        Map<String, dynamic> originalJson = originalGame.toJson();
-        Map<String, dynamic> updatedJson = updatedGame.toJson();
+    //log('Game: $gamesPathRoot/${updatedGame.dbkey} has: ${diff.changed.length} changes.');
+    // transform the changes from JsonDiffer format to Firebase format
+    Map changed = diff.changed;
+    changed.keys.toList().forEach((key) async {
+      if (changed[key] is List && (changed[key] as List).isNotEmpty) {
+        // Add the update to the updates map
+        updates['$gamesPathRoot/$parentDAUCompDBkey/${updatedGame.dbkey}/$key'] =
+            changed[key][1];
 
-        // Use JsonDiffer to get the differences
-        JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
-        DiffNode diff = differ.diff();
+        // Apply any updates to Firebase
+        try {
+          _savingGame = true;
+          notifyListeners();
+          await _db.update(updates);
+          log('Game updated in db to: $updates');
 
-        // Initialize an empty map to hold all updates
-        Map<String, dynamic> updates = {};
-
-        //log('Game: $gamesPathRoot/${updatedGame.dbkey} has: ${diff.changed.length} changes.');
-        // transform the changes from JsonDiffer format to Firebase format
-        Map changed = diff.changed;
-        changed.keys.toList().forEach((key) {
-          if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-            // Add the update to the updates map
-            updates['$gamesPathRoot/$parentDAUCompDBkey/${updatedGame.dbkey}/$key'] =
-                changed[key][1];
-
-            // Apply any updates to Firebase
-            _db.update(updates);
-            log('Game updated in db to: $updates');
-
-            // Log the event to Firebase Analytics
-            FirebaseAnalytics.instance.logEvent(
-              name: 'game_updated',
-              parameters: <String, dynamic>{
-                'game_key': updatedGame.dbkey,
-                'update': updates,
-              },
-            );
-          }
-        });
+          // Log the event to Firebase Analytics
+          FirebaseAnalytics.instance.logEvent(
+            name: 'game_updated',
+            parameters: <String, dynamic>{
+              'game_key': updatedGame.dbkey,
+              'update': updates.toString(), //TODO - check is this is working
+            },
+          );
+        } finally {
+          _savingGame = false;
+          notifyListeners();
+        }
       } else {
-        log('Game: ${updatedGame.dbkey} does not exist in the database, ignoring edit request');
-
-        // Log the event to Firebase Analytics
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'game_update_attempted_nonexistent',
-          parameters: <String, dynamic>{
-            'game_key': updatedGame.dbkey,
-          },
-        );
+        log('Game: $gamesPathRoot/${updatedGame.dbkey} has: no changes.');
       }
-    } finally {
-      _savingGame = false;
-      notifyListeners();
-    }
+    });
   }
 
   Future<Game?> findGame(String gameDbKey) async {
@@ -317,7 +353,7 @@ class GamesViewModel extends ChangeNotifier {
               location: game.location,
               dbkey: game.dbkey,
               combinedRoundNumber: i + 1);
-          editGame(updatedGame); //write changes to firebase
+          updateGame(updatedGame); //write changes to firebase
         } else {
           log('Game: ${game.dbkey} already has combined round number: ${game.combinedRoundNumber}');
         }
@@ -326,13 +362,34 @@ class GamesViewModel extends ChangeNotifier {
     log('out updateCombinedRoundNumber()');
   }
 
-  List<String> getAllRoundsDefaultTips() {
-    var groups = groupBy(_games, (g) => '${g.combinedRoundNumber}-${g.league}');
+  // Method to return the current combined round number.
+  // From this list of all games, exclude those where the gamestate
+  // is 'resultKnown'.
+  // of the remaining games sort my gamestarttimeutc and
+  //return the combinedRoundNumber of the first game in the list
 
-    String defaultNrlTips = 'z'.padLeft(8, 'z');
-    String defaultAflTips = 'z'.padLeft(9, 'z');
+  Future<int> getCurrentCombinedRoundNumber() async {
+    log('getCurrentCombinedRoundNumber() waiting for initial Game load to complete');
+    await _initialLoadCompleter.future;
+    log('getCurrentCombinedRoundNumber() initial Game load COMPLETED');
 
-    return ['hi', 'there'];
+    int currentCombinedRoundNumber =
+        0; // TODO test UI behaviour with this set to 0
+    List<Game> gamesToProcess = [];
+    for (var game in _games) {
+      if (game.gameState == GameState.resultNotKnown ||
+          game.gameState == GameState.notStarted) {
+        gamesToProcess.add(game);
+      }
+    }
+    gamesToProcess.sort((a, b) => a.startTimeUTC.compareTo(b.startTimeUTC));
+    if (gamesToProcess.isNotEmpty) {
+      currentCombinedRoundNumber = gamesToProcess.first.combinedRoundNumber;
+    }
+    if (currentCombinedRoundNumber == 0) {
+      log('getCurrentCombinedRoundNumber() - no games found with gamestate == GameState.notStarted ot GameState.resultNotKnown');
+    }
+    return currentCombinedRoundNumber;
   }
 
   // Cleanup

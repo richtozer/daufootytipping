@@ -118,7 +118,7 @@ class TipsViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}/$newTipKey'] =
           tipJson;
-      _db.update(updates);
+      await _db.update(updates);
       log('new tip logged: ${updates.toString()}');
 
       //invalidate any cache version

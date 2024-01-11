@@ -7,8 +7,12 @@
             <data android:scheme="https" />
         </intent>
     </queries>
+
+        <!-- Add this line to request the internet permission -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
     <application
-        android:label="DAU Footy Tipping"
+        android:label="DAU Tips"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

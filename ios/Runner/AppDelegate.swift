@@ -1,6 +1,6 @@
 import UIKit
 import Flutter
-import FirebaseCore  /// 1. ADD THIS LINE
+//import FirebaseCore  /// 1. ADD THIS LINE
 import FirebaseAuth
 import GoogleSignIn
 
@@ -10,7 +10,7 @@ import GoogleSignIn
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-      FirebaseApp.configure() /// 2. ADD THIS LINE
+    //  FirebaseApp.configure() /// 2. ADD THIS LINE
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

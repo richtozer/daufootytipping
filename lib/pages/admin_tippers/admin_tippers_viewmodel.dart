@@ -16,7 +16,7 @@ class TippersViewModel extends ChangeNotifier {
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
 
-  List<Tipper> get tippers => _tippers;
+  //List<Tipper> get tippers => _tippers;
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
@@ -73,6 +73,11 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<List<Tipper>> getTippers() async {
+    await _initialLoadCompleter.future;
+    return _tippers;
+  }
+
   void editTipper(Tipper updatedTipper) async {
     try {
       log('Waiting for initial Tipper load to complete, edittipper()');
@@ -110,7 +115,7 @@ class TippersViewModel extends ChangeNotifier {
         });
 
         // Apply any updates to Firebase
-        _db.update(updates);
+        await _db.update(updates);
       } else {
         log('Tipper: ${updatedTipper.dbkey} does not exist in the database, ignoring edit request');
       }
@@ -138,11 +143,11 @@ class TippersViewModel extends ChangeNotifier {
       // write to database
       final Map<String, Map> updates = {};
       updates['$tippersPath/$dbkey'] = entry;
-      //updates['/user-posts/$uid/$newPostKey'] = postData;
-      _db.update(updates);
+
+      await _db.update(updates);
 
       return dbkey;
-        } finally {
+    } finally {
       _savingTipper = false;
       notifyListeners();
     }

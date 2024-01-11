@@ -1,4 +1,4 @@
-#!/bin/bash
+dar#!/bin/bash
 
 # Function to delete iOS Pods
 delete_ios_pods() {
