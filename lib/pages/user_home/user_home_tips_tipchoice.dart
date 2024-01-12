@@ -20,7 +20,9 @@ class TipChoice extends StatelessWidget {
         future: latestGameTip,
         builder: (context, AsyncSnapshot<Tip?> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator(); // Show loading spinner while waiting for data
+            return const Center(
+                child:
+                    CircularProgressIndicator()); // Show loading spinner while waiting for data
             //return const SizedBox.shrink(); //return empty widget while waiting for data
           } else if (snapshot.hasError) {
             return Text(

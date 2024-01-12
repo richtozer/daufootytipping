@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 final List<Widget> aboutBoxChildren = <Widget>[
   const SizedBox(height: 24),
@@ -16,16 +17,23 @@ final List<Widget> aboutBoxChildren = <Widget>[
   ),
 ];
 
-Widget aboutDialog(context) {
+Future<Widget> aboutDialog(context) async {
+  PackageInfo packageInfo = await PackageInfo.fromPlatform();
+
+  String appName = packageInfo.appName;
+  String packageName = packageInfo.packageName;
+  String version = packageInfo.version;
+  String buildNumber = packageInfo.buildNumber;
+
   return ElevatedButton(
-    child: const Text('About this application'),
+    child: Text('About this application ... package $packageName'),
     onPressed: () {
       showAboutDialog(
         context: context,
         applicationIcon:
             Expanded(child: Image.asset('assets/icon/AppIcon.png')),
-        applicationName: 'DAU Footy Tipping',
-        applicationVersion: 'January 2024',
+        applicationName: appName,
+        applicationVersion: '$version - build $buildNumber',
         applicationLegalese: '\u{a9} 2024 The DAU Footy Tipping Authors',
         children: aboutBoxChildren,
       );
