@@ -14,10 +14,7 @@ import 'package:provider/provider.dart';
 class UserAuthPage extends StatelessWidget {
   UserAuthPage({super.key}) {
     remoteConfigService.initialize();
-    //currentDAUComp =
-    //    remoteConfigService.remoteConfig.getString('currentDAUComp');
   }
-  //late String currentDAUComp;
 
   final RemoteConfigService remoteConfigService = RemoteConfigService();
 

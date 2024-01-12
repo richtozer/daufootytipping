@@ -29,8 +29,11 @@ class GameInfo extends StatelessWidget {
             children: [
               Text(DateFormat('EEE dd MMM hh:mm a')
                   .format(widget.game.startTimeUTC.toLocal())),
-              Text(
-                gameTipsViewModel.game.location,
+              Flexible(
+                child: Text(
+                  gameTipsViewModel.game.location,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Text(
                 '${gameTipsViewModel.game.league == League.afl ? 'AFL' : 'NRL'} round: ${gameTipsViewModel.game.roundNumber}',

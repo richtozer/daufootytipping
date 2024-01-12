@@ -67,7 +67,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
       future: widget.gamesViewModel.getCombinedRoundNumbers(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
+          return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
         } else {
@@ -115,7 +115,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                             combinedRoundNumber!, League.nrl),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator();
+                        return const Center(child: CircularProgressIndicator());
                       } else if (snapshot.hasError) {
                         return Text('Error: ${snapshot.error}');
                       } else {
@@ -151,7 +151,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                             combinedRoundNumber, League.afl),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator();
+                        return const Center(child: CircularProgressIndicator());
                       } else if (snapshot.hasError) {
                         return Text('Error: ${snapshot.error}');
                       } else {

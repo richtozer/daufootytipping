@@ -27,7 +27,18 @@ class Profile extends StatelessWidget {
                   }),
                 ],
               ))),
-      SliverToBoxAdapter(child: Center(child: aboutDialog(context))),
+      SliverToBoxAdapter(
+          child: Center(
+              child: FutureBuilder<Widget>(
+        future: aboutDialog(context),
+        builder: (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return snapshot.data!;
+          } else {
+            return CircularProgressIndicator();
+          }
+        },
+      ))),
       Consumer<TippersViewModel>(builder: (_, TippersViewModel viewModel, __) {
         //if (viewModel.getcurrentTipper().then((tipperRole) => tipperRole) ==
         if (currentTipper.tipperRole == TipperRole.admin) {
