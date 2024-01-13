@@ -1,6 +1,7 @@
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
+import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -48,8 +49,9 @@ Future<void> main() async {
 
   await dotenv.load(); // Loads .env file
 
-  final getIt = GetIt.instance;
-  getIt.registerSingleton<LegacyTippingService>(LegacyTippingService());
+  final locator = GetIt.instance;
+  locator.registerSingleton<LegacyTippingService>(LegacyTippingService());
+  locator.registerSingleton<PackageInfoService>(PackageInfoService());
 
   runApp(const MyApp());
 }
