@@ -35,7 +35,7 @@ class Profile extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.done) {
             return snapshot.data!;
           } else {
-            return CircularProgressIndicator();
+            return const CircularProgressIndicator();
           }
         },
       ))),
