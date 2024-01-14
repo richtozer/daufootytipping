@@ -81,9 +81,15 @@ class UserAuthPage extends StatelessWidget {
                       } else if (versionSnapshot.hasError) {
                         return Text('Error: ${versionSnapshot.error}');
                       } else if (versionSnapshot.data == true) {
-                        return Center(
-                            child: Text(
-                                "This version of the app is no longer supported, please update the app from the app store."));
+                        return const MaterialApp(
+                          home: Scaffold(
+                            body: Center(
+                              child: Text(
+                                "This version of the app is no longer supported, please update the app from the app store.",
+                              ),
+                            ),
+                          ),
+                        );
                       }
                       if (!snapshot.hasData) {
                         return SignInScreen(
