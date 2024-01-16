@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -14,6 +15,9 @@ final tippersPath = dotenv.env['TIPPERS_PATH'];
 
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
+  late Tipper _linkedTipper;
+
+  Tipper get linkedTipper => _linkedTipper;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -125,6 +129,7 @@ class TippersViewModel extends ChangeNotifier {
 
         // Apply any updates to Firebase
         await _db.update(updates);
+        log('Tipper: ${updatedTipper.dbkey} updated in database to $updates');
       } else {
         log('Tipper: ${updatedTipper.dbkey} does not exist in the database, ignoring edit request');
       }
@@ -263,6 +268,45 @@ class TippersViewModel extends ChangeNotifier {
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
+    }
+  }
+
+  // method called at logon to find logged in Tipper and return it
+  // first try finding the tipper based on authuid
+  // if that fails, try finding the tipper based on email
+  Future<Tipper> linkUserToTipper(User authenticatedFirebaseUser) async {
+    Tipper? currentTipper;
+
+    // first try finding the tipper based on authuid
+    currentTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
+
+    if (currentTipper != null) {
+      log('linkUserToTipper() Tipper ${currentTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
+      return currentTipper;
+    }
+
+    // if that fails, try finding the tipper based on email
+    currentTipper ??= await findTipperByEmail(authenticatedFirebaseUser.email!);
+
+    if (currentTipper != null) {
+      log('linkUserToTipper() Tipper ${currentTipper.name} found using email: ${authenticatedFirebaseUser.email}. Updating UID in database');
+      // update UID in database. create a new Tipper object to submit the change
+      Tipper updatedTipper = Tipper(
+        dbkey: currentTipper.dbkey,
+        tipperID: currentTipper.tipperID,
+        name: currentTipper.name,
+        email: currentTipper.email,
+        authuid: authenticatedFirebaseUser.uid, //make the change here
+        tipperRole: currentTipper.tipperRole,
+        active: currentTipper.active,
+      );
+
+      await editTipper(updatedTipper);
+
+      return updatedTipper;
+    } else {
+      throw Exception(
+          'getLoggedInTipper() Existing Tipper not found for user: ${authenticatedFirebaseUser.email}');
     }
   }
 
