@@ -137,7 +137,7 @@ class GamesViewModel extends ChangeNotifier {
     return _nestedGroups;
   }
 
-  //method to get a List<Game> of the games for a given combined round number and league
+  //method to get default tips for a given combined round number and league
   Future<String> getDefaultTipsForCombinedRoundNumber(
       int combinedRoundNumber) async {
     log('getDefaultTipsForCombinedRoundNumber() waiting for initial Game load to complete');

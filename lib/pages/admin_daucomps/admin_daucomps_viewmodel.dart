@@ -153,8 +153,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     for (Tipper tipper in tippers) {
       tippingService.submitDefaultTips(tipper.name, gamesViewModel);
     }
-
-    //from the gamesviewmodel, get the count of nrl and afl rounds per combinedround and create a list
   }
 
   @override

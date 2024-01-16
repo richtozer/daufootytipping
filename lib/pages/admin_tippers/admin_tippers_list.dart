@@ -23,57 +23,93 @@ class TippersAdminPage extends StatelessWidget {
             ),
             body: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Column(children: [
-                  const Wrap(spacing: 6.0, runSpacing: 6.0, children: [
-                    Chip(label: Text('Tipper')),
-                    Chip(label: Text('Admin')),
-                    Chip(label: Text('Active')),
-                    Chip(label: Text('Disabled')),
-                  ]),
-                  Consumer<TippersViewModel>(
+                child: Column(
+                  children: [
+                    Consumer<TippersViewModel>(
                       builder: (context, tipperViewModel, child) {
-                    return Expanded(
-                        child: FutureBuilder<List<Tipper>>(
-                      future: tipperViewModel.getTippers(),
-                      builder: (BuildContext context,
-                          AsyncSnapshot<List<Tipper>> snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const CircularProgressIndicator(); // Show a loading spinner while waiting
-                        } else if (snapshot.hasError) {
-                          return Text(
-                              'Error: ${snapshot.error}'); // Show error message if something went wrong
-                        } else {
-                          return ListView(
-                            children: snapshot.data!
-                                .map((tipper) => Card(
-                                      child: ListTile(
-                                        dense: true,
-                                        isThreeLine: true,
-                                        leading: tipper.active
-                                            ? const Icon(Icons.person)
-                                            : const Icon(Icons.person_off),
-                                        title: Text(tipper.name),
-                                        subtitle: Text(
-                                            '${tipper.tipperRole.name}\n${tipper.email}'),
-                                        onTap: () async {
-                                          // Trigger edit functionality
-                                          Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      TipperAdminEditPage(
-                                                          tipperViewModel,
-                                                          tipper)));
-                                        },
-                                      ),
-                                    ))
-                                .toList(),
-                          );
-                        }
+                        return ElevatedButton(
+                          onPressed: () async {
+                            if (tipperViewModel.isLegacySyncing) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      backgroundColor: Colors.red,
+                                      content: Text(
+                                          'Legacy Tipper sync already in progress')));
+                              return;
+                            }
+                            try {
+                              await tipperViewModel.syncTippers();
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: Colors.red,
+                                  content: Text('An error occurred: $e'),
+                                  duration: const Duration(seconds: 10),
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(!tipperViewModel.isLegacySyncing
+                              ? 'Sync Tippers'
+                              : 'Sync processing...'),
+                        );
                       },
-                    ));
-                  }),
-                ]))));
+                    ),
+                    Expanded(
+                      child: Consumer<TippersViewModel>(
+                        builder: (context, tipperViewModel, child) {
+                          return FutureBuilder<List<Tipper>>(
+                            future: tipperViewModel.getTippers(),
+                            builder: (BuildContext context,
+                                AsyncSnapshot<List<Tipper>> snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const CircularProgressIndicator(); // Show a loading spinner while waiting
+                              } else if (snapshot.hasError) {
+                                return Text(
+                                    'Error: ${snapshot.error}'); // Show error message if something went wrong
+                              } else {
+                                return Column(
+                                  children: [
+                                    Expanded(
+                                      child: ListView(
+                                        children: snapshot.data!
+                                            .map((tipper) => Card(
+                                                  child: ListTile(
+                                                    dense: true,
+                                                    isThreeLine: true,
+                                                    leading: tipper.active
+                                                        ? const Icon(
+                                                            Icons.person)
+                                                        : const Icon(
+                                                            Icons.person_off),
+                                                    title: Text(tipper.name),
+                                                    subtitle: Text(
+                                                        '${tipper.tipperRole.name}\n${tipper.email}'),
+                                                    onTap: () async {
+                                                      // Trigger edit functionality
+                                                      Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                              builder: (context) =>
+                                                                  TipperAdminEditPage(
+                                                                      tipperViewModel,
+                                                                      tipper)));
+                                                    },
+                                                  ),
+                                                ))
+                                            .toList(),
+                                      ),
+                                    )
+                                  ],
+                                );
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ))));
   }
 }

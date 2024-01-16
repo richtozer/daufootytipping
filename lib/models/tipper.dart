@@ -5,6 +5,8 @@ class Tipper implements Comparable<Tipper> {
   String authuid;
   final String email;
   final String name;
+  final String
+      tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
   final bool active;
   final TipperRole tipperRole;
 
@@ -14,6 +16,7 @@ class Tipper implements Comparable<Tipper> {
       required this.authuid,
       required this.email,
       required this.name,
+      required this.tipperID,
       required this.active,
       required this.tipperRole});
 
@@ -23,6 +26,7 @@ class Tipper implements Comparable<Tipper> {
         authuid: data['authuid'] ?? '',
         email: data['email'] ?? '',
         name: data['name'] ?? '',
+        tipperID: data['tipperID'] ?? '',
         active: data['active'] ?? false,
         tipperRole: TipperRole.values.byName(data['tipperRole']));
   }
@@ -45,6 +49,7 @@ class Tipper implements Comparable<Tipper> {
       "authuid": authuid,
       "email": email,
       "name": name,
+      "tipperID": tipperID,
       "active": active,
       "tipperRole": tipperRole.name
     };

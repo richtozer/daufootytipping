@@ -32,7 +32,8 @@ class GameTipsViewModel extends ChangeNotifier {
   Tipper currentTipper;
   //final Map<String, Tip?> _gameTipsCache = {};  TODO this cache is not working as expected, so we are not using it for now. to repo: a) reenable cache, b) change tip for a game c) result should be that UI updates immediately, however it does not.  The UI only updates when the user navigates away from the page and then back again.  This is not ideal, but it is not a high priority to fix.
 
-  LegacyTippingService tippingService = GetIt.instance<LegacyTippingService>();
+  LegacyTippingService legcyTippingService =
+      GetIt.instance<LegacyTippingService>();
 
   //constructor
   GameTipsViewModel(this.currentTipper, this.parentDAUCompDBkey, this.game) {
@@ -96,7 +97,7 @@ class GameTipsViewModel extends ChangeNotifier {
     return await Future.wait(futureTips);
   }
 
-  void addTip(Tip tip) async {
+  void addTip(List<Game> roundGames, Tip tip) async {
     try {
       _savingTip = true;
 
@@ -116,12 +117,15 @@ class GameTipsViewModel extends ChangeNotifier {
       await _db.update(updates);
       log('new tip logged: ${updates.toString()}');
 
-      tippingService.submitTips(currentTipper.name, 'zzzzzzzz', 'zzzzzzzzz',
-          tip.game.combinedRoundNumber);
-      log('legacy tip logged: ${updates.toString()}');
+      // code section to support legacy tipping service
+      // find the Tip game position in the roundGames list
+      int gameIndex =
+          roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
 
-      //invalidate any cache version
-      //_gameTipsCache.removeWhere((key, value) => key == tip.game.dbkey);
+      legcyTippingService.submitTip(
+          currentTipper.name, tip, gameIndex, tip.game.combinedRoundNumber);
+
+      // end code section to support legacy tipping service
 
       await FirebaseAnalytics.instance
           .logEvent(name: 'tip_submitted', parameters: {

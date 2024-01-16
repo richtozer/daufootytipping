@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/auth_viewmodel.dart';
@@ -52,6 +54,7 @@ class UserAuthPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    log('UserAuthPage.build()');
     return FutureBuilder(
         future: _initialization, // wait for remote config to initialise
         builder: (context, snapshot) {
