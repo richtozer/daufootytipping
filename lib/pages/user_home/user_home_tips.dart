@@ -127,6 +127,8 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                           itemBuilder: (context, index) {
                             var game = games?[index];
                             return GameListItem(
+                                roundGames:
+                                    games!, //pass all games for this league/round to the GameListItem  - this is to support legacy tipping only
                                 game: game!,
                                 currentTipper: widget.currentTipper,
                                 currentDAUCompDBkey:
@@ -163,6 +165,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                           itemBuilder: (context, index) {
                             var game = games?[index];
                             return GameListItem(
+                                roundGames: games!,
                                 game: game!,
                                 currentTipper: widget.currentTipper,
                                 currentDAUCompDBkey:

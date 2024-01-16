@@ -4,6 +4,17 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+    
+        {
+            "type": "node",
+            "request": "attach",
+            "name": "Debug Firebase Function",
+            "port": 9229,
+            "restart": true,
+            "skipFiles": ["<node_internals>/**"],
+            "preLaunchTask": "start firebase emulator",
+            "postDebugTask": "stop firebase emulator"
+        },
         {
             "type": "chrome",
             "request": "launch",

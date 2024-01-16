@@ -11,8 +11,10 @@ import 'package:flutter/material.dart';
 class TipChoice extends StatelessWidget {
   final Future<Tip?> latestGameTip;
   final GameTipsViewModel gameTipsViewModel;
+  final List<Game> roundGames;
 
-  const TipChoice(this.latestGameTip, this.gameTipsViewModel, {super.key});
+  const TipChoice(this.roundGames, this.latestGameTip, this.gameTipsViewModel,
+      {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +108,9 @@ class TipChoice extends StatelessWidget {
             tip: option,
             submittedTimeUTC: DateTime.now().toUtc(),
           );
-          gameTipsViewModel.addTip(tip);
+          //add the tip to the realtime firebase database
+          gameTipsViewModel.addTip(roundGames,
+              tip); //roundGames is passed to support legacy tipping only
         }
       },
     );

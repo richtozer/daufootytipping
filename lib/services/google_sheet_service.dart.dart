@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:gsheets/gsheets.dart';
+import 'package:tuple/tuple.dart';
 
 /* 
 https://itnext.io/dart-working-with-google-sheets-793ed322daa0
@@ -12,19 +17,18 @@ class LegacyTippingService {
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
   late final GSheets gsheets;
-  late final Worksheet sheet;
-  late final List<List<String>> rows;
-
   final String? spreadsheetId = dotenv.env['DAU_GSHEET_ID'];
 
-  final String sheetName = 'AppTips';
+  late final Worksheet appTipsSheet;
+  late final List<List<String>> appTipsRows;
+  final String appTipsSheetName = 'AppTips';
+
+  late final Worksheet tippersSheet;
+  late final List<List<String>> tippersRows;
+  final String tippersSheetName = 'Tippers';
 
   LegacyTippingService() {
-    _initialize(spreadsheetId!, sheetName);
-  }
-
-  Future<void> _initialize(String spreadsheetId, String sheetName) async {
-    //TODO remove private key from code
+    // Initialize gsheets here
     var credentials = {
       "type": "service_account",
       "project_id": dotenv.env['PROJECT_ID'],
@@ -45,17 +49,55 @@ class LegacyTippingService {
     // Get authenticated client
     gsheets = GSheets(credentials);
 
+    _initialize(spreadsheetId!, appTipsSheetName).then((result) {
+      appTipsSheet = result.item1;
+      appTipsRows = result.item2;
+    });
+    _initialize(spreadsheetId!, tippersSheetName).then((result) {
+      tippersSheet = result.item1;
+      tippersRows = result.item2;
+    });
+  }
+
+  Future<Tuple2<Worksheet, List<List<String>>>> _initialize(
+      String spreadsheetId, String sheetName) async {
     final spreadsheet = await gsheets.spreadsheet(spreadsheetId);
-    sheet = spreadsheet.worksheetByTitle(sheetName)!;
+    var sheet = spreadsheet.worksheetByTitle(sheetName)!;
 
     // Get all rows from the sheet
-    rows = await sheet.values.allRows();
+    var rows = await sheet.values.allRows();
 
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
 
-    log('Initial legacy gsheet load complete. Found ${rows.length} rows.');
+    log('Initial legacy gsheet load of sheet $sheetName complete. Found ${rows.length} rows.');
+
+    return Tuple2(sheet, rows);
+  }
+
+  //method to convert gsheet rows of tippers into a list of Tipper objects
+  Future<List<Tipper>> getTippers() async {
+    await _initialLoadCompleter.future;
+    log('Initial legacy gsheet load complete. getTippers()');
+
+    List<Tipper> tippers = [];
+
+    for (var row in tippersRows) {
+      Tipper tipper = Tipper(
+          authuid: row[1].toLowerCase(),
+          email: row[1]
+              .toLowerCase(), // make sure we store the email in lowercase, for later consitent searching
+          name: row[0],
+          tipperID: row[
+              4], //this is the primary key to support lecacy tipping service
+          active: row[2] == 'Admin' || row[2] == 'Form' ? true : false,
+          tipperRole: row[2] == 'Admin' ? TipperRole.admin : TipperRole.tipper);
+
+      tippers.add(tipper);
+    }
+
+    return tippers;
   }
 
   Future<void> submitDefaultTips(
@@ -67,13 +109,14 @@ class LegacyTippingService {
     List<int> combinedRounds = await gamesViewModel.getCombinedRoundNumbers();
 
     //udate the header row, from column c, with the combined rounds numbers
-    await sheet.values.insertRow(1, combinedRounds, fromColumn: 3);
+    await appTipsSheet.values.insertRow(1, combinedRounds, fromColumn: 3);
 
+    // omly update default tips for future rounds, ignore past rounds
     int currentCombinedRound = await gamesViewModel
         .getCurrentCombinedRoundNumber(); //TODO test what happens when this increments
 
     // Find the row with the matching TipperName
-    final rowToUpdate = rows.indexWhere((row) => row[0] == tipperName);
+    final rowToUpdate = appTipsRows.indexWhere((row) => row[0] == tipperName);
 
     List<String> existingTips = [];
 
@@ -86,8 +129,8 @@ class LegacyTippingService {
       //starting from column of the current round + 2 (as the first two columns are the tipper name and the comp name)
 
       for (var combinedRound in combinedRounds.sublist(currentCombinedRound)) {
-        if (rows[rowToUpdate].length > 2) {
-          existingTips.add(rows[rowToUpdate][combinedRound]);
+        if (appTipsRows[rowToUpdate].length > 2) {
+          existingTips.add(appTipsRows[rowToUpdate][combinedRound]);
         } else {
           existingTips.add(''); //TODO test this
         }
@@ -112,6 +155,9 @@ class LegacyTippingService {
     } else {
       // loop through the existingTips and preserve any 'a','b','c','d' or 'e' tips
       for (int i = 0; i < existingTips.length; i++) {
+        if (existingTips[i] == "") {
+          break; //stop processing for existing tips if we hit an empty cell
+        }
         for (int j = 0; j < 17; j++) {
           if (existingTips[i][j] == 'a' ||
               existingTips[i][j] == 'b' ||
@@ -126,7 +172,7 @@ class LegacyTippingService {
       int maxAttempts = 5;
       for (int attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-          await sheet.values.insertRow(rowToUpdate + 1, newDefaultTips,
+          await appTipsSheet.values.insertRow(rowToUpdate + 1, newDefaultTips,
               fromColumn: currentCombinedRound + 2);
           break; // If the request is successful, break out of the loop
         } catch (e) {
@@ -142,7 +188,7 @@ class LegacyTippingService {
     int maxAttempts = 5;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        await sheet.values.map.appendRows(rows);
+        await appTipsSheet.values.map.appendRows(rows);
         break; // If the request is successful, break out of the loop
       } catch (e) {
         log('Error ${e.toString()} submitting default tips for all tippers');
@@ -152,12 +198,12 @@ class LegacyTippingService {
     }
   }
 
-  Future<void> submitTips(String tipperName, String nrlTips, String aflTips,
-      int dauRoundNumber) async {
+  Future<void> submitTip(
+      String tipperName, Tip tip, int gameIndex, int dauRoundNumber) async {
     await _initialLoadCompleter.future;
     log('Initial legacy gsheet load complete. submitTips()');
 // Find the row with the matching TipperName
-    final rowToUpdate = rows.indexWhere((row) => row[0] == tipperName);
+    final rowToUpdate = appTipsRows.indexWhere((row) => row[0] == tipperName);
 
     if (rowToUpdate == -1) {
       // If a matching row is not found, throw exception
@@ -165,29 +211,28 @@ class LegacyTippingService {
           'Tipper $tipperName cannot be found in the legacy tipping sheet AppTips tab');
     } else {
       // update existing row
-      await sheet.values.insertRow(rowToUpdate + 1, [nrlTips + aflTips],
-          fromColumn: dauRoundNumber + 2);
+      // 1) grab the existing cell data if any
+      // 2) if tip league == League.NRL, starting at index 0, use the gameIndex to update the cell data at that position with the game result
+      // 3) if tip league == League.AFL, starting at index 8, use the gameIndex to update the cell data at that position with the game result
+      // 4) update the row with the new cell data
+
+      var cellValue = await appTipsSheet.values
+          .value(row: rowToUpdate + 1, column: dauRoundNumber + 2);
+      if (tip.game.league == League.nrl) {
+        cellValue =
+            cellValue.replaceRange(gameIndex, gameIndex + 1, tip.tip.name);
+      } else {
+        cellValue =
+            cellValue.replaceRange(gameIndex + 8, gameIndex + 9, tip.tip.name);
+      }
+
+      appTipsSheet.values.insertValue(cellValue,
+          row: rowToUpdate + 1, column: dauRoundNumber + 2);
+
+      log('Updated legacy tipping sheet with tip $cellValue for $tipperName in game ${tip.game.dbkey}');
+
+      //await sheet.values.insertRow(rowToUpdate + 1, [nrlTips + aflTips],
+      //    fromColumn: dauRoundNumber + 2);
     }
   }
 }
-
-/*
-  factory Product.fromGsheets(Map<String, dynamic> json) {
-    return Product(
-      id: int.tryParse(json['id'] ?? ''),
-      name: json['name'],
-      quantity: int.tryParse(json['quantity'] ?? ''),
-      price: double.tryParse(json['price'] ?? ''),
-    );
-  }
-
-  Map<String, dynamic> toGsheets() {
-    return {
-      'id': id,
-      'name': name,
-      'quantity': quantity,
-      'price': price,
-    };
-  }
-
-*/

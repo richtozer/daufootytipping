@@ -13,11 +13,13 @@ import 'package:provider/provider.dart';
 class GameListItem extends StatefulWidget {
   const GameListItem({
     super.key,
+    required this.roundGames,
     required this.game,
     required this.currentTipper,
     required this.currentDAUCompDBkey,
   });
 
+  final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
   final Tipper currentTipper;
   final String currentDAUCompDBkey;
@@ -161,7 +163,8 @@ class _GameListItemState extends State<GameListItem> {
           builder: (context, gameTipsViewModel, child) {
             final gameTip = gameTipsViewModel.getLatestGameTip();
             // Use gameTip in your widget
-            return TipChoice(gameTip, gameTipsViewModel);
+            return TipChoice(widget.roundGames, gameTip,
+                gameTipsViewModel); //roundGames is to support legacy tipping service only
           },
         ),
         GameInfo(widget: widget, gameTipsViewModel: gameTipsViewModel),

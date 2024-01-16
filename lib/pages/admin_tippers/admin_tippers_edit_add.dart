@@ -58,6 +58,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           authuid:
               tipper?.authuid ?? '[New tipper - UID not known at this time]',
           active: active,
+          tipperID: tipper!.tipperID,
           tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
 
       if (tipper != null) {
