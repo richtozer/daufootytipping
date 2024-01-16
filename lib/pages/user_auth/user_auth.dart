@@ -2,7 +2,6 @@ import 'dart:developer';
 
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/user_auth/auth_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -136,29 +135,32 @@ class UserAuthPage extends StatelessWidget {
                       }
 
                       //once we pass signin we have a firebase auth user context
-                      User? user = snapshot.data;
-                      if (user == null) {
+                      User? authenticatedFirebaseUser = snapshot.data;
+                      if (authenticatedFirebaseUser == null) {
                         throw Exception('No user context found');
                       }
-                      if (user.isAnonymous) {
+                      if (authenticatedFirebaseUser.isAnonymous) {
                         throw Exception('User is anonymous');
                       }
-                      if (user.emailVerified == false) {
+                      if (authenticatedFirebaseUser.emailVerified == false) {
                         throw Exception('User email not verified');
                       }
 
                       FirebaseAnalytics.instance.logLogin(
-                          loginMethod: user.providerData[0].providerId);
+                          loginMethod: authenticatedFirebaseUser
+                              .providerData[0].providerId);
 
                       //at this point we have a verfied logged on user - as we send them
                       //to the home page, make sure they are represented in the realtime database
                       // as a tipper linked to their firebase auth record,
                       //if not create a Tipper record for them.
 
-                      AuthViewModel authViewModel = AuthViewModel(user);
+                      TippersViewModel tippersViewModel =
+                          Provider.of<TippersViewModel>(context, listen: false);
 
                       return FutureBuilder<Tipper>(
-                        future: authViewModel.getCurrentTipper(),
+                        future: tippersViewModel
+                            .linkUserToTipper(authenticatedFirebaseUser),
                         builder: (BuildContext context,
                             AsyncSnapshot<Tipper> snapshot) {
                           if (snapshot.connectionState ==
