@@ -92,7 +92,7 @@ class TippersViewModel extends ChangeNotifier {
   Future<void> editTipper(Tipper updatedTipper) async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
-        log('Waiting for initial Tipper load to complete, edittipper()');
+        log('Waiting for initial Tipper load to complete, editTipper()');
         await _initialLoadCompleter.future;
         log('tipper load complete, editTipper()');
       }
@@ -114,22 +114,26 @@ class TippersViewModel extends ChangeNotifier {
         JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
         DiffNode diff = differ.diff();
 
-        // Initialize an empty map to hold all updates
-        Map<String, dynamic> updates = {};
+        if (diff.hasChanged) {
+          // transform the changes from JsonDiffer format to Firebase format
+          // Initialize an empty map to hold all updates
+          Map<String, dynamic> updates = {};
 
-        // transform the changes from JsonDiffer format to Firebase format
-        Map changed = diff.changed;
-        changed.keys.toList().forEach((key) {
-          if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-            // Add the update to the updates map
-            updates['$tippersPath/${updatedTipper.dbkey}/$key'] =
-                changed[key][1];
-          }
-        });
+          Map changed = diff.changed;
+          changed.keys.toList().forEach((key) {
+            if (changed[key] is List && (changed[key] as List).isNotEmpty) {
+              // Add the update to the updates map
+              updates['$tippersPath/${updatedTipper.dbkey}/$key'] =
+                  changed[key][1];
+            }
+          });
 
-        // Apply any updates to Firebase
-        await _db.update(updates);
-        log('Tipper: ${updatedTipper.dbkey} updated in database to $updates');
+          // Apply any updates to Firebase
+          await _db.update(updates);
+          log('Tipper: ${updatedTipper.name} updated in firebase to $updates');
+        } else {
+          log('Tipper: ${updatedTipper.name} has no updates to process');
+        }
       } else {
         log('Tipper: ${updatedTipper.dbkey} does not exist in the database, ignoring edit request');
       }
@@ -225,12 +229,17 @@ class TippersViewModel extends ChangeNotifier {
 
       List<Tipper> legacyTippers = [];
 
+      //refresh for any data changes
+      await tippingService.refresh();
+
       await Future.wait([
-        tippingService.getTippers().then((tippers) => legacyTippers = tippers),
+        tippingService
+            .getLegacyTippers()
+            .then((tippers) => legacyTippers = tippers),
         _initialLoadCompleter.future,
       ]);
 
-      log('syncTippers() tipper load complete');
+      log('syncTippers() legacy tipper sheet load complete');
 
       // loop through each Tipper in the legacyTippers list - skip the header row
       await Future.forEach(legacyTippers.skip(1), (legacyTipper) async {
@@ -240,13 +249,18 @@ class TippersViewModel extends ChangeNotifier {
 
         // if the Tipper does not exist in the Firebase database, add it
         if (firebaseTipper == null) {
-          log('syncTippers() Tipper: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the database, adding it');
+          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the database, adding it');
           await addTipper(legacyTipper);
         } else {
           // if the Tipper does exist in the Firebase database, update it
-          log('syncTippers() Tipper: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the database, updating it');
+          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the database, updating it if needed');
+
           //to support legacy syncing, reverse copy the dbkey to the legacy record before calling editTipper()
           legacyTipper.dbkey = firebaseTipper.dbkey;
+          // if the firebaseTipper.authuid is not an email, then it is likely the firebaseuid and should be preserved
+          if (!firebaseTipper.authuid.contains('@')) {
+            legacyTipper.authuid = firebaseTipper.authuid;
+          }
           await editTipper(legacyTipper);
         }
       });
@@ -306,7 +320,7 @@ class TippersViewModel extends ChangeNotifier {
       return updatedTipper;
     } else {
       throw Exception(
-          'getLoggedInTipper() Existing Tipper not found for user: ${authenticatedFirebaseUser.email}');
+          'getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
     }
   }
 

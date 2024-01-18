@@ -15,41 +15,42 @@ class Profile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: CustomScrollView(slivers: <Widget>[
-      SliverToBoxAdapter(
-          child: SizedBox(
-              height: 600,
-              child: ProfileScreen(
-                actions: [
-                  DisplayNameChangedAction((context, oldName, newName) {
-                    // TODO do something with the new name
-                    throw UnimplementedError();
-                  }),
-                ],
-              ))),
-      SliverToBoxAdapter(
-          child: Center(
-              child: FutureBuilder<Widget>(
-        future: aboutDialog(context),
-        builder: (BuildContext context, AsyncSnapshot<Widget> snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return snapshot.data!;
-          } else {
-            return const CircularProgressIndicator();
-          }
-        },
-      ))),
-      Consumer<TippersViewModel>(builder: (_, TippersViewModel viewModel, __) {
-        //if (viewModel.getcurrentTipper().then((tipperRole) => tipperRole) ==
-        if (currentTipper.tipperRole == TipperRole.admin) {
-          return SliverToBoxAdapter(
-              child: Center(child: adminFunctions(context)));
-        } else {
-          // we cannot identify their role at this time, do not display admin functionality
-          return const SliverToBoxAdapter(
-              child: Center(child: Text("No Admin Access")));
-        }
-      })
-    ]));
+      body: ListView(
+        children: <Widget>[
+          SizedBox(
+            height: 400,
+            child: ProfileScreen(
+              actions: [
+                DisplayNameChangedAction((context, oldName, newName) {
+                  // TODO do something with the new name
+                  throw UnimplementedError();
+                }),
+              ],
+            ),
+          ),
+          Center(
+            child: FutureBuilder<Widget>(
+              future: aboutDialog(context),
+              builder: (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+                if (snapshot.connectionState == ConnectionState.done) {
+                  return snapshot.data!;
+                } else {
+                  return const CircularProgressIndicator();
+                }
+              },
+            ),
+          ),
+          Consumer<TippersViewModel>(
+              builder: (_, TippersViewModel viewModel, __) {
+            if (currentTipper.tipperRole == TipperRole.admin) {
+              return Center(child: adminFunctions(context));
+            } else {
+              // we cannot identify their role at this time, do not display admin functionality
+              return const Center(child: Text("No Admin Access"));
+            }
+          })
+        ],
+      ),
+    );
   }
 }

@@ -12,7 +12,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
-// define  constant for firestore database locations
+// define constant for firestore database locations - TODO move to env file
 const daucompsPath = '/DAUComps';
 
 class DAUCompsViewModel extends ChangeNotifier {
@@ -143,7 +143,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     //once all the data is loaded, update the combinedRound field
     gamesViewModel.updateCombinedRoundNumber();
 
-    //update the legacy tipping sheet with the default tips
+    //get reference to legacy tipping service so that we can submit default tips
     LegacyTippingService tippingService =
         GetIt.instance<LegacyTippingService>();
 

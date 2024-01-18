@@ -169,7 +169,25 @@ class UserAuthPage extends StatelessWidget {
                                 child:
                                     CircularProgressIndicator()); // or your own loading widget
                           } else if (snapshot.hasError) {
-                            return Text('Error: ${snapshot.error}');
+                            return ProfileScreen(
+                              actions: [
+                                DisplayNameChangedAction(
+                                    (context, oldName, newName) {
+                                  // TODO do something with the new name
+                                  throw UnimplementedError();
+                                }),
+                              ],
+                              children: [
+                                Container(
+                                  color: Colors.red,
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(
+                                    '${snapshot.error}',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
                           } else {
                             RemoteConfigService remoteConfigService =
                                 RemoteConfigService();

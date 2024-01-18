@@ -13,10 +13,10 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 // define  constant for firestore database location
-const tipsPathRoot = '/Tips';
+const tipsPathRoot = '/AllTips';
 
 class GameTipsViewModel extends ChangeNotifier {
-  List<Tip> _tips = [];
+  Tip? _tip;
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
@@ -25,7 +25,7 @@ class GameTipsViewModel extends ChangeNotifier {
   final Game game;
   final Completer<void> _initialLoadCompleter = Completer();
 
-  List<Tip> get tips => _tips;
+  Tip? get tip => _tip;
 
   bool get savingTip => _savingTip;
 
@@ -56,45 +56,20 @@ class GameTipsViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     if (event.snapshot.exists) {
-      final allTips =
-          deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+      final tipJson = event.snapshot.value;
+      final Map<String, dynamic> tipData =
+          Map<String, dynamic>.from(tipJson as Map<Object?, Object?>);
 
-      _tips = await deserializeTips(allTips, currentTipper);
-      _tips.sort();
+      log('Tip found for Tipper ${currentTipper.name} in game ${game.dbkey}, tipData: $tipData');
+
+      _tip = Tip.fromJson(tipData, game.dbkey, currentTipper, game);
     } else {
-      log('No tips found for Tipper ${currentTipper.name} in game ${game.dbkey}');
+      log('No tip found for Tipper ${currentTipper.name} in game ${game.dbkey}');
     }
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
-
     notifyListeners();
-  }
-
-  Map<String, dynamic> deepMapFromObject(Map<Object?, Object?> map) {
-    return Map<String, dynamic>.from(map.map((key, value) {
-      if (value is Map<Object?, Object?>) {
-        return MapEntry(key.toString(), deepMapFromObject(value));
-      } else {
-        return MapEntry(key.toString(), value);
-      }
-    }));
-  }
-
-  Future<List<Tip>> deserializeTips(Map<String, dynamic> json, tipper) async {
-    List<Future<Tip>> futureTips = [];
-    Tipper futureTipper =
-        await tipper; //its important we wait for the tipper to be resolved before we attempt to deserailise any tips in this function
-
-    futureTips.addAll(json.entries.map((entry) async {
-      String key = entry.key;
-      Map<String, dynamic> data = entry.value;
-
-      return Tip.fromJson(data, key, futureTipper, game);
-    }));
-    //}
-
-    return await Future.wait(futureTips);
   }
 
   void addTip(List<Game> roundGames, Tip tip) async {
@@ -104,15 +79,8 @@ class GameTipsViewModel extends ChangeNotifier {
       // create a json representation of the tip
       final tipJson = await tip.toJson();
 
-      //get a unique db key for this tip
-      final newTipKey = _db
-          .child(
-              '$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}')
-          .push()
-          .key;
-
       final Map<String, Map> updates = {};
-      updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}/$newTipKey'] =
+      updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
       log('new tip logged: ${updates.toString()}');
@@ -154,13 +122,14 @@ class GameTipsViewModel extends ChangeNotifier {
   }
 
   Future<Tip?> getLatestGameTipFromDb() async {
-    await _initialLoadCompleter.future;
-    log('tips load complete, GameTipsViewModel.getLatestGameTip(${game.dbkey})');
-    Tip? foundTip =
-        _tips.lastWhereOrNull((tip) => tip.game.dbkey == game.dbkey);
-    if (foundTip != null) {
-      log('found tip ${foundTip.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name} GameTipsViewModel.getLatestGameTipFromDb()');
-      return foundTip;
+    if (!_initialLoadCompleter.isCompleted) {
+      await _initialLoadCompleter.future;
+      log('tips load complete, GameTipsViewModel.getLatestGameTip(${game.dbkey})');
+    }
+
+    if (_tip != null) {
+      log('found tip ${_tip!.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name} GameTipsViewModel.getLatestGameTipFromDb()');
+      return _tip;
     } else {
       if (game.gameState == GameState.notStarted) {
         return null; //game has not started yet, so assign a null tip
