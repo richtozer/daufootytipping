@@ -11,7 +11,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
 // define  constant for firestore database location
-const tipsPathRoot = '/Tips';
+const tipsPathRoot = '/AllTips';
 
 class TipsViewModel extends ChangeNotifier {
   List<Tip> _tips = [];
@@ -98,45 +98,6 @@ class TipsViewModel extends ChangeNotifier {
     }
 
     return await Future.wait(futureTips);
-  }
-
-  void addTip(Tip tip) async {
-    try {
-      _savingTip = true;
-      notifyListeners();
-
-      // create a json representation of the tip
-      final tipJson = await tip.toJson();
-
-      //get a unique db key for this tip
-      final newTipKey = _db
-          .child(
-              '$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}')
-          .push()
-          .key;
-
-      final Map<String, Map> updates = {};
-      updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}/$newTipKey'] =
-          tipJson;
-      await _db.update(updates);
-      log('new tip logged: ${updates.toString()}');
-
-      //invalidate any cache version
-      _gameTipsCache.removeWhere((key, value) => key == tip.game.dbkey);
-
-      await FirebaseAnalytics.instance
-          .logEvent(name: 'tip_submitted', parameters: {
-        'tipper': tip.tipper.name,
-        'comp': parentDAUCompDBkey,
-        'game':
-            'Round: ${tip.game.combinedRoundNumber}, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
-        'tip': tip.tip.toString(),
-        'submittedTimeUTC': tip.submittedTimeUTC.toString(),
-      });
-    } finally {
-      _savingTip = false;
-      notifyListeners();
-    }
   }
 
   Future<Tip?> getLatestGameTip(Game game) async {

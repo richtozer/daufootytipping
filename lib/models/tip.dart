@@ -7,7 +7,11 @@ class Tip implements Comparable<Tip> {
   final Game game; //the game being tipped
   final Tipper tipper; //the tipper
   final GameResult tip; //their tip
-  final DateTime submittedTimeUTC; //the time the tip was submitted
+  final DateTime submittedTimeUTC; //the time the tip was submitted -
+  // interesting tidbit to tell if the tip came from the app or the legacy google form
+  // the time stamp will be suttly different.
+  // for the app the format is:         2023-12-28 02:21:55.932148Z
+  // for the google form the format is: 2024-01-18T04:03:19.095Z
 
   Tip(
       {this.dbkey,
