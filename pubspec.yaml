@@ -55,6 +55,7 @@ dependencies:
   flutter_svg: ^2.0.9
   get_it: ^7.6.4
   googleapis: ^11.4.0
+  googleapis_auth: ^1.4.1
   gsheets: ^0.5.0
   http: ^1.1.2
   http_mock_adapter: ^0.6.1
@@ -74,6 +75,8 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
   flutter_lints: ^3.0.1
   test: ^1.24.9
+  flutter_test:
+    sdk: flutter
 
 flutter_icons:
   android: true

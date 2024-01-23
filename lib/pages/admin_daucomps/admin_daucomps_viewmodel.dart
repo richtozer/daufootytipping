@@ -150,9 +150,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     //loop through all the tippers, and assign them default tips
     TippersViewModel tippersViewModel = TippersViewModel();
     List<Tipper> tippers = await tippersViewModel.getTippers();
-    for (Tipper tipper in tippers) {
-      tippingService.submitDefaultTips(tipper.name, gamesViewModel);
-    }
+
+    tippingService.submitDefaultTips(tippers, gamesViewModel);
   }
 
   @override

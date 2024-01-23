@@ -93,24 +93,35 @@ class TipChoice extends StatelessWidget {
       selectedColor: const Color(0xFF789697),
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
-        if (latestGameTip != null && latestGameTip.tip == option) {
+        try {
+          if (latestGameTip != null && latestGameTip.tip == option) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.red,
+                content: Text(
+                    'Your tip [${latestGameTip.game.league == League.afl ? latestGameTip.tip.aflTooltip : latestGameTip.tip.nrlTooltip}] has already been submitted.'),
+              ),
+            );
+          } else {
+            Tip tip = Tip(
+              tipper: gameTipsViewModel.currentTipper,
+              game: gameTipsViewModel.game,
+              tip: option,
+              submittedTimeUTC: DateTime.now().toUtc(),
+            );
+            //add the tip to the realtime firebase database
+            gameTipsViewModel.addTip(roundGames,
+                tip); //roundGames is passed to support legacy tipping only
+          }
+        } catch (e) {
+          String msg = 'Error submitting tip: $e';
+          log(msg);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: Colors.red,
-              content: Text(
-                  'Your tip [${latestGameTip.game.league == League.afl ? latestGameTip.tip.aflTooltip : latestGameTip.tip.nrlTooltip}] has already been submitted.'),
+              content: Text(msg),
             ),
           );
-        } else {
-          Tip tip = Tip(
-            tipper: gameTipsViewModel.currentTipper,
-            game: gameTipsViewModel.game,
-            tip: option,
-            submittedTimeUTC: DateTime.now().toUtc(),
-          );
-          //add the tip to the realtime firebase database
-          gameTipsViewModel.addTip(roundGames,
-              tip); //roundGames is passed to support legacy tipping only
         }
       },
     );
