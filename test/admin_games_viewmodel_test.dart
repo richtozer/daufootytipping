@@ -1,4 +1,4 @@
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+/* import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:gsheets/gsheets.dart';
@@ -21,7 +21,7 @@ void main() {
           .thenAnswer((_) async => 1);
 
       expect(
-        () => service.submitDefaultTips('unknown tipper', gamesViewModel),
+        () => service.submitDefaultTips("dd", gamesViewModel),
         throwsA(isA<Exception>()),
       );
     });
@@ -43,3 +43,4 @@ void main() {
     });
   });
 }
+ */

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
@@ -104,6 +103,9 @@ class GameTipsViewModel extends ChangeNotifier {
         'tip': tip.tip.toString(),
         'submittedTimeUTC': tip.submittedTimeUTC.toString(),
       });
+    } catch (e) {
+      // rethrow exception so that the UI can handle it
+      rethrow;
     } finally {
       _savingTip = false;
     }

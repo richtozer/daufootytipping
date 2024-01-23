@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +16,7 @@ class TipsViewModel extends ChangeNotifier {
   List<Tip> _tips = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
-  bool _savingTip = false;
+  final bool _savingTip = false;
 
   late GamesViewModel _gamesViewModel;
   final String parentDAUCompDBkey;
