@@ -128,7 +128,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     GamesViewModel gamesViewModel =
         GamesViewModel(newdaucomp.dbkey!); //get the provider instance
 
-    List<Future> gamesFuture = []; //TODO use this wait pattern elsewhere
+    List<Future> gamesFuture = [];
 
     for (Game game in nrlGames) {
       gamesFuture.add(gamesViewModel.updateGame(game));
@@ -151,7 +151,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     TippersViewModel tippersViewModel = TippersViewModel();
     List<Tipper> tippers = await tippersViewModel.getTippers();
 
-    tippingService.submitDefaultTips(tippers, gamesViewModel);
+    tippingService.submitLegacyDefaultTips(tippers, gamesViewModel);
   }
 
   @override

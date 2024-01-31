@@ -39,7 +39,7 @@ void main() {
       GamesViewModel gamesViewModel = GamesViewModel("-Nk88l-ww9pYF1j_jUq7");
 
       LegacyTippingService service = LegacyTippingService();
-      await service.submitDefaultTips(tippers, gamesViewModel);
+      await service.submitLegacyDefaultTips(tippers, gamesViewModel);
 
       expect(service.appTipsData?[0][0], equals(['foo', 'bar', 'baz']));
     });
