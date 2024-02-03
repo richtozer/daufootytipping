@@ -221,7 +221,7 @@ class GamesViewModel extends ChangeNotifier {
 
   Future<void> _editGame(Game updatedGame, Game originalGame) async {
     await _initialLoadCompleter.future;
-    log('Initial game load to complete. editGame()');
+    log('Initial game load completed. editGame()');
 
     // Convert the original and updated game to JSON
     Map<String, dynamic> originalJson = originalGame.toJson();

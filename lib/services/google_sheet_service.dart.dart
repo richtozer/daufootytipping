@@ -16,18 +16,14 @@ https://itnext.io/dart-working-with-google-sheets-793ed322daa0
 */
 
 class LegacyTippingService {
-  final Completer<void> _initialLoadCompleter = Completer<void>();
-
   late final GSheets gsheets;
   final String? spreadsheetId = dotenv.env['DAU_GSHEET_ID'];
   late final SheetsApi sheetsApi;
 
   late final Worksheet appTipsSheet;
-  late final List<List<String?>>? appTipsData;
   final String appTipsSheetName = 'AppTips';
 
   late final Worksheet tippersSheet;
-  late List<List<String>> tippersRows;
   final String tippersSheetName = 'Tippers';
 
   LegacyTippingService() {
@@ -62,50 +58,15 @@ class LegacyTippingService {
 
     AutoRefreshingAuthClient client = await gsheets.client;
     sheetsApi = SheetsApi(client);
-
-    await refresh();
-  }
-
-  Future<void> refresh() async {
-    try {
-      // Fetch updated data for both sheets
-      //apptips
-      final values = await sheetsApi.spreadsheets.values.get(
-        spreadsheetId!,
-        appTipsSheetName,
-      );
-
-      // Error refreshing sheets: type 'List<List<dynamic>>' is not a subtype of type 'List<List<String?>>?' in type cast
-      //appTipsData = values.values as List<List<String?>>?;
-      if (appTipsData != null) {
-        appTipsData!.clear();
-      }
-      appTipsData = values.values
-          ?.map((list) => list.map((item) => item as String?).toList())
-          .toList();
-
-      log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData!.length} rows.');
-
-      //tippers
-      tippersRows.clear();
-      tippersRows = await tippersSheet.values.allRows();
-      log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
-
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-        log('LegacyTippingService - Initial legacy gsheet load complete.');
-      }
-    } catch (e) {
-      log('Error refreshing sheets: ${e.toString()}');
-    }
   }
 
   //method to convert gsheet rows of tippers into a list of Tipper objects
   Future<List<Tipper>> getLegacyTippers() async {
-    await _initialLoadCompleter.future;
-    log('Initial legacy gsheet load complete. getTippers()');
-
     List<Tipper> tippers = [];
+
+    late List<List<String>> tippersRows;
+    tippersRows = await tippersSheet.values.allRows();
+    log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
     for (var row in tippersRows) {
       Tipper tipper = Tipper(
@@ -136,11 +97,18 @@ class LegacyTippingService {
 
   Future<void> syncTipsToLegacyDiffOnly(
       AllTipsViewModel allTipsViewModel, GamesViewModel gamesViewModel) async {
-    await _initialLoadCompleter.future;
-    log('Initial legacy gsheet load complete. syncTipsDiffToLegacy()');
-
     //refresh the data from the gsheet
-    await refresh(); //TODO test if this actually works - make a manual change to sheet after the class is instantiated and see if it gets picked up
+    final List<List<String?>>? appTipsData;
+
+    final values = await sheetsApi.spreadsheets.values.get(
+      spreadsheetId!,
+      appTipsSheetName,
+    );
+    appTipsData = values.values
+        ?.map((list) => list.map((item) => item as String?).toList())
+        .toList();
+
+    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData!.length} rows.');
 
     //get the total number of combined rounds
     List<int> combinedRounds = await gamesViewModel.getCombinedRoundNumbers();
@@ -201,7 +169,7 @@ class LegacyTippingService {
     }
 
     //ignore the first 2 columns of data in appTipsData as they have the tipper name and email
-    List<List<String?>> currentSheetTipData = appTipsData!.map((e) {
+    List<List<String?>> currentSheetTipData = appTipsData.map((e) {
       return e.sublist(2);
     }).toList();
 
@@ -293,8 +261,16 @@ class LegacyTippingService {
 
   Future<void> submitTip(
       String tipperName, Tip tip, int gameIndex, int dauRoundNumber) async {
-    await _initialLoadCompleter.future;
-    log('Initial legacy gsheet load complete. submitTips()');
+    final List<List<String?>>? appTipsData;
+
+    // TODO - this is probably going to blow out our ghsheet quota, we are pulling the full sheet for each tip submitted in the app
+    final values = await sheetsApi.spreadsheets.values.get(
+      spreadsheetId!,
+      appTipsSheetName,
+    );
+    appTipsData = values.values
+        ?.map((list) => list.map((item) => item as String?).toList())
+        .toList();
 
     // Find the row with the matching TipperName
     final rowToUpdate = appTipsData!.indexWhere((row) => row[0] == tipperName);
