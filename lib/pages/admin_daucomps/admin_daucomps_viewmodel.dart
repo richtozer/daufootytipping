@@ -155,6 +155,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         AllTipsViewModel(tippersViewModel, newdaucomp.dbkey!);
 
     //sync tips to legacy
+    await tippingService.initialized();
     tippingService.syncTipsToLegacyDiffOnly(allTipsViewModel, gamesViewModel);
   }
 
