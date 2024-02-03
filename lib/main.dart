@@ -1,5 +1,3 @@
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';

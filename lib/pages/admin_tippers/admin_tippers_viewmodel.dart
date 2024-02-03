@@ -229,9 +229,6 @@ class TippersViewModel extends ChangeNotifier {
 
       List<Tipper> legacyTippers = [];
 
-      //refresh for any data changes
-      await tippingService.refresh();
-
       await Future.wait([
         tippingService
             .getLegacyTippers()

@@ -24,7 +24,6 @@ class AllTipsViewModel extends ChangeNotifier {
   //List<Tip> get tips => _tips;
   //List<Game> get games => _gamesViewModel.games;
   GamesViewModel get gamesViewModel => _gamesViewModel;
-  final Map<String, Tip?> _gameTipsCache = {};
 
   TippersViewModel tipperViewModel = TippersViewModel();
 
