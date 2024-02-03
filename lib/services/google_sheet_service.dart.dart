@@ -19,12 +19,20 @@ class LegacyTippingService {
   late final GSheets gsheets;
   final String? spreadsheetId = dotenv.env['DAU_GSHEET_ID'];
   late final SheetsApi sheetsApi;
+  late final Spreadsheet spreadsheet;
 
   late final Worksheet appTipsSheet;
   final String appTipsSheetName = 'AppTips';
+  late final List<List<String?>> appTipsData;
 
   late final Worksheet tippersSheet;
   final String tippersSheetName = 'Tippers';
+  late List<List<String>> tippersRows;
+
+  final Completer<void> _initialLoadCompleter = Completer();
+
+  // call this method to await the initial load of the gsheet
+  Future<void> initialized() => _initialLoadCompleter.future;
 
   LegacyTippingService() {
     // Initialize gsheets here
@@ -52,21 +60,34 @@ class LegacyTippingService {
   }
 
   Future<void> _initialize() async {
-    final spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
+    AutoRefreshingAuthClient client = await gsheets.client;
+    sheetsApi = SheetsApi(client);
+
+    spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
     appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
     tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
 
-    AutoRefreshingAuthClient client = await gsheets.client;
-    sheetsApi = SheetsApi(client);
+    tippersRows = await tippersSheet.values.allRows();
+    log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
+
+    final values = await sheetsApi.spreadsheets.values.get(
+      spreadsheetId!,
+      appTipsSheetName,
+    );
+    appTipsData = values.values!
+        .map((list) => list.map((item) => item as String?).toList())
+        .toList();
+
+    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData!.length} rows.');
+
+    _initialLoadCompleter.complete();
   }
 
   //method to convert gsheet rows of tippers into a list of Tipper objects
   Future<List<Tipper>> getLegacyTippers() async {
     List<Tipper> tippers = [];
 
-    late List<List<String>> tippersRows;
-    tippersRows = await tippersSheet.values.allRows();
-    log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
+    await spreadsheet.refresh();
 
     for (var row in tippersRows) {
       Tipper tipper = Tipper(
@@ -98,17 +119,8 @@ class LegacyTippingService {
   Future<void> syncTipsToLegacyDiffOnly(
       AllTipsViewModel allTipsViewModel, GamesViewModel gamesViewModel) async {
     //refresh the data from the gsheet
-    final List<List<String?>>? appTipsData;
 
-    final values = await sheetsApi.spreadsheets.values.get(
-      spreadsheetId!,
-      appTipsSheetName,
-    );
-    appTipsData = values.values
-        ?.map((list) => list.map((item) => item as String?).toList())
-        .toList();
-
-    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData!.length} rows.');
+    await spreadsheet.refresh(); //TODO is this a good idea, is it inefficient?
 
     //get the total number of combined rounds
     List<int> combinedRounds = await gamesViewModel.getCombinedRoundNumbers();
@@ -261,19 +273,8 @@ class LegacyTippingService {
 
   Future<void> submitTip(
       String tipperName, Tip tip, int gameIndex, int dauRoundNumber) async {
-    final List<List<String?>>? appTipsData;
-
-    // TODO - this is probably going to blow out our ghsheet quota, we are pulling the full sheet for each tip submitted in the app
-    final values = await sheetsApi.spreadsheets.values.get(
-      spreadsheetId!,
-      appTipsSheetName,
-    );
-    appTipsData = values.values
-        ?.map((list) => list.map((item) => item as String?).toList())
-        .toList();
-
     // Find the row with the matching TipperName
-    final rowToUpdate = appTipsData!.indexWhere((row) => row[0] == tipperName);
+    final rowToUpdate = appTipsData.indexWhere((row) => row[0] == tipperName);
 
     if (rowToUpdate == -1) {
       // If a matching row is not found, throw exception
