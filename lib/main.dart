@@ -1,3 +1,5 @@
+import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
@@ -6,6 +8,7 @@ import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +37,16 @@ Future<void> main() async {
     );
   }
 
+  //initialize firebase messaging
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  //Request notification permissions (iOS only):
+  NotificationSettings settings = await messaging.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
@@ -45,7 +58,7 @@ Future<void> main() async {
 
   // setup some default analytics parameters
   await FirebaseAnalytics.instance
-      .setDefaultEventParameters({'version': '1.2.3'});
+      .setDefaultEventParameters({'version': '1.0.0'});
 
   await dotenv.load(); // Loads .env file
 
@@ -53,9 +66,9 @@ Future<void> main() async {
   locator.registerSingleton<LegacyTippingService>(LegacyTippingService());
   locator.registerSingleton<PackageInfoService>(PackageInfoService());
 
-  /*  //TEST
+  //TEST
 
-  DAUComp daucomp = DAUComp(
+  /*  DAUComp daucomp = DAUComp(
     dbkey: '-Nk88l-ww9pYF1j_jUq7',
     name: 'DAU Footy Tipping 2024.98',
     aflFixtureJsonURL: Uri(
@@ -70,6 +83,8 @@ Future<void> main() async {
 
   DAUCompsViewModel dcvm = DAUCompsViewModel();
   dcvm.getNetworkFixtureData(daucomp); */
+
+  //TEST
 
   runApp(const MyApp());
 }

@@ -18,9 +18,9 @@ class TipsPage extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => GamesViewModel(currentDAUCompDBkey),
       child: Consumer<GamesViewModel>(
-        builder: (context, tipsViewModel, child) {
+        builder: (context, gamesViewModel, child) {
           return _TipsPageBody(
-              currentTipper, tipsViewModel, currentDAUCompDBkey);
+              currentTipper, gamesViewModel, currentDAUCompDBkey);
         },
       ),
     );

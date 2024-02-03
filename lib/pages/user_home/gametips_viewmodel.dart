@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
@@ -94,6 +95,9 @@ class GameTipsViewModel extends ChangeNotifier {
 
       // end code section to support legacy tipping service
 
+      //unsubscripe the tipper from the FCM topic for this game
+      await FirebaseMessaging.instance.unsubscribeFromTopic(tip.game.dbkey);
+
       await FirebaseAnalytics.instance
           .logEvent(name: 'tip_submitted', parameters: {
         'tipper': tip.tipper.name,
@@ -108,6 +112,15 @@ class GameTipsViewModel extends ChangeNotifier {
       rethrow;
     } finally {
       _savingTip = false;
+    }
+  }
+
+  //method to check if the tipper has tipped this game using getLatestGameTip()
+  // if they have not, subscribe the tipper to the FCM topic for this game
+  Future<void> registerForFCMTipReminder() async {
+    if (_tip == null) {
+      log('registering for FCM tip reminder for game ${game.dbkey}');
+      await FirebaseMessaging.instance.subscribeToTopic(game.dbkey);
     }
   }
 

@@ -3,8 +3,10 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
@@ -143,15 +145,17 @@ class DAUCompsViewModel extends ChangeNotifier {
     //once all the data is loaded, update the combinedRound field
     gamesViewModel.updateCombinedRoundNumber();
 
-    //get reference to legacy tipping service so that we can submit default tips
+    //get reference to legacy tipping service so that we can sync tips
     LegacyTippingService tippingService =
         GetIt.instance<LegacyTippingService>();
 
-    //loop through all the tippers, and assign them default tips
     TippersViewModel tippersViewModel = TippersViewModel();
-    List<Tipper> tippers = await tippersViewModel.getTippers();
 
-    tippingService.submitLegacyDefaultTips(tippers, gamesViewModel);
+    AllTipsViewModel allTipsViewModel =
+        AllTipsViewModel(tippersViewModel, newdaucomp.dbkey!);
+
+    //sync tips to legacy
+    tippingService.syncTipsToLegacyDiffOnly(allTipsViewModel, gamesViewModel);
   }
 
   @override
