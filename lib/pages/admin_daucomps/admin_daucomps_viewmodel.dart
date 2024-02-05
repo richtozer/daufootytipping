@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
@@ -108,9 +107,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       //update the dbkey in the local object
       newdaucomp.dbkey = newdaucompKey;
-
-      // as this is a new comp, lets do the first time population of game and dauround data from the fixture json service
-      //getNetworkFixtureData(newdaucomp); //TODO move this to a seaprate sync button
     } finally {
       _savingDAUComp = false;
       notifyListeners();
@@ -129,18 +125,18 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       FixtureDownloadService fds = FixtureDownloadService();
 
-      List<Game> nrlGames = [];
+      List<dynamic> nrlGames = [];
       try {
-        nrlGames = await fds.getLeagueFixture(
+        nrlGames = await fds.getLeagueFixtureRaw(
             newdaucomp.nrlFixtureJsonURL, League.nrl);
       } catch (e) {
         throw 'Error loading NRL fixture data. Exception was: $e';
         //return 'Error loading NRL fixture data. Exception was: $e'; // TODO - exceptions is not being passed to caller
       }
 
-      List<Game> aflGames = [];
+      List<dynamic> aflGames = [];
       try {
-        aflGames = await fds.getLeagueFixture(
+        aflGames = await fds.getLeagueFixtureRaw(
             newdaucomp.aflFixtureJsonURL, League.afl);
       } catch (e) {
         throw 'Error loading AFL fixture data. Exception was: $e';
@@ -150,24 +146,30 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       GamesViewModel gamesViewModel = GamesViewModel(newdaucomp.dbkey!);
 
-      //pause the gameviewmodel stream while we update the games
-      //this will stop the app from beening flooded with partial game data during a bluk update
-      gamesViewModel.gamesStream.pause();
-
       List<Future> gamesFuture = [];
 
-      for (Game game in nrlGames) {
-        gamesFuture.add(gamesViewModel.updateGame(game, true));
+      for (var gamejson in nrlGames) {
+        String dbkey =
+            '${League.nrl.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
+        for (var attribute in gamejson.keys) {
+          gamesFuture.add(gamesViewModel.updateGameAttribute(
+              dbkey, attribute, gamejson[attribute]));
+        }
       }
 
-      for (Game game in aflGames) {
-        gamesFuture.add(gamesViewModel.updateGame(game, true));
+      for (var gamejson in aflGames) {
+        String dbkey =
+            '${League.afl.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
+        for (var attribute in gamejson.keys) {
+          gamesFuture.add(gamesViewModel.updateGameAttribute(
+              dbkey, attribute, gamejson[attribute]));
+        }
       }
 
       await Future.wait(gamesFuture);
 
-      //resume the gameviewmodel stream
-      gamesViewModel.gamesStream.resume();
+      //save all updates
+      await gamesViewModel.saveBatchOfGameAttributes();
 
       //once all the data is loaded, update the combinedRound field
       gamesViewModel.updateCombinedRoundNumber();

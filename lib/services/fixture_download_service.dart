@@ -18,7 +18,8 @@ import 'package:http_mock_adapter/http_mock_adapter.dart';
 
 class FixtureDownloadService {
   FixtureDownloadService();
-  Future<List<Game>> getLeagueFixture(Uri endpoint, League league) async {
+
+  Future<List<dynamic>> getLeagueFixtureRaw(Uri endpoint, League league) async {
     final dio = Dio(BaseOptions(
         headers: {'Content-Type': 'application/json; charset=UTF-8'}));
 
@@ -28,13 +29,13 @@ class FixtureDownloadService {
 
       switch (endpoint.toString()) {
         case 'https://fixturedownload.com/feed/json/afl-2023':
-          //mockdata = mockAfl2023Full;
-          mockdata = mockAfl2023Partial;
+          mockdata = mockAfl2023Full;
+          //mockdata = mockAfl2023Partial;
           log('Using mockAfl2023Full fixture data');
           break;
         case 'https://fixturedownload.com/feed/json/nrl-2023':
-          //mockdata = mockNrl2023Full;
-          mockdata = mockNrl2023Partial;
+          mockdata = mockNrl2023Full;
+          //mockdata = mockNrl2023Partial;
           log('Using mockNrl2023Full fixture data');
           break;
         case 'https://fixturedownload.com/feed/json/afl-2024':
@@ -63,13 +64,9 @@ class FixtureDownloadService {
 
     final response = await dio.get(endpoint.toString());
 
-    //log('response code: ${response.statusCode} \n body: ${response.data}');
-
     if (response.statusCode == 200) {
       List<dynamic> res = response.data;
-      List<Game> games =
-          res.map((gameAsJson) => fromFixtureJson(gameAsJson, league)).toList();
-      return games;
+      return res;
     }
     throw Exception(
         'Could not receive the league fixture list: ${endpoint.toString()}');

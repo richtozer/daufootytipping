@@ -43,8 +43,6 @@ MultiProvider adminFunctions(context) {
           ElevatedButton(
             child: const Text('Admin DAU Comps'),
             onPressed: () {
-              String? currentRouteName = ModalRoute.of(context)?.settings.name;
-              log('[Admin Functions] Current route name: $currentRouteName');
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => ChangeNotifierProvider(
