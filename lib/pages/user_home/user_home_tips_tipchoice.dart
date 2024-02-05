@@ -32,46 +32,36 @@ class TipChoice extends StatelessWidget {
           } else {
             Tip? latestGameTip = snapshot.data;
 
-            return Focus(
-              onFocusChange: (hasFocus) {
-                if (hasFocus) {
-                  log('CARD has focus');
-                  //print('current tipper: ${gameTipsViewModel.currentTipper}');
-                  //print('current game: ${gameTipsViewModel.game}');
-                  //print('latest tip: ${latestGameTip}');
-                }
-              },
-              child: Card(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        generateChoiceChip(GameResult.a, gameTipsViewModel.game,
-                            latestGameTip, context),
-                        generateChoiceChip(GameResult.b, gameTipsViewModel.game,
-                            latestGameTip, context)
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        generateChoiceChip(GameResult.c, gameTipsViewModel.game,
-                            latestGameTip, context),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        generateChoiceChip(GameResult.d, gameTipsViewModel.game,
-                            latestGameTip, context),
-                        generateChoiceChip(GameResult.e, gameTipsViewModel.game,
-                            latestGameTip, context)
-                      ],
-                    )
-                  ],
-                ),
+            return Card(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      generateChoiceChip(GameResult.a, gameTipsViewModel.game,
+                          latestGameTip, context),
+                      generateChoiceChip(GameResult.b, gameTipsViewModel.game,
+                          latestGameTip, context)
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      generateChoiceChip(GameResult.c, gameTipsViewModel.game,
+                          latestGameTip, context),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      generateChoiceChip(GameResult.d, gameTipsViewModel.game,
+                          latestGameTip, context),
+                      generateChoiceChip(GameResult.e, gameTipsViewModel.game,
+                          latestGameTip, context)
+                    ],
+                  )
+                ],
               ),
             );
           }
@@ -94,6 +84,16 @@ class TipChoice extends StatelessWidget {
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
         try {
+          if (latestGameTip?.game.gameState != GameState.notStarted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: Colors.red,
+                content:
+                    Text('You cannot tip this game as it has already started.'),
+              ),
+            );
+            return;
+          }
           if (latestGameTip != null && latestGameTip.tip == option) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

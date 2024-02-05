@@ -15,26 +15,28 @@ import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
-class UserAuthPage extends StatelessWidget {
-  UserAuthPage({super.key}) {
-    remoteConfigService = RemoteConfigService();
-    _initialization = remoteConfigService.initialize();
-  }
+class UserAuthPage extends StatefulWidget {
+  const UserAuthPage(this.remoteConfigService, {super.key});
 
-  late RemoteConfigService remoteConfigService;
-  late Future<void> _initialization;
+  final RemoteConfigService remoteConfigService;
 
+  @override
+  State<UserAuthPage> createState() => _UserAuthPageState();
+}
+
+class _UserAuthPageState extends State<UserAuthPage> {
   var clientId =
-      "1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com"; //TODO remove hardcoding
-
+      "1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com";
+  //TODO remove hardcoding
   PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
     List<String> currentVersionParts = packageInfo.version.split('.');
-    List<String> newVersionParts =
-        remoteConfigService.remoteConfig.getString('minAppVersion').split('.');
+    String minAppVersion =
+        await widget.remoteConfigService.getConfigMinAppVersion();
+    List<String> newVersionParts = minAppVersion.split('.');
 
     for (int i = 0; i < newVersionParts.length; i++) {
       int currentPart = int.parse(currentVersionParts[i]);
@@ -51,11 +53,14 @@ class UserAuthPage extends StatelessWidget {
     return false;
   }
 
+  String currentDAUComp = '';
+
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
     return FutureBuilder(
-        future: _initialization, // wait for remote config to initialise
+        future: widget.remoteConfigService
+            .getConfigCurrentDAUComp(), // wait for remote config to initialise
         builder: (context, snapshot) {
           // Show a loading spinner while waiting for initialization to complete
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -66,6 +71,9 @@ class UserAuthPage extends StatelessWidget {
           if (snapshot.hasError) {
             return Text('Error initializing remote config: ${snapshot.error}');
           }
+
+          currentDAUComp = snapshot.data as String;
+          log('Config currentDAUComp: $currentDAUComp');
 
           return ChangeNotifierProvider<TippersViewModel>(
               create: (_) => TippersViewModel(),
@@ -83,12 +91,10 @@ class UserAuthPage extends StatelessWidget {
                       } else if (versionSnapshot.hasError) {
                         return Text('Error: ${versionSnapshot.error}');
                       } else if (versionSnapshot.data == true) {
-                        return const MaterialApp(
-                          home: Scaffold(
-                            body: Center(
-                              child: Text(
-                                "This version of the app is no longer supported, please update the app from the app store.",
-                              ),
+                        return const Scaffold(
+                          body: Center(
+                            child: Text(
+                              "This version of the app is no longer supported, please update the app from the app store.",
                             ),
                           ),
                         );
@@ -189,12 +195,6 @@ class UserAuthPage extends StatelessWidget {
                               ],
                             );
                           } else {
-                            RemoteConfigService remoteConfigService =
-                                RemoteConfigService();
-                            String currentDAUComp = remoteConfigService
-                                .remoteConfig
-                                .getString('currentDAUComp');
-
                             Tipper currentTipper = snapshot.data as Tipper;
                             return Consumer<TippersViewModel>(
                               builder: (context, tippersViewModel, child) {

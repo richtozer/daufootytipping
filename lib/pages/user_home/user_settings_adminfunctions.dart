@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
@@ -41,9 +43,16 @@ MultiProvider adminFunctions(context) {
           ElevatedButton(
             child: const Text('Admin DAU Comps'),
             onPressed: () {
+              String? currentRouteName = ModalRoute.of(context)?.settings.name;
+              log('[Admin Functions] Current route name: $currentRouteName');
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const DAUCompsListPage(),
+                  builder: (context) => ChangeNotifierProvider(
+                    create: (context) => DAUCompsViewModel(),
+                    child: const Scaffold(
+                      body: DAUCompsListPage(),
+                    ),
+                  ),
                 ),
               );
             },

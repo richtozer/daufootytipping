@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 
 class TeamEditPage extends StatefulWidget {
   final TeamsViewModel teamsViewModel;
-  final Team? team; //if this is an edit for a new Team, this will stay null
+  final Team team;
 
   const TeamEditPage(this.team, this.teamsViewModel, {super.key});
 
@@ -17,20 +17,21 @@ class TeamEditPage extends StatefulWidget {
 }
 
 class _TeamEditPageState extends State<TeamEditPage> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late Team team;
+
   late TextEditingController _teamNameController;
   late TextEditingController _teamLogoURIController;
 
-  late Team? team;
   late bool disableBackButton = false;
   late bool disableSaves = true;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
     team = widget.team;
-    _teamNameController = TextEditingController(text: team?.name);
-    _teamLogoURIController = TextEditingController(text: team?.logoURI);
+    _teamNameController = TextEditingController(text: team.name);
+    _teamLogoURIController = TextEditingController(text: team.logoURI);
   }
 
   @override
@@ -113,7 +114,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                                   disableSaves = true;
                                 });
                                 disableBackButton = true;
-                                _saveTeam(context, team!);
+                                _saveTeam(context, team);
                                 setState(() {
                                   disableSaves = false;
                                 });
@@ -141,7 +142,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                       enabled: !disableBackButton,
                       controller: _teamNameController,
                       onChanged: (String value) {
-                        if (team?.name != value) {
+                        if (team.name != value) {
                           //something has changed, allow saves
                           setState(() {
                             disableSaves = false;
@@ -176,7 +177,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                       enabled: !disableBackButton,
                       controller: _teamLogoURIController,
                       onChanged: (String value) {
-                        if (team?.logoURI != value) {
+                        if (team.logoURI != value) {
                           //something has changed, allow saves
                           setState(() {
                             disableSaves = false;

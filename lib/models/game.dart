@@ -15,7 +15,7 @@ class Game implements Comparable<Game> {
   final Team homeTeam;
   final Team awayTeam;
   final String location;
-  final LatLng? locationLatLong;
+  LatLng? locationLatLong;
   final DateTime startTimeUTC;
   final int roundNumber;
   final int matchNumber;
@@ -58,20 +58,19 @@ class Game implements Comparable<Game> {
   }
 
   factory Game.fromJson(Map<String, dynamic> data, String key, Team homeTeam,
-      Team awayTeam, LatLng? locationLatLong) {
+      Team awayTeam, LatLng? locationLatLong, Scoring? scoring) {
     return Game(
-      dbkey: key,
-      league: League.values.byName(data['league']),
-      homeTeam: homeTeam,
-      awayTeam: awayTeam,
-      location: data['location'],
-      locationLatLong: locationLatLong,
-      startTimeUTC: DateTime.parse(data['startTimeUTC']),
-      roundNumber: data['roundNumber'],
-      matchNumber: data['matchNumber'],
-      combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
-      scoring: data['scoring'],
-    );
+        dbkey: key,
+        league: League.values.byName(data['league']),
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        location: data['location'],
+        locationLatLong: locationLatLong,
+        startTimeUTC: DateTime.parse(data['startTimeUTC']),
+        roundNumber: data['roundNumber'],
+        matchNumber: data['matchNumber'],
+        combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
+        scoring: scoring);
   }
 
   Map<String, dynamic> toJson() => {
@@ -84,7 +83,7 @@ class Game implements Comparable<Game> {
         'roundNumber': roundNumber,
         'matchNumber': matchNumber,
         'combinedRoundNumber': combinedRoundNumber,
-        'scoring': scoring,
+        'scoring': (scoring != null) ? scoring!.toJson() : null,
       };
 
   @override

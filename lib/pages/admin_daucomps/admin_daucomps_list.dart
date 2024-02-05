@@ -1,6 +1,6 @@
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_add.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,7 +12,7 @@ class DAUCompsListPage extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DAUCompsAdminEditPage(null, daucompsViewModel),
+        builder: (context) => DAUCompsEditPage(null, daucompsViewModel),
       ),
     );
   }
@@ -22,8 +22,7 @@ class DAUCompsListPage extends StatelessWidget {
     Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              DAUCompsAdminEditPage(daucomp, daucompsViewModel),
+          builder: (context) => DAUCompsEditPage(daucomp, daucompsViewModel),
         ));
   }
 

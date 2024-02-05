@@ -8,11 +8,9 @@ export const submitLegacyTips = functions
   .https.onRequest(
     async (request, response) => {
       try {
-        const {tipperID, dauRound, tips} = request.body;
-        const dauCompDbKey = "-Nk88l-ww9pYF1j_jUq7";
-
+        const {dauCompDbKey, tipperID, dauRound, tips} = request.body;
         // Validate parameters
-        if (!tipperID || !dauRound || !tips) {
+        if (!tipperID || !dauRound || !tips || !dauCompDbKey) {
           const msg = "Missing required parameters!!";
           functions.logger.error(msg);
           response.status(400).send(msg);
@@ -42,6 +40,12 @@ export const submitLegacyTips = functions
         // the combinedRoundNumber=dauRound
         const gamesRef = admin.database().ref(`DAUCompsGames/${dauCompDbKey}`);
         const gamesSnapshot = await gamesRef.once("value");
+
+        if (!gamesSnapshot.exists()) {
+          const msg = `Error, no games found for dauCompDbKey ${dauCompDbKey}`;
+          functions.logger.error(msg);
+          throw new Error(msg);
+        }
 
         const gameData = Object.keys(gamesSnapshot.val())
           .filter(

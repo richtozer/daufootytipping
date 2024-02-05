@@ -78,7 +78,7 @@ class LegacyTippingService {
         .map((list) => list.map((item) => item as String?).toList())
         .toList();
 
-    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData!.length} rows.');
+    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData.length} rows.');
 
     _initialLoadCompleter.complete();
   }

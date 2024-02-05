@@ -17,7 +17,7 @@ class AllTipsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _tipsStream;
 
   late GamesViewModel _gamesViewModel;
-  final String parentDAUCompDBkey;
+  final String currentDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
@@ -28,8 +28,8 @@ class AllTipsViewModel extends ChangeNotifier {
   TippersViewModel tipperViewModel = TippersViewModel();
 
   //constructor
-  AllTipsViewModel(this.tipperViewModel, this.parentDAUCompDBkey) {
-    _gamesViewModel = GamesViewModel(parentDAUCompDBkey);
+  AllTipsViewModel(this.tipperViewModel, this.currentDAUComp) {
+    _gamesViewModel = GamesViewModel(currentDAUComp);
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
@@ -48,7 +48,7 @@ class AllTipsViewModel extends ChangeNotifier {
 
   void _listenToTips() async {
     _tipsStream =
-        _db.child('$tipsPathRoot/$parentDAUCompDBkey').onValue.listen((event) {
+        _db.child('$tipsPathRoot/$currentDAUComp').onValue.listen((event) {
       _handleEvent(event);
     });
   }
