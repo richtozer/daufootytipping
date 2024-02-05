@@ -189,9 +189,19 @@ class GamesViewModel extends ChangeNotifier {
 
   final Map<String, dynamic> updates = {};
 
-  Future<void> updateGameAttribute(
-      String gameDbKey, String attributeName, dynamic attributeValue) async {
+  Future<void> updateGameAttribute(String gameDbKey, String attributeName,
+      dynamic attributeValue, String league) async {
     await _initialLoadCompleter.future;
+
+    //make sure the related team records exist
+    if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
+      Team team = Team(
+          dbkey: '$league-$attributeValue',
+          name: attributeValue,
+          league: League.values.firstWhere((e) => e.name == league));
+      //make sure the related team records exist
+      _teamsViewModel.addTeam(team);
+    }
 
     //find the game in the local list. it it's there, compare the attribute value and update if different
     Game? gameToUpdate = await findGame(gameDbKey);
@@ -298,7 +308,8 @@ class GamesViewModel extends ChangeNotifier {
       for (var game in combinedRounds[i]) {
         log('Updating combined round number to ${game.combinedRoundNumber + 1} for game: ${game.dbkey}');
         game.combinedRoundNumber = i + 1;
-        await updateGameAttribute(game.dbkey, 'combinedRoundNumber', i + 1);
+        await updateGameAttribute(
+            game.dbkey, 'combinedRoundNumber', i + 1, game.league.name);
       }
     }
 

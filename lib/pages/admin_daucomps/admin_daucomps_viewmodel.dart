@@ -153,7 +153,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             '${League.nrl.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
         for (var attribute in gamejson.keys) {
           gamesFuture.add(gamesViewModel.updateGameAttribute(
-              dbkey, attribute, gamejson[attribute]));
+              dbkey, attribute, gamejson[attribute], League.nrl.name));
         }
       }
 
@@ -162,7 +162,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             '${League.afl.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
         for (var attribute in gamejson.keys) {
           gamesFuture.add(gamesViewModel.updateGameAttribute(
-              dbkey, attribute, gamejson[attribute]));
+              dbkey, attribute, gamejson[attribute], League.afl.name));
         }
       }
 
