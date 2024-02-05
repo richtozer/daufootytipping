@@ -7,10 +7,8 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:json_diff/json_diff.dart';
 
 const gamesPathRoot = '/DAUCompsGames';
 
@@ -19,8 +17,6 @@ class GamesViewModel extends ChangeNotifier {
   List<Game> _games = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
-
-  StreamSubscription<DatabaseEvent> get gamesStream => _gamesStream;
 
   late Map<int, List<Game>> _nestedGroups;
   bool _savingGame = false;
@@ -56,9 +52,10 @@ class GamesViewModel extends ChangeNotifier {
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
 
         // Deserialize the games
-        List<Game?> gamesList =
+        List<Game> gamesList =
             await Future.wait(allGames.entries.map((entry) async {
           String key = entry.key; // Retrieve the Firebase key
+          String league = key.split('-').first;
           dynamic gameAsJSON = entry.value;
 
           //we need to deserialize the locationlatlng before we can deserialize the game
@@ -68,21 +65,25 @@ class GamesViewModel extends ChangeNotifier {
                 Map<String, dynamic>.from(gameAsJSON['locationLatLng']));
           }
           //we need to find and deserialize the home and away teams first before we can deserialize the game
-          Team? homeTeam =
-              await _teamsViewModel.findTeam(gameAsJSON['homeTeamDbKey']);
-          Team? awayTeam =
-              await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
+          Team? homeTeam = await _teamsViewModel
+              .findTeam('$league-${gameAsJSON['HomeTeam']}');
+          Team? awayTeam = await _teamsViewModel
+              .findTeam('$league-${gameAsJSON['AwayTeam']}');
 
           Scoring? scoring;
           if (gameAsJSON['scoring'] != null) {
-            scoring = Scoring.fromJson(
-                Map<String, dynamic>.from(gameAsJSON['scoring']));
+            scoring = Scoring(
+                homeTeamScore: gameAsJSON['HomeTeamScore'],
+                awayTeamScore: gameAsJSON['AwayTeamScore']);
           }
 
           if (homeTeam != null && awayTeam != null) {
             log('Game: $key about to be deserialized');
-            return Game.fromJson(Map<String, dynamic>.from(gameAsJSON), key,
-                homeTeam, awayTeam, locationLatLng, scoring);
+            Game game = Game.fromFixtureJson(
+                key, Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
+            game.locationLatLong = locationLatLng;
+            game.scoring = scoring;
+            return game;
           } else {
             // homeTeam or awayTeam should not be null
             throw Exception(
@@ -90,7 +91,8 @@ class GamesViewModel extends ChangeNotifier {
           }
         }).toList());
 
-        _games = gamesList.where((game) => game != null).cast<Game>().toList();
+        //_games = gamesList.where((game) => game != null).cast<Game>().toList();
+        _games = gamesList;
         _games.sort();
       } else {
         log('No games found for DAUComp $currentDAUComp');
@@ -192,171 +194,31 @@ class GamesViewModel extends ChangeNotifier {
     await _initialLoadCompleter.future;
 
     //find the game in the local list. it it's there, compare the attribute value and update if different
-    Game? gameToUpdate =
-        _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
+    Game? gameToUpdate = await findGame(gameDbKey);
     if (gameToUpdate != null) {
-      if (attributeValue != gameToUpdate.gameState) {
-        _editGameAttribute(gameDbKey, attributeName, attributeValue);
+      String oldValue = gameToUpdate.toJson()[attributeName].toString();
+      if (attributeValue != oldValue) {
+        updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
+            attributeValue;
       } else {
         log('Game: $gameDbKey already has $attributeName: $attributeValue');
       }
     } else {
-      log('Game: $gameDbKey not found in local list');
+      log('Game: $gameDbKey not found in local list. adding full game record');
       // add new record to updates Map
+      updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
+          attributeValue;
     }
   }
 
   Future<void> saveBatchOfGameAttributes() async {
     try {
+      await initialLoadComplete;
       await _db.update(updates);
     } finally {
       _savingGame = false;
       notifyListeners();
     }
-  }
-
-  Future<void> _editGameAttribute(
-      String gameDbKey, String attributeName, dynamic attributeValue) async {
-    try {
-      updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
-          attributeValue;
-      await _db.update(updates);
-    } finally {
-      _savingGame = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> updateGame(Game updatedGame, bool initialLoadDisabled) async {
-    if (!initialLoadDisabled) await _initialLoadCompleter.future;
-
-    _savingGame = true;
-    notifyListeners();
-
-    Game? originalGame = _games.firstWhereOrNull(
-        (existingGame) => existingGame.dbkey == updatedGame.dbkey);
-
-    if (originalGame != null) {
-      // preserve the original game's locationLatLng and combinedRoundNumber
-      updatedGame.locationLatLong = originalGame.locationLatLong;
-      updatedGame.combinedRoundNumber = originalGame.combinedRoundNumber;
-
-      // preseve the original game's crowdsourced scoring data - TODO test this works
-      if (originalGame.scoring != null &&
-          originalGame.scoring!.homeTeamCroudSourcedScore1 != null) {
-        updatedGame.scoring!.homeTeamCroudSourcedScore1 =
-            originalGame.scoring!.homeTeamCroudSourcedScore1;
-      }
-      if (originalGame.scoring != null &&
-          originalGame.scoring!.homeTeamCroudSourcedScore2 != null) {
-        updatedGame.scoring!.homeTeamCroudSourcedScore2 =
-            originalGame.scoring!.homeTeamCroudSourcedScore2;
-      }
-      if (originalGame.scoring != null &&
-          originalGame.scoring!.homeTeamCroudSourcedScore3 != null) {
-        updatedGame.scoring!.homeTeamCroudSourcedScore3 =
-            originalGame.scoring!.homeTeamCroudSourcedScore3;
-      }
-      // preseve the original game's crowdsourced scoring data
-      if (originalGame.scoring != null &&
-          originalGame.scoring!.awayTeamCroudSourcedScore1 != null) {
-        updatedGame.scoring!.awayTeamCroudSourcedScore1 =
-            originalGame.scoring!.awayTeamCroudSourcedScore1;
-      }
-      if (originalGame.scoring != null &&
-          originalGame.scoring!.awayTeamCroudSourcedScore2 != null) {
-        updatedGame.scoring!.awayTeamCroudSourcedScore2 =
-            originalGame.scoring!.awayTeamCroudSourcedScore2;
-      }
-      if (originalGame.scoring != null &&
-          originalGame.scoring!.awayTeamCroudSourcedScore3 != null) {
-        updatedGame.scoring!.awayTeamCroudSourcedScore3 =
-            originalGame.scoring!.awayTeamCroudSourcedScore3;
-      }
-
-      _editGame(updatedGame, originalGame);
-    } else {
-      log('Game: ${updatedGame.dbkey} does not exist in the database, adding record');
-      _addGame(updatedGame);
-
-      // temporarily add the game to the local list of games, the listerner will update the game when it is received from the database
-      if (originalGame == null) {
-        _games.add(updatedGame);
-      }
-    }
-
-    _savingGame = false;
-    notifyListeners();
-  }
-
-  Future<void> _addGame(Game gameData) async {
-    try {
-      _savingGame = true;
-      notifyListeners();
-
-      //make sure the related team records exist
-      _teamsViewModel.addTeam(gameData.awayTeam);
-      _teamsViewModel.addTeam(gameData.homeTeam);
-
-      final postData = gameData.toJson();
-
-      final Map<String, Map> updates = {};
-      updates['$gamesPathRoot/$currentDAUComp/${gameData.dbkey}'] = postData;
-
-      await _db.update(updates);
-    } finally {
-      _savingGame = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _editGame(Game updatedGame, Game originalGame) async {
-    //await _initialLoadCompleter.future;
-    //log('Initial game load completed. editGame()');
-
-    // Convert the original and updated game to JSON
-    Map<String, dynamic> originalJson = originalGame.toJson();
-    Map<String, dynamic> updatedJson = updatedGame.toJson();
-
-    // Use JsonDiffer to get the differences
-    JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
-    DiffNode diff = differ.diff();
-
-    // Initialize an empty map to hold all updates
-    Map<String, dynamic> updates = {};
-
-    //log('Game: $gamesPathRoot/${updatedGame.dbkey} has: ${diff.changed.length} changes.');
-    // transform the changes from JsonDiffer format to Firebase format
-    Map changed = diff.changed;
-    changed.keys.toList().forEach((key) async {
-      if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-        // Add the update to the updates map
-        updates['$gamesPathRoot/$currentDAUComp/${updatedGame.dbkey}/$key'] =
-            changed[key][1];
-
-        // Apply any updates to Firebase
-        try {
-          _savingGame = true;
-          notifyListeners();
-          await _db.update(updates);
-          log('Game updated in db to: $updates');
-
-          // Log the event to Firebase Analytics
-          FirebaseAnalytics.instance.logEvent(
-            name: 'game_updated',
-            parameters: <String, dynamic>{
-              'game_key': updatedGame.dbkey,
-              'update': updates.toString(), //TODO - check is this is working
-            },
-          );
-        } finally {
-          _savingGame = false;
-          notifyListeners();
-        }
-      } else {
-        log('Game: $gamesPathRoot/${updatedGame.dbkey} has: no changes.');
-      }
-    });
   }
 
   Future<Game?> findGame(String gameDbKey) async {
@@ -434,28 +296,13 @@ class GamesViewModel extends ChangeNotifier {
     // Update combined round number for each game
     for (var i = 0; i < combinedRounds.length; i++) {
       for (var game in combinedRounds[i]) {
-        if (game.combinedRoundNumber != i + 1) {
-          log('Updating combined round number to ${game.combinedRoundNumber + 1} for game: ${game.dbkey}');
-          game.combinedRoundNumber = i + 1;
-
-          Game updatedGame = Game(
-              matchNumber: game.matchNumber,
-              awayTeam: game.awayTeam,
-              homeTeam: game.homeTeam,
-              league: game.league,
-              roundNumber: game.roundNumber,
-              startTimeUTC: game.startTimeUTC,
-              location: game.location,
-              locationLatLong: game.locationLatLong,
-              dbkey: game.dbkey,
-              scoring: game.scoring,
-              combinedRoundNumber: i + 1);
-          updateGame(updatedGame, false); //write changes to firebase
-        } else {
-          log('Game: ${game.dbkey} already has combined round number: ${game.combinedRoundNumber}');
-        }
+        log('Updating combined round number to ${game.combinedRoundNumber + 1} for game: ${game.dbkey}');
+        game.combinedRoundNumber = i + 1;
+        await updateGameAttribute(game.dbkey, 'combinedRoundNumber', i + 1);
       }
     }
+
+    await saveBatchOfGameAttributes();
 
     log('out updateCombinedRoundNumber()');
   }

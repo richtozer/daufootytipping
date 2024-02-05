@@ -88,8 +88,7 @@ class TipChoice extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,
-                content:
-                    Text('You cannot tip this game as it has already started.'),
+                content: Text('Tipping for this game is closed.'),
               ),
             );
             return;

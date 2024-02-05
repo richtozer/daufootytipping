@@ -12,8 +12,8 @@ enum GameState {
 class Game implements Comparable<Game> {
   final String dbkey;
   final League league;
-  final Team homeTeam;
-  final Team awayTeam;
+  Team homeTeam;
+  Team awayTeam;
   final String location;
   LatLng? locationLatLong;
   final DateTime startTimeUTC;
@@ -57,7 +57,7 @@ class Game implements Comparable<Game> {
     }
   }
 
-  factory Game.fromJson(Map<String, dynamic> data, String key, Team homeTeam,
+/*   factory Game.fromJson(Map<String, dynamic> data, String key, Team homeTeam,
       Team awayTeam, LatLng? locationLatLong, Scoring? scoring) {
     return Game(
         dbkey: key,
@@ -71,6 +71,24 @@ class Game implements Comparable<Game> {
         matchNumber: data['matchNumber'],
         combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
         scoring: scoring);
+  } */
+
+  factory Game.fromFixtureJson(
+      String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
+    //use the left 3 chars of the dbkey to determine the league
+    final league = League.values.byName(dbkey.substring(0, 3));
+    return Game(
+      dbkey:
+          '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, roune number and match number. Pad the numbers so they sort correctly in the firebase console
+      league: league,
+      homeTeam: homeTeam,
+      awayTeam: awayTeam,
+      location: data['Location'] ?? '',
+      startTimeUTC: DateTime.parse(data['DateUtc']),
+      roundNumber: data['RoundNumber'] ?? 0,
+      matchNumber: data['MatchNumber'] ?? 0,
+      combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
+    );
   }
 
   Map<String, dynamic> toJson() => {
