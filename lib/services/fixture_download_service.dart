@@ -1,8 +1,12 @@
 // Purpose: Service to download fixture from a JSON endpoint
+import 'dart:developer';
+
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2023_afl_full.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2023_nrl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2024_afl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2024_nrl_full.dart';
 import 'package:dio/dio.dart';
@@ -23,11 +27,23 @@ class FixtureDownloadService {
       List<Map<String, Object?>> mockdata;
 
       switch (endpoint.toString()) {
+        case 'https://fixturedownload.com/feed/json/afl-2023':
+          //mockdata = mockAfl2023Full;
+          mockdata = mockAfl2023Partial;
+          log('Using mockAfl2023Full fixture data');
+          break;
+        case 'https://fixturedownload.com/feed/json/nrl-2023':
+          //mockdata = mockNrl2023Full;
+          mockdata = mockNrl2023Partial;
+          log('Using mockNrl2023Full fixture data');
+          break;
         case 'https://fixturedownload.com/feed/json/afl-2024':
           mockdata = mockAfl2024Full;
+          log('Using mockAfl2024Full fixture data');
           break;
         case 'https://fixturedownload.com/feed/json/nrl-2024':
           mockdata = mockNrl2024Full;
+          log('Using mockNrl2024Full fixture data');
           break;
         default:
           throw Exception('Could not match the endpoint to mock data');

@@ -5,10 +5,10 @@ import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage(this.currentTipper, this.parentDAUCompDBkey, {super.key});
+  const HomePage(this.currentTipper, this.currentDAUComp, {super.key});
 
   final Tipper currentTipper;
-  final String parentDAUCompDBkey;
+  final String currentDAUComp;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -30,7 +30,7 @@ class _HomePageState extends State<HomePage> {
     List<Widget> content() {
       return [
         TipsPage(widget.currentTipper,
-            widget.parentDAUCompDBkey), // Pass currentTipper to TipsPage
+            widget.currentDAUComp), // Pass currentTipper to TipsPage
         Center(
           child: Text('Comp Stats Page ${widget.currentTipper.name}'),
         ),
@@ -42,7 +42,8 @@ class _HomePageState extends State<HomePage> {
     List<Widget> destinationContent = content();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('DAU Footy Tipping')),
+      //appBar: AppBar(title: const Text('DAU Footy Tipping')),
+      backgroundColor: const Color(0xFFE5E5E5),
       body: Center(
         child: (destinationContent[_currentIndex]),
       ),

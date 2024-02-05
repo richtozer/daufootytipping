@@ -84,7 +84,62 @@ class Scoring {
   CroudSourcedScore? awayTeamCroudSourcedScore3;
   GameResult gameResult = GameResult.z; // use 'z' until game result is known
 
-  Scoring({this.homeTeamScore, this.awayTeamScore});
+  Scoring(
+      {this.homeTeamScore,
+      this.awayTeamScore,
+      this.homeTeamCroudSourcedScore1,
+      this.homeTeamCroudSourcedScore2,
+      this.homeTeamCroudSourcedScore3,
+      this.awayTeamCroudSourcedScore1,
+      this.awayTeamCroudSourcedScore2,
+      this.awayTeamCroudSourcedScore3});
+
+  // tojson method
+  Map<String, dynamic> toJson() {
+    return {
+      'homeTeamScore': homeTeamScore,
+      'awayTeamScore': awayTeamScore,
+      'homeTeamCroudSourcedScore1': homeTeamCroudSourcedScore1?.toJson(),
+      'homeTeamCroudSourcedScore2': homeTeamCroudSourcedScore2?.toJson(),
+      'homeTeamCroudSourcedScore3': homeTeamCroudSourcedScore3?.toJson(),
+      'awayTeamCroudSourcedScore1': awayTeamCroudSourcedScore1?.toJson(),
+      'awayTeamCroudSourcedScore2': awayTeamCroudSourcedScore2?.toJson(),
+      'awayTeamCroudSourcedScore3': awayTeamCroudSourcedScore3?.toJson(),
+      'gameResult': gameResult.toString(),
+    };
+  }
+
+  // fromjson method
+  factory Scoring.fromJson(Map<String, dynamic> data) {
+    return Scoring(
+      homeTeamScore: data['homeTeamScore'],
+      awayTeamScore: data['awayTeamScore'],
+      homeTeamCroudSourcedScore1: data['homeTeamCroudSourcedScore1'] != null
+          ? CroudSourcedScore.fromJson(
+              data['homeTeamCroudSourcedScore1'], data['tipper'])
+          : null,
+      homeTeamCroudSourcedScore2: data['homeTeamCroudSourcedScore2'] != null
+          ? CroudSourcedScore.fromJson(
+              data['homeTeamCroudSourcedScore2'], data['tipper'])
+          : null,
+      homeTeamCroudSourcedScore3: data['homeTeamCroudSourcedScore3'] != null
+          ? CroudSourcedScore.fromJson(
+              data['homeTeamCroudSourcedScore3'], data['tipper'])
+          : null,
+      awayTeamCroudSourcedScore1: data['awayTeamCroudSourcedScore1'] != null
+          ? CroudSourcedScore.fromJson(
+              data['awayTeamCroudSourcedScore1'], data['tipper'])
+          : null,
+      awayTeamCroudSourcedScore2: data['awayTeamCroudSourcedScore2'] != null
+          ? CroudSourcedScore.fromJson(
+              data['awayTeamCroudSourcedScore2'], data['tipper'])
+          : null,
+      awayTeamCroudSourcedScore3: data['awayTeamCroudSourcedScore3'] != null
+          ? CroudSourcedScore.fromJson(
+              data['awayTeamCroudSourcedScore3'], data['tipper'])
+          : null,
+    );
+  }
 
   static int calculateScore(
       League gameLeague, GameResult gameResult, GameResult tip) {

@@ -3,8 +3,6 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
-import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -31,6 +29,12 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
   bool _initialLoadComplete = false;
+
+  bool _isDownloading = false;
+  bool get isDownloading => _isDownloading;
+
+  bool _isLegacySyncing = false;
+  bool get isLegacySyncing => _isLegacySyncing;
 
   //constructor
   DAUCompsViewModel() {
@@ -77,7 +81,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       await _db.update(updates);
 
       //TODO this is a test - remove this next line of code
-      getNetworkFixtureData(daucomp);
+      //getNetworkFixtureData(daucomp);
     } finally {
       _savingDAUComp = false;
       notifyListeners();
@@ -106,57 +110,103 @@ class DAUCompsViewModel extends ChangeNotifier {
       newdaucomp.dbkey = newdaucompKey;
 
       // as this is a new comp, lets do the first time population of game and dauround data from the fixture json service
-      getNetworkFixtureData(newdaucomp);
+      //getNetworkFixtureData(newdaucomp); //TODO move this to a seaprate sync button
     } finally {
       _savingDAUComp = false;
       notifyListeners();
     }
   }
 
-  void getNetworkFixtureData(DAUComp newdaucomp) async {
-    while (!_initialLoadComplete) {
-      log('Waiting for initial DAUComps load to complete');
-      await Future.delayed(const Duration(seconds: 1));
+  Future<String> getNetworkFixtureData(DAUComp newdaucomp) async {
+    try {
+      _isDownloading = true;
+      notifyListeners();
+
+      while (!_initialLoadComplete) {
+        log('Waiting for initial DAUComps load to complete');
+        await Future.delayed(const Duration(seconds: 1));
+      }
+
+      FixtureDownloadService fds = FixtureDownloadService();
+
+      List<Game> nrlGames = [];
+      try {
+        nrlGames = await fds.getLeagueFixture(
+            newdaucomp.nrlFixtureJsonURL, League.nrl);
+      } catch (e) {
+        throw 'Error loading NRL fixture data. Exception was: $e';
+        //return 'Error loading NRL fixture data. Exception was: $e'; // TODO - exceptions is not being passed to caller
+      }
+
+      List<Game> aflGames = [];
+      try {
+        aflGames = await fds.getLeagueFixture(
+            newdaucomp.aflFixtureJsonURL, League.afl);
+      } catch (e) {
+        throw 'Error loading AFL fixture data. Exception was: $e';
+
+        //return 'Error loading AFL fixture data. Exception was: $e';  // TODO - exceptions is not being passed to caller
+      }
+
+      GamesViewModel gamesViewModel = GamesViewModel(newdaucomp.dbkey!);
+
+      //pause the gameviewmodel stream while we update the games
+      //this will stop the app from beening flooded with partial game data during a bluk update
+      gamesViewModel.gamesStream.pause();
+
+      List<Future> gamesFuture = [];
+
+      for (Game game in nrlGames) {
+        gamesFuture.add(gamesViewModel.updateGame(game, true));
+      }
+
+      for (Game game in aflGames) {
+        gamesFuture.add(gamesViewModel.updateGame(game, true));
+      }
+
+      await Future.wait(gamesFuture);
+
+      //resume the gameviewmodel stream
+      gamesViewModel.gamesStream.resume();
+
+      //once all the data is loaded, update the combinedRound field
+      gamesViewModel.updateCombinedRoundNumber();
+
+      return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
+    } finally {
+      _isDownloading = false;
+      notifyListeners();
     }
+  }
 
-    FixtureDownloadService fds = FixtureDownloadService();
+  Future<void> syncTipsWithLegacy(DAUComp newdaucomp) async {
+    try {
+      _isLegacySyncing = true;
+      notifyListeners();
 
-    List<Game> nrlGames =
-        await fds.getLeagueFixture(newdaucomp.nrlFixtureJsonURL, League.nrl);
+      while (!_initialLoadComplete) {
+        log('Waiting for initial DAUComps load to complete');
+        await Future.delayed(const Duration(seconds: 1));
+      }
 
-    List<Game> aflGames =
-        await fds.getLeagueFixture(newdaucomp.aflFixtureJsonURL, League.afl);
+      //get reference to legacy tipping service so that we can sync tips
+      LegacyTippingService tippingService =
+          GetIt.instance<LegacyTippingService>();
 
-    GamesViewModel gamesViewModel =
-        GamesViewModel(newdaucomp.dbkey!); //get the provider instance
+      TippersViewModel tippersViewModel = TippersViewModel();
 
-    List<Future> gamesFuture = [];
+      AllTipsViewModel allTipsViewModel =
+          AllTipsViewModel(tippersViewModel, newdaucomp.dbkey!);
 
-    for (Game game in nrlGames) {
-      gamesFuture.add(gamesViewModel.updateGame(game));
+      GamesViewModel gamesViewModel = GamesViewModel(newdaucomp.dbkey!);
+
+      //sync tips to legacy
+      await tippingService.initialized();
+      tippingService.syncTipsToLegacyDiffOnly(allTipsViewModel, gamesViewModel);
+    } finally {
+      _isLegacySyncing = false;
+      notifyListeners();
     }
-
-    for (Game game in aflGames) {
-      gamesFuture.add(gamesViewModel.updateGame(game));
-    }
-
-    await Future.wait(gamesFuture);
-
-    //once all the data is loaded, update the combinedRound field
-    gamesViewModel.updateCombinedRoundNumber();
-
-    //get reference to legacy tipping service so that we can sync tips
-    LegacyTippingService tippingService =
-        GetIt.instance<LegacyTippingService>();
-
-    TippersViewModel tippersViewModel = TippersViewModel();
-
-    AllTipsViewModel allTipsViewModel =
-        AllTipsViewModel(tippersViewModel, newdaucomp.dbkey!);
-
-    //sync tips to legacy
-    await tippingService.initialized();
-    tippingService.syncTipsToLegacyDiffOnly(allTipsViewModel, gamesViewModel);
   }
 
   @override

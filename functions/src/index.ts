@@ -1,4 +1,3 @@
-import * as tipperFunctions from './services/legacy_service';
-// import * as gameFunctions from './functions/game';
-
-expkeytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystoreort const submitLegacyTips = tipperFunctions.submitLegacyTips;
+// This is the entry point for the Firebase Functions
+import tipperFunctions = require("./services/legacy_service");
+exports.submitLegacyTips = tipperFunctions.submitLegacyTips;

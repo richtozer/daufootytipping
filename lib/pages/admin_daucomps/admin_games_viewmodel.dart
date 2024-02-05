@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -18,11 +19,14 @@ class GamesViewModel extends ChangeNotifier {
   List<Game> _games = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
+
+  StreamSubscription<DatabaseEvent> get gamesStream => _gamesStream;
+
   late Map<int, List<Game>> _nestedGroups;
   bool _savingGame = false;
   Completer<void> _initialLoadCompleter = Completer<void>();
 
-  String parentDAUCompDBkey;
+  String currentDAUComp;
   late TeamsViewModel _teamsViewModel;
 
   // Getters
@@ -31,7 +35,7 @@ class GamesViewModel extends ChangeNotifier {
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   // Constructor
-  GamesViewModel(this.parentDAUCompDBkey) {
+  GamesViewModel(this.currentDAUComp) {
     _teamsViewModel = TeamsViewModel();
     _listenToGames();
   }
@@ -39,17 +43,19 @@ class GamesViewModel extends ChangeNotifier {
   // Database listeners
   void _listenToGames() {
     _gamesStream =
-        _db.child('$gamesPathRoot/$parentDAUCompDBkey').onValue.listen((event) {
+        _db.child('$gamesPathRoot/$currentDAUComp').onValue.listen((event) {
       _handleEvent(event);
     });
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
+      log('***GamesViewModel_handleEvent()***');
       if (event.snapshot.exists) {
         final allGames =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
 
+        // Deserialize the games
         List<Game?> gamesList =
             await Future.wait(allGames.entries.map((entry) async {
           String key = entry.key; // Retrieve the Firebase key
@@ -67,11 +73,18 @@ class GamesViewModel extends ChangeNotifier {
           Team? awayTeam =
               await _teamsViewModel.findTeam(gameAsJSON['awayTeamDbKey']);
 
+          Scoring? scoring;
+          if (gameAsJSON['scoring'] != null) {
+            scoring = Scoring.fromJson(
+                Map<String, dynamic>.from(gameAsJSON['scoring']));
+          }
+
           if (homeTeam != null && awayTeam != null) {
+            log('Game: $key about to be deserialized');
             return Game.fromJson(Map<String, dynamic>.from(gameAsJSON), key,
-                homeTeam, awayTeam, locationLatLng);
+                homeTeam, awayTeam, locationLatLng, scoring);
           } else {
-            // Handle the case where homeTeam or awayTeam is null
+            // homeTeam or awayTeam should not be null
             throw Exception(
                 'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null');
           }
@@ -80,7 +93,7 @@ class GamesViewModel extends ChangeNotifier {
         _games = gamesList.where((game) => game != null).cast<Game>().toList();
         _games.sort();
       } else {
-        log('No games found for DAUComp $parentDAUCompDBkey');
+        log('No games found for DAUComp $currentDAUComp');
       }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
@@ -172,8 +185,51 @@ class GamesViewModel extends ChangeNotifier {
     return defaultRoundNrlTips + defaultRoundAflTips;
   }
 
-  Future<void> updateGame(Game updatedGame) async {
+  final Map<String, dynamic> updates = {};
+
+  Future<void> updateGameAttribute(
+      String gameDbKey, String attributeName, dynamic attributeValue) async {
     await _initialLoadCompleter.future;
+
+    //find the game in the local list. it it's there, compare the attribute value and update if different
+    Game? gameToUpdate =
+        _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
+    if (gameToUpdate != null) {
+      if (attributeValue != gameToUpdate.gameState) {
+        _editGameAttribute(gameDbKey, attributeName, attributeValue);
+      } else {
+        log('Game: $gameDbKey already has $attributeName: $attributeValue');
+      }
+    } else {
+      log('Game: $gameDbKey not found in local list');
+      // add new record to updates Map
+    }
+  }
+
+  Future<void> saveBatchOfGameAttributes() async {
+    try {
+      await _db.update(updates);
+    } finally {
+      _savingGame = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _editGameAttribute(
+      String gameDbKey, String attributeName, dynamic attributeValue) async {
+    try {
+      updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
+          attributeValue;
+      await _db.update(updates);
+    } finally {
+      _savingGame = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateGame(Game updatedGame, bool initialLoadDisabled) async {
+    if (!initialLoadDisabled) await _initialLoadCompleter.future;
+
     _savingGame = true;
     notifyListeners();
 
@@ -182,15 +238,51 @@ class GamesViewModel extends ChangeNotifier {
 
     if (originalGame != null) {
       // preserve the original game's locationLatLng and combinedRoundNumber
-      //updatedGame.locationLatLng = originalGame.locationLatLng;
-      if (originalGame.combinedRoundNumber != 0) {
-        updatedGame.combinedRoundNumber = originalGame.combinedRoundNumber;
+      updatedGame.locationLatLong = originalGame.locationLatLong;
+      updatedGame.combinedRoundNumber = originalGame.combinedRoundNumber;
+
+      // preseve the original game's crowdsourced scoring data - TODO test this works
+      if (originalGame.scoring != null &&
+          originalGame.scoring!.homeTeamCroudSourcedScore1 != null) {
+        updatedGame.scoring!.homeTeamCroudSourcedScore1 =
+            originalGame.scoring!.homeTeamCroudSourcedScore1;
+      }
+      if (originalGame.scoring != null &&
+          originalGame.scoring!.homeTeamCroudSourcedScore2 != null) {
+        updatedGame.scoring!.homeTeamCroudSourcedScore2 =
+            originalGame.scoring!.homeTeamCroudSourcedScore2;
+      }
+      if (originalGame.scoring != null &&
+          originalGame.scoring!.homeTeamCroudSourcedScore3 != null) {
+        updatedGame.scoring!.homeTeamCroudSourcedScore3 =
+            originalGame.scoring!.homeTeamCroudSourcedScore3;
+      }
+      // preseve the original game's crowdsourced scoring data
+      if (originalGame.scoring != null &&
+          originalGame.scoring!.awayTeamCroudSourcedScore1 != null) {
+        updatedGame.scoring!.awayTeamCroudSourcedScore1 =
+            originalGame.scoring!.awayTeamCroudSourcedScore1;
+      }
+      if (originalGame.scoring != null &&
+          originalGame.scoring!.awayTeamCroudSourcedScore2 != null) {
+        updatedGame.scoring!.awayTeamCroudSourcedScore2 =
+            originalGame.scoring!.awayTeamCroudSourcedScore2;
+      }
+      if (originalGame.scoring != null &&
+          originalGame.scoring!.awayTeamCroudSourcedScore3 != null) {
+        updatedGame.scoring!.awayTeamCroudSourcedScore3 =
+            originalGame.scoring!.awayTeamCroudSourcedScore3;
       }
 
       _editGame(updatedGame, originalGame);
     } else {
       log('Game: ${updatedGame.dbkey} does not exist in the database, adding record');
       _addGame(updatedGame);
+
+      // temporarily add the game to the local list of games, the listerner will update the game when it is received from the database
+      if (originalGame == null) {
+        _games.add(updatedGame);
+      }
     }
 
     _savingGame = false;
@@ -209,8 +301,7 @@ class GamesViewModel extends ChangeNotifier {
       final postData = gameData.toJson();
 
       final Map<String, Map> updates = {};
-      updates['$gamesPathRoot/$parentDAUCompDBkey/${gameData.dbkey}'] =
-          postData;
+      updates['$gamesPathRoot/$currentDAUComp/${gameData.dbkey}'] = postData;
 
       await _db.update(updates);
     } finally {
@@ -220,8 +311,8 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<void> _editGame(Game updatedGame, Game originalGame) async {
-    await _initialLoadCompleter.future;
-    log('Initial game load completed. editGame()');
+    //await _initialLoadCompleter.future;
+    //log('Initial game load completed. editGame()');
 
     // Convert the original and updated game to JSON
     Map<String, dynamic> originalJson = originalGame.toJson();
@@ -240,7 +331,7 @@ class GamesViewModel extends ChangeNotifier {
     changed.keys.toList().forEach((key) async {
       if (changed[key] is List && (changed[key] as List).isNotEmpty) {
         // Add the update to the updates map
-        updates['$gamesPathRoot/$parentDAUCompDBkey/${updatedGame.dbkey}/$key'] =
+        updates['$gamesPathRoot/$currentDAUComp/${updatedGame.dbkey}/$key'] =
             changed[key][1];
 
         // Apply any updates to Firebase
@@ -288,8 +379,10 @@ class GamesViewModel extends ChangeNotifier {
   // 11) Update Game.combinedRoundNumber for each game in the combined rounds
 
   // Game grouping and sorting
-  void updateCombinedRoundNumber() {
+  void updateCombinedRoundNumber() async {
     log('In updateCombinedRoundNumber()');
+
+    await initialLoadComplete;
 
     // Group games by league and round number
     var groups = groupBy(_games, (g) => '${g.league}-${g.roundNumber}');
@@ -342,7 +435,9 @@ class GamesViewModel extends ChangeNotifier {
     for (var i = 0; i < combinedRounds.length; i++) {
       for (var game in combinedRounds[i]) {
         if (game.combinedRoundNumber != i + 1) {
-          log('Updating combined round number for game: ${game.dbkey}');
+          log('Updating combined round number to ${game.combinedRoundNumber + 1} for game: ${game.dbkey}');
+          game.combinedRoundNumber = i + 1;
+
           Game updatedGame = Game(
               matchNumber: game.matchNumber,
               awayTeam: game.awayTeam,
@@ -351,14 +446,17 @@ class GamesViewModel extends ChangeNotifier {
               roundNumber: game.roundNumber,
               startTimeUTC: game.startTimeUTC,
               location: game.location,
+              locationLatLong: game.locationLatLong,
               dbkey: game.dbkey,
+              scoring: game.scoring,
               combinedRoundNumber: i + 1);
-          updateGame(updatedGame); //write changes to firebase
+          updateGame(updatedGame, false); //write changes to firebase
         } else {
           log('Game: ${game.dbkey} already has combined round number: ${game.combinedRoundNumber}');
         }
       }
     }
+
     log('out updateCombinedRoundNumber()');
   }
 

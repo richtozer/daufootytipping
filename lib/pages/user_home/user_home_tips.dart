@@ -61,6 +61,70 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
     */
   }
 
+  Widget roundLeagueHeaderListTile(
+      String logo, double width, double height, int combinedRoundNumber) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/teams/daulogo.jpg',
+            fit: BoxFit.none,
+          ),
+        ),
+        ListTile(
+          trailing: SvgPicture.asset(
+            logo,
+            width: width,
+            height: height,
+          ),
+          title: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text('R o u n d: $combinedRoundNumber'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget roundLeagueGameBuilder(int combinedRoundNumber, League league) {
+    return FutureBuilder<List<Game>>(
+      future: widget.gamesViewModel
+          .getGamesForCombinedRoundNumberAndLeague(combinedRoundNumber, league),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        } else {
+          var games = snapshot.data;
+          if (games!.isEmpty) {
+            return Center(
+              heightFactor: 2,
+              child: Text('No ${league.name.toUpperCase()} games this round'),
+            );
+          }
+          return ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: games.length,
+            itemBuilder: (context, index) {
+              var game = games[index];
+              return GameListItem(
+                  roundGames: games,
+                  game: game,
+                  currentTipper: widget.currentTipper,
+                  currentDAUCompDBkey: widget.currentDAUCompDBkey);
+            },
+          );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<int>>(
@@ -72,109 +136,24 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
           return Text('Error: ${snapshot.error}');
         } else {
           var combinedRoundNumbers = snapshot.data;
+          if (combinedRoundNumbers!.isEmpty) {
+            return const Center(
+              child: Text('No Rounds Found'),
+            );
+          }
           return ListView.builder(
             controller: controller,
-            itemCount: combinedRoundNumbers?.length,
+            itemCount: combinedRoundNumbers.length,
             itemBuilder: (context, index) {
-              var combinedRoundNumber = combinedRoundNumbers?[index];
+              var combinedRoundNumber = combinedRoundNumbers[index];
               return Column(
                 children: [
-                  /*SliverAppBar(
-                    pinned: false,
-                    floating: true,
-                    snap: false,
-                    expandedHeight: 100.0,
-                    flexibleSpace: FlexibleSpaceBar(
-                      titlePadding: const EdgeInsetsDirectional.only(
-                          start: 150.0, bottom: 0.0),
-                      //centerTitle: true,
-                      background: Image.asset(
-                        'assets/teams/daulogo.jpg',
-                        fit: BoxFit.fill,
-                      ),
-                    ),
-                  ),*/
-                  ListTile(
-                    trailing: SvgPicture.asset(
-                      League.nrl.logo,
-                      width: 30,
-                      height: 30,
-                    ),
-                    title: Container(
-                      alignment: Alignment.center,
-                      child: const Text('N R L'),
-                    ),
-                    subtitle: Container(
-                      alignment: Alignment.center,
-                      child: Text('DAU R o u n d: $combinedRoundNumber'),
-                    ),
-                  ), // Header for NRL section
-                  FutureBuilder<List<Game>>(
-                    future: widget.gamesViewModel
-                        .getGamesForCombinedRoundNumberAndLeague(
-                            combinedRoundNumber!, League.nrl),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      } else {
-                        var games = snapshot.data;
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: games?.length,
-                          itemBuilder: (context, index) {
-                            var game = games?[index];
-                            return GameListItem(
-                                roundGames:
-                                    games!, //pass all games for this league/round to the GameListItem  - this is to support legacy tipping only
-                                game: game!,
-                                currentTipper: widget.currentTipper,
-                                currentDAUCompDBkey:
-                                    widget.currentDAUCompDBkey);
-                          },
-                        );
-                      }
-                    },
-                  ),
-                  ListTile(
-                    leading: SvgPicture.asset(
-                      League.afl.logo,
-                      width: 30,
-                      height: 30,
-                    ),
-                    title: const Text('A F L'),
-                    subtitle: Text('DAU R o u n d: $combinedRoundNumber'),
-                  ),
-                  FutureBuilder<List<Game>>(
-                    future: widget.gamesViewModel
-                        .getGamesForCombinedRoundNumberAndLeague(
-                            combinedRoundNumber, League.afl),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      } else {
-                        var games = snapshot.data;
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: games?.length,
-                          itemBuilder: (context, index) {
-                            var game = games?[index];
-                            return GameListItem(
-                                roundGames: games!,
-                                game: game!,
-                                currentTipper: widget.currentTipper,
-                                currentDAUCompDBkey:
-                                    widget.currentDAUCompDBkey);
-                          },
-                        );
-                      }
-                    },
-                  ),
+                  roundLeagueHeaderListTile(
+                      League.nrl.logo, 50, 50, combinedRoundNumber),
+                  roundLeagueGameBuilder(combinedRoundNumber, League.nrl),
+                  roundLeagueHeaderListTile(
+                      League.afl.logo, 40, 40, combinedRoundNumber),
+                  roundLeagueGameBuilder(combinedRoundNumber, League.afl),
                 ],
               );
             },

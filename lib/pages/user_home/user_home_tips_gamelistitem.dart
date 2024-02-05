@@ -159,21 +159,26 @@ class _GameListItemState extends State<GameListItem> {
   List<Widget> carouselItems(GameTipsViewModel gameTipsViewModel) {
     if (widget.game.gameState == GameState.notStarted) {
       return [
-        Consumer<GameTipsViewModel>(
-          builder: (context, gameTipsViewModel, child) {
-            final gameTip = gameTipsViewModel.getLatestGameTip();
-            // Use gameTip in your widget
-            return TipChoice(widget.roundGames, gameTip,
-                gameTipsViewModel); //roundGames is to support legacy tipping service only
-          },
-        ),
+        gameTipCard(),
         GameInfo(widget: widget, gameTipsViewModel: gameTipsViewModel),
       ];
     } else {
       return [
         const LiveScoring(),
+        gameTipCard(),
         GameInfo(widget: widget, gameTipsViewModel: gameTipsViewModel),
       ];
     }
+  }
+
+  Consumer<GameTipsViewModel> gameTipCard() {
+    return Consumer<GameTipsViewModel>(
+      builder: (context, gameTipsViewModel, child) {
+        final gameTip = gameTipsViewModel.getLatestGameTip();
+        // Use gameTip in your widget
+        return TipChoice(widget.roundGames, gameTip,
+            gameTipsViewModel); //roundGames is to support legacy tipping service only
+      },
+    );
   }
 }

@@ -21,7 +21,7 @@ class GameTipsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
 
-  final String parentDAUCompDBkey;
+  final String currentDAUComp;
   final Game game;
   final Completer<void> _initialLoadCompleter = Completer();
 
@@ -36,7 +36,7 @@ class GameTipsViewModel extends ChangeNotifier {
       GetIt.instance<LegacyTippingService>();
 
   //constructor
-  GameTipsViewModel(this.currentTipper, this.parentDAUCompDBkey, this.game) {
+  GameTipsViewModel(this.currentTipper, this.currentDAUComp, this.game) {
     _listenToTips();
   }
 
@@ -47,7 +47,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void _listenToTips() async {
     _tipsStream = _db
         .child(
-            '$tipsPathRoot/$parentDAUCompDBkey/${currentTipper.dbkey}/${game.dbkey}')
+            '$tipsPathRoot/$currentDAUComp/${currentTipper.dbkey}/${game.dbkey}')
         .onValue
         .listen((event) {
       _handleEvent(event);
@@ -80,7 +80,7 @@ class GameTipsViewModel extends ChangeNotifier {
       final tipJson = await tip.toJson();
 
       final Map<String, Map> updates = {};
-      updates['$tipsPathRoot/$parentDAUCompDBkey/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
+      updates['$tipsPathRoot/$currentDAUComp/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
       log('new tip logged: ${updates.toString()}');
@@ -101,7 +101,7 @@ class GameTipsViewModel extends ChangeNotifier {
       await FirebaseAnalytics.instance
           .logEvent(name: 'tip_submitted', parameters: {
         'tipper': tip.tipper.name,
-        'comp': parentDAUCompDBkey,
+        'comp': currentDAUComp,
         'game':
             'Round: ${tip.game.combinedRoundNumber}, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
         'tip': tip.tip.toString(),
@@ -112,15 +112,6 @@ class GameTipsViewModel extends ChangeNotifier {
       rethrow;
     } finally {
       _savingTip = false;
-    }
-  }
-
-  //method to check if the tipper has tipped this game using getLatestGameTip()
-  // if they have not, subscribe the tipper to the FCM topic for this game
-  Future<void> registerForFCMTipReminder() async {
-    if (_tip == null) {
-      log('registering for FCM tip reminder for game ${game.dbkey}');
-      await FirebaseMessaging.instance.subscribeToTopic(game.dbkey);
     }
   }
 

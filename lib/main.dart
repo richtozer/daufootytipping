@@ -1,5 +1,6 @@
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
+import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/theme_data.dart';
@@ -45,6 +46,8 @@ Future<void> main() async {
     sound: true,
   );
 
+  RemoteConfigService remoteConfigService = RemoteConfigService();
+
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
@@ -84,20 +87,22 @@ Future<void> main() async {
 
   //TEST
 
-  runApp(const MyApp());
+  runApp(MyApp(remoteConfigService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final RemoteConfigService remoteConfigService;
+  const MyApp(this.remoteConfigService, {super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState(),
+      // make sure there is only this one instance of MaterialApp in the widget tree
       child: MaterialApp(
         theme: myTheme,
         title: 'DAU Footy Tipping',
-        home: UserAuthPage(),
+        home: UserAuthPage(remoteConfigService),
       ),
     );
   }
