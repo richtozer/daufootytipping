@@ -70,12 +70,9 @@ class GamesViewModel extends ChangeNotifier {
           Team? awayTeam = await _teamsViewModel
               .findTeam('$league-${gameAsJSON['AwayTeam']}');
 
-          Scoring? scoring;
-          if (gameAsJSON['scoring'] != null) {
-            scoring = Scoring(
-                homeTeamScore: gameAsJSON['HomeTeamScore'],
-                awayTeamScore: gameAsJSON['AwayTeamScore']);
-          }
+          Scoring? scoring = Scoring(
+              homeTeamScore: gameAsJSON['HomeTeamScore'],
+              awayTeamScore: gameAsJSON['AwayTeamScore']);
 
           if (homeTeam != null && awayTeam != null) {
             log('Game: $key about to be deserialized');

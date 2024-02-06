@@ -8,9 +8,10 @@ export const submitLegacyTips = functions
   .https.onRequest(
     async (request, response) => {
       try {
-        const {dauCompDbKey, tipperID, dauRound, tips} = request.body;
+        const {submittime, dauCompDbKey, tipperID, dauRound, tips} =
+          request.body;
         // Validate parameters
-        if (!tipperID || !dauRound || !tips || !dauCompDbKey) {
+        if (!submittime || !tipperID || !dauRound || !tips || !dauCompDbKey) {
           const msg = "Missing required parameters!!";
           functions.logger.error(msg);
           response.status(400).send(msg);
@@ -21,17 +22,17 @@ export const submitLegacyTips = functions
         const tippersRef = admin.database().ref("AllTippers");
         const snapshot = await tippersRef.once("value");
 
-        const matchingKey = Object.keys(snapshot.val()).find(
+        const tipperKey = Object.keys(snapshot.val()).find(
           (key) => snapshot.val()[key].tipperID === tipperID
         );
 
-        if (!matchingKey) {
+        if (!tipperKey) {
           const msg = `Error, tipper ID ${tipperID} not found in the database`;
           functions.logger.error(msg);
           throw new Error(msg);
         } else {
           functions.logger.info(
-            `Found Tipper with dbkey ${matchingKey} using tipper ID ${tipperID}`
+            `Found Tipper with dbkey ${tipperKey} using tipper ID ${tipperID}`
           );
         }
 
@@ -53,8 +54,8 @@ export const submitLegacyTips = functions
           )
           .map((key) => ({
             dbKey: key,
-            league: gamesSnapshot.val()[key].league,
-            matchNumber: gamesSnapshot.val()[key].matchNumber,
+            league: key.substring(0, 3),
+            matchNumber: gamesSnapshot.val()[key].MatchNumber,
           }));
 
         // check if gameData is empty, if so throw an error
@@ -62,28 +63,48 @@ export const submitLegacyTips = functions
           const msg = `Error, no games found for dauRound ${dauRound}`;
           functions.logger.error(msg);
           throw new Error(msg);
+        } else {
+          const msg = `Found ${gameData.length} games for dauRound ${dauRound}`;
+          functions.logger.info(msg);
         }
 
         // Loop through the round games and create a tip as needed
-        for (const game of gameData) {
+        // assumes the data is sorted by key i.e. league-round-matchnumber
+
+        // assume the games are sorted by league, afl first, then nrl
+        // store index when the league changes
+        let leagueChangeIndex = -1;
+        for (const [index, game] of gameData.entries()) {
+          if (game.league === "nrl" && leagueChangeIndex === -1) {
+            leagueChangeIndex = index;
+          }
           const tipsRef = admin.database().ref(
-            `AllTips/${dauCompDbKey}/${matchingKey}/${game.dbKey}`
+            `AllTips/${dauCompDbKey}/${tipperKey}/${game.dbKey}`
           );
-          const tipIndex =
-            game.league === "afl" ? game.matchNumber + 8 - 1 :
-              game.matchNumber - 1;
+          // in the database the records are in afl-round-1, afl-round-2
+          // ...nrl-round-1, nrl-round-2...etc
+          // so we need to adjust the index to reverse the order
+          let tipIndex = index;
+          switch (leagueChangeIndex) {
+          case -1: // only afl games
+            // adjust the index to start from 8
+            tipIndex = index + 8;
+            break;
+          default: // only nrl games
+            tipIndex = index - leagueChangeIndex;
+            break;
+          }
 
           // Update/set the tip in the database for this game
           if (tips[tipIndex] !== "z" && tips[tipIndex] !== "D") {
-            await tipsRef.update({
-              gameResult: tips[tipIndex],
-              submittedTimeUTC: new Date().toISOString(),
-            });
-
             functions.logger.info(
-              `Successfully processed tip [${tips[tipIndex]}] at ` +
+              `About to process tip [${tips[tipIndex]}] at ` +
               `index ${tipIndex} for game ${tipsRef}`
             );
+            await tipsRef.update({
+              gameResult: tips[tipIndex],
+              submittedTimeUTC: submittime,
+            });
           } else {
             functions.logger.info(
               `Ignored 'z' or 'D' tip [${tips[tipIndex]}] at ` +
@@ -92,7 +113,7 @@ export const submitLegacyTips = functions
           }
         }
         response.status(200).send(
-          `Legacy tips successfully submitted to Firebase for ${matchingKey}`);
+          `Legacy tips successfully submitted to Firebase for ${tipperKey}`);
       } catch (error) {
         functions.logger.error(error);
         response.status(500).send(`Error submitting tips ${error}`);

@@ -1,6 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
@@ -109,7 +110,7 @@ class _GameListItemState extends State<GameListItem> {
                           height: 120,
                           enlargeFactor: 1.0,
                           enlargeCenterPage: true,
-                          enlargeStrategy: CenterPageEnlargeStrategy.scale,
+                          enlargeStrategy: CenterPageEnlargeStrategy.height,
                           enableInfiniteScroll: false,
                           onPageChanged: (index, reason) {
                             setState(() {
@@ -164,7 +165,18 @@ class _GameListItemState extends State<GameListItem> {
       ];
     } else {
       return [
-        const LiveScoring(),
+        FutureBuilder<Tip?>(
+          future: gameTipsViewModel.getLatestGameTip(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return LiveScoring(tip: snapshot.data!);
+            } else if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            } else {
+              return CircularProgressIndicator();
+            }
+          },
+        ),
         gameTipCard(),
         GameInfo(widget: widget, gameTipsViewModel: gameTipsViewModel),
       ];

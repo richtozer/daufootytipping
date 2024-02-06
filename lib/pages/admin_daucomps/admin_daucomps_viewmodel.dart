@@ -78,9 +78,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['$daucompsPath/${daucomp.dbkey}'] = daucomp.toJson();
       await _db.update(updates);
-
-      //TODO this is a test - remove this next line of code
-      //getNetworkFixtureData(daucomp);
     } finally {
       _savingDAUComp = false;
       notifyListeners();

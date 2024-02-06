@@ -10,3 +10,14 @@ extension LeagueLogo on League {
     }
   }
 }
+
+extension LeagueMargin on League {
+  int get margin {
+    switch (this) {
+      case League.nrl:
+        return 13;
+      case League.afl:
+        return 31;
+    }
+  }
+}
