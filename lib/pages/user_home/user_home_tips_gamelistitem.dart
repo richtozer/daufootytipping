@@ -29,28 +29,6 @@ class GameListItem extends StatefulWidget {
   State<GameListItem> createState() => _GameListItemState();
 }
 
-//NRL AFL gradients
-var nrlAflColourGradient = const LinearGradient(
-  colors: [Color(0xff04cf5d), Color(0xffe21e31)],
-  stops: [0.25, 0.75],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-);
-
-var nrlColourGradient = const LinearGradient(
-  colors: [Color(0xff04cf5d), Color(0xffffffff)],
-  stops: [0.05, 0.2],
-  begin: Alignment.bottomRight,
-  end: Alignment.topLeft,
-);
-
-const LinearGradient nrlWarriors = LinearGradient(
-  colors: [Color(0xff252b67), Color(0xff008446)],
-  stops: [0.25, 0.75],
-  begin: Alignment.bottomRight,
-  end: Alignment.topLeft,
-);
-
 class _GameListItemState extends State<GameListItem> {
   int _current = 0;
   final CarouselController _controller = CarouselController();
@@ -173,7 +151,8 @@ class _GameListItemState extends State<GameListItem> {
             } else if (snapshot.hasError) {
               return Text('Error: ${snapshot.error}');
             } else {
-              return CircularProgressIndicator();
+              return const Text('wait....');
+              //const CircularProgressIndicator();
             }
           },
         ),

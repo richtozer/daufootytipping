@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/* import 'package:flutter/material.dart';
 
 class AppState extends ChangeNotifier {
   //appstate for tiles in user_home_tips.dart
@@ -10,3 +10,4 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 }
+ */

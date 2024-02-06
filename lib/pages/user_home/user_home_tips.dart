@@ -96,7 +96,8 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
           .getGamesForCombinedRoundNumberAndLeague(combinedRoundNumber, league),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: Text('Wait..'));
+          //return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
         } else {
@@ -131,6 +132,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
       future: widget.gamesViewModel.getCombinedRoundNumbers(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
+          //return const Center(child: Text('Wait..'));
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
@@ -141,22 +143,28 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
               child: Text('No Rounds Found'),
             );
           }
-          return ListView.builder(
-            controller: controller,
-            itemCount: combinedRoundNumbers.length,
-            itemBuilder: (context, index) {
-              var combinedRoundNumber = combinedRoundNumbers[index];
-              return Column(
-                children: [
-                  roundLeagueHeaderListTile(
-                      League.nrl.logo, 50, 50, combinedRoundNumber),
-                  roundLeagueGameBuilder(combinedRoundNumber, League.nrl),
-                  roundLeagueHeaderListTile(
-                      League.afl.logo, 40, 40, combinedRoundNumber),
-                  roundLeagueGameBuilder(combinedRoundNumber, League.afl),
-                ],
-              );
-            },
+          // see here for the need for singlescrollchildview wrapper
+          // https://stackoverflow.com/questions/51536756/flutter-listview-jumps-to-top
+          return SingleChildScrollView(
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              controller: controller,
+              itemCount: combinedRoundNumbers.length,
+              itemBuilder: (context, index) {
+                var combinedRoundNumber = combinedRoundNumbers[index];
+                return Column(
+                  children: [
+                    roundLeagueHeaderListTile(
+                        League.nrl.logo, 50, 50, combinedRoundNumber),
+                    roundLeagueGameBuilder(combinedRoundNumber, League.nrl),
+                    roundLeagueHeaderListTile(
+                        League.afl.logo, 40, 40, combinedRoundNumber),
+                    roundLeagueGameBuilder(combinedRoundNumber, League.afl),
+                  ],
+                );
+              },
+            ),
           );
         }
       },

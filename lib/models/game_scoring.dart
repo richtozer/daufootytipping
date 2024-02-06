@@ -83,6 +83,20 @@ class Scoring {
   CroudSourcedScore? awayTeamCroudSourcedScore2;
   CroudSourcedScore? awayTeamCroudSourcedScore3;
 
+  bool didHomeTeamWin() {
+    if (homeTeamScore != null && awayTeamScore != null) {
+      return homeTeamScore! >= awayTeamScore!;
+    }
+    return false;
+  }
+
+  bool didAwayTeamWin() {
+    if (homeTeamScore != null && awayTeamScore != null) {
+      return awayTeamScore! >= homeTeamScore!;
+    }
+    return false;
+  }
+
   //calcualte the game result based on homeTeamScore and awayTeamScore
   GameResult getGameResultCalculated(League league) {
     if (homeTeamScore != null && awayTeamScore != null) {

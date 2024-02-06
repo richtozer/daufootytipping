@@ -86,11 +86,12 @@ export const submitLegacyTips = functions
           // so we need to adjust the index to reverse the order
           let tipIndex = index;
           switch (leagueChangeIndex) {
-          case -1: // only afl games
-            // adjust the index to start from 8
+          case -1: // processing afl games
+            // adjust the tipindex to start from 8
             tipIndex = index + 8;
             break;
-          default: // only nrl games
+          default: // processing nrl games
+            // adjust tipindex to start from 0
             tipIndex = index - leagueChangeIndex;
             break;
           }
