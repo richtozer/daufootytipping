@@ -1,5 +1,6 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
-import 'package:daufootytipping/pages/user_home/appstate_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -7,10 +8,10 @@ import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -22,6 +23,8 @@ Future<void> main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Enable persistence for Realtime Database
+  FirebaseDatabase.instance.setPersistenceEnabled(true);
 
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(
@@ -45,6 +48,8 @@ Future<void> main() async {
     badge: true,
     sound: true,
   );
+
+  log('User granted notification permission: ${settings.authorizationStatus}');
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
 

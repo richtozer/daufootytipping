@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
