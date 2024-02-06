@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 
 class Tip implements Comparable<Tip> {
@@ -42,6 +43,26 @@ class Tip implements Comparable<Tip> {
       'gameResult': tip.name,
       'submittedTimeUTC': submittedTimeUTC.toString(),
     };
+  }
+
+  String getGameResultText() {
+    if (game.league == League.nrl) {
+      return game.scoring!.getGameResultCalculated(game.league).nrl;
+    } else {
+      return game.scoring!.getGameResultCalculated(game.league).afl;
+    }
+  }
+
+  int getTipScoreCalculated() {
+    return Scoring.getTipScoreCalculated(
+        game.league, game.scoring!.getGameResultCalculated(game.league), tip);
+  }
+
+  int getMaxScoreCalculated() {
+    return Scoring.getTipScoreCalculated(
+        game.league,
+        game.scoring!.getGameResultCalculated(game.league),
+        game.scoring!.getGameResultCalculated(game.league));
   }
 
   @override

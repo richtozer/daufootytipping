@@ -24,7 +24,8 @@ class TipChoice extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
                 child:
-                    CircularProgressIndicator()); // Show loading spinner while waiting for data
+                    //CircularProgressIndicator()); // Show loading spinner while waiting for data
+                    Text('wait....'));
             //return const SizedBox.shrink(); //return empty widget while waiting for data
           } else if (snapshot.hasError) {
             return Text(

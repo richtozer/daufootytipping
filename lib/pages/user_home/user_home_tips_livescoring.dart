@@ -23,18 +23,57 @@ class LiveScoring extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('Home: ${tip.game.scoring?.homeTeamScore}'),
-              Text(
-                'Away: ${tip.game.scoring?.awayTeamScore}',
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('${tip.game.scoring?.homeTeamScore}',
+                      style: tip.game.scoring!.didHomeTeamWin()
+                          ? const TextStyle(
+                              fontSize: 18,
+                              backgroundColor: Color(0xff04cf5d),
+                              fontWeight: FontWeight.w900)
+                          : null),
+                  const Text(textAlign: TextAlign.left, ' v '),
+                  Text('${tip.game.scoring?.awayTeamScore}',
+                      style: tip.game.scoring!.didAwayTeamWin()
+                          ? const TextStyle(
+                              fontSize: 18,
+                              backgroundColor: Color(0xff04cf5d),
+                              fontWeight: FontWeight.w900)
+                          : null),
+                ],
               ),
-              Text(tip.game.league == League.nrl
-                  ? 'Result: ${tip.game.scoring?.getGameResultCalculated(tip.game.league).nrl}'
-                  : 'Result: ${tip.game.scoring?.getGameResultCalculated(tip.game.league).afl}'),
-              Text(tip.game.league == League.nrl
-                  ? 'Tip: ${tip.tip.nrl} Default: ${tip.isDefaultTip()}'
-                  : 'Tip: ${tip.tip.afl} Default: ${tip.isDefaultTip()}'),
+              Text('Game: ${tip.getGameResultText()}'),
+              Row(
+                children: [
+                  !tip.isDefaultTip()
+                      ? Text(tip.game.league == League.nrl
+                          ? 'Tip: ${tip.tip.nrl}'
+                          : 'Tip: ${tip.tip.afl}')
+                      : Row(
+                          children: [
+                            Text(tip.game.league == League.nrl
+                                ? 'Tip: ${tip.tip.nrl}'
+                                : 'Tip: ${tip.tip.afl}'),
+                            InkWell(
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    backgroundColor: Colors.yellow,
+                                    content: Text(
+                                        style: TextStyle(color: Colors.black),
+                                        'You were assigned a default tip for this game.'),
+                                  ),
+                                );
+                              },
+                              child: const Icon(Icons.info_outline),
+                            )
+                          ],
+                        ),
+                ],
+              ),
               Text(
-                  'Score: ${Scoring.getTipScoreCalculated(tip.game.league, tip.game.scoring!.getGameResultCalculated(tip.game.league), tip.tip)} / ${Scoring.getTipScoreCalculated(tip.game.league, tip.game.scoring!.getGameResultCalculated(tip.game.league), tip.game.scoring!.getGameResultCalculated(tip.game.league))}'),
+                  'Score: ${tip.getTipScoreCalculated()} / ${tip.getMaxScoreCalculated()}'),
             ],
           ),
         ],

@@ -96,14 +96,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AppState(),
-      // make sure there is only this one instance of MaterialApp in the widget tree
-      child: MaterialApp(
-        theme: myTheme,
-        title: 'DAU Footy Tipping',
-        home: UserAuthPage(remoteConfigService),
-      ),
+    return MaterialApp(
+      theme: myTheme,
+      title: 'DAU Footy Tipping',
+      home: UserAuthPage(remoteConfigService),
     );
   }
 }
