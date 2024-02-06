@@ -7,7 +7,7 @@ extension GameResultString on GameResult {
   String get nrl {
     switch (this) {
       case GameResult.a:
-        return 'Home 13+';
+        return 'Home ${League.nrl.margin}+';
       case GameResult.b:
         return 'Home';
       case GameResult.c:
@@ -15,7 +15,7 @@ extension GameResultString on GameResult {
       case GameResult.d:
         return 'Away';
       case GameResult.e:
-        return 'Away 13+';
+        return 'Away ${League.nrl.margin}+';
       case GameResult.z:
         return 'No Result';
     }
@@ -24,15 +24,15 @@ extension GameResultString on GameResult {
   String get nrlTooltip {
     switch (this) {
       case GameResult.a:
-        return 'Home team wins by 13 points or more';
+        return 'Home team wins by ${League.nrl.margin} points or more';
       case GameResult.b:
-        return 'Home teams wins by 1-12 point margin';
+        return 'Home teams wins by 1-${League.nrl.margin - 1}  point margin';
       case GameResult.c:
         return 'Draw';
       case GameResult.d:
-        return 'Away team wins by a 1-12 point margin';
+        return 'Away team wins by a 1-${League.nrl.margin - 1} point margin';
       case GameResult.e:
-        return 'Away team wins by 13 points or more';
+        return 'Away team wins by ${League.nrl.margin} points or more';
       case GameResult.z:
         return 'No Result';
     }
@@ -41,7 +41,7 @@ extension GameResultString on GameResult {
   String get afl {
     switch (this) {
       case GameResult.a:
-        return 'Home 31+';
+        return 'Home ${League.afl.margin}+';
       case GameResult.b:
         return 'Home';
       case GameResult.c:
@@ -49,7 +49,7 @@ extension GameResultString on GameResult {
       case GameResult.d:
         return 'Away';
       case GameResult.e:
-        return 'Away 31+';
+        return 'Away ${League.afl.margin}+';
       case GameResult.z:
         return 'No Result';
     }
@@ -58,15 +58,15 @@ extension GameResultString on GameResult {
   String get aflTooltip {
     switch (this) {
       case GameResult.a:
-        return 'Home team wins by 31 points or more';
+        return 'Home team wins by ${League.afl.margin} points or more';
       case GameResult.b:
-        return 'Home teams wins by 1-30 point margin';
+        return 'Home teams wins by 1-${League.afl.margin - 1} point margin';
       case GameResult.c:
         return 'Draw';
       case GameResult.d:
-        return 'Away team wins by a 1-30 point margin';
+        return 'Away team wins by a 1-${League.afl.margin - 1} point margin';
       case GameResult.e:
-        return 'Away team wins by 31 points or more';
+        return 'Away team wins by ${League.afl.margin} points or more';
       case GameResult.z:
         return 'No Result';
     }
@@ -82,7 +82,39 @@ class Scoring {
   CroudSourcedScore? awayTeamCroudSourcedScore1;
   CroudSourcedScore? awayTeamCroudSourcedScore2;
   CroudSourcedScore? awayTeamCroudSourcedScore3;
-  GameResult gameResult = GameResult.z; // use 'z' until game result is known
+
+  //calcualte the game result based on homeTeamScore and awayTeamScore
+  GameResult getGameResultCalculated(League league) {
+    if (homeTeamScore != null && awayTeamScore != null) {
+      switch (league) {
+        case League.nrl:
+          if (homeTeamScore! >= awayTeamScore! + League.nrl.margin) {
+            return GameResult.a;
+          } else if (homeTeamScore! + League.nrl.margin <= awayTeamScore!) {
+            return GameResult.e;
+          } else if (homeTeamScore! > awayTeamScore!) {
+            return GameResult.b;
+          } else if (homeTeamScore! < awayTeamScore!) {
+            return GameResult.d;
+          } else {
+            return GameResult.c;
+          }
+        case League.afl:
+          if (homeTeamScore! >= awayTeamScore! + League.afl.margin) {
+            return GameResult.a;
+          } else if (homeTeamScore! + League.afl.margin <= awayTeamScore!) {
+            return GameResult.e;
+          } else if (homeTeamScore! > awayTeamScore!) {
+            return GameResult.b;
+          } else if (homeTeamScore! < awayTeamScore!) {
+            return GameResult.d;
+          } else {
+            return GameResult.c;
+          }
+      }
+    }
+    return GameResult.z;
+  }
 
   Scoring(
       {this.homeTeamScore,
@@ -105,7 +137,6 @@ class Scoring {
       'awayTeamCroudSourcedScore1': awayTeamCroudSourcedScore1?.toJson(),
       'awayTeamCroudSourcedScore2': awayTeamCroudSourcedScore2?.toJson(),
       'awayTeamCroudSourcedScore3': awayTeamCroudSourcedScore3?.toJson(),
-      'gameResult': gameResult.toString(),
     };
   }
 
@@ -141,7 +172,7 @@ class Scoring {
     );
   }
 
-  static int calculateScore(
+  static int getTipScoreCalculated(
       League gameLeague, GameResult gameResult, GameResult tip) {
     //TODO consider moving these structures to firebase config
     final nrlScoreLookupTable = {

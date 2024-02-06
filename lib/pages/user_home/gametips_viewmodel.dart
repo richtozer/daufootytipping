@@ -55,21 +55,26 @@ class GameTipsViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
-    if (event.snapshot.exists) {
-      final tipJson = event.snapshot.value;
-      final Map<String, dynamic> tipData =
-          Map<String, dynamic>.from(tipJson as Map<Object?, Object?>);
+    try {
+      if (event.snapshot.exists) {
+        final tipJson = event.snapshot.value;
+        final Map<String, dynamic> tipData =
+            Map<String, dynamic>.from(tipJson as Map<Object?, Object?>);
 
-      log('Tip found for Tipper ${currentTipper.name} in game ${game.dbkey}, tipData: $tipData');
+        log('Tip found for Tipper ${currentTipper.name} in game ${game.dbkey}, tipData: $tipData');
 
-      _tip = Tip.fromJson(tipData, game.dbkey, currentTipper, game);
-    } else {
-      log('No tip found for Tipper ${currentTipper.name} in game ${game.dbkey}');
+        _tip = Tip.fromJson(tipData, game.dbkey, currentTipper, game);
+      } else {
+        log('No tip found for Tipper ${currentTipper.name} in game ${game.dbkey}');
+      }
+    } catch (e) {
+      log('Error in GameTipsViewModel._handleEvent: $e');
+    } finally {
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+      notifyListeners();
     }
-    if (!_initialLoadCompleter.isCompleted) {
-      _initialLoadCompleter.complete();
-    }
-    notifyListeners();
   }
 
   void addTip(List<Game> roundGames, Tip tip) async {
