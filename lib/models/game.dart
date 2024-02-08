@@ -1,7 +1,9 @@
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:intl/intl.dart';
 
 enum GameState {
   notStarted,
@@ -19,12 +21,8 @@ class Game implements Comparable<Game> {
   final DateTime startTimeUTC;
   final int roundNumber;
   final int matchNumber;
-  int combinedRoundNumber;
   Scoring? scoring; // this should be null until game kickoff
-
-  set setCombinedRoundNumber(int value) {
-    combinedRoundNumber = value;
-  }
+  DAURound? dauRound;
 
   //constructor
   Game({
@@ -37,8 +35,8 @@ class Game implements Comparable<Game> {
     required this.startTimeUTC,
     required this.roundNumber,
     required this.matchNumber,
-    this.combinedRoundNumber = 0,
     this.scoring,
+    this.dauRound,
   });
 
   // this getter will return the gamestate based on the current time and the game start time
@@ -57,21 +55,19 @@ class Game implements Comparable<Game> {
     }
   }
 
-/*   factory Game.fromJson(Map<String, dynamic> data, String key, Team homeTeam,
-      Team awayTeam, LatLng? locationLatLong, Scoring? scoring) {
-    return Game(
-        dbkey: key,
-        league: League.values.byName(data['league']),
-        homeTeam: homeTeam,
-        awayTeam: awayTeam,
-        location: data['location'],
-        locationLatLong: locationLatLong,
-        startTimeUTC: DateTime.parse(data['startTimeUTC']),
-        roundNumber: data['roundNumber'],
-        matchNumber: data['matchNumber'],
-        combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
-        scoring: scoring);
-  } */
+  Map<String, dynamic> toFixtureJson() => {
+        'League': league.name,
+        'HomeTeam': homeTeam.dbkey.substring(4),
+        'AwayTeam': awayTeam.dbkey.substring(4),
+        'Location': location,
+        //'DateUtc': DateUtc.toString(),
+        'DateUtc':
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
+        'RoundNumber': roundNumber,
+        'MatchNumber': matchNumber,
+        'HomeTeamScore': (scoring != null) ? scoring!.homeTeamScore : null,
+        "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
+      };
 
   factory Game.fromFixtureJson(
       String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
@@ -87,7 +83,6 @@ class Game implements Comparable<Game> {
       startTimeUTC: DateTime.parse(data['DateUtc']),
       roundNumber: data['RoundNumber'] ?? 0,
       matchNumber: data['MatchNumber'] ?? 0,
-      combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
     );
   }
 
@@ -100,7 +95,6 @@ class Game implements Comparable<Game> {
         'startTimeUTC': startTimeUTC.toString(),
         'roundNumber': roundNumber,
         'matchNumber': matchNumber,
-        'combinedRoundNumber': combinedRoundNumber,
         'scoring': (scoring != null) ? scoring!.toJson() : null,
       };
 

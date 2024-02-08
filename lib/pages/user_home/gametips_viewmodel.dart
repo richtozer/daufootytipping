@@ -77,7 +77,7 @@ class GameTipsViewModel extends ChangeNotifier {
     }
   }
 
-  void addTip(List<Game> roundGames, Tip tip) async {
+  void addTip(List<Game> roundGames, Tip tip, int combinedRoundNumber) async {
     try {
       _savingTip = true;
 
@@ -96,7 +96,7 @@ class GameTipsViewModel extends ChangeNotifier {
           roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
 
       legcyTippingService.submitTip(
-          currentTipper.name, tip, gameIndex, tip.game.combinedRoundNumber);
+          currentTipper.name, tip, gameIndex, combinedRoundNumber);
 
       // end code section to support legacy tipping service
 
@@ -108,7 +108,7 @@ class GameTipsViewModel extends ChangeNotifier {
         'tipper': tip.tipper.name,
         'comp': currentDAUComp,
         'game':
-            'Round: ${tip.game.combinedRoundNumber}, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
+            'Round: $combinedRoundNumber, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
         'tip': tip.tip.toString(),
         'submittedTimeUTC': tip.submittedTimeUTC.toString(),
       });

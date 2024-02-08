@@ -110,8 +110,11 @@ class TipChoice extends StatelessWidget {
               submittedTimeUTC: DateTime.now().toUtc(),
             );
             //add the tip to the realtime firebase database
-            gameTipsViewModel.addTip(roundGames,
-                tip); //roundGames is passed to support legacy tipping only
+            gameTipsViewModel.addTip(
+                roundGames,
+                tip,
+                tip.game.dauRound!
+                    .dAUroundNumber); //roundGames is passed to support legacy tipping only
           }
         } catch (e) {
           String msg = 'Error submitting tip: $e';

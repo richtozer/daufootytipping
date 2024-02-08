@@ -5,7 +5,6 @@ import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
@@ -117,10 +116,8 @@ class LegacyTippingService {
 // - 3 Compare the temporary list with the with proposed changes in appTipsData
 // - 4 Any differences - batch up and apply to sheet so that it matches the temporary data
 
-  Future<String> syncTipsToLegacyDiffOnly(
-      AllTipsViewModel allTipsViewModel,
-      DAUCompsViewModel daucompsViewModel,
-      GamesViewModel gamesViewModel) async {
+  Future<String> syncTipsToLegacyDiffOnly(AllTipsViewModel allTipsViewModel,
+      DAUCompsViewModel daucompsViewModel) async {
     //refresh the data from the gsheet
 
     await spreadsheet.refresh(); //TODO is this a good idea, is it inefficient?
@@ -137,7 +134,7 @@ class LegacyTippingService {
 
     List<String> templateDefaultTips = [];
     for (int roundNumber in combinedRounds) {
-      String defaultTips = await gamesViewModel
+      String defaultTips = await daucompsViewModel
           .getDefaultTipsForCombinedRoundNumber(roundNumber);
       templateDefaultTips.add(defaultTips);
     }
@@ -169,17 +166,17 @@ class LegacyTippingService {
 
         // update the proposed tipper data with the new tip. Use the league and matchnumber to find the correct character to update
         var targetString = proposedGsheetTipChanges[rowToUpdate]
-            [tip.game.combinedRoundNumber - 1];
+            [tip.game.dauRound!.dAUroundNumber - 1];
         if (tip.game.league == League.nrl) {
           targetString = targetString?.replaceRange(
               tip.game.matchNumber - 1, tip.game.matchNumber, tip.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
-              [tip.game.combinedRoundNumber - 1] = targetString;
+              [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
         } else {
           targetString = targetString?.replaceRange(
               tip.game.matchNumber + 7, tip.game.matchNumber + 8, tip.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
-              [tip.game.combinedRoundNumber - 1] = targetString;
+              [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
         }
       }
     }
@@ -247,7 +244,8 @@ class LegacyTippingService {
     for (int i = 0; i < proposedList.length; i++) {
       for (int j = 0; j < proposedList[i].length; j++) {
         // if the original tip is empty or different to the proposed tip, then add a request to update the cell
-        if (originalList[i].isEmpty ||
+        if (j >= originalList[i].length ||
+            originalList[i].isEmpty ||
             originalList[i][j] != proposedList[i][j]) {
           requests.add(
             Request()

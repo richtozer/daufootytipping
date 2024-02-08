@@ -188,7 +188,6 @@ class Scoring {
 
   static int getTipScoreCalculated(
       League gameLeague, GameResult gameResult, GameResult tip) {
-    //TODO consider moving these structures to firebase config
     final nrlScoreLookupTable = {
       GameResult.a: {
         GameResult.a: 4,
