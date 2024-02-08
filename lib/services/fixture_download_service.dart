@@ -5,6 +5,8 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2022_afl_full.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2022_nrl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2023_afl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2023_nrl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2024_afl_full.dart';
@@ -28,6 +30,14 @@ class FixtureDownloadService {
       List<Map<String, Object?>> mockdata;
 
       switch (endpoint.toString()) {
+        case 'https://fixturedownload.com/feed/json/afl-2022':
+          mockdata = mockAfl2022Full;
+          log('Using mockAfl2022Full fixture data');
+          break;
+        case 'https://fixturedownload.com/feed/json/nrl-2022':
+          mockdata = mockNrl2022Full;
+          log('Using mockNrl2022Full fixture data');
+          break;
         case 'https://fixturedownload.com/feed/json/afl-2023':
           mockdata = mockAfl2023Full;
           //mockdata = mockAfl2023Partial;
