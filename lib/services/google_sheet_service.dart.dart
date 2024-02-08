@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -116,14 +117,17 @@ class LegacyTippingService {
 // - 3 Compare the temporary list with the with proposed changes in appTipsData
 // - 4 Any differences - batch up and apply to sheet so that it matches the temporary data
 
-  Future<void> syncTipsToLegacyDiffOnly(
-      AllTipsViewModel allTipsViewModel, GamesViewModel gamesViewModel) async {
+  Future<String> syncTipsToLegacyDiffOnly(
+      AllTipsViewModel allTipsViewModel,
+      DAUCompsViewModel daucompsViewModel,
+      GamesViewModel gamesViewModel) async {
     //refresh the data from the gsheet
 
     await spreadsheet.refresh(); //TODO is this a good idea, is it inefficient?
 
     //get the total number of combined rounds
-    List<int> combinedRounds = await gamesViewModel.getCombinedRoundNumbers();
+    List<int> combinedRounds =
+        await daucompsViewModel.getCombinedRoundNumbers();
 
     //Create a temporary 2 dimensional list (List<List<Object?>>) of proposed gsheet tip changes  - tipper is on the y dimension, daurounds is on the x dimension
     List<List<String?>> proposedGsheetTipChanges = [];
@@ -221,14 +225,17 @@ class LegacyTippingService {
       try {
         await sheetsApi.spreadsheets.batchUpdate(differences, spreadsheetId!);
         // break of the loop when the request is successful
-        log('Successful sync to legacy tipping sheet.');
-        break;
+        String msg =
+            'Successfully synced ${differences.requests!.length - 1} tips to legacy tipping sheet.';
+        log(msg);
+        return msg;
       } catch (e) {
         log('Error ${e.toString()} submitting default tips, attempt $attempt of $maxAttempts');
         await Future.delayed(
             const Duration(seconds: 10)); // Wait for 60 seconds
       }
     }
+    return 'Failed to sync ${differences.requests!.length - 1}  tips to legacy tipping sheet after $maxAttempts attempts';
   }
 
   BatchUpdateSpreadsheetRequest compareForBatchUpdate(
@@ -293,8 +300,10 @@ class LegacyTippingService {
       String newCellValue;
 
       if (cellValue.length != 17) {
-        throw Exception(
-            'Error updating legacy tipping sheet with tip $cellValue for $tipperName in game ${tip.game.dbkey}. Existing legacy tips length should be 17, but is ${cellValue.length}  ');
+        String msg =
+            'Error updating legacy tipping sheet with tip $cellValue for $tipperName in game ${tip.game.dbkey}. Existing legacy tips length should be 17, but is ${cellValue.length}';
+        log(msg);
+        throw Exception(msg);
       }
 
       if (tip.game.league == League.nrl) {

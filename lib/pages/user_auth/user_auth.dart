@@ -1,6 +1,6 @@
 import 'dart:developer';
-
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
@@ -11,6 +11,7 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -25,9 +26,8 @@ class UserAuthPage extends StatefulWidget {
 }
 
 class _UserAuthPageState extends State<UserAuthPage> {
-  var clientId =
-      "1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com";
-  //TODO remove hardcoding
+  var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
+
   PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
@@ -53,161 +53,138 @@ class _UserAuthPageState extends State<UserAuthPage> {
     return false;
   }
 
-  String currentDAUComp = '';
-
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
-    return FutureBuilder(
-        future: widget.remoteConfigService
-            .getConfigCurrentDAUComp(), // wait for remote config to initialise
-        builder: (context, snapshot) {
-          // Show a loading spinner while waiting for initialization to complete
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // Show an error message if initialization failed
-          if (snapshot.hasError) {
-            return Text('Error initializing remote config: ${snapshot.error}');
-          }
-
-          currentDAUComp = snapshot.data as String;
-          log('Config currentDAUComp: $currentDAUComp');
-
-          return ChangeNotifierProvider<TippersViewModel>(
-              create: (_) => TippersViewModel(),
-              child: StreamBuilder<User?>(
-                stream: FirebaseAuth.instance.authStateChanges(),
-                builder: (context, snapshot) {
-                  // check if the current app version is lower than the value set in
-                  // remote config, if so, force the user to update the app
-                  return FutureBuilder<bool>(
-                    future: isClientVersionOutOfDate(),
-                    builder: (context, versionSnapshot) {
-                      if (versionSnapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (versionSnapshot.hasError) {
-                        return Text('Error: ${versionSnapshot.error}');
-                      } else if (versionSnapshot.data == true) {
-                        return const Scaffold(
-                          body: Center(
-                            child: Text(
-                              "This version of the app is no longer supported, please update the app from the app store.",
-                            ),
+    return ChangeNotifierProvider<TippersViewModel>(
+        create: (_) => TippersViewModel(),
+        child: StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            // check if the current app version is lower than the value set in
+            // remote config, if so, force the user to update the app
+            return FutureBuilder<bool>(
+              future: isClientVersionOutOfDate(),
+              builder: (context, versionSnapshot) {
+                if (versionSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (versionSnapshot.hasError) {
+                  return Text('Error: ${versionSnapshot.error}');
+                } else if (versionSnapshot.data == true) {
+                  return const Scaffold(
+                    body: Center(
+                      child: Text(
+                        "This version of the app is no longer supported, please update the app from the app store.",
+                      ),
+                    ),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return SignInScreen(
+                    providers: [
+                      AppleProvider(),
+                      GoogleProvider(clientId: clientId),
+                      EmailAuthProvider(),
+                    ],
+                    headerBuilder: (context, constraints, shrinkOffset) {
+                      return const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Image(
+                            image: AssetImage('assets/icon/AppIcon.png'),
                           ),
-                        );
-                      }
-                      if (!snapshot.hasData) {
-                        return SignInScreen(
-                          providers: [
-                            AppleProvider(),
-                            GoogleProvider(clientId: clientId),
-                            EmailAuthProvider(),
-                          ],
-                          headerBuilder: (context, constraints, shrinkOffset) {
-                            return const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: AspectRatio(
-                                aspectRatio: 1,
-                                child: Image(
-                                  image: AssetImage('assets/icon/AppIcon.png'),
-                                ),
-                              ),
-                            );
-                          },
-                          subtitleBuilder: (context, action) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8.0),
-                              child: action == AuthAction.signIn
-                                  ? const Text(
-                                      'Welcome to DAU Footy Tipping, please sign in!')
-                                  : const Text(
-                                      'Welcome to DAU Footy Tipping, please sign up!'),
-                            );
-                          },
-                          footerBuilder: (context, action) {
-                            return const Padding(
-                              padding: EdgeInsets.only(top: 16),
-                              child: Text(
-                                'By signing in, you ackonwledge you are a paid up member of DAU Footy Tipping.',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            );
-                          },
-                        );
-                      }
-
-                      //once we pass signin we have a firebase auth user context
-                      User? authenticatedFirebaseUser = snapshot.data;
-                      if (authenticatedFirebaseUser == null) {
-                        throw Exception('No user context found');
-                      }
-                      if (authenticatedFirebaseUser.isAnonymous) {
-                        throw Exception('User is anonymous');
-                      }
-                      if (authenticatedFirebaseUser.emailVerified == false) {
-                        throw Exception('User email not verified');
-                      }
-
-                      FirebaseAnalytics.instance.logLogin(
-                          loginMethod: authenticatedFirebaseUser
-                              .providerData[0].providerId);
-
-                      //at this point we have a verfied logged on user - as we send them
-                      //to the home page, make sure they are represented in the realtime database
-                      // as a tipper linked to their firebase auth record,
-                      //if not create a Tipper record for them.
-
-                      TippersViewModel tippersViewModel =
-                          Provider.of<TippersViewModel>(context, listen: false);
-
-                      return FutureBuilder<Tipper>(
-                        future: tippersViewModel
-                            .linkUserToTipper(authenticatedFirebaseUser),
-                        builder: (BuildContext context,
-                            AsyncSnapshot<Tipper> snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                                child:
-                                    CircularProgressIndicator()); // or your own loading widget
-                          } else if (snapshot.hasError) {
-                            return ProfileScreen(
-                              actions: [
-                                DisplayNameChangedAction(
-                                    (context, oldName, newName) {
-                                  // TODO do something with the new name
-                                  throw UnimplementedError();
-                                }),
-                              ],
-                              children: [
-                                Container(
-                                  color: Colors.red,
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(
-                                    '${snapshot.error}',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            );
-                          } else {
-                            Tipper currentTipper = snapshot.data as Tipper;
-                            return Consumer<TippersViewModel>(
-                              builder: (context, tippersViewModel, child) {
-                                return HomePage(currentTipper, currentDAUComp);
-                              },
-                            );
-                          }
-                        },
+                        ),
+                      );
+                    },
+                    subtitleBuilder: (context, action) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: action == AuthAction.signIn
+                            ? const Text(
+                                'Welcome to DAU Footy Tipping, please sign in!')
+                            : const Text(
+                                'Welcome to DAU Footy Tipping, please sign up!'),
+                      );
+                    },
+                    footerBuilder: (context, action) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: Text(
+                          'By signing in, you ackonwledge you are a paid up member of DAU Footy Tipping.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       );
                     },
                   );
-                },
-              ));
-        });
+                }
+
+                //once we pass signin we have a firebase auth user context
+                User? authenticatedFirebaseUser = snapshot.data;
+                if (authenticatedFirebaseUser == null) {
+                  throw Exception('No user context found');
+                }
+                if (authenticatedFirebaseUser.isAnonymous) {
+                  throw Exception('User is anonymous');
+                }
+                if (authenticatedFirebaseUser.emailVerified == false) {
+                  throw Exception('User email not verified');
+                }
+
+                FirebaseAnalytics.instance.logLogin(
+                    loginMethod:
+                        authenticatedFirebaseUser.providerData[0].providerId);
+
+                //at this point we have a verfied logged on user - as we send them
+                //to the home page, make sure they are represented in the realtime database
+                // as a tipper linked to their firebase auth record,
+                //if not create a Tipper record for them.
+
+                TippersViewModel tippersViewModel =
+                    Provider.of<TippersViewModel>(context, listen: false);
+
+                return FutureBuilder<Tipper>(
+                  future: tippersViewModel
+                      .linkUserToTipper(authenticatedFirebaseUser),
+                  builder:
+                      (BuildContext context, AsyncSnapshot<Tipper> snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                          child:
+                              CircularProgressIndicator()); // or your own loading widget
+                    } else if (snapshot.hasError) {
+                      return ProfileScreen(
+                        actions: [
+                          DisplayNameChangedAction((context, oldName, newName) {
+                            // TODO do something with the new name
+                            throw UnimplementedError();
+                          }),
+                        ],
+                        children: [
+                          Container(
+                            color: Colors.red,
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              '${snapshot.error}',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      );
+                    } else {
+                      Tipper currentTipper = snapshot.data as Tipper;
+                      return Consumer<TippersViewModel>(
+                        builder: (context, tippersViewModel, child) {
+                          return HomePage(currentTipper);
+                        },
+                      );
+                    }
+                  },
+                );
+              },
+            );
+          },
+        ));
   }
 }

@@ -1,7 +1,7 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,31 +9,33 @@ import 'package:provider/provider.dart';
 
 class TipsPage extends StatelessWidget {
   final Tipper currentTipper;
-  final String currentDAUCompDBkey;
 
-  const TipsPage(this.currentTipper, this.currentDAUCompDBkey, {super.key});
+  const TipsPage(this.currentTipper, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => GamesViewModel(currentDAUCompDBkey),
-      child: Consumer<GamesViewModel>(
-        builder: (context, gamesViewModel, child) {
-          return _TipsPageBody(
-              currentTipper, gamesViewModel, currentDAUCompDBkey);
-        },
-      ),
-    );
+    return Consumer<DAUCompsViewModel>(
+        builder: (context, daucompsViewModel, child) {
+      return _TipsPageBody(currentTipper, daucompsViewModel);
+    });
   }
+
+/*   Widget build(BuildContext context) {
+    return Consumer<DAUCompsViewModel>(
+        builder: (context, daucompsViewModel, child) {
+      return ChangeNotifierProvider(
+        create: (context) => GamesViewModel(daucompsViewModel.currentDAUComp),
+        child: _TipsPageBody(currentTipper, daucompsViewModel),
+      );
+    });
+  } */
 }
 
 class _TipsPageBody extends StatefulWidget {
   final Tipper currentTipper;
-  final String currentDAUCompDBkey;
-  final GamesViewModel gamesViewModel;
+  final DAUCompsViewModel daucompsViewModel;
 
-  const _TipsPageBody(
-      this.currentTipper, this.gamesViewModel, this.currentDAUCompDBkey);
+  const _TipsPageBody(this.currentTipper, this.daucompsViewModel);
 
   @override
   State<_TipsPageBody> createState() => _TipsPageBodyState();
@@ -92,7 +94,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
 
   Widget roundLeagueGameBuilder(int combinedRoundNumber, League league) {
     return FutureBuilder<List<Game>>(
-      future: widget.gamesViewModel
+      future: widget.daucompsViewModel
           .getGamesForCombinedRoundNumberAndLeague(combinedRoundNumber, league),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -118,7 +120,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                   roundGames: games,
                   game: game,
                   currentTipper: widget.currentTipper,
-                  currentDAUCompDBkey: widget.currentDAUCompDBkey);
+                  currentDAUCompDBkey: widget.daucompsViewModel.currentDAUComp);
             },
           );
         }
@@ -129,7 +131,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<int>>(
-      future: widget.gamesViewModel.getCombinedRoundNumbers(),
+      future: widget.daucompsViewModel.getCombinedRoundNumbers(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           //return const Center(child: Text('Wait..'));
