@@ -65,28 +65,35 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     super.dispose();
   }
 
-  void _saveDAUComp(BuildContext context, DAUComp? oldDAUComp) async {
+  void _saveDAUComp(BuildContext context) async {
     try {
-      //create a new temp team object to pass the changes to the viewmodel
-      DAUComp daucompEdited = DAUComp(
-        name: _daucompNameController.text,
-        dbkey: oldDAUComp?.dbkey,
-        aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController.text),
-        nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController.text),
-      );
-
       //check the URL's are active on the server,
       //if yes, save the record and show a green snackbar saying the record is saved
       //if no, reject the save and show a red snackbar saying the URL's are not active
-      if (await isUriActive(
-              daucompEdited.aflFixtureJsonURL.toString(), context) &&
-          await isUriActive(
-              daucompEdited.nrlFixtureJsonURL.toString(), context)) {
-        if (daucomp != null) {
-          widget.dauCompViewModel.editDAUComp(daucompEdited);
+      if (await isUriActive(_daucompAflJsonURLController.text, context) &&
+          await isUriActive(_daucompNrlJsonURLController.text, context)) {
+        //create a new temp daucomp record to hold changes
+
+        if (daucomp == null) {
+          // this is a new record
+          DAUComp updatedDUAcomp = DAUComp(
+            dbkey: widget.daucomp?.dbkey,
+            name: _daucompNameController.text,
+            aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController.text),
+            nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController.text),
+          );
+          await widget.dauCompViewModel.newDAUComp(updatedDUAcomp);
         } else {
-          widget.dauCompViewModel.addDAUComp(daucompEdited);
+          // this is an existing record
+          await widget.dauCompViewModel.updateCompAttribute(
+              daucomp, "name", _daucompNameController.text);
+          await widget.dauCompViewModel.updateCompAttribute(
+              daucomp, "aflFixtureJsonURL", _daucompAflJsonURLController.text);
+          await widget.dauCompViewModel.updateCompAttribute(
+              daucomp, "nrlFixtureJsonURL", _daucompNrlJsonURLController.text);
         }
+
+        await widget.dauCompViewModel.saveBatchOfCompAttributes();
 
         setState(() {
           disableSync = false;
@@ -141,23 +148,28 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
       if (response.statusCode == 200) {
         return true;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('URL not valid, status code: ${response.statusCode}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('URL not valid, status code: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         log('Error checking URL: $uri, status code: ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('URL not valid, error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      log('Error checking URL: $uri, exception: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('URL not valid, error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        log('Error checking URL: $uri, exception: $e');
+      }
       return false;
     }
   }
@@ -201,7 +213,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                               disableBackButton = true;
                             });
                             // save the record
-                            _saveDAUComp(context, daucomp);
+                            _saveDAUComp(context);
                             // re-enable the save and back button
                             setState(() {
                               disableBackButton = false;
@@ -215,206 +227,223 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           ],
           title: const Text('Edit DAU Comp'),
         ),
-        body: ChangeNotifierProvider<DAUCompsViewModel>(
-          create: (_) => DAUCompsViewModel(),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: [
-                      const Text('Name:'),
-                      Expanded(
-                        child: TextFormField(
-                          enabled: !disableBackButton,
-                          controller: _daucompNameController,
-                          onChanged: (String value) {
-                            if (daucomp?.name != value) {
-                              //something has changed, allow saves
-                              setState(() {
-                                disableSaves = false;
-                              });
-                            } else {
-                              setState(() {
-                                disableSaves = true;
-                              });
-                            }
-                          },
-                          decoration: const InputDecoration(
-                            hintText: 'DAU Comp name',
-                          ),
-                          onFieldSubmitted: (_) {
-                            // TODO move focus to next field?
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a DAU Comp name';
-                            }
-                            return null;
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('NRL Fixture JSON URL:'),
-                      Expanded(
-                        child: TextFormField(
-                          enabled: !disableBackButton,
-                          decoration: const InputDecoration(
-                            hintText: 'enter URL here',
-                          ),
-                          controller: _daucompNrlJsonURLController,
-                          onChanged: (String value) {
-                            if (daucomp?.nrlFixtureJsonURL.toString() !=
-                                value) {
-                              //something has changed, allow saves
-                              setState(() {
-                                disableSaves = false;
-                              });
-                            } else {
-                              setState(() {
-                                disableSaves = true;
-                              });
-                            }
-                          },
-                          onFieldSubmitted: (_) {
-                            // TODO move focus to next field?
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a NRL fixture link';
-                            }
-                            return null;
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('AFL Fixture JSON URL:'),
-                      Expanded(
-                        child: TextFormField(
-                          enabled: !disableBackButton,
-                          decoration: const InputDecoration(
-                            hintText: 'enter URL here',
-                          ),
-                          controller: _daucompAflJsonURLController,
-                          onChanged: (String value) {
-                            if (daucomp?.aflFixtureJsonURL.toString() !=
-                                value) {
-                              //something has changed, allow saves
-                              setState(() {
-                                disableSaves = false;
-                              });
-                            } else {
-                              setState(() {
-                                disableSaves = true;
-                              });
-                            }
-                          },
-                          onFieldSubmitted: (_) {
-                            // TODO move focus to next field?
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a AFL fixture link';
-                            }
-                            return null;
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 20.0),
-                  // add a row with a sync button download fixture data from the URL's
-                  Consumer<DAUCompsViewModel>(builder: (context, dcvm, child) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (dcvm.isDownloading) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      backgroundColor: Colors.red,
-                                      content: Text(
-                                          'Fixture download already in progress')));
-                              return;
-                            }
-                            try {
-                              setState(() {
-                                disableBackButton = true;
-                              });
-                              await dcvm.getNetworkFixtureData(daucomp!);
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // add a row with a sync button download fixture data from the URL's
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Consumer<DAUCompsViewModel>(
+                        builder: (context, dcvm, child) {
+                      if (daucomp == null) {
+                        // if this is a new record, dont show the sync button
+                        return const SizedBox.shrink();
+                      }
+                      return ElevatedButton(
+                        onPressed: () async {
+                          if (dcvm.isDownloading) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
                                     backgroundColor: Colors.red,
                                     content: Text(
-                                        'An error occurred during fixture download: $e'),
-                                    duration: const Duration(seconds: 10),
-                                  ),
-                                );
-                              }
-                            } finally {
-                              setState(() {
-                                disableBackButton = false;
-                              });
-                            }
-                          },
-                          child: Text(!dcvm.isDownloading
-                              ? 'Download fixture data'
-                              : 'Fixture data downloading...'),
-                        ),
-                      ],
-                    );
-                  }),
-                  // add a row with a sync button to sync tips with legacy sheet
-                  Consumer<DAUCompsViewModel>(builder: (context, dcvm2, child) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (dcvm2.isLegacySyncing) {
+                                        'Fixture download already in progress')));
+                            return;
+                          }
+                          try {
+                            setState(() {
+                              disableBackButton = true;
+                            });
+                            await dcvm.getNetworkFixtureData(daucomp!);
+                          } catch (e) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      backgroundColor: Colors.red,
-                                      content: Text(
-                                          'Legacy tip sync already in progress')));
-                              return;
+                                SnackBar(
+                                  backgroundColor: Colors.red,
+                                  content: Text(
+                                      'An error occurred during fixture download: $e'),
+                                  duration: const Duration(seconds: 10),
+                                ),
+                              );
                             }
-                            try {
-                              await dcvm2.syncTipsWithLegacy(daucomp!);
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
+                          } finally {
+                            setState(() {
+                              disableBackButton = false;
+                            });
+                          }
+                        },
+                        child: Text(!dcvm.isDownloading
+                            ? 'Download fixture'
+                            : 'Downloading fix...'),
+                      );
+                    }),
+                    // add a row with a sync button to sync tips with legacy sheet
+                    Consumer<DAUCompsViewModel>(
+                        builder: (context, dcvm2, child) {
+                      if (daucomp == null) {
+                        // if this is a new record, dont show the sync button
+                        return const SizedBox.shrink();
+                      }
+                      return ElevatedButton(
+                        onPressed: () async {
+                          if (dcvm2.isLegacySyncing) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
                                     backgroundColor: Colors.red,
                                     content: Text(
-                                        'An error occurred during the leagcy tip sync: $e'),
-                                    duration: const Duration(seconds: 10),
-                                  ),
-                                );
-                              }
+                                        'Legacy tip sync already in progress')));
+                            return;
+                          }
+                          try {
+                            String syncResult =
+                                await dcvm2.syncTipsWithLegacy(daucomp!);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: Colors.green,
+                                  content: Text(syncResult),
+                                  duration: const Duration(seconds: 10),
+                                ),
+                              );
                             }
-                          },
-                          child: Text(!dcvm2.isLegacySyncing
-                              ? 'Sync tip data with legacy'
-                              : 'Tip sync with legacy underway...'),
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: Colors.red,
+                                  content: Text(
+                                      'An error occurred during the leagcy tip sync: $e'),
+                                  duration: const Duration(seconds: 10),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        child: Text(!dcvm2.isLegacySyncing
+                            ? 'Sync tips to sheet'
+                            : 'Sync underway...'),
+                      );
+                    }),
+                  ],
+                ),
+                const Text('Name:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        enabled: !disableBackButton,
+                        controller: _daucompNameController,
+                        onChanged: (String value) {
+                          if (daucomp?.name != value) {
+                            //something has changed, allow saves
+                            setState(() {
+                              disableSaves = false;
+                            });
+                          } else {
+                            setState(() {
+                              disableSaves = true;
+                            });
+                          }
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'DAU Comp name',
                         ),
-                      ],
-                    );
-                  }),
-                ],
-              ),
+                        onFieldSubmitted: (_) {
+                          // TODO move focus to next field?
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a DAU Comp name';
+                          }
+                          return null;
+                        },
+                      ),
+                    )
+                  ],
+                ),
+                const SizedBox(height: 20.0),
+                const Text('Fixture JSON URLs',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20.0),
+                const Text('NRL:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        enabled: !disableBackButton,
+                        decoration: const InputDecoration(
+                          hintText: 'enter URL here',
+                        ),
+                        controller: _daucompNrlJsonURLController,
+                        onChanged: (String value) {
+                          if (daucomp?.nrlFixtureJsonURL.toString() != value) {
+                            //something has changed, allow saves
+                            setState(() {
+                              disableSaves = false;
+                            });
+                          } else {
+                            setState(() {
+                              disableSaves = true;
+                            });
+                          }
+                        },
+                        onFieldSubmitted: (_) {
+                          // TODO move focus to next field?
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a NRL fixture link';
+                          }
+                          return null;
+                        },
+                      ),
+                    )
+                  ],
+                ),
+                const SizedBox(height: 20.0),
+                const Text('AFL:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        enabled: !disableBackButton,
+                        decoration: const InputDecoration(
+                          hintText: 'enter URL here',
+                        ),
+                        controller: _daucompAflJsonURLController,
+                        onChanged: (String value) {
+                          if (daucomp?.aflFixtureJsonURL.toString() != value) {
+                            //something has changed, allow saves
+                            setState(() {
+                              disableSaves = false;
+                            });
+                          } else {
+                            setState(() {
+                              disableSaves = true;
+                            });
+                          }
+                        },
+                        onFieldSubmitted: (_) {
+                          // TODO move focus to next field?
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a AFL fixture link';
+                          }
+                          return null;
+                        },
+                      ),
+                    )
+                  ],
+                ),
+              ],
             ),
           ),
         ));

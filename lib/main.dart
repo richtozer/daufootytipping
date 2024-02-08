@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
@@ -12,6 +13,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -52,6 +54,7 @@ Future<void> main() async {
   log('User granted notification permission: ${settings.authorizationStatus}');
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
+  String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -72,39 +75,24 @@ Future<void> main() async {
   locator.registerSingleton<LegacyTippingService>(LegacyTippingService());
   locator.registerSingleton<PackageInfoService>(PackageInfoService());
 
-  //TEST
-
-  /*  DAUComp daucomp = DAUComp(
-    dbkey: '-Nk88l-ww9pYF1j_jUq7',
-    name: 'DAU Footy Tipping 2024.98',
-    aflFixtureJsonURL: Uri(
-        scheme: 'https',
-        host: 'fixturedownload.com',
-        path: 'feed/json/afl-2024'),
-    nrlFixtureJsonURL: Uri(
-        scheme: 'https',
-        host: 'fixturedownload.com',
-        path: 'feed/json/nrl-2024'),
-  );
-
-  DAUCompsViewModel dcvm = DAUCompsViewModel();
-  dcvm.getNetworkFixtureData(daucomp); */
-
-  //TEST
-
-  runApp(MyApp(remoteConfigService));
+  runApp(MyApp(remoteConfigService, configDAUComp));
 }
 
 class MyApp extends StatelessWidget {
   final RemoteConfigService remoteConfigService;
-  const MyApp(this.remoteConfigService, {super.key});
+  final String configDAUComp;
+  const MyApp(this.remoteConfigService, this.configDAUComp, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: myTheme,
-      title: 'DAU Footy Tipping',
-      home: UserAuthPage(remoteConfigService),
-    );
+    return ChangeNotifierProvider<DAUCompsViewModel>(
+        create: (_) => DAUCompsViewModel(
+              configDAUComp,
+            ), // Pass the argument here
+        child: MaterialApp(
+          theme: myTheme,
+          title: 'DAU Tips',
+          home: UserAuthPage(remoteConfigService),
+        ));
   }
 }

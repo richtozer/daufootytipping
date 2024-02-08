@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
@@ -23,11 +26,23 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
-  List<DAUComp> get daucomps => _daucomps;
+  late GamesViewModel _gamesViewModel;
+
+  String _currentDAUComp;
+  String get currentDAUComp => _currentDAUComp;
+  void setCurrentDAUComp(String newDAUComp) {
+    _currentDAUComp = newDAUComp;
+    //reset the gamesViewModel
+    _gamesViewModel = GamesViewModel(_currentDAUComp);
+
+    notifyListeners();
+  }
 
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
-  bool _initialLoadComplete = false;
+
+  final Completer<void> _initialLoadCompleter = Completer<void>();
+  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   bool _isDownloading = false;
   bool get isDownloading => _isDownloading;
@@ -36,89 +51,68 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get isLegacySyncing => _isLegacySyncing;
 
   //constructor
-  DAUCompsViewModel() {
+  DAUCompsViewModel(this._currentDAUComp) {
+    _gamesViewModel = GamesViewModel(_currentDAUComp);
     _listenToDAUComps();
   }
 
-  // monitor changes to DAUComp records in DB and notify listeners of any changes
+  // Database listeners
   void _listenToDAUComps() {
     _daucompsStream = _db.child(daucompsPath).onValue.listen((event) {
+      _handleEvent(event);
+    });
+  }
+
+  Future<void> _handleEvent(DatabaseEvent event) async {
+    try {
+      log('***DAUCompsViewModel_handleEvent()***');
       if (event.snapshot.exists) {
         final allDAUComps =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
 
         _daucomps = allDAUComps.entries.map((entry) {
           String key = entry.key; // Retrieve the Firebase key
-          dynamic daucompasJSON = entry.value;
+          dynamic daucompAsJSON = entry.value;
+
+          List<DAURound> daurounds = [];
+          if (daucompAsJSON['combinedRounds'] != null) {
+            List<dynamic> rounds =
+                daucompAsJSON['combinedRounds'] as List<dynamic>;
+            for (int roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
+              List roundAsJSON = rounds[roundIndex];
+              final gamesInRound = (roundAsJSON).cast<String>().map((game) {
+                return game;
+              }).toList();
+
+              daurounds.add(DAURound.fromJson(gamesInRound, roundIndex + 1));
+            }
+          }
 
           return DAUComp.fromJson(
-              Map<String, dynamic>.from(daucompasJSON), key);
+              Map<String, dynamic>.from(daucompAsJSON), key, daurounds);
         }).toList();
 
-        _daucomps.sort();
-        _initialLoadComplete = true;
-
-        notifyListeners();
+        //_daucomps.sort();
       }
-    });
-  }
-
-  void editDAUComp(DAUComp daucomp) async {
-    try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial DAUComps load to complete');
-        await Future.delayed(const Duration(seconds: 1));
-      }
-      _savingDAUComp = true;
-      notifyListeners();
-
-      //TODO only saved changed attributes to the firebase database
-
-      // update the record in firebase
-      final Map<String, Map> updates = {};
-      updates['$daucompsPath/${daucomp.dbkey}'] = daucomp.toJson();
-      await _db.update(updates);
+    } catch (e) {
+      log('Error listening to DAUComps: $e');
+      rethrow;
     } finally {
-      _savingDAUComp = false;
-      notifyListeners();
-    }
-  }
-
-  void addDAUComp(DAUComp newdaucomp) async {
-    try {
-      while (!_initialLoadComplete) {
-        log('Waiting for initial DAUComps load to complete');
-        await Future.delayed(const Duration(seconds: 1));
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
       }
-      _savingDAUComp = true;
-      notifyListeners();
-
-      // add a new record to the firebase
-      final postData = newdaucomp.toJson();
-      final newdaucompKey = _db.child(daucompsPath).push().key;
-
-      final Map<String, Map> updates = {};
-      updates['$daucompsPath/$newdaucompKey'] = postData;
-
-      await _db.update(updates);
-
-      //update the dbkey in the local object
-      newdaucomp.dbkey = newdaucompKey;
-    } finally {
-      _savingDAUComp = false;
       notifyListeners();
     }
   }
 
   Future<String> getNetworkFixtureData(DAUComp newdaucomp) async {
     try {
+      if (!_initialLoadCompleter.isCompleted) {
+        log('getNetworkFixtureData() waiting for initial DAUCompsViewModel load to complete');
+      }
+      await initialLoadComplete;
       _isDownloading = true;
       notifyListeners();
-
-      while (!_initialLoadComplete) {
-        log('Waiting for initial DAUComps load to complete');
-        await Future.delayed(const Duration(seconds: 1));
-      }
 
       FixtureDownloadService fds = FixtureDownloadService();
 
@@ -169,7 +163,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       await gamesViewModel.saveBatchOfGameAttributes();
 
       //once all the data is loaded, update the combinedRound field
-      gamesViewModel.updateCombinedRoundNumber();
+      updateCombinedRoundNumber(newdaucomp, gamesViewModel);
 
       return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
     } finally {
@@ -178,15 +172,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> syncTipsWithLegacy(DAUComp newdaucomp) async {
+  Future<String> syncTipsWithLegacy(DAUComp newdaucomp) async {
     try {
+      await initialLoadComplete;
+
       _isLegacySyncing = true;
       notifyListeners();
-
-      while (!_initialLoadComplete) {
-        log('Waiting for initial DAUComps load to complete');
-        await Future.delayed(const Duration(seconds: 1));
-      }
 
       //get reference to legacy tipping service so that we can sync tips
       LegacyTippingService tippingService =
@@ -194,18 +185,246 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       TippersViewModel tippersViewModel = TippersViewModel();
 
-      AllTipsViewModel allTipsViewModel =
-          AllTipsViewModel(tippersViewModel, newdaucomp.dbkey!);
-
-      GamesViewModel gamesViewModel = GamesViewModel(newdaucomp.dbkey!);
+      AllTipsViewModel allTipsViewModel = AllTipsViewModel(
+          tippersViewModel, newdaucomp.dbkey!, _gamesViewModel);
 
       //sync tips to legacy
       await tippingService.initialized();
-      tippingService.syncTipsToLegacyDiffOnly(allTipsViewModel, gamesViewModel);
+      return await tippingService.syncTipsToLegacyDiffOnly(
+          allTipsViewModel, this);
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
     }
+  }
+
+  // lets group the games for NRL and AFL into our own combined rounds based on this logic:
+  // 1) Each league has games grouped by round number - the logic should preserve this grouping
+  // 2) group the games by Game.league and Game.roundNumber
+  // 3) find the min Game.startTimeUTC for each league-roundnumber group - this is the start time of the group of games
+  // 4) find the max Game.startTimeUTC for each group - this is the end time of the group of games
+  // 5) sort the groups by the min Game.startTimeUTC
+  // 6) take the 1st group, this will be the basis for our combined AFL and NRL round 1
+  // 7) take the next group and see if it's min Game.startTimeUTC is within the range of the 1st group's start and end times
+  // 8) if it is, add the games from the 2nd group to the 1st combined round
+  // 9) if it is not, create a new combined round and add the games from the 2nd group to it
+  // 10) repeat steps 7-9 until all groups have been processed into combined rounds
+  // 11) Update Game.combinedRoundNumber for each game in the combined rounds
+
+  // Game grouping and sorting
+  void updateCombinedRoundNumber(
+      DAUComp daucomp, GamesViewModel gamesViewModel) async {
+    log('In updateCombinedRoundNumber()');
+
+    await initialLoadComplete;
+    List<Game> games = await gamesViewModel.getGames();
+
+    // Group games by league and round number
+    var groups = groupBy(games, (g) => '${g.league}-${g.roundNumber}');
+
+    // Find min and max start times for each group and sort groups by min start time
+    var sortedGroups = groups.entries
+        .map((e) {
+          if (e.value.isEmpty) {
+            return null; // Return null if the group is empty
+          }
+          var minStartTime = e.value
+              .map((g) => g.startTimeUTC)
+              .reduce((a, b) => a.isBefore(b) ? a : b);
+          var maxStartTime = e.value
+              .map((g) => g.startTimeUTC)
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+          return {
+            'games': e.value,
+            'minStartTime': minStartTime,
+            'maxStartTime': maxStartTime
+          };
+        })
+        .where((group) => group != null)
+        .toList()
+      ..sort((a, b) => ((a!['minStartTime'] as DateTime?)
+              ?.compareTo(b!['minStartTime'] as DateTime) ??
+          1));
+
+    // Combine rounds
+    var combinedRounds = <List<Game>>[];
+    for (var group in sortedGroups) {
+      if (combinedRounds.isEmpty) {
+        combinedRounds.add(group!['games'] as List<Game>);
+      } else {
+        var lastRound = combinedRounds.last;
+        var lastRoundMaxStartTime = lastRound
+            .map((g) => g.startTimeUTC)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+        if ((group!['minStartTime'] as DateTime?)
+                ?.isBefore(lastRoundMaxStartTime) ??
+            false) {
+          lastRound.addAll(group['games'] as List<Game>);
+        } else {
+          combinedRounds.add(group['games'] as List<Game>);
+        }
+      }
+    }
+
+    // Update combined round number for each game
+    for (var i = 0; i < combinedRounds.length; i++) {
+      List<String> listGameKeys = [];
+      for (var game in combinedRounds[i]) {
+        log('Updating combined round number to ${i + 1} for game: ${game.dbkey}');
+        listGameKeys.add(game.dbkey);
+        // allow for reverse lookup of round from a game object
+        game.dauRound = daucomp.daurounds![i];
+      }
+      //submit a db update for this combined round
+      await updateCompAttribute(daucomp, 'combinedRounds/$i', listGameKeys);
+    }
+
+    await saveBatchOfCompAttributes();
+
+    log('out updateCombinedRoundNumber()');
+  }
+
+  Future<DAUComp?> findComp(String compDbKey) async {
+    await _initialLoadCompleter.future;
+    log('initial DAuComp load to complete  findComp()');
+    return _daucomps.firstWhereOrNull((daucomp) => daucomp.dbkey == compDbKey);
+  }
+
+  final Map<String, dynamic> updates = {};
+
+  Future<void> updateCompAttribute(
+      DAUComp? dauComp, String attributeName, dynamic attributeValue) async {
+    await _initialLoadCompleter.future;
+
+    if (dauComp != null) {
+      //find the DAUComp in the local list. it it's there, compare the attribute value and update if different
+      DAUComp? compToUpdate = await findComp(dauComp.dbkey!);
+      if (compToUpdate != null) {
+        dynamic oldValue = compToUpdate.toJsonForCompare()[attributeName];
+        if (attributeValue != oldValue) {
+          updates['$daucompsPath/${dauComp.dbkey!}/$attributeName'] =
+              attributeValue;
+        } else {
+          log('DAUComp: ${dauComp.name} already has $attributeName: $attributeValue, skipping update');
+        }
+      } else {
+        throw 'Existing DAUComp with dbkey ${dauComp.dbkey} not found';
+      }
+    }
+  }
+
+  Future<void> newDAUComp(
+    DAUComp newDAUComp,
+  ) async {
+    await _initialLoadCompleter.future;
+
+    if (newDAUComp.dbkey == null) {
+      log('Adding new DAUComp record');
+      // add new record to updates Map, create a new db key first
+      DatabaseReference newCompRecordKey = _db.child(daucompsPath).push();
+      updates['$daucompsPath/${newCompRecordKey.key}/name'] = newDAUComp.name;
+      updates['$daucompsPath/${newCompRecordKey.key}/aflFixtureJsonURL'] =
+          newDAUComp.aflFixtureJsonURL.toString();
+      updates['$daucompsPath/${newCompRecordKey.key}/nrlFixtureJsonURL'] =
+          newDAUComp.nrlFixtureJsonURL.toString();
+    } else {
+      throw 'newDAUComp() called with existing DAUComp dbkey';
+    }
+  }
+
+  Future<void> saveBatchOfCompAttributes() async {
+    try {
+      await initialLoadComplete;
+      log('Saving batch of ${updates.length} database updates');
+      await _db.update(updates);
+    } finally {
+      _savingDAUComp = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<DAUComp>> getDAUcomps() async {
+    await initialLoadComplete;
+    return _daucomps;
+  }
+
+  //method to get a List<int> of the combined round numbers
+  Future<List<int>> getCombinedRoundNumbers() async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('getCombinedRoundNumbers() waiting for initial Game load to complete');
+    }
+
+    await initialLoadComplete;
+
+    //get the current DAUComp
+    DAUComp? daucomp = await findComp(_currentDAUComp);
+
+    List<int> combinedRoundNumbers = [];
+    for (var round in daucomp!.daurounds!) {
+      combinedRoundNumbers.add(round.dAUroundNumber);
+    }
+
+    combinedRoundNumbers.sort();
+    return combinedRoundNumbers;
+  }
+
+  //method to get a List<Game> of the games for a given combined round number and league
+  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague(
+      int combinedRoundNumber, League league) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('getGamesForCombinedRoundNumberAndLeague() waiting for initial Game load to complete');
+    }
+    await initialLoadComplete;
+
+    List<Game> gamesForCombinedRoundNumberAndLeague = [];
+    DAUComp? daucomp = await findComp(_currentDAUComp);
+    for (var round in daucomp!.daurounds!) {
+      if (round.dAUroundNumber == combinedRoundNumber) {
+        for (var gameKey in round.gamesAsKeys) {
+          Game? game = await _gamesViewModel.findGame(gameKey);
+          if (game != null && game.league == league) {
+            // allow for reverse lookup of round from a game object
+            game.dauRound = daucomp.daurounds![combinedRoundNumber - 1];
+            log('**** Adding game ${game.dbkey} to combined round: ${daucomp.daurounds![combinedRoundNumber - 1].dAUroundNumber}');
+            //add the game to the list
+            gamesForCombinedRoundNumberAndLeague.add(game);
+          }
+        }
+      }
+    }
+
+    return gamesForCombinedRoundNumberAndLeague;
+  }
+
+  //method to get default tips for a given combined round number and league
+  Future<String> getDefaultTipsForCombinedRoundNumber(
+      int combinedRoundNumber) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('getDefaultTipsForCombinedRoundNumber() waiting for initial Game load to complete');
+    }
+    await initialLoadComplete;
+
+    //filter games to find all games where combinedRoundNumber == combinedRoundNumber and league == league
+    List<Game> filteredNrlGames = await getGamesForCombinedRoundNumberAndLeague(
+        combinedRoundNumber, League.nrl);
+
+    //filter games to find all games where combinedRoundNumber == combinedRoundNumber and league == league
+    List<Game> filteredAflGames = await getGamesForCombinedRoundNumberAndLeague(
+        combinedRoundNumber, League.afl);
+
+    String defaultRoundNrlTips = 'D' * filteredNrlGames.length;
+    defaultRoundNrlTips = defaultRoundNrlTips.padRight(
+      8,
+      'z',
+    );
+
+    String defaultRoundAflTips = 'D' * filteredAflGames.length;
+    defaultRoundAflTips = defaultRoundAflTips.padRight(
+      9,
+      'z',
+    );
+
+    return defaultRoundNrlTips + defaultRoundAflTips;
   }
 
   @override

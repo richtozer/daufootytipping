@@ -16,7 +16,7 @@ class AllTipsViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
 
-  late GamesViewModel _gamesViewModel;
+  late final GamesViewModel _gamesViewModel;
   final String currentDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -28,8 +28,8 @@ class AllTipsViewModel extends ChangeNotifier {
   TippersViewModel tipperViewModel = TippersViewModel();
 
   //constructor
-  AllTipsViewModel(this.tipperViewModel, this.currentDAUComp) {
-    _gamesViewModel = GamesViewModel(currentDAUComp);
+  AllTipsViewModel(
+      this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();

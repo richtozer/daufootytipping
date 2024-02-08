@@ -3,6 +3,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring.dart';
@@ -75,62 +76,64 @@ class _GameListItemState extends State<GameListItem> {
             ),
           ),
         ),
-        ChangeNotifierProvider<GameTipsViewModel>(
-          create: (context) => GameTipsViewModel(
-              widget.currentTipper, widget.currentDAUCompDBkey, widget.game),
-          child: Consumer<GameTipsViewModel>(
-            builder: (context, gameTipsViewModel, child) {
-              return Expanded(
-                child: Column(
-                  children: [
-                    CarouselSlider(
-                      options: CarouselOptions(
-                          height: 120,
-                          enlargeFactor: 1.0,
-                          enlargeCenterPage: true,
-                          enlargeStrategy: CenterPageEnlargeStrategy.height,
-                          enableInfiniteScroll: false,
-                          onPageChanged: (index, reason) {
-                            setState(() {
-                              _current = index;
-                            });
-                          }),
-                      items: carouselItems(gameTipsViewModel),
-                      carouselController: _controller,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: carouselItems(gameTipsViewModel)
-                          .asMap()
-                          .entries
-                          .map((entry) {
-                        return GestureDetector(
-                          onTap: () {
-                            _controller.animateToPage(entry.key);
-                          },
-                          child: Container(
-                            width: 6.0,
-                            height: 6.0,
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 2.0, horizontal: 2.0),
-                            decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: (Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.white
-                                        : Colors.black)
-                                    .withOpacity(
-                                        _current == entry.key ? 0.9 : 0.4)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
+        Consumer<DAUCompsViewModel>(builder: (context, dcvm2, child) {
+          return ChangeNotifierProvider<GameTipsViewModel>(
+            create: (context) => GameTipsViewModel(
+                widget.currentTipper, dcvm2.currentDAUComp, widget.game),
+            child: Consumer<GameTipsViewModel>(
+              builder: (context, gameTipsViewModel, child) {
+                return Expanded(
+                  child: Column(
+                    children: [
+                      CarouselSlider(
+                        options: CarouselOptions(
+                            height: 120,
+                            enlargeFactor: 1.0,
+                            enlargeCenterPage: true,
+                            enlargeStrategy: CenterPageEnlargeStrategy.height,
+                            enableInfiniteScroll: false,
+                            onPageChanged: (index, reason) {
+                              setState(() {
+                                _current = index;
+                              });
+                            }),
+                        items: carouselItems(gameTipsViewModel),
+                        carouselController: _controller,
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: carouselItems(gameTipsViewModel)
+                            .asMap()
+                            .entries
+                            .map((entry) {
+                          return GestureDetector(
+                            onTap: () {
+                              _controller.animateToPage(entry.key);
+                            },
+                            child: Container(
+                              width: 6.0,
+                              height: 6.0,
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 2.0, horizontal: 2.0),
+                              decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: (Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black)
+                                      .withOpacity(
+                                          _current == entry.key ? 0.9 : 0.4)),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        })
       ]),
     );
   }

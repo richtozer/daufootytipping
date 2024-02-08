@@ -18,7 +18,6 @@ class GamesViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
 
-  late Map<int, List<Game>> _nestedGroups;
   bool _savingGame = false;
   Completer<void> _initialLoadCompleter = Completer<void>();
 
@@ -26,7 +25,12 @@ class GamesViewModel extends ChangeNotifier {
   late TeamsViewModel _teamsViewModel;
 
   // Getters
-  List<Game> get games => _games;
+  //List<Game> get games => _games;
+  Future<List<Game>> getGames() async {
+    await initialLoadComplete;
+    return _games;
+  }
+
   bool get savingGame => _savingGame;
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
@@ -105,40 +109,7 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
-  //method to get a List<int> of the combined round numbers
-  Future<List<int>> getCombinedRoundNumbers() async {
-    log('getCombinedRoundNumbers() waiting for initial Game load to complete');
-    await initialLoadComplete;
-    log('getCombinedRoundNumbers() initial Game load COMPLETED');
-
-    List<int> combinedRoundNumbers = [];
-    for (var game in _games) {
-      if (!combinedRoundNumbers.contains(game.combinedRoundNumber)) {
-        combinedRoundNumbers.add(game.combinedRoundNumber);
-      }
-    }
-    combinedRoundNumbers.sort();
-    return combinedRoundNumbers;
-  }
-
-  //method to get a List<Game> of the games for a given combined round number and league
-  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague(
-      int combinedRoundNumber, League league) async {
-    log('getGamesForCombinedRoundNumberAndLeague() waiting for initial Game load to complete');
-    await initialLoadComplete;
-    log('getGamesForCombinedRoundNumberAndLeague() COMPLETED waiting for initial Game load to complete');
-
-    List<Game> gamesForCombinedRoundNumberAndLeague = [];
-    for (var game in _games) {
-      if (game.combinedRoundNumber == combinedRoundNumber &&
-          game.league == league) {
-        gamesForCombinedRoundNumberAndLeague.add(game);
-      }
-    }
-    return gamesForCombinedRoundNumberAndLeague;
-  }
-
-  // Game operations
+/*   // Game operations // TODO this function can be deleted
   Future<Map<int, List<Game>>> getNestedGames() async {
     log('getNestedGames() waiting for initial Game load to complete');
     await initialLoadComplete;
@@ -147,10 +118,10 @@ class GamesViewModel extends ChangeNotifier {
     _nestedGroups = groupBy(_games, (game) => game.combinedRoundNumber);
 
     return _nestedGroups;
-  }
+  } */
 
   //method to get default tips for a given combined round number and league
-  Future<String> getDefaultTipsForCombinedRoundNumber(
+  /*  Future<String> getDefaultTipsForCombinedRoundNumber_OLD(
       int combinedRoundNumber) async {
     log('getDefaultTipsForCombinedRoundNumber() waiting for initial Game load to complete');
     await initialLoadComplete;
@@ -183,7 +154,7 @@ class GamesViewModel extends ChangeNotifier {
 
     return defaultRoundNrlTips + defaultRoundAflTips;
   }
-
+ */
   final Map<String, dynamic> updates = {};
 
   Future<void> updateGameAttribute(String gameDbKey, String attributeName,
@@ -203,8 +174,9 @@ class GamesViewModel extends ChangeNotifier {
     //find the game in the local list. it it's there, compare the attribute value and update if different
     Game? gameToUpdate = await findGame(gameDbKey);
     if (gameToUpdate != null) {
-      String oldValue = gameToUpdate.toJson()[attributeName].toString();
+      dynamic oldValue = gameToUpdate.toFixtureJson()[attributeName];
       if (attributeValue != oldValue) {
+        log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
         updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
             attributeValue;
       } else {
@@ -229,90 +201,11 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<Game?> findGame(String gameDbKey) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for Game load to complete findGame()');
+    }
     await _initialLoadCompleter.future;
-    log('initial Game load to complete  findGame()');
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
-  }
-
-  // lets group the games for NRL and AFL into our own combined rounds based on this logic:
-  // 1) Each league has games grouped by round number - the logic should preserve this grouping
-  // 2) group the games by Game.league and Game.roundNumber
-  // 3) find the min Game.startTimeUTC for each league-roundnumber group - this is the start time of the group of games
-  // 4) find the max Game.startTimeUTC for each group - this is the end time of the group of games
-  // 5) sort the groups by the min Game.startTimeUTC
-  // 6) take the 1st group, this will be the basis for our combined AFL and NRL round 1
-  // 7) take the next group and see if it's min Game.startTimeUTC is within the range of the 1st group's start and end times
-  // 8) if it is, add the games from the 2nd group to the 1st combined round
-  // 9) if it is not, create a new combined round and add the games from the 2nd group to it
-  // 10) repeat steps 7-9 until all groups have been processed into combined rounds
-  // 11) Update Game.combinedRoundNumber for each game in the combined rounds
-
-  // Game grouping and sorting
-  void updateCombinedRoundNumber() async {
-    log('In updateCombinedRoundNumber()');
-
-    await initialLoadComplete;
-
-    // Group games by league and round number
-    var groups = groupBy(_games, (g) => '${g.league}-${g.roundNumber}');
-
-    // Find min and max start times for each group and sort groups by min start time
-    var sortedGroups = groups.entries
-        .map((e) {
-          if (e.value.isEmpty) {
-            return null; // Return null if the group is empty
-          }
-          var minStartTime = e.value
-              .map((g) => g.startTimeUTC)
-              .reduce((a, b) => a.isBefore(b) ? a : b);
-          var maxStartTime = e.value
-              .map((g) => g.startTimeUTC)
-              .reduce((a, b) => a.isAfter(b) ? a : b);
-          return {
-            'games': e.value,
-            'minStartTime': minStartTime,
-            'maxStartTime': maxStartTime
-          };
-        })
-        .where((group) => group != null)
-        .toList()
-      ..sort((a, b) => ((a!['minStartTime'] as DateTime?)
-              ?.compareTo(b!['minStartTime'] as DateTime) ??
-          1));
-
-    // Combine rounds
-    var combinedRounds = <List<Game>>[];
-    for (var group in sortedGroups) {
-      if (combinedRounds.isEmpty) {
-        combinedRounds.add(group!['games'] as List<Game>);
-      } else {
-        var lastRound = combinedRounds.last;
-        var lastRoundMaxStartTime = lastRound
-            .map((g) => g.startTimeUTC)
-            .reduce((a, b) => a.isAfter(b) ? a : b);
-        if ((group!['minStartTime'] as DateTime?)
-                ?.isBefore(lastRoundMaxStartTime) ??
-            false) {
-          lastRound.addAll(group['games'] as List<Game>);
-        } else {
-          combinedRounds.add(group['games'] as List<Game>);
-        }
-      }
-    }
-
-    // Update combined round number for each game
-    for (var i = 0; i < combinedRounds.length; i++) {
-      for (var game in combinedRounds[i]) {
-        log('Updating combined round number to ${game.combinedRoundNumber + 1} for game: ${game.dbkey}');
-        game.combinedRoundNumber = i + 1;
-        await updateGameAttribute(
-            game.dbkey, 'combinedRoundNumber', i + 1, game.league.name);
-      }
-    }
-
-    await saveBatchOfGameAttributes();
-
-    log('out updateCombinedRoundNumber()');
   }
 
   // Method to return the current combined round number.
@@ -321,7 +214,7 @@ class GamesViewModel extends ChangeNotifier {
   // of the remaining games sort my gamestarttimeutc and
   //return the combinedRoundNumber of the first game in the list
 
-  Future<int> getCurrentCombinedRoundNumber() async {
+  /* Future<int> getCurrentCombinedRoundNumber_OLC() async {
     log('getCurrentCombinedRoundNumber() waiting for initial Game load to complete');
     await _initialLoadCompleter.future;
     log('getCurrentCombinedRoundNumber() initial Game load COMPLETED');
@@ -337,13 +230,16 @@ class GamesViewModel extends ChangeNotifier {
     }
     gamesToProcess.sort((a, b) => a.startTimeUTC.compareTo(b.startTimeUTC));
     if (gamesToProcess.isNotEmpty) {
+      Game firstGame = gamesToProcess.first;
+      // find this game in the DAUCompsViewModel to get the combinedRoundNumber
+      
       currentCombinedRoundNumber = gamesToProcess.first.combinedRoundNumber;
     }
     if (currentCombinedRoundNumber == 0) {
       log('getCurrentCombinedRoundNumber() - no games found with gamestate == GameState.notStarted ot GameState.resultNotKnown');
     }
     return currentCombinedRoundNumber;
-  }
+  } */
 
   // Cleanup
   @override
