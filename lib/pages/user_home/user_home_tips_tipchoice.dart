@@ -33,6 +33,10 @@ class TipChoice extends StatelessWidget {
           } else {
             Tip? latestGameTip = snapshot.data;
 
+            // display the tippings buttons in this layout:
+            //  [Home with margin] [ Home]
+            //           [Draw]
+            //  [Away] [Away with margin]
             return Card(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -85,7 +89,7 @@ class TipChoice extends StatelessWidget {
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
         try {
-          if (latestGameTip?.game.gameState != GameState.notStarted) {
+          if (game.gameState != GameState.notStarted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,
