@@ -59,10 +59,12 @@ class LiveScoring extends StatelessWidget {
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
+                                    duration: Duration(seconds: 7),
                                     backgroundColor: Colors.yellow,
                                     content: Text(
                                         style: TextStyle(color: Colors.black),
-                                        'You were assigned a default tip for this game.'),
+                                        'You were automatically given a default tip of [Away] '
+                                        'for this game. With the worlds best Footy Tipping app, you have no excuse to miss a tip! 😄'),
                                   ),
                                 );
                               },

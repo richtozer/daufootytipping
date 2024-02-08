@@ -30,7 +30,6 @@ class GameTipsViewModel extends ChangeNotifier {
   bool get savingTip => _savingTip;
 
   Tipper currentTipper;
-  //final Map<String, Tip?> _gameTipsCache = {};  TODO this cache is not working as expected, so we are not using it for now. to repo: a) reenable cache, b) change tip for a game c) result should be that UI updates immediately, however it does not.  The UI only updates when the user navigates away from the page and then back again.  This is not ideal, but it is not a high priority to fix.
 
   LegacyTippingService legcyTippingService =
       GetIt.instance<LegacyTippingService>();
@@ -121,14 +120,6 @@ class GameTipsViewModel extends ChangeNotifier {
   }
 
   Future<Tip?> getLatestGameTip() async {
-    //if (!_gameTipsCache.containsKey(game.dbkey)) {
-    //  log('getting DB tip - GameTipsViewModel.getLatestGameTip(${game.dbkey})');
-    //  _gameTipsCache[game.dbkey] = await getLatestGameTipFromDb();
-    //} else {
-    //  log('getting cached tip - GameTipsViewModel.getLatestGameTip(${game.dbkey})');
-    //}
-    //return _gameTipsCache[game.dbkey];
-
     return await getLatestGameTipFromDb();
   }
 

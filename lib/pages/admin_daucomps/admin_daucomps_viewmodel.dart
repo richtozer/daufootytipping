@@ -105,7 +105,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> getNetworkFixtureData(DAUComp newdaucomp) async {
+  Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
         log('getNetworkFixtureData() waiting for initial DAUCompsViewModel load to complete');
@@ -119,7 +119,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       List<dynamic> nrlGames = [];
       try {
         nrlGames = await fds.getLeagueFixtureRaw(
-            newdaucomp.nrlFixtureJsonURL, League.nrl);
+            daucompToUpdate.nrlFixtureJsonURL, League.nrl);
       } catch (e) {
         throw 'Error loading NRL fixture data. Exception was: $e';
         //return 'Error loading NRL fixture data. Exception was: $e'; // TODO - exceptions is not being passed to caller
@@ -128,14 +128,14 @@ class DAUCompsViewModel extends ChangeNotifier {
       List<dynamic> aflGames = [];
       try {
         aflGames = await fds.getLeagueFixtureRaw(
-            newdaucomp.aflFixtureJsonURL, League.afl);
+            daucompToUpdate.aflFixtureJsonURL, League.afl);
       } catch (e) {
         throw 'Error loading AFL fixture data. Exception was: $e';
 
         //return 'Error loading AFL fixture data. Exception was: $e';  // TODO - exceptions is not being passed to caller
       }
 
-      GamesViewModel gamesViewModel = GamesViewModel(newdaucomp.dbkey!);
+      GamesViewModel gamesViewModel = GamesViewModel(daucompToUpdate.dbkey!);
 
       List<Future> gamesFuture = [];
 
@@ -162,8 +162,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       //save all updates
       await gamesViewModel.saveBatchOfGameAttributes();
 
+      //once all the data is loaded, update all scoring
+      //updateScoring(daucompToUpdate, gamesViewModel);
+
       //once all the data is loaded, update the combinedRound field
-      updateCombinedRoundNumber(newdaucomp, gamesViewModel);
+      updateCombinedRoundNumber(daucompToUpdate, gamesViewModel);
 
       return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
     } finally {
@@ -266,27 +269,36 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    // Update combined round number for each game
+    // Update combined round number for each game in each round
     for (var i = 0; i < combinedRounds.length; i++) {
       List<String> listGameKeys = [];
       for (var game in combinedRounds[i]) {
         log('Updating combined round number to ${i + 1} for game: ${game.dbkey}');
         listGameKeys.add(game.dbkey);
-        // allow for reverse lookup of round from a game object
-        game.dauRound = daucomp.daurounds![i];
       }
       //submit a db update for this combined round
       await updateCompAttribute(daucomp, 'combinedRounds/$i', listGameKeys);
     }
 
+    // save all updates to the database
     await saveBatchOfCompAttributes();
 
-    log('out updateCombinedRoundNumber()');
+    //now that the database is updated, loop through the games again and
+    //assign DAURound for reverse lookup
+    // TODO this is inefficient, we should be able to do this in the previous loop
+    for (var i = 0; i < combinedRounds.length; i++) {
+      for (var game in combinedRounds[i]) {
+        // allow for reverse lookup of round from a game object
+        game.dauRound = daucomp.daurounds![i];
+      }
+    }
   }
 
   Future<DAUComp?> findComp(String compDbKey) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('findComp() waiting for initial DAuComp load to complete');
+    }
     await _initialLoadCompleter.future;
-    log('initial DAuComp load to complete  findComp()');
     return _daucomps.firstWhereOrNull((daucomp) => daucomp.dbkey == compDbKey);
   }
 
@@ -432,4 +444,47 @@ class DAUCompsViewModel extends ChangeNotifier {
     _daucompsStream.cancel(); // stop listening to stream
     super.dispose();
   }
+
+  /* void updateScoring(DAUComp daucompToUpdate, GamesViewModel gamesViewModel) {
+    //using GamesViewModel.getGames() filter games where HomeTeamScore and AwayTeamScore are not null
+    //then for each game, calculate the game result and update the game result attribute
+
+    // loop through all tippers
+    TippersViewModel tippersViewModel = TippersViewModel();
+    tippersViewModel.getTippers().then((tippers) {
+      for (var tipper in tippers) {
+        // keep track of afl and nrl ladder scores per tipper
+        int ladderAflScore = 0;
+        int latterNrlScore = 0;
+
+        // loop through each round and then each league and total up the score for this tipper
+        for (var round in daucompToUpdate.daurounds!) {
+          for (var gameKey in round.gamesAsKeys) {
+            gamesViewModel.findGame(gameKey).then((game) {
+              if (game != null &&
+                  game.scoring != null &&
+                  game.scoring!.homeTeamScore != null &&
+                  game.scoring!.awayTeamScore != null) {
+                AllTipsViewModel adminTipsViewModel = AllTipsViewModel(
+                    tippersViewModel, daucompToUpdate.dbkey!, gamesViewModel);
+                adminTipsViewModel.getLatestGameTip(game, tipper).then((tip) {
+                  if (tip != null) {
+                    //calculate the game result
+                    GameResult gameResult =
+                        game.scoring!.getGameResultCalculated(game.league);
+                    //update the tip result
+                    adminTipsViewModel.updateTipAttribute(
+                        tip, 'result', gameResult);
+                  }
+                });
+              }
+            });
+          }
+        }
+      }
+    });
+    //update consolidated scoring for all tippers in the comp
+    AllTipsViewModel allTipsViewModel =
+        AllTipsViewModel(_currentDAUComp, gamesViewModel, this);
+  } */
 }

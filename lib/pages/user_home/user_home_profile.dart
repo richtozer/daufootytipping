@@ -46,7 +46,7 @@ class Profile extends StatelessWidget {
                   builder: (BuildContext context,
                       AsyncSnapshot<List<DAUComp>> snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const CircularProgressIndicator();
+                      return const Text('Loading...');
                     } else if (snapshot.hasError) {
                       return Text('Error: ${snapshot.error}');
                     } else {
