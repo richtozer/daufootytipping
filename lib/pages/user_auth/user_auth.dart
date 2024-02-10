@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
+import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -16,9 +17,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 class UserAuthPage extends StatefulWidget {
-  const UserAuthPage(this.remoteConfigService, {super.key});
+  const UserAuthPage(this.remoteConfigService, this.firebaseService,
+      {super.key});
 
   final RemoteConfigService remoteConfigService;
+  final FirebaseService firebaseService;
 
   @override
   State<UserAuthPage> createState() => _UserAuthPageState();
@@ -56,7 +59,7 @@ class _UserAuthPageState extends State<UserAuthPage> {
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
     return ChangeNotifierProvider<TippersViewModel>(
-        create: (_) => TippersViewModel(),
+        create: (_) => TippersViewModel(widget.firebaseService),
         child: StreamBuilder<User?>(
           stream: FirebaseAuth.instance.authStateChanges(),
           builder: (context, snapshot) {
@@ -144,8 +147,7 @@ class _UserAuthPageState extends State<UserAuthPage> {
                     Provider.of<TippersViewModel>(context, listen: false);
 
                 return FutureBuilder<Tipper>(
-                  future: tippersViewModel
-                      .linkUserToTipper(authenticatedFirebaseUser),
+                  future: tippersViewModel.getLinkedTipper(),
                   builder:
                       (BuildContext context, AsyncSnapshot<Tipper> snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -172,10 +174,10 @@ class _UserAuthPageState extends State<UserAuthPage> {
                         ],
                       );
                     } else {
-                      Tipper currentTipper = snapshot.data as Tipper;
+                      Tipper linkedTipper = snapshot.data as Tipper;
                       return Consumer<TippersViewModel>(
                         builder: (context, tippersViewModel, child) {
-                          return HomePage(currentTipper);
+                          return HomePage(linkedTipper);
                         },
                       );
                     }

@@ -244,7 +244,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         // if this is a new record, dont show the sync button
                         return const SizedBox.shrink();
                       }
-                      return ElevatedButton(
+                      return OutlinedButton(
                         onPressed: () async {
                           if (dcvm.isDownloading) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -288,7 +288,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         // if this is a new record, dont show the sync button
                         return const SizedBox.shrink();
                       }
-                      return ElevatedButton(
+                      return OutlinedButton(
                         onPressed: () async {
                           if (dcvm2.isLegacySyncing) {
                             ScaffoldMessenger.of(context).showSnackBar(

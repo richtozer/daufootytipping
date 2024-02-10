@@ -10,7 +10,8 @@ class TippersAdminPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<TippersViewModel>(
-        create: (_) => TippersViewModel(),
+        create: (_) => TippersViewModel(
+            null), //todo this is already is the tree - consider removing
         child: Scaffold(
             appBar: AppBar(
               leading: IconButton(
@@ -27,7 +28,7 @@ class TippersAdminPage extends StatelessWidget {
                   children: [
                     Consumer<TippersViewModel>(
                       builder: (context, tipperViewModel, child) {
-                        return ElevatedButton(
+                        return OutlinedButton(
                           onPressed: () async {
                             if (tipperViewModel.isLegacySyncing) {
                               ScaffoldMessenger.of(context).showSnackBar(

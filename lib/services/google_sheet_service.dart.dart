@@ -63,6 +63,8 @@ class LegacyTippingService {
     AutoRefreshingAuthClient client = await gsheets.client;
     sheetsApi = SheetsApi(client);
 
+    log('Using Gsheet shseet with id $spreadsheetId');
+
     spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
     appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
     tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
@@ -87,7 +89,9 @@ class LegacyTippingService {
   Future<List<Tipper>> getLegacyTippers() async {
     List<Tipper> tippers = [];
 
-    await spreadsheet.refresh();
+    // get refreshed data from the gsheet
+    tippersRows = await tippersSheet.values.allRows();
+    log('Refresh of legacy gsheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
     for (var row in tippersRows) {
       Tipper tipper = Tipper(

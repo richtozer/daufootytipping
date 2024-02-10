@@ -1,7 +1,6 @@
-import 'dart:developer';
-
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -10,7 +9,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -41,17 +39,8 @@ Future<void> main() async {
     );
   }
 
-  //initialize firebase messaging
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-  //Request notification permissions (iOS only):
-  NotificationSettings settings = await messaging.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  log('User granted notification permission: ${settings.authorizationStatus}');
+  FirebaseService firebaseService = FirebaseService();
+  await firebaseService.initializeFirebaseMessaging();
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
@@ -75,13 +64,16 @@ Future<void> main() async {
   locator.registerSingleton<LegacyTippingService>(LegacyTippingService());
   locator.registerSingleton<PackageInfoService>(PackageInfoService());
 
-  runApp(MyApp(remoteConfigService, configDAUComp));
+  runApp(MyApp(remoteConfigService, configDAUComp, firebaseService));
 }
 
 class MyApp extends StatelessWidget {
   final RemoteConfigService remoteConfigService;
   final String configDAUComp;
-  const MyApp(this.remoteConfigService, this.configDAUComp, {super.key});
+  final FirebaseService firebaseService;
+  const MyApp(
+      this.remoteConfigService, this.configDAUComp, this.firebaseService,
+      {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +84,7 @@ class MyApp extends StatelessWidget {
         child: MaterialApp(
           theme: myTheme,
           title: 'DAU Tips',
-          home: UserAuthPage(remoteConfigService),
+          home: UserAuthPage(remoteConfigService, firebaseService),
         ));
   }
 }
