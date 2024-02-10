@@ -6,16 +6,18 @@ import 'package:flutter/material.dart';
 Widget adminFunctions(context) {
   return Card(
     child: Column(children: [
-      ElevatedButton(
+      OutlinedButton(
           child: const Text('Admin Tippers'),
           onPressed: () {
-            Navigator.of(context).push(
+            Navigator.of(
+              context,
+            ).push(
               MaterialPageRoute(
                 builder: (context) => const TippersAdminPage(),
               ),
             );
           }),
-      ElevatedButton(
+      OutlinedButton(
         child: const Text('Admin Teams'),
         onPressed: () {
           Navigator.of(context).push(
@@ -25,7 +27,7 @@ Widget adminFunctions(context) {
           );
         },
       ),
-      ElevatedButton(
+      OutlinedButton(
         child: const Text('Admin DAU Comps'),
         onPressed: () {
           Navigator.of(context).push(

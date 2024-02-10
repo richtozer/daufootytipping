@@ -39,8 +39,6 @@ class Profile extends StatelessWidget {
             return Column(
               children: [
                 // display a list of available comps using daucompsViewModel.getDauComps()
-                const Text('Use this DAU Comp:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
                 FutureBuilder<List<DAUComp>>(
                   future: daucompsViewModel.getDAUcomps(),
                   builder: (BuildContext context,
@@ -50,7 +48,6 @@ class Profile extends StatelessWidget {
                     } else if (snapshot.hasError) {
                       return Text('Error: ${snapshot.error}');
                     } else {
-                      //List<DAUComp> comps = snapshot.data!;
                       return DropdownButton<String>(
                           value: daucompsViewModel.currentDAUComp,
                           icon: const Icon(Icons.arrow_downward),

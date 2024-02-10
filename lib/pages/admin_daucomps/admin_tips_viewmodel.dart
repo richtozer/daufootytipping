@@ -25,7 +25,7 @@ class AllTipsViewModel extends ChangeNotifier {
   //List<Game> get games => _gamesViewModel.games;
   GamesViewModel get gamesViewModel => _gamesViewModel;
 
-  TippersViewModel tipperViewModel = TippersViewModel();
+  late final TippersViewModel tipperViewModel;
 
   //constructor
   AllTipsViewModel(

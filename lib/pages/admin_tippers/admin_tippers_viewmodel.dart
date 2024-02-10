@@ -2,21 +2,21 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
-import 'package:json_diff/json_diff.dart';
 
 // define  constant for firestore database locations
 final tippersPath = dotenv.env['TIPPERS_PATH'];
 
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
-  late Tipper _linkedTipper;
 
+  late Tipper _linkedTipper;
   Tipper get linkedTipper => _linkedTipper;
 
   final _db = FirebaseDatabase.instance.ref();
@@ -33,10 +33,20 @@ class TippersViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
+  FirebaseService? firebaseService;
+
   //constructor
-  TippersViewModel() {
+  TippersViewModel(this.firebaseService) {
     log('TippersViewModel() constructor called');
+
+    if (firebaseService != null) {
+      firebaseService!.addListener(handleFirebaseServiceChange);
+    }
     _listenToTippers();
+  }
+
+  void handleFirebaseServiceChange() {
+    registerLinkedTipperForMessaging();
   }
 
   // monitor changes to tippers records in DB and notify listeners of any changes
@@ -51,29 +61,9 @@ class TippersViewModel extends ChangeNotifier {
       List<Tipper?> tippersList = Tipper.fromJsonList(event.snapshot.value);
 
       _tippers =
-          tippersList.where((game) => game != null).cast<Tipper>().toList();
+          tippersList.where((tipper) => tipper != null).cast<Tipper>().toList();
       _tippers.sort();
 
-      /* TODO - while the above code works fine, it would not work if we added the
-        firebase OrderbyValue() method. 
-
-        https://stackoverflow.com/questions/61333194/flutter-firebase-real-time-database-orderbychild-has-no-impact-on-query-result
-      
-        The code below does sort of work, but the List[] keeps growing and items get 
-        duplicated in the UI. 
-
-      if (event.snapshot.exists) {
-        // we need to use a foreach loop here to get data to orderbychild()
-        event.snapshot.children.forEach((tipperRecordJSON) {
-          String key =
-              tipperRecordJSON.key as String; // Retrieve the Firebase key
-          dynamic tipperasJSON = tipperRecordJSON.value;
-
-          final tipper =
-              Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
-          _tippers.add(tipper);
-        });
-        */
       log('Tipper db Listener: ${_tippers.length} tippers found in database');
     } else {
       log('Tipper db Listener: No tippers found in database');
@@ -89,85 +79,36 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers;
   }
 
-  Future<void> editTipper(Tipper updatedTipper) async {
-    try {
-      if (!_initialLoadCompleter.isCompleted) {
-        log('Waiting for initial Tipper load to complete, editTipper()');
-        await _initialLoadCompleter.future;
-        log('tipper load complete, editTipper()');
-      }
+  final Map<String, dynamic> updates = {};
 
-      _savingTipper = true;
-      notifyListeners();
+  Future<void> updateTipperAttribute(
+      String tipperDbKey, String attributeName, dynamic attributeValue) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for initial Tipper load to complete, updateTipperAttribute()');
+      await _initialLoadCompleter.future;
+      log('tipper load complete, updateTipperAttribute()');
+    }
 
-      //the original Tipper record should be in our list of tippers
-      Tipper? originalTipper = _tippers.firstWhereOrNull(
-          (existingTipper) => existingTipper.dbkey == updatedTipper.dbkey);
+    //find the Tipper in the local list. it it's there, compare the attribute value and update if different
+    Tipper? tipperToUpdate = await findTipper(tipperDbKey);
 
-      //only edit the tipper record if it already exists, otherwise ignore
-      if (originalTipper != null) {
-        // Convert the original and updated tippers to JSON
-        Map<String, dynamic> originalJson = originalTipper.toJson();
-        Map<String, dynamic> updatedJson = updatedTipper.toJson();
-
-        // Use JsonDiffer to get the differences
-        JsonDiffer differ = JsonDiffer.fromJson(originalJson, updatedJson);
-        DiffNode diff = differ.diff();
-
-        if (diff.hasChanged) {
-          // transform the changes from JsonDiffer format to Firebase format
-          // Initialize an empty map to hold all updates
-          Map<String, dynamic> updates = {};
-
-          Map changed = diff.changed;
-          changed.keys.toList().forEach((key) {
-            if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-              // Add the update to the updates map
-              updates['$tippersPath/${updatedTipper.dbkey}/$key'] =
-                  changed[key][1];
-            }
-          });
-
-          // Apply any updates to Firebase
-          await _db.update(updates);
-          log('Tipper: ${updatedTipper.name} updated in firebase to $updates');
-        } else {
-          log('Tipper: ${updatedTipper.name} has no updates to process');
-        }
-      } else {
-        log('Tipper: ${updatedTipper.dbkey} does not exist in the database, ignoring edit request');
-      }
-    } finally {
-      _savingTipper = false;
-      notifyListeners();
+    dynamic oldValue = tipperToUpdate.toJson()[attributeName];
+    if (attributeValue != oldValue) {
+      log('Tipper: $tipperDbKey needs update for attribute $attributeName: $attributeValue');
+      updates['$tippersPath/$tipperDbKey/$attributeName'] = attributeValue;
+    } else {
+      log('Tipper: $tipperDbKey already has $attributeName: $attributeValue');
     }
   }
 
-  Future<String?> addTipper(Tipper tipperData) async {
-    final String? dbkey;
+  Future<void> saveBatchOfTipperAttributes() async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
-        log('Waiting for initial Tipper load to complete, addTipper()');
+        log('Waiting for initial Tipper load to complete, saveBatchOfTipperAttributes()');
         await _initialLoadCompleter.future;
-        log('tipper load complete, addTipper()');
+        log('tipper load complete, saveBatchOfTipperAttributes()');
       }
-
-      _savingTipper = true;
-      notifyListeners();
-
-      // prepare a new tipper database entry
-      final entry = tipperData.toJson();
-
-      // Get a dbkey for a new Tipper.
-      dbkey = _db.child(tippersPath!).push().key;
-
-      // write to database
-      final Map<String, Map> updates = {};
-      updates['$tippersPath/$dbkey'] = entry;
-
       await _db.update(updates);
-
-      return dbkey;
     } finally {
       _savingTipper = false;
       notifyListeners();
@@ -193,13 +134,13 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
   }
 
-  Future<Tipper?> findTipperByName(String name) async {
+  Future<Tipper?> findTipperByLegayTipperID(String tipperId) async {
     if (!_initialLoadCompleter.isCompleted) {
-      log('Waiting for initial tipper load to complete, findtipperbyname($name)');
+      log('Waiting for initial tipper load to complete, findTipperByLegayTipperID($tipperId)');
       await _initialLoadCompleter.future;
-      log('tipper load complete, findTipperByName($name)');
+      log('tipper load complete, findTipperByName($tipperId)');
     }
-    return _tippers.firstWhereOrNull((tipper) => tipper.name == name);
+    return _tippers.firstWhereOrNull((tipper) => tipper.tipperID == tipperId);
   }
 
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
@@ -238,29 +179,40 @@ class TippersViewModel extends ChangeNotifier {
 
       log('syncTippers() legacy tipper sheet load complete');
 
+      if (!_initialLoadCompleter.isCompleted) {
+        log('Waiting for initial Tipper load to complete in syncTippers()');
+        await _initialLoadCompleter.future;
+        log('tipper load complete, syncTippers()');
+      }
+
       // loop through each Tipper in the legacyTippers list - skip the header row
       await Future.forEach(legacyTippers.skip(1), (legacyTipper) async {
-        // find the Tipper in the Firebase database based on the tipperID
-        Tipper? firebaseTipper = _tippers.firstWhereOrNull(
-            (tipper) => tipper.tipperID == legacyTipper.tipperID);
-
         // if the Tipper does not exist in the Firebase database, add it
-        if (firebaseTipper == null) {
-          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the database, adding it');
-          await addTipper(legacyTipper);
+        Tipper? existingTipper =
+            await findTipperByLegayTipperID(legacyTipper.tipperID);
+        if (existingTipper == null) {
+          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the Firebase database, adding it');
+          // newTipper() will create a new db key for the new record and return a modified Tipper object with the new db key
+          await newTipper(legacyTipper);
         } else {
-          // if the Tipper does exist in the Firebase database, update it
-          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the database, updating it if needed');
+          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
 
-          //to support legacy syncing, reverse copy the dbkey to the legacy record before calling editTipper()
-          legacyTipper.dbkey = firebaseTipper.dbkey;
-          // if the firebaseTipper.authuid is not an email, then it is likely the firebaseuid and should be preserved
-          if (!firebaseTipper.authuid.contains('@')) {
-            legacyTipper.authuid = firebaseTipper.authuid;
-          }
-          await editTipper(legacyTipper);
+          // submit each attribute of the legacyTipper to the updateTipperAttribute method,
+          // it will take care of only submitteing the attributes that have changed to db
+          await updateTipperAttribute(
+              existingTipper.dbkey!, 'name', legacyTipper.name);
+          await updateTipperAttribute(
+              existingTipper.dbkey!, 'email', legacyTipper.email);
+          await updateTipperAttribute(
+              existingTipper.dbkey!, 'tipperID', legacyTipper.tipperID);
+          await updateTipperAttribute(
+              existingTipper.dbkey!, 'active', legacyTipper.active);
+          await updateTipperAttribute(existingTipper.dbkey!, 'tipperRole',
+              legacyTipper.tipperRole.toString().split('.').last);
         }
       });
+
+      await saveBatchOfTipperAttributes();
 
       // loop through each Tipper in the Firebase database
       await Future.forEach(_tippers, ((firebaseTipper) async {
@@ -282,10 +234,36 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> newTipper(
+    Tipper newTipper,
+  ) async {
+    await _initialLoadCompleter.future;
+
+    if (newTipper.dbkey == null) {
+      log('Adding new Tipper record');
+      // add new record to updates Map, create a new db key first
+      DatabaseReference newTipperRecordKey = _db.child(tippersPath!).push();
+      newTipper.dbkey = newTipperRecordKey.key;
+      updates['$tippersPath/${newTipper.dbkey}'] = newTipper.toJson();
+    } else {
+      throw 'newTipper() called with existing Tipper dbkey, should be an update';
+    }
+  }
+
+  Future<Tipper> getLinkedTipper() async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for initial Tipper load to complete in getLinkedTipper()');
+      await _initialLoadCompleter.future;
+      log('tipper load complete, getLinkedTipper()');
+    }
+    await linkUserToTipper(FirebaseAuth.instance.currentUser!);
+    return _linkedTipper;
+  }
+
   // method called at logon to find logged in Tipper and return it
   // first try finding the tipper based on authuid
   // if that fails, try finding the tipper based on email
-  Future<Tipper> linkUserToTipper(User authenticatedFirebaseUser) async {
+  Future<void> linkUserToTipper(User authenticatedFirebaseUser) async {
     Tipper? currentTipper;
 
     // first try finding the tipper based on authuid
@@ -293,7 +271,8 @@ class TippersViewModel extends ChangeNotifier {
 
     if (currentTipper != null) {
       log('linkUserToTipper() Tipper ${currentTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
-      return currentTipper;
+      _linkedTipper = currentTipper;
+      await registerLinkedTipperForMessaging();
     }
 
     // if that fails, try finding the tipper based on email
@@ -301,25 +280,70 @@ class TippersViewModel extends ChangeNotifier {
 
     if (currentTipper != null) {
       log('linkUserToTipper() Tipper ${currentTipper.name} found using email: ${authenticatedFirebaseUser.email}. Updating UID in database');
-      // update UID in database. create a new Tipper object to submit the change
-      Tipper updatedTipper = Tipper(
-        dbkey: currentTipper.dbkey,
-        tipperID: currentTipper.tipperID,
-        name: currentTipper.name,
-        email: currentTipper.email,
-        authuid: authenticatedFirebaseUser.uid, //make the change here
-        tipperRole: currentTipper.tipperRole,
-        active: currentTipper.active,
-      );
 
-      await editTipper(updatedTipper);
+      await updateTipperAttribute(
+          currentTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
 
-      return updatedTipper;
+      await saveBatchOfTipperAttributes();
+
+      await registerLinkedTipperForMessaging();
     } else {
       throw Exception(
           'getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
     }
   }
+
+  Future<void> registerLinkedTipperForMessaging() async {
+    // loop through any existing device tokens for this tipper, if the token
+    // does not exist, add it, otherwise update the timestamp for the existing token
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for initial Tipper load to complete in registerLinkedTipperForMessaging()');
+      await _initialLoadCompleter.future;
+      log('tipper load complete, registerLinkedTipperForMessaging()');
+    }
+
+    String? token = firebaseService?.fbmToken;
+
+    if (_linkedTipper.deviceTokens != null) {
+      if (_linkedTipper.deviceTokens!
+          .every((element) => element!.token != token!)) {
+        //it does not exist, add it
+        _linkedTipper.deviceTokens!
+            .add(DeviceToken(token: token!, timestamp: DateTime.now()));
+      } else {
+        //it does exist, update the timestamp
+        _linkedTipper.deviceTokens!
+            .firstWhere((element) => element!.token == token)
+            ?.timestamp = DateTime.now();
+      }
+    } else {
+      _linkedTipper.deviceTokens = [
+        DeviceToken(token: token!, timestamp: DateTime.now().toUtc())
+      ];
+    }
+
+    List deviceTokenList = _linkedTipper.deviceTokens
+            ?.map((deviceToken) => deviceToken?.toJson())
+            .toList() ??
+        [];
+
+    await updateTipperAttribute(
+        _linkedTipper.dbkey!, "deviceTokens", deviceTokenList);
+
+    await saveBatchOfTipperAttributes();
+  }
+
+  //monitor change to fbm token and update the tipper record in the database
+/*   void updateFbmToken(String? token) {
+    if (newToken != null) {
+      log('New messaging token received, updating database: $newToken');
+      _linkedTipper.deviceTokens!
+          .add(DeviceToken(token: newToken, timestamp: DateTime.now()));
+      // save to database
+      editTipper(_linkedTipper);
+      //notifyListeners();
+    }
+  } */
 
   @override
   void dispose() {
