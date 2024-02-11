@@ -14,15 +14,6 @@ class FirebaseService extends ChangeNotifier {
   String? get fbmToken => _fbmToken;
 
   Future<void> initializeFirebaseMessaging() async {
-    // Request notification permissions (iOS only):
-    NotificationSettings settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    log('APNS user granted notification permission: ${settings.authorizationStatus}');
-
     // For apple platforms, ensure the APNS token is available before making any FCM plugin API calls
     final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
 
@@ -47,5 +38,16 @@ class FirebaseService extends ChangeNotifier {
       _fbmToken = newToken;
       notifyListeners();
     });
+  }
+
+  //method to request IOS notification permissions
+  Future<void> requestIOSNotificationPermission() async {
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    log('APNS user granted notification permission: ${settings.authorizationStatus}');
   }
 }

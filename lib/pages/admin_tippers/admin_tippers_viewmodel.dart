@@ -12,6 +12,7 @@ import 'package:get_it/get_it.dart';
 
 // define  constant for firestore database locations
 final tippersPath = dotenv.env['TIPPERS_PATH'];
+const tokensPath = '/AllTippersTokens';
 
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
@@ -22,8 +23,6 @@ class TippersViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
-
-  //List<Tipper> get tippers => _tippers;
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
@@ -92,9 +91,14 @@ class TippersViewModel extends ChangeNotifier {
     //find the Tipper in the local list. it it's there, compare the attribute value and update if different
     Tipper? tipperToUpdate = await findTipper(tipperDbKey);
 
+    // if the attribute name is deviceTokens store the token in another tree
+    // this is to avoid the need to update the entire tipper record every time a new token is added
+    // this is due to firebase billing
+
     dynamic oldValue = tipperToUpdate.toJson()[attributeName];
     if (attributeValue != oldValue) {
       log('Tipper: $tipperDbKey needs update for attribute $attributeName: $attributeValue');
+
       updates['$tippersPath/$tipperDbKey/$attributeName'] = attributeValue;
     } else {
       log('Tipper: $tipperDbKey already has $attributeName: $attributeValue');
@@ -272,7 +276,9 @@ class TippersViewModel extends ChangeNotifier {
     if (currentTipper != null) {
       log('linkUserToTipper() Tipper ${currentTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
       _linkedTipper = currentTipper;
+
       await registerLinkedTipperForMessaging();
+      return;
     }
 
     // if that fails, try finding the tipper based on email
@@ -293,6 +299,10 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
+  // DeviceTokens storeed in another tree
+  // this is to avoid the need to update the
+  // entire tipper record every time a new token is added
+  // this is due to firebase billing
   Future<void> registerLinkedTipperForMessaging() async {
     // loop through any existing device tokens for this tipper, if the token
     // does not exist, add it, otherwise update the timestamp for the existing token
@@ -302,48 +312,24 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, registerLinkedTipperForMessaging()');
     }
 
+    // get use permissions to notify, if required
+    await firebaseService?.requestIOSNotificationPermission();
+
     String? token = firebaseService?.fbmToken;
 
-    if (_linkedTipper.deviceTokens != null) {
-      if (_linkedTipper.deviceTokens!
-          .every((element) => element!.token != token)) {
-        //it does not exist, add it
-        _linkedTipper.deviceTokens!
-            .add(DeviceToken(token: token!, timestamp: DateTime.now()));
-      } else {
-        //it does exist, update the timestamp
-        _linkedTipper.deviceTokens!
-            .firstWhere((element) => element!.token == token)
-            ?.timestamp = DateTime.now();
-      }
-    } else {
-      _linkedTipper.deviceTokens = [
-        DeviceToken(token: token!, timestamp: DateTime.now().toUtc())
-      ];
-    }
+    // write the token to the database using the token as the the path
+    // update the timestamp if the token already exists
 
-    List deviceTokenList = _linkedTipper.deviceTokens
-            ?.map((deviceToken) => deviceToken?.toJson())
-            .toList() ??
-        [];
-
-    await updateTipperAttribute(
-        _linkedTipper.dbkey!, "deviceTokens", deviceTokenList);
-
-    await saveBatchOfTipperAttributes();
+    _db
+        .child(tokensPath)
+        .child(_linkedTipper.dbkey!)
+        .update({token!: DateTime.now().toIso8601String()});
   }
 
-  //monitor change to fbm token and update the tipper record in the database
-/*   void updateFbmToken(String? token) {
-    if (newToken != null) {
-      log('New messaging token received, updating database: $newToken');
-      _linkedTipper.deviceTokens!
-          .add(DeviceToken(token: newToken, timestamp: DateTime.now()));
-      // save to database
-      editTipper(_linkedTipper);
-      //notifyListeners();
-    }
-  } */
+  //this is the callback method when there are changes in the FBM token
+  Future<void> updateFbmToken() async {
+    await registerLinkedTipperForMessaging();
+  }
 
   @override
   void dispose() {

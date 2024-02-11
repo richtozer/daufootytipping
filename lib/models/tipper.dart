@@ -9,12 +9,12 @@ class Tipper implements Comparable<Tipper> {
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
   final bool active;
   final TipperRole tipperRole;
-  List<DeviceToken?>? deviceTokens;
+  //List<DeviceToken?>? deviceTokens;
 
   //constructor
   Tipper(
       {this.dbkey,
-      this.deviceTokens,
+      //this.deviceTokens,
       required this.authuid,
       required this.email,
       required this.name,
@@ -23,7 +23,7 @@ class Tipper implements Comparable<Tipper> {
       required this.tipperRole});
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
-    // Handle deviceTokens list
+/*     // Handle deviceTokens list
     dynamic deviceTokensData = data['deviceTokens'];
     List<DeviceToken?> deviceTokensList = [];
 
@@ -33,11 +33,11 @@ class Tipper implements Comparable<Tipper> {
         return DeviceToken.fromJson(
             Map<String, dynamic>.from(deviceTokensasJSON));
       }).toList();
-    }
+    } */
 
     return Tipper(
         dbkey: key,
-        deviceTokens: deviceTokensList,
+        //deviceTokens: deviceTokensList,
         authuid: data['authuid'] ?? '',
         email: data['email'] ?? '',
         name: data['name'] ?? '',
@@ -60,9 +60,9 @@ class Tipper implements Comparable<Tipper> {
   }
 
   Map<String, dynamic> toJson() {
-    List deviceTokenList =
+/*     List deviceTokenList =
         deviceTokens?.map((deviceToken) => deviceToken!.toJson()).toList() ??
-            [];
+            []; */
     return {
       "authuid": authuid,
       "email": email,
@@ -70,7 +70,7 @@ class Tipper implements Comparable<Tipper> {
       "tipperID": tipperID,
       "active": active,
       "tipperRole": tipperRole.toString().split('.').last,
-      "deviceTokens": deviceTokenList,
+      //"deviceTokens": deviceTokenList,
     };
   }
 
@@ -79,24 +79,5 @@ class Tipper implements Comparable<Tipper> {
   int compareTo(Tipper other) {
     return name.toString().toLowerCase().compareTo(
         other.name.toString().toLowerCase()); //sort by the tipper name
-  }
-}
-
-//used for firebase messaging
-class DeviceToken {
-  final String token;
-  DateTime
-      timestamp; // this is used to track how fresh the token is, if it is older than 30 days, it is considered stale and should be refreshed or deleted
-
-  DeviceToken({required this.token, required this.timestamp});
-
-  factory DeviceToken.fromJson(Map<String, dynamic> data) {
-    return DeviceToken(
-        token: data['token'] ?? '',
-        timestamp: DateTime.parse(data['timestamp'] ?? ''));
-  }
-
-  Map<String, dynamic> toJson() {
-    return {"token": token, "timestamp": timestamp.toIso8601String()};
   }
 }
