@@ -82,7 +82,7 @@ class MyApp extends StatelessWidget {
               configDAUComp,
             ), // Pass the argument here
         child: MaterialApp(
-          theme: myTheme,
+          //theme: myTheme,
           title: 'DAU Tips',
           home: UserAuthPage(remoteConfigService, firebaseService),
         ));
