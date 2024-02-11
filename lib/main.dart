@@ -21,6 +21,8 @@ Future<void> main() async {
   // Do not to start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(); // Loads .env file
+
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Enable persistence for Realtime Database
@@ -58,8 +60,6 @@ Future<void> main() async {
   await FirebaseAnalytics.instance
       .setDefaultEventParameters({'version': '1.0.0'});
 
-  await dotenv.load(); // Loads .env file
-
   final locator = GetIt.instance;
   locator.registerSingleton<LegacyTippingService>(LegacyTippingService());
   locator.registerSingleton<PackageInfoService>(PackageInfoService());
@@ -82,7 +82,7 @@ class MyApp extends StatelessWidget {
               configDAUComp,
             ), // Pass the argument here
         child: MaterialApp(
-          //theme: myTheme,
+          theme: myTheme,
           title: 'DAU Tips',
           home: UserAuthPage(remoteConfigService, firebaseService),
         ));

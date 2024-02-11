@@ -144,10 +144,10 @@ class _UserAuthPageState extends State<UserAuthPage> {
                   TippersViewModel tippersViewModel =
                       Provider.of<TippersViewModel>(context, listen: false);
 
-                  return FutureBuilder<Tipper>(
+                  return FutureBuilder<Tipper?>(
                     future: tippersViewModel.getLinkedTipper(),
-                    builder:
-                        (BuildContext context, AsyncSnapshot<Tipper> snapshot) {
+                    builder: (BuildContext context,
+                        AsyncSnapshot<Tipper?> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
                             child:
@@ -173,6 +173,28 @@ class _UserAuthPageState extends State<UserAuthPage> {
                           ],
                         );
                       } else {
+                        if (snapshot.data == null) {
+                          // default to the profile screen if no tipper record found
+                          return ProfileScreen(
+                            actions: [
+                              DisplayNameChangedAction(
+                                  (context, oldName, newName) {
+                                // TODO do something with the new name
+                                throw UnimplementedError();
+                              }),
+                            ],
+                            children: [
+                              Container(
+                                color: Colors.red,
+                                padding: const EdgeInsets.all(8.0),
+                                child: const Text(
+                                  'No Tipper record found, please contact the admin.',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
                         Tipper linkedTipper = snapshot.data as Tipper;
                         return Consumer<TippersViewModel>(
                           builder: (context, tippersViewModel, child) {
