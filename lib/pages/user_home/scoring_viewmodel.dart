@@ -1,12 +1,9 @@
-import 'dart:async';
+/* import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
-import 'package:daufootytipping/models/scoring.dart';
-import 'package:daufootytipping/models/scoring_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -163,3 +160,4 @@ class ScoringViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
+ */

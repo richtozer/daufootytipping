@@ -17,8 +17,8 @@ const tokensPath = '/AllTippersTokens';
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
 
-  late Tipper _linkedTipper;
-  Tipper get linkedTipper => _linkedTipper;
+  Tipper? _linkedTipper;
+  Tipper? get linkedTipper => _linkedTipper;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -254,7 +254,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Tipper> getLinkedTipper() async {
+  Future<Tipper?> getLinkedTipper() async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial Tipper load to complete in getLinkedTipper()');
       await _initialLoadCompleter.future;
@@ -267,7 +267,7 @@ class TippersViewModel extends ChangeNotifier {
   // method called at logon to find logged in Tipper and return it
   // first try finding the tipper based on authuid
   // if that fails, try finding the tipper based on email
-  Future<void> linkUserToTipper(User authenticatedFirebaseUser) async {
+  Future<Tipper?> linkUserToTipper(User authenticatedFirebaseUser) async {
     Tipper? currentTipper;
 
     // first try finding the tipper based on authuid
@@ -278,7 +278,7 @@ class TippersViewModel extends ChangeNotifier {
       _linkedTipper = currentTipper;
 
       await registerLinkedTipperForMessaging();
-      return;
+      return currentTipper;
     }
 
     // if that fails, try finding the tipper based on email
@@ -294,9 +294,9 @@ class TippersViewModel extends ChangeNotifier {
 
       await registerLinkedTipperForMessaging();
     } else {
-      throw Exception(
-          'getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
+      log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
     }
+    return currentTipper;
   }
 
   // DeviceTokens storeed in another tree
@@ -322,7 +322,7 @@ class TippersViewModel extends ChangeNotifier {
 
     _db
         .child(tokensPath)
-        .child(_linkedTipper.dbkey!)
+        .child(_linkedTipper!.dbkey!)
         .update({token!: DateTime.now().toIso8601String()});
   }
 
@@ -337,3 +337,5 @@ class TippersViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
+
+class Log {}
