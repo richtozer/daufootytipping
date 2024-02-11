@@ -306,7 +306,7 @@ class TippersViewModel extends ChangeNotifier {
 
     if (_linkedTipper.deviceTokens != null) {
       if (_linkedTipper.deviceTokens!
-          .every((element) => element!.token != token!)) {
+          .every((element) => element!.token != token)) {
         //it does not exist, add it
         _linkedTipper.deviceTokens!
             .add(DeviceToken(token: token!, timestamp: DateTime.now()));

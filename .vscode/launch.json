@@ -20,6 +20,31 @@
             "name": "Launch Chrome against localhost",
             "url": "http://localhost:8080",
             "webRoot": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "node",
+            "request": "attach",
+            "name": "Attach to Firebase Functions",
+            "port": 9229,
+            "preLaunchTask": {
+              "type": "shell",
+              "command": "firebase emulators:start --inspect-functions",
+              "isBackground": true,
+              "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                  "regexp": "."
+                },
+                "background": {
+                  "activeOnStart": true,
+                  "beginsPattern": ".",
+                  "endsPattern": "All emulators ready"
+                }
+              }
+            },
+            "skipFiles": [
+              "<node_internals>/**"
+            ]
+          }
     ]
 }
