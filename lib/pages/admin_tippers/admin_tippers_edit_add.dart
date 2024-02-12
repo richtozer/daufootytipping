@@ -48,23 +48,22 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     super.dispose();
   }
 
-  void _saveTipper(BuildContext context) {
+  void _saveTipper(BuildContext context) async {
     try {
-      //create a new temp Tipper object to pass the changes to the viewmodel
-      Tipper tipperEdited = Tipper(
-          name: _tipperNameController.text,
-          email: _tipperEmailController.text,
-          dbkey: tipper?.dbkey,
-          authuid:
-              '[firebase uid goes here]', //TODO authuid should be populated in
-          active: active,
-          tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper);
+      await tippersViewModel.updateTipperAttribute(
+          tipper!.dbkey!, "name", _tipperNameController.text);
+      await tippersViewModel.updateTipperAttribute(
+          tipper!.dbkey!, "email", _tipperEmailController.text);
+      await tippersViewModel.updateTipperAttribute(
+          tipper!.dbkey!,
+          "tipperRole",
+          admin == true
+              ? TipperRole.admin.toString().toString().split('.').last
+              : TipperRole.tipper.toString().toString().split('.').last);
+      await tippersViewModel.updateTipperAttribute(
+          tipper!.dbkey!, "active", active);
 
-      if (tipper != null) {
-        tippersViewModel.editTipper(tipperEdited);
-      } else {
-        tippersViewModel.addTipper(tipperEdited);
-      }
+      await tippersViewModel.saveBatchOfTipperAttributes();
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);

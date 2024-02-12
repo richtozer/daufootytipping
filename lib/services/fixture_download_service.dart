@@ -1,8 +1,14 @@
 // Purpose: Service to download fixture from a JSON endpoint
+import 'dart:developer';
+
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2022_afl_full.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2022_nrl_full.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2023_afl_full.dart';
+import 'package:daufootytipping/services/fixture_mock_data_2023_nrl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2024_afl_full.dart';
 import 'package:daufootytipping/services/fixture_mock_data_2024_nrl_full.dart';
 import 'package:dio/dio.dart';
@@ -14,7 +20,8 @@ import 'package:http_mock_adapter/http_mock_adapter.dart';
 
 class FixtureDownloadService {
   FixtureDownloadService();
-  Future<List<Game>> getLeagueFixture(Uri endpoint, League league) async {
+
+  Future<List<dynamic>> getLeagueFixtureRaw(Uri endpoint, League league) async {
     final dio = Dio(BaseOptions(
         headers: {'Content-Type': 'application/json; charset=UTF-8'}));
 
@@ -23,11 +30,31 @@ class FixtureDownloadService {
       List<Map<String, Object?>> mockdata;
 
       switch (endpoint.toString()) {
+        case 'https://fixturedownload.com/feed/json/afl-2022':
+          mockdata = mockAfl2022Full;
+          log('Using mockAfl2022Full fixture data');
+          break;
+        case 'https://fixturedownload.com/feed/json/nrl-2022':
+          mockdata = mockNrl2022Full;
+          log('Using mockNrl2022Full fixture data');
+          break;
+        case 'https://fixturedownload.com/feed/json/afl-2023':
+          mockdata = mockAfl2023Full;
+          //mockdata = mockAfl2023Partial;
+          log('Using mockAfl2023Full fixture data');
+          break;
+        case 'https://fixturedownload.com/feed/json/nrl-2023':
+          mockdata = mockNrl2023Full;
+          //mockdata = mockNrl2023Partial;
+          log('Using mockNrl2023Full fixture data');
+          break;
         case 'https://fixturedownload.com/feed/json/afl-2024':
           mockdata = mockAfl2024Full;
+          log('Using mockAfl2024Full fixture data');
           break;
         case 'https://fixturedownload.com/feed/json/nrl-2024':
           mockdata = mockNrl2024Full;
+          log('Using mockNrl2024Full fixture data');
           break;
         default:
           throw Exception('Could not match the endpoint to mock data');
@@ -47,13 +74,9 @@ class FixtureDownloadService {
 
     final response = await dio.get(endpoint.toString());
 
-    //log('response code: ${response.statusCode} \n body: ${response.data}');
-
     if (response.statusCode == 200) {
       List<dynamic> res = response.data;
-      List<Game> games =
-          res.map((gameAsJson) => fromFixtureJson(gameAsJson, league)).toList();
-      return games;
+      return res;
     }
     throw Exception(
         'Could not receive the league fixture list: ${endpoint.toString()}');

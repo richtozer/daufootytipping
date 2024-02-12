@@ -1,48 +1,39 @@
-
-/*
-import 'package:daufootytipping/models/game.dart';
-
-class DAURound {
-  List<Game> games = [];
-
+class DAURound implements Comparable<DAURound> {
   String? dbkey;
-  final String dAUroundName;
-  final int aflRoundNumber;
-  final int nrlRoundNumber;
-  //DateTime?
-  //    roundEndTimeUTC; //typically around midnight (AEST) - on the day of the last game. In UTC lets say 16h00 to be safe
+  final int dAUroundNumber;
+  //List<Game> roundGames = [];
+  List<String> gamesAsKeys = [];
 
   // counstructor
-  DAURound(
-      {this.dbkey,
-      required this.dAUroundName,
-//      required this.roundEndTimeUTC,
-      required this.aflRoundNumber,
-      required this.nrlRoundNumber});
+  DAURound({
+    required this.dAUroundNumber,
+    required this.gamesAsKeys,
+  });
 
-  factory DAURound.fromJson(Map<String, dynamic> data, String? key) {
+  // method to serialize DAURound to JSON
+  Map<String, dynamic> toJsonForCompare() {
+    // Serialize Game list separately
+
+/*     for (Game game in gamesAsKeys) {
+      roundGamesJson.add(game.dbkey);
+    } */
+    return {
+      'dAUroundNumber': dAUroundNumber,
+      //'roundGames': roundGamesJson,
+      'roundGames': gamesAsKeys,
+    };
+  }
+
+  factory DAURound.fromJson(List<String> gamesAsKeys, int roundNumber) {
     return DAURound(
-      dbkey: key,
-      dAUroundName: data['dAUroundName'] ?? '',
-      aflRoundNumber: data['aflRoundNumber'] ?? 0,
-      nrlRoundNumber: data['nrlRoundNumber'] ?? 0,
-      //     roundEndTimeUTC: data['roundEndTimeUTC'],
+      dAUroundNumber: roundNumber,
+      gamesAsKeys: gamesAsKeys,
     );
   }
 
-  Map toJson() => {
-        'dAUroundName': dAUroundName,
-//        'roundEndTimeUTC': roundEndTimeUTC,
-        'aflRoundNumber': aflRoundNumber,
-        'nrlRoundNumber': nrlRoundNumber,
-      };
-
-  //TODO consider removing
-  /* @override
+  @override
   // method used to provide default sort for DAURounds in a List[]
   int compareTo(DAURound other) {
-    return roundEndTimeUTC.compareTo(other.roundEndTimeUTC);
+    return dAUroundNumber.compareTo(other.dAUroundNumber);
   }
-  */
 }
-*/

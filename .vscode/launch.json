@@ -5,11 +5,46 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "node",
+            "request": "attach",
+            "name": "Debug Firebase Function",
+            "port": 9229,
+            "restart": true,
+            "skipFiles": ["<node_internals>/**"],
+            "preLaunchTask": "start firebase emulator",
+            "postDebugTask": "stop firebase emulator"
+        },
+        {
             "type": "chrome",
             "request": "launch",
             "name": "Launch Chrome against localhost",
             "url": "http://localhost:8080",
             "webRoot": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "node",
+            "request": "attach",
+            "name": "Attach to Firebase Functions",
+            "port": 9229,
+            "preLaunchTask": {
+              "type": "shell",
+              "command": "firebase emulators:start --inspect-functions",
+              "isBackground": true,
+              "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                  "regexp": "."
+                },
+                "background": {
+                  "activeOnStart": true,
+                  "beginsPattern": ".",
+                  "endsPattern": "All emulators ready"
+                }
+              }
+            },
+            "skipFiles": [
+              "<node_internals>/**"
+            ]
+          }
     ]
 }

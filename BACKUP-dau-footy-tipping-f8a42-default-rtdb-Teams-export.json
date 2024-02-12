@@ -1,0 +1,159 @@
+{
+  "afl-Adelaide Crows": {
+    "league": "afl",
+    "name": "Adelaide Crows"
+  },
+  "afl-Brisbane Lions": {
+    "league": "afl",
+    "name": "Brisbane Lions"
+  },
+  "afl-Carlton": {
+    "league": "afl",
+    "name": "Carlton"
+  },
+  "afl-Collingwood": {
+    "league": "afl",
+    "name": "Collingwood"
+  },
+  "afl-Essendon": {
+    "league": "afl",
+    "name": "Essendon"
+  },
+  "afl-Fremantle": {
+    "league": "afl",
+    "name": "Fremantle"
+  },
+  "afl-GWS Giants": {
+    "league": "afl",
+    "name": "GWS Giants"
+  },
+  "afl-Geelong Cats": {
+    "league": "afl",
+    "name": "Geelong Cats"
+  },
+  "afl-Gold Coast Suns": {
+    "league": "afl",
+    "name": "Gold Coast Suns"
+  },
+  "afl-Hawthorn": {
+    "league": "afl",
+    "name": "Hawthorn"
+  },
+  "afl-Melbourne": {
+    "league": "afl",
+    "name": "Melbourne"
+  },
+  "afl-North Melbourne": {
+    "league": "afl",
+    "name": "North Melbourne"
+  },
+  "afl-Port Adelaide": {
+    "league": "afl",
+    "name": "Port Adelaide"
+  },
+  "afl-Richmond": {
+    "league": "afl",
+    "name": "Richmond"
+  },
+  "afl-St Kilda": {
+    "league": "afl",
+    "name": "St Kilda"
+  },
+  "afl-Sydney Swans": {
+    "league": "afl",
+    "name": "Sydney Swans"
+  },
+  "afl-West Coast Eagles": {
+    "league": "afl",
+    "name": "West Coast Eagles"
+  },
+  "afl-Western Bulldogs": {
+    "league": "afl",
+    "name": "Western Bulldogs"
+  },
+  "nrl-Broncos": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Brisbane_colours.svg",
+    "name": "Broncos"
+  },
+  "nrl-Bulldogs": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Canterbury_colours.svg",
+    "name": "Bulldogs"
+  },
+  "nrl-Cowboys": {
+    "league": "nrl",
+    "logoURI": "assets/teams/North_Queensland_colours.svg",
+    "name": "Cowboys"
+  },
+  "nrl-Dolphins": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Dolphins_colours.svg",
+    "name": "Dolphins"
+  },
+  "nrl-Dragons": {
+    "league": "nrl",
+    "logoURI": "assets/teams/St._George_colours.svg",
+    "name": "Dragons"
+  },
+  "nrl-Eels": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Parramatta_colours.svg",
+    "name": "Eels"
+  },
+  "nrl-Knights": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Newcastle_colours.svg",
+    "name": "Knights"
+  },
+  "nrl-Panthers": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Penrith_Panthers_square_flag_icon_with_2020_colours.svg",
+    "name": "Panthers"
+  },
+  "nrl-Rabbitohs": {
+    "league": "nrl",
+    "logoURI": "assets/teams/South_Sydney_colours.svg",
+    "name": "Rabbitohs"
+  },
+  "nrl-Raiders": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Canberra_colours.svg",
+    "name": "Raiders"
+  },
+  "nrl-Roosters": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Eastern_Suburbs_colours.svg",
+    "name": "Roosters"
+  },
+  "nrl-Sea Eagles": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Manly_Sea_Eagles_colours.svg",
+    "name": "Sea Eagles"
+  },
+  "nrl-Sharks": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Cronulla_colours.svg",
+    "name": "Sharks"
+  },
+  "nrl-Storm": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Melbourne_colours.svg",
+    "name": "Storm"
+  },
+  "nrl-Titans": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Gold_Coast_Titans_colours.svg",
+    "name": "Titans"
+  },
+  "nrl-Warriors": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Auckland_colours.svg",
+    "name": "Warriors"
+  },
+  "nrl-Wests Tigers": {
+    "league": "nrl",
+    "logoURI": "assets/teams/Wests_Tigers_colours.svg",
+    "name": "Wests Tigers"
+  }
+}
