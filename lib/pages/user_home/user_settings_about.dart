@@ -13,7 +13,7 @@ Future<Widget> aboutDialog(context) async {
   String version = packageInfo.version;
   String buildNumber = packageInfo.buildNumber;
 
-  return ElevatedButton(
+  return OutlinedButton(
     child: const Text('About this application ...'),
     onPressed: () {
       showAboutDialog(

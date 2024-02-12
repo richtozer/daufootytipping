@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:flutter/material.dart';
@@ -21,14 +22,16 @@ class GameInfo extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.info_outline),
           Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(DateFormat('EEE dd MMM hh:mm a')
-                  .format(widget.game.startTimeUTC.toLocal())),
+              widget.game.gameState == GameState.resultKnown
+                  ? Text(DateFormat('EEE dd MMM yyyy')
+                      .format(widget.game.startTimeUTC.toLocal()))
+                  : Text(DateFormat('EEE dd MMM hh:mm a')
+                      .format(widget.game.startTimeUTC.toLocal())),
               Flexible(
                 child: Text(
                   gameTipsViewModel.game.location,
@@ -37,9 +40,6 @@ class GameInfo extends StatelessWidget {
               ),
               Text(
                 '${gameTipsViewModel.game.league == League.afl ? 'AFL' : 'NRL'} round: ${gameTipsViewModel.game.roundNumber}',
-              ),
-              Text(
-                'lat/lng ${gameTipsViewModel.getLatLng()}',
               ),
             ],
           ),

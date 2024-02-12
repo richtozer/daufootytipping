@@ -23,7 +23,7 @@ class LegacyTippingService {
 
   late final Worksheet appTipsSheet;
   final String appTipsSheetName = 'AppTips';
-  late final List<List<String?>> appTipsData;
+  late List<List<String?>> appTipsData;
 
   late final Worksheet tippersSheet;
   final String tippersSheetName = 'Tippers';
@@ -63,6 +63,8 @@ class LegacyTippingService {
     AutoRefreshingAuthClient client = await gsheets.client;
     sheetsApi = SheetsApi(client);
 
+    log('Using Gsheet shseet with id $spreadsheetId');
+
     spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
     appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
     tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
@@ -70,15 +72,7 @@ class LegacyTippingService {
     tippersRows = await tippersSheet.values.allRows();
     log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
-    final values = await sheetsApi.spreadsheets.values.get(
-      spreadsheetId!,
-      appTipsSheetName,
-    );
-    appTipsData = values.values!
-        .map((list) => list.map((item) => item as String?).toList())
-        .toList();
-
-    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData.length} rows.');
+    refreshAppTipsData();
 
     _initialLoadCompleter.complete();
   }
@@ -87,7 +81,9 @@ class LegacyTippingService {
   Future<List<Tipper>> getLegacyTippers() async {
     List<Tipper> tippers = [];
 
-    await spreadsheet.refresh();
+    // get refreshed data from the gsheet
+    tippersRows = await tippersSheet.values.allRows();
+    log('Refresh of legacy gsheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
     for (var row in tippersRows) {
       Tipper tipper = Tipper(
@@ -119,8 +115,8 @@ class LegacyTippingService {
   Future<String> syncTipsToLegacyDiffOnly(AllTipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel) async {
     //refresh the data from the gsheet
-
-    await spreadsheet.refresh(); //TODO is this a good idea, is it inefficient?
+    //await spreadsheet.refresh();
+    refreshAppTipsData();
 
     //get the total number of combined rounds
     List<int> combinedRounds =
@@ -168,13 +164,31 @@ class LegacyTippingService {
         var targetString = proposedGsheetTipChanges[rowToUpdate]
             [tip.game.dauRound!.dAUroundNumber - 1];
         if (tip.game.league == League.nrl) {
+          //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
+          // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
+          // that is the offset to use to update the proposedGsheetTipChanges
+          int gameIndex = tip.game.dauRound!.gamesAsKeys
+              .where((element) => element.contains('nrl-'))
+              .toList()
+              .indexOf(tip.game.dbkey);
+
           targetString = targetString?.replaceRange(
-              tip.game.matchNumber - 1, tip.game.matchNumber, tip.tip.name);
+              gameIndex, gameIndex + 1, tip.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
               [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
         } else {
+          //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
+          // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
+          // that is the offset to use to update the proposedGsheetTipChanges
+          // add 8 to the offset to account for the fact that nrl tips go first in the string
+
+          int gameIndex = 8 +
+              tip.game.dauRound!.gamesAsKeys
+                  .where((element) => element.contains('afl-'))
+                  .toList()
+                  .indexOf(tip.game.dbkey);
           targetString = targetString?.replaceRange(
-              tip.game.matchNumber + 7, tip.game.matchNumber + 8, tip.tip.name);
+              gameIndex, gameIndex + 1, tip.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
               [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
         }
@@ -223,7 +237,7 @@ class LegacyTippingService {
         await sheetsApi.spreadsheets.batchUpdate(differences, spreadsheetId!);
         // break of the loop when the request is successful
         String msg =
-            'Successfully synced ${differences.requests!.length - 1} tips to legacy tipping sheet.';
+            'Successfully made ${differences.requests!.length - 1} updates to legacy tipping sheet.';
         log(msg);
         return msg;
       } catch (e) {
@@ -320,5 +334,17 @@ class LegacyTippingService {
       await appTipsSheet.values.insertRow(rowToUpdate + 1, [newCellValue],
           fromColumn: dauRoundNumber + 2);
     }
+  }
+
+  Future<void> refreshAppTipsData() async {
+    final values = await sheetsApi.spreadsheets.values.get(
+      spreadsheetId!,
+      appTipsSheetName,
+    );
+    appTipsData = values.values!
+        .map((list) => list.map((item) => item as String?).toList())
+        .toList();
+
+    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData.length} rows.');
   }
 }

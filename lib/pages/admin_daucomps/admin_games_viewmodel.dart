@@ -109,52 +109,6 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
-/*   // Game operations // TODO this function can be deleted
-  Future<Map<int, List<Game>>> getNestedGames() async {
-    log('getNestedGames() waiting for initial Game load to complete');
-    await initialLoadComplete;
-    log('getNestedGames() COMPLETED waiting for initial Game load to complete');
-
-    _nestedGroups = groupBy(_games, (game) => game.combinedRoundNumber);
-
-    return _nestedGroups;
-  } */
-
-  //method to get default tips for a given combined round number and league
-  /*  Future<String> getDefaultTipsForCombinedRoundNumber_OLD(
-      int combinedRoundNumber) async {
-    log('getDefaultTipsForCombinedRoundNumber() waiting for initial Game load to complete');
-    await initialLoadComplete;
-    log('getDefaultTipsForCombinedRoundNumber() initial Game load to COMPLETED');
-
-    //filter _games to find all games where combinedRoundNumber == combinedRoundNumber and league == league
-    List<Game> filteredNrlGames = _games
-        .where((game) =>
-            game.combinedRoundNumber == combinedRoundNumber &&
-            game.league == League.nrl)
-        .toList();
-
-    List<Game> filteredAflGames = _games
-        .where((game) =>
-            game.combinedRoundNumber == combinedRoundNumber &&
-            game.league == League.afl)
-        .toList();
-
-    String defaultRoundNrlTips = 'D' * filteredNrlGames.length;
-    defaultRoundNrlTips = defaultRoundNrlTips.padRight(
-      8,
-      'z',
-    );
-
-    String defaultRoundAflTips = 'D' * filteredAflGames.length;
-    defaultRoundAflTips = defaultRoundAflTips.padRight(
-      9,
-      'z',
-    );
-
-    return defaultRoundNrlTips + defaultRoundAflTips;
-  }
- */
   final Map<String, dynamic> updates = {};
 
   Future<void> updateGameAttribute(String gameDbKey, String attributeName,
@@ -208,40 +162,6 @@ class GamesViewModel extends ChangeNotifier {
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
-  // Method to return the current combined round number.
-  // From this list of all games, exclude those where the gamestate
-  // is 'resultKnown'.
-  // of the remaining games sort my gamestarttimeutc and
-  //return the combinedRoundNumber of the first game in the list
-
-  /* Future<int> getCurrentCombinedRoundNumber_OLC() async {
-    log('getCurrentCombinedRoundNumber() waiting for initial Game load to complete');
-    await _initialLoadCompleter.future;
-    log('getCurrentCombinedRoundNumber() initial Game load COMPLETED');
-
-    int currentCombinedRoundNumber =
-        0; // TODO test UI behaviour with this set to 0
-    List<Game> gamesToProcess = [];
-    for (var game in _games) {
-      if (game.gameState == GameState.resultNotKnown ||
-          game.gameState == GameState.notStarted) {
-        gamesToProcess.add(game);
-      }
-    }
-    gamesToProcess.sort((a, b) => a.startTimeUTC.compareTo(b.startTimeUTC));
-    if (gamesToProcess.isNotEmpty) {
-      Game firstGame = gamesToProcess.first;
-      // find this game in the DAUCompsViewModel to get the combinedRoundNumber
-      
-      currentCombinedRoundNumber = gamesToProcess.first.combinedRoundNumber;
-    }
-    if (currentCombinedRoundNumber == 0) {
-      log('getCurrentCombinedRoundNumber() - no games found with gamestate == GameState.notStarted ot GameState.resultNotKnown');
-    }
-    return currentCombinedRoundNumber;
-  } */
-
-  // Cleanup
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream

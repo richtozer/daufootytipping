@@ -22,7 +22,7 @@ class Profile extends StatelessWidget {
       body: ListView(
         children: <Widget>[
           SizedBox(
-            height: 400,
+            height: 350,
             child: ProfileScreen(
               actions: [
                 DisplayNameChangedAction((context, oldName, newName) {
@@ -39,8 +39,6 @@ class Profile extends StatelessWidget {
             return Column(
               children: [
                 // display a list of available comps using daucompsViewModel.getDauComps()
-                const Text('Use this DAU Comp:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
                 FutureBuilder<List<DAUComp>>(
                   future: daucompsViewModel.getDAUcomps(),
                   builder: (BuildContext context,
@@ -50,7 +48,6 @@ class Profile extends StatelessWidget {
                     } else if (snapshot.hasError) {
                       return Text('Error: ${snapshot.error}');
                     } else {
-                      //List<DAUComp> comps = snapshot.data!;
                       return DropdownButton<String>(
                           value: daucompsViewModel.currentDAUComp,
                           icon: const Icon(Icons.arrow_downward),
@@ -84,6 +81,7 @@ class Profile extends StatelessWidget {
               },
             ),
           ),
+          const SizedBox(height: 20),
           Consumer<TippersViewModel>(
               builder: (_, TippersViewModel viewModel, __) {
             if (currentTipper.tipperRole == TipperRole.admin) {
@@ -92,7 +90,8 @@ class Profile extends StatelessWidget {
               // we cannot identify their role at this time, do not display admin functionality
               return const Center(child: Text("No Admin Access"));
             }
-          })
+          }),
+          const SizedBox(height: 20),
         ],
       ),
     );

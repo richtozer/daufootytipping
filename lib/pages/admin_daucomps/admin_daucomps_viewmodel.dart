@@ -186,7 +186,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       LegacyTippingService tippingService =
           GetIt.instance<LegacyTippingService>();
 
-      TippersViewModel tippersViewModel = TippersViewModel();
+      TippersViewModel tippersViewModel = TippersViewModel(null);
 
       AllTipsViewModel allTipsViewModel = AllTipsViewModel(
           tippersViewModel, newdaucomp.dbkey!, _gamesViewModel);
@@ -397,7 +397,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           if (game != null && game.league == league) {
             // allow for reverse lookup of round from a game object
             game.dauRound = daucomp.daurounds![combinedRoundNumber - 1];
-            log('**** Adding game ${game.dbkey} to combined round: ${daucomp.daurounds![combinedRoundNumber - 1].dAUroundNumber}');
+            log('Associating game record ${game.dbkey} to combined round: ${daucomp.daurounds![combinedRoundNumber - 1].dAUroundNumber}');
             //add the game to the list
             gamesForCombinedRoundNumberAndLeague.add(game);
           }

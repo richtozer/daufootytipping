@@ -244,7 +244,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         // if this is a new record, dont show the sync button
                         return const SizedBox.shrink();
                       }
-                      return ElevatedButton(
+                      return OutlinedButton(
                         onPressed: () async {
                           if (dcvm.isDownloading) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -288,8 +288,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         // if this is a new record, dont show the sync button
                         return const SizedBox.shrink();
                       }
-                      return ElevatedButton(
+                      return OutlinedButton(
                         onPressed: () async {
+                          //check if syncing already in progress...
                           if (dcvm2.isLegacySyncing) {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -298,6 +299,19 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                         'Legacy tip sync already in progress')));
                             return;
                           }
+                          // check is daucomp dbkey for this record matches the current daucomp dbkey
+                          // if not, show a snackbar and return without syncing
+                          if (daucomp?.dbkey != dcvm2.currentDAUComp) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    backgroundColor: Colors.red,
+                                    duration: Duration(seconds: 15),
+                                    content: Text(
+                                        'You can only sync to legacy if this record is the current comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
+                            return;
+                          }
+
+                          // ...if not, initiate the sync
                           try {
                             String syncResult =
                                 await dcvm2.syncTipsWithLegacy(daucomp!);
