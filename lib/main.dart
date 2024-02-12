@@ -6,6 +6,7 @@ import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -27,6 +28,13 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Enable persistence for Realtime Database
   FirebaseDatabase.instance.setPersistenceEnabled(true);
+
+  if (kDebugMode) {
+    FirebaseDatabase database = FirebaseDatabase.instance;
+    database.useDatabaseEmulator('http://localhost', 8000);
+
+    FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
+  }
 
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(
