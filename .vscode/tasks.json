@@ -1,0 +1,46 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "start firebase emulator",
+        "type": "shell",
+        "isBackground": true,
+        // (1) This autocompiles if there is any code change and effective immediately.
+        // (2) The single '&' ensures tsc -w (used in run build) will not block the emulator to start
+        // (3) --inspect-function allows debugger to be attached
+        "command": "npm --prefix ./functions run build -- -w & firebase emulators:start --inspect-functions",
+        "presentation": { "reveal": "silent", "close": true },
+        "problemMatcher": [
+          {
+            "pattern": [
+              {
+                "regexp": ".",
+                "file": 1,
+                "line": 1,
+                "column": 1,
+                "message": 1
+              }
+            ],
+            "background": {
+              "activeOnStart": true,
+              "beginsPattern": { "regexp": "." },
+              "endsPattern": { "regexp": "." }
+            }
+          }
+        ]
+      },
+      {
+        "label": "stop firebase emulator",
+        "command": "echo ${input:terminate}",
+        "type": "shell"
+      }
+    ],
+    "inputs": [
+      {
+        "id": "terminate",
+        "type": "command",
+        "command": "workbench.action.tasks.terminate",
+        "args": "terminateAll"
+      }
+    ]
+  }

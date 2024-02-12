@@ -1,6 +1,9 @@
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:intl/intl.dart';
 
 enum GameState {
   notStarted,
@@ -11,18 +14,15 @@ enum GameState {
 class Game implements Comparable<Game> {
   final String dbkey;
   final League league;
-  final Team homeTeam;
-  final Team awayTeam;
+  Team homeTeam;
+  Team awayTeam;
   final String location;
+  LatLng? locationLatLong;
   final DateTime startTimeUTC;
   final int roundNumber;
   final int matchNumber;
-  int combinedRoundNumber;
   Scoring? scoring; // this should be null until game kickoff
-
-  set setCombinedRoundNumber(int value) {
-    combinedRoundNumber = value;
-  }
+  DAURound? dauRound;
 
   //constructor
   Game({
@@ -31,11 +31,12 @@ class Game implements Comparable<Game> {
     required this.homeTeam,
     required this.awayTeam,
     required this.location,
+    this.locationLatLong,
     required this.startTimeUTC,
     required this.roundNumber,
     required this.matchNumber,
-    this.combinedRoundNumber = 0,
     this.scoring,
+    this.dauRound,
   });
 
   // this getter will return the gamestate based on the current time and the game start time
@@ -54,19 +55,34 @@ class Game implements Comparable<Game> {
     }
   }
 
-  factory Game.fromJson(
-      Map<String, dynamic> data, String key, Team homeTeam, Team awayTeam) {
+  Map<String, dynamic> toFixtureJson() => {
+        'League': league.name,
+        'HomeTeam': homeTeam.dbkey.substring(4),
+        'AwayTeam': awayTeam.dbkey.substring(4),
+        'Location': location,
+        //'DateUtc': DateUtc.toString(),
+        'DateUtc':
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
+        'RoundNumber': roundNumber,
+        'MatchNumber': matchNumber,
+        'HomeTeamScore': (scoring != null) ? scoring!.homeTeamScore : null,
+        "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
+      };
+
+  factory Game.fromFixtureJson(
+      String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
+    //use the left 3 chars of the dbkey to determine the league
+    final league = League.values.byName(dbkey.substring(0, 3));
     return Game(
-      dbkey: key,
-      league: League.values.byName(data['league']),
+      dbkey:
+          '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, roune number and match number. Pad the numbers so they sort correctly in the firebase console
+      league: league,
       homeTeam: homeTeam,
       awayTeam: awayTeam,
-      location: data['location'],
-      startTimeUTC: DateTime.parse(data['startTimeUTC']),
-      roundNumber: data['roundNumber'],
-      matchNumber: data['matchNumber'],
-      combinedRoundNumber: data['combinedRoundNumber'] ?? 0,
-      scoring: data['scoring'],
+      location: data['Location'] ?? '',
+      startTimeUTC: DateTime.parse(data['DateUtc']),
+      roundNumber: data['RoundNumber'] ?? 0,
+      matchNumber: data['MatchNumber'] ?? 0,
     );
   }
 
@@ -75,11 +91,11 @@ class Game implements Comparable<Game> {
         'homeTeamDbKey': homeTeam.dbkey,
         'awayTeamDbKey': awayTeam.dbkey,
         'location': location,
+        'locationLatLong': locationLatLong?.toJson(),
         'startTimeUTC': startTimeUTC.toString(),
         'roundNumber': roundNumber,
         'matchNumber': matchNumber,
-        'combinedRoundNumber': combinedRoundNumber,
-        'scoring': scoring,
+        'scoring': (scoring != null) ? scoring!.toJson() : null,
       };
 
   @override

@@ -73,7 +73,7 @@ class TeamsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _editExistingTeam(Team originalTeam, Team updatedTeam) {
+  Future<void> _editExistingTeam(Team originalTeam, Team updatedTeam) async {
     Map<String, dynamic> originalJson = originalTeam.toJson();
     Map<String, dynamic> updatedJson = updatedTeam.toJson();
 
@@ -89,7 +89,7 @@ class TeamsViewModel extends ChangeNotifier {
       }
     });
 
-    _db.update(updates);
+    await _db.update(updates);
   }
 
   Future<void> addTeam(Team team) async {
@@ -110,13 +110,13 @@ class TeamsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _addNewTeam(Team team) {
+  Future<void> _addNewTeam(Team team) async {
     final postData = team.toJson();
 
     final Map<String, Map> updates = {};
     updates['$teamsPathRoot/${team.dbkey}'] = postData;
 
-    _db.update(updates);
+    await _db.update(updates);
   }
 
   Future<Team?> findTeam(String teamDbKey) async {

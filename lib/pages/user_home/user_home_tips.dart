@@ -1,135 +1,175 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 class TipsPage extends StatelessWidget {
   final Tipper currentTipper;
-  final String currentDAUCompDBkey;
 
-  const TipsPage(this.currentTipper, this.currentDAUCompDBkey, {super.key});
+  const TipsPage(this.currentTipper, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => GamesViewModel(currentDAUCompDBkey),
-      child: Consumer<GamesViewModel>(
-        builder: (context, tipsViewModel, child) {
-          return _TipsPageBody(
-              currentTipper, tipsViewModel, currentDAUCompDBkey);
-        },
-      ),
-    );
+    return Consumer<DAUCompsViewModel>(
+        builder: (context, daucompsViewModel, child) {
+      return _TipsPageBody(currentTipper, daucompsViewModel);
+    });
   }
+
+/*   Widget build(BuildContext context) {
+    return Consumer<DAUCompsViewModel>(
+        builder: (context, daucompsViewModel, child) {
+      return ChangeNotifierProvider(
+        create: (context) => GamesViewModel(daucompsViewModel.currentDAUComp),
+        child: _TipsPageBody(currentTipper, daucompsViewModel),
+      );
+    });
+  } */
 }
 
-class _TipsPageBody extends StatelessWidget {
+class _TipsPageBody extends StatefulWidget {
   final Tipper currentTipper;
-  final String currentDAUCompDBkey;
-  final GamesViewModel gamesViewModel;
+  final DAUCompsViewModel daucompsViewModel;
 
-  const _TipsPageBody(
-      this.currentTipper, this.gamesViewModel, this.currentDAUCompDBkey);
+  const _TipsPageBody(this.currentTipper, this.daucompsViewModel);
+
+  @override
+  State<_TipsPageBody> createState() => _TipsPageBodyState();
+}
+
+class _TipsPageBodyState extends State<_TipsPageBody> {
+  final ScrollController controller = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    /*WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (controller.hasClients) {
+        double itemHeight = 100; // Replace with your actual item height
+        int index = 5; // Replace with your actual index
+
+        controller.animateTo(
+          index * itemHeight,
+          duration: const Duration(seconds: 1),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+    */
+  }
+
+  Widget roundLeagueHeaderListTile(
+      String logo, double width, double height, int combinedRoundNumber) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/teams/daulogo.jpg',
+            fit: BoxFit.none,
+          ),
+        ),
+        ListTile(
+          trailing: SvgPicture.asset(
+            logo,
+            width: width,
+            height: height,
+          ),
+          title: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text('R o u n d: $combinedRoundNumber'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget roundLeagueGameBuilder(int combinedRoundNumber, League league) {
+    return FutureBuilder<List<Game>>(
+      future: widget.daucompsViewModel
+          .getGamesForCombinedRoundNumberAndLeague(combinedRoundNumber, league),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: Text('Wait..'));
+          //return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        } else {
+          var games = snapshot.data;
+          if (games!.isEmpty) {
+            return Center(
+              heightFactor: 2,
+              child: Text('No ${league.name.toUpperCase()} games this round'),
+            );
+          }
+          return ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: games.length,
+            itemBuilder: (context, index) {
+              var game = games[index];
+              return GameListItem(
+                  roundGames: games,
+                  game: game,
+                  currentTipper: widget.currentTipper,
+                  currentDAUCompDBkey: widget.daucompsViewModel.currentDAUComp);
+            },
+          );
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: Builder(builder: (context) {
-      return FutureBuilder<Map<int, List<Game>>>(
-        future: gamesViewModel.getNestedGames(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+    return FutureBuilder<List<int>>(
+      future: widget.daucompsViewModel.getCombinedRoundNumbers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          //return const Center(child: Text('Wait..'));
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        } else {
+          var combinedRoundNumbers = snapshot.data;
+          if (combinedRoundNumbers!.isEmpty) {
             return const Center(
-                child:
-                    CircularProgressIndicator()); // Show loading spinner while waiting for data
-          } else if (snapshot.hasError) {
-            return Text(
-                'Error: ${snapshot.error}'); // Show error message if something went wrong
-          } else {
-            var nestedGroups = snapshot.data;
-            return CustomScrollView(
-              slivers: nestedGroups!.entries
-                  .map((entry) {
-                    var roundNumber = entry.key;
-                    var games = entry.value;
-                    return [
-                      SliverAppBar(
-                        pinned: false,
-                        floating: true,
-                        snap: false,
-                        expandedHeight: 100.0,
-                        flexibleSpace: FlexibleSpaceBar(
-                            titlePadding: const EdgeInsetsDirectional.only(
-                                start: 180.0, bottom: 0.0),
-                            //centerTitle: true,
-                            background: Image.asset(
-                              'assets/teams/daulogo.jpg',
-                              fit: BoxFit.fill,
-                            ),
-                            title: Text(
-                              'R o u n d : $roundNumber',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            )),
-                      ),
-                      SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (BuildContext context, int index) {
-                            return Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(0.0),
-                              ),
-                              color: Colors.grey[300],
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  children: [
-                                    ListTile(
-                                      title: Text(
-                                          '${games[index].homeTeam.name} v ${games[index].awayTeam.name}'),
-                                      subtitle: Text(
-                                          '${DateFormat('EEE dd MMM hh:mm a').format(games[index].startTimeUTC.toLocal())} - ${games[index].location}'),
-                                      trailing: SvgPicture.asset(
-                                        games[index].league.logo,
-                                        width: 30,
-                                        height: 30,
-                                      ),
-                                    ),
-                                    ChangeNotifierProvider<GameTipsViewModel>(
-                                      create: (context) => GameTipsViewModel(
-                                          currentTipper,
-                                          currentDAUCompDBkey,
-                                          games[index]),
-                                      child: Consumer<GameTipsViewModel>(
-                                        builder: (context, gameTipsViewModel,
-                                            child) {
-                                          return BuildChoiceChips(
-                                              gameTipsViewModel);
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          childCount: games.length,
-                        ),
-                      ),
-                    ];
-                  })
-                  .toList()
-                  .expand((element) => element)
-                  .toList(),
+              child: Text('No Rounds Found'),
             );
           }
-        },
-      );
-    }));
+          // see here for the need for singlescrollchildview wrapper
+          // https://stackoverflow.com/questions/51536756/flutter-listview-jumps-to-top
+          return SingleChildScrollView(
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              controller: controller,
+              itemCount: combinedRoundNumbers.length,
+              itemBuilder: (context, index) {
+                var combinedRoundNumber = combinedRoundNumbers[index];
+                return Column(
+                  children: [
+                    roundLeagueHeaderListTile(
+                        League.nrl.logo, 50, 50, combinedRoundNumber),
+                    roundLeagueGameBuilder(combinedRoundNumber, League.nrl),
+                    roundLeagueHeaderListTile(
+                        League.afl.logo, 40, 40, combinedRoundNumber),
+                    roundLeagueGameBuilder(combinedRoundNumber, League.afl),
+                  ],
+                );
+              },
+            ),
+          );
+        }
+      },
+    );
   }
 }
