@@ -6,9 +6,7 @@ import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
@@ -98,11 +96,7 @@ class GameTipsViewModel extends ChangeNotifier {
           currentTipper.name, tip, gameIndex, combinedRoundNumber);
 
       // end code section to support legacy tipping service
-
-      //unsubscripe the tipper from the FCM topic for this game
-      await FirebaseMessaging.instance.unsubscribeFromTopic(tip.game.dbkey);
-
-      await FirebaseAnalytics.instance
+/*       await FirebaseAnalytics.instance
           .logEvent(name: 'tip_submitted', parameters: {
         'tipper': tip.tipper.name,
         'comp': currentDAUComp,
@@ -110,7 +104,7 @@ class GameTipsViewModel extends ChangeNotifier {
             'Round: $combinedRoundNumber, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
         'tip': tip.tip.toString(),
         'submittedTimeUTC': tip.submittedTimeUTC.toString(),
-      });
+      }); */
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

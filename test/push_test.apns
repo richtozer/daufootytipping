@@ -1,0 +1,8 @@
+{
+    "Simulator Target Bundle": "coach.interview.daufootytipping",
+    "aps": {
+        "alert": "уведомление для симулятора!",
+        "badge": 1,
+        "sound": "default"
+    }
+}

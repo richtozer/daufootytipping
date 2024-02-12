@@ -43,7 +43,7 @@ class LiveScoring extends StatelessWidget {
                           : null),
                 ],
               ),
-              Text('Game: ${tip.getGameResultText()}'),
+              Text('Result: ${tip.getGameResultText()}'),
               Row(
                 children: [
                   !tip.isDefaultTip()
@@ -64,7 +64,7 @@ class LiveScoring extends StatelessWidget {
                                     content: Text(
                                         style: TextStyle(color: Colors.black),
                                         'You were automatically given a default tip of [Away] '
-                                        'for this game. With the worlds best Footy Tipping app, you have no excuse to miss a tip! 😄'),
+                                        'for this game. With the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄'),
                                   ),
                                 );
                               },
