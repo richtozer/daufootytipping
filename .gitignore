@@ -1,3 +1,6 @@
+# security
+*.p8
+
 # Miscellaneous
 *.jks
 *.class
