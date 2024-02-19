@@ -9,8 +9,7 @@ class DAUCompsListPage extends StatelessWidget {
 
   Future<void> _addDAUComp(
       DAUCompsViewModel daucompsViewModel, BuildContext context) async {
-    Navigator.push(
-      context,
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DAUCompsEditPage(null, daucompsViewModel),
       ),
@@ -19,11 +18,9 @@ class DAUCompsListPage extends StatelessWidget {
 
   Future<void> _editDAUComp(DAUComp daucomp,
       DAUCompsViewModel daucompsViewModel, BuildContext context) async {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DAUCompsEditPage(daucomp, daucompsViewModel),
-        ));
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => DAUCompsEditPage(daucomp, daucompsViewModel),
+    ));
   }
 
   @override

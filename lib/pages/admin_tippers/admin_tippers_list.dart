@@ -10,8 +10,7 @@ class TippersAdminPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<TippersViewModel>(
-        create: (_) => TippersViewModel(
-            null), //todo this is already is the tree - consider removing
+        create: (_) => TippersViewModel(null),
         child: Scaffold(
             appBar: AppBar(
               leading: IconButton(

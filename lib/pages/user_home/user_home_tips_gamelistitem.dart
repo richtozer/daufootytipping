@@ -32,7 +32,14 @@ class GameListItem extends StatefulWidget {
 
 class _GameListItemState extends State<GameListItem> {
   int _current = 0;
-  final CarouselController _controller = CarouselController();
+  CarouselController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = CarouselController();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -48,7 +55,14 @@ class _GameListItemState extends State<GameListItem> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                Text(textAlign: TextAlign.left, widget.game.homeTeam.name),
+                Text(
+                  widget.game.homeTeam.name,
+                  textAlign: TextAlign.left,
+                  style: const TextStyle(
+                    fontSize:
+                        16.0, // Adjust this value to make the text bigger or smaller
+                  ),
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -71,7 +85,13 @@ class _GameListItemState extends State<GameListItem> {
                     ),
                   ],
                 ),
-                Text(textAlign: TextAlign.left, widget.game.awayTeam.name),
+                Text(
+                    style: const TextStyle(
+                      fontSize:
+                          16.0, // Adjust this value to make the text bigger or smaller
+                    ),
+                    textAlign: TextAlign.left,
+                    widget.game.awayTeam.name),
               ],
             ),
           ),
@@ -108,7 +128,7 @@ class _GameListItemState extends State<GameListItem> {
                             .map((entry) {
                           return GestureDetector(
                             onTap: () {
-                              _controller.animateToPage(entry.key);
+                              _controller!.animateToPage(entry.key);
                             },
                             child: Container(
                               width: 6.0,
@@ -174,5 +194,10 @@ class _GameListItemState extends State<GameListItem> {
             gameTipsViewModel); //roundGames is to support legacy tipping service only
       },
     );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 }

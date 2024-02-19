@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -19,16 +20,6 @@ class TipsPage extends StatelessWidget {
       return _TipsPageBody(currentTipper, daucompsViewModel);
     });
   }
-
-/*   Widget build(BuildContext context) {
-    return Consumer<DAUCompsViewModel>(
-        builder: (context, daucompsViewModel, child) {
-      return ChangeNotifierProvider(
-        create: (context) => GamesViewModel(daucompsViewModel.currentDAUComp),
-        child: _TipsPageBody(currentTipper, daucompsViewModel),
-      );
-    });
-  } */
 }
 
 class _TipsPageBody extends StatefulWidget {
@@ -42,11 +33,12 @@ class _TipsPageBody extends StatefulWidget {
 }
 
 class _TipsPageBodyState extends State<_TipsPageBody> {
-  final ScrollController controller = ScrollController();
+  ScrollController? controller;
 
   @override
   void initState() {
     super.initState();
+    controller = ScrollController();
 
     /*WidgetsBinding.instance.addPostFrameCallback((_) {
       if (controller.hasClients) {
@@ -64,7 +56,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
   }
 
   Widget roundLeagueHeaderListTile(
-      String logo, double width, double height, int combinedRoundNumber) {
+      League leagueHeader, double width, double height, DAURound dauRound) {
     return Stack(
       children: [
         Positioned.fill(
@@ -75,27 +67,33 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
         ),
         ListTile(
           trailing: SvgPicture.asset(
-            logo,
+            leagueHeader.logo,
             width: width,
             height: height,
           ),
           title: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withOpacity(0.8),
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Text('R o u n d: $combinedRoundNumber'),
+            child: Column(
+              children: [
+                Text('R o u n d: ${dauRound.dAUroundNumber}'),
+                Text(
+                    '${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflScore : dauRound.consolidatedScores?.nrlScore} / ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMaxScore : dauRound.consolidatedScores?.nrlMaxScore}'),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget roundLeagueGameBuilder(int combinedRoundNumber, League league) {
+  Widget roundLeagueGameBuilder(DAURound dauRound, League league) {
     return FutureBuilder<List<Game>>(
-      future: widget.daucompsViewModel
-          .getGamesForCombinedRoundNumberAndLeague(combinedRoundNumber, league),
+      future: widget.daucompsViewModel.getGamesForCombinedRoundNumberAndLeague(
+          dauRound.dAUroundNumber, league),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: Text('Wait..'));
@@ -130,8 +128,9 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<int>>(
-      future: widget.daucompsViewModel.getCombinedRoundNumbers(),
+    return FutureBuilder<List<DAURound>>(
+      future: widget.daucompsViewModel
+          .getRoundInfoAndConsolidatedScores(widget.currentTipper),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           //return const Center(child: Text('Wait..'));
@@ -139,8 +138,8 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
         } else {
-          var combinedRoundNumbers = snapshot.data;
-          if (combinedRoundNumbers!.isEmpty) {
+          var roundInfoScores = snapshot.data;
+          if (roundInfoScores!.isEmpty) {
             return const Center(
               child: Text('No Rounds Found'),
             );
@@ -152,17 +151,16 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               controller: controller,
-              itemCount: combinedRoundNumbers.length,
+              itemCount: roundInfoScores.length,
               itemBuilder: (context, index) {
-                var combinedRoundNumber = combinedRoundNumbers[index];
                 return Column(
                   children: [
                     roundLeagueHeaderListTile(
-                        League.nrl.logo, 50, 50, combinedRoundNumber),
-                    roundLeagueGameBuilder(combinedRoundNumber, League.nrl),
+                        League.nrl, 50, 50, roundInfoScores[index]),
+                    roundLeagueGameBuilder(roundInfoScores[index], League.nrl),
                     roundLeagueHeaderListTile(
-                        League.afl.logo, 40, 40, combinedRoundNumber),
-                    roundLeagueGameBuilder(combinedRoundNumber, League.afl),
+                        League.afl, 40, 40, roundInfoScores[index]),
+                    roundLeagueGameBuilder(roundInfoScores[index], League.afl),
                   ],
                 );
               },
@@ -171,5 +169,11 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
         }
       },
     );
+  }
+
+  @override
+  void dispose() {
+    controller!.dispose();
+    super.dispose();
   }
 }

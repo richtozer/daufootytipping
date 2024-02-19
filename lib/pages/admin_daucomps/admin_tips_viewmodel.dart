@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
@@ -101,10 +102,31 @@ class AllTipsViewModel extends ChangeNotifier {
     return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
   }
 
+  //find a tip by game and tipper
+  Future<Tip?> findTip(Game game, Tipper tipper) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      await _initialLoadCompleter.future;
+    }
+    return _tips.firstWhere(
+        (tip) =>
+            tip.game.dbkey == game.dbkey && tip.tipper.dbkey == tipper.dbkey,
+        // return a default tip if no tip is found
+        orElse: () => Tip(
+            tip: GameResult
+                .d, //if the game is in the past and there is no tip from Tipper, then default to a Away win
+            submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0,
+                isUtc:
+                    true), //set the submitted time to the epoch to indicate that this is a default tip
+            game: game,
+            tipper: tipper));
+  }
+
   @override
   void dispose() {
     _tipsStream.cancel(); // stop listening to stream
     _gamesViewModel.removeListener(update);
     super.dispose();
   }
+
+  updateConsolidatedScoring(Map<String, int> tipperRoundLeagueScores) {}
 }

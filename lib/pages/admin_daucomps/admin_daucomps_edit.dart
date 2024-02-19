@@ -2,6 +2,8 @@ import 'dart:developer';
 
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -31,7 +33,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   late bool disableBackButton = false;
   late bool disableSaves = true;
   late bool disableSync = false;
-  late bool syncInProgress = false;
+  late bool disableDownload = false;
+  late bool disableScoring = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -51,9 +54,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     _daucompNrlJsonURLController =
         TextEditingController(text: daucomp?.nrlFixtureJsonURL.toString());
 
-    // if this is a new record, disable sync button
+    // if this is a new record, disable all the buttons
     if (daucomp == null) {
       disableSync = true;
+      disableDownload = true;
+      disableScoring = true;
     }
   }
 
@@ -239,14 +244,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     Consumer<DAUCompsViewModel>(
-                        builder: (context, dcvm, child) {
+                        builder: (context, dauCompsViewModel, child) {
                       if (daucomp == null) {
                         // if this is a new record, dont show the sync button
                         return const SizedBox.shrink();
                       }
                       return OutlinedButton(
                         onPressed: () async {
-                          if (dcvm.isDownloading) {
+                          if (dauCompsViewModel.isDownloading) {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     backgroundColor: Colors.red,
@@ -257,8 +262,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           try {
                             setState(() {
                               disableBackButton = true;
+                              disableSaves = true;
                             });
-                            await dcvm.getNetworkFixtureData(daucomp!);
+                            await dauCompsViewModel
+                                .getNetworkFixtureData(daucomp!);
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -273,17 +280,18 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           } finally {
                             setState(() {
                               disableBackButton = false;
+                              disableSaves = false;
                             });
                           }
                         },
-                        child: Text(!dcvm.isDownloading
-                            ? 'Download fixture'
-                            : 'Downloading fix...'),
+                        child: Text(!dauCompsViewModel.isDownloading
+                            ? 'Download'
+                            : 'Downloading...'),
                       );
                     }),
                     // add a row with a sync button to sync tips with legacy sheet
                     Consumer<DAUCompsViewModel>(
-                        builder: (context, dcvm2, child) {
+                        builder: (context, dauCompsViewModel, child) {
                       if (daucomp == null) {
                         // if this is a new record, dont show the sync button
                         return const SizedBox.shrink();
@@ -291,7 +299,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       return OutlinedButton(
                         onPressed: () async {
                           //check if syncing already in progress...
-                          if (dcvm2.isLegacySyncing) {
+                          if (dauCompsViewModel.isLegacySyncing) {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     backgroundColor: Colors.red,
@@ -299,9 +307,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                         'Legacy tip sync already in progress')));
                             return;
                           }
-                          // check is daucomp dbkey for this record matches the current daucomp dbkey
+                          // check if daucomp dbkey for this record matches the current daucomp dbkey
                           // if not, show a snackbar and return without syncing
-                          if (daucomp?.dbkey != dcvm2.currentDAUComp) {
+                          if (daucomp?.dbkey !=
+                              dauCompsViewModel.currentDAUComp) {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     backgroundColor: Colors.red,
@@ -313,8 +322,12 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
                           // ...if not, initiate the sync
                           try {
-                            String syncResult =
-                                await dcvm2.syncTipsWithLegacy(daucomp!);
+                            setState(() {
+                              disableBackButton = true;
+                              disableSaves = true;
+                            });
+                            String syncResult = await dauCompsViewModel
+                                .syncTipsWithLegacy(daucomp!);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -335,13 +348,91 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                 ),
                               );
                             }
+                          } finally {
+                            setState(() {
+                              disableBackButton = false;
+                              disableSaves = false;
+                            });
                           }
                         },
-                        child: Text(!dcvm2.isLegacySyncing
-                            ? 'Sync tips to sheet'
-                            : 'Sync underway...'),
+                        child: Text(!dauCompsViewModel.isLegacySyncing
+                            ? 'Sync'
+                            : 'Syncing...'),
                       );
                     }),
+                    // add a scoring button to update consolidated scoring
+
+                    ChangeNotifierProvider<GamesViewModel>(
+                        create: (_) => GamesViewModel(daucomp!.dbkey!),
+                        builder: (context, child) {
+                          return ChangeNotifierProvider<TippersViewModel>(
+                            create: (_) => TippersViewModel(null),
+                            builder: (context, child) {
+                              return Consumer<DAUCompsViewModel>(
+                                  builder: (context, dauCompsViewModel, child) {
+                                if (daucomp == null) {
+                                  // if this is a new record, dont show the sync button
+                                  return const SizedBox.shrink();
+                                }
+                                return OutlinedButton(
+                                  onPressed: () async {
+                                    //check if syncing already in progress...
+                                    if (dauCompsViewModel.isScoring) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(const SnackBar(
+                                              backgroundColor: Colors.red,
+                                              content: Text(
+                                                  'Scoring already in progress')));
+                                      return;
+                                    }
+
+                                    // ...if not, initiate the sync
+                                    try {
+                                      TippersViewModel tippersViewModel =
+                                          Provider.of<TippersViewModel>(context,
+                                              listen: false);
+                                      GamesViewModel gamesViewModel =
+                                          Provider.of<GamesViewModel>(context,
+                                              listen: false);
+                                      String syncResult =
+                                          await dauCompsViewModel.updateScoring(
+                                              daucomp!,
+                                              gamesViewModel,
+                                              tippersViewModel);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            backgroundColor: Colors.green,
+                                            content: Text(syncResult),
+                                            duration:
+                                                const Duration(seconds: 10),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            backgroundColor: Colors.red,
+                                            content: Text(
+                                                'An error occurred during the leagcy tip sync: $e'),
+                                            duration:
+                                                const Duration(seconds: 10),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: Text(!dauCompsViewModel.isScoring
+                                      ? 'Score'
+                                      : 'Scoring...'),
+                                );
+                              });
+                            },
+                          );
+                        }),
                   ],
                 ),
                 const Text('Name:',
