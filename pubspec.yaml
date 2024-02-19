@@ -29,20 +29,20 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   carousel_slider: ^4.2.1
-  cloud_firestore: ^4.13.0
+  cloud_firestore: ^4.15.4
   collection: ^1.18.0
   cupertino_icons: ^1.0.2
   dio: ^5.3.4
   email_validator: ^2.1.17
-  firebase_analytics: ^10.7.4
+  firebase_analytics: ^10.8.5
   firebase_app_check: ^0.2.1+8
-  firebase_auth: ^4.14.0
-  firebase_core: ^2.22.0
+  firebase_auth: ^4.17.4
+  firebase_core: ^2.25.4
   firebase_core_platform_interface: ^5.0.0
   firebase_crashlytics: ^3.4.8
   firebase_database: ^10.3.4
-  firebase_messaging: ^14.7.13
-  firebase_remote_config: ^4.3.8
+  firebase_messaging: ^14.7.15
+  firebase_remote_config: ^4.3.13
   firebase_ui_auth: ^1.10.0
   firebase_ui_localizations: ^1.8.0
   firebase_ui_oauth_apple: ^1.2.14

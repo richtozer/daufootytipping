@@ -31,7 +31,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "coach.interview.daufootytipping"
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdkVersion 34
+    //compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     compileOptions {

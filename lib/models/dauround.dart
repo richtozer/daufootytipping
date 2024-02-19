@@ -1,8 +1,10 @@
+import 'package:daufootytipping/models/consolidatedscores.dart';
+
 class DAURound implements Comparable<DAURound> {
   String? dbkey;
   final int dAUroundNumber;
-  //List<Game> roundGames = [];
   List<String> gamesAsKeys = [];
+  ConsolidatedScores? consolidatedScores;
 
   // counstructor
   DAURound({

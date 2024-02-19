@@ -24,8 +24,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // super.build(context);
-
     List<Widget> content() {
       return [
         TipsPage(widget.currentTipper), // Pass currentTipper to TipsPage

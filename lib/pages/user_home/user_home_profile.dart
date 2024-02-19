@@ -19,80 +19,83 @@ class Profile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListView(
-        children: <Widget>[
-          SizedBox(
-            height: 350,
-            child: ProfileScreen(
-              actions: [
-                DisplayNameChangedAction((context, oldName, newName) {
-                  // TODO do something with the new name
-                  throw UnimplementedError();
-                }),
-              ],
+      body: SingleChildScrollView(
+        child: Column(
+          children: <Widget>[
+            SizedBox(
+              height: 350,
+              child: ProfileScreen(
+                actions: [
+                  DisplayNameChangedAction((context, oldName, newName) {
+                    // TODO do something with the new name
+                    throw UnimplementedError();
+                  }),
+                ],
+              ),
             ),
-          ),
-          // Display the current DAUComp
-          const SizedBox(height: 20),
-          Center(child: Consumer<DAUCompsViewModel>(
-              builder: (context, daucompsViewModel, child) {
-            return Column(
-              children: [
-                // display a list of available comps using daucompsViewModel.getDauComps()
-                FutureBuilder<List<DAUComp>>(
-                  future: daucompsViewModel.getDAUcomps(),
-                  builder: (BuildContext context,
-                      AsyncSnapshot<List<DAUComp>> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Text('Loading...');
-                    } else if (snapshot.hasError) {
-                      return Text('Error: ${snapshot.error}');
-                    } else {
-                      return DropdownButton<String>(
-                          value: daucompsViewModel.currentDAUComp,
-                          icon: const Icon(Icons.arrow_downward),
-                          onChanged: (String? newValue) {
-                            // update the current comp
-                            daucompsViewModel.setCurrentDAUComp(newValue!);
-                          },
-                          items: snapshot.data!
-                              .map<DropdownMenuItem<String>>((DAUComp comp) {
-                            return DropdownMenuItem<String>(
-                              value: comp.dbkey,
-                              child: Text(comp.name),
-                            );
-                          }).toList());
-                    }
-                  },
-                ),
-              ],
-            );
-          })),
+            // Display the current DAUComp
+            const SizedBox(height: 20),
+            Center(child: Consumer<DAUCompsViewModel>(
+                builder: (context, daucompsViewModel, child) {
+              return Column(
+                children: [
+                  // display a list of available comps using daucompsViewModel.getDauComps()
+                  FutureBuilder<List<DAUComp>>(
+                    future: daucompsViewModel.getDAUcomps(),
+                    builder: (BuildContext context,
+                        AsyncSnapshot<List<DAUComp>> snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Text('Loading...');
+                      } else if (snapshot.hasError) {
+                        return Text('Error: ${snapshot.error}');
+                      } else {
+                        return DropdownButton<String>(
+                            value: daucompsViewModel.currentDAUComp,
+                            icon: const Icon(Icons.arrow_downward),
+                            onChanged: (String? newValue) {
+                              // update the current comp
+                              daucompsViewModel.setCurrentDAUComp(newValue!);
+                            },
+                            items: snapshot.data!
+                                .map<DropdownMenuItem<String>>((DAUComp comp) {
+                              return DropdownMenuItem<String>(
+                                value: comp.dbkey,
+                                child: Text(comp.name),
+                              );
+                            }).toList());
+                      }
+                    },
+                  ),
+                ],
+              );
+            })),
 
-          Center(
-            child: FutureBuilder<Widget>(
-              future: aboutDialog(context),
-              builder: (BuildContext context, AsyncSnapshot<Widget> snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return snapshot.data!;
-                } else {
-                  return const CircularProgressIndicator();
-                }
-              },
+            Center(
+              child: FutureBuilder<Widget>(
+                future: aboutDialog(context),
+                builder:
+                    (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    return snapshot.data!;
+                  } else {
+                    return const CircularProgressIndicator();
+                  }
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Consumer<TippersViewModel>(
-              builder: (_, TippersViewModel viewModel, __) {
-            if (currentTipper.tipperRole == TipperRole.admin) {
-              return Center(child: adminFunctions(context));
-            } else {
-              // we cannot identify their role at this time, do not display admin functionality
-              return const Center(child: Text("No Admin Access"));
-            }
-          }),
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(height: 20),
+            Consumer<TippersViewModel>(
+                builder: (_, TippersViewModel viewModel, __) {
+              if (currentTipper.tipperRole == TipperRole.admin) {
+                return Center(child: adminFunctions(context));
+              } else {
+                // we cannot identify their role at this time, do not display admin functionality
+                return const Center(child: Text("No Admin Access"));
+              }
+            }),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
