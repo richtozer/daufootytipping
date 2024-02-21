@@ -310,7 +310,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           // check if daucomp dbkey for this record matches the current daucomp dbkey
                           // if not, show a snackbar and return without syncing
                           if (daucomp?.dbkey !=
-                              dauCompsViewModel.currentDAUComp) {
+                              dauCompsViewModel.currentDAUCompDbKey) {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     backgroundColor: Colors.red,
@@ -388,17 +388,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
                                     // ...if not, initiate the sync
                                     try {
-                                      TippersViewModel tippersViewModel =
-                                          Provider.of<TippersViewModel>(context,
-                                              listen: false);
-                                      GamesViewModel gamesViewModel =
-                                          Provider.of<GamesViewModel>(context,
-                                              listen: false);
                                       String syncResult =
                                           await dauCompsViewModel.updateScoring(
-                                              daucomp!,
-                                              gamesViewModel,
-                                              tippersViewModel);
+                                              daucomp!, null);
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(

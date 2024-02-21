@@ -7,6 +7,7 @@ class ConsolidatedScores {
   int nrlMaxScore = 0;
   int nrlMarginTips = 0;
   int nrlMarginUPS = 0;
+  int rank = 0;
 
 //contructor
   ConsolidatedScores({
@@ -18,5 +19,21 @@ class ConsolidatedScores {
     required this.nrlMaxScore,
     required this.nrlMarginTips,
     required this.nrlMarginUPS,
+    required this.rank,
+  });
+}
+
+class ConsolidatedCompScores {
+  int aflCompScore = 0;
+  int aflCompMaxScore = 0;
+  int nrlCompScore = 0;
+  int nrlCompMaxScore = 0;
+
+//contructor
+  ConsolidatedCompScores({
+    required this.aflCompScore,
+    required this.aflCompMaxScore,
+    required this.nrlCompScore,
+    required this.nrlCompMaxScore,
   });
 }

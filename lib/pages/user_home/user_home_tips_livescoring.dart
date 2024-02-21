@@ -1,15 +1,15 @@
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:flutter/material.dart';
 
 class LiveScoring extends StatelessWidget {
   const LiveScoring({
     super.key,
-    required this.tip,
+    required this.tipGame,
   });
 
-  final Tip tip;
+  final TipGame tipGame;
 
   @override
   Widget build(BuildContext context) {
@@ -26,16 +26,16 @@ class LiveScoring extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('${tip.game.scoring?.homeTeamScore}',
-                      style: tip.game.scoring!.didHomeTeamWin()
+                  Text('${tipGame.game.scoring?.homeTeamScore}',
+                      style: tipGame.game.scoring!.didHomeTeamWin()
                           ? const TextStyle(
                               fontSize: 18,
                               backgroundColor: Color(0xff04cf5d),
                               fontWeight: FontWeight.w900)
                           : null),
                   const Text(textAlign: TextAlign.left, ' v '),
-                  Text('${tip.game.scoring?.awayTeamScore}',
-                      style: tip.game.scoring!.didAwayTeamWin()
+                  Text('${tipGame.game.scoring?.awayTeamScore}',
+                      style: tipGame.game.scoring!.didAwayTeamWin()
                           ? const TextStyle(
                               fontSize: 18,
                               backgroundColor: Color(0xff04cf5d),
@@ -43,18 +43,18 @@ class LiveScoring extends StatelessWidget {
                           : null),
                 ],
               ),
-              Text('Result: ${tip.getGameResultText()}'),
+              Text('Result: ${tipGame.getGameResultText()}'),
               Row(
                 children: [
-                  !tip.isDefaultTip()
-                      ? Text(tip.game.league == League.nrl
-                          ? 'Tip: ${tip.tip.nrl}'
-                          : 'Tip: ${tip.tip.afl}')
+                  !tipGame.isDefaultTip()
+                      ? Text(tipGame.game.league == League.nrl
+                          ? 'Tip: ${tipGame.tip.nrl}'
+                          : 'Tip: ${tipGame.tip.afl}')
                       : Row(
                           children: [
-                            Text(tip.game.league == League.nrl
-                                ? 'Tip: ${tip.tip.nrl}'
-                                : 'Tip: ${tip.tip.afl}'),
+                            Text(tipGame.game.league == League.nrl
+                                ? 'Tip: ${tipGame.tip.nrl}'
+                                : 'Tip: ${tipGame.tip.afl}'),
                             InkWell(
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -75,7 +75,7 @@ class LiveScoring extends StatelessWidget {
                 ],
               ),
               Text(
-                  'Score: ${tip.getTipScoreCalculated()} / ${tip.getMaxScoreCalculated()}'),
+                  'Score: ${tipGame.getTipScoreCalculated()} / ${tipGame.getMaxScoreCalculated()}'),
             ],
           ),
         ],

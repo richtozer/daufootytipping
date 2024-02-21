@@ -3,7 +3,8 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 
-class Tip implements Comparable<Tip> {
+// each instance of this class represents a tip for a game
+class TipGame implements Comparable<TipGame> {
   String? dbkey;
   final Game game; //the game being tipped
   final Tipper tipper; //the tipper
@@ -14,7 +15,7 @@ class Tip implements Comparable<Tip> {
   // for the app the format is:         2023-12-28 02:21:55.932148Z
   // for the google form the format is: 2024-01-18T04:03:19.095Z
 
-  Tip(
+  TipGame(
       {this.dbkey,
       required this.game,
       required this.tipper,
@@ -26,9 +27,9 @@ class Tip implements Comparable<Tip> {
         DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true));
   }
 
-  factory Tip.fromJson(
+  factory TipGame.fromJson(
       Map<String, dynamic> data, String key, Tipper tipper, Game game) {
-    return Tip(
+    return TipGame(
         dbkey: key,
         game: game,
         tipper: tipper,
@@ -67,7 +68,7 @@ class Tip implements Comparable<Tip> {
 
   @override
   // method used to provide default sort for Tips in a List[]
-  int compareTo(Tip other) {
+  int compareTo(TipGame other) {
     return submittedTimeUTC.compareTo(other.submittedTimeUTC);
   }
 }

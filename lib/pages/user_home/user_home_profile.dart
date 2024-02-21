@@ -50,7 +50,7 @@ class Profile extends StatelessWidget {
                         return Text('Error: ${snapshot.error}');
                       } else {
                         return DropdownButton<String>(
-                            value: daucompsViewModel.currentDAUComp,
+                            value: daucompsViewModel.currentDAUCompDbKey,
                             icon: const Icon(Icons.arrow_downward),
                             onChanged: (String? newValue) {
                               // update the current comp

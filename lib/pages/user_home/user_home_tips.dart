@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -55,6 +56,41 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
     */
   }
 
+  Widget compHeaderListTile(DAUComp dauComp) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/teams/daulogo.jpg',
+            fit: BoxFit.fill,
+          ),
+        ),
+        ListTile(
+          trailing: SvgPicture.asset(League.afl.logo, width: 40, height: 40),
+          leading: SvgPicture.asset(League.nrl.logo, width: 50, height: 50),
+          title: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Column(
+              children: [
+                Text(
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    '${dauComp.name}'),
+                Text(
+                    'NRL: ${dauComp.consolidatedCompScores?.nrlCompScore} / ${dauComp.consolidatedCompScores?.nrlCompMaxScore} :Max'),
+                Text(
+                    'AFL: ${dauComp.consolidatedCompScores?.aflCompScore} / ${dauComp.consolidatedCompScores?.aflCompMaxScore} :Max'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget roundLeagueHeaderListTile(
       League leagueHeader, double width, double height, DAURound dauRound) {
     return Stack(
@@ -62,10 +98,22 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
         Positioned.fill(
           child: Image.asset(
             'assets/teams/daulogo.jpg',
-            fit: BoxFit.none,
+            fit: BoxFit.fill,
           ),
         ),
         ListTile(
+          onTap: () async {
+            // When the round header is clicked,
+            // update the scoring for this round and tipper
+            // TODO consider removing this functionality
+            widget.daucompsViewModel.updateScoring(
+                await widget.daucompsViewModel
+                    .getCurrentDAUComp()
+                    .then((DAUComp? dauComp) {
+                  return dauComp!;
+                }),
+                widget.currentTipper);
+          },
           trailing: SvgPicture.asset(
             leagueHeader.logo,
             width: width,
@@ -79,9 +127,14 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
             alignment: Alignment.center,
             child: Column(
               children: [
-                Text('R o u n d: ${dauRound.dAUroundNumber}'),
                 Text(
-                    '${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflScore : dauRound.consolidatedScores?.nrlScore} / ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMaxScore : dauRound.consolidatedScores?.nrlMaxScore}'),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
+                Text(
+                    'Score: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflScore : dauRound.consolidatedScores?.nrlScore} / ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMaxScore : dauRound.consolidatedScores?.nrlMaxScore}'),
+                Text(
+                    'Margins: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMarginTips : dauRound.consolidatedScores?.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMarginUPS : dauRound.consolidatedScores?.nrlMarginUPS}'),
+                Text('Rank: ${dauRound.consolidatedScores?.rank} Change: ??'),
               ],
             ),
           ),
@@ -118,7 +171,8 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                   roundGames: games,
                   game: game,
                   currentTipper: widget.currentTipper,
-                  currentDAUCompDBkey: widget.daucompsViewModel.currentDAUComp);
+                  currentDAUCompDBkey:
+                      widget.daucompsViewModel.currentDAUCompDbKey);
             },
           );
         }
@@ -128,9 +182,8 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<DAURound>>(
-      future: widget.daucompsViewModel
-          .getRoundInfoAndConsolidatedScores(widget.currentTipper),
+    return FutureBuilder<DAUComp>(
+      future: widget.daucompsViewModel.getScores(widget.currentTipper),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           //return const Center(child: Text('Wait..'));
@@ -138,34 +191,43 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
         } else {
-          var roundInfoScores = snapshot.data;
-          if (roundInfoScores!.isEmpty) {
+          var dauComp = snapshot.data;
+          if (dauComp!.daurounds!.isEmpty) {
             return const Center(
               child: Text('No Rounds Found'),
             );
           }
           // see here for the need for singlescrollchildview wrapper
           // https://stackoverflow.com/questions/51536756/flutter-listview-jumps-to-top
-          return SingleChildScrollView(
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              controller: controller,
-              itemCount: roundInfoScores.length,
-              itemBuilder: (context, index) {
-                return Column(
-                  children: [
-                    roundLeagueHeaderListTile(
-                        League.nrl, 50, 50, roundInfoScores[index]),
-                    roundLeagueGameBuilder(roundInfoScores[index], League.nrl),
-                    roundLeagueHeaderListTile(
-                        League.afl, 40, 40, roundInfoScores[index]),
-                    roundLeagueGameBuilder(roundInfoScores[index], League.afl),
-                  ],
-                );
-              },
-            ),
+          //return SingleChildScrollView(
+          //child: ListView.builder(
+          return ListView.builder(
+            //shrinkWrap: true,
+            //physics: const NeverScrollableScrollPhysics(),
+            controller: controller,
+            itemCount: dauComp.daurounds?.length,
+            itemBuilder: (context, index) {
+              return Column(
+                children: [
+                  index == 0
+                      ? compHeaderListTile(dauComp)
+                      : const SizedBox
+                          .shrink(), // only show comp header once at beginning
+                  roundLeagueHeaderListTile(
+                      League.nrl, 50, 50, dauComp.daurounds![index]),
+                  roundLeagueGameBuilder(dauComp.daurounds![index], League.nrl),
+                  roundLeagueHeaderListTile(
+                      League.afl, 40, 40, dauComp.daurounds![index]),
+                  roundLeagueGameBuilder(dauComp.daurounds![index], League.afl),
+                  index == dauComp.daurounds?.length
+                      ? compHeaderListTile(dauComp)
+                      : const SizedBox
+                          .shrink(), // only show comp header once at end
+                ],
+              );
+            },
           );
+          //       );
         }
       },
     );

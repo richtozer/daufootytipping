@@ -1,7 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
@@ -99,7 +99,7 @@ class _GameListItemState extends State<GameListItem> {
         Consumer<DAUCompsViewModel>(builder: (context, dcvm2, child) {
           return ChangeNotifierProvider<GameTipsViewModel>(
             create: (context) => GameTipsViewModel(
-                widget.currentTipper, dcvm2.currentDAUComp, widget.game),
+                widget.currentTipper, dcvm2.currentDAUCompDbKey, widget.game),
             child: Consumer<GameTipsViewModel>(
               builder: (context, gameTipsViewModel, child) {
                 return Expanded(
@@ -166,11 +166,11 @@ class _GameListItemState extends State<GameListItem> {
       ];
     } else {
       return [
-        FutureBuilder<Tip?>(
+        FutureBuilder<TipGame?>(
           future: gameTipsViewModel.getLatestGameTip(),
           builder: (context, snapshot) {
             if (snapshot.hasData) {
-              return LiveScoring(tip: snapshot.data!);
+              return LiveScoring(tipGame: snapshot.data!);
             } else if (snapshot.hasError) {
               return Text('Error: ${snapshot.error}');
             } else {

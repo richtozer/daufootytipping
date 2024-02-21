@@ -6,9 +6,9 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:intl/intl.dart';
 
 enum GameState {
-  notStarted,
-  resultKnown,
-  resultNotKnown,
+  notStarted, // game start time is in the future
+  resultKnown, // game start time is in the past, but game score is known
+  resultNotKnown, // game start time is in the past, but game score is not known
 }
 
 class Game implements Comparable<Game> {
