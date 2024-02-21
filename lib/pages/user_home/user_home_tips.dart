@@ -78,7 +78,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
               children: [
                 Text(
                     style: const TextStyle(fontWeight: FontWeight.bold),
-                    '${dauComp.name}'),
+                    dauComp.name),
                 Text(
                     'NRL: ${dauComp.consolidatedCompScores?.nrlCompScore} / ${dauComp.consolidatedCompScores?.nrlCompMaxScore} :Max'),
                 Text(
