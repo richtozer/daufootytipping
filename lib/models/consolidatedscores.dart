@@ -8,6 +8,7 @@ class ConsolidatedScores {
   int nrlMarginTips = 0;
   int nrlMarginUPS = 0;
   int rank = 0;
+  int rankChange = 0;
 
 //contructor
   ConsolidatedScores({
@@ -20,6 +21,7 @@ class ConsolidatedScores {
     required this.nrlMarginTips,
     required this.nrlMarginUPS,
     required this.rank,
+    required this.rankChange,
   });
 }
 

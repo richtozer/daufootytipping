@@ -80,9 +80,9 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                     dauComp.name),
                 Text(
-                    'NRL: ${dauComp.consolidatedCompScores?.nrlCompScore} / ${dauComp.consolidatedCompScores?.nrlCompMaxScore} :Max'),
+                    'NRL: ${dauComp.consolidatedCompScores?.nrlCompScore} / ${dauComp.consolidatedCompScores?.nrlCompMaxScore}'),
                 Text(
-                    'AFL: ${dauComp.consolidatedCompScores?.aflCompScore} / ${dauComp.consolidatedCompScores?.aflCompMaxScore} :Max'),
+                    'AFL: ${dauComp.consolidatedCompScores?.aflCompScore} / ${dauComp.consolidatedCompScores?.aflCompMaxScore}'),
               ],
             ),
           ),
@@ -134,7 +134,8 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                     'Score: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflScore : dauRound.consolidatedScores?.nrlScore} / ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMaxScore : dauRound.consolidatedScores?.nrlMaxScore}'),
                 Text(
                     'Margins: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMarginTips : dauRound.consolidatedScores?.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMarginUPS : dauRound.consolidatedScores?.nrlMarginUPS}'),
-                Text('Rank: ${dauRound.consolidatedScores?.rank} Change: ??'),
+                Text(
+                    'Rank: ${dauRound.consolidatedScores?.rank} Change: ${dauRound.consolidatedScores?.rankChange}'),
               ],
             ),
           ),
@@ -158,7 +159,9 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
           if (games!.isEmpty) {
             return Center(
               heightFactor: 2,
-              child: Text('No ${league.name.toUpperCase()} games this round'),
+              child: Text(
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  'No ${league.name.toUpperCase()} games this round'),
             );
           }
           return ListView.builder(
