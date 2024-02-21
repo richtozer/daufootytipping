@@ -202,11 +202,11 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
           }
           // see here for the need for singlescrollchildview wrapper
           // https://stackoverflow.com/questions/51536756/flutter-listview-jumps-to-top
-          //return SingleChildScrollView(
-          //child: ListView.builder(
-          return ListView.builder(
-            //shrinkWrap: true,
-            //physics: const NeverScrollableScrollPhysics(),
+          return SingleChildScrollView(
+              child: ListView.builder(
+            //return ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
             controller: controller,
             itemCount: dauComp.daurounds?.length,
             itemBuilder: (context, index) {
@@ -229,7 +229,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                 ],
               );
             },
-          );
+          ));
           //       );
         }
       },
