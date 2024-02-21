@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -145,24 +145,24 @@ class LegacyTippingService {
     }
 
     // Get all current tips from realtime database
-    List<Tip> allTips = await allTipsViewModel.getTips();
+    List<TipGame?> tipGames = await allTipsViewModel.getTips();
 
     // Update 2 dimensional list with any tips found.
-    for (Tip tip in allTips) {
+    for (TipGame? tip in tipGames) {
       // Find the sheet index for the tipper tip.tipper.name
       int rowToUpdate =
-          tippers.indexWhere((tipper) => tipper.name == tip.tipper.name);
+          tippers.indexWhere((tipper) => tipper.name == tip?.tipper.name);
 
       if (rowToUpdate == -1) {
         // If a matching row is not found, throw exception
         throw Exception(
-            'Tipper ${tip.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
+            'Tipper ${tip?.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
       } else {
         rowToUpdate--; //account for the removed header row
 
         // update the proposed tipper data with the new tip. Use the league and matchnumber to find the correct character to update
         var targetString = proposedGsheetTipChanges[rowToUpdate]
-            [tip.game.dauRound!.dAUroundNumber - 1];
+            [tip!.game.dauRound!.dAUroundNumber - 1];
         if (tip.game.league == League.nrl) {
           //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
           // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
@@ -291,7 +291,7 @@ class LegacyTippingService {
   }
 
   Future<void> submitTip(
-      String tipperName, Tip tip, int gameIndex, int dauRoundNumber) async {
+      String tipperName, TipGame tip, int gameIndex, int dauRoundNumber) async {
     // Find the row with the matching TipperName
     final rowToUpdate = appTipsData.indexWhere((row) => row[0] == tipperName);
 
@@ -337,6 +337,8 @@ class LegacyTippingService {
   }
 
   Future<void> refreshAppTipsData() async {
+    await initialized();
+
     final values = await sheetsApi.spreadsheets.values.get(
       spreadsheetId!,
       appTipsSheetName,

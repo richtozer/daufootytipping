@@ -3,7 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -14,7 +14,7 @@ import 'package:get_it/get_it.dart';
 const tipsPathRoot = '/AllTips';
 
 class GameTipsViewModel extends ChangeNotifier {
-  Tip? _tip;
+  TipGame? _tipGame;
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
   bool _savingTip = false;
@@ -23,7 +23,7 @@ class GameTipsViewModel extends ChangeNotifier {
   final Game game;
   final Completer<void> _initialLoadCompleter = Completer();
 
-  Tip? get tip => _tip;
+  TipGame? get tip => _tipGame;
 
   bool get savingTip => _savingTip;
 
@@ -60,7 +60,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
         log('Tip found for Tipper ${currentTipper.name} in game ${game.dbkey}, tipData: $tipData');
 
-        _tip = Tip.fromJson(tipData, game.dbkey, currentTipper, game);
+        _tipGame = TipGame.fromJson(tipData, game.dbkey, currentTipper, game);
       } else {
         log('No tip found for Tipper ${currentTipper.name} in game ${game.dbkey}');
       }
@@ -74,7 +74,8 @@ class GameTipsViewModel extends ChangeNotifier {
     }
   }
 
-  void addTip(List<Game> roundGames, Tip tip, int combinedRoundNumber) async {
+  void addTip(
+      List<Game> roundGames, TipGame tip, int combinedRoundNumber) async {
     try {
       _savingTip = true;
 
@@ -113,24 +114,24 @@ class GameTipsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Tip?> getLatestGameTip() async {
+  Future<TipGame?> getLatestGameTip() async {
     return await getLatestGameTipFromDb();
   }
 
-  Future<Tip?> getLatestGameTipFromDb() async {
+  Future<TipGame?> getLatestGameTipFromDb() async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
       log('tips load complete, GameTipsViewModel.getLatestGameTip(${game.dbkey})');
     }
 
-    if (_tip != null) {
-      log('found tip ${_tip!.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name} GameTipsViewModel.getLatestGameTipFromDb()');
-      return _tip;
+    if (_tipGame != null) {
+      log('found tip ${_tipGame!.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name} GameTipsViewModel.getLatestGameTipFromDb()');
+      return _tipGame;
     } else {
       if (game.gameState == GameState.notStarted) {
         return null; //game has not started yet, so assign a null tip
       } else {
-        return Tip(
+        return TipGame(
             tip: GameResult
                 .d, //if the game is in the past and there is no tip from Tipper, then default to a Away win
             submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0,

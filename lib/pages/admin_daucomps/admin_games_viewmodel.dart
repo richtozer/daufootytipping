@@ -21,7 +21,7 @@ class GamesViewModel extends ChangeNotifier {
   bool _savingGame = false;
   Completer<void> _initialLoadCompleter = Completer<void>();
 
-  String currentDAUComp;
+  String selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
 
   // Getters
@@ -35,7 +35,7 @@ class GamesViewModel extends ChangeNotifier {
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   // Constructor
-  GamesViewModel(this.currentDAUComp) {
+  GamesViewModel(this.selectedDAUComp) {
     _teamsViewModel = TeamsViewModel();
     _listenToGames();
   }
@@ -43,7 +43,7 @@ class GamesViewModel extends ChangeNotifier {
   // Database listeners
   void _listenToGames() {
     _gamesStream =
-        _db.child('$gamesPathRoot/$currentDAUComp').onValue.listen((event) {
+        _db.child('$gamesPathRoot/$selectedDAUComp').onValue.listen((event) {
       _handleEvent(event);
     });
   }
@@ -96,7 +96,7 @@ class GamesViewModel extends ChangeNotifier {
         _games = gamesList;
         _games.sort();
       } else {
-        log('No games found for DAUComp $currentDAUComp');
+        log('No games found for DAUComp $selectedDAUComp');
       }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
@@ -131,7 +131,7 @@ class GamesViewModel extends ChangeNotifier {
       dynamic oldValue = gameToUpdate.toFixtureJson()[attributeName];
       if (attributeValue != oldValue) {
         log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
-        updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
+        updates['$gamesPathRoot/$selectedDAUComp/$gameDbKey/$attributeName'] =
             attributeValue;
       } else {
         log('Game: $gameDbKey already has $attributeName: $attributeValue');
@@ -139,7 +139,7 @@ class GamesViewModel extends ChangeNotifier {
     } else {
       log('Game: $gameDbKey not found in local list. adding full game record');
       // add new record to updates Map
-      updates['$gamesPathRoot/$currentDAUComp/$gameDbKey/$attributeName'] =
+      updates['$gamesPathRoot/$selectedDAUComp/$gameDbKey/$attributeName'] =
           attributeValue;
     }
   }
@@ -157,8 +157,8 @@ class GamesViewModel extends ChangeNotifier {
   Future<Game?> findGame(String gameDbKey) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for Game load to complete findGame()');
+      await _initialLoadCompleter.future;
     }
-    await _initialLoadCompleter.future;
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 

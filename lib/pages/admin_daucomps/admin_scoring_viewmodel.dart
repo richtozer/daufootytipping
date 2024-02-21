@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/consolidatedscores.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -87,24 +88,23 @@ class AllScoresViewModel extends ChangeNotifier {
   }
 
   writeConsolidatedScoresToDb(
-      Map<String, Map<String, int>> consolidatedScores) async {
+      Map<String, Map<String, int>> consolidatedScores, DAUComp dauComp) async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
-    //write the consolidated scores to the database at ref $scoresPathRoot/$currentDAUComp
-    Map<String, Object> tipperScores =
-        consolidatedScores.map((tipperDbKey, scoring) {
-      return MapEntry(tipperDbKey, scoring);
-    });
-    // loop through each entry in tipperScores and update database
-    for (var entry in tipperScores.entries) {
-      var tipperDbKey = entry.key;
-      var scoring = entry.value;
+
+    try {
+      // cancel stream while we are doing mass updates
+      _scoresStream.cancel();
+
       _db
           .child(scoresPathRoot)
-          .child(currentDAUComp)
-          .child(tipperDbKey)
-          .update(scoring as Map<String, Object?>);
+          .child(dauComp.dbkey!)
+          .update(consolidatedScores);
+      //}
+    } finally {
+      // restart the stream
+      _listenToScores;
     }
   }
 
@@ -123,6 +123,7 @@ class AllScoresViewModel extends ChangeNotifier {
         nrlMaxScore: 0,
         nrlMarginTips: 0,
         nrlMarginUPS: 0,
+        rank: 0,
       );
     }
     return ConsolidatedScores(
@@ -149,6 +150,35 @@ class AllScoresViewModel extends ChangeNotifier {
           : 0,
       nrlMarginUPS: _scores['${round.dAUroundNumber}_nrl_marginUPS'] != null
           ? _scores['${round.dAUroundNumber}_nrl_marginUPS']!
+          : 0,
+      rank: _scores['${round.dAUroundNumber}_total_score_rank'] != null
+          ? _scores['${round.dAUroundNumber}_total_score_rank']!
+          : 0,
+    );
+  }
+
+  Future<ConsolidatedCompScores> getConsolidatedScoresForComp() async {
+    if (!_initialLoadCompleter.isCompleted) {
+      await _initialLoadCompleter.future;
+    }
+    if (_scores.isEmpty) {
+      return ConsolidatedCompScores(
+        aflCompScore: 0,
+        aflCompMaxScore: 0,
+        nrlCompScore: 0,
+        nrlCompMaxScore: 0,
+      );
+    }
+    return ConsolidatedCompScores(
+      aflCompScore:
+          _scores['total_afl_score'] != null ? _scores['total_afl_score']! : 0,
+      aflCompMaxScore: _scores['total_afl_maxScore'] != null
+          ? _scores['total_afl_maxScore']!
+          : 0,
+      nrlCompScore:
+          _scores['total_nrl_score'] != null ? _scores['total_nrl_score']! : 0,
+      nrlCompMaxScore: _scores['total_nrl_maxScore'] != null
+          ? _scores['total_nrl_maxScore']!
           : 0,
     );
   }

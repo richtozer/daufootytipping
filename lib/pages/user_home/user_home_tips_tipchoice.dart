@@ -3,24 +3,24 @@ import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 
 import 'package:flutter/material.dart';
 
 class TipChoice extends StatelessWidget {
-  final Future<Tip?> latestGameTip;
+  final Future<TipGame?> latestTipGame;
   final GameTipsViewModel gameTipsViewModel;
   final List<Game> roundGames;
 
-  const TipChoice(this.roundGames, this.latestGameTip, this.gameTipsViewModel,
+  const TipChoice(this.roundGames, this.latestTipGame, this.gameTipsViewModel,
       {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Tip?>(
-        future: latestGameTip,
-        builder: (context, AsyncSnapshot<Tip?> snapshot) {
+    return FutureBuilder<TipGame?>(
+        future: latestTipGame,
+        builder: (context, AsyncSnapshot<TipGame?> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
                 child:
@@ -31,7 +31,7 @@ class TipChoice extends StatelessWidget {
             return Text(
                 'Error: ${snapshot.error}'); // Show error message if something went wrong
           } else {
-            Tip? latestGameTip = snapshot.data;
+            TipGame? latestTipGame = snapshot.data;
 
             // display the tippings buttons in this layout:
             //  [Home with margin] [ Home]
@@ -45,25 +45,25 @@ class TipChoice extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       generateChoiceChip(GameResult.a, gameTipsViewModel.game,
-                          latestGameTip, context),
+                          latestTipGame, context),
                       generateChoiceChip(GameResult.b, gameTipsViewModel.game,
-                          latestGameTip, context)
+                          latestTipGame, context)
                     ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       generateChoiceChip(GameResult.c, gameTipsViewModel.game,
-                          latestGameTip, context),
+                          latestTipGame, context),
                     ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       generateChoiceChip(GameResult.d, gameTipsViewModel.game,
-                          latestGameTip, context),
+                          latestTipGame, context),
                       generateChoiceChip(GameResult.e, gameTipsViewModel.game,
-                          latestGameTip, context)
+                          latestTipGame, context)
                     ],
                   )
                 ],
@@ -73,8 +73,8 @@ class TipChoice extends StatelessWidget {
         });
   }
 
-  ChoiceChip generateChoiceChip(
-      GameResult option, Game game, Tip? latestGameTip, BuildContext context) {
+  ChoiceChip generateChoiceChip(GameResult option, Game game,
+      TipGame? latestGameTip, BuildContext context) {
     return ChoiceChip.elevated(
       label: Text(game.league == League.afl ? option.afl : option.nrl),
       tooltip:
@@ -107,7 +107,7 @@ class TipChoice extends StatelessWidget {
               ),
             );
           } else {
-            Tip tip = Tip(
+            TipGame tip = TipGame(
               tipper: gameTipsViewModel.currentTipper,
               game: gameTipsViewModel.game,
               tip: option,
