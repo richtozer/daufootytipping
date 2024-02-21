@@ -36,7 +36,9 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Enable persistence for Realtime Database
   log('aaa main 4');
-  FirebaseDatabase.instance.setPersistenceEnabled(false); //TODO should be true
+  FirebaseDatabase.instance.setPersistenceCacheSizeBytes(20000000);
+  FirebaseDatabase.instance.setPersistenceEnabled(true);
+//unlimited
 
 /*   if (kDebugMode) {
     FirebaseDatabase database = FirebaseDatabase.instance;

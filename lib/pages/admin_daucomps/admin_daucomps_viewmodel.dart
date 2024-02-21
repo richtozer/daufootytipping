@@ -736,6 +736,31 @@ class DAUCompsViewModel extends ChangeNotifier {
     return await findComp(_currentDAUCompDbKey);
   }
 
+  // method to return the highest round number, where all the games have been played
+  Future<int> getHighestRoundNumberWithAllGamesPlayed(DAUComp daucomp) async {
+    int highestRoundNumber = 0;
+
+    for (var round in daucomp.daurounds!..sort((a, b) => b.compareTo(a))) {
+      bool allGamesPlayed = true;
+      for (var gameKey in round.gamesAsKeys) {
+        Game? game = await adminGamesViewModel!.findGame(gameKey);
+        if (game != null) {
+          if (game.gameState == GameState.notStarted) {
+            allGamesPlayed = false;
+            break;
+          }
+        }
+      }
+      if (allGamesPlayed) {
+        highestRoundNumber = round.dAUroundNumber;
+      } else {
+        break;
+      }
+    }
+
+    return highestRoundNumber;
+  }
+
   Future<ConsolidatedCompScores> getConsolidatedScoresForComp(
       Tipper tipper) async {
     //get the current DAUComp
