@@ -124,6 +124,7 @@ class AllScoresViewModel extends ChangeNotifier {
         nrlMarginTips: 0,
         nrlMarginUPS: 0,
         rank: 0,
+        rankChange: 0,
       );
     }
     return ConsolidatedScores(
@@ -154,6 +155,10 @@ class AllScoresViewModel extends ChangeNotifier {
       rank: _scores['${round.dAUroundNumber}_total_score_rank'] != null
           ? _scores['${round.dAUroundNumber}_total_score_rank']!
           : 0,
+      rankChange:
+          _scores['${round.dAUroundNumber}_total_score_rankChange'] != null
+              ? _scores['${round.dAUroundNumber}_total_score_rankChange']!
+              : 0,
     );
   }
 

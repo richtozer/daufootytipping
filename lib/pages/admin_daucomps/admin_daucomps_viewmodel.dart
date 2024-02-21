@@ -689,20 +689,37 @@ class DAUCompsViewModel extends ChangeNotifier {
         } // end of round loops
       } // end of tipper loop
 
+      //rank the tippers for the whole comp
       for (var rankedRound in consolidatedScoresForRanking.entries) {
         String roundNumber = rankedRound.key;
         Map<String, int> tipperRoundTotalScore = rankedRound.value;
+
         // rank the tippers for this round, tippers with the same score will have the same rank
         List<String> rankedTippers = tipperRoundTotalScore.keys.toList()
           ..sort((a, b) => tipperRoundTotalScore[b]!.compareTo(
               tipperRoundTotalScore[a]!)); // sort in descending order
 
-        // add the rank for each tipper to the compTipperRoundLeagueScores
+        // add the rank for each tipper to the compTipperRoundLeagueScores and calculate the rank change
         for (var i = 0; i < rankedTippers.length; i++) {
-          compTipperRoundLeagueScores[rankedTippers[i]]![roundNumber '_rank'] = i + 1; // add 1 to make the rank 1-based
+          String tipper = rankedTippers[i];
+          compTipperRoundLeagueScores[tipper]!['${roundNumber}_rank'] =
+              i + 1; // add 1 to make the rank 1-based
+
+          if (roundNumber != '1_total_score') {
+            int currentRoundRank = i + 1;
+            int previousRoundRank = compTipperRoundLeagueScores[tipper]![
+                '${(int.parse(roundNumber.split('_')[0]) - 1).toString()}_total_score_rank']!;
+            compTipperRoundLeagueScores[tipper]!['${roundNumber}_rankChange'] =
+                previousRoundRank - currentRoundRank;
+          } else {
+            // for round 1, set the rank change to 0
+            compTipperRoundLeagueScores[tipper]!['${roundNumber}_rankChange'] =
+                0;
+          }
         }
       }
 
+      //update the database with the consolidated scores
       allScoresViewModel ??= AllScoresViewModel(daucompToUpdate.dbkey!);
 
       await allScoresViewModel?.writeConsolidatedScoresToDb(
