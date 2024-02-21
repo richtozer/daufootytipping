@@ -699,8 +699,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
         // add the rank for each tipper to the compTipperRoundLeagueScores
         for (var i = 0; i < rankedTippers.length; i++) {
-          compTipperRoundLeagueScores[rankedTippers[i]]!['$roundNumber' +
-              '_rank'] = i + 1; // add 1 to make the rank 1-based
+          compTipperRoundLeagueScores[rankedTippers[i]]![roundNumber '_rank'] = i + 1; // add 1 to make the rank 1-based
         }
       }
 
