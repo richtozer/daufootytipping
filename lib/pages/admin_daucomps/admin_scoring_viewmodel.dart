@@ -110,11 +110,12 @@ class AllScoresViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Leaderboard> getLeaderboardForComp() async {
+  Future<Leaderboard?> getLeaderboardForComp() async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
-    return Leaderboard();
+
+    return null;
   }
 
   Future<ConsolidatedScores> getTipperConsolidatedScoresForRound(

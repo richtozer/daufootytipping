@@ -32,6 +32,7 @@ dependencies:
   cloud_firestore: ^4.15.4
   collection: ^1.18.0
   cupertino_icons: ^1.0.2
+  data_table_2: ^2.5.10
   dio: ^5.3.4
   email_validator: ^2.1.17
   firebase_analytics: ^10.8.5
@@ -69,7 +70,6 @@ dependencies:
   provider: ^6.1.1
   toggle_switch: ^2.1.0
   url_launcher: ^6.2.1
-
 
 dev_dependencies:
   build_runner: ^2.4.6
