@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/consolidatedscores.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/leaderboard.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,7 @@ const scoresPathRoot = '/Scores';
 
 class AllScoresViewModel extends ChangeNotifier {
   Map<String, int> _scores = {};
-  Map<String, Map<String, int>> _allScores = {};
+  Map<String, Map<String, dynamic>> _allScores = {};
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _scoresStream;
 
@@ -38,7 +39,7 @@ class AllScoresViewModel extends ChangeNotifier {
   void _listenToScores() async {
     if (tipper != null) {
       _scoresStream = _db
-          .child('$scoresPathRoot/$currentDAUComp/${tipper!.name}')
+          .child('$scoresPathRoot/$currentDAUComp/${tipper!.dbkey}')
           .onValue
           .listen(_handleEvent, onError: (error) {
         log('Error listening to scores: $error');
@@ -72,8 +73,8 @@ class AllScoresViewModel extends ChangeNotifier {
           });
         } else {
           var tipperScores = dbData.map((key, value) => MapEntry(key, value));
-          _allScores = tipperScores.map((key, value) =>
-              MapEntry(key, Map<String, int>.from(value.cast<String, int>())));
+          _allScores = tipperScores.map((key, value) => MapEntry(
+              key, Map<String, dynamic>.from(value.cast<String, dynamic>())));
         }
       }
     } catch (e) {
@@ -88,7 +89,8 @@ class AllScoresViewModel extends ChangeNotifier {
   }
 
   writeConsolidatedScoresToDb(
-      Map<String, Map<String, int>> consolidatedScores, DAUComp dauComp) async {
+      Map<String, Map<String, dynamic>> consolidatedScores,
+      DAUComp dauComp) async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
@@ -108,7 +110,14 @@ class AllScoresViewModel extends ChangeNotifier {
     }
   }
 
-  Future<ConsolidatedScores> getConsolidatedScoresForRound(
+  Future<Leaderboard> getLeaderboardForComp() async {
+    if (!_initialLoadCompleter.isCompleted) {
+      await _initialLoadCompleter.future;
+    }
+    return Leaderboard();
+  }
+
+  Future<ConsolidatedScores> getTipperConsolidatedScoresForRound(
       DAURound round) async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
@@ -162,7 +171,7 @@ class AllScoresViewModel extends ChangeNotifier {
     );
   }
 
-  Future<ConsolidatedCompScores> getConsolidatedScoresForComp() async {
+  Future<ConsolidatedCompScores> getTipperConsolidatedScoresForComp() async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }

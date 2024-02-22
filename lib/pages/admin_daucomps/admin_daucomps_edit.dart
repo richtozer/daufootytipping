@@ -310,13 +310,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           // check if daucomp dbkey for this record matches the current daucomp dbkey
                           // if not, show a snackbar and return without syncing
                           if (daucomp?.dbkey !=
-                              dauCompsViewModel.currentDAUCompDbKey) {
+                              dauCompsViewModel.defaultDAUCompDbKey) {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     backgroundColor: Colors.red,
                                     duration: Duration(seconds: 15),
                                     content: Text(
-                                        'You can only sync to legacy if this record is the current comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
+                                        'You can only sync to legacy if this record is the active comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
                             return;
                           }
 
@@ -363,7 +363,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     // add a scoring button to update consolidated scoring
 
                     ChangeNotifierProvider<GamesViewModel>(
-                        create: (_) => GamesViewModel(daucomp!.dbkey!),
+                        create: (_) => GamesViewModel(daucomp!),
                         builder: (context, child) {
                           return ChangeNotifierProvider<TippersViewModel>(
                             create: (_) => TippersViewModel(null),

@@ -34,11 +34,14 @@ Future<void> main() async {
   print('aaa main 3');
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // Enable persistence for Realtime Database
+
   log('aaa main 4');
-  FirebaseDatabase.instance.setPersistenceCacheSizeBytes(20000000);
-  FirebaseDatabase.instance.setPersistenceEnabled(true);
-//unlimited
+  if (!kDebugMode) {
+    // in release mode, enable persistence for Realtime Database
+    FirebaseDatabase.instance.setPersistenceEnabled(true);
+  } else {
+    FirebaseDatabase.instance.setPersistenceEnabled(false);
+  }
 
 /*   if (kDebugMode) {
     FirebaseDatabase database = FirebaseDatabase.instance;
@@ -121,7 +124,8 @@ class MyApp extends StatelessWidget {
           child: MaterialApp(
             theme: myTheme,
             title: 'DAU Tips',
-            home: UserAuthPage(remoteConfigService, firebaseService),
+            home: UserAuthPage(
+                configDAUComp, remoteConfigService, firebaseService),
           )),
     );
   }

@@ -1,13 +1,15 @@
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage(this.currentTipper, {super.key});
+  const HomePage(this.currentDAUCompKey, this.currentTipper, {super.key});
 
   final Tipper currentTipper;
+  final String currentDAUCompKey;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -27,9 +29,7 @@ class _HomePageState extends State<HomePage> {
     List<Widget> content() {
       return [
         TipsPage(widget.currentTipper), // Pass currentTipper to TipsPage
-        Center(
-          child: Text('Comp Stats Page ${widget.currentTipper.name}'),
-        ),
+        StatsPage(widget.currentDAUCompKey),
         Profile(widget
             .currentTipper), // Display profile and settings for the logged on tipper
       ];
@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage> {
       ),
       bottomNavigationBar: NavigationBar(
         indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0.0),
+          borderRadius: BorderRadius.circular(8.0),
         ),
         indicatorColor: const Color(0xFF789697),
         onDestinationSelected: (int index) {

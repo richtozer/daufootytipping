@@ -134,8 +134,20 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                     'Score: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflScore : dauRound.consolidatedScores?.nrlScore} / ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMaxScore : dauRound.consolidatedScores?.nrlMaxScore}'),
                 Text(
                     'Margins: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMarginTips : dauRound.consolidatedScores?.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.consolidatedScores?.aflMarginUPS : dauRound.consolidatedScores?.nrlMarginUPS}'),
-                Text(
-                    'Rank: ${dauRound.consolidatedScores?.rank} Change: ${dauRound.consolidatedScores?.rankChange}'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Rank: ${dauRound.consolidatedScores?.rank}  '),
+                    dauRound.consolidatedScores!.rankChange > 0
+                        ? const Icon(color: Colors.green, Icons.arrow_upward)
+                        : dauRound.consolidatedScores!.rankChange < 0
+                            ? const Icon(
+                                color: Colors.red, Icons.arrow_downward)
+                            : const Icon(
+                                color: Colors.redAccent, Icons.sync_alt),
+                    Text('${dauRound.consolidatedScores?.rankChange}'),
+                  ],
+                ),
               ],
             ),
           ),
@@ -175,7 +187,7 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                   game: game,
                   currentTipper: widget.currentTipper,
                   currentDAUCompDBkey:
-                      widget.daucompsViewModel.currentDAUCompDbKey);
+                      widget.daucompsViewModel.selectedDAUCompDbKey);
             },
           );
         }
@@ -222,10 +234,6 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
                   roundLeagueHeaderListTile(
                       League.afl, 40, 40, dauComp.daurounds![index]),
                   roundLeagueGameBuilder(dauComp.daurounds![index], League.afl),
-                  index == dauComp.daurounds?.length
-                      ? compHeaderListTile(dauComp)
-                      : const SizedBox
-                          .shrink(), // only show comp header once at end
                 ],
               );
             },
