@@ -6,6 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 Widget adminFunctions(context) {
   return Card(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8.0),
+    ),
     child: Column(children: [
       OutlinedButton(
           child: const Text('Admin Tippers'),

@@ -25,14 +25,15 @@ const daucompsPath = '/DAUComps';
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
 
-  String selectedDAUCompDBKey = '';
-
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
-  String _currentDAUCompDbKey;
-  String get currentDAUCompDbKey => _currentDAUCompDbKey;
+  late final String _defaultDAUCompDbKey;
+  String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
+
+  String _selectedDAUCompDbKey;
+  String get selectedDAUCompDbKey => _selectedDAUCompDbKey;
 
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
@@ -56,12 +57,16 @@ class DAUCompsViewModel extends ChangeNotifier {
   AllTipsViewModel? allTipsViewModel;
 
   //constructor
-  DAUCompsViewModel(this._currentDAUCompDbKey) {
+  DAUCompsViewModel(this._selectedDAUCompDbKey) {
+    // the passed in comp dbkey comes from remote config, save it as default
+    // user can change it in profile page, selectedDAUCompDbKey will track that change
+    _defaultDAUCompDbKey = _selectedDAUCompDbKey;
+
     _listenToDAUComps();
   }
 
   void setCurrentDAUComp(String newDAUComp) {
-    _currentDAUCompDbKey = newDAUComp;
+    _selectedDAUCompDbKey = newDAUComp;
 
     //reset the gamesViewModel
     userGamesViewModel = null;
@@ -157,12 +162,13 @@ class DAUCompsViewModel extends ChangeNotifier {
         //return 'Error loading AFL fixture data. Exception was: $e';  // TODO - exceptions is not being passed to caller
       }
       if (adminGamesViewModel != null &&
-          adminGamesViewModel!.selectedDAUComp != daucompToUpdate.dbkey!) {
+          adminGamesViewModel!.selectedDAUComp.dbkey !=
+              daucompToUpdate.dbkey!) {
         //invalidte the adminGamesViewModel
         adminGamesViewModel = null;
       }
 
-      adminGamesViewModel ??= GamesViewModel(daucompToUpdate.dbkey!);
+      adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       List<Future> gamesFuture = [];
 
@@ -218,7 +224,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         adminGamesViewModel = null;
       }
 
-      adminGamesViewModel ??= GamesViewModel(daucompToUpdate.dbkey!);
+      adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       AllTipsViewModel allTipsViewModel = AllTipsViewModel(
           tippersViewModel, daucompToUpdate.dbkey!, adminGamesViewModel!);
@@ -412,12 +418,12 @@ class DAUCompsViewModel extends ChangeNotifier {
         AllScoresViewModel.forTipper(daucomp.dbkey!, tipper);
 
     for (var round in getRoundInfoAndConsolidatedScores) {
-      round.consolidatedScores =
-          await tipperScoresViewModel?.getConsolidatedScoresForRound(round);
+      round.consolidatedScores = await tipperScoresViewModel
+          ?.getTipperConsolidatedScoresForRound(round);
     }
 
     daucomp.consolidatedCompScores =
-        await tipperScoresViewModel?.getConsolidatedScoresForComp();
+        await tipperScoresViewModel?.getTipperConsolidatedScoresForComp();
 
     return daucomp;
   }
@@ -449,19 +455,22 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
     await initialLoadComplete;
 
-    userGamesViewModel ??= GamesViewModel(_currentDAUCompDbKey);
-
     List<Game> gamesForCombinedRoundNumberAndLeague = [];
     DAUComp? daucomp = await getCurrentDAUComp();
+
+    userGamesViewModel ??= GamesViewModel(daucomp!);
 
     for (var round in daucomp!.daurounds!) {
       if (round.dAUroundNumber == combinedRoundNumber) {
         for (var gameKey in round.gamesAsKeys) {
           Game? game = await userGamesViewModel!.findGame(gameKey);
           if (game != null && game.league == league) {
-            // allow for reverse lookup of round from a game object
-            game.dauRound = daucomp.daurounds![combinedRoundNumber - 1];
-            log('Associating game record ${game.dbkey} to combined round: ${daucomp.daurounds![combinedRoundNumber - 1].dAUroundNumber}');
+            //// allow for reverse lookup of round from a game object
+            // if (game.dauRound == null) {
+            //   game.dauRound = daucomp.daurounds![combinedRoundNumber - 1];
+            //   log('Associating game record ${game.dbkey} to combined round: ${daucomp.daurounds![combinedRoundNumber - 1].dAUroundNumber}');
+            // }
+
             //add the game to the list
             gamesForCombinedRoundNumberAndLeague.add(game);
           }
@@ -522,7 +531,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         adminGamesViewModel = null;
       }
 
-      adminGamesViewModel ??= GamesViewModel(daucompToUpdate.dbkey!);
+      adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       // use the AllScoresViewModel to update the database with cosolidated scoring
       if (allTipsViewModel != null &&
@@ -535,7 +544,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           tippersViewModel, daucompToUpdate.dbkey!, adminGamesViewModel!);
 
       // create a map of total scores for each Tipper, DauRound and League combination
-      Map<String, Map<String, int>> compTipperRoundLeagueScores = {};
+      Map<String, Map<String, dynamic>> compTipperRoundLeagueScores = {};
 
       //create a separate map to store the consolidated league scores for each round per tipper
       //these will be used to rank tippers per round
@@ -551,16 +560,21 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       for (Tipper tipperToScore in tippers) {
         // loop through each round and then each league and total up the score for this tipper
-        compTipperRoundLeagueScores[tipperToScore.name] = {};
+        compTipperRoundLeagueScores[tipperToScore.dbkey!] = {};
+
+        compTipperRoundLeagueScores[tipperToScore.dbkey]!['00_name'] =
+            tipperToScore.name;
 
         // keep track of the total nrl and afl scores for this tipper
-        compTipperRoundLeagueScores[tipperToScore.name]!['total_nrl_score'] = 0;
-        compTipperRoundLeagueScores[tipperToScore.name]!['total_nrl_maxScore'] =
+        compTipperRoundLeagueScores[tipperToScore.dbkey]!['total_nrl_score'] =
             0;
+        compTipperRoundLeagueScores[tipperToScore.dbkey]![
+            'total_nrl_maxScore'] = 0;
 
-        compTipperRoundLeagueScores[tipperToScore.name]!['total_afl_score'] = 0;
-        compTipperRoundLeagueScores[tipperToScore.name]!['total_afl_maxScore'] =
+        compTipperRoundLeagueScores[tipperToScore.dbkey]!['total_afl_score'] =
             0;
+        compTipperRoundLeagueScores[tipperToScore.dbkey]![
+            'total_afl_maxScore'] = 0;
 
         for (var dauRound in daucompToUpdate.daurounds!) {
           if (consolidatedScoresForRanking[
@@ -571,25 +585,25 @@ class DAUCompsViewModel extends ChangeNotifier {
           }
           consolidatedScoresForRanking[
                   '${dauRound.dAUroundNumber}_total_score']![
-              tipperToScore.name] = 0;
+              tipperToScore.dbkey!] = 0;
 
           //init the round consolidated scores for this tipper and each league
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_afl_score'] = 0;
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_afl_maxScore'] = 0;
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_afl_marginTips'] = 0;
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_afl_marginUPS'] = 0;
 
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_nrl_score'] = 0;
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_nrl_maxScore'] = 0;
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_nrl_marginTips'] = 0;
-          compTipperRoundLeagueScores[tipperToScore.name]![
+          compTipperRoundLeagueScores[tipperToScore.dbkey]![
               '${dauRound.dAUroundNumber}_nrl_marginUPS'] = 0;
 
           for (var gameKey in dauRound.gamesAsKeys) {
@@ -611,9 +625,9 @@ class DAUCompsViewModel extends ChangeNotifier {
                       ? 1
                       : 0;
 
-              compTipperRoundLeagueScores[tipperToScore.name]![
+              compTipperRoundLeagueScores[tipperToScore.dbkey]![
                   '${key}_marginTips'] = compTipperRoundLeagueScores[
-                      tipperToScore.name]!['${key}_marginTips']! +
+                      tipperToScore.dbkey]!['${key}_marginTips']! +
                   marginTip;
 
               // if this game has started or finished with score, then calculate the scores for this tipper
@@ -622,34 +636,34 @@ class DAUCompsViewModel extends ChangeNotifier {
                 int maxScore = tipGame.getMaxScoreCalculated();
 
                 // use the composite key to update the score
-                compTipperRoundLeagueScores[tipperToScore.name]![
+                compTipperRoundLeagueScores[tipperToScore.dbkey]![
                     '${key}_score'] = compTipperRoundLeagueScores[
-                        tipperToScore.name]!['${key}_score']! +
+                        tipperToScore.dbkey]!['${key}_score']! +
                     score;
 
-                compTipperRoundLeagueScores[tipperToScore.name]![
+                compTipperRoundLeagueScores[tipperToScore.dbkey]![
                     '${key}_maxScore'] = compTipperRoundLeagueScores[
-                        tipperToScore.name]!['${key}_maxScore']! +
+                        tipperToScore.dbkey]!['${key}_maxScore']! +
                     maxScore;
 
                 // add this game score to the total score based on league
                 if (game.league == League.afl) {
-                  compTipperRoundLeagueScores[tipperToScore.name]![
+                  compTipperRoundLeagueScores[tipperToScore.dbkey]![
                       'total_afl_score'] = compTipperRoundLeagueScores[
-                          tipperToScore.name]!['total_afl_score']! +
+                          tipperToScore.dbkey]!['total_afl_score']! +
                       score;
-                  compTipperRoundLeagueScores[tipperToScore.name]![
+                  compTipperRoundLeagueScores[tipperToScore.dbkey]![
                       'total_afl_maxScore'] = compTipperRoundLeagueScores[
-                          tipperToScore.name]!['total_afl_maxScore']! +
+                          tipperToScore.dbkey]!['total_afl_maxScore']! +
                       maxScore;
                 } else {
-                  compTipperRoundLeagueScores[tipperToScore.name]![
+                  compTipperRoundLeagueScores[tipperToScore.dbkey]![
                       'total_nrl_score'] = compTipperRoundLeagueScores[
-                          tipperToScore.name]!['total_nrl_score']! +
+                          tipperToScore.dbkey]!['total_nrl_score']! +
                       score;
-                  compTipperRoundLeagueScores[tipperToScore.name]![
+                  compTipperRoundLeagueScores[tipperToScore.dbkey]![
                       'total_nrl_maxScore'] = compTipperRoundLeagueScores[
-                          tipperToScore.name]!['total_nrl_maxScore']! +
+                          tipperToScore.dbkey]!['total_nrl_maxScore']! +
                       maxScore;
                 }
 
@@ -669,9 +683,9 @@ class DAUCompsViewModel extends ChangeNotifier {
                               tipGame.tip == GameResult.e)
                       ? 1
                       : 0;
-                  compTipperRoundLeagueScores[tipperToScore.name]![
+                  compTipperRoundLeagueScores[tipperToScore.dbkey]![
                       '${key}_marginUPS'] = compTipperRoundLeagueScores[
-                          tipperToScore.name]!['${key}_marginUPS']! +
+                          tipperToScore.dbkey]!['${key}_marginUPS']! +
                       marginUPS;
                 }
               } // end of game started check
@@ -682,9 +696,9 @@ class DAUCompsViewModel extends ChangeNotifier {
           // this will be used to rank tippers per round
           consolidatedScoresForRanking[
                   '${dauRound.dAUroundNumber}_total_score']![
-              tipperToScore.name] = compTipperRoundLeagueScores[tipperToScore
-                  .name]!['${dauRound.dAUroundNumber}_afl_score']! +
-              compTipperRoundLeagueScores[tipperToScore.name]![
+              tipperToScore.dbkey!] = compTipperRoundLeagueScores[tipperToScore
+                  .dbkey]!['${dauRound.dAUroundNumber}_afl_score']! +
+              compTipperRoundLeagueScores[tipperToScore.dbkey]![
                   '${dauRound.dAUroundNumber}_nrl_score']!;
         } // end of round loops
       } // end of tipper loop
@@ -733,7 +747,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<DAUComp?> getCurrentDAUComp() async {
-    return await findComp(_currentDAUCompDbKey);
+    return await findComp(_selectedDAUCompDbKey);
   }
 
   // method to return the highest round number, where all the games have been played
@@ -769,7 +783,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     tipperScoresViewModel ??=
         AllScoresViewModel.forTipper(daucomp!.dbkey!, tipper);
 
-    return tipperScoresViewModel!.getConsolidatedScoresForComp();
+    return tipperScoresViewModel!.getTipperConsolidatedScoresForComp();
   }
 
   @override

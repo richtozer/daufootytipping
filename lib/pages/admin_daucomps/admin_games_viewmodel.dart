@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -21,7 +23,7 @@ class GamesViewModel extends ChangeNotifier {
   bool _savingGame = false;
   Completer<void> _initialLoadCompleter = Completer<void>();
 
-  String selectedDAUComp;
+  DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
 
   // Getters
@@ -42,8 +44,10 @@ class GamesViewModel extends ChangeNotifier {
 
   // Database listeners
   void _listenToGames() {
-    _gamesStream =
-        _db.child('$gamesPathRoot/$selectedDAUComp').onValue.listen((event) {
+    _gamesStream = _db
+        .child('$gamesPathRoot/${selectedDAUComp.dbkey}')
+        .onValue
+        .listen((event) {
       _handleEvent(event);
     });
   }
@@ -58,8 +62,8 @@ class GamesViewModel extends ChangeNotifier {
         // Deserialize the games
         List<Game> gamesList =
             await Future.wait(allGames.entries.map((entry) async {
-          String key = entry.key; // Retrieve the Firebase key
-          String league = key.split('-').first;
+          String dbKey = entry.key; // Retrieve the Firebase key
+          String league = dbKey.split('-').first;
           dynamic gameAsJSON = entry.value;
 
           //we need to deserialize the locationlatlng before we can deserialize the game
@@ -78,10 +82,26 @@ class GamesViewModel extends ChangeNotifier {
               homeTeamScore: gameAsJSON['HomeTeamScore'],
               awayTeamScore: gameAsJSON['AwayTeamScore']);
 
+          // loop through selectedDAUComp.daurounds to find the linked dauRound for this game
+          DAURound? linkedDauRound;
+          for (var dauRound in selectedDAUComp.daurounds!) {
+            // now loop through dauRound.gamesAsKeys
+            for (var gameKey in dauRound.gamesAsKeys) {
+              if (gameKey == dbKey) {
+                linkedDauRound = dauRound;
+                break;
+              }
+            }
+          }
+
           if (homeTeam != null && awayTeam != null) {
-            log('Game: $key about to be deserialized');
+            log('Game: $dbKey about to be deserialized');
             Game game = Game.fromFixtureJson(
-                key, Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
+                dbKey,
+                Map<String, dynamic>.from(gameAsJSON),
+                homeTeam,
+                awayTeam,
+                linkedDauRound);
             game.locationLatLong = locationLatLng;
             game.scoring = scoring;
             return game;
@@ -96,7 +116,7 @@ class GamesViewModel extends ChangeNotifier {
         _games = gamesList;
         _games.sort();
       } else {
-        log('No games found for DAUComp $selectedDAUComp');
+        log('No games found for DAUComp ${selectedDAUComp.name}');
       }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
@@ -131,7 +151,7 @@ class GamesViewModel extends ChangeNotifier {
       dynamic oldValue = gameToUpdate.toFixtureJson()[attributeName];
       if (attributeValue != oldValue) {
         log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
-        updates['$gamesPathRoot/$selectedDAUComp/$gameDbKey/$attributeName'] =
+        updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
       } else {
         log('Game: $gameDbKey already has $attributeName: $attributeValue');
@@ -139,7 +159,7 @@ class GamesViewModel extends ChangeNotifier {
     } else {
       log('Game: $gameDbKey not found in local list. adding full game record');
       // add new record to updates Map
-      updates['$gamesPathRoot/$selectedDAUComp/$gameDbKey/$attributeName'] =
+      updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
           attributeValue;
     }
   }

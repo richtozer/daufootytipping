@@ -38,6 +38,9 @@ class TipChoice extends StatelessWidget {
             //           [Draw]
             //  [Away] [Away with margin]
             return Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -82,7 +85,7 @@ class TipChoice extends StatelessWidget {
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0.0),
+        borderRadius: BorderRadius.circular(8.0),
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
       selectedColor: const Color(0xFF789697),
@@ -117,7 +120,7 @@ class TipChoice extends StatelessWidget {
             gameTipsViewModel.addTip(
                 roundGames,
                 tip,
-                tip.game.dauRound!
+                tip.game.dauRound
                     .dAUroundNumber); //roundGames is passed to support legacy tipping only
           }
         } catch (e) {

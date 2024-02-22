@@ -148,34 +148,34 @@ class LegacyTippingService {
     List<TipGame?> tipGames = await allTipsViewModel.getTips();
 
     // Update 2 dimensional list with any tips found.
-    for (TipGame? tip in tipGames) {
+    for (TipGame? tipGame in tipGames) {
       // Find the sheet index for the tipper tip.tipper.name
       int rowToUpdate =
-          tippers.indexWhere((tipper) => tipper.name == tip?.tipper.name);
+          tippers.indexWhere((tipper) => tipper.name == tipGame?.tipper.name);
 
       if (rowToUpdate == -1) {
         // If a matching row is not found, throw exception
         throw Exception(
-            'Tipper ${tip?.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
+            'Tipper ${tipGame?.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
       } else {
         rowToUpdate--; //account for the removed header row
 
         // update the proposed tipper data with the new tip. Use the league and matchnumber to find the correct character to update
         var targetString = proposedGsheetTipChanges[rowToUpdate]
-            [tip!.game.dauRound!.dAUroundNumber - 1];
-        if (tip.game.league == League.nrl) {
+            [tipGame!.game.dauRound.dAUroundNumber - 1];
+        if (tipGame.game.league == League.nrl) {
           //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
           // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
           // that is the offset to use to update the proposedGsheetTipChanges
-          int gameIndex = tip.game.dauRound!.gamesAsKeys
+          int gameIndex = tipGame.game.dauRound.gamesAsKeys
               .where((element) => element.contains('nrl-'))
               .toList()
-              .indexOf(tip.game.dbkey);
+              .indexOf(tipGame.game.dbkey);
 
           targetString = targetString?.replaceRange(
-              gameIndex, gameIndex + 1, tip.tip.name);
+              gameIndex, gameIndex + 1, tipGame.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
-              [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
+              [tipGame.game.dauRound.dAUroundNumber - 1] = targetString;
         } else {
           //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
           // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
@@ -183,14 +183,14 @@ class LegacyTippingService {
           // add 8 to the offset to account for the fact that nrl tips go first in the string
 
           int gameIndex = 8 +
-              tip.game.dauRound!.gamesAsKeys
+              tipGame.game.dauRound.gamesAsKeys
                   .where((element) => element.contains('afl-'))
                   .toList()
-                  .indexOf(tip.game.dbkey);
+                  .indexOf(tipGame.game.dbkey);
           targetString = targetString?.replaceRange(
-              gameIndex, gameIndex + 1, tip.tip.name);
+              gameIndex, gameIndex + 1, tipGame.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
-              [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
+              [tipGame.game.dauRound.dAUroundNumber - 1] = targetString;
         }
       }
     }

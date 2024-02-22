@@ -44,7 +44,7 @@ class _GameListItemState extends State<GameListItem> {
   Widget build(BuildContext context) {
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
+        borderRadius: BorderRadius.circular(16.0),
       ),
       color: Colors.grey[300],
       child: Row(children: [
@@ -99,7 +99,7 @@ class _GameListItemState extends State<GameListItem> {
         Consumer<DAUCompsViewModel>(builder: (context, dcvm2, child) {
           return ChangeNotifierProvider<GameTipsViewModel>(
             create: (context) => GameTipsViewModel(
-                widget.currentTipper, dcvm2.currentDAUCompDbKey, widget.game),
+                widget.currentTipper, dcvm2.selectedDAUCompDbKey, widget.game),
             child: Consumer<GameTipsViewModel>(
               builder: (context, gameTipsViewModel, child) {
                 return Expanded(

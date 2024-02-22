@@ -17,8 +17,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 class UserAuthPage extends StatefulWidget {
-  const UserAuthPage(this.remoteConfigService, this.firebaseService,
+  const UserAuthPage(
+      this.currentDAUCompKey, this.remoteConfigService, this.firebaseService,
       {super.key});
+
+  final String currentDAUCompKey;
 
   final RemoteConfigService remoteConfigService;
   final FirebaseService firebaseService;
@@ -193,7 +196,7 @@ class _UserAuthPageState extends State<UserAuthPage> {
                     Tipper linkedTipper = snapshot.data as Tipper;
                     return Consumer<TippersViewModel>(
                       builder: (context, tippersViewModel, child) {
-                        return HomePage(linkedTipper);
+                        return HomePage(widget.currentDAUCompKey, linkedTipper);
                       },
                     );
                   }
