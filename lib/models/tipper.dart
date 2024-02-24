@@ -9,11 +9,13 @@ class Tipper implements Comparable<Tipper> {
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
   final bool active;
   final TipperRole tipperRole;
+  String? photoURL;
   //List<DeviceToken?>? deviceTokens;
 
   //constructor
   Tipper(
       {this.dbkey,
+      this.photoURL,
       //this.deviceTokens,
       required this.authuid,
       required this.email,
@@ -36,14 +38,16 @@ class Tipper implements Comparable<Tipper> {
     } */
 
     return Tipper(
-        dbkey: key,
-        //deviceTokens: deviceTokensList,
-        authuid: data['authuid'] ?? '',
-        email: data['email'] ?? '',
-        name: data['name'] ?? '',
-        tipperID: data['tipperID'] ?? '',
-        active: data['active'] ?? false,
-        tipperRole: TipperRole.values.byName(data['tipperRole']));
+      dbkey: key,
+      //deviceTokens: deviceTokensList,
+      authuid: data['authuid'] ?? '',
+      email: data['email'] ?? '',
+      name: data['name'] ?? '',
+      tipperID: data['tipperID'] ?? '',
+      active: data['active'] ?? false,
+      tipperRole: TipperRole.values.byName(data['tipperRole']),
+      photoURL: data['photoURL'] ?? '',
+    );
   }
 
   static List<Tipper?> fromJsonList(dynamic json) {
@@ -71,6 +75,7 @@ class Tipper implements Comparable<Tipper> {
       "active": active,
       "tipperRole": tipperRole.toString().split('.').last,
       //"deviceTokens": deviceTokenList,
+      "photoURL": photoURL
     };
   }
 
