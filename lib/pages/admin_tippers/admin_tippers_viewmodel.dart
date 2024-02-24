@@ -278,6 +278,13 @@ class TippersViewModel extends ChangeNotifier {
       log('linkUserToTipper() Tipper ${currentTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
       _linkedTipper = currentTipper;
 
+      //update photoURL if it has changed
+      if (currentTipper.photoURL != authenticatedFirebaseUser.photoURL) {
+        await updateTipperAttribute(currentTipper.dbkey!, "photoURL",
+            authenticatedFirebaseUser.photoURL);
+        await saveBatchOfTipperAttributes();
+      }
+
       await registerLinkedTipperForMessaging();
       return currentTipper;
     }
