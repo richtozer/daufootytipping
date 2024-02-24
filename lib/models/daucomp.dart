@@ -1,4 +1,4 @@
-import 'package:daufootytipping/models/consolidatedscores.dart';
+import 'package:daufootytipping/models/round_comp_scoring.dart';
 import 'package:daufootytipping/models/dauround.dart';
 
 class DAUComp implements Comparable<DAUComp> {
@@ -8,7 +8,7 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri nrlFixtureJsonURL;
   List<DAURound>? daurounds = [];
   final bool active;
-  ConsolidatedCompScores? consolidatedCompScores;
+  CompScore? consolidatedCompScores;
 
   //constructor
   DAUComp({

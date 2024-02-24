@@ -53,6 +53,7 @@ class TippersViewModel extends ChangeNotifier {
     _tippersStream = _db.child(tippersPath!).onValue.listen((event) {
       _handleEvent(event);
     });
+    log('Tippers db Listener: Listening to tippers in database on path $tippersPath');
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
