@@ -16,8 +16,8 @@ import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
-class UserAuthPage extends StatefulWidget {
-  const UserAuthPage(
+class UserAuthPage extends StatelessWidget {
+  UserAuthPage(
       this.currentDAUCompKey, this.remoteConfigService, this.firebaseService,
       {super.key});
 
@@ -26,11 +26,6 @@ class UserAuthPage extends StatefulWidget {
   final RemoteConfigService remoteConfigService;
   final FirebaseService firebaseService;
 
-  @override
-  State<UserAuthPage> createState() => _UserAuthPageState();
-}
-
-class _UserAuthPageState extends State<UserAuthPage> {
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 
   PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
@@ -39,8 +34,7 @@ class _UserAuthPageState extends State<UserAuthPage> {
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
     List<String> currentVersionParts = packageInfo.version.split('.');
-    String minAppVersion =
-        await widget.remoteConfigService.getConfigMinAppVersion();
+    String minAppVersion = await remoteConfigService.getConfigMinAppVersion();
     List<String> newVersionParts = minAppVersion.split('.');
 
     for (int i = 0; i < newVersionParts.length; i++) {
@@ -196,7 +190,7 @@ class _UserAuthPageState extends State<UserAuthPage> {
                     Tipper linkedTipper = snapshot.data as Tipper;
                     return Consumer<TippersViewModel>(
                       builder: (context, tippersViewModel, child) {
-                        return HomePage(widget.currentDAUCompKey, linkedTipper);
+                        return HomePage(currentDAUCompKey, linkedTipper);
                       },
                     );
                   }
