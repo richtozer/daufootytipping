@@ -14,13 +14,7 @@ class FirebaseService extends ChangeNotifier {
   String? get fbmToken => _fbmToken;
 
   Future<void> initializeFirebaseMessaging() async {
-    // For apple platforms, ensure the APNS token is available before making any FCM plugin API calls
-    final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-
-    if (apnsToken != null) {
-      log('APNS token: $apnsToken');
-      // APNS token is available, make FCM plugin API requests...
-    }
+    log('Initializing Firebase messaging');
 
     _fbmToken = await FirebaseMessaging.instance.getToken();
     if (_fbmToken != null) {
@@ -28,6 +22,7 @@ class FirebaseService extends ChangeNotifier {
     } else {
       log('Firebase token is null');
     }
+    //}
 
     notifyListeners();
 
