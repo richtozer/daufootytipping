@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:daufootytipping/models/consolidatedscores.dart';
+import 'package:daufootytipping/models/round_comp_scoring.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/leaderboard.dart';
@@ -10,25 +10,33 @@ import 'package:flutter/material.dart';
 
 // define  constant for firestore database location
 const scoresPathRoot = '/Scores';
+const roundScoresRoot = 'round_scores';
+const compScoresRoot = 'comp_scores';
 
-class AllScoresViewModel extends ChangeNotifier {
-  Map<String, int> _scores = {};
-  Map<String, Map<String, dynamic>> _allScores = {};
+class ScoresViewModel extends ChangeNotifier {
+  List<RoundScores> _tipperRoundScores = [];
+  late CompScore _tipperCompScores;
+
   final _db = FirebaseDatabase.instance.ref();
-  late StreamSubscription<DatabaseEvent> _scoresStream;
+  late StreamSubscription<DatabaseEvent> _tipperRoundScoresStream;
+  late StreamSubscription<DatabaseEvent> _tipperCompScoresStream;
 
   final String currentDAUComp;
   Tipper? tipper;
-  final Completer<void> _initialLoadCompleter = Completer();
-  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
+  final Completer<void> _initialRoundLoadCompleter = Completer();
+  Future<void> get initialRoundComplete => _initialRoundLoadCompleter.future;
+  final Completer<void> _initialCompLoadCompleter = Completer();
+  Future<void> get initialCompComplete => _initialCompLoadCompleter.future;
 
   //constructor
-  AllScoresViewModel(this.currentDAUComp) {
+  ScoresViewModel(this.currentDAUComp) {
+    log('***ScoresViewModel_constructor(ALL TIPPERS)***');
     _listenToScores();
   }
 
   // Second constructor
-  AllScoresViewModel.forTipper(this.currentDAUComp, this.tipper) {
+  ScoresViewModel.forTipper(this.currentDAUComp, this.tipper) {
+    log('***ScoresViewModel_constructor(${tipper!.name})***');
     _listenToScores();
   }
 
@@ -38,169 +46,160 @@ class AllScoresViewModel extends ChangeNotifier {
 
   void _listenToScores() async {
     if (tipper != null) {
-      _scoresStream = _db
-          .child('$scoresPathRoot/$currentDAUComp/${tipper!.dbkey}')
+      _tipperRoundScoresStream = _db
+          .child(
+              '$scoresPathRoot/$currentDAUComp/$roundScoresRoot/${tipper!.dbkey}')
           .onValue
           .listen(_handleEvent, onError: (error) {
-        log('Error listening to scores: $error');
+        log('Error listening to round scores: $error');
+      });
+
+      _tipperCompScoresStream = _db
+          .child(
+              '$scoresPathRoot/$currentDAUComp/$compScoresRoot/${tipper!.dbkey}')
+          .onValue
+          .listen(_handleEvent, onError: (error) {
+        log('Error listening to comp scores: $error');
       });
     } else {
-      _scoresStream = _db
+      //TODO
+/*       _scoresStream = _db
           .child('$scoresPathRoot/$currentDAUComp')
           .onValue
           .listen(_handleEvent, onError: (error) {
         log('Error listening to scores: $error');
-      });
+      }); */
     }
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
-      log('***AllScoresViewModel_handleEvent()***');
+      log('***ScoresViewModel_handleEvent()***');
       if (event.snapshot.exists) {
-        final dbData =
-            Map<String, dynamic>.from(event.snapshot.value as dynamic);
-
         // deserialize the scores, they will be in one of 2 formats depending on the contructor used:
         // 1. Map<String, int> if no tipperID is provided
-        // 2. Map<String, Map<String, int>> if a tipperID is provided
+        // 2. List<Map<String, int>> if a tipperID is provided
         if (tipper != null) {
-          // _TypeError (type '_Map<String, dynamic>' is not a subtype of type 'Map<String, int>' in type cast)
-          //_scores = dbData as Map<String, int>; //
+          //deserialize the scores - they are in this fomat: List<Map<String, int>>
+          //and need to be converted to List<RoundScores>
 
-          _scores = dbData.map((key, value) {
-            return MapEntry(key, int.tryParse(value.toString()) ?? 0);
-          });
+          var dbData = event.snapshot.value;
+
+          // check which stream has fired this event based on dbData datatype
+
+          if (dbData is Map) {
+            //deserialize the comp total scores - they are in this fomat: Map<String, int>
+            //and need to be converted to CompScore
+            _tipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
+                event.snapshot.value as Map<dynamic, dynamic>));
+
+            if (!_initialCompLoadCompleter.isCompleted) {
+              _initialCompLoadCompleter.complete();
+            }
+          } else {
+            if (dbData is! List) {
+              throw Exception('Invalid data type for round scores');
+            }
+            //deserialize the scores - they are in this fomat: List<Map<String, int>>
+            //and need to be converted to List<RoundScores>
+            _tipperRoundScores = dbData
+                .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
+                .toList();
+            if (!_initialRoundLoadCompleter.isCompleted) {
+              _initialRoundLoadCompleter.complete();
+            }
+          }
         } else {
-          var tipperScores = dbData.map((key, value) => MapEntry(key, value));
-          _allScores = tipperScores.map((key, value) => MapEntry(
-              key, Map<String, dynamic>.from(value.cast<String, dynamic>())));
+          //deserialize the all tipper scores they are in Map<List[Map<String, int]>> format
+          //and need to be converted to Map<List<RoundScores>>
+          _tipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
+              event.snapshot.value as Map<dynamic, dynamic>));
+
+          if (!_initialCompLoadCompleter.isCompleted) {
+            _initialCompLoadCompleter.complete();
+          }
         }
       }
     } catch (e) {
-      log('Error listening to AllScores: $e');
+      log('Error listening to /Scores: $e');
       rethrow;
     } finally {
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
       notifyListeners();
     }
   }
 
-  writeConsolidatedScoresToDb(
-      Map<String, Map<String, dynamic>> consolidatedScores,
-      DAUComp dauComp) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
-    }
-
+  writeScoresToDb(Map<String, Map<int, Map<String, int>>> roundScores,
+      Map<String, Map<String, dynamic>> compScores, DAUComp dauComp) async {
     try {
       // cancel stream while we are doing mass updates
-      _scoresStream.cancel();
+      // TODO consider removing
+      // _tipperRoundScoresStream.cancel();
+      // _tipperCompScoresStream.cancel();
 
       _db
           .child(scoresPathRoot)
           .child(dauComp.dbkey!)
-          .update(consolidatedScores);
+          .child(roundScoresRoot)
+          .update(roundScores);
+
+      _db
+          .child(scoresPathRoot)
+          .child(dauComp.dbkey!)
+          .child(compScoresRoot)
+          .update(compScores);
       //}
     } finally {
-      // restart the stream
-      _listenToScores;
+      // restart the streams
+      // TODO consider removing
+      //_listenToScores;
     }
   }
 
-  Future<Leaderboard?> getLeaderboardForComp() async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
+  Future<List<LeaderboardEntry>> getLeaderboardForComp() async {
+    // if (!_initialCompLoadCompleter.isCompleted) {
+    //   await _initialCompLoadCompleter.future;
+    // }
+
+    // dummy up fake leaderboard
+    var leaderboard = <LeaderboardEntry>[];
+    for (var i = 0; i < 10; i++) {
+      leaderboard.add(LeaderboardEntry(
+          rank: i + 1,
+          name: 'Tipper $i',
+          total: 100,
+          nRL: 50,
+          aFL: 50,
+          numRoundsWon: 5,
+          aflMargins: 10,
+          aflUPS: 10,
+          nrlMargins: 10,
+          nrlUPS: 10));
     }
 
-    return null;
+    return leaderboard;
   }
 
-  Future<ConsolidatedScores> getTipperConsolidatedScoresForRound(
+  Future<RoundScores> getTipperConsolidatedScoresForRound(
       DAURound round) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
+    if (!_initialRoundLoadCompleter.isCompleted) {
+      await _initialRoundLoadCompleter.future;
     }
-    if (_scores.isEmpty) {
-      return ConsolidatedScores(
-        aflScore: 0,
-        aflMaxScore: 0,
-        aflMarginTips: 0,
-        aflMarginUPS: 0,
-        nrlScore: 0,
-        nrlMaxScore: 0,
-        nrlMarginTips: 0,
-        nrlMarginUPS: 0,
-        rank: 0,
-        rankChange: 0,
-      );
-    }
-    return ConsolidatedScores(
-      aflScore: _scores['${round.dAUroundNumber}_afl_score'] != null
-          ? _scores['${round.dAUroundNumber}_afl_score']!
-          : 0,
-      aflMaxScore: _scores['${round.dAUroundNumber}_afl_maxScore'] != null
-          ? _scores['${round.dAUroundNumber}_afl_maxScore']!
-          : 0,
-      aflMarginTips: _scores['${round.dAUroundNumber}_afl_marginTips'] != null
-          ? _scores['${round.dAUroundNumber}_afl_marginTips']!
-          : 0,
-      aflMarginUPS: _scores['${round.dAUroundNumber}_afl_marginUPS'] != null
-          ? _scores['${round.dAUroundNumber}_afl_marginUPS']!
-          : 0,
-      nrlScore: _scores['${round.dAUroundNumber}_nrl_score'] != null
-          ? _scores['${round.dAUroundNumber}_nrl_score']!
-          : 0,
-      nrlMaxScore: _scores['${round.dAUroundNumber}_nrl_maxScore'] != null
-          ? _scores['${round.dAUroundNumber}_nrl_maxScore']!
-          : 0,
-      nrlMarginTips: _scores['${round.dAUroundNumber}_nrl_marginTips'] != null
-          ? _scores['${round.dAUroundNumber}_nrl_marginTips']!
-          : 0,
-      nrlMarginUPS: _scores['${round.dAUroundNumber}_nrl_marginUPS'] != null
-          ? _scores['${round.dAUroundNumber}_nrl_marginUPS']!
-          : 0,
-      rank: _scores['${round.dAUroundNumber}_total_score_rank'] != null
-          ? _scores['${round.dAUroundNumber}_total_score_rank']!
-          : 0,
-      rankChange:
-          _scores['${round.dAUroundNumber}_total_score_rankChange'] != null
-              ? _scores['${round.dAUroundNumber}_total_score_rankChange']!
-              : 0,
-    );
+
+    return _tipperRoundScores[round.dAUroundNumber - 1];
   }
 
-  Future<ConsolidatedCompScores> getTipperConsolidatedScoresForComp() async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
+  Future<CompScore> getTipperConsolidatedScoresForComp() async {
+    if (!_initialCompLoadCompleter.isCompleted) {
+      await _initialCompLoadCompleter.future;
     }
-    if (_scores.isEmpty) {
-      return ConsolidatedCompScores(
-        aflCompScore: 0,
-        aflCompMaxScore: 0,
-        nrlCompScore: 0,
-        nrlCompMaxScore: 0,
-      );
-    }
-    return ConsolidatedCompScores(
-      aflCompScore:
-          _scores['total_afl_score'] != null ? _scores['total_afl_score']! : 0,
-      aflCompMaxScore: _scores['total_afl_maxScore'] != null
-          ? _scores['total_afl_maxScore']!
-          : 0,
-      nrlCompScore:
-          _scores['total_nrl_score'] != null ? _scores['total_nrl_score']! : 0,
-      nrlCompMaxScore: _scores['total_nrl_maxScore'] != null
-          ? _scores['total_nrl_maxScore']!
-          : 0,
-    );
+
+    return _tipperCompScores;
   }
 
   @override
   void dispose() {
-    _scoresStream.cancel(); // stop listening to stream
+    _tipperRoundScoresStream.cancel(); // stop listening to stream
+    _tipperCompScoresStream.cancel(); // stop listening to stream
     super.dispose();
   }
 }
