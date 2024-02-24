@@ -1,4 +1,4 @@
-class Leaderboard {
+class LeaderboardEntry {
   int rank;
   String name;
   int total;
@@ -10,8 +10,11 @@ class Leaderboard {
   int nrlMargins;
   int nrlUPS;
 
+  int? sortColumnIndex;
+  bool isAscending = false;
+
   //constructor
-  Leaderboard({
+  LeaderboardEntry({
     required this.rank,
     required this.name,
     required this.total,
