@@ -10,13 +10,13 @@ import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:get_it/get_it.dart';
+import 'package:watch_it/watch_it.dart';
 
 // define constant for firestore database locations - TODO move to env file
 const daucompsPath = '/DAUComps';
@@ -75,6 +75,10 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     //reset the allTipsViewModel
     allTipsViewModel = null;
+
+    //reset the ScoringViewModel registration in get_it
+    di.registerLazySingleton<ScoresViewModel>(
+        () => ScoresViewModel(newDAUComp));
 
     notifyListeners();
   }
@@ -399,7 +403,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   //method to get a List<int> of the combined round numbers
-  Future<DAUComp> getScores(Tipper tipper) async {
+  Future<DAUComp> getCompWithScores(Tipper tipper) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('getCombinedRoundNumbers() waiting for initial Game load to complete');
       await initialLoadComplete;
@@ -531,7 +535,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       // use the AllTipsViewModel as source of data for cosolidated scoring
       if (allTipsViewModel != null &&
           allTipsViewModel!.currentDAUComp != daucompToUpdate.dbkey!) {
-        //invalidte the adminGamesViewModel
+        //invalidte the allTipsViewModel
         allTipsViewModel = null;
       }
 

@@ -95,7 +95,6 @@ class GamesViewModel extends ChangeNotifier {
           }
 
           if (homeTeam != null && awayTeam != null) {
-            log('Game: $dbKey about to be deserialized');
             Game game = Game.fromFixtureJson(
                 dbKey,
                 Map<String, dynamic>.from(gameAsJSON),
@@ -115,6 +114,7 @@ class GamesViewModel extends ChangeNotifier {
         //_games = gamesList.where((game) => game != null).cast<Game>().toList();
         _games = gamesList;
         _games.sort();
+        log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }

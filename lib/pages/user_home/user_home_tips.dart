@@ -1,59 +1,120 @@
+import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
+import 'package:watch_it/watch_it.dart';
 
-class TipsPage extends StatelessWidget {
-  final Tipper currentTipper;
-
-  const TipsPage(this.currentTipper, {super.key});
+class TipsPage extends StatelessWidget with WatchItMixin {
+  const TipsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<DAUCompsViewModel>(
-        builder: (context, daucompsViewModel, child) {
-      return _TipsPageBody(currentTipper, daucompsViewModel);
-    });
+    return _TipsPageBody();
   }
 }
 
-class _TipsPageBody extends StatefulWidget {
-  final Tipper currentTipper;
-  final DAUCompsViewModel daucompsViewModel;
+class _TipsPageBody extends StatelessWidget with WatchItMixin {
+  final String currentDAUComp = di<DAUCompsViewModel>().selectedDAUCompDbKey;
+  late AllTipsViewModel allTipsViewModel;
+  late Future<DAUComp> dauCompWithScoresFuture;
+  late Future<void> allTipsViewModelInitialLoadCompletedFuture;
 
-  const _TipsPageBody(this.currentTipper, this.daucompsViewModel);
+  _TipsPageBody() {
+    log('TipsPageBody.constructor()');
+
+    allTipsViewModel = AllTipsViewModel.forTipper(
+        di<TippersViewModel>(),
+        currentDAUComp,
+        di<GamesViewModel>(),
+        di<TippersViewModel>().selectedTipper);
+
+    dauCompWithScoresFuture = di<DAUCompsViewModel>()
+        .getCompWithScores(di<TippersViewModel>().selectedTipper!);
+
+    allTipsViewModelInitialLoadCompletedFuture =
+        allTipsViewModel.initialLoadCompleted;
+  }
 
   @override
-  State<_TipsPageBody> createState() => _TipsPageBodyState();
-}
+  Widget build(BuildContext context) {
+    log('TipsPageBody.build()');
 
-class _TipsPageBodyState extends State<_TipsPageBody> {
-  ScrollController? controller;
+    return FutureBuilder<DAUComp>(
+        future: dauCompWithScoresFuture,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+                child:
+                    Text('Error loading dauCompWithScores: ${snapshot.error}'));
+          } else if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          } else {
+            DAUComp? dauCompWithScores = snapshot.data;
 
-  @override
-  void initState() {
-    super.initState();
-    controller = ScrollController();
-
-    /*WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (controller.hasClients) {
-        double itemHeight = 100; // Replace with your actual item height
-        int index = 5; // Replace with your actual index
-
-        controller.animateTo(
-          index * itemHeight,
-          duration: const Duration(seconds: 1),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
-    */
+            return FutureBuilder<void>(
+                future: allTipsViewModel.getTips(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                        child:
+                            Text('Error loading GameTip: ${snapshot.error}'));
+                  } else if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else {
+                    return CustomScrollView(
+                      //controller: controller,
+                      slivers: <Widget>[
+                        SliverAppBar(
+                          pinned: true,
+                          flexibleSpace: FlexibleSpaceBar(
+                            background: compHeaderListTile(dauCompWithScores!),
+                          ),
+                        ),
+                        ...dauCompWithScores.daurounds!
+                            .asMap()
+                            .entries
+                            .map((entry) {
+                          DAURound dauRound = entry.value;
+                          return SliverList(
+                            delegate: SliverChildListDelegate(
+                              [
+                                roundLeagueHeaderListTile(
+                                    League.nrl, 50, 50, dauRound),
+                                GameListBuilder(
+                                  currentTipper:
+                                      di<TippersViewModel>().selectedTipper!,
+                                  dauRound: dauRound,
+                                  league: League.nrl,
+                                  allTipsViewModel: allTipsViewModel,
+                                ),
+                                roundLeagueHeaderListTile(
+                                    League.afl, 40, 40, dauRound),
+                                GameListBuilder(
+                                  currentTipper:
+                                      di<TippersViewModel>().selectedTipper!,
+                                  dauRound: dauRound,
+                                  league: League.afl,
+                                  allTipsViewModel: allTipsViewModel,
+                                )
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  }
+                });
+          }
+        });
   }
 
   Widget compHeaderListTile(DAUComp dauComp) {
@@ -106,13 +167,13 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
             // When the round header is clicked,
             // update the scoring for this round and tipper
             // TODO consider removing this functionality
-            widget.daucompsViewModel.updateScoring(
-                await widget.daucompsViewModel
+            di<DAUCompsViewModel>().updateScoring(
+                await di<DAUCompsViewModel>()
                     .getCurrentDAUComp()
                     .then((DAUComp? dauComp) {
                   return dauComp!;
                 }),
-                widget.currentTipper);
+                di<TippersViewModel>().selectedTipper!);
           },
           trailing: SvgPicture.asset(
             leagueHeader.logo,
@@ -155,95 +216,57 @@ class _TipsPageBodyState extends State<_TipsPageBody> {
       ],
     );
   }
+}
 
-  Widget roundLeagueGameBuilder(DAURound dauRound, League league) {
-    return FutureBuilder<List<Game>>(
-      future: widget.daucompsViewModel.getGamesForCombinedRoundNumberAndLeague(
-          dauRound.dAUroundNumber, league),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: Text('Wait..'));
-          //return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        } else {
-          var games = snapshot.data;
-          if (games!.isEmpty) {
-            return Center(
-              heightFactor: 2,
-              child: Text(
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  'No ${league.name.toUpperCase()} games this round'),
-            );
-          }
-          return ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: games.length,
-            itemBuilder: (context, index) {
-              var game = games[index];
-              return GameListItem(
-                  roundGames: games,
-                  game: game,
-                  currentTipper: widget.currentTipper,
-                  currentDAUCompDBkey:
-                      widget.daucompsViewModel.selectedDAUCompDbKey);
-            },
-          );
-        }
-      },
-    );
+class GameListBuilder extends StatelessWidget with WatchItMixin {
+  GameListBuilder({
+    super.key,
+    required this.currentTipper,
+    required this.dauRound,
+    required this.league,
+    required this.allTipsViewModel,
+  }) {
+    dcvm = di<DAUCompsViewModel>();
   }
+
+  late Game loadingGame;
+
+  List<Game>? games;
+
+  final Tipper currentTipper;
+  final DAURound dauRound;
+  final League league;
+  final AllTipsViewModel allTipsViewModel;
+  late final DAUCompsViewModel dcvm;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<DAUComp>(
-      future: widget.daucompsViewModel.getScores(widget.currentTipper),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        } else {
-          var dauComp = snapshot.data;
-          if (dauComp!.daurounds!.isEmpty) {
-            return const Center(
-              child: Text('No Rounds Found'),
+    return FutureBuilder<List<Game>?>(
+        future: dcvm.getGamesForCombinedRoundNumberAndLeague(
+            dauRound.dAUroundNumber, league),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          } else {
+            games = snapshot.data;
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: games!.length,
+              itemBuilder: (context, index) {
+                var game = games![index];
+
+                return GameListItem(
+                  roundGames: games!,
+                  game: game,
+                  currentTipper: currentTipper,
+                  currentDAUCompDBkey:
+                      di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                  allTipsViewModel: allTipsViewModel,
+                );
+              },
             );
           }
-          return CustomScrollView(
-            controller: controller,
-            slivers: <Widget>[
-              SliverAppBar(
-                pinned: true,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: compHeaderListTile(dauComp),
-                ),
-              ),
-              ...dauComp.daurounds!.asMap().entries.map((entry) {
-                int index = entry.key;
-                DAURound dauRound = entry.value;
-                return SliverList(
-                  delegate: SliverChildListDelegate(
-                    [
-                      roundLeagueHeaderListTile(League.nrl, 50, 50, dauRound),
-                      roundLeagueGameBuilder(dauRound, League.nrl),
-                      roundLeagueHeaderListTile(League.afl, 40, 40, dauRound),
-                      roundLeagueGameBuilder(dauRound, League.afl),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          );
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    controller!.dispose();
-    super.dispose();
+        });
   }
 }
