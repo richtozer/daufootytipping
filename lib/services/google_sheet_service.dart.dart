@@ -60,21 +60,25 @@ class LegacyTippingService {
   }
 
   Future<void> _initialize() async {
-    AutoRefreshingAuthClient client = await gsheets.client;
-    sheetsApi = SheetsApi(client);
+    try {
+      AutoRefreshingAuthClient client = await gsheets.client;
+      sheetsApi = SheetsApi(client);
 
-    log('Using Gsheet shseet with id $spreadsheetId');
+      log('Using Gsheet shseet with id $spreadsheetId');
 
-    spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
-    appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
-    tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
+      spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
+      appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
+      tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
 
-    tippersRows = await tippersSheet.values.allRows();
-    log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
+      tippersRows = await tippersSheet.values.allRows();
+      log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
-    refreshAppTipsData();
-
-    _initialLoadCompleter.complete();
+      refreshAppTipsData();
+    } catch (e) {
+      log('Error initialising legacy tipping service: ${e.toString()}');
+    } finally {
+      _initialLoadCompleter.complete();
+    }
   }
 
   //method to convert gsheet rows of tippers into a list of Tipper objects
@@ -347,6 +351,6 @@ class LegacyTippingService {
         .map((list) => list.map((item) => item as String?).toList())
         .toList();
 
-    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData.length} rows.');
+    log('Legacy sheet ${appTipsSheet.title} data loaded in app. Found ${appTipsData.length} rows.');
   }
 }

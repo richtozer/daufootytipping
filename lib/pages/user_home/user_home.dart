@@ -1,11 +1,9 @@
-import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:watch_it/watch_it.dart';
 
 class HomePage extends StatefulWidget {
@@ -30,7 +28,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     List<Widget> content() {
       return [
-        TipsPage(), // Pass currentTipper to TipsPage
+        TipsPage(),
         StatsPage(widget.currentDAUCompKey),
         Profile(), // Display profile and settings for the logged on tipper
       ];
@@ -77,7 +75,7 @@ class _HomePageState extends State<HomePage> {
 
     return godMode
         ? Banner(
-            message: '$godModeTipper',
+            message: godModeTipper,
             location: BannerLocation.bottomStart,
             color: Colors.red,
             child: Banner(

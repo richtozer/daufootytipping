@@ -63,11 +63,15 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     _listenToDAUComps();
   }
+  // method to reset data when user changes DAUComp in the UI
+  void setCurrentDAUComp(String newDAUCompDbkey) {
+    _selectedDAUCompDbKey = newDAUCompDbkey;
 
-  void setCurrentDAUComp(String newDAUComp) {
-    _selectedDAUCompDbKey = newDAUComp;
+    DAUComp? newDAUComp = _daucomps
+        .firstWhereOrNull((daucomp) => daucomp.dbkey == newDAUCompDbkey);
 
-    //reset the gamesViewModel
+    //reset the gamesViewModel in get_it
+    di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(newDAUComp!));
     userGamesViewModel = null;
 
     //reset the tipperscoresViewModel
@@ -78,7 +82,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     //reset the ScoringViewModel registration in get_it
     di.registerLazySingleton<ScoresViewModel>(
-        () => ScoresViewModel(newDAUComp));
+        () => ScoresViewModel(newDAUCompDbkey));
+    allScoresViewModel = null;
+    userGamesViewModel = null;
 
     notifyListeners();
   }
@@ -421,6 +427,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           ?.getTipperConsolidatedScoresForRound(round);
     }
 
+    //insert the scores into the comp object
     daucomp.consolidatedCompScores =
         await tipperScoresViewModel?.getTipperConsolidatedScoresForComp();
 
@@ -457,7 +464,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Game> gamesForCombinedRoundNumberAndLeague = [];
     DAUComp? daucomp = await getCurrentDAUComp();
 
-    userGamesViewModel ??= GamesViewModel(daucomp!);
+    userGamesViewModel ??= di<GamesViewModel>();
 
     for (var round in daucomp!.daurounds!) {
       if (round.dAUroundNumber == combinedRoundNumber) {

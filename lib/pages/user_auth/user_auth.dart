@@ -1,5 +1,4 @@
 import 'dart:developer';
-import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home.dart';

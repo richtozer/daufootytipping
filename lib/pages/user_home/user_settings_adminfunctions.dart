@@ -99,7 +99,7 @@ class GodModeDialog extends StatelessWidget with WatchItMixin {
       content: Column(
         children: [
           const Text(
-              'If you want to view the tips of another Tipper, or tip on their behalf select them from the list below.'),
+              'If you want to view the tips of another Tipper, or tip on their behalf select them from the list below and click [View].'),
           FutureBuilder<List<Tipper>>(
             future: di<TippersViewModel>().getTippers(),
             builder:
@@ -131,7 +131,16 @@ class GodModeDialog extends StatelessWidget with WatchItMixin {
       ),
       actions: [
         TextButton(
-          child: const Text('Close'),
+          child: const Text('Cancel'),
+          onPressed: () {
+            di<TippersViewModel>().selectedTipper =
+                di<TippersViewModel>().authenticatedTipper;
+
+            Navigator.of(context).pop();
+          },
+        ),
+        TextButton(
+          child: const Text('View'),
           onPressed: () {
             Navigator.of(context).pop();
           },
