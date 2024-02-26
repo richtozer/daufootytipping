@@ -1,17 +1,16 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
+import 'package:daufootytipping/extensions/disposesafechangenotifier.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/material.dart';
-
 import 'package:watch_it/watch_it.dart';
 
-class GameTipsViewModel extends ChangeNotifier {
+class GameTipsViewModel extends DisposeSafeChangeNotifier {
   TipGame? _tipGame;
 
   TipGame? get tipGame => _tipGame;
@@ -50,6 +49,10 @@ class GameTipsViewModel extends ChangeNotifier {
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
+
+    // Exception has occurred.
+    // FlutterError (A GameTipsViewModel was used after being disposed.
+    // Once you have called dispose() on a GameTipsViewModel, it can no longer be used.)
     notifyListeners();
   }
 

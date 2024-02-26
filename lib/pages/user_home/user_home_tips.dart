@@ -14,23 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
 class TipsPage extends StatelessWidget with WatchItMixin {
-  const TipsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return _TipsPageBody();
-  }
-}
-
-class _TipsPageBody extends StatelessWidget with WatchItMixin {
-  final String currentDAUComp = di<DAUCompsViewModel>().selectedDAUCompDbKey;
-  late AllTipsViewModel allTipsViewModel;
-  late Future<DAUComp> dauCompWithScoresFuture;
-  late Future<void> allTipsViewModelInitialLoadCompletedFuture;
-
-  _TipsPageBody() {
-    log('TipsPageBody.constructor()');
-
+  TipsPage({super.key}) {
     allTipsViewModel = AllTipsViewModel.forTipper(
         di<TippersViewModel>(),
         currentDAUComp,
@@ -44,9 +28,45 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
         allTipsViewModel.initialLoadCompleted;
   }
 
+  final String currentDAUComp = di<DAUCompsViewModel>().selectedDAUCompDbKey;
+  late AllTipsViewModel allTipsViewModel;
+  late Future<DAUComp> dauCompWithScoresFuture;
+  late Future<void> allTipsViewModelInitialLoadCompletedFuture;
+
   @override
   Widget build(BuildContext context) {
+    return _TipsPageBody(
+        dauCompWithScoresFuture,
+        allTipsViewModelInitialLoadCompletedFuture,
+        allTipsViewModel,
+        currentDAUComp);
+  }
+}
+
+class _TipsPageBody extends StatelessWidget with WatchItMixin {
+  _TipsPageBody(
+      this.dauCompWithScoresFuture,
+      this.allTipsViewModelInitialLoadCompletedFuture,
+      this.allTipsViewModel,
+      this.currentDAUComp) {
+    log('TipsPageBody.constructor()');
+  }
+
+  final String currentDAUComp;
+  late final AllTipsViewModel allTipsViewModel;
+  late final Future<DAUComp> dauCompWithScoresFuture;
+  late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    // final dauCompWithScores2 = watchFuture(
+    //         (DAUCompsViewModel x) =>
+    //             x.getCompWithScores(di<TippersViewModel>().selectedTipper!),
+    //         initialValue: null)
+    //     .data;
     log('TipsPageBody.build()');
+
+    //TODO need to implement some sort of change notifier to update the UI?
 
     return FutureBuilder<DAUComp>(
         future: dauCompWithScoresFuture,
@@ -76,9 +96,11 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                         SliverAppBar(
                           pinned: true,
                           flexibleSpace: FlexibleSpaceBar(
+                            //background: compHeaderListTile(dauCompWithScores2!),
                             background: compHeaderListTile(dauCompWithScores!),
                           ),
                         ),
+                        //...dauCompWithScores2.daurounds!
                         ...dauCompWithScores.daurounds!
                             .asMap()
                             .entries

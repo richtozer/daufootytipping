@@ -54,7 +54,6 @@ class GamesViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
-      log('***GamesViewModel_handleEvent()***');
       if (event.snapshot.exists) {
         final allGames =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);

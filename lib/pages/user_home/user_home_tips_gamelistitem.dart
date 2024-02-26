@@ -1,10 +1,12 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -26,6 +28,7 @@ class GameListItem extends StatelessWidget with WatchItMixin {
 
   final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
+  TipGame? tipGame;
   final Tipper currentTipper;
   final String currentDAUCompDBkey;
   final AllTipsViewModel allTipsViewModel;
@@ -34,6 +37,9 @@ class GameListItem extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(BuildContext context) {
+    //tipGame =
+    //    watchFuture((GameTipsViewModel x) => x.gettip(), initialValue: null)
+    //        .data;
     return FutureBuilder(
         future: gameTipsViewModel.initialLoadCompleted,
         builder: (BuildContext context, AsyncSnapshot snapshot) {
@@ -164,10 +170,28 @@ class GameListItem extends StatelessWidget with WatchItMixin {
       ];
     } else {
       return [
+        liveScoringBuilder(
+            gameTipsViewModel), // game is underway or ended - show scoring card
         gameTipCard(gameTipsViewModel),
-        GameInfo(game, gameTipsViewModel),
+        GameInfo(game, gameTipsViewModel)
       ];
     }
+  }
+
+  FutureBuilder<dynamic> liveScoringBuilder(
+      GameTipsViewModel gameTipsViewModel) {
+    return FutureBuilder<TipGame?>(
+      future: gameTipsViewModel.gettip(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return LiveScoring(tipGame: snapshot.data!);
+        } else if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        } else {
+          return const CircularProgressIndicator();
+        }
+      },
+    );
   }
 
   Widget gameTipCard(GameTipsViewModel gameTipsViewModel) {

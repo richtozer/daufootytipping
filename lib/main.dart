@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
@@ -25,20 +23,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
   // Do not to start running the application widget code until the Flutter framework is completely booted
-  log('aaa main 1');
-
   WidgetsFlutterBinding.ensureInitialized();
-
-  log('aaa main 2');
 
   await dotenv.load(); // Loads .env file
 
-  log('aaa main 3');
-
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  log('aaa main 4');
   if (!kDebugMode) {
     // in release mode, enable persistence for Realtime Database
     FirebaseDatabase.instance.setPersistenceEnabled(true);
@@ -53,8 +43,6 @@ Future<void> main() async {
     FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
   } */
 
-  log('aaa main 5');
-
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
@@ -68,17 +56,11 @@ Future<void> main() async {
     );
   }
 
-  log('aaa main 6');
-
   RemoteConfigService remoteConfigService = RemoteConfigService();
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
 
-  log('aaa main 7');
-
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-
-  log('aaa main 8');
 
   // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
   PlatformDispatcher.instance.onError = (error, stack) {
@@ -86,36 +68,28 @@ Future<void> main() async {
     return true;
   };
 
-  log('aaa main 9');
-
   // setup some default analytics parameters
   FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
-
-  log('aaa main 10');
 
   FirebaseService firebaseService = FirebaseService();
   firebaseService.initializeFirebaseMessaging();
 
-  log('aaa main 11');
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
-  final locator = GetIt.instance;
-  locator.allowReassignment = true;
-  locator.registerSingleton<LegacyTippingService>(LegacyTippingService());
-  log('main 11');
-  locator.registerSingleton<PackageInfoService>(PackageInfoService());
-  locator.registerLazySingleton<ScoresViewModel>(
+  di.allowReassignment = true;
+  di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
+  di.registerSingleton<PackageInfoService>(PackageInfoService());
+  di.registerLazySingleton<ScoresViewModel>(
       () => ScoresViewModel(configDAUComp));
-  locator.registerLazySingleton<TippersViewModel>(
+  di.registerLazySingleton<TippersViewModel>(
       () => TippersViewModel(firebaseService));
 
-  locator.registerLazySingleton<DAUCompsViewModel>(
+  di.registerLazySingleton<DAUCompsViewModel>(
       () => DAUCompsViewModel(configDAUComp));
-  locator.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
+  di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
 
   DAUComp? dAUComp = await di<DAUCompsViewModel>().getCurrentDAUComp();
-  locator.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
 
-  log('aaa main 12');
+  di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
 
   runApp(MyApp(remoteConfigService, configDAUComp, firebaseService));
 }

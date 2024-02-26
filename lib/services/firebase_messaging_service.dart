@@ -24,14 +24,12 @@ class FirebaseService extends ChangeNotifier {
     }
     //}
 
-    notifyListeners();
-
     // listening for token refresh events
     messaging.onTokenRefresh.listen((newToken) {
       // save new token, and notify TipperViewModel who will save it to the database
       log('New messaging token received, updating database: $newToken');
       _fbmToken = newToken;
-      notifyListeners();
+      //notifyListeners();
     });
   }
 

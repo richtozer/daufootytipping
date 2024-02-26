@@ -271,58 +271,56 @@ class TippersViewModel extends ChangeNotifier {
   // first try finding the tipper based on authuid
   // if that fails, try finding the tipper based on email
   Future<bool> linkUserToTipper() async {
-    Tipper? currentTipper;
+    Tipper? foundTipper;
     User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
     bool linkedUser = false;
 
     try {
       // first try finding the tipper based on authuid
-      currentTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
+      foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
 
-      if (currentTipper != null) {
-        log('linkUserToTipper() Tipper ${currentTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
-        _authenticatedTipper = currentTipper;
+      if (foundTipper != null) {
+        log('linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
+        _authenticatedTipper = foundTipper;
         // for now the selected tipper is the same as the authenticated tipper
         // in god mode this can be changed
-        _selectedTipper = currentTipper;
+        _selectedTipper = foundTipper;
 
         //update photoURL if it has changed
-        if (currentTipper.photoURL != authenticatedFirebaseUser.photoURL) {
-          await updateTipperAttribute(currentTipper.dbkey!, "photoURL",
+        if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
+          await updateTipperAttribute(foundTipper.dbkey!, "photoURL",
               authenticatedFirebaseUser.photoURL);
           await saveBatchOfTipperAttributes();
         }
-
-        await registerLinkedTipperForMessaging();
-      }
-
-      // if that fails, try finding the tipper based on email
-      currentTipper ??=
-          await findTipperByEmail(authenticatedFirebaseUser.email!);
-
-      if (currentTipper != null) {
-        log('linkUserToTipper() Tipper ${currentTipper.name} found using email: ${authenticatedFirebaseUser.email}. Updating UID in database');
-
-        await updateTipperAttribute(
-            currentTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
-
-        await saveBatchOfTipperAttributes();
-
-        await registerLinkedTipperForMessaging();
       } else {
-        log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
+        // if that fails, try finding the tipper based on email
+        foundTipper ??=
+            await findTipperByEmail(authenticatedFirebaseUser.email!);
+
+        if (foundTipper != null) {
+          log('linkUserToTipper() Tipper ${foundTipper.name} found using email: ${authenticatedFirebaseUser.email}. Updating UID in database');
+
+          await updateTipperAttribute(
+              foundTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
+
+          await saveBatchOfTipperAttributes();
+        } else {
+          log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
+        }
       }
-    } finally {
-      if (currentTipper != null) {
-        _authenticatedTipper = currentTipper;
+      if (foundTipper != null) {
+        _authenticatedTipper = foundTipper;
         // for now the selected tipper is the same as the authenticated tipper
         // in god mode this can be changed
-        _selectedTipper = currentTipper;
+        _selectedTipper = foundTipper;
         linkedUser = true;
+        await registerLinkedTipperForMessaging();
       }
-    }
-
-    return linkedUser;
+      return linkedUser;
+    } catch (e) {
+      log('linkUserToTipper() Error: $e');
+      return false;
+    } finally {}
   }
 
   // DeviceTokens storeed in another tree
