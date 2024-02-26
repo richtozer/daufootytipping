@@ -27,8 +27,7 @@ class TipGame implements Comparable<TipGame> {
         DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true));
   }
 
-  factory TipGame.fromJson(
-      Map<String, dynamic> data, String key, Tipper tipper, Game game) {
+  factory TipGame.fromJson(Map data, String key, Tipper tipper, Game game) {
     return TipGame(
         dbkey: key,
         game: game,

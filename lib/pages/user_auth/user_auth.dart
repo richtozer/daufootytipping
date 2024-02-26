@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
@@ -12,9 +13,10 @@ import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:get_it/get_it.dart';
+
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:provider/provider.dart';
+
+import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
   UserAuthPage(
@@ -135,13 +137,11 @@ class UserAuthPage extends StatelessWidget {
               // as a tipper linked to their firebase auth record,
               //if not create a Tipper record for them.
 
-              TippersViewModel tippersViewModel =
-                  Provider.of<TippersViewModel>(context, listen: false);
+              TippersViewModel tippersViewModel = di<TippersViewModel>();
 
-              return FutureBuilder<Tipper?>(
-                future: tippersViewModel.getLinkedTipper(),
-                builder:
-                    (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
+              return FutureBuilder<bool>(
+                future: tippersViewModel.linkUserToTipper(),
+                builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                         child:
@@ -166,7 +166,7 @@ class UserAuthPage extends StatelessWidget {
                       ],
                     );
                   } else {
-                    if (snapshot.data == null) {
+                    if (snapshot.data == false) {
                       // default to the profile screen if no tipper record found
                       return ProfileScreen(
                         actions: [
@@ -187,12 +187,8 @@ class UserAuthPage extends StatelessWidget {
                         ],
                       );
                     }
-                    Tipper linkedTipper = snapshot.data as Tipper;
-                    return Consumer<TippersViewModel>(
-                      builder: (context, tippersViewModel, child) {
-                        return HomePage(currentDAUCompKey, linkedTipper);
-                      },
-                    );
+
+                    return HomePage(currentDAUCompKey);
                   }
                 },
               );

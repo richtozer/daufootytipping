@@ -21,7 +21,11 @@ class AllTipsViewModel extends ChangeNotifier {
   late final GamesViewModel _gamesViewModel;
   final String currentDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
-  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
+
+  Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
+
+  Tipper?
+      tipper; // is this is supplied in the constructor, then we are only interested in the tips for this tipper
 
   //List<Tip> get tips => _tips;
   //List<Game> get games => _gamesViewModel.games;
@@ -29,9 +33,17 @@ class AllTipsViewModel extends ChangeNotifier {
 
   late final TippersViewModel tipperViewModel;
 
-  //constructor
+  //constructor - this will get all tips from db
   AllTipsViewModel(
       this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
+    _gamesViewModel.addListener(
+        update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
+    _listenToTips();
+  }
+
+  //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
+  AllTipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
+      this._gamesViewModel, this.tipper) {
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
@@ -49,26 +61,50 @@ class AllTipsViewModel extends ChangeNotifier {
   }
 
   void _listenToTips() async {
-    _tipsStream =
-        _db.child('$tipsPathRoot/$currentDAUComp').onValue.listen((event) {
-      _handleEvent(event);
-    });
+    if (tipper != null) {
+      _tipsStream = _db
+          .child('$tipsPathRoot/$currentDAUComp/${tipper!.dbkey}')
+          .onValue
+          .listen((event) {
+        _handleEvent(event);
+      });
+    } else {
+      _tipsStream =
+          _db.child('$tipsPathRoot/$currentDAUComp').onValue.listen((event) {
+        _handleEvent(event);
+      });
+    }
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
-    if (event.snapshot.exists) {
-      final allTips =
-          deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
-
-      _tipGames = await deserializeTips(allTips);
-    } else {
-      log('No tips found in realtime database');
+    try {
+      if (event.snapshot.exists) {
+        if (tipper == null) {
+          final allTips =
+              deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+          _tipGames = await deserializeTips(allTips);
+        } else {
+          Map dbData = event.snapshot.value as Map;
+          _tipGames = await Future.wait(dbData.entries.map((entry) async {
+            Game? game = await _gamesViewModel.findGame(entry.key);
+            if (game == null) {
+              //log('game not found for tip ${entry.key}');
+            } else {
+              Map entryValue = entry.value as Map;
+              return TipGame.fromJson(entryValue, entry.key, tipper!, game);
+            }
+            return null;
+          }));
+        }
+      } else {
+        log('No tips found in realtime database');
+      }
+    } finally {
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+      notifyListeners();
     }
-    if (!_initialLoadCompleter.isCompleted) {
-      _initialLoadCompleter.complete();
-    }
-
-    notifyListeners();
   }
 
   //this method, which allows for recusrsive maps, is no longer nessisary and could be removed
@@ -83,7 +119,8 @@ class AllTipsViewModel extends ChangeNotifier {
     }));
   }
 
-  Future<List<TipGame>> deserializeTips(Map<String, dynamic> json) async {
+  Future<List<TipGame>> deserializeTips(Map<String, dynamic> json,
+      {tipper}) async {
     List<TipGame> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
@@ -136,6 +173,4 @@ class AllTipsViewModel extends ChangeNotifier {
     _gamesViewModel.removeListener(update);
     super.dispose();
   }
-
-  updateConsolidatedScoring(Map<String, int> tipperRoundLeagueScores) {}
 }

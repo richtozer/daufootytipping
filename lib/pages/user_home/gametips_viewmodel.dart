@@ -1,82 +1,72 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
-import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 
-// define  constant for firestore database location
-const tipsPathRoot = '/AllTips';
+import 'package:watch_it/watch_it.dart';
 
 class GameTipsViewModel extends ChangeNotifier {
   TipGame? _tipGame;
-  final _db = FirebaseDatabase.instance.ref();
-  late StreamSubscription<DatabaseEvent> _tipsStream;
-  bool _savingTip = false;
 
+  TipGame? get tipGame => _tipGame;
+
+  AllTipsViewModel allTipsViewModel;
+  Tipper currentTipper;
   final String currentDAUComp;
   final Game game;
-  final Completer<void> _initialLoadCompleter = Completer();
 
-  TipGame? get tip => _tipGame;
+  final _db = FirebaseDatabase.instance.ref();
 
+  bool _savingTip = false;
   bool get savingTip => _savingTip;
 
-  Tipper currentTipper;
+  final Completer<void> _initialLoadCompleter = Completer();
+  Future<bool> get initialLoadCompleted async =>
+      _initialLoadCompleter.isCompleted;
 
   LegacyTippingService legcyTippingService =
       GetIt.instance<LegacyTippingService>();
 
+  int currentIndex = 0;
+
+  final CarouselController _controller = CarouselController();
+  get controller => _controller;
+
   //constructor
-  GameTipsViewModel(this.currentTipper, this.currentDAUComp, this.game) {
-    _listenToTips();
+  GameTipsViewModel(this.currentTipper, this.currentDAUComp, this.game,
+      this.allTipsViewModel) {
+    _findTip();
   }
 
-  void update() {
-    notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
-  }
-
-  void _listenToTips() async {
-    _tipsStream = _db
-        .child(
-            '$tipsPathRoot/$currentDAUComp/${currentTipper.dbkey}/${game.dbkey}')
-        .onValue
-        .listen((event) {
-      _handleEvent(event);
-    });
-  }
-
-  Future<void> _handleEvent(DatabaseEvent event) async {
-    try {
-      if (event.snapshot.exists) {
-        final tipJson = event.snapshot.value;
-        final Map<String, dynamic> tipData =
-            Map<String, dynamic>.from(tipJson as Map<Object?, Object?>);
-
-        log('Tip found for Tipper ${currentTipper.name} in game ${game.dbkey}, tipData: $tipData');
-
-        _tipGame = TipGame.fromJson(tipData, game.dbkey, currentTipper, game);
-      } else {
-        log('No tip found for Tipper ${currentTipper.name} in game ${game.dbkey}');
-      }
-    } catch (e) {
-      log('Error in GameTipsViewModel._handleEvent: $e');
-    } finally {
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
-      notifyListeners();
+  void _findTip() async {
+    await allTipsViewModel.initialLoadCompleted;
+    _tipGame = await allTipsViewModel.findTip(game, currentTipper);
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
     }
+    notifyListeners();
+  }
+
+  Future<TipGame?> gettip() async {
+    if (!_initialLoadCompleter.isCompleted) {
+      await _initialLoadCompleter.future;
+    }
+
+    return _tipGame;
   }
 
   void addTip(
       List<Game> roundGames, TipGame tip, int combinedRoundNumber) async {
     try {
+      assert(_initialLoadCompleter.isCompleted,
+          'GameTipsViewModel.addTip() called before initial load completed');
+
       _savingTip = true;
 
       // create a json representation of the tip
@@ -88,6 +78,8 @@ class GameTipsViewModel extends ChangeNotifier {
       await _db.update(updates);
       log('new tip logged: ${updates.toString()}');
 
+      _tipGame = tip; // update the tipGame with the new tip
+
       // code section to support legacy tipping service
       // find the Tip game position in the roundGames list
       int gameIndex =
@@ -95,65 +87,12 @@ class GameTipsViewModel extends ChangeNotifier {
 
       legcyTippingService.submitTip(
           currentTipper.name, tip, gameIndex, combinedRoundNumber);
-
-      // end code section to support legacy tipping service
-/*       await FirebaseAnalytics.instance
-          .logEvent(name: 'tip_submitted', parameters: {
-        'tipper': tip.tipper.name,
-        'comp': currentDAUComp,
-        'game':
-            'Round: $combinedRoundNumber, ${tip.game.homeTeam} v ${tip.game.awayTeam}',
-        'tip': tip.tip.toString(),
-        'submittedTimeUTC': tip.submittedTimeUTC.toString(),
-      }); */
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
     } finally {
+      notifyListeners();
       _savingTip = false;
     }
-  }
-
-  Future<TipGame?> getLatestGameTip() async {
-    return await getLatestGameTipFromDb();
-  }
-
-  Future<TipGame?> getLatestGameTipFromDb() async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
-      log('tips load complete, GameTipsViewModel.getLatestGameTip(${game.dbkey})');
-    }
-
-    if (_tipGame != null) {
-      log('found tip ${_tipGame!.tip} for game ${game.dbkey} (${game.homeTeam.name} v ${game.awayTeam.name} GameTipsViewModel.getLatestGameTipFromDb()');
-      return _tipGame;
-    } else {
-      if (game.gameState == GameState.notStarted) {
-        return null; //game has not started yet, so assign a null tip
-      } else {
-        return TipGame(
-            tip: GameResult
-                .d, //if the game is in the past and there is no tip from Tipper, then default to a Away win
-            submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0,
-                isUtc:
-                    true), //set the submitted time to the epoch to indicate that this is a default tip
-            game: game,
-            tipper: currentTipper);
-      }
-    }
-  }
-
-  LatLng? getLatLng() {
-    if (game.locationLatLong != null) {
-      return game.locationLatLong!;
-    } else {
-      return null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _tipsStream.cancel(); // stop listening to stream
-    super.dispose();
   }
 }

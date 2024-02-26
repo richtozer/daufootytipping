@@ -1,79 +1,54 @@
 import 'dart:developer';
-
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
-
 import 'package:flutter/material.dart';
 
 class TipChoice extends StatelessWidget {
-  final Future<TipGame?> latestTipGame;
   final GameTipsViewModel gameTipsViewModel;
   final List<Game> roundGames;
 
-  const TipChoice(this.roundGames, this.latestTipGame, this.gameTipsViewModel,
-      {super.key});
+  const TipChoice(this.roundGames, this.gameTipsViewModel, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<TipGame?>(
-        future: latestTipGame,
-        builder: (context, AsyncSnapshot<TipGame?> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child:
-                    //CircularProgressIndicator()); // Show loading spinner while waiting for data
-                    Text('wait....'));
-            //return const SizedBox.shrink(); //return empty widget while waiting for data
-          } else if (snapshot.hasError) {
-            return Text(
-                'Error: ${snapshot.error}'); // Show error message if something went wrong
-          } else {
-            TipGame? latestTipGame = snapshot.data;
-
-            // display the tippings buttons in this layout:
-            //  [Home with margin] [ Home]
-            //           [Draw]
-            //  [Away] [Away with margin]
-            return Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      generateChoiceChip(GameResult.a, gameTipsViewModel.game,
-                          latestTipGame, context),
-                      generateChoiceChip(GameResult.b, gameTipsViewModel.game,
-                          latestTipGame, context)
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      generateChoiceChip(GameResult.c, gameTipsViewModel.game,
-                          latestTipGame, context),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      generateChoiceChip(GameResult.d, gameTipsViewModel.game,
-                          latestTipGame, context),
-                      generateChoiceChip(GameResult.e, gameTipsViewModel.game,
-                          latestTipGame, context)
-                    ],
-                  )
-                ],
-              ),
-            );
-          }
-        });
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              generateChoiceChip(GameResult.a, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context),
+              generateChoiceChip(GameResult.b, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context)
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              generateChoiceChip(GameResult.c, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              generateChoiceChip(GameResult.d, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context),
+              generateChoiceChip(GameResult.e, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context)
+            ],
+          )
+        ],
+      ),
+    );
   }
 
   ChoiceChip generateChoiceChip(GameResult option, Game game,

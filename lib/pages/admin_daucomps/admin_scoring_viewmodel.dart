@@ -15,11 +15,13 @@ const compScoresRoot = 'comp_scores';
 
 class ScoresViewModel extends ChangeNotifier {
   List<RoundScores> _tipperRoundScores = [];
+  Map<String, List<RoundScores>> _allTipperRoundScores = {};
   late CompScore _tipperCompScores;
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipperRoundScoresStream;
   late StreamSubscription<DatabaseEvent> _tipperCompScoresStream;
+  late StreamSubscription<DatabaseEvent> _tipperRoundScoresStreamAllTippers;
 
   final String currentDAUComp;
   Tipper? tipper;
@@ -27,6 +29,9 @@ class ScoresViewModel extends ChangeNotifier {
   Future<void> get initialRoundComplete => _initialRoundLoadCompleter.future;
   final Completer<void> _initialCompLoadCompleter = Completer();
   Future<void> get initialCompComplete => _initialCompLoadCompleter.future;
+  final Completer<void> _initialCompAllTipperLoadCompleter = Completer();
+  Future<void> get initialRoundAllTipperComplete =>
+      _initialCompAllTipperLoadCompleter.future;
 
   //constructor
   ScoresViewModel(this.currentDAUComp) {
@@ -62,13 +67,12 @@ class ScoresViewModel extends ChangeNotifier {
         log('Error listening to comp scores: $error');
       });
     } else {
-      //TODO
-/*       _scoresStream = _db
-          .child('$scoresPathRoot/$currentDAUComp')
+      _tipperRoundScoresStreamAllTippers = _db
+          .child('$scoresPathRoot/$currentDAUComp/$roundScoresRoot')
           .onValue
           .listen(_handleEvent, onError: (error) {
-        log('Error listening to scores: $error');
-      }); */
+        log('Error listening to all tipper round scores: $error');
+      });
     }
   }
 
@@ -110,13 +114,23 @@ class ScoresViewModel extends ChangeNotifier {
             }
           }
         } else {
-          //deserialize the all tipper scores they are in Map<List[Map<String, int]>> format
-          //and need to be converted to Map<List<RoundScores>>
-          _tipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
-              event.snapshot.value as Map<dynamic, dynamic>));
+          //deserialize the all tipper scores they are in Map<String,List<Map<String, Int>>> format
+          //and need to be converted to Map<String, List<RoundScores>>
+          var dbData = event.snapshot.value;
+          if (dbData is! Map) {
+            throw Exception('Invalid data type for all tipper round scores');
+          }
+          _allTipperRoundScores = dbData.map((key, value) {
+            return MapEntry(
+                key,
+                (value as List)
+                    .map((e) =>
+                        RoundScores.fromJson(Map<String, dynamic>.from(e)))
+                    .toList());
+          });
 
-          if (!_initialCompLoadCompleter.isCompleted) {
-            _initialCompLoadCompleter.complete();
+          if (!_initialCompAllTipperLoadCompleter.isCompleted) {
+            _initialCompAllTipperLoadCompleter.complete();
           }
         }
       }
@@ -130,51 +144,75 @@ class ScoresViewModel extends ChangeNotifier {
 
   writeScoresToDb(Map<String, Map<int, Map<String, int>>> roundScores,
       Map<String, Map<String, dynamic>> compScores, DAUComp dauComp) async {
-    try {
-      // cancel stream while we are doing mass updates
-      // TODO consider removing
-      // _tipperRoundScoresStream.cancel();
-      // _tipperCompScoresStream.cancel();
+    _db
+        .child(scoresPathRoot)
+        .child(dauComp.dbkey!)
+        .child(roundScoresRoot)
+        .update(roundScores);
 
-      _db
-          .child(scoresPathRoot)
-          .child(dauComp.dbkey!)
-          .child(roundScoresRoot)
-          .update(roundScores);
-
-      _db
-          .child(scoresPathRoot)
-          .child(dauComp.dbkey!)
-          .child(compScoresRoot)
-          .update(compScores);
-      //}
-    } finally {
-      // restart the streams
-      // TODO consider removing
-      //_listenToScores;
-    }
+    _db
+        .child(scoresPathRoot)
+        .child(dauComp.dbkey!)
+        .child(compScoresRoot)
+        .update(compScores);
   }
 
   Future<List<LeaderboardEntry>> getLeaderboardForComp() async {
-    // if (!_initialCompLoadCompleter.isCompleted) {
-    //   await _initialCompLoadCompleter.future;
-    // }
-
-    // dummy up fake leaderboard
-    var leaderboard = <LeaderboardEntry>[];
-    for (var i = 0; i < 10; i++) {
-      leaderboard.add(LeaderboardEntry(
-          rank: i + 1,
-          name: 'Tipper $i',
-          total: 100,
-          nRL: 50,
-          aFL: 50,
-          numRoundsWon: 5,
-          aflMargins: 10,
-          aflUPS: 10,
-          nrlMargins: 10,
-          nrlUPS: 10));
+    if (!_initialCompAllTipperLoadCompleter.isCompleted) {
+      await _initialCompAllTipperLoadCompleter.future;
     }
+
+    var leaderboard = _allTipperRoundScores.entries.map((e) {
+      int totalScore = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.aflScore + roundScores.nrlScore));
+
+      int nrlScore = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.nrlScore));
+
+      int aflScore = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.aflScore));
+
+      int aflMargins = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.aflMarginTips));
+
+      int aflMarginUps = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.aflMarginUPS));
+
+      int nrlMargins = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.nrlMarginTips));
+
+      int nrlMarginUps = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.nrlMarginUPS));
+
+      return LeaderboardEntry(
+        rank: 0, // replace with actual rank calculation
+        name: e.key,
+        total: totalScore,
+        nRL: nrlScore, // replace with actual nRL calculation
+        aFL: aflScore, // replace with actual aFL calculation
+        numRoundsWon: 0, // replace with actual numRoundsWon calculation
+        aflMargins: aflMargins, // replace with actual aflMargins calculation
+        aflUPS: aflMarginUps, // replace with actual aflUPS calculation
+        nrlMargins: nrlMargins, // replace with actual nrlMargins calculation
+        nrlUPS: nrlMarginUps, // replace with actual nrlUPS calculation
+      );
+    }).toList();
+
+    // TODO: Sort the leaderboard and assign ranks
 
     return leaderboard;
   }
@@ -200,6 +238,7 @@ class ScoresViewModel extends ChangeNotifier {
   void dispose() {
     _tipperRoundScoresStream.cancel(); // stop listening to stream
     _tipperCompScoresStream.cancel(); // stop listening to stream
+    _tipperRoundScoresStreamAllTippers.cancel(); // stop listening to stream
     super.dispose();
   }
 }
