@@ -95,11 +95,13 @@ class GodModeDialog extends StatelessWidget with WatchItMixin {
     String selectedTipper =
         watch(di<TippersViewModel>()).selectedTipper?.dbkey ?? '';
     return AlertDialog(
+      icon: const Icon(Icons.warning),
+      iconColor: Colors.red,
       title: const Text('God Mode'),
       content: Column(
         children: [
           const Text(
-              'If you want to view the tips of another Tipper, or tip on their behalf select them from the list below and click [View].'),
+              'If you want to view the tips of another Tipper, or tip on their behalf select them from the list below and click [View]. To revert this change later, select your name and click [View].'),
           FutureBuilder<List<Tipper>>(
             future: di<TippersViewModel>().getTippers(),
             builder:

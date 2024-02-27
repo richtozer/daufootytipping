@@ -67,6 +67,51 @@ class TipChoice extends StatelessWidget {
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
         try {
+          if (gameTipsViewModel.allTipsViewModel.tipperViewModel.inGodMode) {
+            // show a modal dialog box to confirm they are tipping in god mode.
+            // if they confirm, then submit the tip
+            // if they cancel, then do nothing
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  icon: const Icon(Icons.warning),
+                  iconColor: Colors.red,
+                  title: const Text('Warning: God Mode'),
+                  content: const Text(
+                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot change it later.'),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        TipGame tip = TipGame(
+                          tipper: gameTipsViewModel.currentTipper,
+                          game: gameTipsViewModel.game,
+                          tip: option,
+                          submittedTimeUTC: DateTime.now().toUtc(),
+                        );
+                        //add the tip to the realtime firebase database
+                        gameTipsViewModel.addTip(
+                            roundGames,
+                            tip,
+                            tip.game.dauRound
+                                .dAUroundNumber); //roundGames is passed to support legacy tipping only
+                      },
+                      child: const Text('Submit'),
+                    ),
+                  ],
+                );
+              },
+            );
+
+            return;
+          }
           if (game.gameState != GameState.notStarted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

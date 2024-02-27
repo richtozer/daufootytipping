@@ -82,7 +82,7 @@ class Profile extends StatelessWidget with WatchItMixin {
               ),
             ),
             const SizedBox(height: 20),
-            di<TippersViewModel>().selectedTipper!.tipperRole ==
+            di<TippersViewModel>().authenticatedTipper!.tipperRole ==
                     TipperRole.admin
                 ? const Center(child: AdminFunctionsWidget())
                 : const SizedBox.shrink(),
