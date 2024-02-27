@@ -1,6 +1,4 @@
 import 'package:data_table_2/data_table_2.dart';
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/leaderboard.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -16,9 +14,7 @@ class StatLeaderboard extends StatefulWidget {
 }
 
 class _StatLeaderboardState extends State<StatLeaderboard> {
-  // Future<List<LeaderboardEntry>> leaderBoardFuture =
-  ScoresViewModel scoresViewModel =
-      ScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
+  late ScoresViewModel scoresViewModel;
 
   final List<String> columns = [
     "Rank",
@@ -33,11 +29,12 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
 
   @override
   void initState() {
-    leaderBoardFuture = scoresViewModel.updateLeaderboardForComp();
+    scoresViewModel =
+        ScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     super.initState();
   }
 
-  late Future<List<LeaderboardEntry>> leaderBoardFuture;
+  //late Future<void> leaderBoardFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -45,66 +42,51 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
       create: (context) => scoresViewModel,
       child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
-          return FutureBuilder(
-              future: leaderBoardFuture,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                      child: Text(
-                          'Error loading leaderboardFuture: ${snapshot.error}'));
-                } else if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                } else {
-                  //var leaderboard = scoresViewModel.leaderboard;
-                  var leaderboard = scoresViewModelConsumer.leaderboard;
-
-                  return Center(
-                      child: Padding(
-                          padding: const EdgeInsets.all(0.0),
-                          child: DataTable2(
-                            columnSpacing: 0,
-                            horizontalMargin: 0,
-                            minWidth: 300,
-                            fixedTopRows: 1,
-                            fixedLeftColumns: 2,
-                            columns: getColumns(columns),
-                            rows: List<DataRow>.generate(
-                                leaderboard!.length,
-                                (index) => DataRow(
-                                        cells: [
-                                          DataCell(Text(leaderboard[index]
-                                              .rank
-                                              .toString())),
-                                          DataCell(
-                                              Text(leaderboard[index].name)),
-                                          DataCell(Text(leaderboard[index]
-                                              .total
-                                              .toString())),
-                                          DataCell(Text(leaderboard[index]
-                                              .nRL
-                                              .toString())),
-                                          DataCell(Text(leaderboard[index]
-                                              .aFL
-                                              .toString())),
-                                          DataCell(Text(leaderboard[index]
-                                              .numRoundsWon
-                                              .toString())),
-                                          DataCell(Text(leaderboard[index]
-                                              .aflMargins
-                                              .toString())),
-                                          DataCell(Text(leaderboard[index]
-                                              .aflUPS
-                                              .toString())),
-                                        ],
-                                        onSelectChanged: (bool? selected) {
-                                          if (selected!) {
-                                            print(
-                                                'Selected ${leaderboard[index].name}');
-                                          }
-                                        })),
-                          )));
-                }
-              });
+          return Center(
+              child: Padding(
+                  padding: const EdgeInsets.all(0.0),
+                  child: DataTable2(
+                    columnSpacing: 0,
+                    horizontalMargin: 0,
+                    minWidth: 300,
+                    fixedTopRows: 1,
+                    fixedLeftColumns: 2,
+                    columns: getColumns(columns),
+                    rows: List<DataRow>.generate(
+                        scoresViewModelConsumer.leaderboard.length,
+                        (index) => DataRow(
+                                cells: [
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].rank
+                                      .toString())),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].name)),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].total
+                                      .toString())),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].nRL
+                                      .toString())),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].aFL
+                                      .toString())),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].numRoundsWon
+                                      .toString())),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].aflMargins
+                                      .toString())),
+                                  DataCell(Text(scoresViewModelConsumer
+                                      .leaderboard[index].aflUPS
+                                      .toString())),
+                                ],
+                                onSelectChanged: (bool? selected) {
+                                  if (selected!) {
+                                    print(
+                                        'Selected ${scoresViewModelConsumer.leaderboard[index].name}');
+                                  }
+                                })),
+                  )));
         },
       ),
     );
