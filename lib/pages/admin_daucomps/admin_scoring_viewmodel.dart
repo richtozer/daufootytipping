@@ -78,6 +78,19 @@ class ScoresViewModel extends ChangeNotifier {
           .listen(_handleEvent, onError: (error) {
         log('Error listening to all tipper round scores: $error');
       });
+
+      // TODO is there a more elegant way to handle this?
+      //assign dummmy stream to comp scores, then cancel - allows dispose to work
+      _tipperRoundScoresStream =
+          _db.child('xxx').onValue.listen(_handleEvent, onError: (error) {
+        log('Error listening to all tipper round scores: $error');
+      });
+
+      //assign dummty stream to comp scores, then cancel - allows dispose to work
+      _tipperCompScoresStream =
+          _db.child('yyy').onValue.listen(_handleEvent, onError: (error) {
+        log('Error listening to all tipper round scores: $error');
+      });
     }
   }
 
@@ -245,9 +258,11 @@ class ScoresViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _tipperRoundScoresStream.cancel(); // stop listening to stream
+    _tipperRoundScoresStream
+        .cancel(); // stop listening to stream - this is throwing a late not initialized error
     _tipperCompScoresStream.cancel(); // stop listening to stream
-    _tipperRoundScoresStreamAllTippers.cancel(); // stop listening to stream
+    _tipperRoundScoresStreamAllTippers.cancel();
+
     super.dispose();
   }
 }
