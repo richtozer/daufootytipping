@@ -155,6 +155,7 @@ class ScoresViewModel extends ChangeNotifier {
       log('Error listening to /Scores: $e');
       rethrow;
     } finally {
+      updateLeaderboardForComp();
       notifyListeners();
     }
   }
@@ -174,7 +175,7 @@ class ScoresViewModel extends ChangeNotifier {
         .update(compScores);
   }
 
-  Future<List<LeaderboardEntry>> updateLeaderboardForComp() async {
+  Future<void> updateLeaderboardForComp() async {
     if (!_initialCompAllTipperLoadCompleter.isCompleted) {
       await _initialCompAllTipperLoadCompleter.future;
     }
@@ -236,7 +237,7 @@ class ScoresViewModel extends ChangeNotifier {
 
     _leaderboard = leaderboard.toList(); // Update the property
     notifyListeners();
-    return _leaderboard;
+    return;
   }
 
   Future<RoundScores> getTipperConsolidatedScoresForRound(
