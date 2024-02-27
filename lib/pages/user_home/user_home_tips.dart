@@ -3,6 +3,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/round_comp_scoring.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
@@ -97,7 +98,9 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                           pinned: true,
                           flexibleSpace: FlexibleSpaceBar(
                             //background: compHeaderListTile(dauCompWithScores2!),
-                            background: compHeaderListTile(dauCompWithScores!),
+                            background: compHeaderListTile(
+                                dauCompWithScores!.consolidatedCompScores,
+                                dauCompWithScores.name),
                           ),
                         ),
                         //...dauCompWithScores2.daurounds!
@@ -139,7 +142,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
         });
   }
 
-  Widget compHeaderListTile(DAUComp dauComp) {
+  Widget compHeaderListTile(CompScore? compScore, String compName) {
     return Stack(
       children: [
         Positioned.fill(
@@ -161,11 +164,11 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
               children: [
                 Text(
                     style: const TextStyle(fontWeight: FontWeight.bold),
-                    dauComp.name),
+                    compName),
                 Text(
-                    'NRL: ${dauComp.consolidatedCompScores?.nrlCompScore} / ${dauComp.consolidatedCompScores?.nrlCompMaxScore}'),
+                    'NRL: ${compScore!.nrlCompScore} / ${compScore.nrlCompMaxScore}'),
                 Text(
-                    'AFL: ${dauComp.consolidatedCompScores?.aflCompScore} / ${dauComp.consolidatedCompScores?.aflCompMaxScore}'),
+                    'AFL: ${compScore.aflCompScore} / ${compScore.aflCompMaxScore}'),
               ],
             ),
           ),
