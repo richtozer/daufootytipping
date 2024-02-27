@@ -1,10 +1,10 @@
 import 'package:data_table_2/data_table_2.dart';
-import 'package:daufootytipping/models/leaderboard.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-class StatLeaderboard extends WatchingWidget {
+class StatLeaderboard extends StatelessWidget {
   //constructor
   StatLeaderboard({super.key});
 
@@ -32,54 +32,71 @@ class StatLeaderboard extends WatchingWidget {
 
   @override
   Widget build(BuildContext context) {
-    final leaderboard = watchFuture(
-        (ScoresViewModel scoresViewModel) =>
-            scoresViewModel.getLeaderboardForComp(),
-        initialValue: [
-          LeaderboardEntry(
-              rank: 0,
-              name: '',
-              total: 0,
-              nRL: 0,
-              aFL: 0,
-              numRoundsWon: 0,
-              aflMargins: 0,
-              aflUPS: 0,
-              nrlMargins: 0,
-              nrlUPS: 0)
-        ]);
-    return Center(
-        child: Padding(
-      padding: const EdgeInsets.all(0.0),
-      child: DataTable2(
-        columnSpacing: 0,
-        horizontalMargin: 0,
-        minWidth: 300,
-        fixedTopRows: 1,
-        fixedLeftColumns: 2,
-        columns: getColumns(columns),
-        rows: List<DataRow>.generate(
-            leaderboard.data!.length,
-            (index) => DataRow(
-                    cells: [
-                      DataCell(Text(leaderboard.data![index].rank.toString())),
-                      DataCell(Text(leaderboard.data![index].name)),
-                      DataCell(Text(leaderboard.data![index].total.toString())),
-                      DataCell(Text(leaderboard.data![index].nRL.toString())),
-                      DataCell(Text(leaderboard.data![index].aFL.toString())),
-                      DataCell(Text(
-                          leaderboard.data![index].numRoundsWon.toString())),
-                      DataCell(
-                          Text(leaderboard.data![index].aflMargins.toString())),
-                      DataCell(
-                          Text(leaderboard.data![index].aflUPS.toString())),
-                    ],
-                    onSelectChanged: (bool? selected) {
-                      if (selected!) {
-                        print('Selected ${leaderboard.data![index].name}');
-                      }
-                    })),
+    return ChangeNotifierProvider<ScoresViewModel>(
+      create: (context) => di<ScoresViewModel>(),
+      child: Consumer<ScoresViewModel>(
+        builder: (context, scoresViewModel, child) {
+          return FutureBuilder(
+              future: scoresViewModel.updateLeaderboardForComp(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                      child: Text(
+                          'Error loading leaderboardFuture: ${snapshot.error}'));
+                } else if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                } else {
+                  var leaderboard = scoresViewModel.leaderboard;
+
+                  return Center(
+                      child: Padding(
+                          padding: const EdgeInsets.all(0.0),
+                          child: DataTable2(
+                            columnSpacing: 0,
+                            horizontalMargin: 0,
+                            minWidth: 300,
+                            fixedTopRows: 1,
+                            fixedLeftColumns: 2,
+                            columns: getColumns(columns),
+                            rows: List<DataRow>.generate(
+                                leaderboard!.length,
+                                (index) => DataRow(
+                                        cells: [
+                                          DataCell(Text(leaderboard[index]
+                                              .rank
+                                              .toString())),
+                                          DataCell(
+                                              Text(leaderboard[index].name)),
+                                          DataCell(Text(leaderboard[index]
+                                              .total
+                                              .toString())),
+                                          DataCell(Text(leaderboard[index]
+                                              .nRL
+                                              .toString())),
+                                          DataCell(Text(leaderboard[index]
+                                              .aFL
+                                              .toString())),
+                                          DataCell(Text(leaderboard[index]
+                                              .numRoundsWon
+                                              .toString())),
+                                          DataCell(Text(leaderboard[index]
+                                              .aflMargins
+                                              .toString())),
+                                          DataCell(Text(leaderboard[index]
+                                              .aflUPS
+                                              .toString())),
+                                        ],
+                                        onSelectChanged: (bool? selected) {
+                                          if (selected!) {
+                                            print(
+                                                'Selected ${leaderboard[index].name}');
+                                          }
+                                        })),
+                          )));
+                }
+              });
+        },
       ),
-    ));
+    );
   }
 }

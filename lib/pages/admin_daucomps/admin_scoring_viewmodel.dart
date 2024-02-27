@@ -5,8 +5,10 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/leaderboard.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 // define  constant for firestore database location
 const scoresPathRoot = '/Scores';
@@ -32,6 +34,9 @@ class ScoresViewModel extends ChangeNotifier {
   final Completer<void> _initialCompAllTipperLoadCompleter = Completer();
   Future<void> get initialRoundAllTipperComplete =>
       _initialCompAllTipperLoadCompleter.future;
+
+  List<LeaderboardEntry> _leaderboard = [];
+  List<LeaderboardEntry> get leaderboard => _leaderboard;
 
   //constructor
   ScoresViewModel(this.currentDAUComp) {
@@ -78,7 +83,6 @@ class ScoresViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
-      log('***ScoresViewModel_handleEvent()***');
       if (event.snapshot.exists) {
         // deserialize the scores, they will be in one of 2 formats depending on the contructor used:
         // 1. Map<String, int> if no tipperID is provided
@@ -157,12 +161,11 @@ class ScoresViewModel extends ChangeNotifier {
         .update(compScores);
   }
 
-  Future<List<LeaderboardEntry>> getLeaderboardForComp() async {
+  Future<List<LeaderboardEntry>> updateLeaderboardForComp() async {
     if (!_initialCompAllTipperLoadCompleter.isCompleted) {
       await _initialCompAllTipperLoadCompleter.future;
     }
-
-    var leaderboard = _allTipperRoundScores.entries.map((e) {
+    var leaderboardFutures = _allTipperRoundScores.entries.map((e) async {
       int totalScore = e.value.fold<int>(
           0,
           (previousValue, RoundScores roundScores) =>
@@ -198,9 +201,11 @@ class ScoresViewModel extends ChangeNotifier {
           (previousValue, RoundScores roundScores) =>
               previousValue + (roundScores.nrlMarginUPS));
 
+      Tipper tipper = await di<TippersViewModel>().findTipper(e.key);
+
       return LeaderboardEntry(
         rank: 0, // replace with actual rank calculation
-        name: e.key,
+        name: tipper.name,
         total: totalScore,
         nRL: nrlScore, // replace with actual nRL calculation
         aFL: aflScore, // replace with actual aFL calculation
@@ -210,11 +215,15 @@ class ScoresViewModel extends ChangeNotifier {
         nrlMargins: nrlMargins, // replace with actual nrlMargins calculation
         nrlUPS: nrlMarginUps, // replace with actual nrlUPS calculation
       );
-    }).toList();
+    });
+
+    var leaderboard = await Future.wait(leaderboardFutures);
 
     // TODO: Sort the leaderboard and assign ranks
 
-    return leaderboard;
+    _leaderboard = leaderboard.toList(); // Update the property
+    notifyListeners();
+    return _leaderboard;
   }
 
   Future<RoundScores> getTipperConsolidatedScoresForRound(

@@ -79,7 +79,7 @@ class TipChoice extends StatelessWidget {
                   iconColor: Colors.red,
                   title: const Text('Warning: God Mode'),
                   content: const Text(
-                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot change it later.'),
+                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot undo it later.'),
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
