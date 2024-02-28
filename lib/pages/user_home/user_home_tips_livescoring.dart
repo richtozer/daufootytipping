@@ -29,7 +29,7 @@ class LiveScoring extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('${tipGame.game.scoring?.homeTeamScore}',
+                  Text('${tipGame.game.scoring?.homeTeamScore ?? ''}',
                       style: tipGame.game.scoring!.didHomeTeamWin()
                           ? const TextStyle(
                               fontSize: 18,
@@ -37,7 +37,7 @@ class LiveScoring extends StatelessWidget {
                               fontWeight: FontWeight.w900)
                           : null),
                   const Text(textAlign: TextAlign.left, ' v '),
-                  Text('${tipGame.game.scoring?.awayTeamScore}',
+                  Text('${tipGame.game.scoring?.awayTeamScore ?? ''}',
                       style: tipGame.game.scoring!.didAwayTeamWin()
                           ? const TextStyle(
                               fontSize: 18,
@@ -51,13 +51,13 @@ class LiveScoring extends StatelessWidget {
                 children: [
                   !tipGame.isDefaultTip()
                       ? Text(tipGame.game.league == League.nrl
-                          ? 'Tip: ${tipGame.tip.nrl}'
-                          : 'Tip: ${tipGame.tip.afl}')
+                          ? 'Your tip: ${tipGame.tip.nrl}'
+                          : 'Yout tip: ${tipGame.tip.afl}')
                       : Row(
                           children: [
                             Text(tipGame.game.league == League.nrl
-                                ? 'Tip: ${tipGame.tip.nrl}'
-                                : 'Tip: ${tipGame.tip.afl}'),
+                                ? 'Your tip: ${tipGame.tip.nrl}'
+                                : 'Your tip: ${tipGame.tip.afl}'),
                             InkWell(
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -78,7 +78,7 @@ class LiveScoring extends StatelessWidget {
                 ],
               ),
               Text(
-                  'Score: ${tipGame.getTipScoreCalculated()} / ${tipGame.getMaxScoreCalculated()}'),
+                  'Your points: ${tipGame.getTipScoreCalculated()} / ${tipGame.getMaxScoreCalculated()}'),
             ],
           ),
         ],

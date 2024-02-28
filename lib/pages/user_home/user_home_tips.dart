@@ -264,7 +264,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
   }
 }
 
-class GameListBuilder extends StatelessWidget with WatchItMixin {
+class GameListBuilder extends StatefulWidget {
   GameListBuilder({
     super.key,
     required this.currentTipper,
@@ -275,10 +275,6 @@ class GameListBuilder extends StatelessWidget with WatchItMixin {
     dcvm = di<DAUCompsViewModel>();
   }
 
-  late Game loadingGame;
-
-  List<Game>? games;
-
   final Tipper currentTipper;
   final DAURound dauRound;
   final League league;
@@ -286,10 +282,27 @@ class GameListBuilder extends StatelessWidget with WatchItMixin {
   late final DAUCompsViewModel dcvm;
 
   @override
+  State<GameListBuilder> createState() => _GameListBuilderState();
+}
+
+class _GameListBuilderState extends State<GameListBuilder> {
+  late Game loadingGame;
+
+  List<Game>? games;
+  Future<List<Game>?>? gamesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+
+    gamesFuture = widget.dcvm.getGamesForCombinedRoundNumberAndLeague(
+        widget.dauRound.dAUroundNumber, widget.league);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Game>?>(
-        future: dcvm.getGamesForCombinedRoundNumberAndLeague(
-            dauRound.dAUroundNumber, league),
+        future: gamesFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -305,10 +318,10 @@ class GameListBuilder extends StatelessWidget with WatchItMixin {
                 return GameListItem(
                   roundGames: games!,
                   game: game,
-                  currentTipper: currentTipper,
+                  currentTipper: widget.currentTipper,
                   currentDAUCompDBkey:
                       di<DAUCompsViewModel>().selectedDAUCompDbKey,
-                  allTipsViewModel: allTipsViewModel,
+                  allTipsViewModel: widget.allTipsViewModel,
                 );
               },
             );

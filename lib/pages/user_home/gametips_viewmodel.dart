@@ -48,10 +48,31 @@ class GameTipsViewModel extends ChangeNotifier {
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
     _findTip();
+    gameStartedTrigger();
+  }
+
+  // this method will delay returning until the game has started,
+  // then use notifiyListeners to trigger the UI to update
+  void gameStartedTrigger() async {
+    // if the game has already started, then we don't need to wait , just return
+    if (game.gameState != GameState.notStarted) {
+      notifyListeners();
+      return;
+    }
+
+    // caldulate the time until the game starts and create a future.delayed
+    // to wait until the game starts
+    var timeUntilGameStarts =
+        game.startTimeUTC.difference(DateTime.now().toUtc());
+    await Future.delayed(timeUntilGameStarts);
+
+    // now that the game has started, trigger the UI to update
+    notifyListeners();
   }
 
   void update() {
-    notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
+    // we may have new data lets check if we need to update our tip
+    _findTip();
   }
 
   void _findTip() async {

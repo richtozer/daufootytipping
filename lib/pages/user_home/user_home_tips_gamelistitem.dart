@@ -54,7 +54,6 @@ class _GameListItemState extends State<GameListItem> {
     //       } else {
     return ChangeNotifierProvider<GameTipsViewModel>.value(
         value: gameTipsViewModel,
-        //create: (context) => gameTipsViewModel,
         child: Consumer<GameTipsViewModel>(
             builder: (context, gameTipsViewModelConsumer, child) {
           return Card(
