@@ -60,11 +60,6 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(BuildContext context) {
-    // final dauCompWithScores2 = watchFuture(
-    //         (DAUCompsViewModel x) =>
-    //             x.getCompWithScores(di<TippersViewModel>().selectedTipper!),
-    //         initialValue: null)
-    //     .data;
     log('TipsPageBody.build()');
 
     //TODO need to implement some sort of change notifier to update the UI?
@@ -148,27 +143,38 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
         Positioned.fill(
           child: Image.asset(
             'assets/teams/daulogo.jpg',
-            fit: BoxFit.fill,
+            fit: BoxFit.fitWidth,
           ),
         ),
         ListTile(
-          trailing: SvgPicture.asset(League.afl.logo, width: 40, height: 40),
-          leading: SvgPicture.asset(League.nrl.logo, width: 50, height: 50),
           title: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.8),
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                    compName),
-                Text(
-                    'NRL: ${compScore!.nrlCompScore} / ${compScore.nrlCompMaxScore}'),
-                Text(
-                    'AFL: ${compScore.aflCompScore} / ${compScore.aflCompMaxScore}'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Text(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        compName),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Text(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        'NRL: ${compScore!.nrlCompScore} / ${compScore.nrlCompMaxScore}'),
+                    Text(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        'AFL: ${compScore.aflCompScore} / ${compScore.aflCompMaxScore}'),
+                  ],
+                ),
               ],
             ),
           ),
@@ -184,7 +190,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
         Positioned.fill(
           child: Image.asset(
             'assets/teams/daulogo.jpg',
-            fit: BoxFit.fill,
+            fit: BoxFit.fitWidth,
           ),
         ),
         ListTile(
@@ -200,38 +206,53 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                 }),
                 di<TippersViewModel>().selectedTipper!);
           },
-          trailing: SvgPicture.asset(
-            leagueHeader.logo,
-            width: width,
-            height: height,
-          ),
           title: Container(
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.8),
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text(
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                    'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
-                Text(
-                    'Score: ${leagueHeader == League.afl ? dauRound.roundScores!.aflScore : dauRound.roundScores!.nrlScore} / ${leagueHeader == League.afl ? dauRound.roundScores!.aflMaxScore : dauRound.roundScores!.nrlMaxScore}'),
-                Text(
-                    'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginUPS : dauRound.roundScores!.nrlMarginUPS}'),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                SvgPicture.asset(
+                  leagueHeader.logo,
+                  width: width,
+                  height: height,
+                ),
+                Column(
                   children: [
-                    Text('Rank: ${dauRound.roundScores!.rank}  '),
-                    dauRound.roundScores!.rankChange > 0
-                        ? const Icon(color: Colors.green, Icons.arrow_upward)
-                        : dauRound.roundScores!.rankChange < 0
-                            ? const Icon(
-                                color: Colors.red, Icons.arrow_downward)
-                            : const Icon(
-                                color: Colors.redAccent, Icons.sync_alt),
-                    Text('${dauRound.roundScores!.rankChange}'),
+                    Text(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
+                    dauRound.roundStarted
+                        ? Text(
+                            'Score: ${leagueHeader == League.afl ? dauRound.roundScores!.aflScore : dauRound.roundScores!.nrlScore} / ${leagueHeader == League.afl ? dauRound.roundScores!.aflMaxScore : dauRound.roundScores!.nrlMaxScore}')
+                        : const SizedBox.shrink(),
+                    dauRound.roundStarted
+                        ? Text(
+                            'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginUPS : dauRound.roundScores!.nrlMarginUPS}')
+                        : Text(
+                            'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} '),
+                    dauRound.roundStarted
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Rank: ${dauRound.roundScores!.rank}  '),
+                              dauRound.roundScores!.rankChange > 0
+                                  ? const Icon(
+                                      color: Colors.green, Icons.arrow_upward)
+                                  : dauRound.roundScores!.rankChange < 0
+                                      ? const Icon(
+                                          color: Colors.red,
+                                          Icons.arrow_downward)
+                                      : const Icon(
+                                          color: Colors.redAccent,
+                                          Icons.sync_alt),
+                              Text('${dauRound.roundScores!.rankChange}'),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
                   ],
                 ),
               ],

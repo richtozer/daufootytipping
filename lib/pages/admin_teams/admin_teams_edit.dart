@@ -97,6 +97,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
           Builder(
             builder: (BuildContext context) {
               return ChangeNotifierProvider<TeamsViewModel>(
+                  //TODO this may not be used and can be removed
                   create: (context) => TeamsViewModel(),
                   builder: (context, child) {
                     return IconButton(

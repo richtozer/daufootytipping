@@ -38,8 +38,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>(
-      create: (context) => scoresViewModel,
+    return ChangeNotifierProvider<ScoresViewModel>.value(
+      value: scoresViewModel,
       child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return Scaffold(
