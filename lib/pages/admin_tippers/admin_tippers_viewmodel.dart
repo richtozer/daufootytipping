@@ -273,7 +273,7 @@ class TippersViewModel extends ChangeNotifier {
   Future<bool> linkUserToTipper() async {
     Tipper? foundTipper;
     User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
-    bool linkedUser = false;
+    bool userIsLinked = false;
 
     try {
       // first try finding the tipper based on authuid
@@ -302,7 +302,7 @@ class TippersViewModel extends ChangeNotifier {
         // for now the selected tipper is the same as the authenticated tipper
         // in god mode this can be changed
         _selectedTipper = foundTipper;
-        linkedUser = true;
+        userIsLinked = true;
 
         //update photoURL if it has changed
         if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
@@ -313,7 +313,7 @@ class TippersViewModel extends ChangeNotifier {
 
         await registerLinkedTipperForMessaging();
       }
-      return linkedUser;
+      return userIsLinked;
     } catch (e) {
       log('linkUserToTipper() Error: $e');
       return false;
@@ -322,10 +322,8 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  // DeviceTokens storeed in another tree
-  // this is to avoid the need to update the
-  // entire tipper record every time a new token is added
-  // this is due to firebase billing
+  // DeviceTokens are stored in another tree in db
+  // this is to keep firebase billing low/nil
   Future<void> registerLinkedTipperForMessaging() async {
     // loop through any existing device tokens for this tipper, if the token
     // does not exist, add it, otherwise update the timestamp for the existing token

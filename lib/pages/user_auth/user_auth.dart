@@ -141,6 +141,11 @@ class UserAuthPage extends StatelessWidget {
               return FutureBuilder<bool>(
                 future: tippersViewModel.linkUserToTipper(),
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
+                  if (snapshot.data == null) {
+                    return const Center(
+                        child: Text(
+                            'error - unexpected null from linkUserToTipper'));
+                  }
                   bool authenticatedUserIsLinkedToTipper =
                       snapshot.data ?? false;
                   if (snapshot.connectionState == ConnectionState.waiting) {
