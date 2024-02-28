@@ -309,6 +309,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
           } else {
             games = snapshot.data;
             return ListView.builder(
+              padding: const EdgeInsets.all(0),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: games!.length,

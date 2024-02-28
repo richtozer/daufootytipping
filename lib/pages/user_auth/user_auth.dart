@@ -167,10 +167,7 @@ class UserAuthPage extends StatelessWidget {
                         child: Text(
                             'error - unexpected null from linkUserToTipper'));
                   } else {
-                    bool authenticatedUserIsLinkedToTipper =
-                        snapshot.data ?? false;
-
-                    if (!authenticatedUserIsLinkedToTipper) {
+                    if (tippersViewModel.authenticatedTipper == null) {
                       // default to the profile screen if no tipper record found
                       return ProfileScreen(
                         actions: [
