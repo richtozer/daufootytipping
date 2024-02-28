@@ -1,6 +1,7 @@
 class LeaderboardEntry {
   int rank;
   String name;
+  String? profileURL;
   int total;
   int nRL;
   int aFL;
@@ -25,5 +26,6 @@ class LeaderboardEntry {
     required this.aflUPS,
     required this.nrlMargins,
     required this.nrlUPS,
+    this.profileURL,
   });
 }

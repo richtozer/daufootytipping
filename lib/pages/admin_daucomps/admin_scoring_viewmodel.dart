@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:daufootytipping/models/round_comp_scoring.dart';
+import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/leaderboard.dart';
+import 'package:daufootytipping/models/scoring_leaderboard.dart';
+import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -37,6 +38,9 @@ class ScoresViewModel extends ChangeNotifier {
 
   List<LeaderboardEntry> _leaderboard = [];
   List<LeaderboardEntry> get leaderboard => _leaderboard;
+
+  List<RoundWinnerEntry> _roundWinners = [];
+  List<RoundWinnerEntry> get roundWinners => _roundWinners;
 
   //constructor
   ScoresViewModel(this.currentDAUComp) {
@@ -151,12 +155,12 @@ class ScoresViewModel extends ChangeNotifier {
           }
         }
       }
+
+      updateLeaderboardForComp();
+      updateRoundWinners();
     } catch (e) {
       log('Error listening to /Scores: $e');
       rethrow;
-    } finally {
-      updateLeaderboardForComp();
-      notifyListeners();
     }
   }
 
@@ -173,6 +177,40 @@ class ScoresViewModel extends ChangeNotifier {
         .child(dauComp.dbkey!)
         .child(compScoresRoot)
         .update(compScores);
+  }
+
+  Future<void> updateRoundWinners() async {
+    if (!_initialCompAllTipperLoadCompleter.isCompleted) {
+      await _initialCompAllTipperLoadCompleter.future;
+    }
+
+    // iterate through each round and calculate the winner for each round
+    // create  a RoundWinnerEntry for each winner and add to List<RoundWinnerEntry> _roundWinners
+    var res = _allTipperRoundScores.entries.map((e) {
+      String tipperID = e.key; // capture the tipperID here
+      int maxScore = e.value.fold<int>(
+          0,
+          (previousValue, RoundScores roundScores) =>
+              previousValue + (roundScores.aflScore + roundScores.nrlScore));
+
+      List<RoundScores> winners = e.value
+          .where((element) => element.aflScore + element.nrlScore == maxScore)
+          .toList();
+
+      _roundWinners = winners
+          .map((e) => RoundWinnerEntry(
+              roundNumber: 1, //TODO replace with actual round number
+              name: tipperID, //TODO replace with actual tipper name
+              total: e.aflScore + e.nrlScore,
+              nRL: e.nrlScore,
+              aFL: e.aflScore,
+              aflMargins: e.aflMarginTips,
+              aflUPS: e.aflMarginUPS,
+              nrlMargins: e.nrlMarginTips,
+              nrlUPS: e.nrlMarginUPS))
+          .toList();
+    }).toList();
+    notifyListeners();
   }
 
   Future<void> updateLeaderboardForComp() async {
@@ -228,12 +266,23 @@ class ScoresViewModel extends ChangeNotifier {
         aflUPS: aflMarginUps, // replace with actual aflUPS calculation
         nrlMargins: nrlMargins, // replace with actual nrlMargins calculation
         nrlUPS: nrlMarginUps, // replace with actual nrlUPS calculation
+        profileURL: tipper.photoURL,
       );
     });
 
     var leaderboard = await Future.wait(leaderboardFutures);
-
-    // TODO: Sort the leaderboard and assign ranks
+    leaderboard.sort((a, b) => b.total.compareTo(a.total));
+    int rank = 1;
+    int skip = 1;
+    for (int i = 0; i < leaderboard.length; i++) {
+      if (i > 0 && leaderboard[i].total < leaderboard[i - 1].total) {
+        rank += skip;
+        skip = 1;
+      } else if (i > 0 && leaderboard[i].total == leaderboard[i - 1].total) {
+        skip++;
+      }
+      leaderboard[i].rank = rank;
+    }
 
     _leaderboard = leaderboard.toList(); // Update the property
     notifyListeners();
