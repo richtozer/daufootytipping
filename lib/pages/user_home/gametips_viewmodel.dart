@@ -8,9 +8,10 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
-class GameTipsViewModel extends DisposeSafeChangeNotifier {
+class GameTipsViewModel extends ChangeNotifier {
   TipGame? _tipGame;
 
   TipGame? get tipGame => _tipGame;
@@ -38,21 +39,31 @@ class GameTipsViewModel extends DisposeSafeChangeNotifier {
   get controller => _controller;
 
   //constructor
-  GameTipsViewModel(this.currentTipper, this.currentDAUComp, this.game,
-      this.allTipsViewModel) {
+  GameTipsViewModel(
+    this.currentTipper,
+    this.currentDAUComp,
+    this.game,
+    this.allTipsViewModel,
+  ) {
+    allTipsViewModel.addListener(update);
+    allTipsViewModel.gamesViewModel.addListener(update);
     _findTip();
+  }
+
+  void update() {
+    notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
   }
 
   void _findTip() async {
     await allTipsViewModel.initialLoadCompleted;
+
     _tipGame = await allTipsViewModel.findTip(game, currentTipper);
+
+    // flag our intial load as complete
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
 
-    // Exception has occurred.
-    // FlutterError (A GameTipsViewModel was used after being disposed.
-    // Once you have called dispose() on a GameTipsViewModel, it can no longer be used.)
     notifyListeners();
   }
 
@@ -97,5 +108,12 @@ class GameTipsViewModel extends DisposeSafeChangeNotifier {
       notifyListeners();
       _savingTip = false;
     }
+  }
+
+  @override
+  void dispose() {
+    allTipsViewModel.removeListener(update);
+    allTipsViewModel.gamesViewModel.removeListener(update);
+    super.dispose();
   }
 }

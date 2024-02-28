@@ -41,11 +41,17 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>(
-      create: (context) => scoresViewModel,
+    return ChangeNotifierProvider<ScoresViewModel>.value(
+      value: scoresViewModel,
       child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return Scaffold(
+            floatingActionButton: FloatingActionButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Icon(Icons.arrow_back),
+            ),
             body: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -68,18 +74,6 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
                             child: const Text(
                                 style: TextStyle(fontWeight: FontWeight.bold),
                                 'Leaderboard')),
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.black
-                              .withOpacity(0.5), // semi-transparent black
-                          child: const Icon(
-                            Icons.arrow_back,
-                            size: 30, // increased size
-                            color: Colors.white,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
                       ),
                     ],
                   ),
