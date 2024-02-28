@@ -141,17 +141,8 @@ class UserAuthPage extends StatelessWidget {
               return FutureBuilder<bool>(
                 future: tippersViewModel.linkUserToTipper(),
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
-                  if (snapshot.data == null) {
-                    return const Center(
-                        child: Text(
-                            'error - unexpected null from linkUserToTipper'));
-                  }
-                  bool authenticatedUserIsLinkedToTipper =
-                      snapshot.data ?? false;
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                        child:
-                            CircularProgressIndicator()); // or your own loading widget
+                    return const Center(child: CircularProgressIndicator());
                   } else if (snapshot.hasError) {
                     return ProfileScreen(
                       actions: [
@@ -171,7 +162,14 @@ class UserAuthPage extends StatelessWidget {
                         ),
                       ],
                     );
+                  } else if (snapshot.data == null) {
+                    return const Center(
+                        child: Text(
+                            'error - unexpected null from linkUserToTipper'));
                   } else {
+                    bool authenticatedUserIsLinkedToTipper =
+                        snapshot.data ?? false;
+
                     if (!authenticatedUserIsLinkedToTipper) {
                       // default to the profile screen if no tipper record found
                       return ProfileScreen(
