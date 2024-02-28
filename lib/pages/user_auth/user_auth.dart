@@ -141,6 +141,8 @@ class UserAuthPage extends StatelessWidget {
               return FutureBuilder<bool>(
                 future: tippersViewModel.linkUserToTipper(),
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
+                  bool authenticatedUserIsLinkedToTipper =
+                      snapshot.data ?? false;
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                         child:
@@ -165,7 +167,7 @@ class UserAuthPage extends StatelessWidget {
                       ],
                     );
                   } else {
-                    if (snapshot.data == false) {
+                    if (!authenticatedUserIsLinkedToTipper) {
                       // default to the profile screen if no tipper record found
                       return ProfileScreen(
                         actions: [
