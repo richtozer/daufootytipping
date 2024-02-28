@@ -281,17 +281,6 @@ class TippersViewModel extends ChangeNotifier {
 
       if (foundTipper != null) {
         log('linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
-        _authenticatedTipper = foundTipper;
-        // for now the selected tipper is the same as the authenticated tipper
-        // in god mode this can be changed
-        _selectedTipper = foundTipper;
-
-        //update photoURL if it has changed
-        if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
-          await updateTipperAttribute(foundTipper.dbkey!, "photoURL",
-              authenticatedFirebaseUser.photoURL);
-          await saveBatchOfTipperAttributes();
-        }
       } else {
         // if that fails, try finding the tipper based on email
         foundTipper ??=
@@ -314,13 +303,23 @@ class TippersViewModel extends ChangeNotifier {
         // in god mode this can be changed
         _selectedTipper = foundTipper;
         linkedUser = true;
+
+        //update photoURL if it has changed
+        if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
+          await updateTipperAttribute(foundTipper.dbkey!, "photoURL",
+              authenticatedFirebaseUser.photoURL);
+          await saveBatchOfTipperAttributes();
+        }
+
         await registerLinkedTipperForMessaging();
       }
       return linkedUser;
     } catch (e) {
       log('linkUserToTipper() Error: $e');
       return false;
-    } finally {}
+    } finally {
+      notifyListeners();
+    }
   }
 
   // DeviceTokens storeed in another tree

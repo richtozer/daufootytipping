@@ -1,4 +1,4 @@
-import 'package:daufootytipping/models/round_comp_scoring.dart';
+import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 
 class DAUComp implements Comparable<DAUComp> {
