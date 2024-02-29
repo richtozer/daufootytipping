@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 
 class DAUComp implements Comparable<DAUComp> {
@@ -6,8 +7,8 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
   List<DAURound>? daurounds = [];
-  final bool
-      active; // TODO we should regularly download fixture updates for active comps only - 1) honor this flag in the code and 2) allow a way for it to be set to false - either automatically or by admin
+  final bool active;
+  CompScore? consolidatedCompScores;
 
   //constructor
   DAUComp({

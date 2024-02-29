@@ -1,80 +1,58 @@
 import 'dart:developer';
-
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
-
 import 'package:flutter/material.dart';
 
 class TipChoice extends StatelessWidget {
-  final Future<Tip?> latestGameTip;
   final GameTipsViewModel gameTipsViewModel;
   final List<Game> roundGames;
 
-  const TipChoice(this.roundGames, this.latestGameTip, this.gameTipsViewModel,
-      {super.key});
+  const TipChoice(this.roundGames, this.gameTipsViewModel, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Tip?>(
-        future: latestGameTip,
-        builder: (context, AsyncSnapshot<Tip?> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child:
-                    //CircularProgressIndicator()); // Show loading spinner while waiting for data
-                    Text('wait....'));
-            //return const SizedBox.shrink(); //return empty widget while waiting for data
-          } else if (snapshot.hasError) {
-            return Text(
-                'Error: ${snapshot.error}'); // Show error message if something went wrong
-          } else {
-            Tip? latestGameTip = snapshot.data;
-
-            // display the tippings buttons in this layout:
-            //  [Home with margin] [ Home]
-            //           [Draw]
-            //  [Away] [Away with margin]
-            return Card(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      generateChoiceChip(GameResult.a, gameTipsViewModel.game,
-                          latestGameTip, context),
-                      generateChoiceChip(GameResult.b, gameTipsViewModel.game,
-                          latestGameTip, context)
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      generateChoiceChip(GameResult.c, gameTipsViewModel.game,
-                          latestGameTip, context),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      generateChoiceChip(GameResult.d, gameTipsViewModel.game,
-                          latestGameTip, context),
-                      generateChoiceChip(GameResult.e, gameTipsViewModel.game,
-                          latestGameTip, context)
-                    ],
-                  )
-                ],
-              ),
-            );
-          }
-        });
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              generateChoiceChip(GameResult.a, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context),
+              generateChoiceChip(GameResult.b, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context)
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              generateChoiceChip(GameResult.c, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              generateChoiceChip(GameResult.d, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context),
+              generateChoiceChip(GameResult.e, gameTipsViewModel.game,
+                  gameTipsViewModel.tipGame, context)
+            ],
+          )
+        ],
+      ),
+    );
   }
 
-  ChoiceChip generateChoiceChip(
-      GameResult option, Game game, Tip? latestGameTip, BuildContext context) {
+  ChoiceChip generateChoiceChip(GameResult option, Game game,
+      TipGame? latestGameTip, BuildContext context) {
     return ChoiceChip.elevated(
       label: Text(game.league == League.afl ? option.afl : option.nrl),
       tooltip:
@@ -82,18 +60,63 @@ class TipChoice extends StatelessWidget {
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0.0),
+        borderRadius: BorderRadius.circular(8.0),
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
       selectedColor: const Color(0xFF789697),
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
         try {
+          if (gameTipsViewModel.allTipsViewModel.tipperViewModel.inGodMode) {
+            // show a modal dialog box to confirm they are tipping in god mode.
+            // if they confirm, then submit the tip
+            // if they cancel, then do nothing
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  icon: const Icon(Icons.warning),
+                  iconColor: Colors.red,
+                  title: const Text('Warning: God Mode'),
+                  content: const Text(
+                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot undo it later.'),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        TipGame tip = TipGame(
+                          tipper: gameTipsViewModel.currentTipper,
+                          game: gameTipsViewModel.game,
+                          tip: option,
+                          submittedTimeUTC: DateTime.now().toUtc(),
+                        );
+                        //add the tip to the realtime firebase database
+                        gameTipsViewModel.addTip(
+                            roundGames,
+                            tip,
+                            tip.game.dauRound
+                                .dAUroundNumber); //roundGames is passed to support legacy tipping only
+                      },
+                      child: const Text('Submit'),
+                    ),
+                  ],
+                );
+              },
+            );
+
+            return;
+          }
           if (game.gameState != GameState.notStarted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,
-                content: Text('Tipping for this game is closed.'),
+                content: Text('Tipping for this game has closed.'),
               ),
             );
             return;
@@ -107,7 +130,7 @@ class TipChoice extends StatelessWidget {
               ),
             );
           } else {
-            Tip tip = Tip(
+            TipGame tip = TipGame(
               tipper: gameTipsViewModel.currentTipper,
               game: gameTipsViewModel.game,
               tip: option,
@@ -117,7 +140,7 @@ class TipChoice extends StatelessWidget {
             gameTipsViewModel.addTip(
                 roundGames,
                 tip,
-                tip.game.dauRound!
+                tip.game.dauRound
                     .dAUroundNumber); //roundGames is passed to support legacy tipping only
           }
         } catch (e) {

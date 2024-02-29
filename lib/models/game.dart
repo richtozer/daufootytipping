@@ -6,9 +6,9 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:intl/intl.dart';
 
 enum GameState {
-  notStarted,
-  resultKnown,
-  resultNotKnown,
+  notStarted, // game start time is in the future
+  resultKnown, // game start time is in the past, but game score is known
+  resultNotKnown, // game start time is in the past, but game score is not known
 }
 
 class Game implements Comparable<Game> {
@@ -22,7 +22,7 @@ class Game implements Comparable<Game> {
   final int roundNumber;
   final int matchNumber;
   Scoring? scoring; // this should be null until game kickoff
-  DAURound? dauRound;
+  DAURound dauRound;
 
   //constructor
   Game({
@@ -36,7 +36,7 @@ class Game implements Comparable<Game> {
     required this.roundNumber,
     required this.matchNumber,
     this.scoring,
-    this.dauRound,
+    required this.dauRound,
   });
 
   // this getter will return the gamestate based on the current time and the game start time
@@ -69,8 +69,8 @@ class Game implements Comparable<Game> {
         "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
       };
 
-  factory Game.fromFixtureJson(
-      String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
+  factory Game.fromFixtureJson(String dbkey, Map<String, dynamic> data,
+      homeTeam, awayTeam, linkedDauRound) {
     //use the left 3 chars of the dbkey to determine the league
     final league = League.values.byName(dbkey.substring(0, 3));
     return Game(
@@ -83,6 +83,7 @@ class Game implements Comparable<Game> {
       startTimeUTC: DateTime.parse(data['DateUtc']),
       roundNumber: data['RoundNumber'] ?? 0,
       matchNumber: data['MatchNumber'] ?? 0,
+      dauRound: linkedDauRound,
     );
   }
 
