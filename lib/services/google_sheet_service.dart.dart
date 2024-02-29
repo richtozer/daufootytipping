@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_tips_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
 import 'package:googleapis_auth/googleapis_auth.dart';
@@ -60,21 +60,25 @@ class LegacyTippingService {
   }
 
   Future<void> _initialize() async {
-    AutoRefreshingAuthClient client = await gsheets.client;
-    sheetsApi = SheetsApi(client);
+    try {
+      AutoRefreshingAuthClient client = await gsheets.client;
+      sheetsApi = SheetsApi(client);
 
-    log('Using Gsheet shseet with id $spreadsheetId');
+      log('Using Gsheet shseet with id $spreadsheetId');
 
-    spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
-    appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
-    tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
+      spreadsheet = await gsheets.spreadsheet(spreadsheetId!);
+      appTipsSheet = spreadsheet.worksheetByTitle(appTipsSheetName)!;
+      tippersSheet = spreadsheet.worksheetByTitle(tippersSheetName)!;
 
-    tippersRows = await tippersSheet.values.allRows();
-    log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
+      tippersRows = await tippersSheet.values.allRows();
+      log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
-    refreshAppTipsData();
-
-    _initialLoadCompleter.complete();
+      refreshAppTipsData();
+    } catch (e) {
+      log('Error initialising legacy tipping service: ${e.toString()}');
+    } finally {
+      _initialLoadCompleter.complete();
+    }
   }
 
   //method to convert gsheet rows of tippers into a list of Tipper objects
@@ -145,37 +149,37 @@ class LegacyTippingService {
     }
 
     // Get all current tips from realtime database
-    List<Tip> allTips = await allTipsViewModel.getTips();
+    List<TipGame?> tipGames = await allTipsViewModel.getTips();
 
     // Update 2 dimensional list with any tips found.
-    for (Tip tip in allTips) {
+    for (TipGame? tipGame in tipGames) {
       // Find the sheet index for the tipper tip.tipper.name
       int rowToUpdate =
-          tippers.indexWhere((tipper) => tipper.name == tip.tipper.name);
+          tippers.indexWhere((tipper) => tipper.name == tipGame?.tipper.name);
 
       if (rowToUpdate == -1) {
         // If a matching row is not found, throw exception
         throw Exception(
-            'Tipper ${tip.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
+            'Tipper ${tipGame?.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
       } else {
         rowToUpdate--; //account for the removed header row
 
         // update the proposed tipper data with the new tip. Use the league and matchnumber to find the correct character to update
         var targetString = proposedGsheetTipChanges[rowToUpdate]
-            [tip.game.dauRound!.dAUroundNumber - 1];
-        if (tip.game.league == League.nrl) {
+            [tipGame!.game.dauRound.dAUroundNumber - 1];
+        if (tipGame.game.league == League.nrl) {
           //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
           // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
           // that is the offset to use to update the proposedGsheetTipChanges
-          int gameIndex = tip.game.dauRound!.gamesAsKeys
+          int gameIndex = tipGame.game.dauRound.gamesAsKeys
               .where((element) => element.contains('nrl-'))
               .toList()
-              .indexOf(tip.game.dbkey);
+              .indexOf(tipGame.game.dbkey);
 
           targetString = targetString?.replaceRange(
-              gameIndex, gameIndex + 1, tip.tip.name);
+              gameIndex, gameIndex + 1, tipGame.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
-              [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
+              [tipGame.game.dauRound.dAUroundNumber - 1] = targetString;
         } else {
           //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
           // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
@@ -183,14 +187,14 @@ class LegacyTippingService {
           // add 8 to the offset to account for the fact that nrl tips go first in the string
 
           int gameIndex = 8 +
-              tip.game.dauRound!.gamesAsKeys
+              tipGame.game.dauRound.gamesAsKeys
                   .where((element) => element.contains('afl-'))
                   .toList()
-                  .indexOf(tip.game.dbkey);
+                  .indexOf(tipGame.game.dbkey);
           targetString = targetString?.replaceRange(
-              gameIndex, gameIndex + 1, tip.tip.name);
+              gameIndex, gameIndex + 1, tipGame.tip.name);
           proposedGsheetTipChanges[rowToUpdate]
-              [tip.game.dauRound!.dAUroundNumber - 1] = targetString;
+              [tipGame.game.dauRound.dAUroundNumber - 1] = targetString;
         }
       }
     }
@@ -291,7 +295,7 @@ class LegacyTippingService {
   }
 
   Future<void> submitTip(
-      String tipperName, Tip tip, int gameIndex, int dauRoundNumber) async {
+      String tipperName, TipGame tip, int gameIndex, int dauRoundNumber) async {
     // Find the row with the matching TipperName
     final rowToUpdate = appTipsData.indexWhere((row) => row[0] == tipperName);
 
@@ -337,6 +341,8 @@ class LegacyTippingService {
   }
 
   Future<void> refreshAppTipsData() async {
+    await initialized();
+
     final values = await sheetsApi.spreadsheets.values.get(
       spreadsheetId!,
       appTipsSheetName,
@@ -345,6 +351,6 @@ class LegacyTippingService {
         .map((list) => list.map((item) => item as String?).toList())
         .toList();
 
-    log('Sheet ${appTipsSheet.title} data synced. Found ${appTipsData.length} rows.');
+    log('Legacy sheet ${appTipsSheet.title} data loaded in app. Found ${appTipsData.length} rows.');
   }
 }

@@ -1,71 +1,38 @@
 import 'dart:developer';
-
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:watch_it/watch_it.dart';
 
 // this class supports both creating and updating DAUComp records.
 // it has 2 modes, then daucomp is null it is in new record mode,
 // when it is not null it is in edit record mode
-class DAUCompsEditPage extends StatefulWidget {
+class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
   final DAUComp?
       daucomp; //if this is an edit for a new comp, this will stay null
-  final DAUCompsViewModel dauCompViewModel;
+  //final DAUCompsViewModel dauCompViewModel;
 
-  const DAUCompsEditPage(this.daucomp, this.dauCompViewModel, {super.key});
+  late final TextEditingController _daucompNameController;
+  late final TextEditingController _daucompAflJsonURLController;
+  late final TextEditingController _daucompNrlJsonURLController;
 
-  @override
-  State<DAUCompsEditPage> createState() => _DAUCompsEditPageState();
-}
+  bool disableBackButton = false;
+  bool disableSaves = false;
 
-class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
-  late DAUComp? daucomp;
-  late DAUCompsViewModel dauCompViewModel;
-
-  late TextEditingController _daucompNameController;
-  late TextEditingController _daucompAflJsonURLController;
-  late TextEditingController _daucompNrlJsonURLController;
-
-  late bool disableBackButton = false;
-  late bool disableSaves = true;
-  late bool disableSync = false;
-  late bool syncInProgress = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  @override
-  void initState() {
-    super.initState();
-    daucomp = widget.daucomp;
-    dauCompViewModel = widget.dauCompViewModel;
-
-    // if this is a new record, disable sync button until the record is saved
-    if (daucomp == null) {
-      disableSync = true;
-    }
-
+  //constructor
+  DAUCompsEditPage(this.daucomp, {super.key}) {
     _daucompNameController = TextEditingController(text: daucomp?.name);
     _daucompAflJsonURLController =
         TextEditingController(text: daucomp?.aflFixtureJsonURL.toString());
     _daucompNrlJsonURLController =
         TextEditingController(text: daucomp?.nrlFixtureJsonURL.toString());
-
-    // if this is a new record, disable sync button
-    if (daucomp == null) {
-      disableSync = true;
-    }
   }
 
-  @override
-  void dispose() {
-    _daucompNameController.dispose();
-    _daucompAflJsonURLController.dispose();
-    _daucompNrlJsonURLController.dispose();
-    super.dispose();
-  }
-
-  void _saveDAUComp(BuildContext context) async {
+  void _saveDAUComp(
+      DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
     try {
       //check the URL's are active on the server,
       //if yes, save the record and show a green snackbar saying the record is saved
@@ -77,27 +44,25 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         if (daucomp == null) {
           // this is a new record
           DAUComp updatedDUAcomp = DAUComp(
-            dbkey: widget.daucomp?.dbkey,
+            dbkey: daucomp?.dbkey,
             name: _daucompNameController.text,
             aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController.text),
             nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController.text),
           );
-          await widget.dauCompViewModel.newDAUComp(updatedDUAcomp);
+
+          await dauCompsViewModel.newDAUComp(updatedDUAcomp);
         } else {
           // this is an existing record
-          await widget.dauCompViewModel.updateCompAttribute(
+          await dauCompsViewModel.updateCompAttribute(
               daucomp, "name", _daucompNameController.text);
-          await widget.dauCompViewModel.updateCompAttribute(
+          await dauCompsViewModel.updateCompAttribute(
               daucomp, "aflFixtureJsonURL", _daucompAflJsonURLController.text);
-          await widget.dauCompViewModel.updateCompAttribute(
+          await dauCompsViewModel.updateCompAttribute(
               daucomp, "nrlFixtureJsonURL", _daucompNrlJsonURLController.text);
         }
 
-        await widget.dauCompViewModel.saveBatchOfCompAttributes();
+        await dauCompsViewModel.saveBatchOfCompAttributes();
 
-        setState(() {
-          disableSync = false;
-        });
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -107,9 +72,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           );
         }
       } else {
-        setState(() {
-          disableSync = true;
-        });
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -121,9 +83,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
       }
     } on Exception {
       if (context.mounted) {
-        setState(() {
-          disableSync = true;
-        });
         await showDialog(
           context: context,
           builder: (_) => AlertDialog(
@@ -176,6 +135,12 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    DAUCompsViewModel dauCompsViewModel = watchIt<DAUCompsViewModel>();
+
+    if (daucomp == null) {
+      // this is a new record, so disable the save button until the user has entered some data
+      disableSaves = true;
+    }
     return Scaffold(
         appBar: AppBar(
           leading: Builder(
@@ -207,18 +172,16 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           // the form is invalid.
                           final isValid = _formKey.currentState!.validate();
                           if (isValid) {
-                            setState(() {
-                              // disable the save and back button while the save is in progress
-                              disableSaves = true;
-                              disableBackButton = true;
-                            });
+                            // disable the save and back button while the save is in progress
+                            disableSaves = true;
+                            disableBackButton = true;
+
                             // save the record
-                            _saveDAUComp(context);
+                            _saveDAUComp(dauCompsViewModel, context);
                             // re-enable the save and back button
-                            setState(() {
-                              disableBackButton = false;
-                              disableSaves = false;
-                            });
+
+                            disableBackButton = false;
+                            disableSaves = false;
                           }
                         },
                 );
@@ -238,110 +201,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Consumer<DAUCompsViewModel>(
-                        builder: (context, dcvm, child) {
-                      if (daucomp == null) {
-                        // if this is a new record, dont show the sync button
-                        return const SizedBox.shrink();
-                      }
-                      return OutlinedButton(
-                        onPressed: () async {
-                          if (dcvm.isDownloading) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    backgroundColor: Colors.red,
-                                    content: Text(
-                                        'Fixture download already in progress')));
-                            return;
-                          }
-                          try {
-                            setState(() {
-                              disableBackButton = true;
-                            });
-                            await dcvm.getNetworkFixtureData(daucomp!);
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: Colors.red,
-                                  content: Text(
-                                      'An error occurred during fixture download: $e'),
-                                  duration: const Duration(seconds: 10),
-                                ),
-                              );
-                            }
-                          } finally {
-                            setState(() {
-                              disableBackButton = false;
-                            });
-                          }
-                        },
-                        child: Text(!dcvm.isDownloading
-                            ? 'Download fixture'
-                            : 'Downloading fix...'),
-                      );
-                    }),
-                    // add a row with a sync button to sync tips with legacy sheet
-                    Consumer<DAUCompsViewModel>(
-                        builder: (context, dcvm2, child) {
-                      if (daucomp == null) {
-                        // if this is a new record, dont show the sync button
-                        return const SizedBox.shrink();
-                      }
-                      return OutlinedButton(
-                        onPressed: () async {
-                          //check if syncing already in progress...
-                          if (dcvm2.isLegacySyncing) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    backgroundColor: Colors.red,
-                                    content: Text(
-                                        'Legacy tip sync already in progress')));
-                            return;
-                          }
-                          // check is daucomp dbkey for this record matches the current daucomp dbkey
-                          // if not, show a snackbar and return without syncing
-                          if (daucomp?.dbkey != dcvm2.currentDAUComp) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    backgroundColor: Colors.red,
-                                    duration: Duration(seconds: 15),
-                                    content: Text(
-                                        'You can only sync to legacy if this record is the current comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
-                            return;
-                          }
-
-                          // ...if not, initiate the sync
-                          try {
-                            String syncResult =
-                                await dcvm2.syncTipsWithLegacy(daucomp!);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: Colors.green,
-                                  content: Text(syncResult),
-                                  duration: const Duration(seconds: 10),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: Colors.red,
-                                  content: Text(
-                                      'An error occurred during the leagcy tip sync: $e'),
-                                  duration: const Duration(seconds: 10),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        child: Text(!dcvm2.isLegacySyncing
-                            ? 'Sync tips to sheet'
-                            : 'Sync underway...'),
-                      );
-                    }),
+                    buttonFixture(context, dauCompsViewModel),
+                    buttonLegacy(context, dauCompsViewModel),
+                    buttonScoring(context, dauCompsViewModel),
                   ],
                 ),
                 const Text('Name:',
@@ -355,13 +217,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         onChanged: (String value) {
                           if (daucomp?.name != value) {
                             //something has changed, allow saves
-                            setState(() {
-                              disableSaves = false;
-                            });
+
+                            disableSaves = false;
                           } else {
-                            setState(() {
-                              disableSaves = true;
-                            });
+                            disableSaves = true;
                           }
                         },
                         decoration: const InputDecoration(
@@ -398,13 +257,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         onChanged: (String value) {
                           if (daucomp?.nrlFixtureJsonURL.toString() != value) {
                             //something has changed, allow saves
-                            setState(() {
-                              disableSaves = false;
-                            });
+
+                            disableSaves = false;
                           } else {
-                            setState(() {
-                              disableSaves = true;
-                            });
+                            disableSaves = true;
                           }
                         },
                         onFieldSubmitted: (_) {
@@ -435,13 +291,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         onChanged: (String value) {
                           if (daucomp?.aflFixtureJsonURL.toString() != value) {
                             //something has changed, allow saves
-                            setState(() {
-                              disableSaves = false;
-                            });
+
+                            disableSaves = false;
                           } else {
-                            setState(() {
-                              disableSaves = true;
-                            });
+                            disableSaves = true;
                           }
                         },
                         onFieldSubmitted: (_) {
@@ -461,5 +314,153 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             ),
           ),
         ));
+  }
+
+  Widget buttonFixture(
+      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
+    if (daucomp == null) {
+      return const SizedBox.shrink();
+    } else {
+      return OutlinedButton(
+        onPressed: () async {
+          if (dauCompsViewModel.isDownloading) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                backgroundColor: Colors.red,
+                content: Text('Fixture download already in progress')));
+            return;
+          }
+          try {
+            disableBackButton = true;
+            disableSaves = true;
+
+            await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.red,
+                  content:
+                      Text('An error occurred during fixture download: $e'),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
+          } finally {
+            disableBackButton = false;
+            disableSaves = false;
+          }
+        },
+        child: Text(
+            !dauCompsViewModel.isDownloading ? 'Download' : 'Downloading...'),
+      );
+    }
+  }
+
+  Widget buttonLegacy(
+      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
+    if (daucomp == null) {
+      return const SizedBox.shrink();
+    } else {
+      return OutlinedButton(
+        onPressed: () async {
+          //check if syncing already in progress...
+          if (dauCompsViewModel.isLegacySyncing) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                backgroundColor: Colors.red,
+                content: Text('Legacy tip sync already in progress')));
+            return;
+          }
+          // check if daucomp dbkey for this record matches the current daucomp dbkey
+          // if not, show a snackbar and return without syncing
+          if (daucomp?.dbkey != dauCompsViewModel.defaultDAUCompDbKey) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 15),
+                content: Text(
+                    'You can only sync to legacy if this record is the active comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
+            return;
+          }
+
+          // ...if not, initiate the sync
+          try {
+            disableBackButton = true;
+            disableSaves = true;
+
+            String syncResult =
+                await dauCompsViewModel.syncTipsWithLegacy(daucomp!);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green,
+                  content: Text(syncResult),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.red,
+                  content:
+                      Text('An error occurred during the leagcy tip sync: $e'),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
+          } finally {
+            disableBackButton = false;
+            disableSaves = false;
+          }
+        },
+        child: Text(!dauCompsViewModel.isLegacySyncing ? 'Sync' : 'Syncing...'),
+      );
+    }
+  }
+
+  Widget buttonScoring(
+      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
+    if (daucomp == null) {
+      return const SizedBox.shrink();
+    } else {
+      return OutlinedButton(
+        onPressed: () async {
+          //check if syncing already in progress...
+          if (dauCompsViewModel.isScoring) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                backgroundColor: Colors.red,
+                content: Text('Scoring already in progress')));
+            return;
+          }
+
+          // ...if not, initiate the sync
+          try {
+            String syncResult =
+                await dauCompsViewModel.updateScoring(daucomp!, null);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green,
+                  content: Text(syncResult),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.red,
+                  content:
+                      Text('An error occurred during the leagcy tip sync: $e'),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
+          }
+        },
+        child: Text(!dauCompsViewModel.isScoring ? 'Score' : 'Scoring...'),
+      );
+    }
   }
 }

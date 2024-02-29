@@ -8,7 +8,7 @@ const mockAfl2022Full = [
     "RoundNumber": 1,
     "DateUtc": "2022-03-16 08:10:00Z",
     "Location": "MCG",
-    "HomeTeam": "Melbournzzz",
+    "HomeTeam": "Melbourne",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
     "HomeTeamScore": 97,
