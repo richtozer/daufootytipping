@@ -1,6 +1,7 @@
 // Purpose: Service to download fixture from a JSON endpoint
 import 'dart:developer';
 
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -82,7 +83,8 @@ class FixtureDownloadService {
         'Could not receive the league fixture list: ${endpoint.toString()}');
   }
 
-  Game fromFixtureJson(Map<String, dynamic> data, League league) {
+  Game fromFixtureJson(
+      Map<String, dynamic> data, League league, DAURound linkedDauRound) {
     return Game(
       dbkey:
           '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, roune number and match number. Pad the numbers so they sort correctly in the firebase console
@@ -104,6 +106,7 @@ class FixtureDownloadService {
               homeTeamScore: data['HomeTeamScore'] as int,
               awayTeamScore: data['AwayTeamScore'] as int)
           : null, // if we have official scores then add them to a scoring object
+      dauRound: linkedDauRound,
     );
   }
 }

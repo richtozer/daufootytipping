@@ -1,34 +1,33 @@
+import 'package:daufootytipping/models/scoring_roundscores.dart';
+
 class DAURound implements Comparable<DAURound> {
   String? dbkey;
   final int dAUroundNumber;
-  //List<Game> roundGames = [];
   List<String> gamesAsKeys = [];
+  CompScore? compScore;
+  RoundScores? roundScores;
+  bool roundStarted;
 
   // counstructor
   DAURound({
     required this.dAUroundNumber,
     required this.gamesAsKeys,
+    required this.roundStarted,
   });
 
   // method to serialize DAURound to JSON
   Map<String, dynamic> toJsonForCompare() {
-    // Serialize Game list separately
-
-/*     for (Game game in gamesAsKeys) {
-      roundGamesJson.add(game.dbkey);
-    } */
     return {
       'dAUroundNumber': dAUroundNumber,
-      //'roundGames': roundGamesJson,
       'roundGames': gamesAsKeys,
     };
   }
 
   factory DAURound.fromJson(List<String> gamesAsKeys, int roundNumber) {
     return DAURound(
-      dAUroundNumber: roundNumber,
-      gamesAsKeys: gamesAsKeys,
-    );
+        dAUroundNumber: roundNumber,
+        gamesAsKeys: gamesAsKeys,
+        roundStarted: false);
   }
 
   @override
