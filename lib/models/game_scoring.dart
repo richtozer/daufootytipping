@@ -76,12 +76,12 @@ extension GameResultString on GameResult {
 class Scoring {
   int? homeTeamScore; // will be null until official score is downloaded
   int? awayTeamScore; // will be null until official score is downloaded
-  CroudSourcedScore? homeTeamCroudSourcedScore1;
-  CroudSourcedScore? homeTeamCroudSourcedScore2;
-  CroudSourcedScore? homeTeamCroudSourcedScore3;
-  CroudSourcedScore? awayTeamCroudSourcedScore1;
-  CroudSourcedScore? awayTeamCroudSourcedScore2;
-  CroudSourcedScore? awayTeamCroudSourcedScore3;
+  CrowdSourcedScore? homeTeamCroudSourcedScore1;
+  CrowdSourcedScore? homeTeamCroudSourcedScore2;
+  CrowdSourcedScore? homeTeamCroudSourcedScore3;
+  CrowdSourcedScore? awayTeamCroudSourcedScore1;
+  CrowdSourcedScore? awayTeamCroudSourcedScore2;
+  CrowdSourcedScore? awayTeamCroudSourcedScore3;
 
   bool didHomeTeamWin() {
     if (homeTeamScore != null && awayTeamScore != null) {
@@ -160,27 +160,27 @@ class Scoring {
       homeTeamScore: data['homeTeamScore'],
       awayTeamScore: data['awayTeamScore'],
       homeTeamCroudSourcedScore1: data['homeTeamCroudSourcedScore1'] != null
-          ? CroudSourcedScore.fromJson(
+          ? CrowdSourcedScore.fromJson(
               data['homeTeamCroudSourcedScore1'], data['tipper'])
           : null,
       homeTeamCroudSourcedScore2: data['homeTeamCroudSourcedScore2'] != null
-          ? CroudSourcedScore.fromJson(
+          ? CrowdSourcedScore.fromJson(
               data['homeTeamCroudSourcedScore2'], data['tipper'])
           : null,
       homeTeamCroudSourcedScore3: data['homeTeamCroudSourcedScore3'] != null
-          ? CroudSourcedScore.fromJson(
+          ? CrowdSourcedScore.fromJson(
               data['homeTeamCroudSourcedScore3'], data['tipper'])
           : null,
       awayTeamCroudSourcedScore1: data['awayTeamCroudSourcedScore1'] != null
-          ? CroudSourcedScore.fromJson(
+          ? CrowdSourcedScore.fromJson(
               data['awayTeamCroudSourcedScore1'], data['tipper'])
           : null,
       awayTeamCroudSourcedScore2: data['awayTeamCroudSourcedScore2'] != null
-          ? CroudSourcedScore.fromJson(
+          ? CrowdSourcedScore.fromJson(
               data['awayTeamCroudSourcedScore2'], data['tipper'])
           : null,
       awayTeamCroudSourcedScore3: data['awayTeamCroudSourcedScore3'] != null
-          ? CroudSourcedScore.fromJson(
+          ? CrowdSourcedScore.fromJson(
               data['awayTeamCroudSourcedScore3'], data['tipper'])
           : null,
     );

@@ -11,10 +11,9 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
-import 'package:watch_it/watch_it.dart';
 
 class GameListItem extends StatefulWidget {
-  GameListItem({
+  const GameListItem({
     super.key,
     required this.roundGames,
     required this.game,
@@ -58,7 +57,7 @@ class _GameListItemState extends State<GameListItem> {
             builder: (context, gameTipsViewModelConsumer, child) {
           return Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.0),
+              borderRadius: BorderRadius.circular(8.0),
             ),
             color: Colors.grey[300],
             child: Row(children: [
@@ -118,7 +117,7 @@ class _GameListItemState extends State<GameListItem> {
                           height: 120,
                           enlargeFactor: 1.0,
                           enlargeCenterPage: true,
-                          enlargeStrategy: CenterPageEnlargeStrategy.height,
+                          enlargeStrategy: CenterPageEnlargeStrategy.zoom,
                           enableInfiniteScroll: false,
                           onPageChanged: (index, reason) {
                             gameTipsViewModelConsumer.currentIndex = index;

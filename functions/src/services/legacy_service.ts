@@ -36,27 +36,41 @@ export const submitLegacyTips = functions
           );
         }
 
-        // Get a list of gameDbKey's by searching realtime db location
-        // /DAUCompsGames/${dauCompDbKey} and finding all records where
-        // the combinedRoundNumber=dauRound
-        const gamesRef = admin.database().ref(`DAUCompsGames/${dauCompDbKey}`);
-        const gamesSnapshot = await gamesRef.once("value");
+        // Get a list of gameDbKey's from the new location in the database
+        const roundsRef = admin.database()
+          .ref(`DAUComps/${dauCompDbKey}/combinedRounds`);
+        const roundsSnapshot = await roundsRef.once("value");
 
-        if (!gamesSnapshot.exists()) {
-          const msg = `Error, no games found for dauCompDbKey ${dauCompDbKey}`;
+        if (!roundsSnapshot.exists()) {
+          const msg = `Error, no rounds found for dauCompDbKey ${dauCompDbKey}`;
           functions.logger.error(msg);
           throw new Error(msg);
         }
 
-        const gameData = Object.keys(gamesSnapshot.val())
-          .filter(
-            (key) => gamesSnapshot.val()[key].combinedRoundNumber === dauRound
-          )
-          .map((key) => ({
-            dbKey: key,
-            league: key.substring(0, 3),
-            matchNumber: gamesSnapshot.val()[key].MatchNumber,
-          }));
+        // Get the list of game keys for the round
+        const gameKeys = roundsSnapshot
+          .val()[dauRound - 1]; // Subtract 1 because array indices are 0-based
+
+        if (!gameKeys) {
+          const msg = `Error, no games found for dauRound ${dauRound}`;
+          functions.logger.error(msg);
+          throw new Error(msg);
+        }
+
+        // Retrieve the game data for each game key
+        const gameData = [];
+        for (const gameKey of gameKeys) {
+          const gamesRef = admin.database()
+            .ref(`DAUCompsGames/${dauCompDbKey}/${gameKey}`);
+          const gameSnapshot = await gamesRef.once("value");
+          if (gameSnapshot.exists()) {
+            gameData.push({
+              dbKey: gameKey,
+              league: gameKey.substring(0, 3),
+              matchNumber: gameSnapshot.val().MatchNumber,
+            });
+          }
+        }
 
         // check if gameData is empty, if so throw an error
         if (gameData.length === 0) {
@@ -105,6 +119,7 @@ export const submitLegacyTips = functions
             await tipsRef.update({
               gameResult: tips[tipIndex],
               submittedTimeUTC: submittime,
+              legacyTip: true,
             });
           } else {
             functions.logger.info(

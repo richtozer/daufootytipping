@@ -16,6 +16,7 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 
 // define constant for firestore database locations - TODO move to env file
@@ -232,26 +233,27 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
+      // grab everybodies tips
       AllTipsViewModel allTipsViewModel = AllTipsViewModel(
           tippersViewModel, daucompToUpdate.dbkey!, adminGamesViewModel!);
 
       //sync tips to legacy
       await tippingService.initialized();
-      return await tippingService.syncTipsToLegacyDiffOnly(
-          allTipsViewModel, this);
+      return await tippingService.syncTipsToLegacy(allTipsViewModel, this);
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
     }
   }
 
+  // Find overlapping rounds for NRL and AFL and combine them into a single round
   // lets group the games for NRL and AFL into our own combined rounds based on this logic:
-  // 1) Each league has games grouped by round number - the logic should preserve this grouping
+  // 1) Each league has games grouped by a round number - the logic should preserve this grouping
   // 2) group the games by Game.league and Game.roundNumber
   // 3) find the min Game.startTimeUTC for each league-roundnumber group - this is the start time of the group of games
-  // 4) find the max Game.startTimeUTC for each group - this is the end time of the group of games
+  // 4) find the max Game.startTimeUTC for each group - this is the end time of the group of games for that league
   // 5) sort the groups by the min Game.startTimeUTC
-  // 6) take the 1st group, this will be the basis for our combined AFL and NRL round 1
+  // 6) take the 1st group, this will be the basis for our combined round 1
   // 7) take the next group and see if it's min Game.startTimeUTC is within the range of the 1st group's start and end times
   // 8) if it is, add the games from the 2nd group to the 1st combined round
   // 9) if it is not, create a new combined round and add the games from the 2nd group to it
@@ -313,6 +315,23 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
+    // log to the console the start and end times for each combined round
+    // include the count of NRL and AFL games in each combined round
+    for (var i = 0; i < combinedRounds.length; i++) {
+      var minStartTime = combinedRounds[i]
+          .map((g) => g.startTimeUTC)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
+      var maxStartTime = combinedRounds[i]
+          .map((g) => g.startTimeUTC)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+      var nrlCount =
+          combinedRounds[i].where((g) => g.league == League.nrl).length;
+      var aflCount =
+          combinedRounds[i].where((g) => g.league == League.afl).length;
+      //log('Date range for combined round ${i + 1}: ${DateFormat('yyyy-MM-dd').format(minStartTime.toLocal())} - ${DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal())} NRL games: $nrlCount, AFL games: $aflCount');
+      log('Excel Round ${i + 1},${DateFormat('yyyy-MM-dd').format(minStartTime.toLocal())},${DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal())},$nrlCount,$aflCount');
+    }
+
     // Update combined round number for each game in each round
     for (var i = 0; i < combinedRounds.length; i++) {
       List<String> listGameKeys = [];
@@ -353,7 +372,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     await _initialLoadCompleter.future;
 
     if (dauComp != null) {
-      //find the DAUComp in the local list. it it's there, compare the attribute value and update if different
+      //find the DAUComp in the local list. it it's there,
+      // compare the attribute value and update if different
       DAUComp? compToUpdate = await findComp(dauComp.dbkey!);
       if (compToUpdate != null) {
         dynamic oldValue = compToUpdate.toJsonForCompare()[attributeName];
@@ -471,12 +491,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         for (var gameKey in round.gamesAsKeys) {
           Game? game = await userGamesViewModel!.findGame(gameKey);
           if (game != null && game.league == league) {
-            //// allow for reverse lookup of round from a game object
-            // if (game.dauRound == null) {
-            //   game.dauRound = daucomp.daurounds![combinedRoundNumber - 1];
-            //   log('Associating game record ${game.dbkey} to combined round: ${daucomp.daurounds![combinedRoundNumber - 1].dAUroundNumber}');
-            // }
-
             //add the game to the list
             gamesForCombinedRoundNumberAndLeague.add(game);
           }

@@ -4,13 +4,12 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.da
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatLeaderboard extends StatefulWidget {
   //constructor
-  StatLeaderboard({super.key});
+  const StatLeaderboard({super.key});
 
   @override
   State<StatLeaderboard> createState() => _StatLeaderboardState();

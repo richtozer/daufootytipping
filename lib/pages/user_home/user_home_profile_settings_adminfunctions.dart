@@ -17,61 +17,59 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
     String selectedTipper =
         watch(di<TippersViewModel>()).selectedTipper?.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Column(children: [
-        OutlinedButton(
-            child: const Text('Admin Tippers'),
+    return SizedBox(
+      width: 300,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Column(children: [
+          const SizedBox(
+            width: 300,
+            child: Text(
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.normal),
+                'Only admins can see these options: '),
+          ),
+          OutlinedButton(
+            child: const Text('God Mode'),
             onPressed: () {
-              Navigator.of(
-                context,
-              ).push(
+              showGodModeDialog(context, selectedTipper);
+            },
+          ),
+          OutlinedButton(
+            child: const Text('Admin DAU Comps'),
+            onPressed: () {
+              Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const TippersAdminPage(),
+                  builder: (context) => const DAUCompsListPage(),
                 ),
               );
-            }),
-        OutlinedButton(
-          child: const Text('Admin Teams'),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const TeamsListPage(),
-              ),
-            );
-          },
-        ),
-        OutlinedButton(
-          child: const Text('Admin DAU Comps'),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const DAUCompsListPage(),
-              ),
-            );
-          },
-        ),
-        OutlinedButton(
-          child: const Text('God Mode'),
-          onPressed: () {
-            showGodModeDialog(context, selectedTipper);
-          },
-        ),
-        OutlinedButton(
-          child: const Text('Remote Config [External Link]'),
-          onPressed: () async {
-            Uri url =
-                Uri.parse('https://firebase.google.com/docs/remote-config');
-            if (await canLaunchUrl(url)) {
-              await launchUrl(url);
-            } else {
-              throw 'Could not launch $url';
-            }
-          },
-        ),
-      ]),
+            },
+          ),
+          OutlinedButton(
+              child: const Text('Admin Tippers'),
+              onPressed: () {
+                Navigator.of(
+                  context,
+                ).push(
+                  MaterialPageRoute(
+                    builder: (context) => const TippersAdminPage(),
+                  ),
+                );
+              }),
+          OutlinedButton(
+            child: const Text('Admin Teams'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const TeamsListPage(),
+                ),
+              );
+            },
+          ),
+        ]),
+      ),
     );
   }
 

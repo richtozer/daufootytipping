@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:ui';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -77,7 +78,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
             DAUComp? dauCompWithScores = snapshot.data;
 
             return FutureBuilder<void>(
-                future: allTipsViewModel.getTips(),
+                future: allTipsViewModel.getAllTips(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(
@@ -90,16 +91,37 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                       //controller: controller,
                       slivers: <Widget>[
                         SliverAppBar(
+                          backgroundColor: Colors.white.withOpacity(0.8),
                           pinned: true,
+                          floating: true,
+                          expandedHeight: 92,
                           flexibleSpace: FlexibleSpaceBar(
-                            //background: compHeaderListTile(dauCompWithScores2!),
-                            background: compHeaderListTile(
-                                dauCompWithScores!.consolidatedCompScores,
-                                dauCompWithScores.name),
-                          ),
+                              expandedTitleScale: 1.5,
+                              centerTitle: true,
+                              title: const Text(
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black,
+                                  ),
+                                  'Rank 1▲ NRL: 099 AFL 299'),
+                              background: Stack(
+                                children: <Widget>[
+                                  Image.asset(
+                                    'assets/teams/daulogo.jpg',
+                                    fit: BoxFit.fitWidth,
+                                  ),
+                                  Container(
+                                    color: Colors.white.withOpacity(0.5),
+                                  ),
+                                ],
+                              )
+                              //background: compHeaderListTile(
+                              //    dauCompWithScores!.consolidatedCompScores,
+                              //    dauCompWithScores.name),
+                              ),
                         ),
                         //...dauCompWithScores2.daurounds!
-                        ...dauCompWithScores.daurounds!
+                        ...dauCompWithScores!.daurounds!
                             .asMap()
                             .entries
                             .map((entry) {
@@ -137,62 +159,56 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
         });
   }
 
-  Widget compHeaderListTile(CompScore? compScore, String compName) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Image.asset(
-            'assets/teams/daulogo.jpg',
-            fit: BoxFit.fitWidth,
-          ),
-        ),
-        ListTile(
-          title: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Text(
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        compName),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Text(
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        'NRL: ${compScore!.nrlCompScore} / ${compScore.nrlCompMaxScore}'),
-                    Text(
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        'AFL: ${compScore.aflCompScore} / ${compScore.aflCompMaxScore}'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget compHeaderListTile(CompScore? compScore, String compName) {
+  //   return Stack(
+  //     children: [
+  //       Positioned.fill(
+  //         child: Image.asset(
+  //           'assets/teams/daulogo.jpg',
+  //           fit: BoxFit.fitWidth,
+  //         ),
+  //       ),
+  //       ListTile(
+  //         title: Container(
+  //           decoration: BoxDecoration(
+  //             color: Colors.white.withOpacity(0.8),
+  //             borderRadius: BorderRadius.circular(10),
+  //           ),
+  //           alignment: Alignment.center,
+  //           child: Column(
+  //             mainAxisAlignment: MainAxisAlignment.center,
+  //             children: [
+  //               Row(
+  //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  //                 children: [
+  //                   Text(
+  //                       style: const TextStyle(fontWeight: FontWeight.bold),
+  //                       compName),
+  //                 ],
+  //               ),
+  //               Row(
+  //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  //                 children: [
+  //                   Text(
+  //                       style: const TextStyle(fontWeight: FontWeight.bold),
+  //                       'NRL: ${compScore!.nrlCompScore} / ${compScore.nrlCompMaxScore}'),
+  //                   Text(
+  //                       style: const TextStyle(fontWeight: FontWeight.bold),
+  //                       'AFL: ${compScore.aflCompScore} / ${compScore.aflCompMaxScore}'),
+  //                 ],
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget roundLeagueHeaderListTile(
       League leagueHeader, double width, double height, DAURound dauRound) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: Image.asset(
-            'assets/teams/daulogo.jpg',
-            fit: BoxFit.fitWidth,
-          ),
-        ),
         ListTile(
           onTap: () async {
             // When the round header is clicked,
@@ -206,57 +222,60 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                 }),
                 di<TippersViewModel>().selectedTipper!);
           },
-          title: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                SvgPicture.asset(
-                  leagueHeader.logo,
-                  width: width,
-                  height: height,
-                ),
-                Column(
-                  children: [
-                    Text(
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
-                    dauRound.roundStarted
-                        ? Text(
-                            'Score: ${leagueHeader == League.afl ? dauRound.roundScores!.aflScore : dauRound.roundScores!.nrlScore} / ${leagueHeader == League.afl ? dauRound.roundScores!.aflMaxScore : dauRound.roundScores!.nrlMaxScore}')
-                        : const SizedBox.shrink(),
-                    dauRound.roundStarted
-                        ? Text(
-                            'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginUPS : dauRound.roundScores!.nrlMarginUPS}')
-                        : Text(
-                            'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} '),
-                    dauRound.roundStarted
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Rank: ${dauRound.roundScores!.rank}  '),
-                              dauRound.roundScores!.rankChange > 0
-                                  ? const Icon(
-                                      color: Colors.green, Icons.arrow_upward)
-                                  : dauRound.roundScores!.rankChange < 0
-                                      ? const Icon(
-                                          color: Colors.red,
-                                          Icons.arrow_downward)
-                                      : const Icon(
-                                          color: Colors.redAccent,
-                                          Icons.sync_alt),
-                              Text('${dauRound.roundScores!.rankChange}'),
-                            ],
-                          )
-                        : const SizedBox.shrink(),
-                  ],
-                ),
-              ],
-            ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              SvgPicture.asset(
+                leagueHeader.logo,
+                width: width,
+                height: height,
+              ),
+              Column(
+                children: [
+                  Text(
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                      'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
+                  dauRound.roundStarted
+                      ? Text(
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                          'Score: ${leagueHeader == League.afl ? dauRound.roundScores!.aflScore : dauRound.roundScores!.nrlScore} / ${leagueHeader == League.afl ? dauRound.roundScores!.aflMaxScore : dauRound.roundScores!.nrlMaxScore}')
+                      : const SizedBox.shrink(),
+                  dauRound.roundStarted
+                      ? Text(
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                          'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} / UPS: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginUPS : dauRound.roundScores!.nrlMarginUPS}')
+                      : Text(
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                          'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} '),
+                  dauRound.roundStarted
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                                'Rank: ${dauRound.roundScores!.rank}  '),
+                            dauRound.roundScores!.rankChange > 0
+                                ? const Icon(
+                                    color: Colors.green, Icons.arrow_upward)
+                                : dauRound.roundScores!.rankChange < 0
+                                    ? const Icon(
+                                        color: Colors.red, Icons.arrow_downward)
+                                    : const Icon(
+                                        color: Colors.redAccent,
+                                        Icons.sync_alt),
+                            Text('${dauRound.roundScores!.rankChange}'),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ],
+              ),
+            ],
           ),
         ),
       ],
@@ -272,14 +291,14 @@ class GameListBuilder extends StatefulWidget {
     required this.league,
     required this.allTipsViewModel,
   }) {
-    dcvm = di<DAUCompsViewModel>();
+    daucompsViewModel = di<DAUCompsViewModel>();
   }
 
   final Tipper currentTipper;
   final DAURound dauRound;
   final League league;
   final AllTipsViewModel allTipsViewModel;
-  late final DAUCompsViewModel dcvm;
+  late final DAUCompsViewModel daucompsViewModel;
 
   @override
   State<GameListBuilder> createState() => _GameListBuilderState();
@@ -295,8 +314,9 @@ class _GameListBuilderState extends State<GameListBuilder> {
   void initState() {
     super.initState();
 
-    gamesFuture = widget.dcvm.getGamesForCombinedRoundNumberAndLeague(
-        widget.dauRound.dAUroundNumber, widget.league);
+    gamesFuture = widget.daucompsViewModel
+        .getGamesForCombinedRoundNumberAndLeague(
+            widget.dauRound.dAUroundNumber, widget.league);
   }
 
   @override
@@ -308,6 +328,21 @@ class _GameListBuilderState extends State<GameListBuilder> {
             return const Center(child: CircularProgressIndicator());
           } else {
             games = snapshot.data;
+
+            if (games!.isEmpty) {
+              return SizedBox(
+                height: 75,
+                child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    color: Colors.grey[300],
+                    child: Center(
+                        child: Text(
+                            'No ${widget.league.name.toUpperCase()} games this round'))),
+              );
+            }
+
             return ListView.builder(
               padding: const EdgeInsets.all(0),
               shrinkWrap: true,

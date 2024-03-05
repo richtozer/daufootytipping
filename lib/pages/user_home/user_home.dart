@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 
@@ -24,54 +26,89 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  List<Widget> content() {
+    return [
+      TipsPage(),
+      StatsPage(widget.currentDAUCompKey),
+      Profile(), // Display profile and settings for the logged on tipper
+    ];
+  }
+
+  bool godMode = di<TippersViewModel>().inGodMode;
+  String godModeTipper = di<TippersViewModel>().selectedTipper!.name;
+
   @override
   Widget build(BuildContext context) {
-    List<Widget> content() {
-      return [
-        TipsPage(),
-        StatsPage(widget.currentDAUCompKey),
-        Profile(), // Display profile and settings for the logged on tipper
-      ];
-    }
-
     List<Widget> destinationContent = content();
 
-    bool godMode = di<TippersViewModel>().inGodMode;
-    String godModeTipper = di<TippersViewModel>().selectedTipper!.name;
-
-    Widget scaffold = Scaffold(
-      //appBar: AppBar(title: const Text('DAU Footy Tipping')),
-      backgroundColor: const Color(0xFFE5E5E5),
-      body: Center(
-        child: (destinationContent[_currentIndex]),
-      ),
-      bottomNavigationBar: NavigationBar(
-        indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        indicatorColor: const Color(0xFF789697),
-        onDestinationSelected: (int index) {
-          onTabTapped(index);
-        },
-        selectedIndex: _currentIndex,
-        destinations: [
-          NavigationDestination(
-            enabled: di<TippersViewModel>().selectedTipper!.active,
-            icon: const Icon(Icons.sports_rugby),
-            label: 'T  I  P  S',
+    Widget scaffold = Stack(children: [
+      Column(
+        children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Image.asset(
+              'assets/teams/daulogo-grass.jpg',
+              fit: BoxFit.fitWidth,
+            ),
           ),
-          NavigationDestination(
-            enabled: di<TippersViewModel>().selectedTipper!.active,
-            icon: const Icon(Icons.auto_graph),
-            label: 'S  T  A  T  S',
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Image.asset(
+              'assets/teams/daulogo-grass.jpg',
+              fit: BoxFit.fitWidth,
+            ),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.person),
-            label: 'P  R  O  F  I  L  E',
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Image.asset(
+              'assets/teams/daulogo-grass.jpg',
+              fit: BoxFit.fitWidth,
+            ),
+          ),
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Image.asset(
+              'assets/teams/daulogo-grass.jpg',
+              fit: BoxFit.fitWidth,
+            ),
           ),
         ],
       ),
-    );
+      Scaffold(
+        //backgroundColor: const Color.fromRGBO(152, 164, 141, 1),
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: (destinationContent[_currentIndex]),
+        ),
+        bottomNavigationBar: NavigationBar(
+          indicatorShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          indicatorColor: const Color.fromRGBO(152, 164, 141, 1),
+          onDestinationSelected: (int index) {
+            onTabTapped(index);
+          },
+          selectedIndex: _currentIndex,
+          height: 60,
+          destinations: [
+            NavigationDestination(
+              enabled: di<TippersViewModel>().selectedTipper!.active,
+              icon: const Icon(Icons.sports_rugby),
+              label: 'T  I  P  S',
+            ),
+            NavigationDestination(
+              enabled: di<TippersViewModel>().selectedTipper!.active,
+              icon: const Icon(Icons.auto_graph),
+              label: 'S  T  A  T  S',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.person),
+              label: 'P  R  O  F  I  L  E',
+            ),
+          ],
+        ),
+      )
+    ]);
 
     return godMode
         ? Banner(

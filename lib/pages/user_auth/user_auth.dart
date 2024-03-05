@@ -118,13 +118,19 @@ class UserAuthPage extends StatelessWidget {
               //once we pass signin we have a firebase auth user context
               User? authenticatedFirebaseUser = snapshot.data;
               if (authenticatedFirebaseUser == null) {
-                throw Exception('No user context found');
+                return const Center(
+                    child: Text(
+                        'error - No user context found, please contact DAU team.'));
               }
               if (authenticatedFirebaseUser.isAnonymous) {
-                throw Exception('User is anonymous');
+                return const Center(
+                    child: Text(
+                        'error - User is anonymous, please contact DAU team.'));
               }
               if (authenticatedFirebaseUser.emailVerified == false) {
-                throw Exception('User email not verified');
+                return const Center(
+                    child: Text(
+                        'error - User email is not verified, please contact DAU team.'));
               }
 
               FirebaseAnalytics.instance.logLogin(

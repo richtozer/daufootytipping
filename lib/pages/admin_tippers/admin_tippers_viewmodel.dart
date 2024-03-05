@@ -240,7 +240,6 @@ class TippersViewModel extends ChangeNotifier {
         // if the Tipper does not exist in the legacyTippers list, investigate it
         if (legacyTipper == null) {
           log('syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
-          //await deleteTipper(firebaseTipper);
           throw Exception(
               'syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
         }
@@ -333,7 +332,7 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, registerLinkedTipperForMessaging()');
     }
 
-    // get use permissions to notify, if required
+    // get use permissions to notify with messaging, if required
     await firebaseService?.requestIOSNotificationPermission();
 
     String? token = firebaseService?.fbmToken;

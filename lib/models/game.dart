@@ -60,7 +60,6 @@ class Game implements Comparable<Game> {
         'HomeTeam': homeTeam.dbkey.substring(4),
         'AwayTeam': awayTeam.dbkey.substring(4),
         'Location': location,
-        //'DateUtc': DateUtc.toString(),
         'DateUtc':
             '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
         'RoundNumber': roundNumber,

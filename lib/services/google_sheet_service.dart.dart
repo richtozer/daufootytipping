@@ -5,11 +5,13 @@ import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
 import 'package:googleapis_auth/googleapis_auth.dart';
 import 'package:gsheets/gsheets.dart';
+import 'package:watch_it/watch_it.dart';
 
 /* 
 https://itnext.io/dart-working-with-google-sheets-793ed322daa0
@@ -106,239 +108,259 @@ class LegacyTippingService {
     return tippers;
   }
 
-//   Sync realtime databse tips to legacy gsheet
-// - 1 Create a temporary 2 dimensional list (List<List<Object?>>) of proposed gsheet tip changes  - tipper is on the y dimension, daurounds is on the x dimension
-//     - Populate with default tips for each tipper
-//     - Loop through each DAURound
-//         - 1 Get all current tips from realtime database using AllTipsViewModel.getTipsForRound()
-//         - [ ] Update 2 dimensional list with any tips found.
-// - 2 Now grab the current tips from gsheet alltips sheet, LegacyTippingService.appTipsData
-// - 3 Compare the temporary list with the with proposed changes in appTipsData
-// - 4 Any differences - batch up and apply to sheet so that it matches the temporary data
-
-  Future<String> syncTipsToLegacyDiffOnly(AllTipsViewModel allTipsViewModel,
+  Future<String> syncTipsToLegacy(AllTipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel) async {
-    //refresh the data from the gsheet
-    //await spreadsheet.refresh();
-    refreshAppTipsData();
+    //refreshAppTipsData();
 
-    //get the total number of combined rounds
     List<int> combinedRounds =
         await daucompsViewModel.getCombinedRoundNumbers();
 
-    //Create a temporary 2 dimensional list (List<List<Object?>>) of proposed gsheet tip changes  - tipper is on the y dimension, daurounds is on the x dimension
-    List<List<String?>> proposedGsheetTipChanges = [];
+    List<GsheetAppTip> proposedGsheetTipChanges = await _createProposedChanges(
+        allTipsViewModel, daucompsViewModel, combinedRounds);
 
-    //get a standard list of default tips for all tippers
-    // loop through the combinedRounds from the GamesViewmodel starting at the current combined round and create default tips
+    // batch up proposedGsheetTipChanges into a single request
+    BatchUpdateSpreadsheetRequest updates = BatchUpdateSpreadsheetRequest();
+    updates.requests = [];
 
-    List<String> templateDefaultTips = [];
-    for (int roundNumber in combinedRounds) {
-      String defaultTips = await daucompsViewModel
-          .getDefaultTipsForCombinedRoundNumber(roundNumber);
-      templateDefaultTips.add(defaultTips);
+    int rowToUpdate = 1;
+
+    //_TypeError (type 'Null' is not a subtype of type 'GsheetAppTip' in type cast)
+
+    for (GsheetAppTip proposedGsheetTipChange in proposedGsheetTipChanges) {
+      // update existing row
+      // 1) grab the existing cell data if any
+      // 2) update the row with the new cell data
+
+      int offsetRowToUpdate = rowToUpdate + 3;
+      appTipsSheet.values.insertRow(
+          offsetRowToUpdate,
+          [
+            proposedGsheetTipChange.formSubmitTimestamp,
+            proposedGsheetTipChange.dauRoundNumber,
+            proposedGsheetTipChange.name,
+            proposedGsheetTipChange.roundTipslegacyFormat,
+            '=IF(MAXIFS(\$A:\$A,\$B:\$B,B$offsetRowToUpdate,\$C:\$C,C$offsetRowToUpdate)=A$offsetRowToUpdate,TRUE,)',
+            '=vlookup(B$offsetRowToUpdate,DAURounds!\$A\$2:G,7,true)',
+            '=LEN(D$offsetRowToUpdate)-LEN(SUBSTITUTE(SUBSTITUTE(D$offsetRowToUpdate,"a",""),"e",""))',
+            '=ARRAYFORMULA(SUM(IF((MID(D$offsetRowToUpdate,ROW(INDIRECT("1:"&LEN(D$offsetRowToUpdate))),1) = MID(F$offsetRowToUpdate,ROW(INDIRECT("1:"&LEN(F$offsetRowToUpdate))),1)) * (MID(D$offsetRowToUpdate,ROW(INDIRECT("1:"&LEN(D$offsetRowToUpdate))),1) = {"a","e"}), 1, 0)))',
+            '=VLOOKUP(mid(\$F$offsetRowToUpdate,1,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,1,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,2,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,2,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,3,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,3,1), NRLScoreTipper, 0), FALSE) +VLOOKUP(mid(\$F$offsetRowToUpdate,4,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,4,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,5,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,5,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,6,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,6,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,7,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,7,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,8,1), NRLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,8,1), NRLScoreTipper, 0), FALSE)',
+            '=VLOOKUP(mid(\$F$offsetRowToUpdate,9,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,9,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,10,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,10,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,11,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,11,1), AFLScoreTipper, 0), FALSE) +VLOOKUP(mid(\$F$offsetRowToUpdate,12,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,12,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,13,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,13,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,14,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,14,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,15,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,15,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$offsetRowToUpdate,16,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,16,1), AFLScoreTipper, 0), FALSE)  + VLOOKUP(mid(\$F$offsetRowToUpdate,17,1), AFLScoreMatch, MATCH(mid(\$D$offsetRowToUpdate,17,1), AFLScoreTipper, 0), FALSE)',
+            '=I$offsetRowToUpdate+J$offsetRowToUpdate'
+          ],
+          fromColumn: 1);
+
+      rowToUpdate++;
     }
 
-    // Populate with default tips for each tipper
+    updates = _addHeaderRowData(updates, combinedRounds);
+
+    return await _submitChanges(updates);
+  }
+
+  Future<List<GsheetAppTip>> _createProposedChanges(
+      AllTipsViewModel allTipsViewModel,
+      DAUCompsViewModel daucompsViewModel,
+      List<int> combinedRounds) async {
+    List<String> templateDefaultTips =
+        await _getDefaultTips(daucompsViewModel, combinedRounds);
+
     List<Tipper> tippers = await getLegacyTippers();
-    // get the length of tipper list and create a for loop
-    // index 0 (row 1) has the header, lets igmore that
-    for (int i = 1; i < tippers.length; i++) {
-      //make sure we take a copy of the template, rather than a reference
-      proposedGsheetTipChanges.add(List<String>.from(templateDefaultTips));
-    }
 
-    // Get all current tips from realtime database
-    List<TipGame?> tipGames = await allTipsViewModel.getTips();
+    // for each tipper, get their tips for each round and create a GsheetAppTip object
+    // for each round/tipper combination
+    List<GsheetAppTip> proposedGsheetTipChanges = [];
 
-    // Update 2 dimensional list with any tips found.
-    for (TipGame? tipGame in tipGames) {
-      // Find the sheet index for the tipper tip.tipper.name
-      int rowToUpdate =
-          tippers.indexWhere((tipper) => tipper.name == tipGame?.tipper.name);
-
-      if (rowToUpdate == -1) {
-        // If a matching row is not found, throw exception
-        throw Exception(
-            'Tipper ${tipGame?.tipper.name} cannot be found in the legacy tipping sheet AppTips tab');
-      } else {
-        rowToUpdate--; //account for the removed header row
-
-        // update the proposed tipper data with the new tip. Use the league and matchnumber to find the correct character to update
-        var targetString = proposedGsheetTipChanges[rowToUpdate]
-            [tipGame!.game.dauRound.dAUroundNumber - 1];
-        if (tipGame.game.league == League.nrl) {
-          //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
-          // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
-          // that is the offset to use to update the proposedGsheetTipChanges
-          int gameIndex = tipGame.game.dauRound.gamesAsKeys
-              .where((element) => element.contains('nrl-'))
-              .toList()
-              .indexOf(tipGame.game.dbkey);
-
-          targetString = targetString?.replaceRange(
-              gameIndex, gameIndex + 1, tipGame.tip.name);
-          proposedGsheetTipChanges[rowToUpdate]
-              [tipGame.game.dauRound.dAUroundNumber - 1] = targetString;
-        } else {
-          //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
-          // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
-          // that is the offset to use to update the proposedGsheetTipChanges
-          // add 8 to the offset to account for the fact that nrl tips go first in the string
-
-          int gameIndex = 8 +
-              tipGame.game.dauRound.gamesAsKeys
-                  .where((element) => element.contains('afl-'))
-                  .toList()
-                  .indexOf(tipGame.game.dbkey);
-          targetString = targetString?.replaceRange(
-              gameIndex, gameIndex + 1, tipGame.tip.name);
-          proposedGsheetTipChanges[rowToUpdate]
-              [tipGame.game.dauRound.dAUroundNumber - 1] = targetString;
-        }
+    // loop through legacy tippers - skip header row
+    for (Tipper tipper in tippers.skip(1)) {
+      // loop through the combined rounds and get the tips for each round
+      for (int round in combinedRounds) {
+        proposedGsheetTipChanges = await _getAppTipsForRound(allTipsViewModel,
+            tipper, round, templateDefaultTips, proposedGsheetTipChanges);
       }
     }
+    return proposedGsheetTipChanges;
+  }
 
-    //ignore the first 2 columns of data in appTipsData as they have the tipper name and email
-    List<List<String?>> currentSheetTipData = appTipsData.map((e) {
-      return e.sublist(2);
-    }).toList();
+  Future<List<String>> _getDefaultTips(
+      DAUCompsViewModel daucompsViewModel, List<int> combinedRounds) async {
+    return await Future.wait(combinedRounds.map((roundNumber) async =>
+        daucompsViewModel.getDefaultTipsForCombinedRoundNumber(roundNumber)));
+  }
 
-    //also ignore the first row of data in appTipsData as it has the header
-    currentSheetTipData.removeAt(0);
+  Future<List<GsheetAppTip>> _getAppTipsForRound(
+      AllTipsViewModel allTipsViewModel,
+      Tipper tipper,
+      int round,
+      List<String> templateDefaultTips,
+      List<GsheetAppTip> proposedGsheetTipChanges) async {
+    String roundTips = templateDefaultTips[round - 1];
 
-    // compare proposedGsheetTipChanges with appTipsData and apply any differences
-    // batch up any deifferences and apply to sheet so that it matches the temporary data
-    BatchUpdateSpreadsheetRequest differences = compareForBatchUpdate(
-        currentSheetTipData, proposedGsheetTipChanges, appTipsSheet.id);
+    List<TipGame?> tipGames =
+        await allTipsViewModel.getTipsForRound(tipper, round);
 
-    // update the header row - from column C, interate through the combinedRounds
-    //and update the header row with the combined round number
-    RowData headerRowData = RowData();
-    headerRowData.values = [];
-    for (int i = 2; i < combinedRounds.length + 2; i++) {
-      headerRowData.values!.add(CellData(
-          userEnteredValue: ExtendedValue(stringValue: 'Round ${i - 1}')));
+    // as we loop through the tips, check if tips are from legacy, if they
+    // *all* are then ignore them and drop this update by returning an empty string
+
+    bool isAllLegacyTips = true;
+
+    // keep track of the latest form submit timestamp for this round
+    DateTime maxFormSubmitTimestamp = DateTime(1970);
+
+    for (TipGame? tipGame in tipGames) {
+      if (tipGame!.legacyTip == false) {
+        isAllLegacyTips = false;
+        // is the submit time the latest for this round?
+        if (tipGame.submittedTimeUTC.isAfter(maxFormSubmitTimestamp)) {
+          maxFormSubmitTimestamp = tipGame.submittedTimeUTC;
+        }
+        roundTips = _updateDefaultTipperData(roundTips, tipGame);
+      }
+      roundTips = _updateDefaultTipperData(roundTips, tipGame);
     }
 
-    //add the head row data to the batch update request
+    if (!isAllLegacyTips) {
+      log('*** Some tips for ${tipper.name} in round $round are from the app, so syncing changes');
+      proposedGsheetTipChanges.add(GsheetAppTip(
+          maxFormSubmitTimestamp.toLocal().toIso8601String(),
+          round,
+          tipper.name,
+          roundTips));
+    }
+
+    return proposedGsheetTipChanges;
+  }
+
+  BatchUpdateSpreadsheetRequest _addHeaderRowData(
+      BatchUpdateSpreadsheetRequest differences, List<int> combinedRounds) {
+    RowData headerRowData = RowData();
+
+    // add cell data for these column headers: FormSubmitTimestamp	DAU Round	Name	Round Tips
+    headerRowData.values = [
+      CellData(
+          userEnteredValue: ExtendedValue(stringValue: 'FormSubmitTimestamp')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'DAU Round')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Name')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Round Tips')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Latest Tip')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Round result')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Margin Picks')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Margin UPS')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'NRL Score')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'AFL Score')),
+      CellData(userEnteredValue: ExtendedValue(stringValue: 'Total Score')),
+
+      //Latest Tip	Round result	Margin Picks	Margin UPS	NRL Score	AFL Score	Total Score
+    ];
+
     differences.requests!.add(Request(
         updateCells: UpdateCellsRequest(
             fields: '*',
             range: GridRange(
               sheetId: appTipsSheet.id,
-              startRowIndex: 0,
-              endRowIndex: 1,
-              startColumnIndex: 2,
+              startRowIndex: 2,
+              endRowIndex: 3,
+              startColumnIndex: 0,
               endColumnIndex: headerRowData.values!.length + 2,
             ),
             rows: [headerRowData])));
 
-    //try 5 times to submit all gsheet changes in one go
-    int maxAttempts = 5;
+    return differences;
+  }
+
+  Future<String> _submitChanges(
+      BatchUpdateSpreadsheetRequest differences) async {
+    const int maxAttempts = 5;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         await sheetsApi.spreadsheets.batchUpdate(differences, spreadsheetId!);
-        // break of the loop when the request is successful
         String msg =
             'Successfully made ${differences.requests!.length - 1} updates to legacy tipping sheet.';
         log(msg);
         return msg;
       } catch (e) {
         log('Error ${e.toString()} submitting default tips, attempt $attempt of $maxAttempts');
-        await Future.delayed(
-            const Duration(seconds: 10)); // Wait for 60 seconds
+        await Future.delayed(const Duration(seconds: 10));
       }
     }
     return 'Failed to sync ${differences.requests!.length - 1}  tips to legacy tipping sheet after $maxAttempts attempts';
   }
 
-  BatchUpdateSpreadsheetRequest compareForBatchUpdate(
-      List<List<String?>> originalList,
-      List<List<String?>> proposedList,
-      int sheetId) {
-    List<Request> requests = [];
+  //function to update the default tipper data with the new tip. Use the league and matchnumber to find the correct character to update
+  String _updateDefaultTipperData(String defaultRoundTips, TipGame tipGame) {
+    if (tipGame.game.league == League.nrl) {
+      //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
+      // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
+      // that is the offset to use to update the proposedGsheetTipChanges
+      int gameIndex = tipGame.game.dauRound.gamesAsKeys
+          .where((element) => element.contains('nrl-'))
+          .toList()
+          .indexOf(tipGame.game.dbkey);
 
-    for (int i = 0; i < proposedList.length; i++) {
-      for (int j = 0; j < proposedList[i].length; j++) {
-        // if the original tip is empty or different to the proposed tip, then add a request to update the cell
-        if (j >= originalList[i].length ||
-            originalList[i].isEmpty ||
-            originalList[i][j] != proposedList[i][j]) {
-          requests.add(
-            Request()
-              ..updateCells = (UpdateCellsRequest()
-                ..rows = [
-                  RowData()
-                    ..values = [
-                      CellData()
-                        ..userEnteredValue =
-                            (ExtendedValue()..stringValue = proposedList[i][j])
-                    ]
-                ]
-                ..range = (GridRange()
-                  ..sheetId = sheetId
-                  ..startRowIndex = i + 1 // add 1 to account for the header row
-                  ..endRowIndex = i + 2
-                  ..startColumnIndex =
-                      j + 2 // add 2 to account for the name and email columns
-                  ..endColumnIndex = j + 3)
-                ..fields = 'userEnteredValue'),
-          );
-        }
-      }
-    }
-
-    log('Syncing ${requests.length} tip changes to legacy tipping sheet.');
-
-    return BatchUpdateSpreadsheetRequest()..requests = requests;
-  }
-
-  Future<void> submitTip(
-      String tipperName, TipGame tip, int gameIndex, int dauRoundNumber) async {
-    // Find the row with the matching TipperName
-    final rowToUpdate = appTipsData.indexWhere((row) => row[0] == tipperName);
-
-    if (rowToUpdate == -1) {
-      // If a matching row is not found, throw exception
-      throw Exception(
-          'Tipper $tipperName cannot be found in the legacy tipping sheet AppTips tab');
+      defaultRoundTips = defaultRoundTips.replaceRange(
+          gameIndex, gameIndex + 1, tipGame.tip.name);
     } else {
-      // update existing row
-      // 1) grab the existing cell data if any
-      // 2) if tip league == League.NRL, starting at index 0, use the gameIndex to update the cell data at that position with the game result
-      // 3) if tip league == League.AFL, starting at index 8, use the gameIndex to update the cell data at that position with the game result
-      // 4) update the row with the new cell data
+      //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
+      // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
+      // that is the offset to use to update the proposedGsheetTipChanges
+      // add 8 to the offset to account for the fact that nrl tips go first in the string
+      int gameIndex = 8 +
+          tipGame.game.dauRound.gamesAsKeys
+              .where((element) => element.contains('afl-'))
+              .toList()
+              .indexOf(tipGame.game.dbkey);
 
-      String cellValue = await appTipsSheet.values
-          .value(row: rowToUpdate + 1, column: dauRoundNumber + 2);
-
-      String newCellValue;
-
-      if (cellValue.length != 17) {
-        String msg =
-            'Error updating legacy tipping sheet with tip $cellValue for $tipperName in game ${tip.game.dbkey}. Existing legacy tips length should be 17, but is ${cellValue.length}';
-        log(msg);
-        throw Exception(msg);
-      }
-
-      if (tip.game.league == League.nrl) {
-        newCellValue =
-            cellValue.replaceRange(gameIndex, gameIndex + 1, tip.tip.name);
-      } else {
-        newCellValue =
-            cellValue.replaceRange(gameIndex + 8, gameIndex + 9, tip.tip.name);
-      }
-
-      appTipsSheet.values.insertValue(newCellValue,
-          row: rowToUpdate + 1, column: dauRoundNumber + 2);
-
-      log('Updated legacy tipping round: $dauRoundNumber for $tipperName. Old tips: $cellValue, new tips: $newCellValue. Tip change was for game: ${tip.game.dbkey}');
-
-      await appTipsSheet.values.insertRow(rowToUpdate + 1, [newCellValue],
-          fromColumn: dauRoundNumber + 2);
+      defaultRoundTips = defaultRoundTips.replaceRange(
+          gameIndex, gameIndex + 1, tipGame.tip.name);
     }
+
+    return defaultRoundTips;
   }
+
+  // Future<void> submitTip(
+  //     String tipperName, TipGame tip, int gameIndex, int dauRoundNumber) async {
+  //   // Find the row with the matching TipperName
+  //   final rowToUpdate = appTipsData.indexWhere((row) => row[0] == tipperName);
+
+  //   if (rowToUpdate == -1) {
+  //     // If a matching row is not found, throw exception
+  //     throw Exception(
+  //         'Tipper $tipperName cannot be found in the legacy tipping sheet AppTips tab');
+  //   } else {
+  //     // update existing row
+  //     // 1) grab the existing cell data if any
+  //     // 2) if tip league == League.NRL, starting at index 0, use the gameIndex to update the cell data at that position with the game result
+  //     // 3) if tip league == League.AFL, starting at index 8, use the gameIndex to update the cell data at that position with the game result
+  //     // 4) update the row with the new cell data
+
+  //     String cellValue = await appTipsSheet.values
+  //         .value(row: rowToUpdate + 1, column: dauRoundNumber + 2);
+
+  //     String newCellValue;
+
+  //     if (cellValue.length != 17) {
+  //       String msg =
+  //           'Error updating legacy tipping sheet with tip $cellValue for $tipperName in game ${tip.game.dbkey}. Existing legacy tips length should be 17, but is ${cellValue.length}';
+  //       log(msg);
+  //       throw Exception(msg);
+  //     }
+
+  //     if (tip.game.league == League.nrl) {
+  //       newCellValue =
+  //           cellValue.replaceRange(gameIndex, gameIndex + 1, tip.tip.name);
+  //     } else {
+  //       newCellValue =
+  //           cellValue.replaceRange(gameIndex + 8, gameIndex + 9, tip.tip.name);
+  //     }
+
+  //     appTipsSheet.values.insertValue(newCellValue,
+  //         row: rowToUpdate + 1, column: dauRoundNumber + 2);
+
+  //     log('Updated legacy tipping round: $dauRoundNumber for $tipperName. Old tips: $cellValue, new tips: $newCellValue. Tip change was for game: ${tip.game.dbkey}');
+
+  //     await appTipsSheet.values.insertRow(rowToUpdate + 1, [newCellValue],
+  //         fromColumn: dauRoundNumber + 2);
+  //   }
+  // }
 
   Future<void> refreshAppTipsData() async {
     await initialized();
@@ -347,10 +369,42 @@ class LegacyTippingService {
       spreadsheetId!,
       appTipsSheetName,
     );
-    appTipsData = values.values!
-        .map((list) => list.map((item) => item as String?).toList())
-        .toList();
+
+    // convert the values to a list of lists if values.values is not null
+    appTipsData = values.values
+            ?.map((row) => row.map((e) => e.toString()).toList())
+            .toList() ??
+        [];
 
     log('Legacy sheet ${appTipsSheet.title} data loaded in app. Found ${appTipsData.length} rows.');
+  }
+}
+
+class GsheetAppTip {
+  String formSubmitTimestamp;
+  int dauRoundNumber;
+  String name;
+  String roundTipslegacyFormat;
+
+  GsheetAppTip(this.formSubmitTimestamp, this.dauRoundNumber, this.name,
+      this.roundTipslegacyFormat);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is GsheetAppTip &&
+        other.formSubmitTimestamp == formSubmitTimestamp &&
+        other.dauRoundNumber == dauRoundNumber &&
+        other.name == name &&
+        other.roundTipslegacyFormat == roundTipslegacyFormat;
+  }
+
+  @override
+  int get hashCode {
+    return formSubmitTimestamp.hashCode ^
+        dauRoundNumber.hashCode ^
+        name.hashCode ^
+        roundTipslegacyFormat.hashCode;
   }
 }

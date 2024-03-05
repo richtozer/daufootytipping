@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+/* import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 // 1 hour for testing
@@ -25,8 +25,7 @@ export const pruneTokens = functions.pubsub
           if (tipperTokens.hasOwnProperty(tokenId)) {
             const tokenTimestamp = tipperTokens[tokenId].timestamp;
             if (now - tokenTimestamp > EXPIRATION_TIME) {
-              prunedTokens.push(`${tipperId}/${tokenId}`);
-            }
+              prunedTokens.push(`${tipperId}/${tokenId}`);}
             else {
               functions.logger.log(`Token ${tokenId} is still valid`);
             }
@@ -45,3 +44,4 @@ export const pruneTokens = functions.pubsub
     functions.logger.log(msg);
     return prunedTokens.length;
   });
+ */
