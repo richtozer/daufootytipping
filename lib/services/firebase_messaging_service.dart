@@ -29,6 +29,7 @@ class FirebaseService extends ChangeNotifier {
       // save new token, and notify TipperViewModel who will save it to the database
       log('New messaging token received, updating database: $newToken');
       _fbmToken = newToken;
+      //TODO - save to database
       //notifyListeners();
     });
   }

@@ -15,6 +15,7 @@ import 'package:watch_it/watch_it.dart';
 const scoresPathRoot = '/Scores';
 const roundScoresRoot = 'round_scores';
 const compScoresRoot = 'comp_scores';
+const liveScoresRoot = 'live_scores';
 
 class ScoresViewModel extends ChangeNotifier {
   List<RoundScores> _tipperRoundScores = [];
@@ -22,12 +23,17 @@ class ScoresViewModel extends ChangeNotifier {
   late CompScore _tipperCompScores;
 
   final _db = FirebaseDatabase.instance.ref();
+  late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _tipperRoundScoresStream;
   late StreamSubscription<DatabaseEvent> _tipperCompScoresStream;
   late StreamSubscription<DatabaseEvent> _tipperRoundScoresStreamAllTippers;
 
   final String currentDAUComp;
   Tipper? tipper;
+
+  final Completer<void> _initialLiveScoreLoadCompleter = Completer();
+  Future<void> get initialLiveScoreLoadComplete =>
+      _initialLiveScoreLoadCompleter.future;
   final Completer<void> _initialRoundLoadCompleter = Completer();
   Future<void> get initialRoundComplete => _initialRoundLoadCompleter.future;
   final Completer<void> _initialCompLoadCompleter = Completer();
@@ -75,6 +81,13 @@ class ScoresViewModel extends ChangeNotifier {
           .listen(_handleEvent, onError: (error) {
         log('Error listening to comp scores: $error');
       });
+
+      _liveScoresStream = _db
+          .child('$scoresPathRoot/$currentDAUComp/$liveScoresRoot')
+          .onValue
+          .listen(_handleEvent, onError: (error) {
+        log('Error listening to live scores: $error');
+      });
     } else {
       _tipperRoundScoresStreamAllTippers = _db
           .child('$scoresPathRoot/$currentDAUComp/$roundScoresRoot')
@@ -93,7 +106,13 @@ class ScoresViewModel extends ChangeNotifier {
       //assign dummty stream to comp scores, then cancel - allows dispose to work
       _tipperCompScoresStream =
           _db.child('yyy').onValue.listen(_handleEvent, onError: (error) {
-        log('Error listening to all tipper round scores: $error');
+        log('Error listening to all tipper comp scores: $error');
+      });
+
+      //assign dummty stream to live scores, then cancel - allows dispose to work
+      _tipperCompScoresStream =
+          _db.child('yyy').onValue.listen(_handleEvent, onError: (error) {
+        log('Error listening to all tipper live scores: $error');
       });
     }
   }
@@ -186,7 +205,7 @@ class ScoresViewModel extends ChangeNotifier {
 
     // iterate through each round and calculate the winner for each round
     // create  a RoundWinnerEntry for each winner and add to List<RoundWinnerEntry> _roundWinners
-    var res = _allTipperRoundScores.entries.map((e) {
+    _allTipperRoundScores.entries.map((e) {
       String tipperID = e.key; // capture the tipperID here
       int maxScore = e.value.fold<int>(
           0,
@@ -312,6 +331,7 @@ class ScoresViewModel extends ChangeNotifier {
         .cancel(); // stop listening to stream - this is throwing a late not initialized error
     _tipperCompScoresStream.cancel(); // stop listening to stream
     _tipperRoundScoresStreamAllTippers.cancel();
+    _liveScoresStream.cancel();
 
     super.dispose();
   }

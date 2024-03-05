@@ -6,6 +6,7 @@ import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:watch_it/watch_it.dart';
 
 class Profile extends StatelessWidget with WatchItMixin {
@@ -17,55 +18,66 @@ class Profile extends StatelessWidget with WatchItMixin {
   Widget build(BuildContext context) {
     String selectedDAUCompDbKey =
         watch(di<DAUCompsViewModel>()).selectedDAUCompDbKey;
-    return Scaffold(
-      body: SingleChildScrollView(
+    //return Scaffold(
+    //  body: SingleChildScrollView(
+    return SingleChildScrollView(
+      child: Card(
+        margin: const EdgeInsets.all(8),
         child: Column(
           children: <Widget>[
-            SizedBox(
-              height: 350,
-              child: ProfileScreen(
-                actions: [
-                  DisplayNameChangedAction((context, oldName, newName) {
-                    // TODO do something with the new name
-                    throw UnimplementedError();
-                  }),
-                ],
-              ),
-            ),
-            // Display the current DAUComp
-            const SizedBox(height: 20),
+            const SizedBox(height: 50),
             Center(
-                child: Column(
-              children: [
-                // display a list of available comps using daucompsViewModel.getDauComps()
-                FutureBuilder<List<DAUComp>>(
-                  future: di<DAUCompsViewModel>().getDAUcomps(),
-                  builder: (BuildContext context,
-                      AsyncSnapshot<List<DAUComp>> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Text('Loading...');
-                    } else if (snapshot.hasError) {
-                      return Text('Error: ${snapshot.error}');
-                    } else {
-                      return DropdownButton<String>(
-                          value: selectedDAUCompDbKey,
-                          icon: const Icon(Icons.arrow_downward),
-                          onChanged: (String? newValue) {
-                            // update the current comp
-                            di<DAUCompsViewModel>()
-                                .setCurrentDAUComp(newValue!);
-                          },
-                          items: snapshot.data!
-                              .map<DropdownMenuItem<String>>((DAUComp comp) {
-                            return DropdownMenuItem<String>(
-                              value: comp.dbkey,
-                              child: Text(comp.name),
-                            );
-                          }).toList());
-                    }
-                  },
-                ),
-              ],
+                child: FutureBuilder<List<DAUComp>>(
+              future: di<DAUCompsViewModel>().getDAUcomps(),
+              builder: (BuildContext context,
+                  AsyncSnapshot<List<DAUComp>> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text('Loading...');
+                } else if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                } else {
+                  return Column(
+                    children: [
+                      Center(
+                        child: Column(
+                          children: [
+                            Image.asset(
+                              'assets/teams/daulogo.jpg',
+                              fit: BoxFit.fitWidth,
+                            ),
+                            const SizedBox(height: 10),
+                            const SizedBox(
+                              width: 300,
+                              child: Text(
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.normal),
+                                  'Tipper in a previous year? Select it below to revisit your tips and scores: '),
+                            ),
+                            DropdownButton<String>(
+                              value: selectedDAUCompDbKey,
+                              icon: const Icon(Icons.arrow_downward),
+                              onChanged: (String? newValue) {
+                                // update the current comp
+                                di<DAUCompsViewModel>()
+                                    .setCurrentDAUComp(newValue!);
+                              },
+                              items: snapshot.data!
+                                  .map<DropdownMenuItem<String>>(
+                                      (DAUComp comp) {
+                                return DropdownMenuItem<String>(
+                                  value: comp.dbkey,
+                                  child: Text(comp.name),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             )),
 
             Center(
@@ -84,12 +96,29 @@ class Profile extends StatelessWidget with WatchItMixin {
             const SizedBox(height: 20),
             di<TippersViewModel>().authenticatedTipper!.tipperRole ==
                     TipperRole.admin
-                ? const Center(child: AdminFunctionsWidget())
+                ? const Column(children: [
+                    Center(child: AdminFunctionsWidget()),
+                    SizedBox(height: 20),
+                  ])
                 : const SizedBox.shrink(),
-            const SizedBox(height: 20),
+            SizedBox(
+              height: 350,
+              width: 300,
+              child: ProfileScreen(
+                actions: [
+                  DisplayNameChangedAction((context, oldName, newName) {
+                    // TODO do something with the new name
+                    throw UnimplementedError();
+                  }),
+                ],
+              ),
+            ),
+            // Display the current DAUComp
+            const SizedBox(height: 50),
           ],
         ),
       ),
     );
+    //,);
   }
 }

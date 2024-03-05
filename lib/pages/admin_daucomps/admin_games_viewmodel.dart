@@ -93,6 +93,11 @@ class GamesViewModel extends ChangeNotifier {
             }
           }
 
+          if (linkedDauRound == null) {
+            throw Exception(
+                'Error in GamesViewModel_handleEvent: linkedDauRound is null');
+          }
+
           if (homeTeam != null && awayTeam != null) {
             Game game = Game.fromFixtureJson(
                 dbKey,

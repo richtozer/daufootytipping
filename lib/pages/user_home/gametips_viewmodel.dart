@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
-import 'package:daufootytipping/extensions/disposesafechangenotifier.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -117,11 +117,11 @@ class GameTipsViewModel extends ChangeNotifier {
 
       // code section to support legacy tipping service
       // find the Tip game position in the roundGames list
-      int gameIndex =
-          roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
+      // int gameIndex =
+      //     roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
 
-      legcyTippingService.submitTip(
-          currentTipper.name, tip, gameIndex, combinedRoundNumber);
+      // legcyTippingService.submitTip(
+      //     currentTipper.name, tip, gameIndex, combinedRoundNumber);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
