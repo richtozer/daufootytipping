@@ -44,116 +44,235 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
       value: scoresViewModel,
       child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
-          return Scaffold(
-            floatingActionButton: FloatingActionButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Icon(Icons.arrow_back),
-            ),
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/teams/daulogo.jpg',
-                          fit: BoxFit.fitWidth,
-                        ),
-                      ),
-                      ListTile(
-                        title: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                                'Leaderboard')),
-                      ),
-                    ],
-                  ),
-                  Expanded(
-                    child: Padding(
-                        padding: const EdgeInsets.all(5.0),
-                        child: DataTable2(
-                          border: TableBorder.all(
-                            width: 1.0,
-                            color: Colors.grey.shade300,
-                          ),
-                          //dividerThickness: 0,
-                          sortColumnIndex: sortColumnIndex,
-                          sortAscending: isAscending,
-                          columnSpacing: 0,
-                          horizontalMargin: 0,
-                          minWidth: 600,
-                          fixedTopRows: 1,
-                          fixedLeftColumns: 2,
-                          showCheckboxColumn: false,
-                          isHorizontalScrollBarVisible: true,
-                          isVerticalScrollBarVisible: true,
-                          columns: getColumns(columns),
-                          rows: List<DataRow>.generate(
-                              scoresViewModelConsumer.leaderboard.length,
-                              (index) => DataRow(
-                                    color: scoresViewModelConsumer
-                                                .leaderboard[index].name ==
-                                            di<TippersViewModel>()
-                                                .authenticatedTipper!
-                                                .name
-                                        ? MaterialStateProperty.resolveWith(
-                                            (states) => Colors.lightGreenAccent)
-                                        : MaterialStateProperty.resolveWith(
-                                            (states) => Colors.transparent),
-                                    cells: [
-                                      DataCell(Row(
-                                        children: [
-                                          avatarPic(scoresViewModelConsumer
-                                              .leaderboard[index].profileURL!),
-                                          Text(
-                                              overflow: TextOverflow.ellipsis,
-                                              scoresViewModelConsumer
-                                                  .leaderboard[index].name),
-                                        ],
-                                      )),
-                                      DataCell(Text(scoresViewModelConsumer
-                                          .leaderboard[index].rank
-                                          .toString())),
-                                      DataCell(Text(scoresViewModelConsumer
-                                          .leaderboard[index].total
-                                          .toString())),
-                                      DataCell(Text(scoresViewModelConsumer
-                                          .leaderboard[index].nRL
-                                          .toString())),
-                                      DataCell(Text(scoresViewModelConsumer
-                                          .leaderboard[index].aFL
-                                          .toString())),
-                                      DataCell(Text(scoresViewModelConsumer
-                                          .leaderboard[index].numRoundsWon
-                                          .toString())),
-                                      DataCell(Text((scoresViewModelConsumer
-                                                  .leaderboard[index]
-                                                  .aflMargins +
-                                              scoresViewModelConsumer
-                                                  .leaderboard[index]
-                                                  .nrlMargins)
-                                          .toString())),
-                                      DataCell(Text((scoresViewModelConsumer
-                                                  .leaderboard[index].aflUPS +
-                                              scoresViewModelConsumer
-                                                  .leaderboard[index].nrlUPS)
-                                          .toString())),
-                                    ],
-                                  )),
-                        )),
-                  ),
-                ],
+          if (MediaQuery.of(context).size.width > 500) {
+            return Scaffold(
+              floatingActionButton: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Icon(Icons.arrow_back),
               ),
-            ),
-          );
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/teams/daulogo.jpg',
+                            fit: BoxFit.fitWidth,
+                          ),
+                        ),
+                        ListTile(
+                          title: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                  'Leaderboard')),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: DataTable2(
+                            border: TableBorder.all(
+                              width: 1.0,
+                              color: Colors.grey.shade300,
+                            ),
+                            //dividerThickness: 0,
+                            sortColumnIndex: sortColumnIndex,
+                            sortAscending: isAscending,
+                            columnSpacing: 0,
+                            horizontalMargin: 0,
+                            minWidth: 600,
+                            fixedTopRows: 1,
+                            //fixedLeftColumns: 1,
+                            showCheckboxColumn: false,
+                            isHorizontalScrollBarVisible: true,
+                            isVerticalScrollBarVisible: true,
+                            columns: getColumns(columns),
+                            rows: List<DataRow>.generate(
+                                scoresViewModelConsumer.leaderboard.length,
+                                (index) => DataRow(
+                                      color: scoresViewModelConsumer
+                                                  .leaderboard[index].name ==
+                                              di<TippersViewModel>()
+                                                  .authenticatedTipper!
+                                                  .name
+                                          ? MaterialStateProperty.resolveWith(
+                                              (states) =>
+                                                  Colors.lightGreenAccent)
+                                          : MaterialStateProperty.resolveWith(
+                                              (states) => Colors.transparent),
+                                      cells: [
+                                        DataCell(Row(
+                                          children: [
+                                            avatarPic(scoresViewModelConsumer
+                                                .leaderboard[index]
+                                                .profileURL!),
+                                            Text(
+                                                overflow: TextOverflow.ellipsis,
+                                                scoresViewModelConsumer
+                                                    .leaderboard[index].name),
+                                          ],
+                                        )),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].rank
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].total
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].nRL
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].aFL
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].numRoundsWon
+                                            .toString())),
+                                        DataCell(Text((scoresViewModelConsumer
+                                                    .leaderboard[index]
+                                                    .aflMargins +
+                                                scoresViewModelConsumer
+                                                    .leaderboard[index]
+                                                    .nrlMargins)
+                                            .toString())),
+                                        DataCell(Text((scoresViewModelConsumer
+                                                    .leaderboard[index].aflUPS +
+                                                scoresViewModelConsumer
+                                                    .leaderboard[index].nrlUPS)
+                                            .toString())),
+                                      ],
+                                    )),
+                          )),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else {
+            // TODO - this is a repeat of the above code except for one paramter change
+            // very inefficient
+            return Scaffold(
+              floatingActionButton: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Icon(Icons.arrow_back),
+              ),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/teams/daulogo.jpg',
+                            fit: BoxFit.fitWidth,
+                          ),
+                        ),
+                        ListTile(
+                          title: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                  'Leaderboard')),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: DataTable2(
+                            border: TableBorder.all(
+                              width: 1.0,
+                              color: Colors.grey.shade300,
+                            ),
+                            //dividerThickness: 0,
+                            sortColumnIndex: sortColumnIndex,
+                            sortAscending: isAscending,
+                            columnSpacing: 0,
+                            horizontalMargin: 0,
+                            minWidth: 600,
+                            fixedTopRows: 1,
+                            fixedLeftColumns: 1,
+                            showCheckboxColumn: false,
+                            isHorizontalScrollBarVisible: true,
+                            isVerticalScrollBarVisible: true,
+                            columns: getColumns(columns),
+                            rows: List<DataRow>.generate(
+                                scoresViewModelConsumer.leaderboard.length,
+                                (index) => DataRow(
+                                      color: scoresViewModelConsumer
+                                                  .leaderboard[index].name ==
+                                              di<TippersViewModel>()
+                                                  .authenticatedTipper!
+                                                  .name
+                                          ? MaterialStateProperty.resolveWith(
+                                              (states) =>
+                                                  Colors.lightGreenAccent)
+                                          : MaterialStateProperty.resolveWith(
+                                              (states) => Colors.transparent),
+                                      cells: [
+                                        DataCell(Row(
+                                          children: [
+                                            avatarPic(scoresViewModelConsumer
+                                                .leaderboard[index]
+                                                .profileURL!),
+                                            Text(
+                                                overflow: TextOverflow.ellipsis,
+                                                scoresViewModelConsumer
+                                                    .leaderboard[index].name),
+                                          ],
+                                        )),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].rank
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].total
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].nRL
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].aFL
+                                            .toString())),
+                                        DataCell(Text(scoresViewModelConsumer
+                                            .leaderboard[index].numRoundsWon
+                                            .toString())),
+                                        DataCell(Text((scoresViewModelConsumer
+                                                    .leaderboard[index]
+                                                    .aflMargins +
+                                                scoresViewModelConsumer
+                                                    .leaderboard[index]
+                                                    .nrlMargins)
+                                            .toString())),
+                                        DataCell(Text((scoresViewModelConsumer
+                                                    .leaderboard[index].aflUPS +
+                                                scoresViewModelConsumer
+                                                    .leaderboard[index].nrlUPS)
+                                            .toString())),
+                                      ],
+                                    )),
+                          )),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
         },
       ),
     );
@@ -234,8 +353,8 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
             fixedWidth: column == 'Name'
                 ? 150
                 : column == '#\nrounds\nwon' || column == 'Margins'
-                    ? 70
-                    : 50,
+                    ? 75
+                    : 55,
             numeric: column == 'Name' ? false : true,
             label: Text(
               column,
