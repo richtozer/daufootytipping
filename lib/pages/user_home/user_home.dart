@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:ui';
 
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -39,6 +40,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    log('screen width: ${MediaQuery.of(context).size.width}');
     List<Widget> destinationContent = content();
 
     Widget scaffold = Stack(children: [
@@ -48,6 +50,7 @@ class _HomePageState extends State<HomePage> {
             imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Image.asset(
               'assets/teams/daulogo-grass.jpg',
+              width: MediaQuery.of(context).size.width,
               fit: BoxFit.fitWidth,
             ),
           ),
@@ -55,6 +58,7 @@ class _HomePageState extends State<HomePage> {
             imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Image.asset(
               'assets/teams/daulogo-grass.jpg',
+              width: MediaQuery.of(context).size.width,
               fit: BoxFit.fitWidth,
             ),
           ),
@@ -62,6 +66,7 @@ class _HomePageState extends State<HomePage> {
             imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Image.asset(
               'assets/teams/daulogo-grass.jpg',
+              width: MediaQuery.of(context).size.width,
               fit: BoxFit.fitWidth,
             ),
           ),
@@ -69,6 +74,7 @@ class _HomePageState extends State<HomePage> {
             imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Image.asset(
               'assets/teams/daulogo-grass.jpg',
+              width: MediaQuery.of(context).size.width,
               fit: BoxFit.fitWidth,
             ),
           ),

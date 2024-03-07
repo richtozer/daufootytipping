@@ -137,7 +137,7 @@ class _GameListItemState extends State<GameListItem> {
               bannerColor = Color(0xffe21e31);
               break;
             case GameState.resultKnown:
-              bannerMessage = "Ended";
+              bannerMessage = "Result";
               bannerColor = Colors.grey;
               break;
             case GameState.notStarted:
