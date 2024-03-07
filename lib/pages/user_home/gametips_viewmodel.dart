@@ -4,6 +4,7 @@ import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -15,6 +16,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
+  late ScoresViewModel scoresViewModel;
   AllTipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
@@ -44,8 +46,11 @@ class GameTipsViewModel extends ChangeNotifier {
     this.game,
     this.allTipsViewModel,
   ) {
+    scoresViewModel = di<ScoresViewModel>();
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
+    scoresViewModel.addListener(update);
+
     _findTip();
     gameStartedTrigger();
   }
@@ -59,7 +64,7 @@ class GameTipsViewModel extends ChangeNotifier {
       return;
     }
 
-    // caldulate the time until the game starts and create a future.delayed
+    // calculate the time until the game starts and create a future.delayed
     // to wait until the game starts
     var timeUntilGameStarts =
         game.startTimeUTC.difference(DateTime.now().toUtc());
@@ -134,6 +139,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
+    scoresViewModel?.removeListener(update);
     super.dispose();
   }
 }

@@ -24,26 +24,26 @@ class TipChoice extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.a, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context),
-              generateChoiceChip(GameResult.b, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context)
+              generateChoiceChip(
+                  GameResult.a, gameTipsViewModel.tipGame, context),
+              generateChoiceChip(
+                  GameResult.b, gameTipsViewModel.tipGame, context)
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.c, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context),
+              generateChoiceChip(
+                  GameResult.c, gameTipsViewModel.tipGame, context),
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.d, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context),
-              generateChoiceChip(GameResult.e, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context)
+              generateChoiceChip(
+                  GameResult.d, gameTipsViewModel.tipGame, context),
+              generateChoiceChip(
+                  GameResult.e, gameTipsViewModel.tipGame, context)
             ],
           )
         ],
@@ -51,12 +51,14 @@ class TipChoice extends StatelessWidget {
     );
   }
 
-  ChoiceChip generateChoiceChip(GameResult option, Game game,
-      TipGame? latestGameTip, BuildContext context) {
+  ChoiceChip generateChoiceChip(
+      GameResult option, TipGame? latestGameTip, BuildContext context) {
     return ChoiceChip.elevated(
-      label: Text(game.league == League.afl ? option.afl : option.nrl),
-      tooltip:
-          game.league == League.afl ? option.aflTooltip : option.nrlTooltip,
+      label: Text(
+          latestGameTip?.game.league == League.afl ? option.afl : option.nrl),
+      tooltip: latestGameTip?.game.league == League.afl
+          ? option.aflTooltip
+          : option.nrlTooltip,
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
@@ -112,7 +114,7 @@ class TipChoice extends StatelessWidget {
 
             return;
           }
-          if (game.gameState != GameState.notStarted) {
+          if (latestGameTip?.game.gameState != GameState.notStarted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,

@@ -314,9 +314,10 @@ class TippersViewModel extends ChangeNotifier {
 
         await registerLinkedTipperForMessaging();
       }
-      // init an instance of ScoresViewModel focusin on their scores
+      // init an instance of ScoresViewModel focusing on their scores
       di.registerLazySingleton<ScoresViewModel>(() => ScoresViewModel.forTipper(
           di<DAUCompsViewModel>().defaultDAUCompDbKey, _selectedTipper));
+
       return userIsLinked;
     } catch (e) {
       log('linkUserToTipper() Error: $e');

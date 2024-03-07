@@ -74,6 +74,10 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
             return const Center(child: CircularProgressIndicator());
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
+            int aflScore =
+                dauCompWithScores!.consolidatedCompScores!.aflCompScore;
+            int nrlScore =
+                dauCompWithScores!.consolidatedCompScores!.nrlCompScore;
 
             return FutureBuilder<void>(
                 future: allTipsViewModel.getAllTips(),
@@ -96,16 +100,17 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                           flexibleSpace: FlexibleSpaceBar(
                               expandedTitleScale: 1.5,
                               centerTitle: true,
-                              title: const Text(
-                                  style: TextStyle(
+                              title: Text(
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
                                     color: Colors.black,
                                   ),
-                                  'Rank 1▲ NRL: 099 AFL 299'),
+                                  'Rank X▲ NRL: $nrlScore AFL: $aflScore'),
                               background: Stack(
                                 children: <Widget>[
                                   Image.asset(
+                                    width: MediaQuery.of(context).size.width,
                                     'assets/teams/daulogo.jpg',
                                     fit: BoxFit.fitWidth,
                                   ),
@@ -157,52 +162,6 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
           }
         });
   }
-
-  // Widget compHeaderListTile(CompScore? compScore, String compName) {
-  //   return Stack(
-  //     children: [
-  //       Positioned.fill(
-  //         child: Image.asset(
-  //           'assets/teams/daulogo.jpg',
-  //           fit: BoxFit.fitWidth,
-  //         ),
-  //       ),
-  //       ListTile(
-  //         title: Container(
-  //           decoration: BoxDecoration(
-  //             color: Colors.white.withOpacity(0.8),
-  //             borderRadius: BorderRadius.circular(10),
-  //           ),
-  //           alignment: Alignment.center,
-  //           child: Column(
-  //             mainAxisAlignment: MainAxisAlignment.center,
-  //             children: [
-  //               Row(
-  //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  //                 children: [
-  //                   Text(
-  //                       style: const TextStyle(fontWeight: FontWeight.bold),
-  //                       compName),
-  //                 ],
-  //               ),
-  //               Row(
-  //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  //                 children: [
-  //                   Text(
-  //                       style: const TextStyle(fontWeight: FontWeight.bold),
-  //                       'NRL: ${compScore!.nrlCompScore} / ${compScore.nrlCompMaxScore}'),
-  //                   Text(
-  //                       style: const TextStyle(fontWeight: FontWeight.bold),
-  //                       'AFL: ${compScore.aflCompScore} / ${compScore.aflCompMaxScore}'),
-  //                 ],
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
 
   Widget roundLeagueHeaderListTile(
       League leagueHeader, double width, double height, DAURound dauRound) {

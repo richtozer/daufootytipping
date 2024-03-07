@@ -52,7 +52,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   GamesViewModel? userGamesViewModel;
   GamesViewModel? adminGamesViewModel;
-  ScoresViewModel? tipperScoresViewModel;
+
   ScoresViewModel? allScoresViewModel;
   AllTipsViewModel? allTipsViewModel;
 
@@ -75,8 +75,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(newDAUComp!));
     userGamesViewModel = null;
 
-    //reset the tipperscoresViewModel
-    tipperScoresViewModel = null;
+    ////reset the tipperscoresViewModel
+    //tipperScoresViewModel = null;
 
     //reset the allTipsViewModel
     allTipsViewModel = null;
@@ -85,7 +85,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     di.registerLazySingleton<ScoresViewModel>(
         () => ScoresViewModel(newDAUCompDbkey));
     allScoresViewModel = null;
-    userGamesViewModel = null;
 
     notifyListeners();
   }
@@ -372,7 +371,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     await _initialLoadCompleter.future;
 
     if (dauComp != null) {
-      //find the DAUComp in the local list. it it's there,
+      //find the DAUComp in the local list. if it's there,
       // compare the attribute value and update if different
       DAUComp? compToUpdate = await findComp(dauComp.dbkey!);
       if (compToUpdate != null) {
@@ -440,16 +439,16 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     List<DAURound> getRoundInfoAndConsolidatedScores = daucomp!.daurounds!;
 
-    tipperScoresViewModel ??= ScoresViewModel.forTipper(daucomp.dbkey!, tipper);
+    ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
 
     for (var round in getRoundInfoAndConsolidatedScores) {
       round.roundScores = await tipperScoresViewModel
-          ?.getTipperConsolidatedScoresForRound(round);
+          .getTipperConsolidatedScoresForRound(round);
     }
 
     //insert the scores into the comp object
     daucomp.consolidatedCompScores =
-        await tipperScoresViewModel?.getTipperConsolidatedScoresForComp();
+        await tipperScoresViewModel.getTipperConsolidatedScoresForComp();
 
     return daucomp;
   }

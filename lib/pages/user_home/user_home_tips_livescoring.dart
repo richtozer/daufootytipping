@@ -14,74 +14,81 @@ class LiveScoring extends StatelessWidget {
   const LiveScoring({
     super.key,
     required this.tipGame,
+    required this.gameTipsViewModel,
   });
 
+  final GameTipsViewModel gameTipsViewModel;
   final TipGame tipGame;
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GameTipsViewModel>(
-        builder: (context, gameTipsViewModelConsumer, child) {
-      return Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
+    return ChangeNotifierProvider<GameTipsViewModel>.value(
+        value: gameTipsViewModel,
+        child: Consumer<GameTipsViewModel>(
+            builder: (context, gameTipsViewModelConsumer, child) {
+          return Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                gameTipsViewModelConsumer.tipGame?.game.gameState ==
-                        GameState.resultNotKnown
-                    ? liveScoring(gameTipsViewModelConsumer.tipGame!)
-                    : finishedScoring(),
-                Text(
-                    'Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}'),
-                Row(
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    !tipGame.isDefaultTip()
-                        ? Text(gameTipsViewModelConsumer.tipGame?.game.league ==
-                                League.nrl
-                            ? 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.nrl}'
-                            : 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.afl}')
-                        : Row(
-                            children: [
-                              Text(gameTipsViewModelConsumer
-                                          .tipGame?.game.league ==
-                                      League.nrl
-                                  ? 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.nrl}'
-                                  : 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.afl}'),
-                              InkWell(
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      duration: Duration(seconds: 7),
-                                      backgroundColor: Colors.yellow,
-                                      content: Text(
-                                          style: TextStyle(color: Colors.black),
-                                          'You were automatically given a default tip of [Away] '
-                                          'for this game. With the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄'),
-                                    ),
-                                  );
-                                },
-                                child: const Icon(Icons.info_outline),
-                              )
-                            ],
-                          ),
+                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                            GameState.resultNotKnown
+                        ? liveScoring(gameTipsViewModelConsumer.tipGame!)
+                        : finishedScoring(gameTipsViewModelConsumer.tipGame!),
+                    Text(
+                        'Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}'),
+                    Row(
+                      children: [
+                        !tipGame.isDefaultTip()
+                            ? Text(gameTipsViewModelConsumer
+                                        .tipGame?.game.league ==
+                                    League.nrl
+                                ? 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.nrl}'
+                                : 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.afl}')
+                            : Row(
+                                children: [
+                                  Text(gameTipsViewModelConsumer
+                                              .tipGame?.game.league ==
+                                          League.nrl
+                                      ? 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.nrl}'
+                                      : 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.afl}'),
+                                  InkWell(
+                                    onTap: () {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          duration: Duration(seconds: 7),
+                                          backgroundColor: Colors.yellow,
+                                          content: Text(
+                                              style: TextStyle(
+                                                  color: Colors.black),
+                                              'You were automatically given a default tip of [Away] '
+                                              'for this game. With the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄'),
+                                        ),
+                                      );
+                                    },
+                                    child: const Icon(Icons.info_outline),
+                                  )
+                                ],
+                              ),
+                      ],
+                    ),
+                    Text(
+                        'Your points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
                   ],
                 ),
-                Text(
-                    'Your points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
               ],
             ),
-          ],
-        ),
-      );
-    });
+          );
+        }));
   }
 
   Row liveScoring(TipGame consumerTipGame) {
@@ -93,7 +100,7 @@ class LiveScoring extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('🏉 Live: '),
+        const Text('🏉 '),
         SizedBox(
           width: 35,
           child: Tooltip(
@@ -108,7 +115,7 @@ class LiveScoring extends StatelessWidget {
                 ],
                 controller: homeScoreController,
                 onSubmitted: (value) {
-                  liveScoreUpdated(value, ScoreTeam.home);
+                  liveScoreUpdated(value, ScoreTeam.home, consumerTipGame);
                 }),
           ),
         ),
@@ -127,7 +134,7 @@ class LiveScoring extends StatelessWidget {
                 ],
                 controller: awayScoreController,
                 onChanged: (value) {
-                  liveScoreUpdated(value, ScoreTeam.away);
+                  liveScoreUpdated(value, ScoreTeam.away, consumerTipGame);
                 }),
           ),
         ),
@@ -135,20 +142,20 @@ class LiveScoring extends StatelessWidget {
     );
   }
 
-  Row finishedScoring() {
+  Row finishedScoring(TipGame consumerTipGame) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('${tipGame.game.scoring?.homeTeamScore ?? ''}',
-            style: tipGame.game.scoring!.didHomeTeamWin()
+        Text('${consumerTipGame.game.scoring?.currentHomeScore()}',
+            style: consumerTipGame.game.scoring!.didHomeTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
                     backgroundColor: Color(0xff04cf5d),
                     fontWeight: FontWeight.w900)
                 : null),
         const Text(textAlign: TextAlign.left, ' v '),
-        Text('${tipGame.game.scoring?.awayTeamScore ?? ''}',
-            style: tipGame.game.scoring!.didAwayTeamWin()
+        Text('${consumerTipGame.game.scoring?.currentAwayScore()}',
+            style: consumerTipGame.game.scoring!.didAwayTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
                     backgroundColor: Color(0xff04cf5d),
@@ -158,21 +165,22 @@ class LiveScoring extends StatelessWidget {
     );
   }
 
-  void liveScoreUpdated(dynamic score, ScoreTeam scoreTeam) {
+  void liveScoreUpdated(
+      dynamic score, ScoreTeam scoreTeam, TipGame consumerTipGame) {
     if (score.isNotEmpty) {
       CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
           scoreTeam,
-          tipGame.tipper.dbkey!,
+          consumerTipGame.tipper.dbkey!,
           int.tryParse(score)!,
           false);
 
-      tipGame.game.scoring?.croudSourcedScores ??= [];
+      consumerTipGame.game.scoring?.croudSourcedScores ??= [];
 
-      tipGame.game.scoring?.croudSourcedScores?.add(croudSourcedScore);
+      consumerTipGame.game.scoring?.croudSourcedScores?.add(croudSourcedScore);
 
-      di<ScoresViewModel>()
-          .writeLiveScoreToDb(tipGame.game.scoring!, tipGame.game);
+      di<ScoresViewModel>().writeLiveScoreToDb(
+          consumerTipGame.game.scoring!, consumerTipGame.game);
     }
   }
 }
