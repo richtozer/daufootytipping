@@ -2,13 +2,15 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:get_it/get_it.dart';
+import 'package:watch_it/watch_it.dart';
 
 // define  constant for firestore database locations
 final tippersPath = dotenv.env['TIPPERS_PATH'];
@@ -312,6 +314,9 @@ class TippersViewModel extends ChangeNotifier {
 
         await registerLinkedTipperForMessaging();
       }
+      // init an instance of ScoresViewModel focusin on their scores
+      di.registerLazySingleton<ScoresViewModel>(() => ScoresViewModel.forTipper(
+          di<DAUCompsViewModel>().defaultDAUCompDbKey, _selectedTipper));
       return userIsLinked;
     } catch (e) {
       log('linkUserToTipper() Error: $e');
@@ -335,6 +340,8 @@ class TippersViewModel extends ChangeNotifier {
     // get use permissions to notify with messaging, if required
     await firebaseService?.requestIOSNotificationPermission();
 
+    // wait for the token to be populated
+    await firebaseService?.initialLoadComplete;
     String? token = firebaseService?.fbmToken;
 
     // write the token to the database using the token as the the path

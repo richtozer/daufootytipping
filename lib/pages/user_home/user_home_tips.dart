@@ -1,10 +1,8 @@
 import 'dart:developer';
-import 'dart:ui';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
@@ -94,13 +92,14 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                           backgroundColor: Colors.white.withOpacity(0.8),
                           pinned: true,
                           floating: true,
-                          expandedHeight: 92,
+                          expandedHeight: 50,
                           flexibleSpace: FlexibleSpaceBar(
                               expandedTitleScale: 1.5,
                               centerTitle: true,
                               title: const Text(
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
                                     color: Colors.black,
                                   ),
                                   'Rank 1▲ NRL: 099 AFL 299'),

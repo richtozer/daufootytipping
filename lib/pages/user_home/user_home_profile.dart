@@ -6,7 +6,6 @@ import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:watch_it/watch_it.dart';
 
 class Profile extends StatelessWidget with WatchItMixin {
