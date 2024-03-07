@@ -1,35 +1,34 @@
-import 'package:daufootytipping/models/tipper.dart';
 
 class CrowdSourcedScore {
   DateTime submittedTimeUTC;
-  Tipper tipper;
+  String tipperID;
   ScoreTeam scoreTeam;
   int interimScore;
   bool gameComplete;
 
   //constructor
-  CrowdSourcedScore(this.submittedTimeUTC, this.tipper, this.scoreTeam,
+  CrowdSourcedScore(this.submittedTimeUTC, this.scoreTeam, this.tipperID,
       this.interimScore, this.gameComplete);
 
   //tojson method
   Map<String, dynamic> toJson() {
     return {
-      'submittedTimeUTC': submittedTimeUTC,
-      'tipper': tipper.toJson(),
-      'scoreTeam': scoreTeam.toString(),
+      'submittedTimeUTC': submittedTimeUTC.toIso8601String(),
+      'tipperID': tipperID,
+      'scoreTeam': scoreTeam.name,
       'interimScore': interimScore,
       'gameComplete': gameComplete,
     };
   }
 
   //fromjson method
-  factory CrowdSourcedScore.fromJson(Map<String, dynamic> data, Tipper tipper) {
+  factory CrowdSourcedScore.fromJson(Map data) {
     return CrowdSourcedScore(
-      data['submittedTimeUTC'],
-      tipper,
-      data['scoreTeam'],
+      DateTime.parse(data['submittedTimeUTC']),
+      ScoreTeam.values.byName(data['scoreTeam']),
+      data['tipperID'],
       data['interimScore'],
-      data['gameComplete'],
+      data['gameComplete'] as bool,
     );
   }
 }

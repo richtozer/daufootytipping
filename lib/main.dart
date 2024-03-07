@@ -77,8 +77,7 @@ Future<void> main() async {
   di.allowReassignment = true;
   di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
   di.registerSingleton<PackageInfoService>(PackageInfoService());
-  // di.registerLazySingleton<ScoresViewModel>(
-  //     () => ScoresViewModel(configDAUComp));
+
   di.registerLazySingleton<TippersViewModel>(
       () => TippersViewModel(firebaseService));
 

@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +24,7 @@ class ScoresViewModel extends ChangeNotifier {
   List<RoundScores> _tipperRoundScores = [];
   Map<String, List<RoundScores>> _allTipperRoundScores = {};
   late CompScore _tipperCompScores;
+  final List<Game> _gamesWithLiveScores = [];
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
@@ -85,7 +89,7 @@ class ScoresViewModel extends ChangeNotifier {
       _liveScoresStream = _db
           .child('$scoresPathRoot/$currentDAUComp/$liveScoresRoot')
           .onValue
-          .listen(_handleEvent, onError: (error) {
+          .listen(_handleEventLiveScores, onError: (error) {
         log('Error listening to live scores: $error');
       });
     } else {
@@ -110,8 +114,10 @@ class ScoresViewModel extends ChangeNotifier {
       });
 
       //assign dummty stream to live scores, then cancel - allows dispose to work
-      _tipperCompScoresStream =
-          _db.child('yyy').onValue.listen(_handleEvent, onError: (error) {
+      _tipperCompScoresStream = _db
+          .child('yyy')
+          .onValue
+          .listen(_handleEventLiveScores, onError: (error) {
         log('Error listening to all tipper live scores: $error');
       });
     }
@@ -181,6 +187,60 @@ class ScoresViewModel extends ChangeNotifier {
       log('Error listening to /Scores: $e');
       rethrow;
     }
+  }
+
+  Future<void> _handleEventLiveScores(DatabaseEvent event) async {
+    try {
+      if (event.snapshot.exists) {
+        //deserialize the live scores - they are in this fomat: Map<String, Map<String , dynamic>>
+        //and need to be converted to List<Game>
+        var dbData = event.snapshot.value;
+        if (dbData is! Map) {
+          throw Exception('Invalid data type for live scores');
+        }
+        _gamesWithLiveScores.clear();
+        var gamesViewModel = di<GamesViewModel>();
+
+        for (var entry in dbData.entries) {
+          var game = await gamesViewModel.findGame(entry.key);
+          var scoring =
+              Scoring.fromJson(Map<String, dynamic>.from(entry.value));
+          game!.scoring = scoring;
+          _gamesWithLiveScores.add(game);
+
+          notifyListeners();
+
+          //cleanup any stale live scores
+          staleScoreCleanup();
+        }
+
+        if (!_initialLiveScoreLoadCompleter.isCompleted) {
+          _initialLiveScoreLoadCompleter.complete();
+        }
+      }
+    } catch (e) {
+      log('Error listening to /Scores/[comp/live_scores]: $e');
+      rethrow;
+    }
+  }
+
+  writeLiveScoreToDb(Scoring scoring, Game game) async {
+    // check if the game is already in the list of games with live scores
+    // if it is, update the game with the new live score
+    // if it is not, add the game to the list of games with live scores
+    // then update the live scores in the database
+
+    if (_gamesWithLiveScores.contains(game)) {
+      // there are already live scores for this game, lets see if this one
+      // overwrites an existing entry by the same tipper for the same CrowdSourcedScore.scoreTeam
+    }
+
+    _db
+        .child(scoresPathRoot)
+        .child(currentDAUComp)
+        .child(liveScoresRoot)
+        .child(game.dbkey)
+        .update(scoring.toJson());
   }
 
   writeScoresToDb(Map<String, Map<int, Map<String, int>>> roundScores,
@@ -324,6 +384,8 @@ class ScoresViewModel extends ChangeNotifier {
 
     return _tipperCompScores;
   }
+
+  void staleScoreCleanup() {}
 
   @override
   void dispose() {

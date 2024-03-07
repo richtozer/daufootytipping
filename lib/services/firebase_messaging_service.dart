@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -6,6 +7,9 @@ import 'package:flutter/foundation.dart';
 
 class FirebaseService extends ChangeNotifier {
   FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  final Completer<void> _initialLoadCompleter = Completer<void>();
+  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   final databaseReference = FirebaseDatabase.instance.ref();
   final FirebaseAuth auth = FirebaseAuth.instance;
@@ -23,6 +27,11 @@ class FirebaseService extends ChangeNotifier {
       log('Firebase token is null');
     }
     //}
+
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
+    }
+    notifyListeners();
 
     // listening for token refresh events
     messaging.onTokenRefresh.listen((newToken) {
