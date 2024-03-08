@@ -117,7 +117,7 @@ class LiveScoring extends StatelessWidget {
                 decoration: null,
                 maxLength: 3,
                 keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true, signed: false),
+                    decimal: true, signed: true),
                 inputFormatters: <TextInputFormatter>[
                   FilteringTextInputFormatter.digitsOnly,
                 ],
@@ -139,7 +139,7 @@ class LiveScoring extends StatelessWidget {
                 decoration: null,
                 maxLength: 3,
                 keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true, signed: false),
+                    decimal: true, signed: true),
                 inputFormatters: <TextInputFormatter>[
                   FilteringTextInputFormatter.digitsOnly,
                 ],

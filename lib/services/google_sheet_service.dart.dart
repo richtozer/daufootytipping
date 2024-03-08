@@ -90,17 +90,22 @@ class LegacyTippingService {
     log('Refresh of legacy gsheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
     for (var row in tippersRows) {
-      Tipper tipper = Tipper(
-          authuid: row[1].toLowerCase(),
-          email: row[1]
-              .toLowerCase(), // make sure we store the email in lowercase, for later consitent searching
-          name: row[0],
-          tipperID: row[
-              4], //this is the primary key to support lecacy tipping service
-          active: row[2] == 'Admin' || row[2] == 'Form' ? true : false,
-          tipperRole: row[2] == 'Admin' ? TipperRole.admin : TipperRole.tipper);
+      if (row.length < 4) {
+        log('Error in legacy tipping sheet: row has less than 5 columns of data. We need at least name, email, type e.g. form and tipperID : $row. skipping this row');
+      } else {
+        Tipper tipper = Tipper(
+            authuid: row[1].toLowerCase(),
+            email: row[1]
+                .toLowerCase(), // make sure we store the email in lowercase, for later consitent searching
+            name: row[0],
+            tipperID: row[
+                4], //this is the primary key to support lecacy tipping service
+            active: row[2] == 'Admin' || row[2] == 'Form' ? true : false,
+            tipperRole:
+                row[2] == 'Admin' ? TipperRole.admin : TipperRole.tipper);
 
-      tippers.add(tipper);
+        tippers.add(tipper);
+      }
     }
 
     return tippers;
