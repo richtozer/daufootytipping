@@ -1,8 +1,10 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -11,14 +13,15 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class LiveScoring extends StatelessWidget {
-  const LiveScoring({
-    super.key,
-    required this.tipGame,
-    required this.gameTipsViewModel,
-  });
+  const LiveScoring(
+      {super.key,
+      required this.tipGame,
+      required this.gameTipsViewModel,
+      required this.selectedDAUComp});
 
   final GameTipsViewModel gameTipsViewModel;
   final TipGame tipGame;
+  final DAUComp selectedDAUComp;
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +46,12 @@ class LiveScoring extends StatelessWidget {
                             GameState.resultNotKnown
                         ? liveScoring(gameTipsViewModelConsumer.tipGame!)
                         : finishedScoring(gameTipsViewModelConsumer.tipGame!),
-                    Text(
-                        'Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}'),
+                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                            GameState.resultNotKnown
+                        ? Text(
+                            'Interim Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}')
+                        : Text(
+                            'Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}'),
                     Row(
                       children: [
                         !tipGame.isDefaultTip()
@@ -100,12 +107,13 @@ class LiveScoring extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('🏉 '),
+        const Text('🏉'),
         SizedBox(
           width: 35,
           child: Tooltip(
             message: 'Enter the current home team score here',
             child: TextField(
+                textAlign: TextAlign.center,
                 decoration: null,
                 maxLength: 3,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -114,8 +122,10 @@ class LiveScoring extends StatelessWidget {
                   FilteringTextInputFormatter.digitsOnly,
                 ],
                 controller: homeScoreController,
+                textInputAction: TextInputAction.done,
                 onSubmitted: (value) {
-                  liveScoreUpdated(value, ScoreTeam.home, consumerTipGame);
+                  liveScoreUpdated(
+                      value, ScoreTeam.home, consumerTipGame, selectedDAUComp);
                 }),
           ),
         ),
@@ -125,6 +135,7 @@ class LiveScoring extends StatelessWidget {
           child: Tooltip(
             message: 'Enter the current away team score here',
             child: TextField(
+                textAlign: TextAlign.center,
                 decoration: null,
                 maxLength: 3,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -133,11 +144,14 @@ class LiveScoring extends StatelessWidget {
                   FilteringTextInputFormatter.digitsOnly,
                 ],
                 controller: awayScoreController,
-                onChanged: (value) {
-                  liveScoreUpdated(value, ScoreTeam.away, consumerTipGame);
+                textInputAction: TextInputAction.done,
+                onSubmitted: (value) {
+                  liveScoreUpdated(
+                      value, ScoreTeam.away, consumerTipGame, selectedDAUComp);
                 }),
           ),
         ),
+        const Text('🏉'),
       ],
     );
   }
@@ -165,8 +179,8 @@ class LiveScoring extends StatelessWidget {
     );
   }
 
-  void liveScoreUpdated(
-      dynamic score, ScoreTeam scoreTeam, TipGame consumerTipGame) {
+  void liveScoreUpdated(dynamic score, ScoreTeam scoreTeam,
+      TipGame consumerTipGame, DAUComp selectedDAUComp) {
     if (score.isNotEmpty) {
       CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -181,6 +195,11 @@ class LiveScoring extends StatelessWidget {
 
       di<ScoresViewModel>().writeLiveScoreToDb(
           consumerTipGame.game.scoring!, consumerTipGame.game);
+
+      //update scoring for everybody for this round
+      // di<DAUCompsViewModel>()
+      //     .updateScoring(selectedDAUComp, null, consumerTipGame.game.dauRound);
+      di<DAUCompsViewModel>().updateScoring(selectedDAUComp, null, null);
     }
   }
 }
