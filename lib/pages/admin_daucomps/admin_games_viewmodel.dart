@@ -8,9 +8,11 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 const gamesPathRoot = '/DAUCompsGames';
 
@@ -115,7 +117,6 @@ class GamesViewModel extends ChangeNotifier {
           }
         }).toList());
 
-        //_games = gamesList.where((game) => game != null).cast<Game>().toList();
         _games = gamesList;
         _games.sort();
         log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
@@ -139,6 +140,8 @@ class GamesViewModel extends ChangeNotifier {
       dynamic attributeValue, String league) async {
     await _initialLoadCompleter.future;
 
+    bool flagScoresUpdated = false;
+
     //make sure the related team records exist
     if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
       Team team = Team(
@@ -157,6 +160,10 @@ class GamesViewModel extends ChangeNotifier {
         log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
         updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
+        if (attributeName == 'HomeTeamScore' ||
+            attributeName == 'AwayTeamScore') {
+          flagScoresUpdated = true;
+        }
       } else {
         log('Game: $gameDbKey already has $attributeName: $attributeValue');
       }
@@ -165,6 +172,27 @@ class GamesViewModel extends ChangeNotifier {
       // add new record to updates Map
       updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
           attributeValue;
+    }
+
+    // if the scores have been updated, we need to update scoring
+    if (flagScoresUpdated) {
+      DAURound? linkedDauRound;
+      for (var dauRound in selectedDAUComp.daurounds!) {
+        // now loop through dauRound.gamesAsKeys
+        for (var gameKey in dauRound.gamesAsKeys) {
+          if (gameKey == gameDbKey) {
+            linkedDauRound = dauRound;
+            break;
+          }
+        }
+      }
+
+      // String result = await di<DAUCompsViewModel>()
+      //     .updateScoring(selectedDAUComp, null, linkedDauRound); // TODO updating scores for only a single round - does not work
+      String result = await di<DAUCompsViewModel>()
+          .updateScoring(selectedDAUComp, null, null);
+
+      log('updateScoring result: $result');
     }
   }
 

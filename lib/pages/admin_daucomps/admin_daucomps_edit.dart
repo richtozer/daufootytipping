@@ -436,7 +436,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           // ...if not, initiate the sync
           try {
             String syncResult =
-                await dauCompsViewModel.updateScoring(daucomp!, null);
+                await dauCompsViewModel.updateScoring(daucomp!, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

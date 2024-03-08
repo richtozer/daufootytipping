@@ -203,15 +203,21 @@ class ScoresViewModel extends ChangeNotifier {
 
         for (var entry in dbData.entries) {
           var game = await gamesViewModel.findGame(entry.key);
+          //create a temporary scoring object to hold the live scores
           var scoring =
               Scoring.fromJson(Map<String, dynamic>.from(entry.value));
-          game!.scoring = scoring;
+          if (game!.scoring == null) {
+            game.scoring = scoring;
+          } else {
+            game.scoring?.croudSourcedScores = scoring.croudSourcedScores;
+          }
+
           _gamesWithLiveScores.add(game);
 
           notifyListeners();
 
           //cleanup any stale live scores
-          staleScoreCleanup();
+          staleLiveScoreCleanup();
         }
 
         if (!_initialLiveScoreLoadCompleter.isCompleted) {
@@ -385,7 +391,22 @@ class ScoresViewModel extends ChangeNotifier {
     return _tipperCompScores;
   }
 
-  void staleScoreCleanup() {}
+  void staleLiveScoreCleanup() {
+    // iterate of _gamesWithLiveScores
+    // if the gamestate is GameState.resultKnown then go ahead and delete the record from the db
+    // at this location  _db.child(scoresPathRoot).child(currentDAUComp).child(liveScoresRoot).child(game.dbkey)
+
+    for (var game in _gamesWithLiveScores) {
+      if (game.gameState == GameState.resultKnown) {
+        _db
+            .child(scoresPathRoot)
+            .child(currentDAUComp)
+            .child(liveScoresRoot)
+            .child(game.dbkey)
+            .remove();
+      }
+    }
+  }
 
   @override
   void dispose() {

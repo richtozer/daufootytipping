@@ -1,20 +1,9 @@
-// Purpose: Service to download fixture from a JSON endpoint
-import 'dart:developer';
-
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/services/fixture_mock_data_2022_afl_full.dart';
-import 'package:daufootytipping/services/fixture_mock_data_2022_nrl_full.dart';
-import 'package:daufootytipping/services/fixture_mock_data_2023_afl_full.dart';
-import 'package:daufootytipping/services/fixture_mock_data_2023_nrl_full.dart';
-import 'package:daufootytipping/services/fixture_mock_data_2024_afl_full.dart';
-import 'package:daufootytipping/services/fixture_mock_data_2024_nrl_full.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:http_mock_adapter/http_mock_adapter.dart';
 
 //TODO this code has issues on chome web app - add conditional code
 // to not use fixture services when running on web
@@ -27,7 +16,7 @@ class FixtureDownloadService {
         headers: {'Content-Type': 'application/json; charset=UTF-8'}));
 
     // if we are debuging code? if so, mock the JSON fixture services network call
-    if (!kReleaseMode) {
+    /*if (!kReleaseMode) {
       List<Map<String, Object?>> mockdata;
 
       switch (endpoint.toString()) {
@@ -59,7 +48,6 @@ class FixtureDownloadService {
           break;
         default:
           throw Exception('Could not match the endpoint to mock data');
-      }
 
       final dioAdapter = DioAdapter(dio: dio);
       dioAdapter.onGet(
@@ -71,7 +59,7 @@ class FixtureDownloadService {
           delay: const Duration(seconds: 1),
         ),
       );
-    }
+    } */
 
     final response = await dio.get(endpoint.toString());
 

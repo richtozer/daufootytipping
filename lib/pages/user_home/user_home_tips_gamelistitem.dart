@@ -1,4 +1,5 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
@@ -18,14 +19,14 @@ class GameListItem extends StatefulWidget {
     required this.roundGames,
     required this.game,
     required this.currentTipper,
-    required this.currentDAUCompDBkey,
+    required this.currentDAUComp,
     required this.allTipsViewModel,
   });
 
   final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
   final Tipper currentTipper;
-  final String currentDAUCompDBkey;
+  final DAUComp currentDAUComp;
   final AllTipsViewModel allTipsViewModel;
 
   @override
@@ -39,7 +40,7 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     gameTipsViewModel = GameTipsViewModel(widget.currentTipper,
-        widget.currentDAUCompDBkey, widget.game, widget.allTipsViewModel);
+        widget.currentDAUComp.dbkey!, widget.game, widget.allTipsViewModel);
     super.initState();
   }
 
@@ -124,26 +125,37 @@ class _GameListItemState extends State<GameListItem> {
             ]),
           );
 
-          if (widget.game.gameState == GameState.notStarted) {
-            return card;
+          if (gameTipsViewModelConsumer.game.gameState ==
+              GameState.notStarted) {
+            // if the game start time is more than 24 hours away just return a plain card
+            if (gameTipsViewModelConsumer.game.startTimeUTC
+                .isAfter(DateTime.now().add(const Duration(hours: 24)))) {
+              return card;
+            }
           }
 
           String bannerMessage;
           Color bannerColor;
 
-          switch (widget.game.gameState) {
+          switch (gameTipsViewModelConsumer.game.gameState) {
             case GameState.resultNotKnown:
               bannerMessage = "Live";
-              bannerColor = Color(0xffe21e31);
+              bannerColor = const Color(0xffe21e31);
               break;
             case GameState.resultKnown:
               bannerMessage = "Result";
               bannerColor = Colors.grey;
               break;
             case GameState.notStarted:
-              bannerMessage = "Not Started";
-              bannerColor = Colors.grey;
-              break;
+              if (gameTipsViewModelConsumer.game.startTimeUTC
+                  .isBefore(DateTime.now().add(const Duration(hours: 24)))) {
+                bannerMessage = "Game today";
+                bannerColor = Colors.deepOrangeAccent;
+                break;
+              } else {
+                bannerMessage = "not used";
+                bannerColor = Colors.green;
+              }
           }
 
           return Banner(
@@ -157,118 +169,32 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  Widget build2(BuildContext context) {
-    return ChangeNotifierProvider<GameTipsViewModel>.value(
-        value: gameTipsViewModel,
-        child: Consumer<GameTipsViewModel>(
-            builder: (context, gameTipsViewModelConsumer, child) {
-          return Banner(
-            color: Colors.white54,
-            location: BannerLocation.topEnd,
-            message: "Ended",
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              color: Colors.grey[300],
-              child: Row(children: [
-                Padding(
-                  padding: const EdgeInsets.all(0.0),
-                  child: SizedBox(
-                    width: 100,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.game.homeTeam.name,
-                          textAlign: TextAlign.left,
-                          style: const TextStyle(
-                            fontSize:
-                                16.0, // Adjust this value to make the text bigger or smaller
-                          ),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SvgPicture.asset(
-                              widget.game.homeTeam.logoURI ??
-                                  (widget.game.league == League.nrl
-                                      ? League.nrl.logo
-                                      : League.afl.logo),
-                              width: 20,
-                              height: 20,
-                            ),
-                            const Text(textAlign: TextAlign.left, ' V '),
-                            SvgPicture.asset(
-                              widget.game.awayTeam.logoURI ??
-                                  (widget.game.league == League.nrl
-                                      ? League.nrl.logo
-                                      : League.afl.logo),
-                              width: 20,
-                              height: 20,
-                            ),
-                          ],
-                        ),
-                        Text(
-                            style: const TextStyle(
-                              fontSize: 16.0,
-                            ),
-                            textAlign: TextAlign.left,
-                            widget.game.awayTeam.name),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      CarouselSlider(
-                        options: CarouselOptions(
-                            height: 120,
-                            enlargeFactor: 1.0,
-                            enlargeCenterPage: true,
-                            enlargeStrategy: CenterPageEnlargeStrategy.zoom,
-                            enableInfiniteScroll: false,
-                            onPageChanged: (index, reason) {
-                              gameTipsViewModelConsumer.currentIndex = index;
-                            }),
-                        items: carouselItems(gameTipsViewModelConsumer),
-                        carouselController:
-                            gameTipsViewModelConsumer.controller,
-                      ),
-                    ],
-                  ),
-                )
-              ]),
-            ),
-          );
-        }));
-  }
-
-  List<Widget> carouselItems(GameTipsViewModel gameTipsViewModel) {
-    if (widget.game.gameState == GameState.notStarted) {
+  List<Widget> carouselItems(GameTipsViewModel gameTipsViewModelConsumer) {
+    if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted) {
       return [
         gameTipCard(gameTipsViewModel),
-        GameInfo(widget.game, gameTipsViewModel),
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel),
       ];
     } else {
       return [
         liveScoringBuilder(
-            gameTipsViewModel), // game is underway or ended - show scoring card
+            gameTipsViewModelConsumer), // game is underway or ended - show scoring card
         gameTipCard(gameTipsViewModel),
-        GameInfo(widget.game, gameTipsViewModel)
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel)
       ];
     }
   }
 
   FutureBuilder<dynamic> liveScoringBuilder(
-      GameTipsViewModel gameTipsViewModel) {
+      GameTipsViewModel gameTipsViewModelConsumer) {
     return FutureBuilder<TipGame?>(
-      future: gameTipsViewModel.gettip(),
+      future: gameTipsViewModelConsumer.gettip(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return LiveScoring(
-              tipGame: snapshot.data!, gameTipsViewModel: gameTipsViewModel);
+              tipGame: snapshot.data!,
+              gameTipsViewModel: gameTipsViewModelConsumer,
+              selectedDAUComp: widget.currentDAUComp);
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
         } else {
@@ -278,7 +204,7 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  Widget gameTipCard(GameTipsViewModel gameTipsViewModel) {
+  Widget gameTipCard(GameTipsViewModel gameTipsViewModelConsumer) {
     return TipChoice(widget.roundGames,
         gameTipsViewModel); //roundGames is to support legacy tipping service only
   }

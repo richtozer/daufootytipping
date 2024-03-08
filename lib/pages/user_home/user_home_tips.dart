@@ -17,7 +17,7 @@ class TipsPage extends StatelessWidget with WatchItMixin {
   TipsPage({super.key}) {
     allTipsViewModel = AllTipsViewModel.forTipper(
         di<TippersViewModel>(),
-        currentDAUComp,
+        currentDAUCompDbkey,
         di<GamesViewModel>(),
         di<TippersViewModel>().selectedTipper);
 
@@ -28,7 +28,8 @@ class TipsPage extends StatelessWidget with WatchItMixin {
         allTipsViewModel.initialLoadCompleted;
   }
 
-  final String currentDAUComp = di<DAUCompsViewModel>().selectedDAUCompDbKey;
+  final String currentDAUCompDbkey =
+      di<DAUCompsViewModel>().selectedDAUCompDbKey;
   late AllTipsViewModel allTipsViewModel;
   late Future<DAUComp> dauCompWithScoresFuture;
   late Future<void> allTipsViewModelInitialLoadCompletedFuture;
@@ -39,7 +40,7 @@ class TipsPage extends StatelessWidget with WatchItMixin {
         dauCompWithScoresFuture,
         allTipsViewModelInitialLoadCompletedFuture,
         allTipsViewModel,
-        currentDAUComp);
+        currentDAUCompDbkey);
   }
 }
 
@@ -77,7 +78,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
             int aflScore =
                 dauCompWithScores!.consolidatedCompScores!.aflCompScore;
             int nrlScore =
-                dauCompWithScores!.consolidatedCompScores!.nrlCompScore;
+                dauCompWithScores.consolidatedCompScores!.nrlCompScore;
 
             return FutureBuilder<void>(
                 future: allTipsViewModel.getAllTips(),
@@ -124,8 +125,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                               //    dauCompWithScores.name),
                               ),
                         ),
-                        //...dauCompWithScores2.daurounds!
-                        ...dauCompWithScores!.daurounds!
+                        ...dauCompWithScores.daurounds!
                             .asMap()
                             .entries
                             .map((entry) {
@@ -141,6 +141,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                                   dauRound: dauRound,
                                   league: League.nrl,
                                   allTipsViewModel: allTipsViewModel,
+                                  selectedDAUComp: dauCompWithScores,
                                 ),
                                 roundLeagueHeaderListTile(
                                     League.afl, 40, 40, dauRound),
@@ -150,6 +151,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                                   dauRound: dauRound,
                                   league: League.afl,
                                   allTipsViewModel: allTipsViewModel,
+                                  selectedDAUComp: dauCompWithScores,
                                 )
                               ],
                             ),
@@ -178,7 +180,8 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                     .then((DAUComp? dauComp) {
                   return dauComp!;
                 }),
-                di<TippersViewModel>().selectedTipper!);
+                di<TippersViewModel>().selectedTipper!,
+                dauRound);
           },
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -242,13 +245,13 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
 }
 
 class GameListBuilder extends StatefulWidget {
-  GameListBuilder({
-    super.key,
-    required this.currentTipper,
-    required this.dauRound,
-    required this.league,
-    required this.allTipsViewModel,
-  }) {
+  GameListBuilder(
+      {super.key,
+      required this.currentTipper,
+      required this.dauRound,
+      required this.league,
+      required this.allTipsViewModel,
+      required this.selectedDAUComp}) {
     daucompsViewModel = di<DAUCompsViewModel>();
   }
 
@@ -256,6 +259,7 @@ class GameListBuilder extends StatefulWidget {
   final DAURound dauRound;
   final League league;
   final AllTipsViewModel allTipsViewModel;
+  final DAUComp selectedDAUComp;
   late final DAUCompsViewModel daucompsViewModel;
 
   @override
@@ -313,8 +317,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
                   roundGames: games!,
                   game: game,
                   currentTipper: widget.currentTipper,
-                  currentDAUCompDBkey:
-                      di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                  currentDAUComp: widget.selectedDAUComp,
                   allTipsViewModel: widget.allTipsViewModel,
                 );
               },

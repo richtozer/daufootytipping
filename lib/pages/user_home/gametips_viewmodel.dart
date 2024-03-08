@@ -139,7 +139,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
-    scoresViewModel?.removeListener(update);
+    scoresViewModel.removeListener(update);
     super.dispose();
   }
 }

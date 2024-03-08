@@ -178,23 +178,19 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       List<Future> gamesFuture = [];
 
-      for (var gamejson in nrlGames) {
-        String dbkey =
-            '${League.nrl.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
-        for (var attribute in gamejson.keys) {
-          gamesFuture.add(adminGamesViewModel!.updateGameAttribute(
-              dbkey, attribute, gamejson[attribute], League.nrl.name));
+      void processGames(List games, League league) {
+        for (var gamejson in games) {
+          String dbkey =
+              '${league.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
+          for (var attribute in gamejson.keys) {
+            gamesFuture.add(adminGamesViewModel!.updateGameAttribute(
+                dbkey, attribute, gamejson[attribute], league.name));
+          }
         }
       }
 
-      for (var gamejson in aflGames) {
-        String dbkey =
-            '${League.afl.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
-        for (var attribute in gamejson.keys) {
-          gamesFuture.add(adminGamesViewModel!.updateGameAttribute(
-              dbkey, attribute, gamejson[attribute], League.afl.name));
-        }
-      }
+      processGames(nrlGames, League.nrl);
+      processGames(aflGames, League.afl);
 
       await Future.wait(gamesFuture);
 
@@ -531,9 +527,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     return defaultRoundNrlTips + defaultRoundAflTips;
   }
 
-  Future<String> updateScoring(
-      DAUComp daucompToUpdate, Tipper? updateThisTipper) async {
+  Future<String> updateScoring(DAUComp daucompToUpdate,
+      Tipper? updateThisTipper, DAURound? onlyUpdateThisRound) async {
     try {
+      if (onlyUpdateThisRound != null) {
+        UnimplementedError(
+            'the logic for this method is not yet implemented correctly');
+      }
+
       if (_isScoring) {
         return 'Scoring already in progress';
       }
@@ -541,16 +542,15 @@ class DAUCompsViewModel extends ChangeNotifier {
       _isScoring = true;
       notifyListeners();
 
-      TippersViewModel tippersViewModel = TippersViewModel(
-          null); //TODO can we consume the provider of this viewmodel in main?
+      TippersViewModel tippersViewModel = di<TippersViewModel>();
 
       if (adminGamesViewModel != null &&
-          adminGamesViewModel!.selectedDAUComp != daucompToUpdate.dbkey!) {
+          adminGamesViewModel!.selectedDAUComp != daucompToUpdate) {
         //invalidate the adminGamesViewModel
         adminGamesViewModel = null;
       }
 
-      adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
+      adminGamesViewModel ??= di<GamesViewModel>();
 
       // use the AllTipsViewModel as source of data for cosolidated scoring
       if (allTipsViewModel != null &&
@@ -589,7 +589,15 @@ class DAUCompsViewModel extends ChangeNotifier {
         scoringTipperCompTotals[tipperToScore.dbkey]!['total_afl_score'] = 0;
         scoringTipperCompTotals[tipperToScore.dbkey]!['total_afl_maxScore'] = 0;
 
-        for (var dauRound in daucompToUpdate.daurounds!) {
+        var dauRoundsEdited = daucompToUpdate.daurounds!;
+
+        // if onlyUpdateThisRound != null then only update the scores for this round,
+        // otherwise update all rounds
+        if (onlyUpdateThisRound != null) {
+          dauRoundsEdited = [onlyUpdateThisRound];
+        }
+
+        for (DAURound dauRound in dauRoundsEdited) {
           // init the round
           int roundIndex = dauRound.dAUroundNumber - 1;
           scoringTipperRoundTotals[tipperToScore.dbkey]![roundIndex] = {};
@@ -723,47 +731,51 @@ class DAUCompsViewModel extends ChangeNotifier {
       // rank each tipper for each round using the round_total_score
       // tippers on the same score will have the same rank
 
+      /// if this is a full scoring update,
       /// loop through each round and rank the tippers
       /// we will use the round_total_score to rank the tippers
-      for (var roundIndex = 0;
-          roundIndex < daucompToUpdate.daurounds!.length;
-          roundIndex++) {
-        // get the round total scores for each tipper
-        List<MapEntry<String, int>> roundScores = [];
-        for (var tipper in tippers) {
-          roundScores.add(MapEntry(
-              tipper.dbkey!,
-              scoringTipperRoundTotals[tipper.dbkey]![roundIndex]![
-                  'round_total_score']!));
-        }
 
-        // sort the tippers by score
-        roundScores.sort((a, b) => b.value.compareTo(a.value));
-
-        // assign the rank to each tipper
-        // tippers on the same score will have the same rank
-        int rank = 1;
-        int? lastScore;
-        int sameRankCount = 0;
-
-        for (var entry in roundScores) {
-          if (lastScore != null && entry.value != lastScore) {
-            rank += sameRankCount + 1;
-            sameRankCount = 0;
-          } else if (lastScore != null && entry.value == lastScore) {
-            sameRankCount++;
+      if (onlyUpdateThisRound == null) {
+        for (var roundIndex = 0;
+            roundIndex < daucompToUpdate.daurounds!.length;
+            roundIndex++) {
+          // get the round total scores for each tipper
+          List<MapEntry<String, int>> roundScores = [];
+          for (var tipper in tippers) {
+            roundScores.add(MapEntry(
+                tipper.dbkey!,
+                scoringTipperRoundTotals[tipper.dbkey]![roundIndex]![
+                    'round_total_score']!));
           }
-          scoringTipperRoundTotals[entry.key]![roundIndex]!['rank'] = rank;
 
-          // calculate the change in rank from the previous round
-          if (roundIndex > 0) {
-            int? lastRank =
-                scoringTipperRoundTotals[entry.key]![roundIndex - 1]!['rank'];
-            int? changeInRank = lastRank! - rank;
-            scoringTipperRoundTotals[entry.key]![roundIndex]!['changeInRank'] =
-                changeInRank;
+          // sort the tippers by score
+          roundScores.sort((a, b) => b.value.compareTo(a.value));
+
+          // assign the rank to each tipper
+          // tippers on the same score will have the same rank
+          int rank = 1;
+          int? lastScore;
+          int sameRankCount = 0;
+
+          for (var entry in roundScores) {
+            if (lastScore != null && entry.value != lastScore) {
+              rank += sameRankCount + 1;
+              sameRankCount = 0;
+            } else if (lastScore != null && entry.value == lastScore) {
+              sameRankCount++;
+            }
+            scoringTipperRoundTotals[entry.key]![roundIndex]!['rank'] = rank;
+
+            // calculate the change in rank from the previous round
+            if (roundIndex > 0) {
+              int? lastRank =
+                  scoringTipperRoundTotals[entry.key]![roundIndex - 1]!['rank'];
+              int? changeInRank = lastRank! - rank;
+              scoringTipperRoundTotals[entry.key]![roundIndex]![
+                  'changeInRank'] = changeInRank;
+            }
+            lastScore = entry.value;
           }
-          lastScore = entry.value;
         }
       }
 
