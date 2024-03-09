@@ -148,13 +148,13 @@ class _GameListItemState extends State<GameListItem> {
               break;
             case GameState.notStarted:
               if (gameTipsViewModelConsumer.game.startTimeUTC
-                  .isBefore(DateTime.now().add(const Duration(hours: 24)))) {
+                  .isBefore(DateTime.now().add(const Duration(hours: 12)))) {
                 bannerMessage = "Game today";
                 bannerColor = Colors.deepOrangeAccent;
                 break;
               } else {
                 bannerMessage = "not used";
-                bannerColor = Colors.green;
+                bannerColor = Colors.purple;
               }
           }
 
