@@ -85,7 +85,7 @@ class Scoring {
     this.croudSourcedScores,
   });
 
-  int currentHomeScore() {
+  int? currentHomeScore() {
     //always return the official score from fixture if available
     if (homeTeamScore != null) {
       return homeTeamScore!;
@@ -103,10 +103,10 @@ class Scoring {
         return homeScores.first.interimScore;
       }
     }
-    return 0;
+    return null;
   }
 
-  int currentAwayScore() {
+  int? currentAwayScore() {
     //always return the official score from fixture if available
     if (awayTeamScore != null) {
       return awayTeamScore!;
@@ -124,7 +124,7 @@ class Scoring {
         return awayScores.first.interimScore;
       }
     }
-    return 0;
+    return null;
   }
 
   bool didHomeTeamWin() {
@@ -141,68 +141,38 @@ class Scoring {
     return false;
   }
 
-  // //calcualte the game result based on homeTeamScore and awayTeamScore
-  // GameResult getGameResultCalculated(League league) {
-  //   if (homeTeamScore != null && awayTeamScore != null) {
-  //     switch (league) {
-  //       case League.nrl:
-  //         if (homeTeamScore! >= awayTeamScore! + League.nrl.margin) {
-  //           return GameResult.a;
-  //         } else if (homeTeamScore! + League.nrl.margin <= awayTeamScore!) {
-  //           return GameResult.e;
-  //         } else if (homeTeamScore! > awayTeamScore!) {
-  //           return GameResult.b;
-  //         } else if (homeTeamScore! < awayTeamScore!) {
-  //           return GameResult.d;
-  //         } else {
-  //           return GameResult.c;
-  //         }
-  //       case League.afl:
-  //         if (homeTeamScore! >= awayTeamScore! + League.afl.margin) {
-  //           return GameResult.a;
-  //         } else if (homeTeamScore! + League.afl.margin <= awayTeamScore!) {
-  //           return GameResult.e;
-  //         } else if (homeTeamScore! > awayTeamScore!) {
-  //           return GameResult.b;
-  //         } else if (homeTeamScore! < awayTeamScore!) {
-  //           return GameResult.d;
-  //         } else {
-  //           return GameResult.c;
-  //         }
-  //     }
-  //   }
-  //   return GameResult.z;
-  // }
-
   GameResult getGameResultCalculated(League league) {
-    int homeScore = currentHomeScore();
-    int awayScore = currentAwayScore();
-    switch (league) {
-      case League.nrl:
-        if (homeScore >= awayScore + League.nrl.margin) {
-          return GameResult.a;
-        } else if (homeScore + League.nrl.margin <= awayScore) {
-          return GameResult.e;
-        } else if (homeScore > awayScore) {
-          return GameResult.b;
-        } else if (homeScore < awayScore) {
-          return GameResult.d;
-        } else {
-          return GameResult.c;
-        }
-      case League.afl:
-        if (homeScore >= awayScore + League.afl.margin) {
-          return GameResult.a;
-        } else if (homeScore + League.afl.margin <= awayScore) {
-          return GameResult.e;
-        } else if (homeScore > awayScore) {
-          return GameResult.b;
-        } else if (homeScore < awayScore) {
-          return GameResult.d;
-        } else {
-          return GameResult.c;
-        }
+    int? homeScore = currentHomeScore();
+    int? awayScore = currentAwayScore();
+    if (homeScore != null && awayScore != null) {
+      switch (league) {
+        case League.nrl:
+          if (homeScore >= awayScore + League.nrl.margin) {
+            return GameResult.a;
+          } else if (homeScore + League.nrl.margin <= awayScore) {
+            return GameResult.e;
+          } else if (homeScore > awayScore) {
+            return GameResult.b;
+          } else if (homeScore < awayScore) {
+            return GameResult.d;
+          } else {
+            return GameResult.c;
+          }
+        case League.afl:
+          if (homeScore >= awayScore + League.afl.margin) {
+            return GameResult.a;
+          } else if (homeScore + League.afl.margin <= awayScore) {
+            return GameResult.e;
+          } else if (homeScore > awayScore) {
+            return GameResult.b;
+          } else if (homeScore < awayScore) {
+            return GameResult.d;
+          } else {
+            return GameResult.c;
+          }
+      }
     }
+    return GameResult.z;
   }
 
   // tojson method

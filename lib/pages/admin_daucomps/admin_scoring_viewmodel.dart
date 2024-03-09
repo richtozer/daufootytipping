@@ -236,17 +236,27 @@ class ScoresViewModel extends ChangeNotifier {
     // if it is not, add the game to the list of games with live scores
     // then update the live scores in the database
 
+    //yield to allow UI update and dismiss the keyboard
+    await Future.delayed(const Duration(milliseconds: 100));
+
     if (_gamesWithLiveScores.contains(game)) {
-      // there are already live scores for this game, lets see if this one
-      // overwrites an existing entry by the same tipper for the same CrowdSourcedScore.scoreTeam
+      game.scoring = scoring;
+    } else {
+      _gamesWithLiveScores.add(game);
     }
 
-    _db
-        .child(scoresPathRoot)
-        .child(currentDAUComp)
-        .child(liveScoresRoot)
-        .child(game.dbkey)
-        .update(scoring.toJson());
+    // convert _gamesWithLiveScores into a Map for the database update
+    Map<String, Map<String, dynamic>> liveScores = {};
+    for (var game in _gamesWithLiveScores) {
+      liveScores[game.dbkey] = game.scoring!.toJson();
+
+      _db
+          .child(scoresPathRoot)
+          .child(currentDAUComp)
+          .child(liveScoresRoot)
+          //.child(game.dbkey)
+          .update(liveScores);
+    }
   }
 
   writeScoresToDb(Map<String, Map<int, Map<String, int>>> roundScores,

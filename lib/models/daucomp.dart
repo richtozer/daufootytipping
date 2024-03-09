@@ -9,6 +9,7 @@ class DAUComp implements Comparable<DAUComp> {
   List<DAURound>? daurounds = [];
   final bool active;
   CompScore? consolidatedCompScores;
+  DateTime? lastFixtureUpdateTimestamp;
 
   //constructor
   DAUComp({
@@ -18,6 +19,7 @@ class DAUComp implements Comparable<DAUComp> {
     required this.nrlFixtureJsonURL,
     this.active = true,
     this.daurounds,
+    this.lastFixtureUpdateTimestamp,
   });
 
   factory DAUComp.fromJson(
@@ -28,6 +30,9 @@ class DAUComp implements Comparable<DAUComp> {
       aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
       nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
       daurounds: daurounds,
+      lastFixtureUpdateTimestamp: data['lastFixtureUpdateTimestamp'] != null
+          ? DateTime.parse(data['lastFixtureUpdateTimestamp'])
+          : null,
     );
   }
 

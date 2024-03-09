@@ -100,9 +100,13 @@ class LiveScoring extends StatelessWidget {
 
   Row liveScoring(TipGame consumerTipGame) {
     TextEditingController homeScoreController = TextEditingController(
-        text: '${consumerTipGame.game.scoring?.currentHomeScore()}');
+        text: consumerTipGame.game.scoring?.currentHomeScore() == null
+            ? '0'
+            : '${consumerTipGame.game.scoring?.currentHomeScore()}');
     TextEditingController awayScoreController = TextEditingController(
-        text: '${consumerTipGame.game.scoring?.currentAwayScore()}');
+        text: consumerTipGame.game.scoring?.currentAwayScore() == null
+            ? '0'
+            : '${consumerTipGame.game.scoring?.currentAwayScore()}');
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -123,6 +127,9 @@ class LiveScoring extends StatelessWidget {
                 ],
                 controller: homeScoreController,
                 textInputAction: TextInputAction.done,
+                onTap: () => homeScoreController.selection = TextSelection(
+                    baseOffset: 0,
+                    extentOffset: homeScoreController.value.text.length),
                 onSubmitted: (value) {
                   liveScoreUpdated(
                       value, ScoreTeam.home, consumerTipGame, selectedDAUComp);
@@ -145,6 +152,9 @@ class LiveScoring extends StatelessWidget {
                 ],
                 controller: awayScoreController,
                 textInputAction: TextInputAction.done,
+                onTap: () => awayScoreController.selection = TextSelection(
+                    baseOffset: 0,
+                    extentOffset: awayScoreController.value.text.length),
                 onSubmitted: (value) {
                   liveScoreUpdated(
                       value, ScoreTeam.away, consumerTipGame, selectedDAUComp);
@@ -192,6 +202,26 @@ class LiveScoring extends StatelessWidget {
       consumerTipGame.game.scoring?.croudSourcedScores ??= [];
 
       consumerTipGame.game.scoring?.croudSourcedScores?.add(croudSourcedScore);
+
+      // only key a maximum of 3 crowd sourced scores per scoreTeam i.e scoreTeam.away or scoreTeam.home
+      // delete the oldest score if there are more than 3
+      if (consumerTipGame.game.scoring?.croudSourcedScores != null &&
+          consumerTipGame.game.scoring!.croudSourcedScores!
+                  .where((element) => element.scoreTeam == scoreTeam)
+                  .length >
+              3) {
+        consumerTipGame.game.scoring!.croudSourcedScores!.removeWhere(
+            (element) =>
+                element.scoreTeam == scoreTeam &&
+                element.submittedTimeUTC ==
+                    consumerTipGame.game.scoring!.croudSourcedScores!
+                        .where((element) => element.scoreTeam == scoreTeam)
+                        .reduce((value, element) => value.submittedTimeUTC
+                                .isBefore(element.submittedTimeUTC)
+                            ? value
+                            : element)
+                        .submittedTimeUTC);
+      }
 
       di<ScoresViewModel>().writeLiveScoreToDb(
           consumerTipGame.game.scoring!, consumerTipGame.game);
