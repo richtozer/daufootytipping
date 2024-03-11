@@ -153,7 +153,9 @@ class AllTipsViewModel extends ChangeNotifier {
 
     // return a default 'd' tip if they forgot to submit a tip
     // and game has already started
-    if (game.gameState != GameState.notStarted && tipGame == null) {
+    if ((game.gameState == GameState.resultKnown ||
+            game.gameState == GameState.resultNotKnown) &&
+        tipGame == null) {
       tipGame = TipGame(
         tip: GameResult.d,
         // set this tipper time as ephoch,

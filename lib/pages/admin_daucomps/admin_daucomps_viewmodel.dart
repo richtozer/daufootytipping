@@ -53,7 +53,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   GamesViewModel? userGamesViewModel;
   GamesViewModel? adminGamesViewModel;
 
-  ScoresViewModel? allScoresViewModel;
+  AllScoresViewModel? allScoresViewModel;
+
   AllTipsViewModel? allTipsViewModel;
 
   //constructor
@@ -75,15 +76,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(newDAUComp!));
     userGamesViewModel = null;
 
-    ////reset the tipperscoresViewModel
-    //tipperScoresViewModel = null;
-
     //reset the allTipsViewModel
     allTipsViewModel = null;
 
     //reset the ScoringViewModel registration in get_it
-    di.registerLazySingleton<ScoresViewModel>(
-        () => ScoresViewModel(newDAUCompDbkey));
+    di.registerLazySingleton<AllScoresViewModel>(
+        () => AllScoresViewModel(newDAUCompDbkey));
+    ////reset the tipperscoresViewModel
     allScoresViewModel = null;
 
     notifyListeners();
@@ -167,8 +166,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
         //return 'Error loading AFL fixture data. Exception was: $e';  // TODO - exceptions is not being passed to caller
       }
-      if (adminGamesViewModel != null &&
-          adminGamesViewModel!.selectedDAUComp.dbkey !=
+      if (adminGamesViewModel != null ||
+          adminGamesViewModel?.selectedDAUComp.dbkey !=
               daucompToUpdate.dbkey!) {
         //invalidte the adminGamesViewModel
         adminGamesViewModel = null;
@@ -220,8 +219,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       TippersViewModel tippersViewModel = TippersViewModel(null);
 
-      if (adminGamesViewModel != null &&
-          adminGamesViewModel!.selectedDAUComp != daucompToUpdate.dbkey!) {
+      if (adminGamesViewModel != null ||
+          adminGamesViewModel?.selectedDAUComp != daucompToUpdate.dbkey!) {
         //invalidte the adminGamesViewModel
         adminGamesViewModel = null;
       }
@@ -423,28 +422,31 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _daucomps;
   }
 
-  //method to get a List<int> of the combined round numbers
   Future<DAUComp> getCompWithScores(Tipper tipper) async {
+    print('SSS getCompWithScores started');
     if (!_initialLoadCompleter.isCompleted) {
       log('getCombinedRoundNumbers() waiting for initial Game load to complete');
       await initialLoadComplete;
     }
+    print('SSS Initial load complete');
 
-    //get the current DAUComp
     DAUComp? daucomp = await getCurrentDAUComp();
+    print('SSS Got current DAUComp: $daucomp');
 
     List<DAURound> getRoundInfoAndConsolidatedScores = daucomp!.daurounds!;
+    AllScoresViewModel? tipperScoresViewModel = di<AllScoresViewModel>();
 
-    ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
-
-    for (var round in getRoundInfoAndConsolidatedScores) {
-      round.roundScores = await tipperScoresViewModel
-          .getTipperConsolidatedScoresForRound(round);
+    for (DAURound round in getRoundInfoAndConsolidatedScores) {
+      print('SSS Getting scores for round: ${round.dAUroundNumber}');
+      round.roundScores =
+          await tipperScoresViewModel.getTipperConsolidatedScoresForRound(
+              round, di<TippersViewModel>().selectedTipper!);
+      print('SSS Got scores for round: ${round.dAUroundNumber}');
     }
 
-    //insert the scores into the comp object
     daucomp.consolidatedCompScores =
         await tipperScoresViewModel.getTipperConsolidatedScoresForComp();
+    print('SSS Got consolidated comp scores');
 
     return daucomp;
   }
@@ -542,15 +544,21 @@ class DAUCompsViewModel extends ChangeNotifier {
       _isScoring = true;
       notifyListeners();
 
+      GamesViewModel scoringGamesViewModel;
+
       TippersViewModel tippersViewModel = di<TippersViewModel>();
 
-      if (adminGamesViewModel != null &&
-          adminGamesViewModel!.selectedDAUComp != daucompToUpdate) {
-        //invalidate the adminGamesViewModel
-        adminGamesViewModel = null;
+      // if adminGamesViewModel is not null and the selectedDAUComp
+      // is not the same as the comp we are updating then
+      // create a new temp GamesViewModel for this scoring update
+      if (adminGamesViewModel != null ||
+          adminGamesViewModel?.selectedDAUComp != daucompToUpdate) {
+        // create a new GamesViewModel for this comp
+        scoringGamesViewModel = GamesViewModel(daucompToUpdate);
+      } else {
+        // otherwise use the existing GamesViewModel
+        scoringGamesViewModel = adminGamesViewModel!;
       }
-
-      adminGamesViewModel ??= di<GamesViewModel>();
 
       // use the AllTipsViewModel as source of data for cosolidated scoring
       if (allTipsViewModel != null &&
@@ -560,7 +568,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
 
       allTipsViewModel ??= AllTipsViewModel(
-          tippersViewModel, daucompToUpdate.dbkey!, adminGamesViewModel!);
+          tippersViewModel, daucompToUpdate.dbkey!, scoringGamesViewModel!);
 
       //create a map to store the tipper consolidated scores and name?
       Map<String, Map<String, dynamic>> scoringTipperCompTotals = {};
@@ -573,7 +581,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       if (updateThisTipper != null) {
         tippers = [updateThisTipper];
       } else {
-        tippers = await tippersViewModel.getTippers();
+        tippers = await tippersViewModel.getActiveTippers(daucompToUpdate);
       }
 
       // loop through each round and then each league and total up the score for this tipper
@@ -627,18 +635,22 @@ class DAUCompsViewModel extends ChangeNotifier {
 
           for (var gameKey in dauRound.gamesAsKeys) {
             // find each game in this round
-            Game? game = await adminGamesViewModel!.findGame(gameKey);
+            Game? game = await scoringGamesViewModel.findGame(gameKey);
+
+            if (game == null) {
+              throw Exception('Game not found for key: $gameKey');
+            }
 
             // see if there is a tip for this game and tipper
             TipGame? tipGame =
-                await allTipsViewModel?.findTip(game!, tipperToScore);
+                await allTipsViewModel?.findTip(game, tipperToScore);
 
             // fyi tip should never be null for games in the past. findTip will assign
             // a default tip if none is found
 
             if (tipGame != null) {
               // count the number of margin tips for this tipper for this round
-              // do this even is the game has not started
+              // do this even if the game has not started
               // if the tip for the game is GameResult.a or GameResult.e then count that as one margin tip
               int marginTip =
                   (tipGame.tip == GameResult.a || tipGame.tip == GameResult.e)
@@ -646,14 +658,15 @@ class DAUCompsViewModel extends ChangeNotifier {
                       : 0;
 
               scoringTipperRoundTotals[tipperToScore.dbkey]![roundIndex]![
-                      '${game!.league.name}_marginTips'] =
+                      '${game.league.name}_marginTips'] =
                   scoringTipperRoundTotals[tipperToScore.dbkey]![roundIndex]![
                           '${game.league.name}_marginTips']! +
                       marginTip;
 
               // if this game has started or finished with score,
               // then calculate the scores for this tipper
-              if (tipGame.game.gameState != GameState.notStarted) {
+              if (tipGame.game.gameState != GameState.notStarted ||
+                  tipGame.game.gameState != GameState.startingSoon) {
                 int score = tipGame.getTipScoreCalculated();
                 int maxScore = tipGame.getMaxScoreCalculated();
 
@@ -780,7 +793,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
 
       //update the database with the consolidated scores
-      allScoresViewModel ??= ScoresViewModel(daucompToUpdate.dbkey!);
+      allScoresViewModel ??= AllScoresViewModel(daucompToUpdate.dbkey!);
 
       await allScoresViewModel?.writeScoresToDb(
           scoringTipperRoundTotals, scoringTipperCompTotals, daucompToUpdate);
@@ -805,7 +818,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       for (var gameKey in round.gamesAsKeys) {
         Game? game = await adminGamesViewModel!.findGame(gameKey);
         if (game != null) {
-          if (game.gameState == GameState.notStarted) {
+          if (game.gameState == GameState.notStarted ||
+              game.gameState == GameState.startingSoon) {
             allGamesPlayed = false;
             break;
           }

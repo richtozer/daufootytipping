@@ -16,7 +16,7 @@ class StatLeaderboard extends StatefulWidget {
 }
 
 class _StatLeaderboardState extends State<StatLeaderboard> {
-  late ScoresViewModel scoresViewModel;
+  late AllScoresViewModel scoresViewModel;
   bool isAscending = true;
   int? sortColumnIndex = 1;
 
@@ -33,16 +33,16 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
 
   @override
   void initState() {
-    scoresViewModel =
-        ScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     super.initState();
+    scoresViewModel =
+        AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>.value(
+    return ChangeNotifierProvider<AllScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
+      child: Consumer<AllScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           if (MediaQuery.of(context).size.width > 500) {
             return Scaffold(
@@ -218,11 +218,11 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
                                       color: scoresViewModelConsumer
                                                   .leaderboard[index].name ==
                                               di<TippersViewModel>()
-                                                  .authenticatedTipper!
+                                                  .selectedTipper!
                                                   .name
                                           ? MaterialStateProperty.resolveWith(
                                               (states) =>
-                                                  Colors.lightGreenAccent)
+                                                  Theme.of(context).hintColor)
                                           : MaterialStateProperty.resolveWith(
                                               (states) => Colors.transparent),
                                       cells: [

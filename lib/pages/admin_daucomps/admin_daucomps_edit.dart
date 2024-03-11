@@ -452,7 +452,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                 SnackBar(
                   backgroundColor: Colors.red,
                   content:
-                      Text('An error occurred during the leagcy tip sync: $e'),
+                      Text('An error occurred during scoring calculation: $e'),
                   duration: const Duration(seconds: 10),
                 ),
               );

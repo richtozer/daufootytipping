@@ -16,7 +16,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
-  late ScoresViewModel scoresViewModel;
+  //late ScoresViewModel scoresViewModel;
   AllTipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
@@ -46,10 +46,10 @@ class GameTipsViewModel extends ChangeNotifier {
     this.game,
     this.allTipsViewModel,
   ) {
-    scoresViewModel = di<ScoresViewModel>();
+    //scoresViewModel = di<ScoresViewModel>();
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
-    scoresViewModel.addListener(update);
+    //scoresViewModel.addListener(update);
 
     _findTip();
     gameStartedTrigger();
@@ -59,7 +59,8 @@ class GameTipsViewModel extends ChangeNotifier {
   // then use notifiyListeners to trigger the UI to update
   void gameStartedTrigger() async {
     // if the game has already started, then we don't need to wait , just return
-    if (game.gameState != GameState.notStarted) {
+    if ((game.gameState == GameState.resultNotKnown ||
+        game.gameState == GameState.resultKnown)) {
       notifyListeners();
       return;
     }
@@ -139,7 +140,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
-    scoresViewModel.removeListener(update);
+    //scoresViewModel.removeListener(update);
     super.dispose();
   }
 }

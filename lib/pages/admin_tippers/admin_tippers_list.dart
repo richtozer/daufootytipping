@@ -1,15 +1,29 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
-class TippersAdminPage extends StatelessWidget with WatchItMixin {
+class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
   const TippersAdminPage({super.key});
 
   @override
+  State<TippersAdminPage> createState() => _TippersAdminPageState();
+}
+
+class _TippersAdminPageState extends State<TippersAdminPage> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    //TODO copy this watchIt pattern to other pages
     TippersViewModel tipperViewModel = watchIt<TippersViewModel>();
     return Scaffold(
         appBar: AppBar(
@@ -47,12 +61,12 @@ class TippersAdminPage extends StatelessWidget with WatchItMixin {
                     }
                   },
                   child: Text(!tipperViewModel.isLegacySyncing
-                      ? 'Sync Tippers'
+                      ? 'Sync Legacy Tippers'
                       : 'Sync processing...'),
                 ),
                 Expanded(
                   child: FutureBuilder<List<Tipper>>(
-                    future: tipperViewModel.getTippers(),
+                    future: tipperViewModel.getAllTippers(),
                     builder: (BuildContext context,
                         AsyncSnapshot<List<Tipper>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -64,31 +78,41 @@ class TippersAdminPage extends StatelessWidget with WatchItMixin {
                         return Column(
                           children: [
                             Expanded(
-                              child: ListView(
-                                children: snapshot.data!
-                                    .map((tipper) => Card(
-                                          child: ListTile(
-                                            dense: true,
-                                            isThreeLine: true,
-                                            leading: tipper.active
-                                                ? const Icon(Icons.person)
-                                                : const Icon(Icons.person_off),
-                                            title: Text(tipper.name),
-                                            subtitle: Text(
-                                                '${tipper.tipperRole.name}\n${tipper.email}'),
-                                            onTap: () async {
-                                              // Trigger edit functionality
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          TipperAdminEditPage(
-                                                              tipperViewModel,
-                                                              tipper)));
-                                            },
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                itemCount: snapshot.data!.length,
+                                itemBuilder: (context, index) {
+                                  var tipper = snapshot.data![index];
+
+                                  bool tipperActiveInCurrentComp = tipper
+                                      .activeInComp(di<DAUCompsViewModel>()
+                                          .defaultDAUCompDbKey);
+
+                                  return Card(
+                                    child: ListTile(
+                                      dense: true,
+                                      isThreeLine: true,
+                                      leading: avatarPic(tipper.photoURL!),
+                                      trailing: tipperActiveInCurrentComp
+                                          ? const Icon(Icons.person)
+                                          : const Icon(Icons.person_off),
+                                      title: Text(tipper.name),
+                                      subtitle: Text(
+                                          '${tipper.tipperRole.name}\n${tipper.email}'),
+                                      onTap: () async {
+                                        // Trigger edit functionality
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                TipperAdminEditPage(
+                                                    tipperViewModel, tipper),
                                           ),
-                                        ))
-                                    .toList(),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
                               ),
                             )
                           ],
@@ -99,5 +123,12 @@ class TippersAdminPage extends StatelessWidget with WatchItMixin {
                 ),
               ],
             )));
+  }
+
+  CircleAvatar avatarPic(String url) {
+    return CircleAvatar(
+      radius: 15,
+      backgroundImage: url != '' ? CachedNetworkImageProvider(url) : null,
+    );
   }
 }

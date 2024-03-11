@@ -65,7 +65,8 @@ class TipChoice extends StatelessWidget {
         borderRadius: BorderRadius.circular(8.0),
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
-      selectedColor: const Color.fromRGBO(152, 164, 141, 1),
+      selectedColor:
+          const Color(0xff04cf5d), //const Color.fromRGBO(152, 164, 141, 1),
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
         try {
@@ -114,7 +115,8 @@ class TipChoice extends StatelessWidget {
 
             return;
           }
-          if (latestGameTip?.game.gameState != GameState.notStarted) {
+          if (latestGameTip?.game.gameState == GameState.resultKnown ||
+              latestGameTip?.game.gameState == GameState.resultNotKnown) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,

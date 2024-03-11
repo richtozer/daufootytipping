@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 
 class Tipper implements Comparable<Tipper> {
@@ -7,21 +8,23 @@ class Tipper implements Comparable<Tipper> {
   final String name;
   final String
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
-  final bool active;
+  //final bool active;
   final TipperRole tipperRole;
   String? photoURL;
   //List<DeviceToken?>? deviceTokens;
+  List<DAUComp> compsParticipatedIn = [];
 
   //constructor
   Tipper(
       {this.dbkey,
+      required this.compsParticipatedIn,
       this.photoURL,
       //this.deviceTokens,
       required this.authuid,
       required this.email,
       required this.name,
       required this.tipperID,
-      required this.active,
+      //required this.active,
       required this.tipperRole});
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
@@ -44,10 +47,19 @@ class Tipper implements Comparable<Tipper> {
       email: data['email'] ?? '',
       name: data['name'] ?? '',
       tipperID: data['tipperID'] ?? '',
-      active: data['active'] ?? false,
+      //active: data['active'] ?? false,
       tipperRole: TipperRole.values.byName(data['tipperRole']),
       photoURL: data['photoURL'] ?? '',
+      compsParticipatedIn: data['compsParticipatedIn'] != null
+          ? DAUComp.fromJsonList(data['compsParticipatedIn'])
+          : [],
     );
+  }
+
+  bool activeInComp(String checkThisCompDbKey) {
+    return compsParticipatedIn.any((compParticipatedIn) =>
+        compParticipatedIn.dbkey ==
+        checkThisCompDbKey); //check if the tipper is active in the comp
   }
 
   static List<Tipper?> fromJsonList(dynamic json) {
@@ -72,10 +84,12 @@ class Tipper implements Comparable<Tipper> {
       "email": email,
       "name": name,
       "tipperID": tipperID,
-      "active": active,
-      "tipperRole": tipperRole.toString().split('.').last,
+      //"active": active,
+      "tipperRole": tipperRole.name,
       //"deviceTokens": deviceTokenList,
-      "photoURL": photoURL
+      "photoURL": photoURL,
+      "compsParticipatedIn":
+          compsParticipatedIn.map((comp) => comp.dbkey).toList(),
     };
   }
 

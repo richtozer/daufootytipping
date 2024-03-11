@@ -31,12 +31,6 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                 'Only admins can see these options: '),
           ),
           OutlinedButton(
-            child: const Text('God Mode'),
-            onPressed: () {
-              showGodModeDialog(context, selectedTipper);
-            },
-          ),
-          OutlinedButton(
             child: const Text('Admin DAU Comps'),
             onPressed: () {
               Navigator.of(context).push(
@@ -69,82 +63,6 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
           ),
         ]),
       ),
-    );
-  }
-
-  void showGodModeDialog(BuildContext context, String selectedTipper) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return GodModeDialog(selectedTipper: selectedTipper);
-      },
-    );
-  }
-}
-
-class GodModeDialog extends StatelessWidget with WatchItMixin {
-  final String selectedTipper;
-
-  const GodModeDialog({super.key, required this.selectedTipper});
-
-  @override
-  Widget build(BuildContext context) {
-    String selectedTipper =
-        watch(di<TippersViewModel>()).selectedTipper?.dbkey ?? '';
-    return AlertDialog(
-      icon: const Icon(Icons.warning),
-      iconColor: Colors.red,
-      title: const Text('God Mode'),
-      content: Column(
-        children: [
-          const Text(
-              'If you want to view the tips of another Tipper, or tip on their behalf select them from the list below and click [View]. To revert this change later, select your name and click [View].'),
-          FutureBuilder<List<Tipper>>(
-            future: di<TippersViewModel>().getTippers(),
-            builder:
-                (BuildContext context, AsyncSnapshot<List<Tipper>> snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const DropdownMenuItem(child: Text('Loading...'));
-              } else if (snapshot.hasError) {
-                return DropdownMenuItem(
-                    child: Text('Error: ${snapshot.error}'));
-              } else {
-                return DropdownButton<String>(
-                  items: snapshot.data!.map((Tipper tipper) {
-                    return DropdownMenuItem<String>(
-                      value: tipper.dbkey,
-                      child: Text(tipper.name),
-                    );
-                  }).toList(),
-                  value: selectedTipper,
-                  onChanged: (String? newValue) async {
-                    selectedTipper = newValue!;
-                    di<TippersViewModel>().selectedTipper =
-                        await di<TippersViewModel>().findTipper(newValue);
-                  },
-                );
-              }
-            },
-          )
-        ],
-      ),
-      actions: [
-        TextButton(
-          child: const Text('Cancel'),
-          onPressed: () {
-            di<TippersViewModel>().selectedTipper =
-                di<TippersViewModel>().authenticatedTipper;
-
-            Navigator.of(context).pop();
-          },
-        ),
-        TextButton(
-          child: const Text('View'),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
     );
   }
 }
