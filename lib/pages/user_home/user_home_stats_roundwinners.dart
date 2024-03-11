@@ -15,7 +15,7 @@ class StatRoundWinners extends StatefulWidget {
 }
 
 class _StatRoundWinnersState extends State<StatRoundWinners> {
-  late ScoresViewModel scoresViewModel;
+  late AllScoresViewModel scoresViewModel;
   bool isAscending = true;
   int? sortColumnIndex = 1;
 
@@ -31,16 +31,16 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   @override
   void initState() {
-    scoresViewModel =
-        ScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     super.initState();
+    scoresViewModel =
+        AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>.value(
+    return ChangeNotifierProvider<AllScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
+      child: Consumer<AllScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return Scaffold(
             body: Center(

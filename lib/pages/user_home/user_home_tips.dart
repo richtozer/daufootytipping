@@ -9,60 +9,64 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart'
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
-class TipsPage extends StatelessWidget with WatchItMixin {
-  TipsPage({super.key}) {
+class TipsPage extends StatefulWidget with WatchItStatefulWidgetMixin {
+  TipsPage({super.key});
+
+  @override
+  State<TipsPage> createState() => _TipsPageState();
+}
+
+class _TipsPageState extends State<TipsPage> {
+  final String currentDAUCompDbkey =
+      di<DAUCompsViewModel>().selectedDAUCompDbKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TipsPageBody(currentDAUCompDbkey);
+  }
+}
+
+class _TipsPageBody extends StatelessWidget with WatchItMixin {
+  _TipsPageBody(this.currentDAUCompDbkey) {
+    log('TipsPageBody.constructor()');
+
+    dauCompWithScoresFuture = di<DAUCompsViewModel>()
+        .getCompWithScores(di<TippersViewModel>().selectedTipper!);
+
     allTipsViewModel = AllTipsViewModel.forTipper(
         di<TippersViewModel>(),
         currentDAUCompDbkey,
         di<GamesViewModel>(),
         di<TippersViewModel>().selectedTipper);
 
-    dauCompWithScoresFuture = di<DAUCompsViewModel>()
-        .getCompWithScores(di<TippersViewModel>().selectedTipper!);
-
     allTipsViewModelInitialLoadCompletedFuture =
         allTipsViewModel.initialLoadCompleted;
   }
 
-  final String currentDAUCompDbkey =
-      di<DAUCompsViewModel>().selectedDAUCompDbKey;
-  late AllTipsViewModel allTipsViewModel;
-  late Future<DAUComp> dauCompWithScoresFuture;
-  late Future<void> allTipsViewModelInitialLoadCompletedFuture;
-
-  @override
-  Widget build(BuildContext context) {
-    return _TipsPageBody(
-        dauCompWithScoresFuture,
-        allTipsViewModelInitialLoadCompletedFuture,
-        allTipsViewModel,
-        currentDAUCompDbkey);
-  }
-}
-
-class _TipsPageBody extends StatelessWidget with WatchItMixin {
-  _TipsPageBody(
-      this.dauCompWithScoresFuture,
-      this.allTipsViewModelInitialLoadCompletedFuture,
-      this.allTipsViewModel,
-      this.currentDAUComp) {
-    log('TipsPageBody.constructor()');
-  }
-
-  final String currentDAUComp;
+  final String currentDAUCompDbkey;
   late final AllTipsViewModel allTipsViewModel;
   late final Future<DAUComp> dauCompWithScoresFuture;
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
+  final ScrollController controller = ScrollController();
 
   @override
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
 
-    //TODO need to implement some sort of change notifier to update the UI?
+    double gameCardHeight = 128.0; // Replace with your actual item height
+    double leagueHeaderHeight = 66;
+    double emptyRoundHeight = 75;
+    int gameCount = 247; // Replace with your actual index
+    int roundCount = 16; // Replace with your actual index
+    double scrollPosition =
+        (gameCardHeight * gameCount) + (leagueHeaderHeight * 2 * roundCount);
+
+// Use the controller to scroll to the desired position
 
     return FutureBuilder<DAUComp>(
         future: dauCompWithScoresFuture,
@@ -91,9 +95,21 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                     return const Center(child: CircularProgressIndicator());
                   } else {
                     return CustomScrollView(
-                      //controller: controller,
+                      controller: controller,
+                      cacheExtent: 10000,
                       slivers: <Widget>[
                         SliverAppBar(
+                          actions: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_downward),
+                              onPressed: () {
+                                // controller.jumpTo(scrollPosition);
+                                controller.animateTo(scrollPosition,
+                                    duration: const Duration(seconds: 1),
+                                    curve: Curves.easeInOut);
+                              },
+                            ),
+                          ],
                           backgroundColor: Colors.white.withOpacity(0.8),
                           pinned: true,
                           floating: true,
@@ -174,14 +190,14 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
             // When the round header is clicked,
             // update the scoring for this round and tipper
             // TODO consider removing this functionality
-            di<DAUCompsViewModel>().updateScoring(
-                await di<DAUCompsViewModel>()
-                    .getCurrentDAUComp()
-                    .then((DAUComp? dauComp) {
-                  return dauComp!;
-                }),
-                di<TippersViewModel>().selectedTipper!,
-                dauRound);
+            // di<DAUCompsViewModel>().updateScoring(
+            //     await di<DAUCompsViewModel>()
+            //         .getCurrentDAUComp()
+            //         .then((DAUComp? dauComp) {
+            //       return dauComp!;
+            //     }),
+            //     di<TippersViewModel>().selectedTipper!,
+            //     dauRound);
           },
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -251,16 +267,13 @@ class GameListBuilder extends StatefulWidget {
       required this.dauRound,
       required this.league,
       required this.allTipsViewModel,
-      required this.selectedDAUComp}) {
-    daucompsViewModel = di<DAUCompsViewModel>();
-  }
+      required this.selectedDAUComp});
 
   final Tipper currentTipper;
   final DAURound dauRound;
   final League league;
   final AllTipsViewModel allTipsViewModel;
   final DAUComp selectedDAUComp;
-  late final DAUCompsViewModel daucompsViewModel;
 
   @override
   State<GameListBuilder> createState() => _GameListBuilderState();
@@ -268,6 +281,7 @@ class GameListBuilder extends StatefulWidget {
 
 class _GameListBuilderState extends State<GameListBuilder> {
   late Game loadingGame;
+  late DAUCompsViewModel daucompsViewModel;
 
   List<Game>? games;
   Future<List<Game>?>? gamesFuture;
@@ -276,9 +290,10 @@ class _GameListBuilderState extends State<GameListBuilder> {
   void initState() {
     super.initState();
 
-    gamesFuture = widget.daucompsViewModel
-        .getGamesForCombinedRoundNumberAndLeague(
-            widget.dauRound.dAUroundNumber, widget.league);
+    daucompsViewModel = di<DAUCompsViewModel>();
+
+    gamesFuture = daucompsViewModel.getGamesForCombinedRoundNumberAndLeague(
+        widget.dauRound.dAUroundNumber, widget.league);
   }
 
   @override
@@ -313,12 +328,15 @@ class _GameListBuilderState extends State<GameListBuilder> {
               itemBuilder: (context, index) {
                 var game = games![index];
 
-                return GameListItem(
-                  roundGames: games!,
-                  game: game,
-                  currentTipper: widget.currentTipper,
-                  currentDAUComp: widget.selectedDAUComp,
-                  allTipsViewModel: widget.allTipsViewModel,
+                return Theme(
+                  data: myTheme, // override the flex theme for this widget
+                  child: GameListItem(
+                    roundGames: games!,
+                    game: game,
+                    currentTipper: widget.currentTipper,
+                    currentDAUComp: widget.selectedDAUComp,
+                    allTipsViewModel: widget.allTipsViewModel,
+                  ),
                 );
               },
             );

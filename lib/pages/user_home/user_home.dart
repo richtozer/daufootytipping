@@ -7,19 +7,26 @@ import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage(this.currentDAUCompKey, {super.key});
+  HomePage(this.currentDAUCompKey, {super.key}) {
+    activeInComp =
+        di<TippersViewModel>().selectedTipper!.activeInComp(currentDAUCompKey);
+  }
 
   final String currentDAUCompKey;
+  bool activeInComp = false;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0; // default to tips page
+  // are they participating in the current comp, if not, they can't see the tips or stats
+
+  int _currentIndex = 0;
 
   void onTabTapped(int index) {
     setState(() {
@@ -35,12 +42,13 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
-  bool godMode = di<TippersViewModel>().inGodMode;
-  String godModeTipper = di<TippersViewModel>().selectedTipper!.name;
-
   @override
   Widget build(BuildContext context) {
     log('screen width: ${MediaQuery.of(context).size.width}');
+
+    if (widget.activeInComp == false) {
+      _currentIndex = 2; // default to profile page for non-participants
+    }
     List<Widget> destinationContent = content();
 
     Widget scaffold = Stack(children: [
@@ -90,7 +98,7 @@ class _HomePageState extends State<HomePage> {
           indicatorShape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8.0),
           ),
-          indicatorColor: const Color.fromRGBO(152, 164, 141, 1),
+          //indicatorColor: const Color.fromRGBO(152, 164, 141, 1),
           onDestinationSelected: (int index) {
             onTabTapped(index);
           },
@@ -98,12 +106,16 @@ class _HomePageState extends State<HomePage> {
           height: 60,
           destinations: [
             NavigationDestination(
-              enabled: di<TippersViewModel>().selectedTipper!.active,
+              enabled: di<TippersViewModel>()
+                  .selectedTipper!
+                  .activeInComp(widget.currentDAUCompKey),
               icon: const Icon(Icons.sports_rugby),
               label: 'T  I  P  S',
             ),
             NavigationDestination(
-              enabled: di<TippersViewModel>().selectedTipper!.active,
+              enabled: di<TippersViewModel>()
+                  .selectedTipper!
+                  .activeInComp(widget.currentDAUCompKey),
               icon: const Icon(Icons.auto_graph),
               label: 'S  T  A  T  S',
             ),
@@ -116,18 +128,25 @@ class _HomePageState extends State<HomePage> {
       )
     ]);
 
-    return godMode
-        ? Banner(
-            message: godModeTipper,
-            location: BannerLocation.bottomStart,
-            color: Colors.red,
-            child: Banner(
-              message: 'God mode',
-              location: BannerLocation.bottomEnd,
+    return ChangeNotifierProvider<TippersViewModel>.value(
+        value: di<TippersViewModel>(),
+        child: Consumer<TippersViewModel>(
+            builder: (context, tippersViewModelConsumer, child) {
+          if (tippersViewModelConsumer.inGodMode) {
+            return Banner(
+              message: tippersViewModelConsumer.selectedTipper!.name,
+              location: BannerLocation.bottomStart,
               color: Colors.red,
-              child: scaffold,
-            ),
-          )
-        : scaffold;
+              child: Banner(
+                message: 'God mode',
+                location: BannerLocation.bottomEnd,
+                color: Colors.red,
+                child: scaffold,
+              ),
+            );
+          } else {
+            return scaffold;
+          }
+        }));
   }
 }

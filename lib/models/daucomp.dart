@@ -1,5 +1,7 @@
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:watch_it/watch_it.dart';
 
 class DAUComp implements Comparable<DAUComp> {
   String? dbkey;
@@ -34,6 +36,20 @@ class DAUComp implements Comparable<DAUComp> {
           ? DateTime.parse(data['lastFixtureUpdateTimestamp'])
           : null,
     );
+  }
+
+  static List<DAUComp> fromJsonList(List compDbKeys) {
+    // find each DAUComp based on the compDbKeys
+    List<DAUComp> daucompList = [];
+    for (var compDbKey in compDbKeys) {
+      di<DAUCompsViewModel>().findComp(compDbKey).then((daucomp) {
+        if (daucomp!.dbkey == compDbKey) {
+          daucompList.add(daucomp);
+        }
+      });
+    }
+
+    return daucompList;
   }
 
   Map<String, dynamic> toJsonForCompare() {

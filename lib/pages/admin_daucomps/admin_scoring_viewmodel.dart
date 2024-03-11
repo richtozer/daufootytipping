@@ -20,28 +20,25 @@ const roundScoresRoot = 'round_scores';
 const compScoresRoot = 'comp_scores';
 const liveScoresRoot = 'live_scores';
 
-class ScoresViewModel extends ChangeNotifier {
-  List<RoundScores> _tipperRoundScores = [];
+class AllScoresViewModel extends ChangeNotifier {
   Map<String, List<RoundScores>> _allTipperRoundScores = {};
-  late CompScore _tipperCompScores;
+  late CompScore _allTipperCompScores;
   final List<Game> _gamesWithLiveScores = [];
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
-  late StreamSubscription<DatabaseEvent> _tipperRoundScoresStream;
-  late StreamSubscription<DatabaseEvent> _tipperCompScoresStream;
-  late StreamSubscription<DatabaseEvent> _tipperRoundScoresStreamAllTippers;
+  late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
+  late StreamSubscription<DatabaseEvent> _allCompScoresStream;
 
   final String currentDAUComp;
-  Tipper? tipper;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
   Future<void> get initialLiveScoreLoadComplete =>
       _initialLiveScoreLoadCompleter.future;
+
   final Completer<void> _initialRoundLoadCompleter = Completer();
   Future<void> get initialRoundComplete => _initialRoundLoadCompleter.future;
-  final Completer<void> _initialCompLoadCompleter = Completer();
-  Future<void> get initialCompComplete => _initialCompLoadCompleter.future;
+
   final Completer<void> _initialCompAllTipperLoadCompleter = Completer();
   Future<void> get initialRoundAllTipperComplete =>
       _initialCompAllTipperLoadCompleter.future;
@@ -53,14 +50,8 @@ class ScoresViewModel extends ChangeNotifier {
   List<RoundWinnerEntry> get roundWinners => _roundWinners;
 
   //constructor
-  ScoresViewModel(this.currentDAUComp) {
+  AllScoresViewModel(this.currentDAUComp) {
     log('***ScoresViewModel_constructor(ALL TIPPERS)***');
-    _listenToScores();
-  }
-
-  // Second constructor
-  ScoresViewModel.forTipper(this.currentDAUComp, this.tipper) {
-    log('***ScoresViewModel_constructor(${tipper!.name})***');
     _listenToScores();
   }
 
@@ -69,116 +60,72 @@ class ScoresViewModel extends ChangeNotifier {
   }
 
   void _listenToScores() async {
-    if (tipper != null) {
-      _tipperRoundScoresStream = _db
-          .child(
-              '$scoresPathRoot/$currentDAUComp/$roundScoresRoot/${tipper!.dbkey}')
-          .onValue
-          .listen(_handleEvent, onError: (error) {
-        log('Error listening to round scores: $error');
-      });
+    _allRoundScoresStream = _db
+        .child('$scoresPathRoot/$currentDAUComp/$roundScoresRoot')
+        .onValue
+        .listen(_handleEventRoundScores, onError: (error) {
+      log('Error listening to round scores: $error');
+    });
 
-      _tipperCompScoresStream = _db
-          .child(
-              '$scoresPathRoot/$currentDAUComp/$compScoresRoot/${tipper!.dbkey}')
-          .onValue
-          .listen(_handleEvent, onError: (error) {
-        log('Error listening to comp scores: $error');
-      });
+    _allCompScoresStream = _db
+        .child('$scoresPathRoot/$currentDAUComp/$compScoresRoot/')
+        .onValue
+        .listen(_handleEventCompScores, onError: (error) {
+      log('Error listening to comp scores: $error');
+    });
 
-      _liveScoresStream = _db
-          .child('$scoresPathRoot/$currentDAUComp/$liveScoresRoot')
-          .onValue
-          .listen(_handleEventLiveScores, onError: (error) {
-        log('Error listening to live scores: $error');
-      });
-    } else {
-      _tipperRoundScoresStreamAllTippers = _db
-          .child('$scoresPathRoot/$currentDAUComp/$roundScoresRoot')
-          .onValue
-          .listen(_handleEvent, onError: (error) {
-        log('Error listening to all tipper round scores: $error');
-      });
+    _liveScoresStream = _db
+        .child('$scoresPathRoot/$currentDAUComp/$liveScoresRoot')
+        .onValue
+        .listen(_handleEventLiveScores, onError: (error) {
+      log('Error listening to live scores: $error');
+    });
+  }
 
-      // TODO is there a more elegant way to handle this?
-      //assign dummmy stream to comp scores, then cancel - allows dispose to work
-      _tipperRoundScoresStream =
-          _db.child('xxx').onValue.listen(_handleEvent, onError: (error) {
-        log('Error listening to all tipper round scores: $error');
-      });
+  Future<void> _handleEventRoundScores(DatabaseEvent event) async {
+    try {
+      if (event.snapshot.exists) {
+        //deserialize the all tipper scores they are in Map<String,List<Map<String, Int>>> format
+        //and need to be converted to Map<String, List<RoundScores>>
+        var dbData = event.snapshot.value;
+        if (dbData is! Map) {
+          throw Exception('Invalid data type for all tipper round scores');
+        }
+        _allTipperRoundScores = dbData.map((key, value) {
+          return MapEntry(
+              key,
+              (value as List)
+                  .map(
+                      (e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
+                  .toList());
+        });
 
-      //assign dummty stream to comp scores, then cancel - allows dispose to work
-      _tipperCompScoresStream =
-          _db.child('yyy').onValue.listen(_handleEvent, onError: (error) {
-        log('Error listening to all tipper comp scores: $error');
-      });
+        if (!_initialRoundLoadCompleter.isCompleted) {
+          _initialRoundLoadCompleter.complete();
+        }
+      } else {
+        log('sss in _handleEventRoundScores snapshot ${event.snapshot.ref.path}  does not exist');
+      }
 
-      //assign dummty stream to live scores, then cancel - allows dispose to work
-      _tipperCompScoresStream = _db
-          .child('yyy')
-          .onValue
-          .listen(_handleEventLiveScores, onError: (error) {
-        log('Error listening to all tipper live scores: $error');
-      });
+      updateLeaderboardForComp();
+      updateRoundWinners();
+    } catch (e) {
+      log('Error listening to /Scores: $e');
+      rethrow;
     }
   }
 
-  Future<void> _handleEvent(DatabaseEvent event) async {
+  Future<void> _handleEventCompScores(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
-        // deserialize the scores, they will be in one of 2 formats depending on the contructor used:
-        // 1. Map<String, int> if no tipperID is provided
-        // 2. List<Map<String, int>> if a tipperID is provided
-        if (tipper != null) {
-          //deserialize the scores - they are in this fomat: List<Map<String, int>>
-          //and need to be converted to List<RoundScores>
+        _allTipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
+            event.snapshot.value as Map<dynamic, dynamic>));
 
-          var dbData = event.snapshot.value;
-
-          // check which stream has fired this event based on dbData datatype
-
-          if (dbData is Map) {
-            //deserialize the comp total scores - they are in this fomat: Map<String, int>
-            //and need to be converted to CompScore
-            _tipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
-                event.snapshot.value as Map<dynamic, dynamic>));
-
-            if (!_initialCompLoadCompleter.isCompleted) {
-              _initialCompLoadCompleter.complete();
-            }
-          } else {
-            if (dbData is! List) {
-              throw Exception('Invalid data type for round scores');
-            }
-            //deserialize the scores - they are in this fomat: List<Map<String, int>>
-            //and need to be converted to List<RoundScores>
-            _tipperRoundScores = dbData
-                .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
-                .toList();
-            if (!_initialRoundLoadCompleter.isCompleted) {
-              _initialRoundLoadCompleter.complete();
-            }
-          }
-        } else {
-          //deserialize the all tipper scores they are in Map<String,List<Map<String, Int>>> format
-          //and need to be converted to Map<String, List<RoundScores>>
-          var dbData = event.snapshot.value;
-          if (dbData is! Map) {
-            throw Exception('Invalid data type for all tipper round scores');
-          }
-          _allTipperRoundScores = dbData.map((key, value) {
-            return MapEntry(
-                key,
-                (value as List)
-                    .map((e) =>
-                        RoundScores.fromJson(Map<String, dynamic>.from(e)))
-                    .toList());
-          });
-
-          if (!_initialCompAllTipperLoadCompleter.isCompleted) {
-            _initialCompAllTipperLoadCompleter.complete();
-          }
+        if (!_initialCompAllTipperLoadCompleter.isCompleted) {
+          _initialCompAllTipperLoadCompleter.complete();
         }
+      } else {
+        log('sss in _handleEventCompScores snapshot ${event.snapshot.ref.path}  does not exist');
       }
 
       updateLeaderboardForComp();
@@ -385,20 +332,20 @@ class ScoresViewModel extends ChangeNotifier {
   }
 
   Future<RoundScores> getTipperConsolidatedScoresForRound(
-      DAURound round) async {
+      DAURound round, Tipper tipper) async {
     if (!_initialRoundLoadCompleter.isCompleted) {
       await _initialRoundLoadCompleter.future;
     }
 
-    return _tipperRoundScores[round.dAUroundNumber - 1];
+    return _allTipperRoundScores[tipper.dbkey]![round.dAUroundNumber - 1];
   }
 
   Future<CompScore> getTipperConsolidatedScoresForComp() async {
-    if (!_initialCompLoadCompleter.isCompleted) {
-      await _initialCompLoadCompleter.future;
+    if (!_initialCompAllTipperLoadCompleter.isCompleted) {
+      await _initialCompAllTipperLoadCompleter.future;
     }
 
-    return _tipperCompScores;
+    return _allTipperCompScores;
   }
 
   void staleLiveScoreCleanup() {
@@ -420,10 +367,8 @@ class ScoresViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _tipperRoundScoresStream
-        .cancel(); // stop listening to stream - this is throwing a late not initialized error
-    _tipperCompScoresStream.cancel(); // stop listening to stream
-    _tipperRoundScoresStreamAllTippers.cancel();
+    _allRoundScoresStream.cancel();
+    _allCompScoresStream.cancel();
     _liveScoresStream.cancel();
 
     super.dispose();

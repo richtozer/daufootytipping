@@ -8,11 +8,11 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
-import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -103,7 +103,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: myTheme,
+      theme: FlexThemeData.light(scheme: FlexScheme.green),
+      darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
+      themeMode: ThemeMode.system,
       title: 'DAU Tips',
       home: UserAuthPage(configDAUComp, remoteConfigService, firebaseService),
     );

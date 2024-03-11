@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
@@ -88,9 +89,20 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<Tipper>> getTippers() async {
+  Future<List<Tipper>> getAllTippers() async {
     await _initialLoadCompleter.future;
+    // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
+    // that matched the current comp
     return _tippers;
+  }
+
+  Future<List<Tipper>> getActiveTippers(DAUComp thisComp) async {
+    await _initialLoadCompleter.future;
+    // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
+    // that matched the current comp
+    return _tippers
+        .where((tipper) => tipper.activeInComp(thisComp.dbkey!))
+        .toList();
   }
 
   final Map<String, dynamic> updates = {};
@@ -199,9 +211,9 @@ class TippersViewModel extends ChangeNotifier {
       log('syncTippers() legacy tipper sheet load complete');
 
       if (!_initialLoadCompleter.isCompleted) {
-        log('Waiting for initial Tipper load to complete in syncTippers()');
+        log('Waiting for initial App Tipper load to complete in syncTippers()');
         await _initialLoadCompleter.future;
-        log('tipper load complete, syncTippers()');
+        log('App tipper load complete, syncTippers()');
       }
 
       // loop through each Tipper in the legacyTippers list - skip the header row
@@ -224,10 +236,8 @@ class TippersViewModel extends ChangeNotifier {
               existingTipper.dbkey!, 'email', legacyTipper.email);
           await updateTipperAttribute(
               existingTipper.dbkey!, 'tipperID', legacyTipper.tipperID);
-          await updateTipperAttribute(
-              existingTipper.dbkey!, 'active', legacyTipper.active);
           await updateTipperAttribute(existingTipper.dbkey!, 'tipperRole',
-              legacyTipper.tipperRole.toString().split('.').last);
+              legacyTipper.tipperRole.name);
         }
       });
 
@@ -314,9 +324,9 @@ class TippersViewModel extends ChangeNotifier {
 
         await registerLinkedTipperForMessaging();
       }
-      // init an instance of ScoresViewModel focusing on their scores
-      di.registerLazySingleton<ScoresViewModel>(() => ScoresViewModel.forTipper(
-          di<DAUCompsViewModel>().defaultDAUCompDbKey, _selectedTipper));
+      // init an instance of ScoresViewModel focusing on their scores - TODO - right now we are downloading all scores
+      di.registerLazySingleton<AllScoresViewModel>(() =>
+          AllScoresViewModel(di<DAUCompsViewModel>().defaultDAUCompDbKey));
 
       return userIsLinked;
     } catch (e) {

@@ -39,9 +39,9 @@ class _GameListItemState extends State<GameListItem> {
 
   @override
   void initState() {
+    super.initState();
     gameTipsViewModel = GameTipsViewModel(widget.currentTipper,
         widget.currentDAUComp.dbkey!, widget.game, widget.allTipsViewModel);
-    super.initState();
   }
 
   @override
@@ -50,7 +50,7 @@ class _GameListItemState extends State<GameListItem> {
       value: gameTipsViewModel,
       child: Consumer<GameTipsViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
-          Widget card = Card(
+          Widget gameDetailsCard = Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
             ),
@@ -127,17 +127,19 @@ class _GameListItemState extends State<GameListItem> {
 
           if (gameTipsViewModelConsumer.game.gameState ==
               GameState.notStarted) {
-            // if the game start time is more than 24 hours away just return a plain card
-            if (gameTipsViewModelConsumer.game.startTimeUTC
-                .isAfter(DateTime.now().add(const Duration(hours: 24)))) {
-              return card;
-            }
+            // game start time is more than 14 hours away just return a plain gameDetailsCard
+            // with no banner
+            return gameDetailsCard;
           }
 
           String bannerMessage;
           Color bannerColor;
 
           switch (gameTipsViewModelConsumer.game.gameState) {
+            case GameState.startingSoon:
+              bannerMessage = "Game today";
+              bannerColor = Colors.deepOrangeAccent;
+              break;
             case GameState.resultNotKnown:
               bannerMessage = "Live";
               bannerColor = const Color(0xffe21e31);
@@ -147,22 +149,17 @@ class _GameListItemState extends State<GameListItem> {
               bannerColor = Colors.grey;
               break;
             case GameState.notStarted:
-              if (gameTipsViewModelConsumer.game.startTimeUTC
-                  .isBefore(DateTime.now().add(const Duration(hours: 12)))) {
-                bannerMessage = "Game today";
-                bannerColor = Colors.deepOrangeAccent;
-                break;
-              } else {
-                bannerMessage = "not used";
-                bannerColor = Colors.purple;
-              }
+              bannerMessage = "not used";
+              bannerColor = Colors.purple;
+              break;
           }
 
+          // return gameDetailsCard with banner overlay
           return Banner(
             color: bannerColor,
             location: BannerLocation.topEnd,
             message: bannerMessage,
-            child: card,
+            child: gameDetailsCard,
           );
         },
       ),
@@ -170,7 +167,8 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   List<Widget> carouselItems(GameTipsViewModel gameTipsViewModelConsumer) {
-    if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted) {
+    if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
+        gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
         gameTipCard(gameTipsViewModel),
         GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel),

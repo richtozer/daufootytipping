@@ -223,7 +223,7 @@ class LiveScoring extends StatelessWidget {
                         .submittedTimeUTC);
       }
 
-      di<ScoresViewModel>().writeLiveScoreToDb(
+      di<AllScoresViewModel>().writeLiveScoreToDb(
           consumerTipGame.game.scoring!, consumerTipGame.game);
 
       //update scoring for everybody for this round
