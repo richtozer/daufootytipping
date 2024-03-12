@@ -174,7 +174,7 @@ class LiveScoring extends StatelessWidget {
             style: consumerTipGame.game.scoring!.didHomeTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
-                    backgroundColor: Color(0xff04cf5d),
+                    backgroundColor: Colors.lightGreen,
                     fontWeight: FontWeight.w900)
                 : null),
         const Text(textAlign: TextAlign.left, ' v '),
@@ -182,7 +182,7 @@ class LiveScoring extends StatelessWidget {
             style: consumerTipGame.game.scoring!.didAwayTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
-                    backgroundColor: Color(0xff04cf5d),
+                    backgroundColor: Colors.lightGreen,
                     fontWeight: FontWeight.w900)
                 : null),
       ],

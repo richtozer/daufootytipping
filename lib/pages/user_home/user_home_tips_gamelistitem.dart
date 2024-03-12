@@ -54,7 +54,7 @@ class _GameListItemState extends State<GameListItem> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
             ),
-            color: Colors.grey[300],
+            color: Colors.lightGreen[100],
             child: Row(children: [
               Padding(
                 padding: const EdgeInsets.all(0.0),
@@ -127,6 +127,10 @@ class _GameListItemState extends State<GameListItem> {
 
           if (gameTipsViewModelConsumer.game.gameState ==
               GameState.notStarted) {
+            // if (gameTipsViewModelConsumer.game.gameState ==
+            //         GameState.notStarted ||
+            //     gameTipsViewModelConsumer.game.gameState ==
+            //         GameState.resultKnown) {
             // game start time is more than 14 hours away just return a plain gameDetailsCard
             // with no banner
             return gameDetailsCard;
@@ -145,7 +149,7 @@ class _GameListItemState extends State<GameListItem> {
               bannerColor = const Color(0xffe21e31);
               break;
             case GameState.resultKnown:
-              bannerMessage = "Result";
+              bannerMessage = "result";
               bannerColor = Colors.grey;
               break;
             case GameState.notStarted:

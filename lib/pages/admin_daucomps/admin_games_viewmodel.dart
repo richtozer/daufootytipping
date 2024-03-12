@@ -214,6 +214,18 @@ class GamesViewModel extends ChangeNotifier {
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
+  //  returns ture if any games were held in the last 24 hours
+  Future<bool> anyGamesHeldYesterday() {
+    return initialLoadComplete.then((_) {
+      DateTime now = DateTime.now().toUtc();
+      DateTime yesterday = now.subtract(const Duration(days: 1));
+      return _games.any((game) {
+        return game.startTimeUTC.isAfter(yesterday) &&
+            game.startTimeUTC.isBefore(now);
+      });
+    });
+  }
+
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream

@@ -1,6 +1,8 @@
+import 'package:daufootytipping/models/tipper.dart';
+
 class LeaderboardEntry {
   int rank;
-  String name;
+  Tipper tipper;
   String? profileURL;
   int total;
   int nRL;
@@ -17,7 +19,7 @@ class LeaderboardEntry {
   //constructor
   LeaderboardEntry({
     required this.rank,
-    required this.name,
+    required this.tipper,
     required this.total,
     required this.nRL,
     required this.aFL,
@@ -28,4 +30,20 @@ class LeaderboardEntry {
     required this.nrlUPS,
     this.profileURL,
   });
+
+  // method to convert instance into json
+  Map<String, dynamic> toJson() {
+    return {
+      'rank': rank,
+      'tipper': tipper.name,
+      'total': total,
+      'nRL': nRL,
+      'aFL': aFL,
+      'numRoundsWon': numRoundsWon,
+      'aflMargins': aflMargins,
+      'aflUPS': aflUPS,
+      'nrlMargins': nrlMargins,
+      'nrlUPS': nrlUPS,
+    };
+  }
 }

@@ -49,7 +49,12 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                       return;
                     }
                     try {
-                      await tipperViewModel.syncTippers();
+                      String res = await tipperViewModel.syncTippers();
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        backgroundColor: Colors.green,
+                        content: Text(res),
+                        duration: const Duration(seconds: 10),
+                      ));
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

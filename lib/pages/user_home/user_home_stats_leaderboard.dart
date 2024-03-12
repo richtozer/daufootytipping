@@ -101,7 +101,9 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
                                 scoresViewModelConsumer.leaderboard.length,
                                 (index) => DataRow(
                                       color: scoresViewModelConsumer
-                                                  .leaderboard[index].name ==
+                                                  .leaderboard[index]
+                                                  .tipper
+                                                  .name ==
                                               di<TippersViewModel>()
                                                   .authenticatedTipper!
                                                   .name
@@ -119,7 +121,9 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
                                             Text(
                                                 overflow: TextOverflow.ellipsis,
                                                 scoresViewModelConsumer
-                                                    .leaderboard[index].name),
+                                                    .leaderboard[index]
+                                                    .tipper
+                                                    .name),
                                           ],
                                         )),
                                         DataCell(Text(scoresViewModelConsumer
@@ -216,7 +220,9 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
                                 scoresViewModelConsumer.leaderboard.length,
                                 (index) => DataRow(
                                       color: scoresViewModelConsumer
-                                                  .leaderboard[index].name ==
+                                                  .leaderboard[index]
+                                                  .tipper
+                                                  .name ==
                                               di<TippersViewModel>()
                                                   .selectedTipper!
                                                   .name
@@ -234,7 +240,9 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
                                             Text(
                                                 overflow: TextOverflow.ellipsis,
                                                 scoresViewModelConsumer
-                                                    .leaderboard[index].name),
+                                                    .leaderboard[index]
+                                                    .tipper
+                                                    .name),
                                           ],
                                         )),
                                         DataCell(Text(scoresViewModelConsumer
@@ -281,9 +289,11 @@ class _StatLeaderboardState extends State<StatLeaderboard> {
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.name.compareTo(b.name));
+        scoresViewModel.leaderboard
+            .sort((a, b) => a.tipper.name.compareTo(b.tipper.name));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.name.compareTo(a.name));
+        scoresViewModel.leaderboard
+            .sort((a, b) => b.tipper.name.compareTo(a.tipper.name));
       }
     }
     if (columnIndex == 1) {

@@ -191,7 +191,7 @@ class TippersViewModel extends ChangeNotifier {
   // 4) if the Tipper does exist in the Firebase database, update it
   // 5) if the Tipper exists in the Firebase database but not in the Legacy GSheet Tipping Service, delete it
 
-  Future<void> syncTippers() async {
+  Future<String> syncTippers() async {
     try {
       _isLegacySyncing = true;
       notifyListeners();
@@ -229,7 +229,7 @@ class TippersViewModel extends ChangeNotifier {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
 
           // submit each attribute of the legacyTipper to the updateTipperAttribute method,
-          // it will take care of only submitteing the attributes that have changed to db
+          // it will take care of only submitting the attributes that have changed to db
           await updateTipperAttribute(
               existingTipper.dbkey!, 'name', legacyTipper.name);
           await updateTipperAttribute(
@@ -256,6 +256,7 @@ class TippersViewModel extends ChangeNotifier {
               'syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
         }
       }));
+      return 'Successfully synced ${legacyTippers.length} tippers from the legacy tipping service';
     } finally {
       _isLegacySyncing = false;
       notifyListeners();

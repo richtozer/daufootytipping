@@ -65,8 +65,7 @@ class TipChoice extends StatelessWidget {
         borderRadius: BorderRadius.circular(8.0),
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
-      selectedColor:
-          const Color(0xff04cf5d), //const Color.fromRGBO(152, 164, 141, 1),
+      selectedColor: Colors.lightGreen[500],
       selected: latestGameTip != null && latestGameTip.tip == option,
       onSelected: (bool selected) {
         try {

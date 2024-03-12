@@ -14,6 +14,7 @@ import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -51,10 +52,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get isScoring => _isScoring;
 
   GamesViewModel? userGamesViewModel;
-  GamesViewModel? adminGamesViewModel;
 
   AllScoresViewModel? allScoresViewModel;
-
   AllTipsViewModel? allTipsViewModel;
 
   //constructor
@@ -64,7 +63,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     _defaultDAUCompDbKey = _selectedDAUCompDbKey;
 
     _listenToDAUComps();
+    fixtureUpdateTrigger();
   }
+
+  void update() {
+    notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
+  }
+
   // method to reset data when user changes DAUComp in the UI
   void setCurrentDAUComp(String newDAUCompDbkey) {
     _selectedDAUCompDbKey = newDAUCompDbkey;
@@ -74,7 +79,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     //reset the gamesViewModel in get_it
     di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(newDAUComp!));
-    userGamesViewModel = null;
+    userGamesViewModel = di<GamesViewModel>();
+    userGamesViewModel?.addListener(update);
 
     //reset the allTipsViewModel
     allTipsViewModel = null;
@@ -82,8 +88,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     //reset the ScoringViewModel registration in get_it
     di.registerLazySingleton<AllScoresViewModel>(
         () => AllScoresViewModel(newDAUCompDbkey));
-    ////reset the tipperscoresViewModel
-    allScoresViewModel = null;
+    allScoresViewModel = di<AllScoresViewModel>();
 
     notifyListeners();
   }
@@ -137,20 +142,85 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
+  static Duration fixtureUpdateTriggerDelay(DateTime lastUpdate) {
+    // add 24 hours to lastUpdate
+    DateTime nextUpdate = lastUpdate.add(const Duration(days: 1));
+    // wind the nextUpdate clock back to 19:00 UTC
+    DateTime timeUntilNewDay = DateTime.utc(
+        nextUpdate.year, nextUpdate.month, nextUpdate.day, 19, 0, 0, 0, 0);
+
+    // calculate the duration until the next update
+    Duration durationUntilUpdate =
+        timeUntilNewDay.toUtc().difference(DateTime.now().toUtc());
+
+    return durationUntilUpdate;
+  }
+
+  void fixtureUpdateTrigger() async {
+    // get the last update time for the current comp
+    DAUComp? daucomp = await getCurrentDAUComp();
+    DateTime? lastUpdate = daucomp?.lastFixtureUpdateTimestamp;
+
+    lastUpdate ??= DateTime.utc(2021, 1, 1);
+
+    Duration timeUntilNewDay = fixtureUpdateTriggerDelay(lastUpdate);
+
+    // create a Future delayed that triggers the fixture update in the new UTC day
+    log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
+    await Future.delayed(timeUntilNewDay);
+    log('Fixture update trigger has been triggered at ${DateTime.now().toUtc()}');
+
+    // if the lastUpdate has not changed while we were waiting then trigger
+    // the fixture update now
+    // this will make sure only we update the fixture once for today
+    if (daucomp?.lastFixtureUpdateTimestamp == lastUpdate ||
+        daucomp?.lastFixtureUpdateTimestamp == null) {
+      log('Triggering fixture update for comp: ${daucomp?.name}');
+
+      String res = await getNetworkFixtureData(daucomp!);
+
+      FirebaseAnalytics.instance.logEvent(
+        name: 'fixture_update',
+        parameters: {'comp': daucomp.name, 'result': res},
+      );
+
+      // update the lastUpdate time
+      daucomp.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
+      await updateCompAttribute(daucomp, 'lastFixtureUpdateTimestamp',
+          daucomp.lastFixtureUpdateTimestamp!.toIso8601String());
+    }
+  }
+
   Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
         log('getNetworkFixtureData() waiting for initial DAUCompsViewModel load to complete');
       }
       await initialLoadComplete;
+
+      if (userGamesViewModel != null ||
+          userGamesViewModel?.selectedDAUComp.dbkey != daucompToUpdate.dbkey!) {
+        //invalidte the adminGamesViewModel
+        userGamesViewModel = null;
+      }
+
+      userGamesViewModel ??= GamesViewModel(daucompToUpdate);
+
+      // check if there were any games help yesterday. if not then skip this download
+      bool gamesYesterday = await userGamesViewModel!.anyGamesHeldYesterday();
+
+      if (!gamesYesterday) {
+        return 'No games yesterday, skipping fixture update as there are unlikely to be any scoring updates';
+      }
+
       _isDownloading = true;
       notifyListeners();
 
-      FixtureDownloadService fds = FixtureDownloadService();
+      FixtureDownloadService fixtureDownloadService = FixtureDownloadService();
 
       List<dynamic> nrlGames = [];
       try {
-        nrlGames = await fds.getLeagueFixtureRaw(
+        nrlGames = await fixtureDownloadService.getLeagueFixtureRaw(
             daucompToUpdate.nrlFixtureJsonURL, League.nrl);
       } catch (e) {
         throw 'Error loading NRL fixture data. Exception was: $e';
@@ -159,21 +229,13 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       List<dynamic> aflGames = [];
       try {
-        aflGames = await fds.getLeagueFixtureRaw(
+        aflGames = await fixtureDownloadService.getLeagueFixtureRaw(
             daucompToUpdate.aflFixtureJsonURL, League.afl);
       } catch (e) {
         throw 'Error loading AFL fixture data. Exception was: $e';
 
         //return 'Error loading AFL fixture data. Exception was: $e';  // TODO - exceptions is not being passed to caller
       }
-      if (adminGamesViewModel != null ||
-          adminGamesViewModel?.selectedDAUComp.dbkey !=
-              daucompToUpdate.dbkey!) {
-        //invalidte the adminGamesViewModel
-        adminGamesViewModel = null;
-      }
-
-      adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       List<Future> gamesFuture = [];
 
@@ -182,7 +244,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           String dbkey =
               '${league.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
           for (var attribute in gamejson.keys) {
-            gamesFuture.add(adminGamesViewModel!.updateGameAttribute(
+            gamesFuture.add(userGamesViewModel!.updateGameAttribute(
                 dbkey, attribute, gamejson[attribute], league.name));
           }
         }
@@ -194,10 +256,10 @@ class DAUCompsViewModel extends ChangeNotifier {
       await Future.wait(gamesFuture);
 
       //save all updates
-      await adminGamesViewModel!.saveBatchOfGameAttributes();
+      await userGamesViewModel!.saveBatchOfGameAttributes();
 
       //once all the data is loaded, update the combinedRound field
-      updateCombinedRoundNumber(daucompToUpdate, adminGamesViewModel!);
+      updateCombinedRoundNumber(daucompToUpdate, userGamesViewModel!);
 
       return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
     } finally {
@@ -219,17 +281,17 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       TippersViewModel tippersViewModel = TippersViewModel(null);
 
-      if (adminGamesViewModel != null ||
-          adminGamesViewModel?.selectedDAUComp != daucompToUpdate.dbkey!) {
+      if (userGamesViewModel != null ||
+          userGamesViewModel?.selectedDAUComp != daucompToUpdate.dbkey!) {
         //invalidte the adminGamesViewModel
-        adminGamesViewModel = null;
+        userGamesViewModel = null;
       }
 
-      adminGamesViewModel ??= GamesViewModel(daucompToUpdate);
+      userGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       // grab everybodies tips
       AllTipsViewModel allTipsViewModel = AllTipsViewModel(
-          tippersViewModel, daucompToUpdate.dbkey!, adminGamesViewModel!);
+          tippersViewModel, daucompToUpdate.dbkey!, userGamesViewModel!);
 
       //sync tips to legacy
       await tippingService.initialized();
@@ -445,7 +507,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     daucomp.consolidatedCompScores =
-        await tipperScoresViewModel.getTipperConsolidatedScoresForComp();
+        await tipperScoresViewModel.getTipperConsolidatedScoresForComp(tipper);
+
     print('SSS Got consolidated comp scores');
 
     return daucomp;
@@ -544,31 +607,22 @@ class DAUCompsViewModel extends ChangeNotifier {
       _isScoring = true;
       notifyListeners();
 
-      GamesViewModel scoringGamesViewModel;
-
       TippersViewModel tippersViewModel = di<TippersViewModel>();
 
       // if adminGamesViewModel is not null and the selectedDAUComp
       // is not the same as the comp we are updating then
       // create a new temp GamesViewModel for this scoring update
-      if (adminGamesViewModel != null ||
-          adminGamesViewModel?.selectedDAUComp != daucompToUpdate) {
-        // create a new GamesViewModel for this comp
-        scoringGamesViewModel = GamesViewModel(daucompToUpdate);
-      } else {
-        // otherwise use the existing GamesViewModel
-        scoringGamesViewModel = adminGamesViewModel!;
-      }
+      userGamesViewModel ??= di<GamesViewModel>();
 
       // use the AllTipsViewModel as source of data for cosolidated scoring
       if (allTipsViewModel != null &&
           allTipsViewModel!.currentDAUComp != daucompToUpdate.dbkey!) {
-        //invalidte the allTipsViewModel
+        //invalidate the allTipsViewModel
         allTipsViewModel = null;
       }
-
+      // if alltips is null, create a new one
       allTipsViewModel ??= AllTipsViewModel(
-          tippersViewModel, daucompToUpdate.dbkey!, scoringGamesViewModel!);
+          tippersViewModel, daucompToUpdate.dbkey!, userGamesViewModel!);
 
       //create a map to store the tipper consolidated scores and name?
       Map<String, Map<String, dynamic>> scoringTipperCompTotals = {};
@@ -586,6 +640,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       // loop through each round and then each league and total up the score for this tipper
       for (Tipper tipperToScore in tippers) {
+        if (tipperToScore.name == 'Toaster') {
+          log('Tipper is toaster');
+        }
         //init the Tipper scoring maps
         scoringTipperRoundTotals[tipperToScore.dbkey!] = {};
         scoringTipperCompTotals[tipperToScore.dbkey!] = {};
@@ -635,7 +692,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
           for (var gameKey in dauRound.gamesAsKeys) {
             // find each game in this round
-            Game? game = await scoringGamesViewModel.findGame(gameKey);
+            Game? game = await userGamesViewModel!.findGame(gameKey);
 
             if (game == null) {
               throw Exception('Game not found for key: $gameKey');
@@ -731,7 +788,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             } // end of tip not null check
           } // end of game loop
 
-          // save the consolidated league score to consolidatedScoresForRanking
+          // save the consolidated afl + nrl score to consolidatedScoresForRanking
           // this will be used to rank tippers per round
           scoringTipperRoundTotals[tipperToScore.dbkey]![roundIndex]![
               'round_total_score'] = scoringTipperRoundTotals[
@@ -792,8 +849,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
       }
 
-      //update the database with the consolidated scores
-      allScoresViewModel ??= AllScoresViewModel(daucompToUpdate.dbkey!);
+      allScoresViewModel ??= AllScoresViewModel(_selectedDAUCompDbKey);
 
       await allScoresViewModel?.writeScoresToDb(
           scoringTipperRoundTotals, scoringTipperCompTotals, daucompToUpdate);
@@ -816,7 +872,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     for (var round in daucomp.daurounds!..sort((a, b) => b.compareTo(a))) {
       bool allGamesPlayed = true;
       for (var gameKey in round.gamesAsKeys) {
-        Game? game = await adminGamesViewModel!.findGame(gameKey);
+        Game? game = await userGamesViewModel!.findGame(gameKey);
         if (game != null) {
           if (game.gameState == GameState.notStarted ||
               game.gameState == GameState.startingSoon) {
@@ -831,25 +887,13 @@ class DAUCompsViewModel extends ChangeNotifier {
         break;
       }
     }
-
     return highestRoundNumber;
   }
-
-//TODO add back in
-/*   Future<ConsolidatedCompScores> getConsolidatedScoresForComp(
-      Tipper tipper) async {
-    //get the current DAUComp
-    DAUComp? daucomp = await getCurrentDAUComp();
-
-    tipperScoresViewModel ??=
-        AllScoresViewModel.forTipper(daucomp!.dbkey!, tipper);
-
-    return tipperScoresViewModel!.getTipperConsolidatedScoresForComp();
-  } */
 
   @override
   void dispose() {
     _daucompsStream.cancel(); // stop listening to stream
+    userGamesViewModel?.removeListener(update);
 
     // create a new Completer if the old one was completed:
     if (_initialLoadCompleter.isCompleted) {

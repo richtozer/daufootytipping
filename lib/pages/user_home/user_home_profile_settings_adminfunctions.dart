@@ -1,6 +1,5 @@
 import 'dart:developer';
 
-import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
