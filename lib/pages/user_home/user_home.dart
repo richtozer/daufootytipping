@@ -59,37 +59,13 @@ class _HomePageState extends State<HomePage> {
             child: Image.asset(
               'assets/teams/daulogo-grass.jpg',
               width: MediaQuery.of(context).size.width,
-              fit: BoxFit.fitWidth,
-            ),
-          ),
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Image.asset(
-              'assets/teams/daulogo-grass.jpg',
-              width: MediaQuery.of(context).size.width,
-              fit: BoxFit.fitWidth,
-            ),
-          ),
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Image.asset(
-              'assets/teams/daulogo-grass.jpg',
-              width: MediaQuery.of(context).size.width,
-              fit: BoxFit.fitWidth,
-            ),
-          ),
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Image.asset(
-              'assets/teams/daulogo-grass.jpg',
-              width: MediaQuery.of(context).size.width,
-              fit: BoxFit.fitWidth,
+              height: MediaQuery.of(context).size.height,
+              fit: BoxFit.fill,
             ),
           ),
         ],
       ),
       Scaffold(
-        //backgroundColor: const Color.fromRGBO(152, 164, 141, 1),
         backgroundColor: Colors.transparent,
         body: Center(
           child: (destinationContent[_currentIndex]),
@@ -98,7 +74,6 @@ class _HomePageState extends State<HomePage> {
           indicatorShape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8.0),
           ),
-          //indicatorColor: const Color.fromRGBO(152, 164, 141, 1),
           onDestinationSelected: (int index) {
             onTabTapped(index);
           },

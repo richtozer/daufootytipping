@@ -333,7 +333,17 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             disableBackButton = true;
             disableSaves = true;
 
-            await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+            String result =
+                await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green,
+                  content: Text(result),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

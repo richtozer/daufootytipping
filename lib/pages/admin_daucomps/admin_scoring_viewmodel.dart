@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
@@ -22,7 +23,7 @@ const liveScoresRoot = 'live_scores';
 
 class AllScoresViewModel extends ChangeNotifier {
   Map<String, List<RoundScores>> _allTipperRoundScores = {};
-  late CompScore _allTipperCompScores;
+  Map<Tipper, CompScore> _allTipperCompScores = {};
   final List<Game> _gamesWithLiveScores = [];
 
   final _db = FirebaseDatabase.instance.ref();
@@ -118,12 +119,26 @@ class AllScoresViewModel extends ChangeNotifier {
   Future<void> _handleEventCompScores(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
-        _allTipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
-            event.snapshot.value as Map<dynamic, dynamic>));
+        // returned data type is Map<Sting, Map<String, int>>
+        // and needs to be converted to Map<Tipper, CompScore>
+        _allTipperCompScores = Map<Tipper, CompScore>.fromEntries(
+          await Future.wait((event.snapshot.value as Map<dynamic, dynamic>)
+              .entries
+              .map((e) async {
+            Tipper tipper = await di<TippersViewModel>().findTipper(e.key);
+            return MapEntry(
+                tipper, CompScore.fromJson(Map<String, dynamic>.from(e.value)));
+          })),
+        );
+
+        // _allTipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
+        //     event.snapshot.value as Map<dynamic, dynamic>));
 
         if (!_initialCompAllTipperLoadCompleter.isCompleted) {
           _initialCompAllTipperLoadCompleter.complete();
         }
+
+        notifyListeners();
       } else {
         log('sss in _handleEventCompScores snapshot ${event.snapshot.ref.path}  does not exist');
       }
@@ -298,8 +313,8 @@ class AllScoresViewModel extends ChangeNotifier {
       Tipper tipper = await di<TippersViewModel>().findTipper(e.key);
 
       return LeaderboardEntry(
-        rank: 0, // replace with actual rank calculation
-        name: tipper.name,
+        rank: 0, // replace with actual rank calculation - see below
+        tipper: tipper,
         total: totalScore,
         nRL: nrlScore, // replace with actual nRL calculation
         aFL: aflScore, // replace with actual aFL calculation
@@ -327,6 +342,7 @@ class AllScoresViewModel extends ChangeNotifier {
     }
 
     _leaderboard = leaderboard.toList(); // Update the property
+
     notifyListeners();
     return;
   }
@@ -340,12 +356,16 @@ class AllScoresViewModel extends ChangeNotifier {
     return _allTipperRoundScores[tipper.dbkey]![round.dAUroundNumber - 1];
   }
 
-  Future<CompScore> getTipperConsolidatedScoresForComp() async {
-    if (!_initialCompAllTipperLoadCompleter.isCompleted) {
-      await _initialCompAllTipperLoadCompleter.future;
+  CompScore getTipperConsolidatedScoresForComp(Tipper tipper) {
+    if (_allTipperCompScores.isEmpty) {
+      return CompScore(
+        aflCompScore: 0,
+        aflCompMaxScore: 0,
+        nrlCompScore: 0,
+        nrlCompMaxScore: 0,
+      );
     }
-
-    return _allTipperCompScores;
+    return _allTipperCompScores[tipper]!;
   }
 
   void staleLiveScoreCleanup() {

@@ -3,36 +3,39 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class TipsPage extends StatefulWidget with WatchItStatefulWidgetMixin {
   TipsPage({super.key});
 
   @override
-  State<TipsPage> createState() => _TipsPageState();
+  TipsPageState createState() => TipsPageState();
 }
 
-class _TipsPageState extends State<TipsPage> {
+class TipsPageState extends State<TipsPage> {
   final String currentDAUCompDbkey =
       di<DAUCompsViewModel>().selectedDAUCompDbKey;
+  late final AllTipsViewModel allTipsViewModel;
+  late final Future<DAUComp> dauCompWithScoresFuture;
+  //late final CompScore compScores;
+  late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
+  final ScrollController controller = ScrollController();
 
   @override
-  Widget build(BuildContext context) {
-    return _TipsPageBody(currentDAUCompDbkey);
-  }
-}
-
-class _TipsPageBody extends StatelessWidget with WatchItMixin {
-  _TipsPageBody(this.currentDAUCompDbkey) {
+  void initState() {
+    super.initState();
     log('TipsPageBody.constructor()');
 
     dauCompWithScoresFuture = di<DAUCompsViewModel>()
@@ -47,12 +50,6 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
     allTipsViewModelInitialLoadCompletedFuture =
         allTipsViewModel.initialLoadCompleted;
   }
-
-  final String currentDAUCompDbkey;
-  late final AllTipsViewModel allTipsViewModel;
-  late final Future<DAUComp> dauCompWithScoresFuture;
-  late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
-  final ScrollController controller = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +76,6 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
             return const Center(child: CircularProgressIndicator());
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
-            int aflScore =
-                dauCompWithScores!.consolidatedCompScores!.aflCompScore;
-            int nrlScore =
-                dauCompWithScores.consolidatedCompScores!.nrlCompScore;
 
             return FutureBuilder<void>(
                 future: allTipsViewModel.getAllTips(),
@@ -117,13 +110,36 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                           flexibleSpace: FlexibleSpaceBar(
                               expandedTitleScale: 1.5,
                               centerTitle: true,
-                              title: Text(
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: Colors.black,
-                                  ),
-                                  'Rank X▲ NRL: $nrlScore AFL: $aflScore'),
+                              title: ChangeNotifierProvider<
+                                      AllScoresViewModel>.value(
+                                  value: di<AllScoresViewModel>(),
+                                  builder: (context, snapshot) {
+                                    return Consumer<AllScoresViewModel>(builder:
+                                        (context, allScoresViewModelConsumer,
+                                            child) {
+                                      CompScore compScores =
+                                          allScoresViewModelConsumer
+                                              .getTipperConsolidatedScoresForComp(
+                                                  di<TippersViewModel>()
+                                                      .selectedTipper!);
+                                      // from allScoresViewModelConsumer.leaderboard list,
+                                      // find the tipper and record their rank
+                                      int tipperCompRank =
+                                          allScoresViewModelConsumer.leaderboard
+                                              .firstWhere((element) =>
+                                                  element.tipper ==
+                                                  di<TippersViewModel>()
+                                                      .selectedTipper!)
+                                              .rank;
+                                      return Text(
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 17,
+                                            color: Colors.black,
+                                          ),
+                                          'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}');
+                                    });
+                                  }),
                               background: Stack(
                                 children: <Widget>[
                                   Image.asset(
@@ -141,7 +157,7 @@ class _TipsPageBody extends StatelessWidget with WatchItMixin {
                               //    dauCompWithScores.name),
                               ),
                         ),
-                        ...dauCompWithScores.daurounds!
+                        ...dauCompWithScores!.daurounds!
                             .asMap()
                             .entries
                             .map((entry) {
