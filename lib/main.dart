@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -19,6 +21,7 @@ import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 
 Future<void> main() async {
   // Do not to start running the application widget code until the Flutter framework is completely booted
@@ -26,13 +29,19 @@ Future<void> main() async {
 
   await dotenv.load(); // Loads .env file
 
+  if (kIsWeb) {
+    bool ready = await GRecaptchaV3.ready(
+        "6LfmjfUlAAAAAF0dxFR_6L4BerFoRLEA3iCDxhlI",
+        showBadge: true);
+    log("Is Recaptcha ready? $ready");
+  }
+
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (!kDebugMode) {
     // in release mode, enable persistence for Realtime Database
+
     FirebaseDatabase.instance.setPersistenceEnabled(true);
-  } else {
-    FirebaseDatabase.instance.setPersistenceEnabled(false);
   }
 
   // if (kDebugMode) {
@@ -46,12 +55,15 @@ Future<void> main() async {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
       appleProvider: AppleProvider.appAttest,
-      webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
+      webProvider:
+          ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
   } else {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.debug,
       appleProvider: AppleProvider.debug,
+      webProvider:
+          ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
   }
 
@@ -67,11 +79,14 @@ Future<void> main() async {
     return true;
   };
 
-  // setup some default analytics parameters
-  FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
-
   FirebaseService firebaseService = FirebaseService();
-  firebaseService.initializeFirebaseMessaging();
+
+  // setup some default analytics parameters
+  if (!kIsWeb) {
+    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+
+    firebaseService.initializeFirebaseMessaging();
+  }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
   di.allowReassignment = true;
@@ -103,6 +118,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: FlexThemeData.light(scheme: FlexScheme.green),
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,

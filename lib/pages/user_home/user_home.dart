@@ -11,13 +11,9 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class HomePage extends StatefulWidget {
-  HomePage(this.currentDAUCompKey, {super.key}) {
-    activeInComp =
-        di<TippersViewModel>().selectedTipper!.activeInComp(currentDAUCompKey);
-  }
+  const HomePage(this.currentDAUCompKey, {super.key});
 
   final String currentDAUCompKey;
-  bool activeInComp = false;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -27,6 +23,7 @@ class _HomePageState extends State<HomePage> {
   // are they participating in the current comp, if not, they can't see the tips or stats
 
   int _currentIndex = 0;
+  bool activeInComp = false;
 
   void onTabTapped(int index) {
     setState(() {
@@ -44,9 +41,12 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    activeInComp = di<TippersViewModel>()
+        .selectedTipper!
+        .activeInComp(widget.currentDAUCompKey);
     log('screen width: ${MediaQuery.of(context).size.width}');
 
-    if (widget.activeInComp == false) {
+    if (activeInComp == false) {
       _currentIndex = 2; // default to profile page for non-participants
     }
     List<Widget> destinationContent = content();

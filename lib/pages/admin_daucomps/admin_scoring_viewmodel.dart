@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
@@ -341,6 +340,18 @@ class AllScoresViewModel extends ChangeNotifier {
       leaderboard[i].rank = rank;
     }
 
+    // Sort by rank and then by tipper name
+    leaderboard.sort((a, b) {
+      int rankComparison = a.rank.compareTo(b.rank);
+      if (rankComparison == 0) {
+        return a.tipper.name
+            .toLowerCase()
+            .compareTo(b.tipper.name.toLowerCase());
+      } else {
+        return rankComparison;
+      }
+    });
+
     _leaderboard = leaderboard.toList(); // Update the property
 
     notifyListeners();
@@ -357,6 +368,8 @@ class AllScoresViewModel extends ChangeNotifier {
   }
 
   CompScore getTipperConsolidatedScoresForComp(Tipper tipper) {
+    // return 0 scores until the data is loaded for this tipper
+
     if (_allTipperCompScores.isEmpty) {
       return CompScore(
         aflCompScore: 0,
