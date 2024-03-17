@@ -506,8 +506,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       print('SSS Got scores for round: ${round.dAUroundNumber}');
     }
 
-    daucomp.consolidatedCompScores =
-        await tipperScoresViewModel.getTipperConsolidatedScoresForComp(tipper);
+    //daucomp.consolidatedCompScores =
+    //    tipperScoresViewModel.getTipperConsolidatedScoresForComp(tipper);
 
     print('SSS Got consolidated comp scores');
 

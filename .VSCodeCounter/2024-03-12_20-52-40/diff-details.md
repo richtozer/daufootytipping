@@ -1,0 +1,153 @@
+# Diff Details
+
+Date : 2024-03-12 20:52:40
+
+Directory /Users/richardtozer/dev/projects/daufootytipping
+
+Total : 138 files,  8936 codes, 335 comments, 497 blanks, all 9768 lines
+
+[Summary](results.md) / [Details](details.md) / [Diff Summary](diff.md) / Diff Details
+
+## Files
+| filename | language | code | comment | blank | total |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| [.fvm/fvm_config.json](/.fvm/fvm_config.json) | JSON | 4 | 0 | 0 | 4 |
+| [BACKUP-database.rules.json](/BACKUP-database.rules.json) | JSON | 6 | 1 | 0 | 7 |
+| [android/app/build.gradle](/android/app/build.gradle) | Gradle | 13 | -1 | 1 | 13 |
+| [android/app/src/main/AndroidManifest.xml](/android/app/src/main/AndroidManifest.xml) | XML | 1 | 1 | 2 | 4 |
+| [android/build.gradle](/android/build.gradle) | Gradle | -15 | -2 | -5 | -22 |
+| [android/settings.gradle](/android/settings.gradle) | Gradle | 7 | 0 | 1 | 8 |
+| [assets/teams/Auckland_colours.svg](/assets/teams/Auckland_colours.svg) | XML | -70 | -1 | -1 | -72 |
+| [assets/teams/Brisbane_colours.svg](/assets/teams/Brisbane_colours.svg) | XML | -66 | -1 | -1 | -68 |
+| [assets/teams/Canberra_colours.svg](/assets/teams/Canberra_colours.svg) | XML | -68 | -1 | -2 | -71 |
+| [assets/teams/Canterbury_colours.svg](/assets/teams/Canterbury_colours.svg) | XML | -62 | -1 | -1 | -64 |
+| [assets/teams/Cronulla_colours.svg](/assets/teams/Cronulla_colours.svg) | XML | -69 | -1 | -1 | -71 |
+| [assets/teams/Eastern_Suburbs_colours.svg](/assets/teams/Eastern_Suburbs_colours.svg) | XML | -69 | -1 | -1 | -71 |
+| [assets/teams/Gold_Coast_Titans_colours.svg](/assets/teams/Gold_Coast_Titans_colours.svg) | XML | -69 | -1 | -1 | -71 |
+| [assets/teams/Manly_Sea_Eagles_colours.svg](/assets/teams/Manly_Sea_Eagles_colours.svg) | XML | -62 | -1 | -1 | -64 |
+| [assets/teams/Melbourne_colours.svg](/assets/teams/Melbourne_colours.svg) | XML | -69 | -1 | -1 | -71 |
+| [assets/teams/Newcastle_colours.svg](/assets/teams/Newcastle_colours.svg) | XML | -62 | -1 | -1 | -64 |
+| [assets/teams/North_Queensland_colours.svg](/assets/teams/North_Queensland_colours.svg) | XML | -69 | -1 | -1 | -71 |
+| [assets/teams/Parramatta_colours.svg](/assets/teams/Parramatta_colours.svg) | XML | -62 | -1 | -1 | -64 |
+| [assets/teams/Penrith_Panthers_square_flag_icon_with_2020_colours.svg](/assets/teams/Penrith_Panthers_square_flag_icon_with_2020_colours.svg) | XML | -16 | -1 | -1 | -18 |
+| [assets/teams/South_Sydney_colours.svg](/assets/teams/South_Sydney_colours.svg) | XML | -62 | -1 | -1 | -64 |
+| [assets/teams/St._George_colours.svg](/assets/teams/St._George_colours.svg) | XML | -62 | -1 | -1 | -64 |
+| [assets/teams/Wests_Tigers_colours.svg](/assets/teams/Wests_Tigers_colours.svg) | XML | -69 | -1 | -1 | -71 |
+| [assets/teams/afl/blues.svg](/assets/teams/afl/blues.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/bombers.svg](/assets/teams/afl/bombers.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/bulldogs.svg](/assets/teams/afl/bulldogs.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/cats.svg](/assets/teams/afl/cats.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/crows.svg](/assets/teams/afl/crows.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/demons.svg](/assets/teams/afl/demons.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/dockers.svg](/assets/teams/afl/dockers.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/eagles.svg](/assets/teams/afl/eagles.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/giants.svg](/assets/teams/afl/giants.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/hawks.svg](/assets/teams/afl/hawks.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/kagaroos.svg](/assets/teams/afl/kagaroos.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/lions.svg](/assets/teams/afl/lions.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/magpies.svg](/assets/teams/afl/magpies.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/power.svg](/assets/teams/afl/power.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/saints.svg](/assets/teams/afl/saints.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/afl/suns.svg](/assets/teams/afl/suns.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/swans.svg](/assets/teams/afl/swans.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/afl/tigers.svg](/assets/teams/afl/tigers.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/nrl/Auckland_colours.svg](/assets/teams/nrl/Auckland_colours.svg) | XML | 70 | 1 | 1 | 72 |
+| [assets/teams/nrl/Brisbane_colours.svg](/assets/teams/nrl/Brisbane_colours.svg) | XML | 66 | 1 | 1 | 68 |
+| [assets/teams/nrl/Canberra_colours.svg](/assets/teams/nrl/Canberra_colours.svg) | XML | 68 | 1 | 2 | 71 |
+| [assets/teams/nrl/Canterbury_colours.svg](/assets/teams/nrl/Canterbury_colours.svg) | XML | 62 | 1 | 1 | 64 |
+| [assets/teams/nrl/Cronulla_colours.svg](/assets/teams/nrl/Cronulla_colours.svg) | XML | 69 | 1 | 1 | 71 |
+| [assets/teams/nrl/Dolphins_colours.svg](/assets/teams/nrl/Dolphins_colours.svg) | XML | 72 | 1 | 2 | 75 |
+| [assets/teams/nrl/Eastern_Suburbs_colours.svg](/assets/teams/nrl/Eastern_Suburbs_colours.svg) | XML | 69 | 1 | 1 | 71 |
+| [assets/teams/nrl/Gold_Coast_Titans_colours.svg](/assets/teams/nrl/Gold_Coast_Titans_colours.svg) | XML | 69 | 1 | 1 | 71 |
+| [assets/teams/nrl/Manly_Sea_Eagles_colours.svg](/assets/teams/nrl/Manly_Sea_Eagles_colours.svg) | XML | 62 | 1 | 1 | 64 |
+| [assets/teams/nrl/Melbourne_colours.svg](/assets/teams/nrl/Melbourne_colours.svg) | XML | 69 | 1 | 1 | 71 |
+| [assets/teams/nrl/Newcastle_colours.svg](/assets/teams/nrl/Newcastle_colours.svg) | XML | 62 | 1 | 1 | 64 |
+| [assets/teams/nrl/North_Queensland_colours.svg](/assets/teams/nrl/North_Queensland_colours.svg) | XML | 69 | 1 | 1 | 71 |
+| [assets/teams/nrl/Parramatta_colours.svg](/assets/teams/nrl/Parramatta_colours.svg) | XML | 62 | 1 | 1 | 64 |
+| [assets/teams/nrl/Penrith_Panthers_square_flag_icon_with_2020_colours.svg](/assets/teams/nrl/Penrith_Panthers_square_flag_icon_with_2020_colours.svg) | XML | 16 | 1 | 1 | 18 |
+| [assets/teams/nrl/South_Sydney_colours.svg](/assets/teams/nrl/South_Sydney_colours.svg) | XML | 62 | 1 | 1 | 64 |
+| [assets/teams/nrl/St._George_colours.svg](/assets/teams/nrl/St._George_colours.svg) | XML | 62 | 1 | 1 | 64 |
+| [assets/teams/nrl/Wests_Tigers_colours.svg](/assets/teams/nrl/Wests_Tigers_colours.svg) | XML | 69 | 1 | 1 | 71 |
+| [cleanup.sh](/cleanup.sh) | Shell Script | 1 | -1 | 0 | 0 |
+| [database.rules.json](/database.rules.json) | JSON | 2 | -1 | 0 | 1 |
+| [firebase.json](/firebase.json) | JSON | 30 | 0 | 0 | 30 |
+| [functions/.eslintrc.js](/functions/.eslintrc.js) | JavaScript | 32 | 0 | 1 | 33 |
+| [functions/package-lock.json](/functions/package-lock.json) | JSON | 8,321 | 0 | 1 | 8,322 |
+| [functions/package.json](/functions/package.json) | JSON | 34 | 0 | 1 | 35 |
+| [functions/src/index.ts](/functions/src/index.ts) | TypeScript | 2 | 4 | 2 | 8 |
+| [functions/src/services/legacy_service.ts](/functions/src/services/legacy_service.ts) | TypeScript | 108 | 16 | 15 | 139 |
+| [functions/src/services/messaging_service_prune_devicetokens.ts](/functions/src/services/messaging_service_prune_devicetokens.ts) | TypeScript | 0 | 47 | 1 | 48 |
+| [functions/tsconfig.dev.json](/functions/tsconfig.dev.json) | JSON | 5 | 0 | 1 | 6 |
+| [functions/tsconfig.json](/functions/tsconfig.json) | JSON with Comments | 15 | 0 | 1 | 16 |
+| [ios/Runner/AppDelegate.swift](/ios/Runner/AppDelegate.swift) | Swift | -2 | 2 | 0 | 0 |
+| [lib/extensions/disposesafechangenotifier.dart](/lib/extensions/disposesafechangenotifier.dart) | Dart | 15 | 1 | 4 | 20 |
+| [lib/main.dart](/lib/main.dart) | Dart | 34 | -6 | 8 | 36 |
+| [lib/models/crowdsourcedscore.dart](/lib/models/crowdsourcedscore.dart) | Dart | 19 | 2 | 2 | 23 |
+| [lib/models/daucomp.dart](/lib/models/daucomp.dart) | Dart | 30 | 1 | 2 | 33 |
+| [lib/models/dauround.dart](/lib/models/dauround.dart) | Dart | 28 | -42 | 5 | -9 |
+| [lib/models/devicetoken.dart](/lib/models/devicetoken.dart) | Dart | 14 | 1 | 4 | 19 |
+| [lib/models/game.dart](/lib/models/game.dart) | Dart | 14 | 1 | 0 | 15 |
+| [lib/models/game_scoring.dart](/lib/models/game_scoring.dart) | Dart | 94 | 10 | 7 | 111 |
+| [lib/models/league.dart](/lib/models/league.dart) | Dart | 10 | 0 | 1 | 11 |
+| [lib/models/scoring_leaderboard.dart](/lib/models/scoring_leaderboard.dart) | Dart | 43 | 2 | 5 | 50 |
+| [lib/models/scoring_roundscores.dart](/lib/models/scoring_roundscores.dart) | Dart | 58 | 2 | 6 | 66 |
+| [lib/models/scoring_roundwinners.dart](/lib/models/scoring_roundwinners.dart) | Dart | 24 | 1 | 3 | 28 |
+| [lib/models/tip.dart](/lib/models/tip.dart) | Dart | -39 | -3 | -7 | -49 |
+| [lib/models/tipgame.dart](/lib/models/tipgame.dart) | Dart | 59 | 6 | 10 | 75 |
+| [lib/models/tipper.dart](/lib/models/tipper.dart) | Dart | 19 | 22 | 2 | 43 |
+| [lib/pages/admin_daucomps/admin_daucomps_edit.dart](/lib/pages/admin_daucomps/admin_daucomps_edit.dart) | Dart | 421 | 30 | 26 | 477 |
+| [lib/pages/admin_daucomps/admin_daucomps_edit_add.dart](/lib/pages/admin_daucomps/admin_daucomps_edit_add.dart) | Dart | -200 | -12 | -14 | -226 |
+| [lib/pages/admin_daucomps/admin_daucomps_list.dart](/lib/pages/admin_daucomps/admin_daucomps_list.dart) | Dart | 9 | 1 | 0 | 10 |
+| [lib/pages/admin_daucomps/admin_daucomps_viewmodel.dart](/lib/pages/admin_daucomps/admin_daucomps_viewmodel.dart) | Dart | 537 | 101 | 118 | 756 |
+| [lib/pages/admin_daucomps/admin_daurounds_viewmodel.dart](/lib/pages/admin_daucomps/admin_daurounds_viewmodel.dart) | Dart | 0 | -131 | 0 | -131 |
+| [lib/pages/admin_daucomps/admin_games_list.dart](/lib/pages/admin_daucomps/admin_games_list.dart) | Dart | -20 | 24 | -4 | 0 |
+| [lib/pages/admin_daucomps/admin_games_viewmodel.dart](/lib/pages/admin_daucomps/admin_games_viewmodel.dart) | Dart | -60 | -28 | -13 | -101 |
+| [lib/pages/admin_daucomps/admin_scoring_viewmodel.dart](/lib/pages/admin_daucomps/admin_scoring_viewmodel.dart) | Dart | 314 | 24 | 59 | 397 |
+| [lib/pages/admin_teams/admin_teams_edit.dart](/lib/pages/admin_teams/admin_teams_edit.dart) | Dart | 0 | 1 | 1 | 2 |
+| [lib/pages/admin_teams/admin_teams_list.dart](/lib/pages/admin_teams/admin_teams_list.dart) | Dart | -4 | 0 | 0 | -4 |
+| [lib/pages/admin_tippers/admin_tippers_edit_add.dart](/lib/pages/admin_tippers/admin_tippers_edit_add.dart) | Dart | 70 | 9 | 3 | 82 |
+| [lib/pages/admin_tippers/admin_tippers_list.dart](/lib/pages/admin_tippers/admin_tippers_list.dart) | Dart | 66 | 0 | 6 | 72 |
+| [lib/pages/admin_tippers/admin_tippers_viewmodel.dart](/lib/pages/admin_tippers/admin_tippers_viewmodel.dart) | Dart | 157 | 11 | 35 | 203 |
+| [lib/pages/user_auth/auth_viewmodel.dart](/lib/pages/user_auth/auth_viewmodel.dart) | Dart | -144 | -5 | -20 | -169 |
+| [lib/pages/user_auth/user_auth.dart](/lib/pages/user_auth/user_auth.dart) | Dart | 72 | 3 | 11 | 86 |
+| [lib/pages/user_home/alltips_viewmodel.dart](/lib/pages/user_home/alltips_viewmodel.dart) | Dart | 163 | 15 | 27 | 205 |
+| [lib/pages/user_home/appstate_viewmodel.dart](/lib/pages/user_home/appstate_viewmodel.dart) | Dart | -10 | -1 | -2 | -13 |
+| [lib/pages/user_home/gametips_viewmodel.dart](/lib/pages/user_home/gametips_viewmodel.dart) | Dart | -55 | 15 | 0 | -40 |
+| [lib/pages/user_home/tips_viewmodel.dart](/lib/pages/user_home/tips_viewmodel.dart) | Dart | -170 | -6 | -30 | -206 |
+| [lib/pages/user_home/user_home.dart](/lib/pages/user_home/user_home.dart) | Dart | 47 | 0 | 3 | 50 |
+| [lib/pages/user_home/user_home_profile.dart](/lib/pages/user_home/user_home_profile.dart) | Dart | 83 | 0 | 0 | 83 |
+| [lib/pages/user_home/user_home_profile_settings_about.dart](/lib/pages/user_home/user_home_profile_settings_about.dart) | Dart | 25 | 0 | 5 | 30 |
+| [lib/pages/user_home/user_home_profile_settings_adminfunctions.dart](/lib/pages/user_home/user_home_profile_settings_adminfunctions.dart) | Dart | 64 | 0 | 4 | 68 |
+| [lib/pages/user_home/user_home_stats.dart](/lib/pages/user_home/user_home_stats.dart) | Dart | 85 | 19 | 5 | 109 |
+| [lib/pages/user_home/user_home_stats_leaderboard.dart](/lib/pages/user_home/user_home_stats_leaderboard.dart) | Dart | 366 | 6 | 11 | 383 |
+| [lib/pages/user_home/user_home_stats_roundwinners.dart](/lib/pages/user_home/user_home_stats_roundwinners.dart) | Dart | 209 | 2 | 11 | 222 |
+| [lib/pages/user_home/user_home_tips.dart](/lib/pages/user_home/user_home_tips.dart) | Dart | 162 | 4 | 14 | 180 |
+| [lib/pages/user_home/user_home_tips_gameinfo.dart](/lib/pages/user_home/user_home_tips_gameinfo.dart) | Dart | -2 | 0 | 0 | -2 |
+| [lib/pages/user_home/user_home_tips_gamelistitem.dart](/lib/pages/user_home/user_home_tips_gamelistitem.dart) | Dart | 34 | 6 | 5 | 45 |
+| [lib/pages/user_home/user_home_tips_livescoring.dart](/lib/pages/user_home/user_home_tips_livescoring.dart) | Dart | 189 | 5 | 10 | 204 |
+| [lib/pages/user_home/user_home_tips_tipchoice.dart](/lib/pages/user_home/user_home_tips_tipchoice.dart) | Dart | 59 | 4 | -1 | 62 |
+| [lib/pages/user_home/user_settings_about.dart](/lib/pages/user_home/user_settings_about.dart) | Dart | -32 | 0 | -3 | -35 |
+| [lib/pages/user_home/user_settings_adminfunctions.dart](/lib/pages/user_home/user_settings_adminfunctions.dart) | Dart | -56 | 0 | -2 | -58 |
+| [lib/services/firebase_messaging_service.dart](/lib/services/firebase_messaging_service.dart) | Dart | 40 | 6 | 11 | 57 |
+| [lib/services/firebase_remoteconfig_service.dart](/lib/services/firebase_remoteconfig_service.dart) | Dart | 26 | 3 | 4 | 33 |
+| [lib/services/fixture_download_service.dart](/lib/services/fixture_download_service.dart) | Dart | -25 | 41 | -2 | 14 |
+| [lib/services/fixture_mock_data_2024_afl_full.dart](/lib/services/fixture_mock_data_2024_afl_full.dart) | Dart | -2,279 | -3 | -2 | -2,284 |
+| [lib/services/fixture_mock_data_2024_nrl_full.dart](/lib/services/fixture_mock_data_2024_nrl_full.dart) | Dart | -2,246 | -3 | -2 | -2,251 |
+| [lib/services/google_sheet_service.dart.dart](/lib/services/google_sheet_service.dart.dart) | Dart | 228 | 39 | 57 | 324 |
+| [lib/services/package_info_service.dart](/lib/services/package_info_service.dart) | Dart | 8 | 0 | 3 | 11 |
+| [lib/theme_data.dart](/lib/theme_data.dart) | Dart | 12 | 1 | 2 | 15 |
+| [macos/Flutter/GeneratedPluginRegistrant.swift](/macos/Flutter/GeneratedPluginRegistrant.swift) | Swift | 6 | 0 | 0 | 6 |
+| [macos/Runner/Assets.xcassets/Contents.json](/macos/Runner/Assets.xcassets/Contents.json) | JSON | 6 | 0 | 1 | 7 |
+| [package-lock.json](/package-lock.json) | JSON | 34 | 0 | 1 | 35 |
+| [package.json](/package.json) | JSON | 5 | 0 | 1 | 6 |
+| [package_rename_config.yaml](/package_rename_config.yaml) | YAML | -14 | 0 | -3 | -17 |
+| [pubspec.yaml](/pubspec.yaml) | YAML | 12 | 0 | 0 | 12 |
+| [test/admin_daucomps_viewmodel_test.dart](/test/admin_daucomps_viewmodel_test.dart) | Dart | 9 | 2 | 3 | 14 |
+| [test/admin_games_viewmodel_test.dart](/test/admin_games_viewmodel_test.dart) | Dart | 0 | 46 | 0 | 46 |
+| [test/admin_games_viewmodel_test.mocks.dart](/test/admin_games_viewmodel_test.mocks.dart) | Dart | 207 | 22 | 20 | 249 |
+| [test/firebase_database_mock.dart](/test/firebase_database_mock.dart) | Dart | 8 | 3 | 5 | 16 |
+| [test/game_gamestate_test.dart](/test/game_gamestate_test.dart) | Dart | 92 | 0 | 5 | 97 |
+| [test/game_scoring_test.dart](/test/game_scoring_test.dart) | Dart | 92 | -2 | 14 | 104 |
+| [test/tipperrole_test.dart](/test/tipperrole_test.dart) | Dart | 10 | 0 | 2 | 12 |
+
+[Summary](results.md) / [Details](details.md) / [Diff Summary](diff.md) / Diff Details

@@ -341,7 +341,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     } else {
                       comps = snapshot.data!;
                       // sort the comps by name descending
-                      comps.sort((a, b) => b.name.compareTo(a.name));
+                      comps.sort((a, b) =>
+                          b.name.toLowerCase().compareTo(a.name.toLowerCase()));
                       return Column(
                         children: [
                           const Text(

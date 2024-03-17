@@ -1,4 +1,3 @@
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';

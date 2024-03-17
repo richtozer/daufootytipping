@@ -61,31 +61,30 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
                       daucomps.sort((a, b) => b.name.compareTo(a.name));
                       return ListView(
                         children: daucomps
-                                .map(
-                                  (daucomp) => Card(
-                                    child: ListTile(
-                                      dense: true,
-                                      isThreeLine: true,
-                                      leading: daucomp.active
-                                          ? const Icon(Icons.ballot)
-                                          : const Icon(Icons.ballot_outlined),
-                                      trailing: const Icon(Icons.edit),
-                                      title: Text(daucomp.name),
-                                      subtitle: daucomp
-                                                  .lastFixtureUpdateTimestamp !=
-                                              null
-                                          ? Text(
-                                              'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestamp?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}')
-                                          : const Text(''),
-                                      onTap: () async {
-                                        // Trigger edit functionality
-                                        await _editDAUComp(daucomp, context);
-                                      },
-                                    ),
-                                  ),
-                                )
-                                .toList() ??
-                            <Widget>[],
+                            .map(
+                              (daucomp) => Card(
+                                child: ListTile(
+                                  dense: true,
+                                  isThreeLine: true,
+                                  leading: daucomp.active
+                                      ? const Icon(Icons.ballot)
+                                      : const Icon(Icons.ballot_outlined),
+                                  trailing: const Icon(Icons.edit),
+                                  title: Text(daucomp.name),
+                                  subtitle: daucomp
+                                              .lastFixtureUpdateTimestamp !=
+                                          null
+                                      ? Text(
+                                          'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestamp?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}')
+                                      : const Text(''),
+                                  onTap: () async {
+                                    // Trigger edit functionality
+                                    await _editDAUComp(daucomp, context);
+                                  },
+                                ),
+                              ),
+                            )
+                            .toList(),
                       );
                     }
                   },

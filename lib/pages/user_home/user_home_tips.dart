@@ -277,7 +277,7 @@ class TipsPageState extends State<TipsPage> {
 }
 
 class GameListBuilder extends StatefulWidget {
-  GameListBuilder(
+  const GameListBuilder(
       {super.key,
       required this.currentTipper,
       required this.dauRound,

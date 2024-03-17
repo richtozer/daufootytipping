@@ -48,25 +48,42 @@ class Profile extends StatelessWidget with WatchItMixin {
                             child: Consumer<DAUCompsViewModel>(
                               builder:
                                   (context, dauCompsViewModelConsumer, child) {
-                                return DropdownButton<String>(
-                                  value: selectedDAUCompDbKey,
-                                  icon: const Icon(Icons.arrow_downward),
-                                  onChanged: (String? newValue) {
-                                    // update the current comp
-                                    dauCompsViewModelConsumer
-                                        .setCurrentDAUComp(newValue!);
-                                  },
-                                  items: di<TippersViewModel>()
-                                      .selectedTipper!
-                                      .compsParticipatedIn
-                                      .map<DropdownMenuItem<String>>(
-                                          (DAUComp comp) {
-                                    return DropdownMenuItem<String>(
-                                      value: comp.dbkey,
-                                      child: Text(comp.name),
-                                    );
-                                  }).toList(),
-                                );
+                                if (di<TippersViewModel>()
+                                    .selectedTipper!
+                                    .compsParticipatedIn
+                                    .isEmpty) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: SizedBox(
+                                      width: 250,
+                                      child: Text(
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                          'You are not active in any competitions. Contact a DAU Admin.'),
+                                    ),
+                                  );
+                                } else {
+                                  return DropdownButton<String>(
+                                    value: selectedDAUCompDbKey,
+                                    icon: const Icon(Icons.arrow_downward),
+                                    onChanged: (String? newValue) {
+                                      // update the current comp
+                                      dauCompsViewModelConsumer
+                                          .setCurrentDAUComp(newValue!);
+                                    },
+                                    items: di<TippersViewModel>()
+                                        .selectedTipper!
+                                        .compsParticipatedIn
+                                        .map<DropdownMenuItem<String>>(
+                                            (DAUComp comp) {
+                                      return DropdownMenuItem<String>(
+                                        value: comp.dbkey,
+                                        child: Text(comp.name),
+                                      );
+                                    }).toList(),
+                                  );
+                                }
                               },
                             ),
                           ),

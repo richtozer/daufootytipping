@@ -139,11 +139,11 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       if (ascending) {
-        scoresViewModel.leaderboard
-            .sort((a, b) => a.tipper.name.compareTo(b.tipper.name));
+        scoresViewModel.leaderboard.sort((a, b) =>
+            a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase()));
       } else {
-        scoresViewModel.leaderboard
-            .sort((a, b) => b.tipper.name.compareTo(a.tipper.name));
+        scoresViewModel.leaderboard.sort((a, b) =>
+            b.tipper.name.toLowerCase().compareTo(a.tipper.name.toLowerCase()));
       }
     }
     if (columnIndex == 1) {
