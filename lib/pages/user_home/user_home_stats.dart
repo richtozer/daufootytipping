@@ -14,9 +14,9 @@ class StatsPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          HeaderWidget(
+          const HeaderWidget(
               text: 'S t a t s',
-              leadingIconAvatar: const Hero(
+              leadingIconAvatar: Hero(
                   tag: 'auto_graph',
                   child:
                       Icon(Icons.auto_graph, color: Colors.white, size: 40))),

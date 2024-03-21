@@ -1,10 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -161,13 +160,15 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       if (ascending) {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => a.key.name.compareTo(b.key.name));
+          ..sort((a, b) =>
+              a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => b.key.name.compareTo(a.key.name));
+          ..sort((a, b) =>
+              b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
@@ -277,12 +278,10 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           ))
       .toList();
 
-  CircleAvatar avatarPic(Tipper tipper) {
-    return CircleAvatar(
-      radius: 15,
-      backgroundImage: tipper.photoURL != ''
-          ? CachedNetworkImageProvider(tipper.photoURL!)
-          : null,
-    );
+  Widget avatarPic(Tipper tipper) {
+    return Hero(
+        tag: tipper.dbkey!,
+        child: circleAvatarWithFallback(
+            imageUrl: tipper.photoURL!, radius: 15, text: tipper.name));
   }
 }
