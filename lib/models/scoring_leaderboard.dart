@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/tipper.dart';
 class LeaderboardEntry {
   int rank;
   Tipper tipper;
-  String? profileURL;
   int total;
   int nRL;
   int aFL;
@@ -28,7 +27,6 @@ class LeaderboardEntry {
     required this.aflUPS,
     required this.nrlMargins,
     required this.nrlUPS,
-    this.profileURL,
   });
 
   // method to convert instance into json

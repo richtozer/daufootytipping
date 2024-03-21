@@ -18,49 +18,53 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
     return SizedBox(
       width: 300,
       child: Card(
+        color: Colors.grey[200],
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
         ),
-        child: Column(children: [
-          const SizedBox(
-            width: 300,
-            child: Text(
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.normal),
-                'Only admins can see these options: '),
-          ),
-          OutlinedButton(
-            child: const Text('Admin DAU Comps'),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const DAUCompsListPage(),
-                ),
-              );
-            },
-          ),
-          OutlinedButton(
-              child: const Text('Admin Tippers'),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(children: [
+            const SizedBox(
+              width: 300,
+              child: Text(
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.normal),
+                  'Only admins can see these options: '),
+            ),
+            OutlinedButton(
+              child: const Text('Admin DAU Comps'),
               onPressed: () {
-                Navigator.of(
-                  context,
-                ).push(
+                Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const TippersAdminPage(),
+                    builder: (context) => const DAUCompsListPage(),
                   ),
                 );
-              }),
-          OutlinedButton(
-            child: const Text('Admin Teams'),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const TeamsListPage(),
-                ),
-              );
-            },
-          ),
-        ]),
+              },
+            ),
+            OutlinedButton(
+                child: const Text('Admin Tippers'),
+                onPressed: () {
+                  Navigator.of(
+                    context,
+                  ).push(
+                    MaterialPageRoute(
+                      builder: (context) => const TippersAdminPage(),
+                    ),
+                  );
+                }),
+            OutlinedButton(
+              child: const Text('Admin Teams'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const TeamsListPage(),
+                  ),
+                );
+              },
+            ),
+          ]),
+        ),
       ),
     );
   }

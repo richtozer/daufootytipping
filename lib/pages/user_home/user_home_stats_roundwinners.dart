@@ -1,6 +1,10 @@
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
+import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
@@ -16,8 +20,8 @@ class StatRoundWinners extends StatefulWidget {
 
 class _StatRoundWinnersState extends State<StatRoundWinners> {
   late AllScoresViewModel scoresViewModel;
-  bool isAscending = true;
-  int? sortColumnIndex = 1;
+  bool isAscending = false;
+  int? sortColumnIndex = 0;
 
   final List<String> columns = [
     "Round",
@@ -32,8 +36,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel =
-        AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
+    //scoresViewModel =
+    //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
+    scoresViewModel = di<AllScoresViewModel>();
   }
 
   @override
@@ -43,35 +48,22 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       child: Consumer<AllScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return Scaffold(
+            floatingActionButton: FloatingActionButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Icon(Icons.arrow_back),
+            ),
             body: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/teams/daulogo.jpg',
-                          fit: BoxFit.fitWidth,
-                        ),
-                      ),
-                      ListTile(
-                        title: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                                'Round Winners')),
-                        leading: const Icon(
-                            size: 30, color: Colors.white, Icons.arrow_back),
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
-                      ),
-                    ],
+                  HeaderWidget(
+                    text: 'Round Winners',
+                    leadingIconAvatar: const Hero(
+                        tag: 'person',
+                        child:
+                            Icon(Icons.person, color: Colors.white, size: 50)),
                   ),
                   Expanded(
                       child: Padding(
@@ -93,38 +85,71 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       isHorizontalScrollBarVisible: true,
                       isVerticalScrollBarVisible: true,
                       columns: getColumns(columns),
-                      rows: List<DataRow>.generate(
-                          scoresViewModelConsumer.leaderboard.length,
-                          (index) => DataRow(
-                                cells: [
-                                  DataCell(Text(
-                                      overflow: TextOverflow.ellipsis,
-                                      scoresViewModelConsumer
-                                          .roundWinners[index].name)),
-                                  DataCell(Text(scoresViewModelConsumer
-                                      .roundWinners[index].roundNumber
-                                      .toString())),
-                                  DataCell(Text(scoresViewModelConsumer
-                                      .roundWinners[index].total
-                                      .toString())),
-                                  DataCell(Text(scoresViewModelConsumer
-                                      .roundWinners[index].nRL
-                                      .toString())),
-                                  DataCell(Text(scoresViewModelConsumer
-                                      .roundWinners[index].aFL
-                                      .toString())),
-                                  DataCell(Text((scoresViewModelConsumer
-                                              .roundWinners[index].aflMargins +
-                                          scoresViewModelConsumer
-                                              .roundWinners[index].nrlMargins)
-                                      .toString())),
-                                  DataCell(Text((scoresViewModelConsumer
-                                              .roundWinners[index].aflUPS +
-                                          scoresViewModelConsumer
-                                              .roundWinners[index].nrlUPS)
-                                      .toString())),
-                                ],
-                              )),
+                      rows:
+                          scoresViewModel.roundWinners.values.expand((winners) {
+                        return winners.map((winner) => DataRow(
+                              cells: [
+                                DataCell(
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      const CircleAvatar(
+                                          child: Icon(Icons.arrow_forward,
+                                              size: 20)),
+                                      Text('  ${winner.roundNumber}'),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                                DataCell(
+                                  Row(
+                                    children: [
+                                      const CircleAvatar(
+                                          radius: 10,
+                                          child: Icon(Icons.person, size: 10)),
+                                      Text(winner.tipper.name.toString()),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                                DataCell(
+                                  Text(winner.total.toString()),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                                DataCell(
+                                  Text(winner.nRL.toString()),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                                DataCell(
+                                  Text(winner.aFL.toString()),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                                DataCell(
+                                  Text(winner.aflMargins.toString()),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                                DataCell(
+                                  Text(winner.aflUPS.toString()),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
+                                ),
+                              ],
+                            ));
+                      }).toList(),
                     ),
                   ))
                 ],
@@ -136,8 +161,15 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     );
   }
 
+  void onRowTapped(BuildContext context, RoundWinnerEntry winner) {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => StatRoundLeaderboard(winner.roundNumber)));
+  }
+
   void onSort(int columnIndex, bool ascending) {
-    if (columnIndex == 0) {
+    if (columnIndex == 1) {
       if (ascending) {
         scoresViewModel.leaderboard.sort((a, b) =>
             a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase()));
@@ -146,7 +178,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
             b.tipper.name.toLowerCase().compareTo(a.tipper.name.toLowerCase()));
       }
     }
-    if (columnIndex == 1) {
+    if (columnIndex == 0) {
       if (ascending) {
         scoresViewModel.leaderboard.sort((a, b) => a.rank.compareTo(b.rank));
       } else {
