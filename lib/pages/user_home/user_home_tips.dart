@@ -58,8 +58,8 @@ class TipsPageState extends State<TipsPage> {
     double gameCardHeight = 128.0; // Replace with your actual item height
     double leagueHeaderHeight = 66;
     double emptyRoundHeight = 75;
-    int gameCount = 247; // Replace with your actual index
-    int roundCount = 16; // Replace with your actual index
+    int gameCount = 27; // Replace with your actual index
+    int roundCount = 3; // Replace with your actual index
     double scrollPosition =
         (gameCardHeight * gameCount) + (leagueHeaderHeight * 2 * roundCount);
 

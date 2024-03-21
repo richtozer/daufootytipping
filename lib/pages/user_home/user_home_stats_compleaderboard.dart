@@ -1,9 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
 import 'package:flutter/material.dart';
@@ -83,9 +82,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            HeaderWidget(
+            const HeaderWidget(
               text: 'C o m p   L e a d e r b o a r d',
-              leadingIconAvatar: const Hero(
+              leadingIconAvatar: Hero(
                   tag: 'trophy',
                   child:
                       Icon(Icons.emoji_events, color: Colors.white, size: 50)),
@@ -290,13 +289,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   Widget avatarPic(Tipper tipper) {
     return Hero(
-      tag: tipper.dbkey!,
-      child: CircleAvatar(
-        radius: 15,
-        backgroundImage: tipper.photoURL != ''
-            ? CachedNetworkImageProvider(tipper.photoURL!)
-            : null,
-      ),
-    );
+        tag: tipper.dbkey!,
+        child: circleAvatarWithFallback(
+            imageUrl: tipper.photoURL!, radius: 15, text: tipper.name));
   }
 }
