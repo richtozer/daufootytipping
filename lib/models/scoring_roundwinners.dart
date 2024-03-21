@@ -1,6 +1,8 @@
+import 'package:daufootytipping/models/tipper.dart';
+
 class RoundWinnerEntry {
   int roundNumber;
-  String name;
+  Tipper tipper;
   int total;
   int nRL;
   int aFL;
@@ -15,7 +17,7 @@ class RoundWinnerEntry {
   //constructor
   RoundWinnerEntry({
     required this.roundNumber,
-    required this.name,
+    required this.tipper,
     required this.total,
     required this.nRL,
     required this.aFL,
