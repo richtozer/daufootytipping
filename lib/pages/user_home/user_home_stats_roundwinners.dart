@@ -1,8 +1,10 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:flutter/material.dart';
@@ -58,9 +60,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const HeaderWidget(
+                  HeaderWidget(
                     text: 'Round Winners',
-                    leadingIconAvatar: Hero(
+                    leadingIconAvatar: const Hero(
                         tag: 'person',
                         child:
                             Icon(Icons.person, color: Colors.white, size: 50)),
