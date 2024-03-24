@@ -1,9 +1,9 @@
-
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -56,8 +56,11 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   Scaffold buildScaffold(BuildContext context,
       AllScoresViewModel scoresViewModelConsumer, bool isLargeScreen) {
+    Orientation orientation = MediaQuery.of(context).orientation;
+
     return Scaffold(
       floatingActionButton: FloatingActionButton(
+        heroTag: 'roundscoresfortipper',
         onPressed: () {
           Navigator.pop(context);
         },
@@ -67,9 +70,11 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            HeaderWidget(
-                text: '${widget.statsTipper.name} - Round scores',
-                leadingIconAvatar: avatarPic(widget.statsTipper)),
+            orientation == Orientation.portrait
+                ? HeaderWidget(
+                    text: '${widget.statsTipper.name} - Round scores',
+                    leadingIconAvatar: avatarPic(widget.statsTipper))
+                : Text('${widget.statsTipper.name} - Round scores'),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),
@@ -84,7 +89,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                     horizontalMargin: 0,
                     minWidth: 600,
                     fixedTopRows: 1,
-                    fixedLeftColumns: isLargeScreen ? 1 : 0,
+                    fixedLeftColumns:
+                        orientation == Orientation.portrait ? 1 : 0,
                     showCheckboxColumn: false,
                     isHorizontalScrollBarVisible: true,
                     isVerticalScrollBarVisible: true,
@@ -110,13 +116,45 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         .getTipperRoundScoresForComp(widget.statsTipper)[index];
     return DataRow(
       cells: [
-        DataCell(Text((index + 1).toString())),
-        DataCell(Text((scores.nrlScore + scores.aflScore).toString())),
-        DataCell(Text(scores.nrlScore.toString())),
-        DataCell(Text(scores.aflScore.toString())),
+        DataCell(Text((index + 1).toString()), onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => StatRoundGameScoresForTipper(
+                      widget.statsTipper, index + 1)));
+        }),
+        DataCell(Text((scores.nrlScore + scores.aflScore).toString()),
+            onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => StatRoundGameScoresForTipper(
+                      widget.statsTipper, index + 1)));
+        }),
+        DataCell(Text(scores.nrlScore.toString()), onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => StatRoundGameScoresForTipper(
+                      widget.statsTipper, index + 1)));
+        }),
+        DataCell(Text(scores.aflScore.toString()), onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => StatRoundGameScoresForTipper(
+                      widget.statsTipper, index + 1)));
+        }),
         DataCell(
             Text((scores.aflMarginTips + scores.nrlMarginTips).toString())),
-        DataCell(Text((scores.aflMarginUPS + scores.nrlMarginUPS).toString())),
+        DataCell(Text((scores.aflMarginUPS + scores.nrlMarginUPS).toString()),
+            onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => StatRoundGameScoresForTipper(
+                      widget.statsTipper, index + 1)));
+        }),
       ],
     );
   }
@@ -212,6 +250,6 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     return Hero(
         tag: tipper.dbkey!,
         child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL!, radius: 30, text: tipper.name));
+            imageUrl: tipper.photoURL, text: tipper.name, radius: 30));
   }
 }

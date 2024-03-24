@@ -97,7 +97,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                     child: ListTile(
                                       dense: true,
                                       isThreeLine: true,
-                                      leading: avatarPic(tipper.photoURL!),
+                                      leading: tipper.photoURL != null
+                                          ? avatarPic(tipper.photoURL!)
+                                          : null,
                                       trailing: tipperActiveInCurrentComp
                                           ? const Icon(Icons.person)
                                           : const Icon(Icons.person_off),

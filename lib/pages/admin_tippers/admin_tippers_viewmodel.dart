@@ -47,15 +47,11 @@ class TippersViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
-  FirebaseService? firebaseService;
+  FirebaseMessagingService? firebaseService;
 
   //constructor
   TippersViewModel(this.firebaseService) {
     log('TippersViewModel() constructor called');
-
-    if (firebaseService != null) {
-      firebaseService!.addListener(handleFirebaseServiceChange);
-    }
     _listenToTippers();
   }
 

@@ -79,7 +79,7 @@ Future<void> main() async {
     return true;
   };
 
-  FirebaseService firebaseService = FirebaseService();
+  FirebaseMessagingService firebaseService = FirebaseMessagingService();
 
   // setup some default analytics parameters
   if (!kIsWeb) {
@@ -110,7 +110,7 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   final RemoteConfigService remoteConfigService;
   final String configDAUComp;
-  final FirebaseService firebaseService;
+  final FirebaseMessagingService firebaseService;
   const MyApp(
       this.remoteConfigService, this.configDAUComp, this.firebaseService,
       {super.key});

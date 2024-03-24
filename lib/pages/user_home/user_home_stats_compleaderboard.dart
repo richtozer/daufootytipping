@@ -47,17 +47,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       value: scoresViewModel,
       child: Consumer<AllScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
-          return buildScaffold(
-            context,
-            scoresViewModelConsumer,
-            MediaQuery.of(context).size.width > 500 ? 0 : 1,
-            MediaQuery.of(context).size.width > 500
-                ? di<TippersViewModel>().authenticatedTipper!.name
-                : di<TippersViewModel>().selectedTipper!.name,
-            MediaQuery.of(context).size.width > 500
-                ? Colors.lightGreenAccent
-                : Theme.of(context).hintColor,
-          );
+          return buildScaffold(context, scoresViewModelConsumer,
+              di<TippersViewModel>().selectedTipper!.name, Colors.white);
         },
       ),
     );
@@ -66,10 +57,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   Widget buildScaffold(
     BuildContext context,
     AllScoresViewModel scoresViewModelConsumer,
-    int fixedLeftColumns,
     String name,
     Color color,
   ) {
+    Orientation orientation = MediaQuery.of(context).orientation;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         heroTag: 'compLeaderboard',
@@ -82,13 +73,16 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const HeaderWidget(
-              text: 'C o m p   L e a d e r b o a r d',
-              leadingIconAvatar: Hero(
-                  tag: 'trophy',
-                  child:
-                      Icon(Icons.emoji_events, color: Colors.white, size: 50)),
-            ),
+            orientation == Orientation.portrait
+                ? const HeaderWidget(
+                    text: 'C o m p   L e a d e r b o a r d',
+                    leadingIconAvatar: Hero(
+                      tag: 'trophy',
+                      child: Icon(Icons.emoji_events,
+                          color: Colors.white, size: 50),
+                    ),
+                  )
+                : Container(), // Return an empty container in landscape mode
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),
@@ -103,7 +97,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                     horizontalMargin: 0,
                     minWidth: 600,
                     fixedTopRows: 1,
-                    fixedLeftColumns: fixedLeftColumns,
+                    fixedLeftColumns:
+                        orientation == Orientation.portrait ? 1 : 0,
                     showCheckboxColumn: false,
                     isHorizontalScrollBarVisible: true,
                     isVerticalScrollBarVisible: true,
@@ -124,12 +119,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                       children: [
                                         avatarPic(scoresViewModelConsumer
                                             .leaderboard[index].tipper),
-                                        Text(
-                                            overflow: TextOverflow.ellipsis,
-                                            scoresViewModelConsumer
-                                                .leaderboard[index]
-                                                .tipper
-                                                .name),
+                                        Flexible(
+                                          child: Text(scoresViewModelConsumer
+                                              .leaderboard[index].tipper.name),
+                                        ),
                                       ],
                                     ),
                                     onTap: () => onTipperTapped(context,
@@ -291,6 +284,6 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     return Hero(
         tag: tipper.dbkey!,
         child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL!, radius: 15, text: tipper.name));
+            imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
   }
 }

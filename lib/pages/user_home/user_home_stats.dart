@@ -10,23 +10,28 @@ class StatsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Orientation orientation = MediaQuery.of(context).orientation;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const HeaderWidget(
-              text: 'S t a t s',
-              leadingIconAvatar: Hero(
-                  tag: 'auto_graph',
-                  child:
-                      Icon(Icons.auto_graph, color: Colors.white, size: 40))),
+          orientation == Orientation.portrait
+              ? const HeaderWidget(
+                  text: 'S t a t s',
+                  leadingIconAvatar: Hero(
+                      tag: 'stats',
+                      child: Icon(Icons.auto_graph,
+                          color: Colors.white, size: 40)))
+              : Text(style: TextStyle(color: Colors.white), 'Stats'),
           Expanded(
             child: Card(
               margin: const EdgeInsets.all(10),
               child: ListView(
                 children: <Widget>[
                   ListTile(
-                    leading: const Icon(Icons.emoji_events),
+                    leading: const Hero(
+                        tag: 'compLeaderboard',
+                        child: Icon(Icons.emoji_events)),
                     trailing: const Icon(Icons.arrow_forward),
                     title: const Text('Comp Leaderboard'),
                     onTap: () {

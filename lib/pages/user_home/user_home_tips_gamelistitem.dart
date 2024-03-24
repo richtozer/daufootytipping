@@ -127,12 +127,6 @@ class _GameListItemState extends State<GameListItem> {
 
           if (gameTipsViewModelConsumer.game.gameState ==
               GameState.notStarted) {
-            // if (gameTipsViewModelConsumer.game.gameState ==
-            //         GameState.notStarted ||
-            //     gameTipsViewModelConsumer.game.gameState ==
-            //         GameState.resultKnown) {
-            // game start time is more than 14 hours away just return a plain gameDetailsCard
-            // with no banner
             return gameDetailsCard;
           }
 

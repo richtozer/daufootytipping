@@ -533,8 +533,42 @@ class DAUCompsViewModel extends ChangeNotifier {
     return combinedRoundNumbers;
   }
 
+  Future<Map<League, List<Game>>> getGamesForCombinedRoundNumber(
+      int combinedRoundNumber) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('getGamesForCombinedRoundNumber() waiting for initial Game load to complete');
+    }
+
+    await initialLoadComplete;
+
+    //get the current DAUComp
+    DAUComp? daucomp = await getCurrentDAUComp();
+
+    List<Game> nrlGames = [];
+    List<Game> aflGames = [];
+
+    userGamesViewModel ??= di<GamesViewModel>();
+
+    for (var round in daucomp!.daurounds!) {
+      if (round.dAUroundNumber == combinedRoundNumber) {
+        for (var gameKey in round.gamesAsKeys) {
+          Game? game = await userGamesViewModel!.findGame(gameKey);
+          if (game != null) {
+            if (game.league == League.nrl) {
+              nrlGames.add(game);
+            } else if (game.league == League.afl) {
+              aflGames.add(game);
+            }
+          }
+        }
+      }
+    }
+
+    return {League.nrl: nrlGames, League.afl: aflGames};
+  }
+
   //method to get a List<Game> of the games for a given combined round number and league
-  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague(
+  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague_DELETE(
       int combinedRoundNumber, League league) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('getGamesForCombinedRoundNumberAndLeague() waiting for initial Game load to complete');
@@ -558,6 +592,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
+    notifyListeners();
+
     return gamesForCombinedRoundNumberAndLeague;
   }
 
@@ -569,13 +605,17 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
     await initialLoadComplete;
 
-    //filter games to find all games where combinedRoundNumber == combinedRoundNumber and league == league
-    List<Game> filteredNrlGames = await getGamesForCombinedRoundNumberAndLeague(
-        combinedRoundNumber, League.nrl);
+    //get all the games for this round
+    Map<League, List<Game>> gamesForCombinedRoundNumber =
+        await getGamesForCombinedRoundNumber(combinedRoundNumber);
 
-    //filter games to find all games where combinedRoundNumber == combinedRoundNumber and league == league
-    List<Game> filteredAflGames = await getGamesForCombinedRoundNumberAndLeague(
-        combinedRoundNumber, League.afl);
+    if (!_initialLoadCompleter.isCompleted) {
+      log('getGamesForCombinedRoundNumber() waiting for initial Game load to complete');
+    }
+    await initialLoadComplete;
+
+    List<Game> filteredNrlGames = gamesForCombinedRoundNumber[League.nrl]!;
+    List<Game> filteredAflGames = gamesForCombinedRoundNumber[League.afl]!;
 
     String defaultRoundNrlTips = 'D' * filteredNrlGames.length;
     defaultRoundNrlTips = defaultRoundNrlTips.padRight(

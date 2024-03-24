@@ -308,8 +308,16 @@ class _GameListBuilderState extends State<GameListBuilder> {
 
     daucompsViewModel = di<DAUCompsViewModel>();
 
-    gamesFuture = daucompsViewModel.getGamesForCombinedRoundNumberAndLeague(
-        widget.dauRound.dAUroundNumber, widget.league);
+    //get all the games for this round
+    Future<Map<League, List<Game>>> gamesForCombinedRoundNumber =
+        daucompsViewModel
+            .getGamesForCombinedRoundNumber(widget.dauRound.dAUroundNumber);
+
+    //get all the games for this round and league
+    gamesFuture =
+        gamesForCombinedRoundNumber.then((Map<League, List<Game>> gamesMap) {
+      return gamesMap[widget.league];
+    });
   }
 
   @override
