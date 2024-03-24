@@ -241,6 +241,12 @@ class AllScoresViewModel extends ChangeNotifier {
         .update(compScores);
   }
 
+  void updateRoundWinnersSorted(
+      Map<int, List<RoundWinnerEntry>> newRoundWinners) {
+    _roundWinners = newRoundWinners;
+    notifyListeners(); // If your ViewModel is a ChangeNotifier
+  }
+
   Future<void> updateRoundWinners() async {
     if (!_initialCompAllTipperLoadCompleter.isCompleted) {
       await _initialCompAllTipperLoadCompleter.future;

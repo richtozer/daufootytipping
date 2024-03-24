@@ -214,7 +214,7 @@ class GamesViewModel extends ChangeNotifier {
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
-  //  returns ture if any games were held in the last 24 hours
+  //  returns true if any games were held in the last 24 hours
   Future<bool> anyGamesHeldYesterday() {
     return initialLoadComplete.then((_) {
       DateTime now = DateTime.now().toUtc();

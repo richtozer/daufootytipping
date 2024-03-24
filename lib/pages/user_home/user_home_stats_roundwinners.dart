@@ -1,10 +1,8 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:flutter/material.dart';
@@ -49,8 +47,10 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       value: scoresViewModel,
       child: Consumer<AllScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
+          Orientation orientation = MediaQuery.of(context).orientation;
           return Scaffold(
             floatingActionButton: FloatingActionButton(
+              heroTag: 'roundWinners',
               onPressed: () {
                 Navigator.pop(context);
               },
@@ -60,16 +60,18 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  HeaderWidget(
-                    text: 'Round Winners',
-                    leadingIconAvatar: const Hero(
-                        tag: 'person',
-                        child:
-                            Icon(Icons.person, color: Colors.white, size: 50)),
-                  ),
+                  orientation == Orientation.portrait
+                      ? const HeaderWidget(
+                          text: 'Round Winners',
+                          leadingIconAvatar: Hero(
+                              tag: 'person',
+                              child: Icon(Icons.person,
+                                  color: Colors.white, size: 50)),
+                        )
+                      : const Text('Round Winners'),
                   Expanded(
                       child: Padding(
-                    padding: const EdgeInsets.all(5.0),
+                    padding: const EdgeInsets.all(10.0),
                     child: DataTable2(
                       border: TableBorder.all(
                         width: 1.0,
@@ -82,7 +84,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       horizontalMargin: 0,
                       minWidth: 600,
                       fixedTopRows: 1,
-                      fixedLeftColumns: 2,
+                      fixedLeftColumns:
+                          orientation == Orientation.portrait ? 2 : 0,
                       showCheckboxColumn: false,
                       isHorizontalScrollBarVisible: true,
                       isVerticalScrollBarVisible: true,
@@ -107,7 +110,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                   Row(
                                     children: [
                                       avatarPic(winner.tipper),
-                                      Text(winner.tipper.name.toString()),
+                                      Flexible(
+                                          child: Text(
+                                              winner.tipper.name.toString())),
                                     ],
                                   ),
                                   onTap: () {
@@ -167,27 +172,22 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
-      if (ascending) {
-        for (var winners in scoresViewModel.roundWinners.values) {
-          winners.sort((a, b) => a.roundNumber.compareTo(b.roundNumber));
-        }
-      } else {
-        for (var winners in scoresViewModel.roundWinners.values) {
-          winners.sort((a, b) => b.roundNumber.compareTo(a.roundNumber));
-        }
-      }
-    }
+      var sortedRoundWinners = scoresViewModel.roundWinners.map((key, winners) {
+        List<RoundWinnerEntry> sortedWinners = List.from(winners);
+        sortedWinners.sort((a, b) => ascending
+            ? a.roundNumber.compareTo(b.roundNumber)
+            : b.roundNumber.compareTo(a.roundNumber));
+        return MapEntry(key, sortedWinners);
+      });
 
-    setState(() {
-      sortColumnIndex = columnIndex;
-      isAscending = ascending;
-    });
+      scoresViewModel.updateRoundWinnersSorted(sortedRoundWinners);
+    }
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
-            size: column == 'Rank' ? ColumnSize.S : ColumnSize.M,
-            numeric: column == 'Name' ? false : true,
+            fixedWidth: column == 'Winner' ? 150 : 60,
+            numeric: column == 'Winner' ? false : true,
             label: Text(
               column,
             ),
@@ -199,6 +199,6 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     return Hero(
         tag: tipper.dbkey!,
         child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL!, radius: 15, text: tipper.name));
+            imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
   }
 }

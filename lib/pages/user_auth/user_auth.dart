@@ -25,7 +25,7 @@ class UserAuthPage extends StatelessWidget {
   final String currentDAUCompKey;
 
   final RemoteConfigService remoteConfigService;
-  final FirebaseService firebaseService;
+  final FirebaseMessagingService firebaseService;
 
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 

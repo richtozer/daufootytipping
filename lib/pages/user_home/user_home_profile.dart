@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
@@ -120,12 +120,8 @@ class Profile extends StatelessWidget with WatchItMixin {
   Widget avatarPic(Tipper tipper) {
     return Hero(
       tag: tipper.dbkey!,
-      child: CircleAvatar(
-        radius: 15,
-        backgroundImage: tipper.photoURL != ''
-            ? CachedNetworkImageProvider(tipper.photoURL!)
-            : null,
-      ),
+      child: circleAvatarWithFallback(
+          imageUrl: tipper.photoURL, text: tipper.name, radius: 30),
     );
   }
 }

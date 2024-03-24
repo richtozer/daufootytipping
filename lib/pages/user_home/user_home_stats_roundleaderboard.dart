@@ -5,6 +5,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dar
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -63,13 +64,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           return buildScaffold(
             context,
             scoresViewModelConsumer,
-            MediaQuery.of(context).size.width > 500 ? 0 : 1,
-            MediaQuery.of(context).size.width > 500
-                ? di<TippersViewModel>().authenticatedTipper!.name
-                : di<TippersViewModel>().selectedTipper!.name,
-            MediaQuery.of(context).size.width > 500
-                ? Colors.lightGreenAccent
-                : Theme.of(context).hintColor,
+            'Round ${widget.roundToDisplay} Leaderboard',
+            Colors.blue,
           );
         },
       ),
@@ -79,12 +75,13 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   Widget buildScaffold(
     BuildContext context,
     AllScoresViewModel scoresViewModelConsumer,
-    int fixedLeftColumns,
     String name,
     Color color,
   ) {
+    Orientation orientation = MediaQuery.of(context).orientation;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
+        heroTag: 'roundleaderboard',
         onPressed: () {
           Navigator.pop(context);
         },
@@ -94,13 +91,15 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            HeaderWidget(
-              text: 'Round ${widget.roundToDisplay} Leaderboard',
-              leadingIconAvatar: const Hero(
-                  tag: 'one_two_three',
-                  child:
-                      Icon(Icons.onetwothree, color: Colors.white, size: 50)),
-            ),
+            orientation == Orientation.portrait
+                ? HeaderWidget(
+                    text: 'Round ${widget.roundToDisplay} Leaderboard',
+                    leadingIconAvatar: const Hero(
+                        tag: 'one_two_three',
+                        child: Icon(Icons.onetwothree,
+                            color: Colors.white, size: 50)),
+                  )
+                : Text('Round ${widget.roundToDisplay} Leaderboard'),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),
@@ -115,7 +114,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                     horizontalMargin: 0,
                     minWidth: 600,
                     fixedTopRows: 1,
-                    fixedLeftColumns: fixedLeftColumns,
+                    fixedLeftColumns:
+                        orientation == Orientation.portrait ? 1 : 0,
                     showCheckboxColumn: false,
                     isHorizontalScrollBarVisible: true,
                     isVerticalScrollBarVisible: true,
@@ -125,13 +125,19 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                       return DataRow(
                         cells: [
                           DataCell(
-                            Row(
-                              children: [
-                                avatarPic(entry.key),
-                                Text(entry.key.name),
-                              ],
-                            ),
-                          ),
+                              Row(
+                                children: [
+                                  avatarPic(entry.key),
+                                  Flexible(child: Text(entry.key.name)),
+                                ],
+                              ), onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        StatRoundGameScoresForTipper(
+                                            entry.key, widget.roundToDisplay)));
+                          }),
                           DataCell(Text(entry.value.rank.toString())),
                           DataCell(Text(
                               (entry.value.aflScore + entry.value.nrlScore)
@@ -282,6 +288,6 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     return Hero(
         tag: tipper.dbkey!,
         child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL!, radius: 15, text: tipper.name));
+            imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
   }
 }
