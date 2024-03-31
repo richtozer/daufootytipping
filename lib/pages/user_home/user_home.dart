@@ -91,7 +91,7 @@ class _HomePageState extends State<HomePage> {
               enabled: di<TippersViewModel>()
                   .selectedTipper!
                   .activeInComp(widget.currentDAUCompKey),
-              icon: Icon(Icons.auto_graph),
+              icon: const Icon(Icons.auto_graph),
               label: 'S  T  A  T  S',
             ),
             const NavigationDestination(

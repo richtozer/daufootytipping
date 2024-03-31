@@ -2,7 +2,6 @@ import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
@@ -127,7 +126,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                           DataCell(
                               Row(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.arrow_forward,
                                     size: 15,
                                   ),

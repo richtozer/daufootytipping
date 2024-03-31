@@ -98,7 +98,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceEvenly,
                                     children: [
-                                      Icon(Icons.arrow_forward, size: 15),
+                                      const Icon(Icons.arrow_forward, size: 15),
                                       Text('  ${winner.roundNumber}'),
                                     ],
                                   ),

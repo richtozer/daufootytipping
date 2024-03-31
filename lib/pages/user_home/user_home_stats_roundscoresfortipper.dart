@@ -119,7 +119,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         DataCell(
             Row(
               children: [
-                Icon(Icons.arrow_forward, size: 15),
+                const Icon(Icons.arrow_forward, size: 15),
                 Text((index + 1).toString()),
               ],
             ), onTap: () {
