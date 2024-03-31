@@ -36,9 +36,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   void initState() {
     super.initState();
-    //scoresViewModel =
-    //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     scoresViewModel = di<AllScoresViewModel>();
+    onSort(0, false);
   }
 
   @override
@@ -99,6 +98,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceEvenly,
                                     children: [
+                                      Icon(Icons.arrow_forward, size: 15),
                                       Text('  ${winner.roundNumber}'),
                                     ],
                                   ),
@@ -172,22 +172,36 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
-      var sortedRoundWinners = scoresViewModel.roundWinners.map((key, winners) {
-        List<RoundWinnerEntry> sortedWinners = List.from(winners);
-        sortedWinners.sort((a, b) => ascending
-            ? a.roundNumber.compareTo(b.roundNumber)
-            : b.roundNumber.compareTo(a.roundNumber));
-        return MapEntry(key, sortedWinners);
+      // sort by round number
+      scoresViewModel.sortRoundWinnersByRoundNumber(ascending);
+      setState(() {
+        isAscending = ascending;
+        sortColumnIndex = columnIndex;
       });
+    }
+    if (columnIndex == 1) {
+      // sort by winner
+      scoresViewModel.sortRoundWinnersByWinner(ascending);
+      setState(() {
+        isAscending = ascending;
+        sortColumnIndex = columnIndex;
+      });
+    }
 
-      scoresViewModel.updateRoundWinnersSorted(sortedRoundWinners);
+    if (columnIndex == 2) {
+      // sort by total
+      scoresViewModel.sortRoundWinnersByTotal(ascending);
+      setState(() {
+        isAscending = ascending;
+        sortColumnIndex = columnIndex;
+      });
     }
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
             fixedWidth: column == 'Winner' ? 150 : 60,
-            numeric: column == 'Winner' ? false : true,
+            numeric: column == 'Winner' || column == 'Round' ? false : true,
             label: Text(
               column,
             ),

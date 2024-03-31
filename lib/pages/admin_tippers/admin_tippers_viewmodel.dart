@@ -87,8 +87,6 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<List<Tipper>> getAllTippers() async {
     await _initialLoadCompleter.future;
-    // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
-    // that matched the current comp
     return _tippers;
   }
 

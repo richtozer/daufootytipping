@@ -202,8 +202,13 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     buttonFixture(context, dauCompsViewModel),
-                    buttonLegacy(context, dauCompsViewModel),
-                    buttonScoring(context, dauCompsViewModel),
+                    // only show the scoring and legacy sync buttons if this record daucomp dbkey
+                    // is the selected daucomp dbkey
+                    if (daucomp?.dbkey == dauCompsViewModel.defaultDAUCompDbKey)
+                      buttonLegacy(context, dauCompsViewModel),
+
+                    if (daucomp?.dbkey == dauCompsViewModel.defaultDAUCompDbKey)
+                      buttonScoring(context, dauCompsViewModel),
                   ],
                 ),
                 const Text('Name:',

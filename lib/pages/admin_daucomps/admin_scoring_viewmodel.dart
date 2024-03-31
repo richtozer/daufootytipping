@@ -241,12 +241,6 @@ class AllScoresViewModel extends ChangeNotifier {
         .update(compScores);
   }
 
-  void updateRoundWinnersSorted(
-      Map<int, List<RoundWinnerEntry>> newRoundWinners) {
-    _roundWinners = newRoundWinners;
-    notifyListeners(); // If your ViewModel is a ChangeNotifier
-  }
-
   Future<void> updateRoundWinners() async {
     if (!_initialCompAllTipperLoadCompleter.isCompleted) {
       await _initialCompAllTipperLoadCompleter.future;
@@ -399,6 +393,36 @@ class AllScoresViewModel extends ChangeNotifier {
 
     notifyListeners();
     return;
+  }
+
+  void sortRoundWinnersByRoundNumber(bool ascending) {
+    var sortedEntries = _roundWinners.entries.toList()
+      ..sort((a, b) =>
+          ascending ? a.key.compareTo(b.key) : b.key.compareTo(a.key));
+
+    _roundWinners = Map.fromEntries(sortedEntries);
+  }
+
+  void sortRoundWinnersByWinner(bool ascending) {
+    var sortedEntries = _roundWinners.entries.toList()
+      ..sort((a, b) => ascending
+          ? a.value[0].tipper.name
+              .toLowerCase()
+              .compareTo(b.value[0].tipper.name.toLowerCase())
+          : b.value[0].tipper.name
+              .toLowerCase()
+              .compareTo(a.value[0].tipper.name.toLowerCase()));
+
+    _roundWinners = Map.fromEntries(sortedEntries);
+  }
+
+  void sortRoundWinnersByTotal(bool ascending) {
+    var sortedEntries = _roundWinners.entries.toList()
+      ..sort((a, b) => ascending
+          ? a.value[0].total.compareTo(b.value[0].total)
+          : b.value[0].total.compareTo(a.value[0].total));
+
+    _roundWinners = Map.fromEntries(sortedEntries);
   }
 
   List<RoundScores> getTipperRoundScoresForComp(Tipper tipper) {
