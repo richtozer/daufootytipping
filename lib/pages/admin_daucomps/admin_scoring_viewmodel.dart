@@ -86,39 +86,39 @@ class AllScoresViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
-    try {
-      if (event.snapshot.exists) {
-        var dbData = event.snapshot.value;
-        if (dbData is! Map) {
-          throw Exception('Invalid data type for all tipper round scores');
-        }
-
-        // Obtain the Map directly
-        List<MapEntry<Tipper, List<RoundScores>>> entries =
-            await Future.wait(dbData.entries.map((entry) async {
-          Tipper tipper = await di<TippersViewModel>().findTipper(entry.key);
-          List<RoundScores> scores = (entry.value as List)
-              .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
-              .toList();
-          return MapEntry(tipper, scores);
-        }));
-
-        // Convert List<MapEntry> to Map
-        _allTipperRoundScores = Map.fromEntries(entries);
-
-        if (!_initialRoundLoadCompleter.isCompleted) {
-          _initialRoundLoadCompleter.complete();
-        }
-      } else {
-        log('sss in _handleEventRoundScores snapshot ${event.snapshot.ref.path}  does not exist');
+    //try {  // TODO - add back in once we fix our null issue
+    if (event.snapshot.exists) {
+      var dbData = event.snapshot.value;
+      if (dbData is! Map) {
+        throw Exception('Invalid data type for all tipper round scores');
       }
 
-      updateLeaderboardForComp();
-      updateRoundWinners();
-    } catch (e) {
-      log('Error listening to /Scores: $e');
-      rethrow;
+      // Obtain the Map directly
+      List<MapEntry<Tipper, List<RoundScores>>> entries =
+          await Future.wait(dbData.entries.map((entry) async {
+        Tipper tipper = await di<TippersViewModel>().findTipper(entry.key);
+        List<RoundScores> scores = (entry.value as List)
+            .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        return MapEntry(tipper, scores);
+      }));
+
+      // Convert List<MapEntry> to Map
+      _allTipperRoundScores = Map.fromEntries(entries);
+
+      if (!_initialRoundLoadCompleter.isCompleted) {
+        _initialRoundLoadCompleter.complete();
+      }
+    } else {
+      log('sss in _handleEventRoundScores snapshot ${event.snapshot.ref.path}  does not exist');
     }
+
+    updateLeaderboardForComp();
+    updateRoundWinners();
+    //} catch (e) {
+    //  log('Error listening to /Scores/round_scores: $e');
+    //  rethrow;
+    //}
   }
 
   Future<void> _handleEventCompScores(DatabaseEvent event) async {
@@ -151,7 +151,7 @@ class AllScoresViewModel extends ChangeNotifier {
       updateLeaderboardForComp();
       updateRoundWinners();
     } catch (e) {
-      log('Error listening to /Scores: $e');
+      log('Error listening to /Scores/comp_scores: $e');
       rethrow;
     }
   }
@@ -192,7 +192,7 @@ class AllScoresViewModel extends ChangeNotifier {
         }
       }
     } catch (e) {
-      log('Error listening to /Scores/[comp/live_scores]: $e');
+      log('Error listening to /Scores/live_scores]: $e');
       rethrow;
     }
   }

@@ -292,6 +292,16 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       value: di<TippersViewModel>(),
                       child: Consumer<TippersViewModel>(
                         builder: (context, tippersViewModelConsumer, child) {
+                          // if the tipper being editing was not a participant for that year then display a msg that god mode is not available
+                          if (!tipper!.compsParticipatedIn.any((element) =>
+                              element.dbkey ==
+                              di<DAUCompsViewModel>().selectedDAUCompDbKey)) {
+                            return Container(
+                              child: const Text(
+                                  'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\nselected year'),
+                            );
+                          }
+
                           return Switch(
                             value: (tippersViewModelConsumer.inGodMode &&
                                 tippersViewModelConsumer.selectedTipper ==
