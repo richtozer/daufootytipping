@@ -22,7 +22,7 @@ class StatsPage extends StatelessWidget {
                       tag: 'stats',
                       child: Icon(Icons.auto_graph,
                           color: Colors.white, size: 40)))
-              : Text(style: TextStyle(color: Colors.white), 'Stats'),
+              : const Text(style: TextStyle(color: Colors.white), 'Stats'),
           Expanded(
             child: Card(
               margin: const EdgeInsets.all(10),
