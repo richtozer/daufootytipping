@@ -485,7 +485,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _daucomps;
   }
 
-  Future<DAUComp> getCompWithScores(Tipper tipper) async {
+  Future<DAUComp> getCompWithScores() async {
     print('SSS getCompWithScores started');
     if (!_initialLoadCompleter.isCompleted) {
       log('getCombinedRoundNumbers() waiting for initial Game load to complete');

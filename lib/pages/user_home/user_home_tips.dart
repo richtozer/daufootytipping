@@ -38,8 +38,7 @@ class TipsPageState extends State<TipsPage> {
     super.initState();
     log('TipsPageBody.constructor()');
 
-    dauCompWithScoresFuture = di<DAUCompsViewModel>()
-        .getCompWithScores(di<TippersViewModel>().selectedTipper!);
+    dauCompWithScoresFuture = di<DAUCompsViewModel>().getCompWithScores();
 
     allTipsViewModel = AllTipsViewModel.forTipper(
         di<TippersViewModel>(),
