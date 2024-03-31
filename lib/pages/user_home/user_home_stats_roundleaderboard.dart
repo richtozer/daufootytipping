@@ -24,7 +24,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   late AllScoresViewModel scoresViewModel;
   Map<Tipper, RoundScores> roundLeaderboard = {};
   bool isAscending = true;
-  int? sortColumnIndex = 1;
+  int? sortColumnIndex = 0;
 
   final List<String> columns = [
     'Name',
@@ -127,6 +127,10 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                           DataCell(
                               Row(
                                 children: [
+                                  Icon(
+                                    Icons.arrow_forward,
+                                    size: 15,
+                                  ),
                                   avatarPic(entry.key),
                                   Flexible(child: Text(entry.key.name)),
                                 ],

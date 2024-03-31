@@ -111,6 +111,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           String key = entry.key; // Retrieve the Firebase key
           dynamic daucompAsJSON = entry.value;
 
+          // Create a list of DAURounds for this DAUComp
           List<DAURound> daurounds = [];
           if (daucompAsJSON['combinedRounds'] != null) {
             List<dynamic> rounds =
@@ -125,11 +126,10 @@ class DAUCompsViewModel extends ChangeNotifier {
             }
           }
 
+          //deserialize the DAUComp with the DAURounds
           return DAUComp.fromJson(
               Map<String, dynamic>.from(daucompAsJSON), key, daurounds);
         }).toList();
-
-        //_daucomps.sort();
       }
     } catch (e) {
       log('Error listening to DAUComps: $e');
@@ -145,6 +145,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   static Duration fixtureUpdateTriggerDelay(DateTime lastUpdate) {
     // add 24 hours to lastUpdate
     DateTime nextUpdate = lastUpdate.add(const Duration(days: 1));
+
     // wind the nextUpdate clock back to 19:00 UTC
     DateTime timeUntilNewDay = DateTime.utc(
         nextUpdate.year, nextUpdate.month, nextUpdate.day, 19, 0, 0, 0, 0);

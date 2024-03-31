@@ -117,6 +117,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                 DataCell(
                                     Row(
                                       children: [
+                                        Icon(Icons.arrow_forward, size: 15),
                                         avatarPic(scoresViewModelConsumer
                                             .leaderboard[index].tipper),
                                         Flexible(

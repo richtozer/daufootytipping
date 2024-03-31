@@ -116,7 +116,13 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         .getTipperRoundScoresForComp(widget.statsTipper)[index];
     return DataRow(
       cells: [
-        DataCell(Text((index + 1).toString()), onTap: () {
+        DataCell(
+            Row(
+              children: [
+                Icon(Icons.arrow_forward, size: 15),
+                Text((index + 1).toString()),
+              ],
+            ), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
@@ -237,8 +243,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                 ? 150
                 : column == '#\nrounds\nwon' || column == 'Margins'
                     ? 75
-                    : 55,
-            numeric: column == 'Name' ? false : true,
+                    : 60,
+            numeric: column == 'Name' || column == 'Round' ? false : true,
             label: Text(
               column,
             ),
