@@ -343,7 +343,7 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, registerLinkedTipperForMessaging()');
     }
 
-    // get use permissions to notify with messaging, if required
+    // get user permission to notify with messaging, if required
     await firebaseService?.requestIOSNotificationPermission();
 
     // wait for the token to be populated
@@ -357,6 +357,8 @@ class TippersViewModel extends ChangeNotifier {
         .child(tokensPath)
         .child(_authenticatedTipper!.dbkey!)
         .update({token!: DateTime.now().toIso8601String()});
+
+    log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${token!.substring(token.length - 5)}');
   }
 
   //this is the callback method when there are changes in the FBM token

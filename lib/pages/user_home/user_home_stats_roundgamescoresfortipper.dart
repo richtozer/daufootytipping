@@ -252,11 +252,11 @@ class _StatRoundGameScoresForTipperState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    overflow: TextOverflow.fade,
+                    //overflow: TextOverflow.ellipsis,
                     '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}',
                   ),
                   Text(
-                    overflow: TextOverflow.fade,
+                    //overflow: TextOverflow.ellipsis,
                     '${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
                   ),
                 ],
