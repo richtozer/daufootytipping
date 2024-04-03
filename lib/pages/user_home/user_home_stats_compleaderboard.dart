@@ -47,8 +47,11 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       value: scoresViewModel,
       child: Consumer<AllScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
-          return buildScaffold(context, scoresViewModelConsumer,
-              di<TippersViewModel>().selectedTipper!.name, Colors.white);
+          return buildScaffold(
+              context,
+              scoresViewModelConsumer,
+              di<TippersViewModel>().selectedTipper!.name,
+              Theme.of(context).highlightColor);
         },
       ),
     );
@@ -63,7 +66,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     Orientation orientation = MediaQuery.of(context).orientation;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        heroTag: 'compLeaderboard',
+        //heroTag: 'compLeaderboard',
         onPressed: () {
           Navigator.pop(context);
         },
@@ -117,7 +120,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                 DataCell(
                                     Row(
                                       children: [
-                                        const Icon(Icons.arrow_forward, size: 15),
+                                        const Icon(Icons.arrow_forward,
+                                            size: 15),
                                         avatarPic(scoresViewModelConsumer
                                             .leaderboard[index].tipper),
                                         Flexible(

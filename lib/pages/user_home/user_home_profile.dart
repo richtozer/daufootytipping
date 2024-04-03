@@ -86,6 +86,17 @@ class Profile extends StatelessWidget with WatchItMixin {
                       TipperRole.admin
                   ? const Center(child: AdminFunctionsWidget())
                   : const SizedBox.shrink(),
+              FutureBuilder<Widget>(
+                future: aboutDialog(context),
+                builder:
+                    (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    return snapshot.data!;
+                  } else {
+                    return const CircularProgressIndicator();
+                  }
+                },
+              ),
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.35,
                 width: MediaQuery.of(context).size.width * 0.95,
@@ -97,18 +108,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                     }),
                   ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              FutureBuilder<Widget>(
-                future: aboutDialog(context),
-                builder:
-                    (BuildContext context, AsyncSnapshot<Widget> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done) {
-                    return snapshot.data!;
-                  } else {
-                    return const CircularProgressIndicator();
-                  }
-                },
               ),
             ],
           ),

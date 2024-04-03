@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -16,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TipsPage extends StatefulWidget with WatchItStatefulWidgetMixin {
   TipsPage({super.key});
@@ -32,6 +34,7 @@ class TipsPageState extends State<TipsPage> {
   //late final CompScore compScores;
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
   final ScrollController controller = ScrollController();
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -48,23 +51,31 @@ class TipsPageState extends State<TipsPage> {
 
     allTipsViewModelInitialLoadCompletedFuture =
         allTipsViewModel.initialLoadCompleted;
+
+    //addListener();
   }
+
+  // void addListener() {
+  //   controller.addListener(() async {
+  //     log('scrolled to ${controller.offset})');
+  //     // SharedPreferences prefs = await SharedPreferences.getInstance();
+  //     // await prefs.setDouble('scrollPosition', controller.offset);
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
 
-    double gameCardHeight = 128.0; // Replace with your actual item height
+/*     double gameCardHeight = 128.0; // Replace with your actual item height
     double leagueHeaderHeight = 66;
     double emptyRoundHeight = 75;
     int gameCount = 27; // Replace with your actual index
     int roundCount = 3; // Replace with your actual index
     double scrollPosition =
-        (gameCardHeight * gameCount) + (leagueHeaderHeight * 2 * roundCount);
+        (gameCardHeight * gameCount) + (leagueHeaderHeight * 2 * roundCount); */
 
-// Use the controller to scroll to the desired position
-
-    return FutureBuilder<DAUComp>(
+    Widget scrollView = FutureBuilder<DAUComp>(
         future: dauCompWithScoresFuture,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -86,22 +97,38 @@ class TipsPageState extends State<TipsPage> {
                   } else if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   } else {
+                    WidgetsBinding.instance
+                        .addPostFrameCallback((timeStamp) async {
+                      if (controller.hasClients) {
+                        controller.position.isScrollingNotifier.addListener(() {
+                          if (_debounceTimer?.isActive ?? false) {
+                            _debounceTimer!.cancel();
+                          }
+                          _debounceTimer =
+                              Timer(const Duration(milliseconds: 500), () {
+                            log('scrolling stopped');
+                            SharedPreferences.getInstance().then((prefs) async {
+                              await prefs.setDouble(
+                                  'scrollPosition', controller.offset);
+                            });
+                          });
+                        });
+
+                        SharedPreferences prefs =
+                            await SharedPreferences.getInstance();
+                        double initialScrollPosition =
+                            prefs.getDouble('scrollPosition') ?? 0.0;
+                        controller.jumpTo(initialScrollPosition);
+                      } else {
+                        log('controller has no clients');
+                      }
+                    });
+
                     return CustomScrollView(
                       controller: controller,
                       cacheExtent: 10000,
                       slivers: <Widget>[
                         SliverAppBar(
-                          actions: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_downward),
-                              onPressed: () {
-                                // controller.jumpTo(scrollPosition);
-                                controller.animateTo(scrollPosition,
-                                    duration: const Duration(seconds: 1),
-                                    curve: Curves.easeInOut);
-                              },
-                            ),
-                          ],
                           backgroundColor: Colors.white.withOpacity(0.8),
                           pinned: true,
                           floating: true,
@@ -194,6 +221,8 @@ class TipsPageState extends State<TipsPage> {
                 });
           }
         });
+
+    return scrollView;
   }
 
   Widget roundLeagueHeaderListTile(
