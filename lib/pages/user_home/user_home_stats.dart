@@ -30,8 +30,7 @@ class StatsPage extends StatelessWidget {
                 children: <Widget>[
                   ListTile(
                     leading: const Hero(
-                        tag: 'compLeaderboard',
-                        child: Icon(Icons.emoji_events)),
+                        tag: 'trophy', child: Icon(Icons.emoji_events)),
                     trailing: const Icon(Icons.arrow_forward),
                     title: const Text('Comp Leaderboard'),
                     onTap: () {
@@ -44,7 +43,8 @@ class StatsPage extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.person_3),
+                    leading:
+                        Hero(tag: 'person', child: const Icon(Icons.person_3)),
                     trailing: const Icon(Icons.arrow_forward),
                     title: const Text('Round winners & leaderboard'),
                     onTap: () {
