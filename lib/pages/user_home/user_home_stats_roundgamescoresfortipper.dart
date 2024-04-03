@@ -131,8 +131,8 @@ class _StatRoundGameScoresForTipperState
                           horizontalMargin: 0,
                           minWidth: 800,
                           fixedTopRows: 1,
-                          fixedLeftColumns:
-                              orientation == Orientation.portrait ? 1 : 0,
+                          // fixedLeftColumns:
+                          //     orientation == Orientation.portrait ? 1 : 0,
                           showCheckboxColumn: false,
                           isHorizontalScrollBarVisible: true,
                           isVerticalScrollBarVisible: true,
@@ -253,10 +253,12 @@ class _StatRoundGameScoresForTipperState
                 children: [
                   Text(
                     //overflow: TextOverflow.ellipsis,
+                    //style: const TextStyle(color: Colors.black),
                     '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}',
                   ),
                   Text(
                     //overflow: TextOverflow.ellipsis,
+                    //style: const TextStyle(color: Colors.black),
                     '${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
                   ),
                 ],
