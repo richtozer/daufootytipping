@@ -70,14 +70,16 @@ Future<void> main() async {
   RemoteConfigService remoteConfigService = RemoteConfigService();
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
 
-  // Pass all uncaught "fatal" errors from the framework to Crashlytics
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
+  if (!kDebugMode) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
+    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
 
   FirebaseMessagingService firebaseService = FirebaseMessagingService();
 
