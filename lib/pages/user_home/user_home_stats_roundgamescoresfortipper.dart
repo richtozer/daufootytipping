@@ -254,11 +254,12 @@ class _StatRoundGameScoresForTipperState
                   Text(
                     //overflow: TextOverflow.ellipsis,
                     //style: const TextStyle(color: Colors.black),
+                    style: Theme.of(context).dataTableTheme.dataTextStyle,
                     '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}',
                   ),
                   Text(
                     //overflow: TextOverflow.ellipsis,
-                    //style: const TextStyle(color: Colors.black),
+                    style: const TextStyle(color: Colors.black),
                     '${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
                   ),
                 ],
@@ -279,8 +280,7 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           FutureBuilder<TipGame?>(
-            future: gameTipsViewModel
-                .gettip(), // Replace with your method that returns Future<TipGame>
+            future: gameTipsViewModel.gettip(),
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
