@@ -247,23 +247,8 @@ class _StatRoundGameScoresForTipperState
       cells: [
         DataCell(
           Flexible(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    //overflow: TextOverflow.ellipsis,
-                    //style: const TextStyle(color: Colors.black),
-                    style: Theme.of(context).dataTableTheme.dataTextStyle,
-                    '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}',
-                  ),
-                  Text(
-                    //overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.black),
-                    '${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
-                  ),
-                ],
-              ),
+            child: Text(
+              '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}\n${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
             ),
           ),
         ),
