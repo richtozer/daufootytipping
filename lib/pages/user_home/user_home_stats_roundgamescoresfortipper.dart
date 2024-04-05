@@ -137,10 +137,6 @@ class _StatRoundGameScoresForTipperState
                           isHorizontalScrollBarVisible: true,
                           isVerticalScrollBarVisible: true,
                           columns: getColumns(columns),
-                          // rows: List<DataRow>.generate(aflGames!.length, (index) {
-                          //   return buildDataRow(aflGames, index, allTips);
-                          // for the rows output a header row 'NRL' and then the games
-                          // followed by a header row 'AFL' and then the games
                           rows: [
                             DataRow(
                               cells: [
@@ -246,10 +242,9 @@ class _StatRoundGameScoresForTipperState
     return DataRow(
       cells: [
         DataCell(
-          Flexible(
-            child: Text(
-              '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}\n${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
-            ),
+          Text(
+            '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}xx\nxx${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         DataCell(

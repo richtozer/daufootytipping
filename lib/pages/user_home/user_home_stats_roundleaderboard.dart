@@ -138,7 +138,10 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                     size: 15,
                                   ),
                                   avatarPic(entry.key),
-                                  Flexible(child: Text(entry.key.name)),
+                                  Text(
+                                    entry.key.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ],
                               ), onTap: () {
                             Navigator.push(
