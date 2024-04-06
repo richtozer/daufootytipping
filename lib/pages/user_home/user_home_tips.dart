@@ -11,6 +11,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart'
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
@@ -51,27 +52,17 @@ class TipsPageState extends State<TipsPage> {
 
     allTipsViewModelInitialLoadCompletedFuture =
         allTipsViewModel.initialLoadCompleted;
-
-    //addListener();
   }
-
-  // void addListener() {
-  //   controller.addListener(() async {
-  //     log('scrolled to ${controller.offset})');
-  //     // SharedPreferences prefs = await SharedPreferences.getInstance();
-  //     // await prefs.setDouble('scrollPosition', controller.offset);
-  //   });
-  // }
 
   @override
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
 
-/*     double gameCardHeight = 128.0; // Replace with your actual item height
+/*     double gameCardHeight = 128.0; 
     double leagueHeaderHeight = 66;
     double emptyRoundHeight = 75;
-    int gameCount = 27; // Replace with your actual index
-    int roundCount = 3; // Replace with your actual index
+    int gameCount = 27; 
+    int roundCount = 3; 
     double scrollPosition =
         (gameCardHeight * gameCount) + (leagueHeaderHeight * 2 * roundCount); */
 
@@ -157,13 +148,26 @@ class TipsPageState extends State<TipsPage> {
                                                   di<TippersViewModel>()
                                                       .selectedTipper!)
                                               .rank;
-                                      return Text(
+                                      return GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    StatRoundScoresForTipper(
+                                                        di<TippersViewModel>()
+                                                            .selectedTipper!)),
+                                          );
+                                        },
+                                        child: Text(
+                                          'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 17,
                                             color: Colors.black,
                                           ),
-                                          'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}');
+                                        ),
+                                      );
                                     });
                                   }),
                               background: Stack(

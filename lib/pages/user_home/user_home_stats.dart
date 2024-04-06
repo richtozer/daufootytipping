@@ -44,7 +44,7 @@ class StatsPage extends StatelessWidget {
                   ),
                   ListTile(
                     leading:
-                        Hero(tag: 'person', child: const Icon(Icons.person_3)),
+                        const Hero(tag: 'person', child: Icon(Icons.person_3)),
                     trailing: const Icon(Icons.arrow_forward),
                     title: const Text('Round winners & leaderboard'),
                     onTap: () {

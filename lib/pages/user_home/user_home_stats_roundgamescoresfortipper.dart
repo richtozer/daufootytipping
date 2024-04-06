@@ -12,6 +12,7 @@ import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -109,9 +110,10 @@ class _StatRoundGameScoresForTipperState
                 ? HeaderWidget(
                     text:
                         '${widget.statsTipper.name} - Round ${widget.roundToDisplay} games',
-                    leadingIconAvatar: avatarPic(widget.statsTipper))
+                    leadingIconAvatar:
+                        avatarPic(widget.statsTipper, widget.roundToDisplay))
                 : Text(
-                    '${widget.statsTipper.name} Round ${widget.roundToDisplay} games'),
+                    '${widget.statsTipper.name} - Round ${widget.roundToDisplay} games'),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -141,10 +143,20 @@ class _StatRoundGameScoresForTipperState
                             DataRow(
                               cells: [
                                 DataCell(
-                                  Text(
-                                    'NRL',
-                                    style:
-                                        Theme.of(context).textTheme.titleLarge,
+                                  Row(
+                                    children: [
+                                      SvgPicture.asset(
+                                        League.nrl.logo,
+                                        width: 20,
+                                        height: 20,
+                                      ),
+                                      Text(
+                                        'NRL',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 DataCell(
@@ -184,10 +196,20 @@ class _StatRoundGameScoresForTipperState
                             DataRow(
                               cells: [
                                 DataCell(
-                                  Text(
-                                    'AFL',
-                                    style:
-                                        Theme.of(context).textTheme.titleLarge,
+                                  Row(
+                                    children: [
+                                      SvgPicture.asset(
+                                        League.afl.logo,
+                                        width: 20,
+                                        height: 20,
+                                      ),
+                                      Text(
+                                        'AFL',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 DataCell(
@@ -242,9 +264,22 @@ class _StatRoundGameScoresForTipperState
     return DataRow(
       cells: [
         DataCell(
-          Text(
-            '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}xx\nxx${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
-            overflow: TextOverflow.ellipsis,
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Center(
+                child: Text(
+                  '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Center(
+                child: Text(
+                  '${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
         DataCell(
@@ -319,12 +354,13 @@ class _StatRoundGameScoresForTipperState
 
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
-            fixedWidth: column.startsWith('Teams') ? 175 : 60,
-            numeric: column.startsWith('Teams') ||
-                    column == 'Result' ||
-                    column == 'Tip'
-                ? false
-                : true,
+            fixedWidth: column.startsWith('Teams')
+                ? 175
+                : column.startsWith('Tip')
+                    ? 50
+                    : 60,
+            numeric:
+                column.startsWith('Max') || column == 'Score' ? true : false,
             label: Text(
               column,
             ),
@@ -332,9 +368,11 @@ class _StatRoundGameScoresForTipperState
           ))
       .toList();
 
-  Widget avatarPic(Tipper tipper) {
+  Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-        tag: tipper.dbkey!,
+        tag:
+            '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+
         child: circleAvatarWithFallback(
             imageUrl: tipper.photoURL, text: tipper.name, radius: 30));
   }

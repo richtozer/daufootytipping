@@ -124,10 +124,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                             size: 15),
                                         avatarPic(scoresViewModelConsumer
                                             .leaderboard[index].tipper),
-                                        Text(
-                                          scoresViewModelConsumer
-                                              .leaderboard[index].tipper.name,
-                                          overflow: TextOverflow.ellipsis,
+                                        Expanded(
+                                          child: Text(
+                                            scoresViewModelConsumer
+                                                .leaderboard[index].tipper.name,
+                                            overflow: TextOverflow.fade,
+                                          ),
                                         ),
                                       ],
                                     ),
