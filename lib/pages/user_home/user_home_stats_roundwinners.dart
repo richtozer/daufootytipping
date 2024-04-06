@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -43,6 +45,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   @override
   Widget build(BuildContext context) {
+    Color currentColor = Colors.transparent;
+    Color lastColor = Colors.grey.shade200;
+    int? lastRoundNumber;
     return ChangeNotifierProvider<AllScoresViewModel>.value(
       value: scoresViewModel,
       child: Consumer<AllScoresViewModel>(
@@ -92,72 +97,109 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       columns: getColumns(columns),
                       rows:
                           scoresViewModel.roundWinners.values.expand((winners) {
-                        return winners.map((winner) => DataRow(
-                              color: winner.tipper ==
-                                      di<TippersViewModel>().selectedTipper!
-                                  ? MaterialStateProperty.resolveWith(
-                                      (states) =>
-                                          Theme.of(context).highlightColor)
-                                  : MaterialStateProperty.resolveWith(
-                                      (states) => Colors.transparent),
-                              cells: [
-                                DataCell(
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      const Icon(Icons.arrow_forward, size: 15),
-                                      Text('  ${winner.roundNumber}'),
-                                    ],
+                        return winners.map((winner) {
+                          // Check if the round number has changed
+                          if (lastRoundNumber != winner.roundNumber) {
+                            // Swap the colors
+                            Color temp = currentColor;
+                            currentColor = lastColor;
+                            lastColor = temp;
+                            log('currentColor: $currentColor, lastColor: $lastColor');
+                          }
+                          lastRoundNumber = winner.roundNumber;
+
+                          return DataRow(
+                            color: winner.tipper ==
+                                    di<TippersViewModel>().selectedTipper!
+                                ? MaterialStateProperty.resolveWith((states) =>
+                                    Theme.of(context).highlightColor)
+                                : MaterialStateProperty.resolveWith(
+                                    (states) => Colors.transparent),
+                            cells: [
+                              DataCell(
+                                SizedBox.expand(
+                                  child: Container(
+                                    color: currentColor,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        const Icon(Icons.arrow_forward,
+                                            size: 15),
+                                        Text('  ${winner.roundNumber}'),
+                                      ],
+                                    ),
                                   ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
                                 ),
-                                DataCell(
-                                  Row(
-                                    children: [
-                                      avatarPic(
-                                          winner.tipper, winner.roundNumber),
-                                      Text(winner.tipper.name.toString()),
-                                    ],
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                SizedBox.expand(
+                                  child: Container(
+                                    color: currentColor,
+                                    child: Row(
+                                      children: [
+                                        avatarPic(
+                                            winner.tipper, winner.roundNumber),
+                                        Text(winner.tipper.name.toString()),
+                                      ],
+                                    ),
                                   ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
                                 ),
-                                DataCell(
-                                  Text(winner.total.toString()),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                CellContents(
+                                    currentColor: currentColor,
+                                    cellText: winner.total.toString()),
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                CellContents(
+                                    currentColor: currentColor,
+                                    cellText: winner.nRL.toString()),
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                CellContents(
+                                    currentColor: currentColor,
+                                    cellText: winner.aFL.toString()),
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                CellContents(
+                                  currentColor: currentColor,
+                                  cellText:
+                                      (winner.aflMargins + winner.nrlMargins)
+                                          .toString(),
                                 ),
-                                DataCell(
-                                  Text(winner.nRL.toString()),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                CellContents(
+                                  currentColor: currentColor,
+                                  cellText: (winner.aflUPS + winner.nrlUPS)
+                                      .toString(),
                                 ),
-                                DataCell(
-                                  Text(winner.aFL.toString()),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  Text(winner.aflMargins.toString()),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  Text(winner.aflUPS.toString()),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                              ],
-                            ));
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                            ],
+                          );
+                        });
                       }).toList(),
                     ),
                   ))
@@ -222,5 +264,27 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
             '$roundNumber-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
         child: circleAvatarWithFallback(
             imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
+  }
+}
+
+class CellContents extends StatelessWidget {
+  const CellContents({
+    super.key,
+    required this.currentColor,
+    required this.cellText,
+  });
+
+  final Color currentColor;
+  final String cellText;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.expand(
+        child: Container(
+            color: currentColor,
+            child: Text(
+              cellText,
+              textAlign: TextAlign.right,
+            )));
   }
 }

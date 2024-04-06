@@ -113,7 +113,7 @@ class AllScoresViewModel extends ChangeNotifier {
       log('sss in _handleEventRoundScores snapshot ${event.snapshot.ref.path}  does not exist');
     }
 
-    updateLeaderboardForComp();
+    await updateLeaderboardForComp();
     updateRoundWinners();
     //} catch (e) {
     //  log('Error listening to /Scores/round_scores: $e');
@@ -148,7 +148,7 @@ class AllScoresViewModel extends ChangeNotifier {
         log('sss in _handleEventCompScores snapshot ${event.snapshot.ref.path}  does not exist');
       }
 
-      updateLeaderboardForComp();
+      await updateLeaderboardForComp();
       updateRoundWinners();
     } catch (e) {
       log('Error listening to /Scores/comp_scores: $e');
@@ -298,6 +298,16 @@ class AllScoresViewModel extends ChangeNotifier {
             nrlMargins: roundScores.nrlMarginTips,
             nrlUPS: roundScores.nrlMarginUPS,
           )));
+
+          // also increment the maxroundswon counter in the comp leaderboard
+          // first check _leaderboard is not empty
+          if (_leaderboard.isNotEmpty) {
+            // find the leaderboard entry for this tipper
+            var leaderboardEntry =
+                _leaderboard.firstWhere((element) => element.tipper == tipper);
+            // increment the numRoundsWon counter
+            leaderboardEntry.numRoundsWon++;
+          }
         }
       }
     }
@@ -347,24 +357,25 @@ class AllScoresViewModel extends ChangeNotifier {
           (previousValue, RoundScores roundScores) =>
               previousValue + (roundScores.nrlMarginUPS));
 
-      //Tipper tipper = await di<TippersViewModel>().findTipper(e.key);
-
       return LeaderboardEntry(
         rank: 0, // replace with actual rank calculation - see below
         tipper: e.key,
         total: totalScore,
-        nRL: nrlScore, // replace with actual nRL calculation
-        aFL: aflScore, // replace with actual aFL calculation
+        nRL: nrlScore,
+        aFL: aflScore,
         numRoundsWon: 0, // replace with actual numRoundsWon calculation
-        aflMargins: aflMargins, // replace with actual aflMargins calculation
-        aflUPS: aflMarginUps, // replace with actual aflUPS calculation
-        nrlMargins: nrlMargins, // replace with actual nrlMargins calculation
-        nrlUPS: nrlMarginUps, // replace with actual nrlUPS calculation
+        aflMargins: aflMargins,
+        aflUPS: aflMarginUps,
+        nrlMargins: nrlMargins,
+        nrlUPS: nrlMarginUps,
       );
     });
 
+    // Wait for all the futures to complete and then sort the leaderboard
     var leaderboard = await Future.wait(leaderboardFutures);
     leaderboard.sort((a, b) => b.total.compareTo(a.total));
+
+    // calculate the rank based on total score
     int rank = 1;
     int skip = 1;
     for (int i = 0; i < leaderboard.length; i++) {
@@ -374,7 +385,7 @@ class AllScoresViewModel extends ChangeNotifier {
       } else if (i > 0 && leaderboard[i].total == leaderboard[i - 1].total) {
         skip++;
       }
-      leaderboard[i].rank = rank;
+      leaderboard[i].rank = rank; // update the rank
     }
 
     // Sort by rank and then by tipper name

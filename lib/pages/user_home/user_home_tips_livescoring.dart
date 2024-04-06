@@ -101,11 +101,11 @@ class LiveScoring extends StatelessWidget {
   Row liveScoring(TipGame consumerTipGame) {
     TextEditingController homeScoreController = TextEditingController(
         text: consumerTipGame.game.scoring?.currentHomeScore() == null
-            ? '0'
+            ? '-'
             : '${consumerTipGame.game.scoring?.currentHomeScore()}');
     TextEditingController awayScoreController = TextEditingController(
         text: consumerTipGame.game.scoring?.currentAwayScore() == null
-            ? '0'
+            ? '-'
             : '${consumerTipGame.game.scoring?.currentAwayScore()}');
 
     return Row(

@@ -71,8 +71,8 @@ class TipsPageState extends State<TipsPage> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
-                child:
-                    Text('Error loading dauCompWithScores: ${snapshot.error}'));
+                child: Text(
+                    'Error loading dauCompWithScores: ${snapshot.stackTrace}'));
           } else if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           } else {
