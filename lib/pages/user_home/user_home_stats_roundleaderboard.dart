@@ -137,10 +137,12 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                     Icons.arrow_forward,
                                     size: 15,
                                   ),
-                                  avatarPic(entry.key),
-                                  Text(
-                                    entry.key.name,
-                                    overflow: TextOverflow.ellipsis,
+                                  avatarPic(entry.key, widget.roundToDisplay),
+                                  Expanded(
+                                    child: Text(
+                                      entry.key.name,
+                                      overflow: TextOverflow.fade,
+                                    ),
                                   ),
                                 ],
                               ), onTap: () {
@@ -297,9 +299,10 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           ))
       .toList();
 
-  Widget avatarPic(Tipper tipper) {
+  Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-        tag: tipper.dbkey!,
+        tag:
+            '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
         child: circleAvatarWithFallback(
             imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
   }

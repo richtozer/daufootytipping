@@ -117,10 +117,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                 DataCell(
                                   Row(
                                     children: [
-                                      avatarPic(winner.tipper),
-                                      Flexible(
-                                          child: Text(
-                                              winner.tipper.name.toString())),
+                                      avatarPic(
+                                          winner.tipper, winner.roundNumber),
+                                      Text(winner.tipper.name.toString()),
                                     ],
                                   ),
                                   onTap: () {
@@ -217,9 +216,10 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
           ))
       .toList();
 
-  Widget avatarPic(Tipper tipper) {
+  Widget avatarPic(Tipper tipper, int roundNumber) {
     return Hero(
-        tag: tipper.dbkey!,
+        tag:
+            '$roundNumber-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
         child: circleAvatarWithFallback(
             imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
   }
