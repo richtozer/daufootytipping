@@ -1,5 +1,7 @@
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:watch_it/watch_it.dart';
 
 class DAUComp implements Comparable<DAUComp> {
   String? dbkey;
@@ -9,6 +11,7 @@ class DAUComp implements Comparable<DAUComp> {
   List<DAURound>? daurounds = [];
   final bool active;
   CompScore? consolidatedCompScores;
+  DateTime? lastFixtureUpdateTimestamp;
 
   //constructor
   DAUComp({
@@ -18,6 +21,7 @@ class DAUComp implements Comparable<DAUComp> {
     required this.nrlFixtureJsonURL,
     this.active = true,
     this.daurounds,
+    this.lastFixtureUpdateTimestamp,
   });
 
   factory DAUComp.fromJson(
@@ -28,7 +32,24 @@ class DAUComp implements Comparable<DAUComp> {
       aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
       nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
       daurounds: daurounds,
+      lastFixtureUpdateTimestamp: data['lastFixtureUpdateTimestamp'] != null
+          ? DateTime.parse(data['lastFixtureUpdateTimestamp'])
+          : null,
     );
+  }
+
+  static List<DAUComp> fromJsonList(List compDbKeys) {
+    // find each DAUComp based on the compDbKeys
+    List<DAUComp> daucompList = [];
+    for (var compDbKey in compDbKeys) {
+      di<DAUCompsViewModel>().findComp(compDbKey).then((daucomp) {
+        if (daucomp!.dbkey == compDbKey) {
+          daucompList.add(daucomp);
+        }
+      });
+    }
+
+    return daucompList;
   }
 
   Map<String, dynamic> toJsonForCompare() {

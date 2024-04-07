@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -8,17 +10,18 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
-import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 
 Future<void> main() async {
   // Do not to start running the application widget code until the Flutter framework is completely booted
@@ -26,59 +29,72 @@ Future<void> main() async {
 
   await dotenv.load(); // Loads .env file
 
+  if (kIsWeb) {
+    bool ready = await GRecaptchaV3.ready(
+        "6LfmjfUlAAAAAF0dxFR_6L4BerFoRLEA3iCDxhlI",
+        showBadge: true);
+    log("Is Recaptcha ready? $ready");
+  }
+
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (!kDebugMode) {
     // in release mode, enable persistence for Realtime Database
+
     FirebaseDatabase.instance.setPersistenceEnabled(true);
-  } else {
-    FirebaseDatabase.instance.setPersistenceEnabled(false);
   }
 
-/*   if (kDebugMode) {
-    FirebaseDatabase database = FirebaseDatabase.instance;
-    database.useDatabaseEmulator('http://localhost', 8000);
+  // if (kDebugMode) {
+  //   FirebaseDatabase database = FirebaseDatabase.instance;
+  //   database.useDatabaseEmulator('http://localhost', 8000);
 
-    FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
-  } */
+  //   //FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
+  // }
 
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
       appleProvider: AppleProvider.appAttest,
-      webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
+      webProvider:
+          ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
   } else {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.debug,
       appleProvider: AppleProvider.debug,
+      webProvider:
+          ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
 
-  // Pass all uncaught "fatal" errors from the framework to Crashlytics
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
+  if (!kDebugMode) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
+    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
+
+  FirebaseMessagingService firebaseService = FirebaseMessagingService();
 
   // setup some default analytics parameters
-  FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+  if (!kIsWeb) {
+    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
 
-  FirebaseService firebaseService = FirebaseService();
-  firebaseService.initializeFirebaseMessaging();
+    firebaseService.initializeFirebaseMessaging();
+  }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
   di.allowReassignment = true;
   di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
   di.registerSingleton<PackageInfoService>(PackageInfoService());
-  // di.registerLazySingleton<ScoresViewModel>(
-  //     () => ScoresViewModel(configDAUComp));
+
   di.registerLazySingleton<TippersViewModel>(
       () => TippersViewModel(firebaseService));
 
@@ -96,7 +112,7 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   final RemoteConfigService remoteConfigService;
   final String configDAUComp;
-  final FirebaseService firebaseService;
+  final FirebaseMessagingService firebaseService;
   const MyApp(
       this.remoteConfigService, this.configDAUComp, this.firebaseService,
       {super.key});
@@ -104,7 +120,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: myTheme,
+      debugShowCheckedModeBanner: false,
+      theme: FlexThemeData.light(scheme: FlexScheme.green),
+      darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
+      themeMode: ThemeMode.system,
       title: 'DAU Tips',
       home: UserAuthPage(configDAUComp, remoteConfigService, firebaseService),
     );

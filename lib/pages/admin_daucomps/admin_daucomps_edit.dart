@@ -202,8 +202,13 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     buttonFixture(context, dauCompsViewModel),
-                    buttonLegacy(context, dauCompsViewModel),
-                    buttonScoring(context, dauCompsViewModel),
+                    // only show the scoring and legacy sync buttons if this record daucomp dbkey
+                    // is the selected daucomp dbkey
+                    if (daucomp?.dbkey == dauCompsViewModel.defaultDAUCompDbKey)
+                      buttonLegacy(context, dauCompsViewModel),
+
+                    if (daucomp?.dbkey == dauCompsViewModel.defaultDAUCompDbKey)
+                      buttonScoring(context, dauCompsViewModel),
                   ],
                 ),
                 const Text('Name:',
@@ -333,7 +338,17 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             disableBackButton = true;
             disableSaves = true;
 
-            await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+            String result =
+                await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green,
+                  content: Text(result),
+                  duration: const Duration(seconds: 10),
+                ),
+              );
+            }
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -436,7 +451,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           // ...if not, initiate the sync
           try {
             String syncResult =
-                await dauCompsViewModel.updateScoring(daucomp!, null);
+                await dauCompsViewModel.updateScoring(daucomp!, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -452,7 +467,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                 SnackBar(
                   backgroundColor: Colors.red,
                   content:
-                      Text('An error occurred during the leagcy tip sync: $e'),
+                      Text('An error occurred during scoring calculation: $e'),
                   duration: const Duration(seconds: 10),
                 ),
               );

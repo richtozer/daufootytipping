@@ -19,10 +19,3 @@ var nrlColourGradient = const LinearGradient(
   begin: Alignment.bottomRight,
   end: Alignment.topLeft,
 );
-
-const LinearGradient nrlWarriors = LinearGradient(
-  colors: [Color(0xff252b67), Color(0xff008446)],
-  stops: [0.25, 0.75],
-  begin: Alignment.bottomRight,
-  end: Alignment.topLeft,
-);

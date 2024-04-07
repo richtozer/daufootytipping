@@ -24,26 +24,21 @@ class TipChoice extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.a, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context),
-              generateChoiceChip(GameResult.b, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context)
+              generateChoiceChip(GameResult.a, gameTipsViewModel, context),
+              generateChoiceChip(GameResult.b, gameTipsViewModel, context)
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.c, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context),
+              generateChoiceChip(GameResult.c, gameTipsViewModel, context),
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.d, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context),
-              generateChoiceChip(GameResult.e, gameTipsViewModel.game,
-                  gameTipsViewModel.tipGame, context)
+              generateChoiceChip(GameResult.d, gameTipsViewModel, context),
+              generateChoiceChip(GameResult.e, gameTipsViewModel, context)
             ],
           )
         ],
@@ -51,20 +46,24 @@ class TipChoice extends StatelessWidget {
     );
   }
 
-  ChoiceChip generateChoiceChip(GameResult option, Game game,
-      TipGame? latestGameTip, BuildContext context) {
+  ChoiceChip generateChoiceChip(GameResult option,
+      GameTipsViewModel gameTipsViewModel, BuildContext context) {
     return ChoiceChip.elevated(
-      label: Text(game.league == League.afl ? option.afl : option.nrl),
-      tooltip:
-          game.league == League.afl ? option.aflTooltip : option.nrlTooltip,
+      label: Text(gameTipsViewModel.game.league == League.afl
+          ? option.afl
+          : option.nrl),
+      tooltip: gameTipsViewModel.game.league == League.afl
+          ? option.aflTooltip
+          : option.nrlTooltip,
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.0),
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
-      selectedColor: const Color(0xFF789697),
-      selected: latestGameTip != null && latestGameTip.tip == option,
+      selectedColor: Colors.lightGreen[500],
+      selected: gameTipsViewModel.tipGame != null &&
+          gameTipsViewModel.tipGame!.tip == option,
       onSelected: (bool selected) {
         try {
           if (gameTipsViewModel.allTipsViewModel.tipperViewModel.inGodMode) {
@@ -79,7 +78,7 @@ class TipChoice extends StatelessWidget {
                   iconColor: Colors.red,
                   title: const Text('Warning: God Mode'),
                   content: const Text(
-                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot undo it later.'),
+                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change thus tip later if needed.'),
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
@@ -112,7 +111,8 @@ class TipChoice extends StatelessWidget {
 
             return;
           }
-          if (game.gameState != GameState.notStarted) {
+          if (gameTipsViewModel.game.gameState == GameState.resultKnown ||
+              gameTipsViewModel.game.gameState == GameState.resultNotKnown) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,
@@ -121,12 +121,13 @@ class TipChoice extends StatelessWidget {
             );
             return;
           }
-          if (latestGameTip != null && latestGameTip.tip == option) {
+          if (gameTipsViewModel.tipGame != null &&
+              gameTipsViewModel.tipGame!.tip == option) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: Colors.red,
                 content: Text(
-                    'Your tip [${latestGameTip.game.league == League.afl ? latestGameTip.tip.aflTooltip : latestGameTip.tip.nrlTooltip}] has already been submitted.'),
+                    'Your tip [${gameTipsViewModel.game.league == League.afl ? gameTipsViewModel.tipGame!.tip.aflTooltip : gameTipsViewModel.tipGame!.tip.nrlTooltip}] has already been submitted.'),
               ),
             );
           } else {

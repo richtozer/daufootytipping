@@ -76,12 +76,56 @@ extension GameResultString on GameResult {
 class Scoring {
   int? homeTeamScore; // will be null until official score is downloaded
   int? awayTeamScore; // will be null until official score is downloaded
-  CroudSourcedScore? homeTeamCroudSourcedScore1;
-  CroudSourcedScore? homeTeamCroudSourcedScore2;
-  CroudSourcedScore? homeTeamCroudSourcedScore3;
-  CroudSourcedScore? awayTeamCroudSourcedScore1;
-  CroudSourcedScore? awayTeamCroudSourcedScore2;
-  CroudSourcedScore? awayTeamCroudSourcedScore3;
+  List<CrowdSourcedScore>? croudSourcedScores;
+
+  //constructor
+  Scoring({
+    this.homeTeamScore,
+    this.awayTeamScore,
+    this.croudSourcedScores,
+  });
+
+  int? currentHomeScore() {
+    //always return the official score from fixture if available
+    if (homeTeamScore != null) {
+      return homeTeamScore!;
+    }
+    //if official score is not available, return the latest crowd sourced score
+    if (croudSourcedScores != null && croudSourcedScores!.isNotEmpty) {
+      // find the latest crowd sourced score for ScroringTeam.home with the most
+      //recent submittedTimeUTC timestamp
+      final homeScores = croudSourcedScores!
+          .where((element) => element.scoreTeam == ScoreTeam.home)
+          .toList();
+      if (homeScores.isNotEmpty) {
+        homeScores
+            .sort((a, b) => b.submittedTimeUTC.compareTo(a.submittedTimeUTC));
+        return homeScores.first.interimScore;
+      }
+    }
+    return null;
+  }
+
+  int? currentAwayScore() {
+    //always return the official score from fixture if available
+    if (awayTeamScore != null) {
+      return awayTeamScore!;
+    }
+    //if official score is not available, return the latest crowd sourced score
+    if (croudSourcedScores != null && croudSourcedScores!.isNotEmpty) {
+      // find the latest crowd sourced score for ScroringTeam.away with the most
+      //recent submittedTimeUTC timestamp
+      final awayScores = croudSourcedScores!
+          .where((element) => element.scoreTeam == ScoreTeam.away)
+          .toList();
+      if (awayScores.isNotEmpty) {
+        awayScores
+            .sort((a, b) => b.submittedTimeUTC.compareTo(a.submittedTimeUTC));
+        return awayScores.first.interimScore;
+      }
+    }
+    return null;
+  }
 
   bool didHomeTeamWin() {
     if (homeTeamScore != null && awayTeamScore != null) {
@@ -97,30 +141,31 @@ class Scoring {
     return false;
   }
 
-  //calcualte the game result based on homeTeamScore and awayTeamScore
   GameResult getGameResultCalculated(League league) {
-    if (homeTeamScore != null && awayTeamScore != null) {
+    int? homeScore = currentHomeScore();
+    int? awayScore = currentAwayScore();
+    if (homeScore != null && awayScore != null) {
       switch (league) {
         case League.nrl:
-          if (homeTeamScore! >= awayTeamScore! + League.nrl.margin) {
+          if (homeScore >= awayScore + League.nrl.margin) {
             return GameResult.a;
-          } else if (homeTeamScore! + League.nrl.margin <= awayTeamScore!) {
+          } else if (homeScore + League.nrl.margin <= awayScore) {
             return GameResult.e;
-          } else if (homeTeamScore! > awayTeamScore!) {
+          } else if (homeScore > awayScore) {
             return GameResult.b;
-          } else if (homeTeamScore! < awayTeamScore!) {
+          } else if (homeScore < awayScore) {
             return GameResult.d;
           } else {
             return GameResult.c;
           }
         case League.afl:
-          if (homeTeamScore! >= awayTeamScore! + League.afl.margin) {
+          if (homeScore >= awayScore + League.afl.margin) {
             return GameResult.a;
-          } else if (homeTeamScore! + League.afl.margin <= awayTeamScore!) {
+          } else if (homeScore + League.afl.margin <= awayScore) {
             return GameResult.e;
-          } else if (homeTeamScore! > awayTeamScore!) {
+          } else if (homeScore > awayScore) {
             return GameResult.b;
-          } else if (homeTeamScore! < awayTeamScore!) {
+          } else if (homeScore < awayScore) {
             return GameResult.d;
           } else {
             return GameResult.c;
@@ -130,27 +175,12 @@ class Scoring {
     return GameResult.z;
   }
 
-  Scoring(
-      {this.homeTeamScore,
-      this.awayTeamScore,
-      this.homeTeamCroudSourcedScore1,
-      this.homeTeamCroudSourcedScore2,
-      this.homeTeamCroudSourcedScore3,
-      this.awayTeamCroudSourcedScore1,
-      this.awayTeamCroudSourcedScore2,
-      this.awayTeamCroudSourcedScore3});
-
   // tojson method
   Map<String, dynamic> toJson() {
     return {
       'homeTeamScore': homeTeamScore,
       'awayTeamScore': awayTeamScore,
-      'homeTeamCroudSourcedScore1': homeTeamCroudSourcedScore1?.toJson(),
-      'homeTeamCroudSourcedScore2': homeTeamCroudSourcedScore2?.toJson(),
-      'homeTeamCroudSourcedScore3': homeTeamCroudSourcedScore3?.toJson(),
-      'awayTeamCroudSourcedScore1': awayTeamCroudSourcedScore1?.toJson(),
-      'awayTeamCroudSourcedScore2': awayTeamCroudSourcedScore2?.toJson(),
-      'awayTeamCroudSourcedScore3': awayTeamCroudSourcedScore3?.toJson(),
+      'croudSourcedScores': croudSourcedScores?.map((x) => x.toJson()).toList(),
     };
   }
 
@@ -159,29 +189,11 @@ class Scoring {
     return Scoring(
       homeTeamScore: data['homeTeamScore'],
       awayTeamScore: data['awayTeamScore'],
-      homeTeamCroudSourcedScore1: data['homeTeamCroudSourcedScore1'] != null
-          ? CroudSourcedScore.fromJson(
-              data['homeTeamCroudSourcedScore1'], data['tipper'])
-          : null,
-      homeTeamCroudSourcedScore2: data['homeTeamCroudSourcedScore2'] != null
-          ? CroudSourcedScore.fromJson(
-              data['homeTeamCroudSourcedScore2'], data['tipper'])
-          : null,
-      homeTeamCroudSourcedScore3: data['homeTeamCroudSourcedScore3'] != null
-          ? CroudSourcedScore.fromJson(
-              data['homeTeamCroudSourcedScore3'], data['tipper'])
-          : null,
-      awayTeamCroudSourcedScore1: data['awayTeamCroudSourcedScore1'] != null
-          ? CroudSourcedScore.fromJson(
-              data['awayTeamCroudSourcedScore1'], data['tipper'])
-          : null,
-      awayTeamCroudSourcedScore2: data['awayTeamCroudSourcedScore2'] != null
-          ? CroudSourcedScore.fromJson(
-              data['awayTeamCroudSourcedScore2'], data['tipper'])
-          : null,
-      awayTeamCroudSourcedScore3: data['awayTeamCroudSourcedScore3'] != null
-          ? CroudSourcedScore.fromJson(
-              data['awayTeamCroudSourcedScore3'], data['tipper'])
+      croudSourcedScores: data['croudSourcedScores'] != null
+          ? List<CrowdSourcedScore>.from((data['croudSourcedScores'] as List)
+              .where((x) => x != null)
+              .map((x) => CrowdSourcedScore.fromJson(x as Map))
+              .toList())
           : null,
     );
   }

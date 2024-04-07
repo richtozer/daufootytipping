@@ -9,6 +9,7 @@ class TipGame implements Comparable<TipGame> {
   final Game game; //the game being tipped
   final Tipper tipper; //the tipper
   final GameResult tip; //their tip
+  final bool legacyTip; //true if the tip came from the legacy google form
   final DateTime submittedTimeUTC; //the time the tip was submitted -
   // interesting tidbit to tell if the tip came from the app or the legacy google form
   // the time stamp will be suttly different.
@@ -20,7 +21,8 @@ class TipGame implements Comparable<TipGame> {
       required this.game,
       required this.tipper,
       required this.tip,
-      required this.submittedTimeUTC});
+      required this.submittedTimeUTC,
+      this.legacyTip = false});
 
   bool isDefaultTip() {
     return (submittedTimeUTC ==
@@ -33,13 +35,12 @@ class TipGame implements Comparable<TipGame> {
         game: game,
         tipper: tipper,
         tip: GameResult.values.byName(data['gameResult']),
-        submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']));
+        submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']),
+        legacyTip: data['legacyTip'] ?? false);
   }
 
   toJson() {
     return {
-      //'gameDbkey': game.dbkey, // save to the database as a reference
-      //'tipperDbkey': tipper.dbkey, //save to the database as a reference
       'gameResult': tip.name,
       'submittedTimeUTC': submittedTimeUTC.toString(),
     };
