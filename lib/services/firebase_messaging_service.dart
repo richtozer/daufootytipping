@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:io' show Platform;
 
 class FirebaseMessagingService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -18,6 +19,10 @@ class FirebaseMessagingService {
 
   Future<void> initializeFirebaseMessaging() async {
     log('Initializing Firebase messaging');
+
+    if (Platform.isIOS) {
+      await requestIOSNotificationPermission();
+    }
 
     _fbmToken = await _firebaseMessaging.getToken();
     if (_fbmToken != null) {

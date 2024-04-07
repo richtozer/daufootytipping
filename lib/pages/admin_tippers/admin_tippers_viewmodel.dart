@@ -343,9 +343,6 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, registerLinkedTipperForMessaging()');
     }
 
-    // get user permission to notify with messaging, if required
-    await firebaseService?.requestIOSNotificationPermission();
-
     // wait for the token to be populated
     await firebaseService?.initialLoadComplete;
     String? token = firebaseService?.fbmToken;

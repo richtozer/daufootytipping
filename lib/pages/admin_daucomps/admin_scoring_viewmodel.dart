@@ -39,8 +39,8 @@ class AllScoresViewModel extends ChangeNotifier {
   Future<void> get initialLiveScoreLoadComplete =>
       _initialLiveScoreLoadCompleter.future;
 
-  final Completer<void> _initialRoundLoadCompleter = Completer();
-  Future<void> get initialRoundComplete => _initialRoundLoadCompleter.future;
+  final Completer<void> _initialRoundLoadCompleted = Completer();
+  Future<void> get initialRoundComplete => _initialRoundLoadCompleted.future;
 
   final Completer<void> _initialCompAllTipperLoadCompleter = Completer();
   Future<void> get initialRoundAllTipperComplete =>
@@ -86,39 +86,39 @@ class AllScoresViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
-    //try {  // TODO - add back in once we fix our null issue
-    if (event.snapshot.exists) {
-      var dbData = event.snapshot.value;
-      if (dbData is! Map) {
-        throw Exception('Invalid data type for all tipper round scores');
+    try {
+      if (event.snapshot.exists) {
+        var dbData = event.snapshot.value;
+        if (dbData is! Map) {
+          throw Exception('Invalid data type for all tipper round scores');
+        }
+
+        // Obtain the Map directly
+        List<MapEntry<Tipper, List<RoundScores>>> entries =
+            await Future.wait(dbData.entries.map((entry) async {
+          Tipper tipper = await di<TippersViewModel>().findTipper(entry.key);
+          List<RoundScores> scores = (entry.value as List)
+              .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+          return MapEntry(tipper, scores);
+        }));
+
+        // Convert List<MapEntry> to Map
+        _allTipperRoundScores = Map.fromEntries(entries);
+      } else {
+        log('sss in _handleEventRoundScores snapshot ${event.snapshot.ref.path}  does not exist');
       }
 
-      // Obtain the Map directly
-      List<MapEntry<Tipper, List<RoundScores>>> entries =
-          await Future.wait(dbData.entries.map((entry) async {
-        Tipper tipper = await di<TippersViewModel>().findTipper(entry.key);
-        List<RoundScores> scores = (entry.value as List)
-            .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-        return MapEntry(tipper, scores);
-      }));
-
-      // Convert List<MapEntry> to Map
-      _allTipperRoundScores = Map.fromEntries(entries);
-
-      if (!_initialRoundLoadCompleter.isCompleted) {
-        _initialRoundLoadCompleter.complete();
-      }
-    } else {
-      log('sss in _handleEventRoundScores snapshot ${event.snapshot.ref.path}  does not exist');
+      await updateLeaderboardForComp();
+      updateRoundWinners();
+    } catch (e) {
+      log('Error listening to /Scores/round_scores: $e');
+      rethrow;
     }
 
-    await updateLeaderboardForComp();
-    updateRoundWinners();
-    //} catch (e) {
-    //  log('Error listening to /Scores/round_scores: $e');
-    //  rethrow;
-    //}
+    if (!_initialRoundLoadCompleted.isCompleted) {
+      _initialRoundLoadCompleted.complete();
+    }
   }
 
   Future<void> _handleEventCompScores(DatabaseEvent event) async {
@@ -437,7 +437,7 @@ class AllScoresViewModel extends ChangeNotifier {
   }
 
   List<RoundScores> getTipperRoundScoresForComp(Tipper tipper) {
-    if (!_initialRoundLoadCompleter.isCompleted) {
+    if (!_initialRoundLoadCompleted.isCompleted) {
       return [];
     }
 
@@ -449,8 +449,24 @@ class AllScoresViewModel extends ChangeNotifier {
 
   Future<RoundScores> getTipperConsolidatedScoresForRound(
       DAURound round, Tipper tipper) async {
-    if (!_initialRoundLoadCompleter.isCompleted) {
-      await _initialRoundLoadCompleter.future;
+    if (!_initialRoundLoadCompleted.isCompleted) {
+      await _initialRoundLoadCompleted.future;
+    }
+
+    // this should stop the null check error that Steve and I saw in the UI intermittently
+    if (_allTipperRoundScores[tipper] == null) {
+      return RoundScores(
+        rank: 0,
+        rankChange: 0,
+        aflScore: 0,
+        aflMaxScore: 0,
+        nrlScore: 0,
+        nrlMaxScore: 0,
+        aflMarginTips: 0,
+        aflMarginUPS: 0,
+        nrlMarginTips: 0,
+        nrlMarginUPS: 0,
+      );
     }
 
     return _allTipperRoundScores[tipper]![round.dAUroundNumber - 1];
