@@ -109,7 +109,9 @@ class TipsPageState extends State<TipsPage> {
                             await SharedPreferences.getInstance();
                         double initialScrollPosition =
                             prefs.getDouble('scrollPosition') ?? 0.0;
-                        controller.jumpTo(initialScrollPosition);
+                        if (controller.hasClients) {
+                          controller.jumpTo(initialScrollPosition);
+                        }
                       } else {
                         log('controller has no clients');
                       }
