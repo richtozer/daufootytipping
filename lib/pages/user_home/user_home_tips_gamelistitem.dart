@@ -1,4 +1,5 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
@@ -11,22 +12,21 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
-import 'package:watch_it/watch_it.dart';
 
 class GameListItem extends StatefulWidget {
-  GameListItem({
+  const GameListItem({
     super.key,
     required this.roundGames,
     required this.game,
     required this.currentTipper,
-    required this.currentDAUCompDBkey,
+    required this.currentDAUComp,
     required this.allTipsViewModel,
   });
 
   final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
   final Tipper currentTipper;
-  final String currentDAUCompDBkey;
+  final DAUComp currentDAUComp;
   final AllTipsViewModel allTipsViewModel;
 
   @override
@@ -39,28 +39,22 @@ class _GameListItemState extends State<GameListItem> {
 
   @override
   void initState() {
-    gameTipsViewModel = GameTipsViewModel(widget.currentTipper,
-        widget.currentDAUCompDBkey, widget.game, widget.allTipsViewModel);
     super.initState();
+    gameTipsViewModel = GameTipsViewModel(widget.currentTipper,
+        widget.currentDAUComp.dbkey!, widget.game, widget.allTipsViewModel);
   }
 
   @override
   Widget build(BuildContext context) {
-    // return FutureBuilder(
-    //     future: gameTipsViewModel.initialLoadCompleted,
-    //     builder: (BuildContext context, AsyncSnapshot snapshot) {
-    //       if (!snapshot.hasData) {
-    //         return const Center(child: CircularProgressIndicator());
-    //       } else {
     return ChangeNotifierProvider<GameTipsViewModel>.value(
-        value: gameTipsViewModel,
-        child: Consumer<GameTipsViewModel>(
-            builder: (context, gameTipsViewModelConsumer, child) {
-          return Card(
+      value: gameTipsViewModel,
+      child: Consumer<GameTipsViewModel>(
+        builder: (context, gameTipsViewModelConsumer, child) {
+          Widget gameDetailsCard = Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.0),
+              borderRadius: BorderRadius.circular(8.0),
             ),
-            color: Colors.grey[300],
+            color: Colors.lightGreen[100],
             child: Row(children: [
               Padding(
                 padding: const EdgeInsets.all(0.0),
@@ -101,8 +95,7 @@ class _GameListItemState extends State<GameListItem> {
                       ),
                       Text(
                           style: const TextStyle(
-                            fontSize:
-                                16.0, // Adjust this value to make the text bigger or smaller
+                            fontSize: 16.0,
                           ),
                           textAlign: TextAlign.left,
                           widget.game.awayTeam.name),
@@ -118,7 +111,7 @@ class _GameListItemState extends State<GameListItem> {
                           height: 120,
                           enlargeFactor: 1.0,
                           enlargeCenterPage: true,
-                          enlargeStrategy: CenterPageEnlargeStrategy.height,
+                          enlargeStrategy: CenterPageEnlargeStrategy.zoom,
                           enableInfiniteScroll: false,
                           onPageChanged: (index, reason) {
                             gameTipsViewModelConsumer.currentIndex = index;
@@ -126,70 +119,78 @@ class _GameListItemState extends State<GameListItem> {
                       items: carouselItems(gameTipsViewModelConsumer),
                       carouselController: gameTipsViewModelConsumer.controller,
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: carouselItems(gameTipsViewModelConsumer)
-                          .asMap()
-                          .entries
-                          .map((entry) {
-                        return GestureDetector(
-                          onTap: () {
-                            gameTipsViewModelConsumer.controller!
-                                .animateToPage(entry.key);
-                          },
-                          child: Container(
-                            width: 6.0,
-                            height: 6.0,
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 2.0, horizontal: 2.0),
-                            decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: (Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.white
-                                        : Colors.black)
-                                    .withOpacity(gameTipsViewModelConsumer
-                                                .currentIndex ==
-                                            entry.key
-                                        ? 0.9
-                                        : 0.4)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
                   ],
                 ),
               )
             ]),
           );
-        }));
-    //   }
-    // });
+
+          if (gameTipsViewModelConsumer.game.gameState ==
+              GameState.notStarted) {
+            return gameDetailsCard;
+          }
+
+          String bannerMessage;
+          Color bannerColor;
+
+          switch (gameTipsViewModelConsumer.game.gameState) {
+            case GameState.startingSoon:
+              bannerMessage = "Game today";
+              bannerColor = Colors.deepOrangeAccent;
+              break;
+            case GameState.resultNotKnown:
+              bannerMessage = "Live";
+              bannerColor = const Color(0xffe21e31);
+              break;
+            case GameState.resultKnown:
+              bannerMessage = "result";
+              bannerColor = Colors.grey;
+              break;
+            case GameState.notStarted:
+              bannerMessage = "not used";
+              bannerColor = Colors.purple;
+              break;
+          }
+
+          // return gameDetailsCard with banner overlay
+          return Banner(
+            color: bannerColor,
+            location: BannerLocation.topEnd,
+            message: bannerMessage,
+            child: gameDetailsCard,
+          );
+        },
+      ),
+    );
   }
 
-  List<Widget> carouselItems(GameTipsViewModel gameTipsViewModel) {
-    if (widget.game.gameState == GameState.notStarted) {
+  List<Widget> carouselItems(GameTipsViewModel gameTipsViewModelConsumer) {
+    if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
+        gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
         gameTipCard(gameTipsViewModel),
-        GameInfo(widget.game, gameTipsViewModel),
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel),
       ];
     } else {
       return [
         liveScoringBuilder(
-            gameTipsViewModel), // game is underway or ended - show scoring card
+            gameTipsViewModelConsumer), // game is underway or ended - show scoring card
         gameTipCard(gameTipsViewModel),
-        GameInfo(widget.game, gameTipsViewModel)
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel)
       ];
     }
   }
 
   FutureBuilder<dynamic> liveScoringBuilder(
-      GameTipsViewModel gameTipsViewModel) {
+      GameTipsViewModel gameTipsViewModelConsumer) {
     return FutureBuilder<TipGame?>(
-      future: gameTipsViewModel.gettip(),
+      future: gameTipsViewModelConsumer.gettip(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return LiveScoring(tipGame: snapshot.data!);
+          return LiveScoring(
+              tipGame: snapshot.data!,
+              gameTipsViewModel: gameTipsViewModelConsumer,
+              selectedDAUComp: widget.currentDAUComp);
         } else if (snapshot.hasError) {
           return Text('Error: ${snapshot.error}');
         } else {
@@ -199,7 +200,7 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  Widget gameTipCard(GameTipsViewModel gameTipsViewModel) {
+  Widget gameTipCard(GameTipsViewModel gameTipsViewModelConsumer) {
     return TipChoice(widget.roundGames,
         gameTipsViewModel); //roundGames is to support legacy tipping service only
   }

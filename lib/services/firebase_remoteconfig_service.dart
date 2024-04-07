@@ -39,8 +39,14 @@ class RemoteConfigService {
           'MIN_APP_VERSION'], // Make sure to set the default/fallback version number of the client to a number that is not forcing them to update unnessarily
     });
     log('activating remote config');
-    await _remoteConfig.fetchAndActivate();
-    _initialization.complete();
-    log('config initialised ');
+
+    try {
+      await _remoteConfig.fetchAndActivate();
+      log('config initialised ');
+    } catch (e) {
+      log('Error fetching remote config: $e');
+    } finally {
+      _initialization.complete();
+    }
   }
 }

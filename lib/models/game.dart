@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 enum GameState {
   notStarted, // game start time is in the future
+  startingSoon, // game start time is within 14 hours
   resultKnown, // game start time is in the past, but game score is known
   resultNotKnown, // game start time is in the past, but game score is not known
 }
@@ -40,10 +41,13 @@ class Game implements Comparable<Game> {
   });
 
   // this getter will return the gamestate based on the current time and the game start time
-  // the possible gamestates are: 'notStarted', 'resultKnown', 'resultNotKnown'
+  // the possible gamestates are: 'notStarted', 'startingSoon' , 'resultKnown', 'resultNotKnown'
   GameState get gameState {
     final now = DateTime.now().toUtc();
     if (now.isBefore(startTimeUTC)) {
+      if (now.isAfter(startTimeUTC.subtract(const Duration(hours: 14)))) {
+        return GameState.startingSoon;
+      }
       return GameState.notStarted;
     } else if (now.isAfter(startTimeUTC.add(const Duration(hours: 2))) &&
         scoring != null &&
@@ -60,7 +64,6 @@ class Game implements Comparable<Game> {
         'HomeTeam': homeTeam.dbkey.substring(4),
         'AwayTeam': awayTeam.dbkey.substring(4),
         'Location': location,
-        //'DateUtc': DateUtc.toString(),
         'DateUtc':
             '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
         'RoundNumber': roundNumber,

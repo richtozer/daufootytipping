@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:get_it/get_it.dart';
+import 'package:watch_it/watch_it.dart';
 
 // define  constant for firestore database locations
 final tippersPath = dotenv.env['TIPPERS_PATH'];
@@ -44,15 +47,11 @@ class TippersViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
-  FirebaseService? firebaseService;
+  FirebaseMessagingService? firebaseService;
 
   //constructor
   TippersViewModel(this.firebaseService) {
     log('TippersViewModel() constructor called');
-
-    if (firebaseService != null) {
-      firebaseService!.addListener(handleFirebaseServiceChange);
-    }
     _listenToTippers();
   }
 
@@ -86,9 +85,18 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<Tipper>> getTippers() async {
+  Future<List<Tipper>> getAllTippers() async {
     await _initialLoadCompleter.future;
     return _tippers;
+  }
+
+  Future<List<Tipper>> getActiveTippers(DAUComp thisComp) async {
+    await _initialLoadCompleter.future;
+    // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
+    // that matched the current comp
+    return _tippers
+        .where((tipper) => tipper.activeInComp(thisComp.dbkey!))
+        .toList();
   }
 
   final Map<String, dynamic> updates = {};
@@ -177,7 +185,7 @@ class TippersViewModel extends ChangeNotifier {
   // 4) if the Tipper does exist in the Firebase database, update it
   // 5) if the Tipper exists in the Firebase database but not in the Legacy GSheet Tipping Service, delete it
 
-  Future<void> syncTippers() async {
+  Future<String> syncTippers() async {
     try {
       _isLegacySyncing = true;
       notifyListeners();
@@ -197,9 +205,9 @@ class TippersViewModel extends ChangeNotifier {
       log('syncTippers() legacy tipper sheet load complete');
 
       if (!_initialLoadCompleter.isCompleted) {
-        log('Waiting for initial Tipper load to complete in syncTippers()');
+        log('Waiting for initial App Tipper load to complete in syncTippers()');
         await _initialLoadCompleter.future;
-        log('tipper load complete, syncTippers()');
+        log('App tipper load complete, syncTippers()');
       }
 
       // loop through each Tipper in the legacyTippers list - skip the header row
@@ -215,17 +223,15 @@ class TippersViewModel extends ChangeNotifier {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
 
           // submit each attribute of the legacyTipper to the updateTipperAttribute method,
-          // it will take care of only submitteing the attributes that have changed to db
+          // it will take care of only submitting the attributes that have changed to db
           await updateTipperAttribute(
               existingTipper.dbkey!, 'name', legacyTipper.name);
           await updateTipperAttribute(
               existingTipper.dbkey!, 'email', legacyTipper.email);
           await updateTipperAttribute(
               existingTipper.dbkey!, 'tipperID', legacyTipper.tipperID);
-          await updateTipperAttribute(
-              existingTipper.dbkey!, 'active', legacyTipper.active);
           await updateTipperAttribute(existingTipper.dbkey!, 'tipperRole',
-              legacyTipper.tipperRole.toString().split('.').last);
+              legacyTipper.tipperRole.name);
         }
       });
 
@@ -240,11 +246,11 @@ class TippersViewModel extends ChangeNotifier {
         // if the Tipper does not exist in the legacyTippers list, investigate it
         if (legacyTipper == null) {
           log('syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
-          //await deleteTipper(firebaseTipper);
           throw Exception(
               'syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
         }
       }));
+      return 'Successfully synced ${legacyTippers.length} tippers from the legacy tipping service';
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
@@ -313,6 +319,10 @@ class TippersViewModel extends ChangeNotifier {
 
         await registerLinkedTipperForMessaging();
       }
+      // init an instance of ScoresViewModel focusing on their scores - TODO - right now we are downloading all scores
+      di.registerLazySingleton<AllScoresViewModel>(() =>
+          AllScoresViewModel(di<DAUCompsViewModel>().defaultDAUCompDbKey));
+
       return userIsLinked;
     } catch (e) {
       log('linkUserToTipper() Error: $e');
@@ -333,9 +343,8 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, registerLinkedTipperForMessaging()');
     }
 
-    // get use permissions to notify, if required
-    await firebaseService?.requestIOSNotificationPermission();
-
+    // wait for the token to be populated
+    await firebaseService?.initialLoadComplete;
     String? token = firebaseService?.fbmToken;
 
     // write the token to the database using the token as the the path
@@ -345,6 +354,8 @@ class TippersViewModel extends ChangeNotifier {
         .child(tokensPath)
         .child(_authenticatedTipper!.dbkey!)
         .update({token!: DateTime.now().toIso8601String()});
+
+    log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${token.substring(token.length - 5)}');
   }
 
   //this is the callback method when there are changes in the FBM token

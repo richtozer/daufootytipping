@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
-import 'package:daufootytipping/extensions/disposesafechangenotifier.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -16,6 +15,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
+  //late ScoresViewModel scoresViewModel;
   AllTipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
@@ -45,8 +45,11 @@ class GameTipsViewModel extends ChangeNotifier {
     this.game,
     this.allTipsViewModel,
   ) {
+    //scoresViewModel = di<ScoresViewModel>();
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
+    //scoresViewModel.addListener(update);
+
     _findTip();
     gameStartedTrigger();
   }
@@ -55,12 +58,13 @@ class GameTipsViewModel extends ChangeNotifier {
   // then use notifiyListeners to trigger the UI to update
   void gameStartedTrigger() async {
     // if the game has already started, then we don't need to wait , just return
-    if (game.gameState != GameState.notStarted) {
+    if ((game.gameState == GameState.resultNotKnown ||
+        game.gameState == GameState.resultKnown)) {
       notifyListeners();
       return;
     }
 
-    // caldulate the time until the game starts and create a future.delayed
+    // calculate the time until the game starts and create a future.delayed
     // to wait until the game starts
     var timeUntilGameStarts =
         game.startTimeUTC.difference(DateTime.now().toUtc());
@@ -117,11 +121,11 @@ class GameTipsViewModel extends ChangeNotifier {
 
       // code section to support legacy tipping service
       // find the Tip game position in the roundGames list
-      int gameIndex =
-          roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
+      // int gameIndex =
+      //     roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
 
-      legcyTippingService.submitTip(
-          currentTipper.name, tip, gameIndex, combinedRoundNumber);
+      // legcyTippingService.submitTip(
+      //     currentTipper.name, tip, gameIndex, combinedRoundNumber);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
@@ -135,6 +139,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
+    //scoresViewModel.removeListener(update);
     super.dispose();
   }
 }

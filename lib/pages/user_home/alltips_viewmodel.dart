@@ -49,7 +49,7 @@ class AllTipsViewModel extends ChangeNotifier {
     _listenToTips();
   }
 
-  Future<List<TipGame?>> getTips() async {
+  Future<List<TipGame?>> getAllTips() async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
@@ -153,7 +153,9 @@ class AllTipsViewModel extends ChangeNotifier {
 
     // return a default 'd' tip if they forgot to submit a tip
     // and game has already started
-    if (game.gameState != GameState.notStarted && tipGame == null) {
+    if ((game.gameState == GameState.resultKnown ||
+            game.gameState == GameState.resultNotKnown) &&
+        tipGame == null) {
       tipGame = TipGame(
         tip: GameResult.d,
         // set this tipper time as ephoch,
@@ -172,5 +174,31 @@ class AllTipsViewModel extends ChangeNotifier {
     _tipsStream.cancel(); // stop listening to stream
     _gamesViewModel.removeListener(update);
     super.dispose();
+  }
+
+  Future<List<TipGame?>> getTipsForRound(
+      Tipper tipper, int combinedRound) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      await _initialLoadCompleter.future;
+    }
+
+    //figure out which key to for this search. GoogleSheetService does not have
+    //access to dbkey, so we need to use tippedID as the key
+
+    if (tipper.dbkey != null) {
+      return _tipGames
+          .where((tipGame) =>
+              tipGame?.tipper.dbkey == tipper.dbkey &&
+              tipGame?.game.dauRound.dAUroundNumber == combinedRound)
+          .toList();
+    } else {
+      return _tipGames
+          .where((tipGame) =>
+              tipGame?.tipper.tipperID == tipper.tipperID &&
+              tipGame?.game.dauRound.dAUroundNumber == combinedRound)
+          .toList();
+    }
+
+    // search all tips for the tipper and this round
   }
 }

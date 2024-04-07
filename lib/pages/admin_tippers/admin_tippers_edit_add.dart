@@ -1,8 +1,14 @@
+import 'dart:developer';
+
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:provider/provider.dart';
+import 'package:watch_it/watch_it.dart';
 
 class TipperAdminEditPage extends StatefulWidget {
   final TippersViewModel tippersViewModel;
@@ -22,19 +28,20 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late TextEditingController _tipperEmailController;
   final FocusNode _emailFocusNode = FocusNode();
   late Tipper? tipper;
-  late TippersViewModel tippersViewModel;
-  late bool active = true;
   late bool admin;
+  late TippersViewModel tippersViewModel;
+
   late bool disableBackButton = false;
   late bool disableSaves = true;
   late int changes = 0;
+  List<DAUComp> comps = [];
 
   @override
   void initState() {
     super.initState();
     tipper = widget.tipper;
     tippersViewModel = widget.tippersViewModel;
-    active = tipper?.active == null ? true : tipper!.active;
+    //active = tipper?.active == null ? true : tipper!.active;
     admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
     _tipperNameController = TextEditingController(text: tipper?.name);
     _tipperEmailController = TextEditingController(text: tipper?.email);
@@ -60,8 +67,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           admin == true
               ? TipperRole.admin.toString().toString().split('.').last
               : TipperRole.tipper.toString().toString().split('.').last);
+
+      //String compsParticipatedInJson = jsonEncode(
+      //    tipper!.compsParticipatedIn.map((comp) => comp.dbkey).toList());
+
       await tippersViewModel.updateTipperAttribute(
-          tipper!.dbkey!, "active", active);
+          tipper!.dbkey!,
+          "compsParticipatedIn",
+          tipper!.compsParticipatedIn.map((comp) => comp.dbkey).toList());
 
       await tippersViewModel.saveBatchOfTipperAttributes();
 
@@ -238,40 +251,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   ),
                 ],
               ),
-              Row(children: [
-                const Text('Active:'),
-                Switch(
-                  value: active,
-                  activeColor: Colors.green,
-                  onChanged: (value) {
-                    setState(() {
-                      active = value;
-                    });
-
-                    if (tipper?.active != value) {
-                      //something has changed, maybe allow saves
-                      setState(() {
-                        changes++; //increment the number of changes
-                        if (changes == 0) {
-                          disableSaves = true;
-                        } else {
-                          disableSaves = false;
-                        }
-                      });
-                    } else {
-                      setState(() {
-                        changes--; //decrement the number of changes, maybe stop saves
-                        if (changes == 0) {
-                          disableSaves = true;
-                        } else {
-                          disableSaves = false;
-                        }
-                      });
-                    }
-                  },
-                ),
-              ]),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('DAU Admin:'),
                   Switch(
@@ -306,8 +287,121 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       }
                     },
                   ),
+                  const Text(' God mode: '),
+                  ChangeNotifierProvider<TippersViewModel>.value(
+                      value: di<TippersViewModel>(),
+                      child: Consumer<TippersViewModel>(
+                        builder: (context, tippersViewModelConsumer, child) {
+                          // if the tipper being editing was not a participant for that year then display a msg that god mode is not available
+                          if (!tipper!.compsParticipatedIn.any((element) =>
+                              element.dbkey ==
+                              di<DAUCompsViewModel>().selectedDAUCompDbKey)) {
+                            return Container(
+                              child: const Text(
+                                  'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\nselected year'),
+                            );
+                          }
+
+                          return Switch(
+                            value: (tippersViewModelConsumer.inGodMode &&
+                                tippersViewModelConsumer.selectedTipper ==
+                                    tipper),
+                            activeColor: Colors.yellow,
+                            onChanged: (value) {
+                              if (value == true) {
+                                // if godmode is already turned on for another tipper
+                                // then continue with this change, but display a snackbar
+                                // saying we turned it off for tipper a, and turned it on here for this tipper
+                                if (tippersViewModelConsumer.inGodMode) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: Colors.green,
+                                      content: Text(
+                                          'God mode changed from ${tippersViewModelConsumer.selectedTipper!.name} to ${tipper!.name}'),
+                                    ),
+                                  );
+                                }
+                                tippersViewModelConsumer.selectedTipper =
+                                    tipper;
+                              } else {
+                                tippersViewModelConsumer.selectedTipper =
+                                    tippersViewModelConsumer
+                                        .authenticatedTipper;
+                              }
+                            },
+                          );
+                        },
+                      )),
                 ],
               ),
+              // add a row for 'Active Comps', display a list of all DAUComps
+              // if the tippers is active in the comp, then show a tick
+              // allow the admin to edit which comps this tipper is active in
+              // save changes to the tipper's active comps
+              FutureBuilder<List<DAUComp>>(
+                  future: di<DAUCompsViewModel>().getDAUcomps(),
+                  builder: (BuildContext context,
+                      AsyncSnapshot<List<DAUComp>> snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Text('Error: ${snapshot.error}');
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Text('No Records');
+                    } else {
+                      comps = snapshot.data!;
+                      // sort the comps by name descending
+                      comps.sort((a, b) =>
+                          b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+                      return Column(
+                        children: [
+                          const Text(
+                              'Select the competitions this tipper is active in:'),
+                          DataTable(
+                            sortColumnIndex: 1,
+                            sortAscending: true,
+                            columns: const [
+                              DataColumn(label: Text('Active')),
+                              DataColumn(label: Text('Competition Name'))
+                            ],
+                            rows: comps
+                                .map((comp) => DataRow(
+                                      cells: [
+                                        DataCell(
+                                          Checkbox(
+                                            value: tipper!
+                                                .activeInComp(comp.dbkey!),
+                                            onChanged: (bool? value) {
+                                              log('Checkbox changed to $value');
+                                              setState(() {
+                                                if (value == true) {
+                                                  widget.tipper!
+                                                      .compsParticipatedIn
+                                                      .add(comp);
+                                                } else {
+                                                  widget.tipper!
+                                                      .compsParticipatedIn
+                                                      .remove(comp);
+                                                }
+                                                changes++; //increment the number of changes
+                                                if (changes == 0) {
+                                                  disableSaves = true;
+                                                } else {
+                                                  disableSaves = false;
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        DataCell(Text(comp.name)),
+                                      ],
+                                    ))
+                                .toList(),
+                          ),
+                        ],
+                      );
+                    }
+                  })
             ],
           ),
         ),
