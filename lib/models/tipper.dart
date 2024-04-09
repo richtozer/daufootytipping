@@ -19,12 +19,10 @@ class Tipper implements Comparable<Tipper> {
       {this.dbkey,
       required this.compsParticipatedIn,
       this.photoURL,
-      //this.deviceTokens,
       required this.authuid,
       required this.email,
       required this.name,
       required this.tipperID,
-      //required this.active,
       required this.tipperRole});
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {

@@ -3,11 +3,11 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -97,18 +97,44 @@ class Profile extends StatelessWidget with WatchItMixin {
                   }
                 },
               ),
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.35,
-                width: MediaQuery.of(context).size.width * 0.95,
-                child: ProfileScreen(
-                  actions: [
-                    DisplayNameChangedAction((context, oldName, newName) {
-                      // TODO do something with the new name
-                      throw UnimplementedError();
-                    }),
-                  ],
+              Card(
+                child: SizedBox(
+                  width: 150,
+                  child: OutlinedButton(
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.logout),
+                        Text('Sign Out'),
+                      ],
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => UserAuthPage(
+                            di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                            null,
+                            isUserLoggingOut: true,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
+              // SizedBox(
+              //   height: MediaQuery.of(context).size.height * 0.35,
+              //   width: MediaQuery.of(context).size.width * 0.95,
+              //   child: const ProfileScreen(
+
+              //       //actions: [
+              //       // DisplayNameChangedAction((context, oldName, newName) {
+              //       //   // TODO do something with the new name
+              //       //   throw UnimplementedError();
+              //       // }),
+              //       //],
+              //       ),
+              // ),
             ],
           ),
         ),

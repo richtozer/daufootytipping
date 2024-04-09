@@ -69,11 +69,7 @@ class TipsPageState extends State<TipsPage> {
     Widget scrollView = FutureBuilder<DAUComp>(
         future: dauCompWithScoresFuture,
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-                child: Text(
-                    'Error loading dauCompWithScores: ${snapshot.stackTrace}'));
-          } else if (!snapshot.hasData) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
@@ -81,11 +77,7 @@ class TipsPageState extends State<TipsPage> {
             return FutureBuilder<void>(
                 future: allTipsViewModel.getAllTips(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(
-                        child:
-                            Text('Error loading GameTip: ${snapshot.error}'));
-                  } else if (!snapshot.hasData) {
+                  if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   } else {
                     WidgetsBinding.instance
@@ -146,9 +138,10 @@ class TipsPageState extends State<TipsPage> {
                                       int tipperCompRank =
                                           allScoresViewModelConsumer.leaderboard
                                               .firstWhere((element) =>
-                                                  element.tipper ==
+                                                  element.tipper.dbkey ==
                                                   di<TippersViewModel>()
-                                                      .selectedTipper!)
+                                                      .selectedTipper!
+                                                      .dbkey)
                                               .rank;
                                       return GestureDetector(
                                         onTap: () {

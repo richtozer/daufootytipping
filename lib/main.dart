@@ -24,7 +24,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 
 Future<void> main() async {
-  // Do not to start running the application widget code until the Flutter framework is completely booted
+  // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(); // Loads .env file
@@ -81,22 +81,25 @@ Future<void> main() async {
     };
   }
 
-  FirebaseMessagingService firebaseService = FirebaseMessagingService();
-
   // setup some default analytics parameters
   if (!kIsWeb) {
     FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
-
-    firebaseService.initializeFirebaseMessaging();
   }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
   di.allowReassignment = true;
-  di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
-  di.registerSingleton<PackageInfoService>(PackageInfoService());
 
-  di.registerLazySingleton<TippersViewModel>(
-      () => TippersViewModel(firebaseService));
+  if (!kIsWeb) {
+    // setup Firebase Messaging Service
+    di.registerLazySingleton<FirebaseMessagingService>(
+        () => FirebaseMessagingService());
+    di<FirebaseMessagingService>().initializeFirebaseMessaging();
+  }
+
+  di.registerLazySingleton<TippersViewModel>(() => TippersViewModel());
+
+  di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
+  di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   di.registerLazySingleton<DAUCompsViewModel>(
       () => DAUCompsViewModel(configDAUComp));
@@ -106,16 +109,13 @@ Future<void> main() async {
 
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
 
-  runApp(MyApp(remoteConfigService, configDAUComp, firebaseService));
+  runApp(MyApp(remoteConfigService, configDAUComp));
 }
 
 class MyApp extends StatelessWidget {
   final RemoteConfigService remoteConfigService;
   final String configDAUComp;
-  final FirebaseMessagingService firebaseService;
-  const MyApp(
-      this.remoteConfigService, this.configDAUComp, this.firebaseService,
-      {super.key});
+  const MyApp(this.remoteConfigService, this.configDAUComp, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +125,7 @@ class MyApp extends StatelessWidget {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: UserAuthPage(configDAUComp, remoteConfigService, firebaseService),
+      home: UserAuthPage(configDAUComp, remoteConfigService),
     );
   }
 }
