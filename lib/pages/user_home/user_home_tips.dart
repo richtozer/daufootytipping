@@ -16,7 +16,6 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:googleapis/games/v1.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
