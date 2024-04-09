@@ -453,8 +453,23 @@ class AllScoresViewModel extends ChangeNotifier {
       await _initialRoundLoadCompleted.future;
     }
 
-    // this should stop the null check error that Steve and I saw in the UI intermittently
+    // this should stop the null check error that appears in UI intermittently
     if (_allTipperRoundScores[tipper] == null) {
+      return RoundScores(
+        rank: 0,
+        rankChange: 0,
+        aflScore: 0,
+        aflMaxScore: 0,
+        nrlScore: 0,
+        nrlMaxScore: 0,
+        aflMarginTips: 0,
+        aflMarginUPS: 0,
+        nrlMarginTips: 0,
+        nrlMarginUPS: 0,
+      );
+    }
+
+    if (_allTipperRoundScores[tipper]!.length < round.dAUroundNumber) {
       return RoundScores(
         rank: 0,
         rankChange: 0,
@@ -475,7 +490,7 @@ class AllScoresViewModel extends ChangeNotifier {
   CompScore getTipperConsolidatedScoresForComp(Tipper tipper) {
     // return 0 scores until the data is loaded for this tipper
 
-    if (_allTipperCompScores.isEmpty) {
+    if (_allTipperCompScores[tipper] == null) {
       return CompScore(
         aflCompScore: 0,
         aflCompMaxScore: 0,

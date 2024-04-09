@@ -1,18 +1,13 @@
 import 'package:daufootytipping/models/daucomp.dart';
-
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
-
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-
-import 'package:daufootytipping/pages/user_home/user_home.dart';
+import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -114,11 +109,13 @@ class Profile extends StatelessWidget with WatchItMixin {
                       ],
                     ),
                     onPressed: () {
-                      FirebaseAuth.instance.signOut();
-                      Navigator.of(context).pop(
+                      Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (context) => HomePage(
-                              di<DAUCompsViewModel>().selectedDAUCompDbKey),
+                          builder: (context) => UserAuthPage(
+                            di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                            null,
+                            isUserLoggingOut: true,
+                          ),
                         ),
                       );
                     },

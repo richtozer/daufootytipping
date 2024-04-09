@@ -191,8 +191,6 @@ class _GameListItemState extends State<GameListItem> {
               tipGame: snapshot.data!,
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
-        } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
         } else {
           return const CircularProgressIndicator();
         }
