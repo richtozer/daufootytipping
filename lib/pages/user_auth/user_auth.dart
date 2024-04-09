@@ -2,9 +2,6 @@ import 'dart:developer';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
-import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
-import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -218,7 +215,7 @@ class LoginErrorScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(8.0),
                     child: Text(
                       errorMessage,
-                      style: TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
                   ),

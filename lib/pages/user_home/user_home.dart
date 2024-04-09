@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:ui';
 
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';

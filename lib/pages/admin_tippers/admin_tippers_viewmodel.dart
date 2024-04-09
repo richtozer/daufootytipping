@@ -357,7 +357,7 @@ class TippersViewModel extends ChangeNotifier {
     _db
         .child(tokensPath)
         .child(_authenticatedTipper!.dbkey!)
-        .update({token!: DateTime.now().toIso8601String()});
+        .update({token: DateTime.now().toIso8601String()});
 
     log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${token.substring(token.length - 5)}');
   }
