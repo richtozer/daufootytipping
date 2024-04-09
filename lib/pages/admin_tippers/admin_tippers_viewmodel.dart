@@ -47,10 +47,8 @@ class TippersViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
-  FirebaseMessagingService? firebaseService;
-
   //constructor
-  TippersViewModel(this.firebaseService) {
+  TippersViewModel() {
     log('TippersViewModel() constructor called');
     _listenToTippers();
   }
@@ -344,11 +342,17 @@ class TippersViewModel extends ChangeNotifier {
     }
 
     // wait for the token to be populated
-    await firebaseService?.initialLoadComplete;
-    String? token = firebaseService?.fbmToken;
+    FirebaseMessagingService? firebaseService = di<FirebaseMessagingService>();
+    await firebaseService.initialLoadComplete;
+    String? token = firebaseService.fbmToken;
 
     // write the token to the database using the token as the the path
     // update the timestamp if the token already exists
+
+    if (token == null) {
+      log('registerLinkedTipperForMessaging() Token is null, cannot register for messaging');
+      return;
+    }
 
     _db
         .child(tokensPath)

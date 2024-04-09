@@ -51,9 +51,8 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
                       AsyncSnapshot<List<DAUComp>> snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return Text('Error: ${snapshot.error}');
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Text('No Records');
                     } else {
                       List<DAUComp> daucomps = snapshot.data!;

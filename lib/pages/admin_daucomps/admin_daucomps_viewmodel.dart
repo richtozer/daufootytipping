@@ -280,7 +280,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       LegacyTippingService tippingService =
           GetIt.instance<LegacyTippingService>();
 
-      TippersViewModel tippersViewModel = TippersViewModel(null);
+      TippersViewModel tippersViewModel = TippersViewModel();
 
       if (userGamesViewModel != null ||
           userGamesViewModel?.selectedDAUComp != daucompToUpdate.dbkey!) {

@@ -21,7 +21,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   // are they participating in the current comp, if not, they can't see the tips or stats
-
   int _currentIndex = 0;
   bool activeInComp = false;
 
@@ -44,7 +43,6 @@ class _HomePageState extends State<HomePage> {
     activeInComp = di<TippersViewModel>()
         .selectedTipper!
         .activeInComp(widget.currentDAUCompKey);
-    log('screen width: ${MediaQuery.of(context).size.width}');
 
     if (activeInComp == false) {
       _currentIndex = 2; // default to profile page for non-participants
