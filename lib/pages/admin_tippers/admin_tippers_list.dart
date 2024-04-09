@@ -76,9 +76,6 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                         AsyncSnapshot<List<Tipper>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const CircularProgressIndicator(); // Show a loading spinner while waiting
-                      } else if (snapshot.hasError) {
-                        return Text(
-                            'Error: ${snapshot.error}'); // Show error message if something went wrong
                       } else {
                         return Column(
                           children: [

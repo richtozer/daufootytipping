@@ -59,9 +59,7 @@ class _StatRoundGameScoresForTipperState
       future: gamesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}');
-          } else if (!snapshot.hasData) {
+          if (!snapshot.hasData) {
             return const Text('No data');
           }
           var games = snapshot.data;
@@ -299,8 +297,6 @@ class _StatRoundGameScoresForTipperState
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
-              } else if (snapshot.hasError) {
-                return Flexible(child: Text('Error: ${snapshot.error}'));
               } else {
                 return Text(snapshot.data?.game.league == League.afl
                     ? snapshot.data?.tip.afl ?? 'No data'
@@ -316,8 +312,6 @@ class _StatRoundGameScoresForTipperState
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
-              } else if (snapshot.hasError) {
-                return Flexible(child: Text('Error: ${snapshot.error}'));
               } else {
                 return Text(snapshot.data?.getTipScoreCalculated().toString() ??
                     'No data');
@@ -332,8 +326,6 @@ class _StatRoundGameScoresForTipperState
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
-              } else if (snapshot.hasError) {
-                return Flexible(child: Text('Error: ${snapshot.error}'));
               } else {
                 return Text(snapshot.data?.getMaxScoreCalculated().toString() ??
                     'No data');

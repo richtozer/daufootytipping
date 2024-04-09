@@ -1,8 +1,7 @@
 import 'dart:developer';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-
 import 'package:daufootytipping/pages/user_home/user_home.dart';
-import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -12,30 +11,31 @@ import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 import 'package:package_info_plus/package_info_plus.dart';
-
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  UserAuthPage(
-      this.currentDAUCompKey, this.remoteConfigService, this.firebaseService,
-      {super.key});
+  UserAuthPage(this.currentDAUCompKey, this.remoteConfigService,
+      {super.key, this.isUserLoggingOut = false});
 
   final String currentDAUCompKey;
+  bool isUserLoggingOut = false;
 
-  final RemoteConfigService remoteConfigService;
-  final FirebaseMessagingService firebaseService;
+  final RemoteConfigService? remoteConfigService;
 
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 
   PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
+    // dont do the app version check if the remote config service is not available
+    if (remoteConfigService == null) {
+      return false;
+    }
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
     List<String> currentVersionParts = packageInfo.version.split('.');
-    String minAppVersion = await remoteConfigService.getConfigMinAppVersion();
+    String minAppVersion = await remoteConfigService!.getConfigMinAppVersion();
     List<String> newVersionParts = minAppVersion.split('.');
 
     for (int i = 0; i < newVersionParts.length; i++) {
@@ -53,13 +53,21 @@ class UserAuthPage extends StatelessWidget {
     return false;
   }
 
+  // method to log user out
+  void signOut() async {
+    await FirebaseAuth.instance.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
+    if (isUserLoggingOut) {
+      signOut();
+    }
     return Scaffold(
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
+        builder: (context, authSnapshot) {
           // check if the current app version is lower than the value set in
           // remote config, if so, force the user to update the app
           return FutureBuilder<bool>(
@@ -67,15 +75,14 @@ class UserAuthPage extends StatelessWidget {
             builder: (context, versionSnapshot) {
               if (versionSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
-              } else if (versionSnapshot.hasError) {
-                return Text('Error: ${versionSnapshot.error}');
-              } else if (versionSnapshot.data == true) {
+              }
+              if (versionSnapshot.data == true) {
                 return const Center(
                     child: Text(
                   "This version of the app is no longer supported, please update the app from the app store.",
                 ));
               }
-              if (!snapshot.hasData) {
+              if (!authSnapshot.hasData) {
                 return SignInScreen(
                   providers: [
                     AppleProvider(),
@@ -116,31 +123,31 @@ class UserAuthPage extends StatelessWidget {
               }
 
               //once we pass signin we have a firebase auth user context
-              User? authenticatedFirebaseUser = snapshot.data;
+              User? authenticatedFirebaseUser = authSnapshot.data;
               if (authenticatedFirebaseUser == null) {
-                return const Center(
-                    child: Text(
-                        'error - No user context found, please contact DAU team.'));
+                return const LoginErrorScreen(
+                    errorMessage:
+                        'No user context found. Please contact daufootytipping@gmail.com');
               }
               if (authenticatedFirebaseUser.isAnonymous) {
-                return const Center(
-                    child: Text(
-                        'error - User is anonymous, please contact DAU team.'));
+                return const LoginErrorScreen(
+                    errorMessage:
+                        'You have logged in as anonymous. Please contact daufootytipping@gmail.com');
               }
               if (authenticatedFirebaseUser.emailVerified == false) {
-                return const Center(
-                    child: Text(
-                        'error - User email is not verified, please contact DAU team.'));
+                return const LoginErrorScreen(
+                    errorMessage:
+                        'Your email is not verified. Please contact daufootytipping@gmail.com');
               }
-
-              FirebaseAnalytics.instance.logLogin(
-                  loginMethod:
-                      authenticatedFirebaseUser.providerData[0].providerId);
 
               //at this point we have a verfied logged on user - as we send them
               //to the home page, make sure they are represented in the realtime database
               // as a tipper linked to their firebase auth record,
               //if not create a Tipper record for them.
+
+              FirebaseAnalytics.instance.logLogin(
+                  loginMethod:
+                      authenticatedFirebaseUser.providerData[0].providerId);
 
               TippersViewModel tippersViewModel = di<TippersViewModel>();
 
@@ -150,49 +157,19 @@ class UserAuthPage extends StatelessWidget {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (snapshot.hasError) {
-                    return ProfileScreen(
-                      actions: [
-                        DisplayNameChangedAction((context, oldName, newName) {
-                          // TODO do something with the new name
-                          throw UnimplementedError();
-                        }),
-                      ],
-                      children: [
-                        Container(
-                          color: Colors.red,
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            '${snapshot.error}',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    );
+                    return LoginErrorScreen(
+                        errorMessage:
+                            'Unexpected error ${snapshot.error}. Contact daufootytipping@gmail.com');
                   } else if (snapshot.data == null) {
-                    return const Center(
-                        child: Text(
-                            'error - unexpected null from linkUserToTipper'));
+                    return const LoginErrorScreen(
+                        errorMessage:
+                            'Unexpected null from linkUserToTipper. Contact daufootytipping@gmail.com');
                   } else {
                     if (tippersViewModel.authenticatedTipper == null) {
-                      // default to the profile screen if no tipper record found
-                      return ProfileScreen(
-                        actions: [
-                          DisplayNameChangedAction((context, oldName, newName) {
-                            // TODO do something with the new name
-                            throw UnimplementedError();
-                          }),
-                        ],
-                        children: [
-                          Container(
-                            color: Colors.red,
-                            padding: const EdgeInsets.all(8.0),
-                            child: const Text(
-                              'No Tipper record found, please contact the admin.',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      );
+                      // display an error if no tipper record is found
+                      return const LoginErrorScreen(
+                          errorMessage:
+                              'No tipper record found. Contact daufootytipping@gmail.com');
                     }
 
                     return HomePage(currentDAUCompKey);
@@ -202,6 +179,75 @@ class UserAuthPage extends StatelessWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class LoginErrorScreen extends StatelessWidget {
+  final String errorMessage;
+
+  const LoginErrorScreen({super.key, required this.errorMessage});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const SizedBox(height: 50),
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Image(
+                height: 110,
+                width: 110,
+                image: AssetImage('assets/icon/AppIcon.png'),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: 300,
+              child: Center(
+                child: Card(
+                  color: Colors.red,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      errorMessage,
+                      style: const TextStyle(color: Colors.white),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: 150,
+              child: OutlinedButton(
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout),
+                    Text('Sign Out'),
+                  ],
+                ),
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => UserAuthPage(
+                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                        null,
+                        isUserLoggingOut: true,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
