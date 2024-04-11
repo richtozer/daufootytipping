@@ -111,6 +111,11 @@ class TippersViewModel extends ChangeNotifier {
     //find the Tipper in the local list. it it's there, compare the attribute value and update if different
     Tipper? tipperToUpdate = await findTipper(tipperDbKey);
 
+    if (tipperToUpdate == null) {
+      log('TipperToUpdate is null. Skipping update.');
+      return;
+    }
+
     // if the attribute name is deviceTokens store the token in another tree
     // this is to avoid the need to update the entire tipper record every time a new token is added
     // this is due to firebase billing
@@ -168,13 +173,13 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
-  Future<Tipper> findTipper(String tipperDbKey) async {
+  Future<Tipper?> findTipper(String tipperDbKey) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial Tipper load to complete in findTipper($tipperDbKey)');
       await _initialLoadCompleter.future;
       log('tipper load complete, findTipper($tipperDbKey)');
     }
-    return _tippers.firstWhere((tipper) => tipper.dbkey == tipperDbKey);
+    return _tippers.firstWhereOrNull((tipper) => tipper.dbkey == tipperDbKey);
   }
 
   //method to sync Tipper changes from Legacy GSheet Tipping Service Tipper sheet to Firebase
