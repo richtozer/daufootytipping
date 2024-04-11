@@ -18,7 +18,7 @@ class StatCompLeaderboard extends StatefulWidget {
 }
 
 class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
-  late AllScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   bool isAscending = true;
   int? sortColumnIndex = 1;
 
@@ -38,14 +38,14 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     super.initState();
     //scoresViewModel =
     //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
-    scoresViewModel = di<AllScoresViewModel>();
+    scoresViewModel = di<ScoresViewModel>();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AllScoresViewModel>.value(
+    return ChangeNotifierProvider<ScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<AllScoresViewModel>(
+      child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(
               context,
@@ -59,7 +59,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   Widget buildScaffold(
     BuildContext context,
-    AllScoresViewModel scoresViewModelConsumer,
+    ScoresViewModel scoresViewModelConsumer,
     String name,
     Color color,
   ) {
@@ -192,7 +192,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   }
 
   void onTipperTapped(BuildContext context,
-      AllScoresViewModel scoresViewModelConsumer, int index) {
+      ScoresViewModel scoresViewModelConsumer, int index) {
     Navigator.push(
       context,
       MaterialPageRoute(

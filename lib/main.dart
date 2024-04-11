@@ -3,9 +3,11 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
@@ -108,6 +110,10 @@ Future<void> main() async {
   DAUComp? dAUComp = await di<DAUCompsViewModel>().getCurrentDAUComp();
 
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
+  di.registerLazySingleton<ScoresViewModel>(
+      () => ScoresViewModel(dAUComp!.dbkey!));
+
+  // run the application widget code
 
   runApp(MyApp(remoteConfigService, configDAUComp));
 }

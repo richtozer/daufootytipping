@@ -30,9 +30,6 @@ class GameTipsViewModel extends ChangeNotifier {
   Future<bool> get initialLoadCompleted async =>
       _initialLoadCompleter.isCompleted;
 
-  LegacyTippingService legcyTippingService =
-      GetIt.instance<LegacyTippingService>();
-
   int currentIndex = 0;
 
   final CarouselController _controller = CarouselController();
@@ -118,14 +115,6 @@ class GameTipsViewModel extends ChangeNotifier {
       log('new tip logged: ${updates.toString()}');
 
       _tipGame = tip; // update the tipGame with the new tip
-
-      // code section to support legacy tipping service
-      // find the Tip game position in the roundGames list
-      // int gameIndex =
-      //     roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
-
-      // legcyTippingService.submitTip(
-      //     currentTipper.name, tip, gameIndex, combinedRoundNumber);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

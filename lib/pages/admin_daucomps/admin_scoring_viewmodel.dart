@@ -20,7 +20,7 @@ const roundScoresRoot = 'round_scores';
 const compScoresRoot = 'comp_scores';
 const liveScoresRoot = 'live_scores';
 
-class AllScoresViewModel extends ChangeNotifier {
+class ScoresViewModel extends ChangeNotifier {
   Map<Tipper, List<RoundScores>> _allTipperRoundScores = {};
   Map<Tipper, List<RoundScores>> get allTipperRoundScores =>
       _allTipperRoundScores;
@@ -53,7 +53,7 @@ class AllScoresViewModel extends ChangeNotifier {
   Map<int, List<RoundWinnerEntry>> get roundWinners => _roundWinners;
 
   //constructor
-  AllScoresViewModel(this.currentDAUComp) {
+  ScoresViewModel(this.currentDAUComp) {
     log('***ScoresViewModel_constructor(ALL TIPPERS)***');
     _listenToScores();
   }
