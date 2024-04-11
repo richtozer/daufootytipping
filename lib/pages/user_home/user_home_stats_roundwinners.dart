@@ -46,7 +46,17 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   Widget build(BuildContext context) {
     Color currentColor = Colors.transparent;
-    Color lastColor = Colors.grey.shade200;
+    Color lastColor = Colors.grey.shade800;
+    // if dark mode then set the color to grey.shade800
+    // if light mode then set the color to grey.shade200
+    if (Theme.of(context).brightness == Brightness.dark) {
+      lastColor = Colors.grey.shade800;
+      currentColor = Colors.grey.shade600;
+    } else {
+      lastColor = Colors.grey.shade200;
+      currentColor = Colors.grey.shade400;
+    }
+
     int? lastRoundNumber;
     return ChangeNotifierProvider<ScoresViewModel>.value(
       value: scoresViewModel,
@@ -104,7 +114,6 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                             Color temp = currentColor;
                             currentColor = lastColor;
                             lastColor = temp;
-                            log('currentColor: $currentColor, lastColor: $lastColor');
                           }
                           lastRoundNumber = winner.roundNumber;
 
