@@ -127,18 +127,23 @@ class AllTipsViewModel extends ChangeNotifier {
     List<TipGame> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
-      Tipper tipper = await tipperViewModel.findTipper(tipperEntry.key);
-      Map<String, dynamic> tipperTips = tipperEntry.value;
-      for (var tipEntry in tipperTips.entries) {
-        Game? game = await _gamesViewModel.findGame(tipEntry.key);
-        if (game == null) {
-          log('game not found for tip ${tipEntry.key}');
-        } else {
-          //log('game found for tip ${tipEntry.key}'
-          TipGame tipGame =
-              TipGame.fromJson(tipEntry.value, tipEntry.key, tipper, game);
-          allCompTips.add(tipGame);
+      Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
+      if (tipper != null) {
+        Map<String, dynamic> tipperTips = tipperEntry.value;
+        for (var tipEntry in tipperTips.entries) {
+          Game? game = await _gamesViewModel.findGame(tipEntry.key);
+          if (game == null) {
+            log('game not found for tip ${tipEntry.key}');
+          } else {
+            //log('game found for tip ${tipEntry.key}'
+            TipGame tipGame =
+                TipGame.fromJson(tipEntry.value, tipEntry.key, tipper, game);
+            allCompTips.add(tipGame);
+          }
         }
+      } else {
+        // tipper does not exist - skip this record
+        log('Tipper ${tipperEntry.key} does not exist in deserializeTips');
       }
     }
     return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
