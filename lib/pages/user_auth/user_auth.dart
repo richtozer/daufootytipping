@@ -1,6 +1,8 @@
 import 'dart:developer';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -171,6 +173,13 @@ class UserAuthPage extends StatelessWidget {
                           errorMessage:
                               'No tipper record found. Contact daufootytipping@gmail.com');
                     }
+
+                    // registry ALlTipsViewModel for later use
+                    di.registerLazySingleton<AllTipsViewModel>(() =>
+                        AllTipsViewModel(
+                            di<TippersViewModel>(),
+                            di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                            di<GamesViewModel>()));
 
                     return HomePage(currentDAUCompKey);
                   }

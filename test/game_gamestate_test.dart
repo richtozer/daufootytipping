@@ -17,7 +17,7 @@ void main() {
           dbkey: '1',
           dauRound: DAURound(
               dAUroundNumber: 1,
-              roundStarted: true,
+              //roundState: RoundState.noGames,
               gamesAsKeys: ['nrl-01-01']),
           homeTeam: Team(dbkey: '1', name: 'Team A', league: League.afl),
           awayTeam: Team(dbkey: '2', name: 'Team B', league: League.afl),
@@ -38,7 +38,7 @@ void main() {
           dbkey: '1',
           dauRound: DAURound(
               dAUroundNumber: 1,
-              roundStarted: true,
+              //roundStarted: true,
               gamesAsKeys: ['nrl-01-01']),
           homeTeam: Team(dbkey: '1', name: 'Team A', league: League.afl),
           awayTeam: Team(dbkey: '2', name: 'Team B', league: League.afl),
@@ -60,7 +60,7 @@ void main() {
           dbkey: '1',
           dauRound: DAURound(
               dAUroundNumber: 1,
-              roundStarted: true,
+              //roundStarted: true,
               gamesAsKeys: ['nrl-01-01']),
           homeTeam: Team(dbkey: '1', name: 'Team A', league: League.afl),
           awayTeam: Team(dbkey: '2', name: 'Team B', league: League.afl),
@@ -82,7 +82,7 @@ void main() {
           dbkey: '1',
           dauRound: DAURound(
               dAUroundNumber: 1,
-              roundStarted: true,
+              //roundStarted: true,
               gamesAsKeys: ['nrl-01-01']),
           homeTeam: Team(dbkey: '1', name: 'Team A', league: League.afl),
           awayTeam: Team(dbkey: '2', name: 'Team B', league: League.afl),

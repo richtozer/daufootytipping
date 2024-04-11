@@ -22,7 +22,7 @@ class StatRoundWinners extends StatefulWidget {
 }
 
 class _StatRoundWinnersState extends State<StatRoundWinners> {
-  late AllScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
 
@@ -39,7 +39,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<AllScoresViewModel>();
+    scoresViewModel = di<ScoresViewModel>();
     onSort(0, false);
   }
 
@@ -48,9 +48,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     Color currentColor = Colors.transparent;
     Color lastColor = Colors.grey.shade200;
     int? lastRoundNumber;
-    return ChangeNotifierProvider<AllScoresViewModel>.value(
+    return ChangeNotifierProvider<ScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<AllScoresViewModel>(
+      child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           Orientation orientation = MediaQuery.of(context).orientation;
           return Scaffold(

@@ -21,7 +21,7 @@ class StatRoundLeaderboard extends StatefulWidget {
 }
 
 class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
-  late AllScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   Map<Tipper, RoundScores> roundLeaderboard = {};
   bool isAscending = true;
   int? sortColumnIndex = 0;
@@ -42,7 +42,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     //scoresViewModel =
     //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
 
-    scoresViewModel = di<AllScoresViewModel>();
+    scoresViewModel = di<ScoresViewModel>();
 
     getConsolidatedScoresForRoundLeaderboard();
     onSort(1, true);
@@ -57,9 +57,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AllScoresViewModel>.value(
+    return ChangeNotifierProvider<ScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<AllScoresViewModel>(
+      child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(
             context,
@@ -74,7 +74,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   Widget buildScaffold(
     BuildContext context,
-    AllScoresViewModel scoresViewModelConsumer,
+    ScoresViewModel scoresViewModelConsumer,
     String name,
     Color color,
   ) {

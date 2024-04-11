@@ -36,6 +36,7 @@ class AllTipsViewModel extends ChangeNotifier {
   //constructor - this will get all tips from db
   AllTipsViewModel(
       this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
+    log('AllTipsViewModel constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
@@ -80,10 +81,12 @@ class AllTipsViewModel extends ChangeNotifier {
     try {
       if (event.snapshot.exists) {
         if (tipper == null) {
+          log('deserializing tips for all tippers');
           final allTips =
               deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
           _tipGames = await deserializeTips(allTips);
         } else {
+          log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
           _tipGames = await Future.wait(dbData.entries.map((entry) async {
             Game? game = await _gamesViewModel.findGame(entry.key);
