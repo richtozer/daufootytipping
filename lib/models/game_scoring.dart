@@ -26,7 +26,7 @@ extension GameResultString on GameResult {
       case GameResult.a:
         return 'Home team wins by ${League.nrl.margin} points or more';
       case GameResult.b:
-        return 'Home teams wins by 1-${League.nrl.margin - 1}  point margin';
+        return 'Home teams wins by 1-${League.nrl.margin - 1} point margin';
       case GameResult.c:
         return 'Draw';
       case GameResult.d:
