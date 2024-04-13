@@ -5,10 +5,8 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:watch_it/watch_it.dart';
 
 class GameTipsViewModel extends ChangeNotifier {
   TipGame? _tipGame;
