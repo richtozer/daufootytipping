@@ -53,7 +53,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   GamesViewModel? userGamesViewModel;
 
-  AllScoresViewModel? allScoresViewModel;
+  ScoresViewModel? scoresViewModel;
   AllTipsViewModel? allTipsViewModel;
 
   //constructor
@@ -86,9 +86,9 @@ class DAUCompsViewModel extends ChangeNotifier {
     allTipsViewModel = null;
 
     //reset the ScoringViewModel registration in get_it
-    di.registerLazySingleton<AllScoresViewModel>(
-        () => AllScoresViewModel(newDAUCompDbkey));
-    allScoresViewModel = di<AllScoresViewModel>();
+    di.registerLazySingleton<ScoresViewModel>(
+        () => ScoresViewModel(newDAUCompDbkey));
+    scoresViewModel = di<ScoresViewModel>();
 
     notifyListeners();
   }
@@ -486,31 +486,23 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<DAUComp> getCompWithScores() async {
-    print('SSS getCompWithScores started');
     if (!_initialLoadCompleter.isCompleted) {
       log('getCompWithScores() waiting for initial Game load to complete');
       await initialLoadComplete;
     }
-    print('SSS Initial load complete');
 
     DAUComp? daucomp = await getCurrentDAUComp();
-    print('SSS Got current DAUComp: $daucomp');
-
     List<DAURound> getRoundInfoAndConsolidatedScores = daucomp!.daurounds!;
-    AllScoresViewModel? tipperScoresViewModel = di<AllScoresViewModel>();
+    ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
 
     for (DAURound round in getRoundInfoAndConsolidatedScores) {
-      print('SSS Getting scores for round: ${round.dAUroundNumber}');
       round.roundScores =
           await tipperScoresViewModel.getTipperConsolidatedScoresForRound(
               round, di<TippersViewModel>().selectedTipper!);
-      print('SSS Got scores for round: ${round.dAUroundNumber}');
     }
 
     //daucomp.consolidatedCompScores =
     //    tipperScoresViewModel.getTipperConsolidatedScoresForComp(tipper);
-
-    print('SSS Got consolidated comp scores');
 
     return daucomp;
   }
@@ -890,9 +882,9 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
       }
 
-      allScoresViewModel ??= AllScoresViewModel(_selectedDAUCompDbKey);
+      scoresViewModel ??= ScoresViewModel(_selectedDAUCompDbKey);
 
-      await allScoresViewModel?.writeScoresToDb(
+      await scoresViewModel?.writeScoresToDb(
           scoringTipperRoundTotals, scoringTipperCompTotals, daucompToUpdate);
 
       return 'Completed scoring updates for ${tippers.length} tippers and ${daucompToUpdate.daurounds!.length} games.';

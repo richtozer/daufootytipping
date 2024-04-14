@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
@@ -82,9 +83,9 @@ Future<void> main() async {
   }
 
   // setup some default analytics parameters
-  if (!kIsWeb) {
-    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
-  }
+  // if (!kIsWeb) {
+  //   FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+  // }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
   di.allowReassignment = true;
@@ -108,6 +109,10 @@ Future<void> main() async {
   DAUComp? dAUComp = await di<DAUCompsViewModel>().getCurrentDAUComp();
 
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
+  di.registerLazySingleton<ScoresViewModel>(
+      () => ScoresViewModel(dAUComp!.dbkey!));
+
+  // run the application widget code
 
   runApp(MyApp(remoteConfigService, configDAUComp));
 }

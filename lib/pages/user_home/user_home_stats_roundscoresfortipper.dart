@@ -19,7 +19,7 @@ class StatRoundScoresForTipper extends StatefulWidget {
 }
 
 class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
-  late AllScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   bool isAscending = true;
   int? sortColumnIndex = 1;
   int initialRound = 1;
@@ -38,14 +38,14 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     super.initState();
     //scoresViewModel =
     //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
-    scoresViewModel = di<AllScoresViewModel>();
+    scoresViewModel = di<ScoresViewModel>();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AllScoresViewModel>.value(
+    return ChangeNotifierProvider<ScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<AllScoresViewModel>(
+      child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(context, scoresViewModelConsumer,
               MediaQuery.of(context).size.width > 500);
@@ -55,7 +55,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   }
 
   Scaffold buildScaffold(BuildContext context,
-      AllScoresViewModel scoresViewModelConsumer, bool isLargeScreen) {
+      ScoresViewModel scoresViewModelConsumer, bool isLargeScreen) {
     Orientation orientation = MediaQuery.of(context).orientation;
 
     return Scaffold(
@@ -111,7 +111,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  DataRow buildDataRow(AllScoresViewModel scoresViewModelConsumer, int index) {
+  DataRow buildDataRow(ScoresViewModel scoresViewModelConsumer, int index) {
     var scores = scoresViewModelConsumer
         .getTipperRoundScoresForComp(widget.statsTipper)[index];
     return DataRow(
