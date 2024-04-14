@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
@@ -110,6 +111,11 @@ class TippersViewModel extends ChangeNotifier {
     //find the Tipper in the local list. it it's there, compare the attribute value and update if different
     Tipper? tipperToUpdate = await findTipper(tipperDbKey);
 
+    if (tipperToUpdate == null) {
+      log('TipperToUpdate is null. Skipping update.');
+      return;
+    }
+
     // if the attribute name is deviceTokens store the token in another tree
     // this is to avoid the need to update the entire tipper record every time a new token is added
     // this is due to firebase billing
@@ -167,13 +173,13 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
-  Future<Tipper> findTipper(String tipperDbKey) async {
+  Future<Tipper?> findTipper(String tipperDbKey) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial Tipper load to complete in findTipper($tipperDbKey)');
       await _initialLoadCompleter.future;
       log('tipper load complete, findTipper($tipperDbKey)');
     }
-    return _tippers.firstWhere((tipper) => tipper.dbkey == tipperDbKey);
+    return _tippers.firstWhereOrNull((tipper) => tipper.dbkey == tipperDbKey);
   }
 
   //method to sync Tipper changes from Legacy GSheet Tipping Service Tipper sheet to Firebase
@@ -216,7 +222,7 @@ class TippersViewModel extends ChangeNotifier {
         if (existingTipper == null) {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the Firebase database, adding it');
           // newTipper() will create a new db key for the new record and return a modified Tipper object with the new db key
-          await newTipper(legacyTipper);
+          await createNewTipper(legacyTipper);
         } else {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
 
@@ -255,7 +261,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> newTipper(
+  Future<void> createNewTipper(
     Tipper newTipper,
   ) async {
     await _initialLoadCompleter.future;
@@ -316,10 +322,34 @@ class TippersViewModel extends ChangeNotifier {
         }
 
         await registerLinkedTipperForMessaging();
+
+        // init an instance of ScoresViewModel focusing on their scores - TODO - right now we are downloading all scores
+        di.registerLazySingleton<ScoresViewModel>(
+            () => ScoresViewModel(di<DAUCompsViewModel>().defaultDAUCompDbKey));
+      } else {
+        log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
+        // create them a tipper record
+        DAUComp? currentDAUComp =
+            await di<DAUCompsViewModel>().getCurrentDAUComp();
+        Tipper newTipper = Tipper(
+            name: authenticatedFirebaseUser.displayName ??
+                authenticatedFirebaseUser.email!.split('@').first,
+            email: authenticatedFirebaseUser.email!,
+            authuid: authenticatedFirebaseUser.uid,
+            photoURL: authenticatedFirebaseUser.photoURL,
+            tipperRole: TipperRole.tipper,
+            tipperID: 'non-legacy-tipper-${authenticatedFirebaseUser.uid}',
+            compsParticipatedIn: [currentDAUComp!]);
+
+        await createNewTipper(newTipper);
+
+        await saveBatchOfTipperAttributes();
+        log('linkUserToTipper() Tipper ${newTipper.dbkey} created for user ${authenticatedFirebaseUser.email}');
+
+        _authenticatedTipper = newTipper;
+        _selectedTipper = newTipper;
+        userIsLinked = true;
       }
-      // init an instance of ScoresViewModel focusing on their scores - TODO - right now we are downloading all scores
-      di.registerLazySingleton<AllScoresViewModel>(() =>
-          AllScoresViewModel(di<DAUCompsViewModel>().defaultDAUCompDbKey));
 
       return userIsLinked;
     } catch (e) {

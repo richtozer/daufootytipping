@@ -4,16 +4,17 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +37,7 @@ class TipsPageState extends State<TipsPage> {
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
   final ScrollController controller = ScrollController();
   Timer? _debounceTimer;
+  bool filterShowFinishedRounds = false;
 
   @override
   void initState() {
@@ -44,11 +46,7 @@ class TipsPageState extends State<TipsPage> {
 
     dauCompWithScoresFuture = di<DAUCompsViewModel>().getCompWithScores();
 
-    allTipsViewModel = AllTipsViewModel.forTipper(
-        di<TippersViewModel>(),
-        currentDAUCompDbkey,
-        di<GamesViewModel>(),
-        di<TippersViewModel>().selectedTipper);
+    allTipsViewModel = di<AllTipsViewModel>();
 
     allTipsViewModelInitialLoadCompletedFuture =
         allTipsViewModel.initialLoadCompleted;
@@ -58,18 +56,21 @@ class TipsPageState extends State<TipsPage> {
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
 
-/*     double gameCardHeight = 128.0; 
+    // TODO - hack - use averages and hard coding for now - there are 14.73 games per round
+    int gamesStarted = 78;
+    int roundsStarted = gamesStarted ~/ 14.73;
+
+    double gameCardHeight = 128.0;
     double leagueHeaderHeight = 66;
-    double emptyRoundHeight = 75;
-    int gameCount = 27; 
-    int roundCount = 3; 
-    double scrollPosition =
-        (gameCardHeight * gameCount) + (leagueHeaderHeight * 2 * roundCount); */
+    //double emptyRoundHeight = 75;
+
+    double initScrollPosition = (gameCardHeight * gamesStarted) +
+        (leagueHeaderHeight * 2 * roundsStarted);
 
     Widget scrollView = FutureBuilder<DAUComp>(
         future: dauCompWithScoresFuture,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
@@ -77,7 +78,7 @@ class TipsPageState extends State<TipsPage> {
             return FutureBuilder<void>(
                 future: allTipsViewModel.getAllTips(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   } else {
                     WidgetsBinding.instance
@@ -91,18 +92,28 @@ class TipsPageState extends State<TipsPage> {
                               Timer(const Duration(milliseconds: 500), () {
                             log('scrolling stopped');
                             SharedPreferences.getInstance().then((prefs) async {
-                              await prefs.setDouble(
-                                  'scrollPosition', controller.offset);
+                              if (controller.hasClients) {
+                                await prefs.setDouble(
+                                    'scrollPosition', controller.offset);
+                              }
                             });
                           });
                         });
 
-                        SharedPreferences prefs =
-                            await SharedPreferences.getInstance();
-                        double initialScrollPosition =
-                            prefs.getDouble('scrollPosition') ?? 0.0;
-                        if (controller.hasClients) {
-                          controller.jumpTo(initialScrollPosition);
+                        if (kDebugMode) {
+                          double savedScrollPosition = initScrollPosition;
+                          if (controller.hasClients) {
+                            controller.jumpTo(savedScrollPosition);
+                          }
+                        } else {
+                          SharedPreferences prefs =
+                              await SharedPreferences.getInstance();
+                          double savedScrollPosition =
+                              prefs.getDouble('scrollPosition') ??
+                                  initScrollPosition;
+                          if (controller.hasClients) {
+                            controller.jumpTo(savedScrollPosition);
+                          }
                         }
                       } else {
                         log('controller has no clients');
@@ -122,26 +133,44 @@ class TipsPageState extends State<TipsPage> {
                               expandedTitleScale: 1.5,
                               centerTitle: true,
                               title: ChangeNotifierProvider<
-                                      AllScoresViewModel>.value(
-                                  value: di<AllScoresViewModel>(),
+                                      ScoresViewModel>.value(
+                                  //StateError (Bad state: GetIt: Object/factory with type ScoresViewModel is not registered inside GetIt.
+                                  //(Did you accidentally do GetIt sl=GetIt.instance(); instead of GetIt sl=GetIt.instance;
+                                  //Did you forget to register it?))
+                                  value: di<ScoresViewModel>(),
                                   builder: (context, snapshot) {
-                                    return Consumer<AllScoresViewModel>(builder:
-                                        (context, allScoresViewModelConsumer,
+                                    return Consumer<ScoresViewModel>(builder:
+                                        (context, scoresViewModelConsumer,
                                             child) {
                                       CompScore compScores =
-                                          allScoresViewModelConsumer
+                                          scoresViewModelConsumer
                                               .getTipperConsolidatedScoresForComp(
                                                   di<TippersViewModel>()
                                                       .selectedTipper!);
-                                      // from allScoresViewModelConsumer.leaderboard list,
+                                      // from scoresViewModelConsumer.leaderboard list,
                                       // find the tipper and record their rank
                                       int tipperCompRank =
-                                          allScoresViewModelConsumer.leaderboard
-                                              .firstWhere((element) =>
-                                                  element.tipper.dbkey ==
-                                                  di<TippersViewModel>()
-                                                      .selectedTipper!
-                                                      .dbkey)
+                                          scoresViewModelConsumer.leaderboard
+                                              .firstWhere(
+                                                (element) =>
+                                                    element.tipper.dbkey ==
+                                                    di<TippersViewModel>()
+                                                        .selectedTipper!
+                                                        .dbkey,
+                                                orElse: () => LeaderboardEntry(
+                                                    rank: 0,
+                                                    tipper:
+                                                        di<TippersViewModel>()
+                                                            .selectedTipper!,
+                                                    total: 0,
+                                                    nRL: 0,
+                                                    aFL: 0,
+                                                    numRoundsWon: 0,
+                                                    aflMargins: 0,
+                                                    aflUPS: 0,
+                                                    nrlMargins: 0,
+                                                    nrlUPS: 0),
+                                              )
                                               .rank;
                                       return GestureDetector(
                                         onTap: () {
@@ -176,15 +205,14 @@ class TipsPageState extends State<TipsPage> {
                                     color: Colors.white.withOpacity(0.5),
                                   ),
                                 ],
-                              )
-                              //background: compHeaderListTile(
-                              //    dauCompWithScores!.consolidatedCompScores,
-                              //    dauCompWithScores.name),
-                              ),
+                              )),
                         ),
                         ...dauCompWithScores!.daurounds!
                             .asMap()
                             .entries
+                            // .skip(filterShowFinishedRounds
+                            //     ? 0
+                            //     : dauCompWithScores.daurounds!.length - 1)
                             .map((entry) {
                           DAURound dauRound = entry.value;
                           return SliverList(
@@ -229,19 +257,6 @@ class TipsPageState extends State<TipsPage> {
     return Stack(
       children: [
         ListTile(
-          onTap: () async {
-            // When the round header is clicked,
-            // update the scoring for this round and tipper
-            // TODO consider removing this functionality
-            // di<DAUCompsViewModel>().updateScoring(
-            //     await di<DAUCompsViewModel>()
-            //         .getCurrentDAUComp()
-            //         .then((DAUComp? dauComp) {
-            //       return dauComp!;
-            //     }),
-            //     di<TippersViewModel>().selectedTipper!,
-            //     dauRound);
-          },
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -256,13 +271,15 @@ class TipsPageState extends State<TipsPage> {
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                       'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
-                  dauRound.roundStarted
+                  dauRound.roundState != RoundState.noGames ||
+                          dauRound.roundState != RoundState.notStarted
                       ? Text(
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                           'Score: ${leagueHeader == League.afl ? dauRound.roundScores!.aflScore : dauRound.roundScores!.nrlScore} / ${leagueHeader == League.afl ? dauRound.roundScores!.aflMaxScore : dauRound.roundScores!.nrlMaxScore}')
                       : const SizedBox.shrink(),
-                  dauRound.roundStarted
+                  dauRound.roundState != RoundState.noGames ||
+                          dauRound.roundState != RoundState.notStarted
                       ? Text(
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
@@ -271,7 +288,8 @@ class TipsPageState extends State<TipsPage> {
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                           'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} '),
-                  dauRound.roundStarted
+                  dauRound.roundState != RoundState.noGames ||
+                          dauRound.roundState != RoundState.notStarted
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

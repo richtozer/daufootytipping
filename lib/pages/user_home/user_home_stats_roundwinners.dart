@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -22,7 +20,7 @@ class StatRoundWinners extends StatefulWidget {
 }
 
 class _StatRoundWinnersState extends State<StatRoundWinners> {
-  late AllScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
 
@@ -39,18 +37,28 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<AllScoresViewModel>();
+    scoresViewModel = di<ScoresViewModel>();
     onSort(0, false);
   }
 
   @override
   Widget build(BuildContext context) {
     Color currentColor = Colors.transparent;
-    Color lastColor = Colors.grey.shade200;
+    Color lastColor = Colors.grey.shade800;
+    // if dark mode then set the color to grey.shade800
+    // if light mode then set the color to grey.shade200
+    if (Theme.of(context).brightness == Brightness.dark) {
+      lastColor = Colors.grey.shade800;
+      currentColor = Colors.grey.shade600;
+    } else {
+      lastColor = Colors.grey.shade200;
+      currentColor = Colors.grey.shade400;
+    }
+
     int? lastRoundNumber;
-    return ChangeNotifierProvider<AllScoresViewModel>.value(
+    return ChangeNotifierProvider<ScoresViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<AllScoresViewModel>(
+      child: Consumer<ScoresViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           Orientation orientation = MediaQuery.of(context).orientation;
           return Scaffold(
@@ -104,7 +112,6 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                             Color temp = currentColor;
                             currentColor = lastColor;
                             lastColor = temp;
-                            log('currentColor: $currentColor, lastColor: $lastColor');
                           }
                           lastRoundNumber = winner.roundNumber;
 
