@@ -18,10 +18,13 @@ import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
   UserAuthPage(this.currentDAUCompKey, this.remoteConfigService,
-      {super.key, this.isUserLoggingOut = false});
+      {super.key,
+      this.isUserLoggingOut = false,
+      this.isUserDeletingAccount = false});
 
   final String currentDAUCompKey;
   bool isUserLoggingOut = false;
+  bool isUserDeletingAccount = false;
 
   final RemoteConfigService? remoteConfigService;
 
@@ -60,12 +63,79 @@ class UserAuthPage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
   }
 
+  // method to delete acctount
+  void deleteAccount() async {
+    try {
+      await FirebaseAuth.instance.currentUser!.delete();
+    } catch (e) {
+      if ((e as FirebaseAuthException).code == 'requires-recent-login') {
+        // reauthenticate the user
+        log('UserAuthPage.deleteAccount() - reauthenticating user');
+        final String providerId =
+            FirebaseAuth.instance.currentUser!.providerData[0].providerId;
+
+        if (providerId == 'apple.com') {
+          await _reauthenticateWithApple();
+        } else if (providerId == 'google.com') {
+          await _reauthenticateWithGoogle();
+        }
+      }
+
+      await FirebaseAuth.instance.currentUser!.delete();
+    }
+  }
+
+  Future<void> _reauthenticateWithApple() async {
+    // If user is not authenticated
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw 'Cannot reauthenticate with Apple the user is not authenticated';
+    }
+
+    final AppleAuthProvider appleProvider = AppleAuthProvider();
+
+    // Try to reauthenticate
+    try {
+      await FirebaseAuth.instance.currentUser!
+          .reauthenticateWithProvider(appleProvider);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-mismatch' ||
+          e.code == 'user-not-found' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'invalid-verification-code' ||
+          e.code == 'invalid-verification-id') {
+        // Show a Snackbar
+        log('UserAuthPage._reauthenticateWithApple() - error: ${e.code}');
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _reauthenticateWithGoogle() async {
+    // If user is not authenticated
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw 'Cannot reauthenticate with Google the user is not authenticated';
+    }
+
+    final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+
+    // Tries to reauthenticate
+    await FirebaseAuth.instance.currentUser!
+        .reauthenticateWithProvider(googleProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
     if (isUserLoggingOut) {
       signOut();
+      log('UserAuthPage.build() - user signed out');
     }
+    if (isUserDeletingAccount) {
+      deleteAccount();
+      log('UserAuthPage.build() - user deleted account');
+    }
+
     return Scaffold(
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
