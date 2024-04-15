@@ -17,6 +17,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -69,6 +70,8 @@ Future<void> main() async {
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
+  String configMinAppVersion =
+      await remoteConfigService.getConfigMinAppVersion();
 
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   if (!kDebugMode) {
@@ -113,13 +116,13 @@ Future<void> main() async {
 
   // run the application widget code
 
-  runApp(MyApp(remoteConfigService, configDAUComp));
+  runApp(MyApp(configMinAppVersion, configDAUComp));
 }
 
 class MyApp extends StatelessWidget {
-  final RemoteConfigService remoteConfigService;
+  final String? configMinAppVersion;
   final String configDAUComp;
-  const MyApp(this.remoteConfigService, this.configDAUComp, {super.key});
+  const MyApp(this.configMinAppVersion, this.configDAUComp, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +132,7 @@ class MyApp extends StatelessWidget {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: UserAuthPage(configDAUComp, remoteConfigService),
+      home: UserAuthPage(configDAUComp, configMinAppVersion),
     );
   }
 }

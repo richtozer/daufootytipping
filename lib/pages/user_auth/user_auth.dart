@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -17,31 +18,30 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  UserAuthPage(this.currentDAUCompKey, this.remoteConfigService,
+  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
       this.isUserDeletingAccount = false});
 
   final String currentDAUCompKey;
+  final String? configMinAppVersion;
+
   bool isUserLoggingOut = false;
   bool isUserDeletingAccount = false;
-
-  final RemoteConfigService? remoteConfigService;
 
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 
   PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
-    // dont do the app version check if the remote config service is not available
-    if (remoteConfigService == null) {
+    //skip version check if the configMinAppVersion is null
+    if (configMinAppVersion == null) {
       return false;
     }
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
     List<String> currentVersionParts = packageInfo.version.split('.');
-    String minAppVersion = await remoteConfigService!.getConfigMinAppVersion();
-    List<String> newVersionParts = minAppVersion.split('.');
+    List<String> newVersionParts = configMinAppVersion!.split('.');
 
     for (int i = 0; i < newVersionParts.length; i++) {
       int currentPart = int.parse(currentVersionParts[i]);
@@ -134,6 +134,14 @@ class UserAuthPage extends StatelessWidget {
     if (isUserDeletingAccount) {
       deleteAccount();
       log('UserAuthPage.build() - user deleted account');
+      WidgetsBinding.instance!.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (BuildContext context) =>
+                  MyApp(null, currentDAUCompKey)),
+          (Route<dynamic> route) => false,
+        );
+      });
     }
 
     return Scaffold(
