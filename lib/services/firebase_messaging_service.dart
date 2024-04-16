@@ -24,7 +24,15 @@ class FirebaseMessagingService {
       await requestIOSNotificationPermission();
     }
 
-    _fbmToken = await _firebaseMessaging.getToken();
+    try {
+      _fbmToken = await _firebaseMessaging.getToken();
+    } catch (e) {
+      log('Failed to retrieve FCM token: $e');
+      // Retry after a delay
+      await Future.delayed(const Duration(seconds: 5));
+      _fbmToken = await _firebaseMessaging.getToken();
+    }
+
     if (_fbmToken != null) {
       log('Firebase messaging token: $_fbmToken');
     } else {

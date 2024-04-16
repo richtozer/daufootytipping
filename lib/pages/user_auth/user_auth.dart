@@ -1,8 +1,10 @@
 import 'dart:developer';
+import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
-import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
@@ -15,28 +17,30 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  UserAuthPage(this.currentDAUCompKey, this.remoteConfigService,
-      {super.key, this.isUserLoggingOut = false});
+  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
+      {super.key,
+      this.isUserLoggingOut = false,
+      this.isUserDeletingAccount = false});
 
   final String currentDAUCompKey;
-  bool isUserLoggingOut = false;
+  final String? configMinAppVersion;
 
-  final RemoteConfigService? remoteConfigService;
+  bool isUserLoggingOut = false;
+  bool isUserDeletingAccount = false;
 
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 
   PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
-    // dont do the app version check if the remote config service is not available
-    if (remoteConfigService == null) {
+    //skip version check if the configMinAppVersion is null
+    if (configMinAppVersion == null) {
       return false;
     }
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
     List<String> currentVersionParts = packageInfo.version.split('.');
-    String minAppVersion = await remoteConfigService!.getConfigMinAppVersion();
-    List<String> newVersionParts = minAppVersion.split('.');
+    List<String> newVersionParts = configMinAppVersion!.split('.');
 
     for (int i = 0; i < newVersionParts.length; i++) {
       int currentPart = int.parse(currentVersionParts[i]);
@@ -58,12 +62,87 @@ class UserAuthPage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
   }
 
+  // method to delete acctount
+  void deleteAccount() async {
+    try {
+      await FirebaseAuth.instance.currentUser!.delete();
+    } catch (e) {
+      if ((e as FirebaseAuthException).code == 'requires-recent-login') {
+        // reauthenticate the user
+        log('UserAuthPage.deleteAccount() - reauthenticating user');
+        final String providerId =
+            FirebaseAuth.instance.currentUser!.providerData[0].providerId;
+
+        if (providerId == 'apple.com') {
+          await _reauthenticateWithApple();
+        } else if (providerId == 'google.com') {
+          await _reauthenticateWithGoogle();
+        }
+      }
+
+      await FirebaseAuth.instance.currentUser!.delete();
+    }
+  }
+
+  Future<void> _reauthenticateWithApple() async {
+    // If user is not authenticated
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw 'Cannot reauthenticate with Apple the user is not authenticated';
+    }
+
+    final AppleAuthProvider appleProvider = AppleAuthProvider();
+
+    // Try to reauthenticate
+    try {
+      await FirebaseAuth.instance.currentUser!
+          .reauthenticateWithProvider(appleProvider);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-mismatch' ||
+          e.code == 'user-not-found' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'invalid-verification-code' ||
+          e.code == 'invalid-verification-id') {
+        // Show a Snackbar
+        log('UserAuthPage._reauthenticateWithApple() - error: ${e.code}');
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _reauthenticateWithGoogle() async {
+    // If user is not authenticated
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw 'Cannot reauthenticate with Google the user is not authenticated';
+    }
+
+    final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+
+    // Tries to reauthenticate
+    await FirebaseAuth.instance.currentUser!
+        .reauthenticateWithProvider(googleProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
     if (isUserLoggingOut) {
       signOut();
+      log('UserAuthPage.build() - user signed out');
     }
+    if (isUserDeletingAccount) {
+      deleteAccount();
+      log('UserAuthPage.build() - user deleted account');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (BuildContext context) =>
+                  MyApp(null, currentDAUCompKey)),
+          (Route<dynamic> route) => false,
+        );
+      });
+    }
+
     return Scaffold(
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
@@ -171,6 +250,12 @@ class UserAuthPage extends StatelessWidget {
                           errorMessage:
                               'No tipper record found. Contact daufootytipping@gmail.com');
                     }
+
+                    // register TipsViewModel for later use
+                    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
+                        di<TippersViewModel>(),
+                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                        di<GamesViewModel>()));
 
                     return HomePage(currentDAUCompKey);
                   }

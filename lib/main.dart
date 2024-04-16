@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
@@ -10,7 +11,6 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -69,6 +69,8 @@ Future<void> main() async {
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
+  String configMinAppVersion =
+      await remoteConfigService.getConfigMinAppVersion();
 
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   if (!kDebugMode) {
@@ -82,9 +84,9 @@ Future<void> main() async {
   }
 
   // setup some default analytics parameters
-  if (!kIsWeb) {
-    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
-  }
+  // if (!kIsWeb) {
+  //   FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+  // }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
   di.allowReassignment = true;
@@ -108,14 +110,18 @@ Future<void> main() async {
   DAUComp? dAUComp = await di<DAUCompsViewModel>().getCurrentDAUComp();
 
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
+  di.registerLazySingleton<ScoresViewModel>(
+      () => ScoresViewModel(dAUComp!.dbkey!));
 
-  runApp(MyApp(remoteConfigService, configDAUComp));
+  // run the application widget code
+
+  runApp(MyApp(configMinAppVersion, configDAUComp));
 }
 
 class MyApp extends StatelessWidget {
-  final RemoteConfigService remoteConfigService;
+  final String? configMinAppVersion;
   final String configDAUComp;
-  const MyApp(this.remoteConfigService, this.configDAUComp, {super.key});
+  const MyApp(this.configMinAppVersion, this.configDAUComp, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +131,7 @@ class MyApp extends StatelessWidget {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: UserAuthPage(configDAUComp, remoteConfigService),
+      home: UserAuthPage(configDAUComp, configMinAppVersion),
     );
   }
 }

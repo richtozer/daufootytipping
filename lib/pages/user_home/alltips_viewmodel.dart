@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 // define  constant for firestore database location
 const tipsPathRoot = '/AllTips';
 
-class AllTipsViewModel extends ChangeNotifier {
+class TipsViewModel extends ChangeNotifier {
   List<TipGame?> _tipGames = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
@@ -25,7 +25,7 @@ class AllTipsViewModel extends ChangeNotifier {
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
 
   Tipper?
-      tipper; // is this is supplied in the constructor, then we are only interested in the tips for this tipper
+      tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
 
   //List<Tip> get tips => _tips;
   //List<Game> get games => _gamesViewModel.games;
@@ -34,15 +34,16 @@ class AllTipsViewModel extends ChangeNotifier {
   late final TippersViewModel tipperViewModel;
 
   //constructor - this will get all tips from db
-  AllTipsViewModel(
+  TipsViewModel(
       this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
+    log('TipsViewModel constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
-  AllTipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
+  TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
       this._gamesViewModel, this.tipper) {
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
@@ -80,10 +81,12 @@ class AllTipsViewModel extends ChangeNotifier {
     try {
       if (event.snapshot.exists) {
         if (tipper == null) {
+          log('deserializing tips for all tippers');
           final allTips =
               deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
           _tipGames = await deserializeTips(allTips);
         } else {
+          log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
           _tipGames = await Future.wait(dbData.entries.map((entry) async {
             Game? game = await _gamesViewModel.findGame(entry.key);
@@ -124,18 +127,23 @@ class AllTipsViewModel extends ChangeNotifier {
     List<TipGame> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
-      Tipper tipper = await tipperViewModel.findTipper(tipperEntry.key);
-      Map<String, dynamic> tipperTips = tipperEntry.value;
-      for (var tipEntry in tipperTips.entries) {
-        Game? game = await _gamesViewModel.findGame(tipEntry.key);
-        if (game == null) {
-          log('game not found for tip ${tipEntry.key}');
-        } else {
-          //log('game found for tip ${tipEntry.key}'
-          TipGame tipGame =
-              TipGame.fromJson(tipEntry.value, tipEntry.key, tipper, game);
-          allCompTips.add(tipGame);
+      Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
+      if (tipper != null) {
+        Map<String, dynamic> tipperTips = tipperEntry.value;
+        for (var tipEntry in tipperTips.entries) {
+          Game? game = await _gamesViewModel.findGame(tipEntry.key);
+          if (game == null) {
+            log('game not found for tip ${tipEntry.key}');
+          } else {
+            //log('game found for tip ${tipEntry.key}'
+            TipGame tipGame =
+                TipGame.fromJson(tipEntry.value, tipEntry.key, tipper, game);
+            allCompTips.add(tipGame);
+          }
         }
+      } else {
+        // tipper does not exist - skip this record
+        log('Tipper ${tipperEntry.key} does not exist in deserializeTips');
       }
     }
     return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
