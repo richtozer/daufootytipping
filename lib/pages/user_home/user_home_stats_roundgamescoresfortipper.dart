@@ -86,7 +86,7 @@ class _StatRoundGameScoresForTipperState
       List<Game>? nrlGames, bool isLargeScreen) {
     Orientation orientation = MediaQuery.of(context).orientation;
 
-    AllTipsViewModel allTips = AllTipsViewModel.forTipper(
+    TipsViewModel allTips = TipsViewModel.forTipper(
         di<TippersViewModel>(),
         di<DAUCompsViewModel>().selectedDAUCompDbKey,
         di<GamesViewModel>(),
@@ -256,7 +256,7 @@ class _StatRoundGameScoresForTipperState
     );
   }
 
-  DataRow buildDataRow(List<Game> games, int index, AllTipsViewModel allTips) {
+  DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
     GameTipsViewModel gameTipsViewModel = GameTipsViewModel(widget.statsTipper,
         di<DAUCompsViewModel>().selectedDAUCompDbKey, games[index], allTips);
     return DataRow(

@@ -59,7 +59,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   GamesViewModel? userGamesViewModel;
 
   ScoresViewModel? scoresViewModel;
-  AllTipsViewModel? allTipsViewModel;
+  TipsViewModel? allTipsViewModel;
 
   //constructor
   DAUCompsViewModel(this._defaultDAUCompDbKey) {
@@ -303,7 +303,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       userGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       // grab everybodies tips
-      AllTipsViewModel allTipsViewModel = AllTipsViewModel(
+      TipsViewModel allTipsViewModel = TipsViewModel(
           tippersViewModel, daucompToUpdate.dbkey!, userGamesViewModel!);
 
       //sync tips to legacy
@@ -659,7 +659,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         allTipsViewModel = null;
       }
       // if alltips is null, create a new one
-      allTipsViewModel ??= AllTipsViewModel(
+      allTipsViewModel ??= TipsViewModel(
           tippersViewModel, daucompToUpdate.dbkey!, userGamesViewModel!);
 
       //create a map to store the tipper consolidated scores and name?
