@@ -14,7 +14,7 @@ class GameTipsViewModel extends ChangeNotifier {
   TipGame? get tipGame => _tipGame;
 
   //late ScoresViewModel scoresViewModel;
-  AllTipsViewModel allTipsViewModel;
+  TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
   final Game game;

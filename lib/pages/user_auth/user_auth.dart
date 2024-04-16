@@ -251,12 +251,11 @@ class UserAuthPage extends StatelessWidget {
                               'No tipper record found. Contact daufootytipping@gmail.com');
                     }
 
-                    // registry ALlTipsViewModel for later use
-                    di.registerLazySingleton<AllTipsViewModel>(() =>
-                        AllTipsViewModel(
-                            di<TippersViewModel>(),
-                            di<DAUCompsViewModel>().selectedDAUCompDbKey,
-                            di<GamesViewModel>()));
+                    // register TipsViewModel for later use
+                    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
+                        di<TippersViewModel>(),
+                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                        di<GamesViewModel>()));
 
                     return HomePage(currentDAUCompKey);
                   }

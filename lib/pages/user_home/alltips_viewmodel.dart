@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 // define  constant for firestore database location
 const tipsPathRoot = '/AllTips';
 
-class AllTipsViewModel extends ChangeNotifier {
+class TipsViewModel extends ChangeNotifier {
   List<TipGame?> _tipGames = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
@@ -25,7 +25,7 @@ class AllTipsViewModel extends ChangeNotifier {
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
 
   Tipper?
-      tipper; // is this is supplied in the constructor, then we are only interested in the tips for this tipper
+      tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
 
   //List<Tip> get tips => _tips;
   //List<Game> get games => _gamesViewModel.games;
@@ -34,16 +34,16 @@ class AllTipsViewModel extends ChangeNotifier {
   late final TippersViewModel tipperViewModel;
 
   //constructor - this will get all tips from db
-  AllTipsViewModel(
+  TipsViewModel(
       this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
-    log('AllTipsViewModel constructor');
+    log('TipsViewModel constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
-  AllTipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
+  TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
       this._gamesViewModel, this.tipper) {
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed

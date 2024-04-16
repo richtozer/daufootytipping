@@ -117,7 +117,7 @@ class LegacyTippingService {
     return tippers;
   }
 
-  Future<String> syncTipsToLegacy(AllTipsViewModel allTipsViewModel,
+  Future<String> syncTipsToLegacy(TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel) async {
     await initialized();
 
@@ -167,7 +167,7 @@ class LegacyTippingService {
   }
 
   Future<List<GsheetAppTip>> _createProposedChanges(
-      AllTipsViewModel allTipsViewModel,
+      TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel,
       List<int> combinedRounds) async {
     List<String> templateDefaultTips =
@@ -199,7 +199,7 @@ class LegacyTippingService {
   }
 
   Future<List<GsheetAppTip>> _getAppTipsForRound(
-      AllTipsViewModel allTipsViewModel,
+      TipsViewModel allTipsViewModel,
       Tipper tipper,
       int round,
       List<String> templateDefaultTips,
