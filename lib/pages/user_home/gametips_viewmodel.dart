@@ -63,6 +63,8 @@ class GameTipsViewModel extends ChangeNotifier {
     // to wait until the game starts
     var timeUntilGameStarts =
         game.startTimeUTC.difference(DateTime.now().toUtc());
+
+    // wait for the game to start before updating the UI
     await Future.delayed(timeUntilGameStarts);
 
     // now that the game has started, trigger the UI to update

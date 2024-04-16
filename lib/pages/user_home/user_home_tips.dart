@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
@@ -31,7 +32,7 @@ class TipsPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 class TipsPageState extends State<TipsPage> {
   final String currentDAUCompDbkey =
       di<DAUCompsViewModel>().selectedDAUCompDbKey;
-  late final TipsViewModel allTipsViewModel;
+  late final TipsViewModel tipperTipsViewModel;
   late final Future<DAUComp> dauCompWithScoresFuture;
   //late final CompScore compScores;
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
@@ -46,10 +47,14 @@ class TipsPageState extends State<TipsPage> {
 
     dauCompWithScoresFuture = di<DAUCompsViewModel>().getCompWithScores();
 
-    allTipsViewModel = di<TipsViewModel>();
+    tipperTipsViewModel = TipsViewModel.forTipper(
+        di<TippersViewModel>(),
+        currentDAUCompDbkey,
+        di<GamesViewModel>(),
+        di<TippersViewModel>().selectedTipper);
 
     allTipsViewModelInitialLoadCompletedFuture =
-        allTipsViewModel.initialLoadCompleted;
+        tipperTipsViewModel.initialLoadCompleted;
   }
 
   @override
@@ -76,7 +81,7 @@ class TipsPageState extends State<TipsPage> {
             DAUComp? dauCompWithScores = snapshot.data;
 
             return FutureBuilder<void>(
-                future: allTipsViewModel.getAllTips(),
+                future: tipperTipsViewModel.getAllTips(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -225,7 +230,7 @@ class TipsPageState extends State<TipsPage> {
                                       di<TippersViewModel>().selectedTipper!,
                                   dauRound: dauRound,
                                   league: League.nrl,
-                                  allTipsViewModel: allTipsViewModel,
+                                  allTipsViewModel: tipperTipsViewModel,
                                   selectedDAUComp: dauCompWithScores,
                                 ),
                                 roundLeagueHeaderListTile(
@@ -235,7 +240,7 @@ class TipsPageState extends State<TipsPage> {
                                       di<TippersViewModel>().selectedTipper!,
                                   dauRound: dauRound,
                                   league: League.afl,
-                                  allTipsViewModel: allTipsViewModel,
+                                  allTipsViewModel: tipperTipsViewModel,
                                   selectedDAUComp: dauCompWithScores,
                                 )
                               ],

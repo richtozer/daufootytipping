@@ -84,10 +84,12 @@ class TipsViewModel extends ChangeNotifier {
           log('deserializing tips for all tippers');
           final allTips =
               deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+          log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
           _tipGames = await deserializeTips(allTips);
         } else {
           log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
+          log('_handleEvent (Tipper ${tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
           _tipGames = await Future.wait(dbData.entries.map((entry) async {
             Game? game = await _gamesViewModel.findGame(entry.key);
             if (game == null) {
