@@ -201,7 +201,7 @@ class TippersViewModel extends ChangeNotifier {
 
       await Future.wait([
         tippingService
-            .getLegacyTippers()
+            .getLegacyTippers(di<DAUCompsViewModel>().selectedDAUComp!)
             .then((tippers) => legacyTippers = tippers),
         _initialLoadCompleter.future,
       ]);
@@ -329,8 +329,7 @@ class TippersViewModel extends ChangeNotifier {
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
         // create them a tipper record
-        DAUComp? currentDAUComp =
-            await di<DAUCompsViewModel>().getCurrentDAUComp();
+        DAUComp? currentDAUComp = di<DAUCompsViewModel>().selectedDAUComp;
         Tipper newTipper = Tipper(
             name: authenticatedFirebaseUser.displayName ??
                 authenticatedFirebaseUser.email!.split('@').first,

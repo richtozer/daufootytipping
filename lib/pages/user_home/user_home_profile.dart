@@ -66,7 +66,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                         onChanged: (String? newValue) {
                           // update the current comp
                           dauCompsViewModelConsumer
-                              .setCurrentDAUComp(newValue!);
+                              .changeCurrentDAUComp(newValue!);
                         },
                         items: di<TippersViewModel>()
                             .selectedTipper!
@@ -168,19 +168,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                       ),
                     ],
                   )),
-              // SizedBox(
-              //   height: MediaQuery.of(context).size.height * 0.35,
-              //   width: MediaQuery.of(context).size.width * 0.95,
-              //   child: const ProfileScreen(
-
-              //       //actions: [
-              //       // DisplayNameChangedAction((context, oldName, newName) {
-              //       //   // TODO do something with the new name
-              //       //   throw UnimplementedError();
-              //       // }),
-              //       //],
-              //       ),
-              // ),
             ],
           ),
         ),
