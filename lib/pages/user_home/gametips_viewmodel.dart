@@ -5,10 +5,8 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:watch_it/watch_it.dart';
 
 class GameTipsViewModel extends ChangeNotifier {
   TipGame? _tipGame;
@@ -16,7 +14,7 @@ class GameTipsViewModel extends ChangeNotifier {
   TipGame? get tipGame => _tipGame;
 
   //late ScoresViewModel scoresViewModel;
-  AllTipsViewModel allTipsViewModel;
+  TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
   final Game game;
@@ -29,9 +27,6 @@ class GameTipsViewModel extends ChangeNotifier {
   final Completer<void> _initialLoadCompleter = Completer();
   Future<bool> get initialLoadCompleted async =>
       _initialLoadCompleter.isCompleted;
-
-  LegacyTippingService legcyTippingService =
-      GetIt.instance<LegacyTippingService>();
 
   int currentIndex = 0;
 
@@ -118,14 +113,6 @@ class GameTipsViewModel extends ChangeNotifier {
       log('new tip logged: ${updates.toString()}');
 
       _tipGame = tip; // update the tipGame with the new tip
-
-      // code section to support legacy tipping service
-      // find the Tip game position in the roundGames list
-      // int gameIndex =
-      //     roundGames.indexWhere((game) => game.dbkey == tip.game.dbkey);
-
-      // legcyTippingService.submitTip(
-      //     currentTipper.name, tip, gameIndex, combinedRoundNumber);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

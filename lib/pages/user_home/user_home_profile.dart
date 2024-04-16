@@ -66,7 +66,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                         onChanged: (String? newValue) {
                           // update the current comp
                           dauCompsViewModelConsumer
-                              .setCurrentDAUComp(newValue!);
+                              .changeCurrentDAUComp(newValue!);
                         },
                         items: di<TippersViewModel>()
                             .selectedTipper!
@@ -97,44 +97,77 @@ class Profile extends StatelessWidget with WatchItMixin {
                   }
                 },
               ),
-              Card(
-                child: SizedBox(
-                  width: 150,
-                  child: OutlinedButton(
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.logout),
-                        Text('Sign Out'),
-                      ],
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => UserAuthPage(
-                            di<DAUCompsViewModel>().selectedDAUCompDbKey,
-                            null,
-                            isUserLoggingOut: true,
-                          ),
+              SizedBox(
+                  width: 200,
+                  child: Column(
+                    children: [
+                      OutlinedButton(
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.logout),
+                            Text('Sign Out'),
+                          ],
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              // SizedBox(
-              //   height: MediaQuery.of(context).size.height * 0.35,
-              //   width: MediaQuery.of(context).size.width * 0.95,
-              //   child: const ProfileScreen(
-
-              //       //actions: [
-              //       // DisplayNameChangedAction((context, oldName, newName) {
-              //       //   // TODO do something with the new name
-              //       //   throw UnimplementedError();
-              //       // }),
-              //       //],
-              //       ),
-              // ),
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => UserAuthPage(
+                                di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                                null,
+                                isUserLoggingOut: true,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      OutlinedButton(
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.delete),
+                            Text('Delete Account'),
+                          ],
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text('Confirm Account Deletion'),
+                                content: const Text(
+                                    'Are you sure you want to delete your account? This action cannot be undone. You may be asked to log in again to confirm your identiy.'),
+                                actions: [
+                                  TextButton(
+                                    child: const Text('Cancel'),
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                  TextButton(
+                                    child: const Text('Delete'),
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (context) => UserAuthPage(
+                                            di<DAUCompsViewModel>()
+                                                .selectedDAUCompDbKey,
+                                            null,
+                                            isUserDeletingAccount: true,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  )),
             ],
           ),
         ),

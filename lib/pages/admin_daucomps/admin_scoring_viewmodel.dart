@@ -20,7 +20,7 @@ const roundScoresRoot = 'round_scores';
 const compScoresRoot = 'comp_scores';
 const liveScoresRoot = 'live_scores';
 
-class AllScoresViewModel extends ChangeNotifier {
+class ScoresViewModel extends ChangeNotifier {
   Map<Tipper, List<RoundScores>> _allTipperRoundScores = {};
   Map<Tipper, List<RoundScores>> get allTipperRoundScores =>
       _allTipperRoundScores;
@@ -53,7 +53,7 @@ class AllScoresViewModel extends ChangeNotifier {
   Map<int, List<RoundWinnerEntry>> get roundWinners => _roundWinners;
 
   //constructor
-  AllScoresViewModel(this.currentDAUComp) {
+  ScoresViewModel(this.currentDAUComp) {
     log('***ScoresViewModel_constructor(ALL TIPPERS)***');
     _listenToScores();
   }
@@ -93,15 +93,25 @@ class AllScoresViewModel extends ChangeNotifier {
           throw Exception('Invalid data type for all tipper round scores');
         }
 
-        // Obtain the Map directly
-        List<MapEntry<Tipper, List<RoundScores>>> entries =
-            await Future.wait(dbData.entries.map((entry) async {
-          Tipper tipper = await di<TippersViewModel>().findTipper(entry.key);
-          List<RoundScores> scores = (entry.value as List)
-              .map((e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
-              .toList();
-          return MapEntry(tipper, scores);
-        }));
+        List<MapEntry<Tipper, List<RoundScores>>> entries = (await Future.wait(
+          dbData.entries.map((entry) async {
+            Tipper? tipper = await di<TippersViewModel>().findTipper(entry.key);
+            if (tipper != null) {
+              List<RoundScores> scores = (entry.value as List)
+                  .map(
+                      (e) => RoundScores.fromJson(Map<String, dynamic>.from(e)))
+                  .toList();
+              return MapEntry(tipper, scores);
+            } else {
+              // tipper does not exist - skip this record
+              log('Tipper ${entry.key} does not exist in _handleEventRoundScores');
+              return null;
+            }
+          }),
+        ))
+            .where((item) => item != null)
+            .toList()
+            .cast<MapEntry<Tipper, List<RoundScores>>>();
 
         // Convert List<MapEntry> to Map
         _allTipperRoundScores = Map.fromEntries(entries);
@@ -127,13 +137,24 @@ class AllScoresViewModel extends ChangeNotifier {
         // returned data type is Map<Sting, Map<String, int>>
         // and needs to be converted to Map<Tipper, CompScore>
         _allTipperCompScores = Map<Tipper, CompScore>.fromEntries(
-          await Future.wait((event.snapshot.value as Map<dynamic, dynamic>)
-              .entries
-              .map((e) async {
-            Tipper tipper = await di<TippersViewModel>().findTipper(e.key);
-            return MapEntry(
-                tipper, CompScore.fromJson(Map<String, dynamic>.from(e.value)));
-          })),
+          (await Future.wait(
+            (event.snapshot.value as Map<dynamic, dynamic>)
+                .entries
+                .map((e) async {
+              Tipper? tipper = await di<TippersViewModel>().findTipper(e.key);
+              if (tipper != null) {
+                return MapEntry(tipper,
+                    CompScore.fromJson(Map<String, dynamic>.from(e.value)));
+              } else {
+                // tipper does not exist - skip this record
+                log('Tipper ${e.key} does not exist in _handleEventCompScores');
+                return null;
+              }
+            }),
+          ))
+              .where((item) => item != null)
+              .toList()
+              .cast<MapEntry<Tipper, CompScore>>(),
         );
 
         // _allTipperCompScores = CompScore.fromJson(Map<String, dynamic>.from(
@@ -442,9 +463,14 @@ class AllScoresViewModel extends ChangeNotifier {
     }
 
     // filter out rounds yet to be scored
-    return _allTipperRoundScores[tipper]!.where((element) {
-      return element.aflMaxScore + element.nrlMaxScore > 0;
-    }).toList();
+    if (_allTipperRoundScores.containsKey(tipper)) {
+      return _allTipperRoundScores[tipper]!.where((element) {
+        return element.aflMaxScore + element.nrlMaxScore > 0;
+      }).toList();
+    } else {
+      // Handle the case when _allTipperRoundScores[tipper] is null
+      return [];
+    }
   }
 
   Future<RoundScores> getTipperConsolidatedScoresForRound(

@@ -83,7 +83,7 @@ class LegacyTippingService {
   }
 
   //method to convert gsheet rows of tippers into a list of Tipper objects
-  Future<List<Tipper>> getLegacyTippers() async {
+  Future<List<Tipper>> getLegacyTippers(DAUComp currentComp) async {
     List<Tipper> tippers = [];
 
     await initialized();
@@ -106,11 +106,7 @@ class LegacyTippingService {
           tipperRole: row[2] == 'Admin' ? TipperRole.admin : TipperRole.tipper,
           compsParticipatedIn: [
             //auto assign all new tippers created in sheet this year to the current comp
-            DAUComp(
-                dbkey: '-Nk88l-ww9pYF1j_jUq7',
-                name: 'blah',
-                aflFixtureJsonURL: Uri.parse('https://www.google.com'),
-                nrlFixtureJsonURL: Uri.parse('https://www.google.com')),
+            currentComp,
           ],
         );
 
@@ -121,7 +117,7 @@ class LegacyTippingService {
     return tippers;
   }
 
-  Future<String> syncTipsToLegacy(AllTipsViewModel allTipsViewModel,
+  Future<String> syncTipsToLegacy(TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel) async {
     await initialized();
 
@@ -171,13 +167,15 @@ class LegacyTippingService {
   }
 
   Future<List<GsheetAppTip>> _createProposedChanges(
-      AllTipsViewModel allTipsViewModel,
+      TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel,
       List<int> combinedRounds) async {
     List<String> templateDefaultTips =
         await _getDefaultTips(daucompsViewModel, combinedRounds);
 
-    List<Tipper> tippers = await getLegacyTippers();
+    DAUComp? currentComp = daucompsViewModel.selectedDAUComp;
+
+    List<Tipper> tippers = await getLegacyTippers(currentComp!);
 
     // for each tipper, get their tips for each round and create a GsheetAppTip object
     // for each round/tipper combination
@@ -201,7 +199,7 @@ class LegacyTippingService {
   }
 
   Future<List<GsheetAppTip>> _getAppTipsForRound(
-      AllTipsViewModel allTipsViewModel,
+      TipsViewModel allTipsViewModel,
       Tipper tipper,
       int round,
       List<String> templateDefaultTips,
