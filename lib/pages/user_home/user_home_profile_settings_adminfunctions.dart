@@ -18,7 +18,10 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
     return SizedBox(
       width: 300,
       child: Card(
-        color: Colors.grey[200],
+        // is dark mode use grey[800] else grey[200]
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.grey[200],
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
         ),
