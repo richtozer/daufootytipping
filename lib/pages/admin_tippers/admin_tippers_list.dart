@@ -20,6 +20,17 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    // _scrollController.addListener(() {
+    //   // Save the scroll position in your state management solution
+    //   di<TippersViewModel>().tipperListScrollPosition =
+    //       _scrollController.offset;
+    // });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -81,7 +92,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                           children: [
                             Expanded(
                               child: ListView.builder(
-                                controller: _scrollController,
+                                //controller: _scrollController,
                                 itemCount: snapshot.data!.length,
                                 itemBuilder: (context, index) {
                                   var tipper = snapshot.data![index];

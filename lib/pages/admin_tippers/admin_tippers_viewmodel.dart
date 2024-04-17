@@ -46,10 +46,21 @@ class TippersViewModel extends ChangeNotifier {
   bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
 
+  double _tipperListScrollPosition = 0;
+  double get tipperListScrollPosition => _tipperListScrollPosition;
+  set tipperListScrollPosition(double value) {
+    _tipperListScrollPosition = value;
+    notifyListeners();
+  }
+
+  //
+
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
+  bool createLinkedTipper;
+
   //constructor
-  TippersViewModel() {
+  TippersViewModel(this.createLinkedTipper) {
     log('TippersViewModel() constructor called');
     _listenToTippers();
   }
@@ -163,6 +174,15 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
   }
 
+  Future<Tipper?> findTipperByLogon(String logon) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for initial tipper load to complete, findtipperbylogon($logon)');
+      await _initialLoadCompleter.future;
+      log('tipper load complete, findtipperbylogon($logon)');
+    }
+    return _tippers.firstWhereOrNull((tipper) => tipper.logon == logon);
+  }
+
   Future<Tipper?> findTipperByLegayTipperID(String tipperId) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findTipperByLegayTipperID($tipperId)');
@@ -236,6 +256,14 @@ class TippersViewModel extends ChangeNotifier {
               existingTipper.dbkey!, 'tipperID', legacyTipper.tipperID);
           await updateTipperAttribute(existingTipper.dbkey!, 'tipperRole',
               legacyTipper.tipperRole.name);
+
+          // make the existing tipper logon be the same as email, only if it's null
+          if (existingTipper.logon == null) {
+            await updateTipperAttribute(
+                existingTipper.dbkey!, 'logon', existingTipper.email);
+          }
+
+          //
         }
       });
 
@@ -250,11 +278,9 @@ class TippersViewModel extends ChangeNotifier {
         // if the Tipper does not exist in the legacyTippers list, investigate it
         if (legacyTipper == null) {
           log('syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
-          throw Exception(
-              'syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
         }
       }));
-      return 'Successfully synced ${legacyTippers.length} tippers from the legacy tipping service';
+      return 'Successfully synced ${legacyTippers.length} tippers from the legacy tipping sheet';
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
@@ -277,6 +303,17 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
+  bool isValidEmail(String? email) {
+    if (email == null) {
+      return false;
+    }
+
+    final RegExp regex =
+        RegExp(r'^[a-zA-Z0-9.a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$');
+
+    return regex.hasMatch(email);
+  }
+
   // method called at logon to find logged in Tipper and link it if required
   // first try finding the tipper based on authuid
   // if that fails, try finding the tipper based on email
@@ -291,20 +328,55 @@ class TippersViewModel extends ChangeNotifier {
 
       if (foundTipper != null) {
         log('linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
+
+        // make sure login email is up to date
+        // update the authuid and logon in the database
+        await updateTipperAttribute(
+            foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
+
+        // check if tipper.email is a valid email address, if not make it the sane as logon
+        if (!isValidEmail(foundTipper.email)) {
+          await updateTipperAttribute(
+              foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);
+        }
+
+        await saveBatchOfTipperAttributes();
       } else {
-        // if that fails, try finding the tipper based on email
+        // if that fails, try finding the tipper based on logon email
         foundTipper ??=
-            await findTipperByEmail(authenticatedFirebaseUser.email!);
+            await findTipperByLogon(authenticatedFirebaseUser.email!);
 
         if (foundTipper != null) {
-          log('linkUserToTipper() Tipper ${foundTipper.name} found using email: ${authenticatedFirebaseUser.email}. Updating UID in database');
+          log('linkUserToTipper() Tipper ${foundTipper.name} found using logon: ${authenticatedFirebaseUser.email}. Updating UID in database');
 
           await updateTipperAttribute(
               foundTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
 
+          // if email is null, update that to match logon
+          if (foundTipper.email == null) {
+            await updateTipperAttribute(
+                foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);
+            await saveBatchOfTipperAttributes();
+          }
+
           await saveBatchOfTipperAttributes();
         } else {
-          log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
+          // try finding using email address
+          foundTipper =
+              await findTipperByEmail(authenticatedFirebaseUser.email!);
+
+          if (foundTipper != null) {
+            log('linkUserToTipper() Tipper ${foundTipper.name} found using email: ${authenticatedFirebaseUser.email}');
+
+            // update the authuid and logon in the database
+            await updateTipperAttribute(
+                foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
+            await updateTipperAttribute(
+                foundTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
+            await saveBatchOfTipperAttributes();
+          } else {
+            log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
+          }
         }
       }
       if (foundTipper != null) {
@@ -328,6 +400,14 @@ class TippersViewModel extends ChangeNotifier {
             () => ScoresViewModel(di<DAUCompsViewModel>().defaultDAUCompDbKey));
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
+
+        if (createLinkedTipper == false) {
+          log('linkUserToTipper() createLinkedTipper is false, not creating a new tipper');
+          return false;
+        }
+
+        log('linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}');
+
         // create them a tipper record
         DAUComp? currentDAUComp = di<DAUCompsViewModel>().selectedDAUComp;
         Tipper newTipper = Tipper(
@@ -396,10 +476,94 @@ class TippersViewModel extends ChangeNotifier {
     await registerLinkedTipperForMessaging();
   }
 
+  // method to delete acctount
+  void deleteAccount() async {
+    try {
+      await FirebaseAuth.instance.currentUser!.delete();
+    } catch (e) {
+      if ((e as FirebaseAuthException).code == 'requires-recent-login') {
+        // reauthenticate the user
+        log('UserAuthPage.deleteAccount() - reauthenticating user');
+        final String providerId =
+            FirebaseAuth.instance.currentUser!.providerData[0].providerId;
+
+        if (providerId == 'apple.com') {
+          await _reauthenticateWithApple();
+        } else if (providerId == 'google.com') {
+          await _reauthenticateWithGoogle();
+        }
+      }
+
+      await FirebaseAuth.instance.currentUser!.delete();
+    }
+  }
+
+  Future<void> _reauthenticateWithApple() async {
+    // If user is not authenticated
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw 'Cannot reauthenticate with Apple the user is not authenticated';
+    }
+
+    final AppleAuthProvider appleProvider = AppleAuthProvider();
+
+    // Try to reauthenticate
+    try {
+      await FirebaseAuth.instance.currentUser!
+          .reauthenticateWithProvider(appleProvider);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-mismatch' ||
+          e.code == 'user-not-found' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'invalid-verification-code' ||
+          e.code == 'invalid-verification-id') {
+        // Show a Snackbar
+        log('UserAuthPage._reauthenticateWithApple() - error: ${e.code}');
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _reauthenticateWithGoogle() async {
+    // If user is not authenticated
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw 'Cannot reauthenticate with Google the user is not authenticated';
+    }
+
+    final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+
+    // Tries to reauthenticate
+    await FirebaseAuth.instance.currentUser!
+        .reauthenticateWithProvider(googleProvider);
+  }
+
   @override
   void dispose() {
     _tippersStream.cancel(); // stop listening to stream
     super.dispose();
+  }
+
+  Future<Tipper?> isEmailOrLogonAlreadyAssigned(
+      String email1, String email2, Tipper? tipper) async {
+    await _initialLoadCompleter.future;
+    // if the tipper is supplied then we are checking if the email or logon is already assigned to another tipper
+    // if the tipper is null then we are checking if the email or logon is already assigned to any tipper
+    Tipper? foundTipper;
+    if (tipper != null) {
+      foundTipper = _tippers.firstWhereOrNull((otherTipper) =>
+          (otherTipper.email == email1 ||
+              otherTipper.email == email2 ||
+              otherTipper.logon == email1 ||
+              otherTipper.logon == email2) &&
+          otherTipper.dbkey != tipper.dbkey);
+    } else {
+      foundTipper = _tippers.firstWhereOrNull((otherTipper) =>
+          otherTipper.email == email1 ||
+          otherTipper.email == email2 ||
+          otherTipper.logon == email1 ||
+          otherTipper.logon == email2);
+    }
+    return foundTipper;
   }
 }
 
