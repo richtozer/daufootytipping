@@ -20,7 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 
-// define constant for firestore database locations - TODO move to env file
+// define constant for firestore database locations
 const daucompsPath = '/DAUComps';
 
 class DAUCompsViewModel extends ChangeNotifier {
@@ -184,23 +184,23 @@ class DAUCompsViewModel extends ChangeNotifier {
     // if the lastUpdate has not changed while we were waiting then trigger
     // the fixture update now
     // this will make sure only we update the fixture once for today
-    if (selectedDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
-        selectedDAUComp!.lastFixtureUpdateTimestamp == null) {
-      log('Triggering fixture update for comp: ${selectedDAUComp!.name}');
+    if (selectedDAUComp.lastFixtureUpdateTimestamp == lastUpdate ||
+        selectedDAUComp.lastFixtureUpdateTimestamp == null) {
+      log('Triggering fixture update for comp: ${selectedDAUComp.name}');
 
-      String res = await getNetworkFixtureData(selectedDAUComp!);
+      String res = await getNetworkFixtureData(selectedDAUComp);
 
       FirebaseAnalytics.instance.logEvent(
         name: 'fixture_update',
-        parameters: {'comp': selectedDAUComp!.name, 'result': res},
+        parameters: {'comp': selectedDAUComp.name, 'result': res},
       );
 
       // update the lastUpdate time
-      selectedDAUComp!.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
-      await updateCompAttribute(selectedDAUComp!, 'lastFixtureUpdateTimestamp',
-          selectedDAUComp!.lastFixtureUpdateTimestamp!.toIso8601String());
+      selectedDAUComp.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
+      await updateCompAttribute(selectedDAUComp, 'lastFixtureUpdateTimestamp',
+          selectedDAUComp.lastFixtureUpdateTimestamp!.toIso8601String());
     } else {
-      log('Fixture update has already been triggered for comp: ${selectedDAUComp!.name}');
+      log('Fixture update has already been triggered for comp: ${selectedDAUComp.name}');
     }
   }
 
@@ -292,10 +292,10 @@ class DAUCompsViewModel extends ChangeNotifier {
       LegacyTippingService tippingService =
           GetIt.instance<LegacyTippingService>();
 
-      TippersViewModel tippersViewModel = TippersViewModel();
+      TippersViewModel tippersViewModel = TippersViewModel(false);
 
       if (userGamesViewModel != null ||
-          userGamesViewModel?.selectedDAUComp != daucompToUpdate.dbkey!) {
+          userGamesViewModel?.selectedDAUComp.dbkey != daucompToUpdate.dbkey!) {
         //invalidte the adminGamesViewModel
         userGamesViewModel = null;
       }
@@ -564,35 +564,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     return {League.nrl: nrlGames, League.afl: aflGames};
-  }
-
-  //method to get a List<Game> of the games for a given combined round number and league
-  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague_DELETE(
-      int combinedRoundNumber, League league) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log('getGamesForCombinedRoundNumberAndLeague() waiting for initial Game load to complete');
-    }
-    await initialLoadComplete;
-
-    List<Game> gamesForCombinedRoundNumberAndLeague = [];
-
-    userGamesViewModel ??= di<GamesViewModel>();
-
-    for (var round in _selectedDAUComp!.daurounds!) {
-      if (round.dAUroundNumber == combinedRoundNumber) {
-        for (var gameKey in round.gamesAsKeys) {
-          Game? game = await userGamesViewModel!.findGame(gameKey);
-          if (game != null && game.league == league) {
-            //add the game to the list
-            gamesForCombinedRoundNumberAndLeague.add(game);
-          }
-        }
-      }
-    }
-
-    notifyListeners();
-
-    return gamesForCombinedRoundNumberAndLeague;
   }
 
   //method to get default tips for a given combined round number and league

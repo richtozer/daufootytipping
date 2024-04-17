@@ -26,12 +26,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _tipperNameController;
   late TextEditingController _tipperEmailController;
+  late TextEditingController _tipperLogonController;
+
   final FocusNode _emailFocusNode = FocusNode();
   late Tipper? tipper;
   late bool admin;
   late TippersViewModel tippersViewModel;
 
-  late bool disableBackButton = false;
+  late bool changesNeedSaving = false;
   late bool disableSaves = true;
   late int changes = 0;
   List<DAUComp> comps = [];
@@ -45,6 +47,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
     _tipperNameController = TextEditingController(text: tipper?.name);
     _tipperEmailController = TextEditingController(text: tipper?.email);
+    _tipperLogonController = TextEditingController(text: tipper?.logon);
   }
 
   @override
@@ -57,19 +60,42 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
   void _saveTipper(BuildContext context) async {
     try {
+      // make sure the email and logon are not assigned to another tipper
+      Tipper? tipperWithDupEmail =
+          await tippersViewModel.isEmailOrLogonAlreadyAssigned(
+              _tipperEmailController.text, _tipperLogonController.text, tipper);
+      if (tipperWithDupEmail != null) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: Text(
+                'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+        // stay on this page
+        return;
+      }
+
       await tippersViewModel.updateTipperAttribute(
           tipper!.dbkey!, "name", _tipperNameController.text);
       await tippersViewModel.updateTipperAttribute(
           tipper!.dbkey!, "email", _tipperEmailController.text);
+      await tippersViewModel.updateTipperAttribute(
+          tipper!.dbkey!, "logon", _tipperLogonController.text);
       await tippersViewModel.updateTipperAttribute(
           tipper!.dbkey!,
           "tipperRole",
           admin == true
               ? TipperRole.admin.toString().toString().split('.').last
               : TipperRole.tipper.toString().toString().split('.').last);
-
-      //String compsParticipatedInJson = jsonEncode(
-      //    tipper!.compsParticipatedIn.map((comp) => comp.dbkey).toList());
 
       await tippersViewModel.updateTipperAttribute(
           tipper!.dbkey!,
@@ -110,11 +136,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         leading: Builder(
           builder: (BuildContext context) {
             return IconButton(
-              icon: disableBackButton
+              icon: changesNeedSaving
                   ? const ImageIcon(
                       null) // dont show anything clickable while saving is in progress
                   : const Icon(Icons.arrow_back),
-              onPressed: disableBackButton
+              onPressed: changesNeedSaving
                   ? null
                   : () {
                       Navigator.maybePop(context);
@@ -139,11 +165,12 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           setState(() {
                             disableSaves = true;
                           });
-                          disableBackButton = true;
+                          changesNeedSaving = true;
                           const CircularProgressIndicator();
                           _saveTipper(
                               context); //save the tipper and pop the page
                           setState(() {
+                            changesNeedSaving = false;
                             disableSaves = false;
                           });
                         }
@@ -168,7 +195,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   const Text('Name:'),
                   Expanded(
                     child: TextFormField(
-                      enabled: !disableBackButton,
+                      enabled: !changesNeedSaving,
                       controller: _tipperNameController,
                       decoration: const InputDecoration(
                         hintText: 'Tipper name',
@@ -209,15 +236,16 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   )
                 ],
               ),
+
               Row(
                 children: [
                   const Text('Email:'),
                   Expanded(
                     child: TextFormField(
-                      enabled: !disableBackButton,
+                      enabled: !changesNeedSaving,
                       controller: _tipperEmailController,
                       decoration: const InputDecoration(
-                        hintText: 'Tipper email',
+                        hintText: 'Email for communications',
                       ),
                       validator: (String? value) {
                         if (value == null || !EmailValidator.validate(value)) {
@@ -227,6 +255,48 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       },
                       onChanged: (String value) {
                         if (tipper?.email != value) {
+                          //something has changed, maybe allow saves
+                          setState(() {
+                            changes++; //increment the number of changes
+                            if (changes == 0) {
+                              disableSaves = true;
+                            } else {
+                              disableSaves = false;
+                            }
+                          });
+                        } else {
+                          setState(() {
+                            changes--; //decrement the number of changes, maybe stop saves
+                            if (changes == 0) {
+                              disableSaves = true;
+                            } else {
+                              disableSaves = false;
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const Text('Logon:'),
+                  Expanded(
+                    child: TextFormField(
+                      enabled: !changesNeedSaving,
+                      controller: _tipperLogonController,
+                      decoration: const InputDecoration(
+                        hintText: 'Email for logon',
+                      ),
+                      validator: (String? value) {
+                        if (value == null || !EmailValidator.validate(value)) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
+                      onChanged: (String value) {
+                        if (tipper?.logon != value) {
                           //something has changed, maybe allow saves
                           setState(() {
                             changes++; //increment the number of changes

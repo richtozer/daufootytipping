@@ -4,14 +4,15 @@ import 'package:daufootytipping/models/tipperrole.dart';
 class Tipper implements Comparable<Tipper> {
   String? dbkey;
   String authuid;
-  final String email;
+  String?
+      email; // this is the email address used for communication - same as legacy sheet email
+  String? logon; // this is the email address used for login
   final String name;
   final String
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
-  //final bool active;
+  //final bool active;  //no longer used
   final TipperRole tipperRole;
   String? photoURL;
-  //List<DeviceToken?>? deviceTokens;
   List<DAUComp> compsParticipatedIn = [];
 
   //constructor
@@ -21,6 +22,7 @@ class Tipper implements Comparable<Tipper> {
       this.photoURL,
       required this.authuid,
       required this.email,
+      this.logon,
       required this.name,
       required this.tipperID,
       required this.tipperRole});
@@ -41,8 +43,9 @@ class Tipper implements Comparable<Tipper> {
     return Tipper(
       dbkey: key,
       //deviceTokens: deviceTokensList,
-      authuid: data['authuid'] ?? '',
-      email: data['email'] ?? '',
+      authuid: data['authuid'],
+      email: data['email'],
+      logon: data['logon'], // this is the email address used for login
       name: data['name'] ?? '',
       tipperID: data['tipperID'] ?? '',
       //active: data['active'] ?? false,
@@ -80,6 +83,7 @@ class Tipper implements Comparable<Tipper> {
     return {
       "authuid": authuid,
       "email": email,
+      "logon": logon, // this is the email address used for login
       "name": name,
       "tipperID": tipperID,
       //"active": active,

@@ -71,6 +71,7 @@ Future<void> main() async {
   String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
   String configMinAppVersion =
       await remoteConfigService.getConfigMinAppVersion();
+  bool createLinkedTipper = await remoteConfigService.getCreateLinkedTipper();
 
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   if (!kDebugMode) {
@@ -98,7 +99,8 @@ Future<void> main() async {
     di<FirebaseMessagingService>().initializeFirebaseMessaging();
   }
 
-  di.registerLazySingleton<TippersViewModel>(() => TippersViewModel());
+  di.registerLazySingleton<TippersViewModel>(
+      () => TippersViewModel(createLinkedTipper));
 
   di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
