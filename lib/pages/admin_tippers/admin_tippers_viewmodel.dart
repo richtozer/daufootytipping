@@ -411,14 +411,15 @@ class TippersViewModel extends ChangeNotifier {
         // create them a tipper record
         DAUComp? currentDAUComp = di<DAUCompsViewModel>().selectedDAUComp;
         Tipper newTipper = Tipper(
-            name: authenticatedFirebaseUser.displayName ??
-                authenticatedFirebaseUser.email!.split('@').first,
-            email: authenticatedFirebaseUser.email!,
-            authuid: authenticatedFirebaseUser.uid,
-            photoURL: authenticatedFirebaseUser.photoURL,
-            tipperRole: TipperRole.tipper,
-            tipperID: 'non-legacy-tipper-${authenticatedFirebaseUser.uid}',
-            compsParticipatedIn: [currentDAUComp!]);
+          name: authenticatedFirebaseUser.displayName ??
+              authenticatedFirebaseUser.email!.split('@').first,
+          email: authenticatedFirebaseUser.email!,
+          authuid: authenticatedFirebaseUser.uid,
+          photoURL: authenticatedFirebaseUser.photoURL,
+          tipperRole: TipperRole.tipper,
+          tipperID: 'non-legacy-tipper-${authenticatedFirebaseUser.uid}',
+          compsParticipatedIn: [], // do not assign tippers created this way to any comps
+        );
 
         await createNewTipper(newTipper);
 

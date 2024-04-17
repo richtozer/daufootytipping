@@ -53,7 +53,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                         child: SizedBox(
                           width: 250,
                           child: Text(
-                            'You are not active in any competitions. Contact a DAU Admin.',
+                            'You are not active in any competition. Contact daufootytipping@gmail.com.',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
