@@ -15,8 +15,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:watch_it/watch_it.dart';
 
 // define  constant for firestore database locations
-final tippersPath = dotenv.env['TIPPERS_PATH'];
-const tokensPath = '/AllTippersTokens';
+final String tippersPath = dotenv.env['TIPPERS_PATH'] as String;
+final String tokensPath = dotenv.env['TOKENS_PATH'] as String;
 
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
@@ -71,7 +71,7 @@ class TippersViewModel extends ChangeNotifier {
 
   // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
-    _tippersStream = _db.child(tippersPath!).onValue.listen((event) {
+    _tippersStream = _db.child(tippersPath).onValue.listen((event) {
       _handleEvent(event);
     });
     log('Tippers db Listener: Listening to tippers in database on path $tippersPath');
@@ -295,7 +295,7 @@ class TippersViewModel extends ChangeNotifier {
     if (newTipper.dbkey == null) {
       log('Adding new Tipper record');
       // add new record to updates Map, create a new db key first
-      DatabaseReference newTipperRecordKey = _db.child(tippersPath!).push();
+      DatabaseReference newTipperRecordKey = _db.child(tippersPath).push();
       newTipper.dbkey = newTipperRecordKey.key;
       updates['$tippersPath/${newTipper.dbkey}'] = newTipper.toJson();
     } else {
@@ -409,7 +409,6 @@ class TippersViewModel extends ChangeNotifier {
         log('linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}');
 
         // create them a tipper record
-        DAUComp? currentDAUComp = di<DAUCompsViewModel>().selectedDAUComp;
         Tipper newTipper = Tipper(
           name: authenticatedFirebaseUser.displayName ??
               authenticatedFirebaseUser.email!.split('@').first,

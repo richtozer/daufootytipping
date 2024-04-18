@@ -68,6 +68,15 @@ class UserAuthPage extends StatelessWidget {
     if (isUserLoggingOut) {
       signOut();
       log('UserAuthPage.build() - user signed out');
+      // return to the main app
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (BuildContext context) =>
+                  MyApp(null, currentDAUCompKey)),
+          (Route<dynamic> route) => false,
+        );
+      });
     }
     if (isUserDeletingAccount) {
       di<TippersViewModel>().deleteAccount();
