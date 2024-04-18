@@ -127,7 +127,7 @@ class TipsPageState extends State<TipsPage> {
 
                     return CustomScrollView(
                       controller: controller,
-                      cacheExtent: 10000,
+                      cacheExtent: 3000,
                       slivers: <Widget>[
                         SliverAppBar(
                           backgroundColor: Colors.white.withOpacity(0.8),

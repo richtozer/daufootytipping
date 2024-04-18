@@ -46,11 +46,11 @@ class Tipper implements Comparable<Tipper> {
       authuid: data['authuid'],
       email: data['email'],
       logon: data['logon'], // this is the email address used for login
-      name: data['name'] ?? '',
-      tipperID: data['tipperID'] ?? '',
+      name: data['name'],
+      tipperID: data['tipperID'],
       //active: data['active'] ?? false,
       tipperRole: TipperRole.values.byName(data['tipperRole']),
-      photoURL: data['photoURL'] ?? '',
+      photoURL: data['photoURL'],
       compsParticipatedIn: data['compsParticipatedIn'] != null
           ? DAUComp.fromJsonList(data['compsParticipatedIn'])
           : [],

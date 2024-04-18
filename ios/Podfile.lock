@@ -868,9 +868,6 @@ PODS:
   - Firebase/Messaging (10.22.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 10.22.0)
-  - Firebase/RemoteConfig (10.22.0):
-    - Firebase/CoreOnly
-    - FirebaseRemoteConfig (~> 10.22.0)
   - firebase_analytics (10.8.9):
     - Firebase/AnalyticsWithoutAdIdSupport (= 10.22.0)
     - firebase_core
@@ -903,12 +900,6 @@ PODS:
     - Firebase/Messaging (= 10.22.0)
     - firebase_core
     - Flutter
-  - firebase_remote_config (4.3.17):
-    - Firebase/RemoteConfig (= 10.22.0)
-    - firebase_core
-    - Flutter
-  - FirebaseABTesting (10.23.0):
-    - FirebaseCore (~> 10.0)
   - FirebaseAnalytics/WithoutAdIdSupport (10.22.0):
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
@@ -989,13 +980,6 @@ PODS:
     - GoogleUtilities/Reachability (~> 7.8)
     - GoogleUtilities/UserDefaults (~> 7.8)
     - nanopb (< 2.30911.0, >= 2.30908.0)
-  - FirebaseRemoteConfig (10.22.0):
-    - FirebaseABTesting (~> 10.0)
-    - FirebaseCore (~> 10.0)
-    - FirebaseInstallations (~> 10.0)
-    - FirebaseSharedSwift (~> 10.0)
-    - GoogleUtilities/Environment (~> 7.8)
-    - "GoogleUtilities/NSData+zlib (~> 7.8)"
   - FirebaseSessions (10.23.0):
     - FirebaseCore (~> 10.5)
     - FirebaseCoreExtension (~> 10.0)
@@ -1176,7 +1160,6 @@ DEPENDENCIES:
   - firebase_database (from `.symlinks/plugins/firebase_database/ios`)
   - firebase_dynamic_links (from `.symlinks/plugins/firebase_dynamic_links/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
-  - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
   - flutter_facebook_auth (from `.symlinks/plugins/flutter_facebook_auth/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
@@ -1199,7 +1182,6 @@ SPEC REPOS:
     - FBSDKCoreKit_Basics
     - FBSDKLoginKit
     - Firebase
-    - FirebaseABTesting
     - FirebaseAnalytics
     - FirebaseAppCheck
     - FirebaseAppCheckInterop
@@ -1214,7 +1196,6 @@ SPEC REPOS:
     - FirebaseFirestoreInternal
     - FirebaseInstallations
     - FirebaseMessaging
-    - FirebaseRemoteConfig
     - FirebaseSessions
     - FirebaseSharedSwift
     - GoogleAppMeasurement
@@ -1252,8 +1233,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_dynamic_links/ios"
   firebase_messaging:
     :path: ".symlinks/plugins/firebase_messaging/ios"
-  firebase_remote_config:
-    :path: ".symlinks/plugins/firebase_remote_config/ios"
   Flutter:
     :path: Flutter
   flutter_facebook_auth:
@@ -1295,8 +1274,6 @@ SPEC CHECKSUMS:
   firebase_database: d2b693328f0cf71c8726a8516463bcfbeebc5c6f
   firebase_dynamic_links: 6149c6fc3790997eb8a392074e5ee4974840942b
   firebase_messaging: e65050bf9b187511d80ea3a4de7cf5573d2c7543
-  firebase_remote_config: 5ebb1bf2503404f6b24e64f117dc6c22c0498d4c
-  FirebaseABTesting: aec61ed9a34d85a95e2013a3fdf051426a2419df
   FirebaseAnalytics: 8d0ff929c63b7f72260f332b86ccf569776b75d3
   FirebaseAppCheck: 8e85fc837a3f006b7c4ef3f50c0a3474395e76f7
   FirebaseAppCheckInterop: a1955ce8c30f38f87e7d091630e871e91154d65d
@@ -1311,7 +1288,6 @@ SPEC CHECKSUMS:
   FirebaseFirestoreInternal: 627b23f682c1c2aad38ba1345ed3ca6574c5a89c
   FirebaseInstallations: 42d6ead4605d6eafb3b6683674e80e18eb6f2c35
   FirebaseMessaging: 9f71037fd9db3376a4caa54e5a3949d1027b4b6e
-  FirebaseRemoteConfig: e1b992a94d3674dddbcaf5d0d31a0312156ceb1c
   FirebaseSessions: f06853e30f99fe42aa511014d7ee6c8c319f08a3
   FirebaseSharedSwift: c92645b392db3c41a83a0aa967de16f8bad25568
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7

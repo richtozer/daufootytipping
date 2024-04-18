@@ -44,7 +44,6 @@ dependencies:
   firebase_crashlytics: ^3.4.8
   firebase_database: ^10.3.4
   firebase_messaging: ^14.7.15
-  firebase_remote_config: ^4.3.13
   firebase_ui_auth: ^1.10.0
   firebase_ui_localizations: ^1.8.0
   firebase_ui_oauth_apple: ^1.2.14
