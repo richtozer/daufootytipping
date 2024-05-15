@@ -22,7 +22,7 @@ class GameInfo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              game.gameState == GameState.resultKnown
+              game.gameState == GameState.startedResultKnown
                   ? Text(DateFormat('EEE dd MMM yyyy')
                       .format(game.startTimeUTC.toLocal()))
                   : Text(DateFormat('EEE dd MMM hh:mm a')
@@ -36,6 +36,19 @@ class GameInfo extends StatelessWidget {
               Text(
                 '${gameTipsViewModel.game.league == League.afl ? 'AFL' : 'NRL'} round: ${gameTipsViewModel.game.roundNumber}',
               ),
+              // if the tipper has tipped, or they can been given a defaul tip
+              // then display the tip submitted time in their local time
+              // if they have yet to tip, then display nothing
+              if (gameTipsViewModel.tipGame != null &&
+                  gameTipsViewModel.tipGame!.isDefaultTip() == false)
+                Text(
+                  'Tipped: ${DateFormat('EEE dd MMM hh:mm a').format(gameTipsViewModel.tipGame!.submittedTimeUTC.toLocal())}',
+                ),
+              if (gameTipsViewModel.tipGame != null &&
+                  gameTipsViewModel.tipGame!.isDefaultTip() == true)
+                const Text(
+                  'Default tip of [Away] given',
+                ),
             ],
           ),
         ],

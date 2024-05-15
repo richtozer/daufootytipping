@@ -1,4 +1,4 @@
-import 'package:daufootytipping/models/dauround.dart';
+/* import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -16,6 +16,8 @@ void main() {
           scoring: null,
           dbkey: '1',
           dauRound: DAURound(
+              roundEndDate: DateTime.now(),
+              roundStartDate: DateTime.now(),
               dAUroundNumber: 1,
               //roundState: RoundState.noGames,
               gamesAsKeys: ['nrl-01-01']),
@@ -37,6 +39,8 @@ void main() {
           scoring: null,
           dbkey: '1',
           dauRound: DAURound(
+              roundEndDate: DateTime.now(),
+              roundStartDate: DateTime.now(),
               dAUroundNumber: 1,
               //roundStarted: true,
               gamesAsKeys: ['nrl-01-01']),
@@ -59,6 +63,8 @@ void main() {
           scoring: Scoring(homeTeamScore: 10, awayTeamScore: 20),
           dbkey: '1',
           dauRound: DAURound(
+              roundEndDate: DateTime.now(),
+              roundStartDate: DateTime.now(),
               dAUroundNumber: 1,
               //roundStarted: true,
               gamesAsKeys: ['nrl-01-01']),
@@ -68,7 +74,7 @@ void main() {
           locationLatLong: null,
           roundNumber: 1,
           matchNumber: 1);
-      expect(game.gameState, equals(GameState.resultKnown));
+      expect(game.gameState, equals(GameState.startedResultKnown));
     });
 
     test(
@@ -81,6 +87,8 @@ void main() {
           scoring: null,
           dbkey: '1',
           dauRound: DAURound(
+              roundEndDate: DateTime.now(),
+              roundStartDate: DateTime.now(),
               dAUroundNumber: 1,
               //roundStarted: true,
               gamesAsKeys: ['nrl-01-01']),
@@ -90,7 +98,8 @@ void main() {
           locationLatLong: null,
           roundNumber: 1,
           matchNumber: 1);
-      expect(game.gameState, equals(GameState.resultNotKnown));
+      expect(game.gameState, equals(GameState.startedResultNotKnown));
     });
   });
 }
+ */

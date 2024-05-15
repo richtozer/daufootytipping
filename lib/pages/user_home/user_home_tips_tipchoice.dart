@@ -111,8 +111,10 @@ class TipChoice extends StatelessWidget {
 
             return;
           }
-          if (gameTipsViewModel.game.gameState == GameState.resultKnown ||
-              gameTipsViewModel.game.gameState == GameState.resultNotKnown) {
+          if (gameTipsViewModel.game.gameState ==
+                  GameState.startedResultKnown ||
+              gameTipsViewModel.game.gameState ==
+                  GameState.startedResultNotKnown) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,

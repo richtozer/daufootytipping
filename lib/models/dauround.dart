@@ -11,32 +11,39 @@ enum RoundState {
 class DAURound implements Comparable<DAURound> {
   String? dbkey;
   final int dAUroundNumber;
-  List<String> gamesAsKeys = []; //legacy - TODO: remove
+  //List<String> gamesAsKeys = []; //legacy - TODO: remove
   List<Game> games = [];
   CompScore? compScore;
   RoundScores? roundScores;
   RoundState roundState = RoundState.noGames;
-  //DateTime roundStartDate;
-  //DateTime roundEndDate;
+  DateTime roundStartDate;
+  DateTime roundEndDate;
 
   // counstructor
   DAURound({
     required this.dAUroundNumber,
-    required this.gamesAsKeys,
+    //required this.gamesAsKeys,
+    required this.roundStartDate,
+    required this.roundEndDate,
   });
 
   // method to serialize DAURound to JSON
   Map<String, dynamic> toJsonForCompare() {
     return {
       'dAUroundNumber': dAUroundNumber,
-      'roundGames': gamesAsKeys,
+      //'roundGames': gamesAsKeys,
+      'roundStartDate': roundStartDate.toIso8601String(),
+      'roundEndDate': roundEndDate.toIso8601String(),
     };
   }
 
-  factory DAURound.fromJson(List<String> gamesAsKeys, int roundNumber) {
+  factory DAURound.fromJson(List<String> gamesAsKeys, int roundNumber,
+      DateTime roundStartDate, DateTime roundEndDate) {
     return DAURound(
       dAUroundNumber: roundNumber,
-      gamesAsKeys: gamesAsKeys,
+      //gamesAsKeys: gamesAsKeys,
+      roundStartDate: roundStartDate,
+      roundEndDate: roundEndDate,
     );
   }
 

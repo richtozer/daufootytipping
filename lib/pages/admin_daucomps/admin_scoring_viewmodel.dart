@@ -533,7 +533,7 @@ class ScoresViewModel extends ChangeNotifier {
     // at this location  _db.child(scoresPathRoot).child(currentDAUComp).child(liveScoresRoot).child(game.dbkey)
 
     for (var game in _gamesWithLiveScores) {
-      if (game.gameState == GameState.resultKnown) {
+      if (game.gameState == GameState.startedResultKnown) {
         _db
             .child(scoresPathRoot)
             .child(currentDAUComp)

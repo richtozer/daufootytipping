@@ -276,14 +276,14 @@ class TipsPageState extends State<TipsPage> {
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                       'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
-                  dauRound.roundState != RoundState.noGames ||
+                  dauRound.roundState != RoundState.noGames &&
                           dauRound.roundState != RoundState.notStarted
                       ? Text(
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                           'Score: ${leagueHeader == League.afl ? dauRound.roundScores!.aflScore : dauRound.roundScores!.nrlScore} / ${leagueHeader == League.afl ? dauRound.roundScores!.aflMaxScore : dauRound.roundScores!.nrlMaxScore}')
                       : const SizedBox.shrink(),
-                  dauRound.roundState != RoundState.noGames ||
+                  dauRound.roundState != RoundState.noGames &&
                           dauRound.roundState != RoundState.notStarted
                       ? Text(
                           style: const TextStyle(
@@ -293,7 +293,7 @@ class TipsPageState extends State<TipsPage> {
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                           'Margins: ${leagueHeader == League.afl ? dauRound.roundScores!.aflMarginTips : dauRound.roundScores!.nrlMarginTips} '),
-                  dauRound.roundState != RoundState.noGames ||
+                  dauRound.roundState != RoundState.noGames &&
                           dauRound.roundState != RoundState.notStarted
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,

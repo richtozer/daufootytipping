@@ -163,8 +163,8 @@ class TipsViewModel extends ChangeNotifier {
 
     // return a default 'd' tip if they forgot to submit a tip
     // and game has already started
-    if ((game.gameState == GameState.resultKnown ||
-            game.gameState == GameState.resultNotKnown) &&
+    if ((game.gameState == GameState.startedResultKnown ||
+            game.gameState == GameState.startedResultNotKnown) &&
         tipGame == null) {
       tipGame = TipGame(
         tip: GameResult.d,

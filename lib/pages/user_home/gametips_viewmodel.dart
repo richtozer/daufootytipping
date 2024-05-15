@@ -53,8 +53,8 @@ class GameTipsViewModel extends ChangeNotifier {
   // then use notifiyListeners to trigger the UI to update
   void gameStartedTrigger() async {
     // if the game has already started, then we don't need to wait , just return
-    if ((game.gameState == GameState.resultNotKnown ||
-        game.gameState == GameState.resultKnown)) {
+    if ((game.gameState == GameState.startedResultNotKnown ||
+        game.gameState == GameState.startedResultKnown)) {
       notifyListeners();
       return;
     }
@@ -69,6 +69,29 @@ class GameTipsViewModel extends ChangeNotifier {
 
     // now that the game has started, trigger the UI to update
     notifyListeners();
+  }
+
+  // this method will return true if the game start time is within 3 hours,
+  // and they have yet to tip
+  Future<bool> wait3HoursFromGameTimeCheckIfTipped() async {
+    // if the game has already started, then we don't need to send a notification
+    if ((game.gameState == GameState.startedResultNotKnown ||
+        game.gameState == GameState.startedResultKnown)) {
+      return false;
+    }
+
+    // calculate the time until the game starts and create a future.delayed
+    // to wait until the game starts
+    var timeUntilGameStarts =
+        game.startTimeUTC.difference(DateTime.now().toUtc());
+
+    // if the game starts within 3 hours, and the tipper has not tipped
+    // return true
+    if (timeUntilGameStarts.inHours <= 3 && _tipGame == null) {
+      return false;
+    } else {
+      return true;
+    }
   }
 
   void update() {

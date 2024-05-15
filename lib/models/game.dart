@@ -8,8 +8,8 @@ import 'package:intl/intl.dart';
 enum GameState {
   notStarted, // game start time is in the future
   startingSoon, // game start time is within 14 hours
-  resultKnown, // game start time is in the past, but game score is known
-  resultNotKnown, // game start time is in the past, but game score is not known
+  startedResultKnown, // game start time is in the past, but game score is known
+  startedResultNotKnown, // game start time is in the past, but game score is not known
 }
 
 class Game implements Comparable<Game> {
@@ -53,9 +53,9 @@ class Game implements Comparable<Game> {
         scoring != null &&
         scoring?.awayTeamScore != null &&
         scoring?.homeTeamScore != null) {
-      return GameState.resultKnown;
+      return GameState.startedResultKnown;
     } else {
-      return GameState.resultNotKnown;
+      return GameState.startedResultNotKnown;
     }
   }
 
