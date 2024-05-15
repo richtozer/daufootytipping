@@ -51,6 +51,11 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           );
 
           await dauCompsViewModel.newDAUComp(updatedDUAcomp);
+          await dauCompsViewModel.saveBatchOfCompAttributes();
+
+          // as this is a new daucomp record, download the fixture data and process
+          // the games in rounds and save them to the database
+          await dauCompsViewModel.getNetworkFixtureData(updatedDUAcomp);
         } else {
           // this is an existing record
           await dauCompsViewModel.updateCompAttribute(
@@ -59,9 +64,9 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
               daucomp, "aflFixtureJsonURL", _daucompAflJsonURLController.text);
           await dauCompsViewModel.updateCompAttribute(
               daucomp, "nrlFixtureJsonURL", _daucompNrlJsonURLController.text);
-        }
 
-        await dauCompsViewModel.saveBatchOfCompAttributes();
+          await dauCompsViewModel.saveBatchOfCompAttributes();
+        }
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

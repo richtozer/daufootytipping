@@ -83,12 +83,18 @@ class GamesViewModel extends ChangeNotifier {
               homeTeamScore: gameAsJSON['HomeTeamScore'],
               awayTeamScore: gameAsJSON['AwayTeamScore']);
 
-          // loop through selectedDAUComp.daurounds to find the linked dauRound for this game
+          // loop through selectedDAUComp.daurounds to find the coorect dauRound for this game
+          // this will be based on the round start and end time
           DAURound? linkedDauRound;
           for (var dauRound in selectedDAUComp.daurounds!) {
-            // now loop through dauRound.gamesAsKeys
-            for (var gameKey in dauRound.gamesAsKeys) {
-              if (gameKey == dbKey) {
+            // use  dauRound.roundStartDate and dauRound.roundEndDate
+            // if game startTimeUTC is between these dates, then this is the linked dauRound
+            if (gameAsJSON['DateUtc'] != null) {
+              DateTime gameStartTimeUTC = DateTime.parse(gameAsJSON['DateUtc']);
+              if (gameStartTimeUTC.isAfter(dauRound.roundStartDate) ||
+                  gameStartTimeUTC.isAtSameMomentAs(dauRound.roundStartDate) &&
+                      gameStartTimeUTC.isBefore(dauRound.roundEndDate) ||
+                  gameStartTimeUTC.isAtSameMomentAs(dauRound.roundEndDate)) {
                 linkedDauRound = dauRound;
                 break;
               }
@@ -109,6 +115,8 @@ class GamesViewModel extends ChangeNotifier {
                 linkedDauRound);
             game.locationLatLong = locationLatLng;
             game.scoring = scoring;
+            // add the game to the round
+            linkedDauRound.games.add(game);
             return game;
           } else {
             // homeTeam or awayTeam should not be null
@@ -176,17 +184,6 @@ class GamesViewModel extends ChangeNotifier {
 
     // if the scores have been updated, we need to update scoring
     if (flagScoresUpdated) {
-      DAURound? linkedDauRound;
-      for (var dauRound in selectedDAUComp.daurounds!) {
-        // now loop through dauRound.gamesAsKeys
-        for (var gameKey in dauRound.gamesAsKeys) {
-          if (gameKey == gameDbKey) {
-            linkedDauRound = dauRound;
-            break;
-          }
-        }
-      }
-
       // String result = await di<DAUCompsViewModel>()
       //     .updateScoring(selectedDAUComp, null, linkedDauRound); // TODO updating scores for only a single round - does not work
       String result = await di<DAUCompsViewModel>()

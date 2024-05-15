@@ -132,7 +132,14 @@ class DAUCompsViewModel extends ChangeNotifier {
                 return game;
               }).toList();
 
-              daurounds.add(DAURound.fromJson(gamesInRound, roundIndex + 1));
+              daurounds.add(DAURound.fromJson(
+                  gamesInRound,
+                  roundIndex + 1,
+                  daucompAsJSON['roundStartDate'],
+                  daucompAsJSON['roundEndDate']));
+
+              //set the round state
+              setRoundState(daurounds[roundIndex]);
             }
           }
 
@@ -149,6 +156,38 @@ class DAUCompsViewModel extends ChangeNotifier {
         _initialLoadCompleter.complete();
       }
       notifyListeners();
+    }
+  }
+
+  // method to set roundstate after the games have been loaded
+  //   noGames, // round has no games
+  //   notStarted, // round is in the future
+  //   started, // round is underway
+  //   allGamesEnded, // round has finished and results known
+  void setRoundState(DAURound round) {
+    if (round.games.isEmpty) {
+      round.roundState = RoundState.noGames;
+    } else {
+      // check if all games have started
+      bool allGamesStarted = round.games.every((game) {
+        return game.gameState == GameState.startedResultKnown ||
+            game.gameState == GameState.startedResultNotKnown;
+      });
+
+      // check if all games have ended
+      bool allGamesEnded = round.games.every((game) {
+        return game.gameState == GameState.startedResultKnown;
+      });
+
+      if (allGamesEnded) {
+        round.roundState = RoundState.allGamesEnded;
+        return;
+      } else if (allGamesStarted) {
+        round.roundState = RoundState.started;
+        return;
+      } else {
+        round.roundState = RoundState.notStarted;
+      }
     }
   }
 
@@ -272,7 +311,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       await userGamesViewModel!.saveBatchOfGameAttributes();
 
       //once all the data is loaded, update the combinedRound field
-      updateCombinedRoundNumber(daucompToUpdate, userGamesViewModel!);
+      assignCombinedRoundNumber(daucompToUpdate);
 
       return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
     } finally {
@@ -330,12 +369,11 @@ class DAUCompsViewModel extends ChangeNotifier {
   // 11) Update Game.combinedRoundNumber for each game in the combined rounds
 
   // Game grouping and sorting
-  void updateCombinedRoundNumber(
-      DAUComp daucomp, GamesViewModel gamesViewModel) async {
+  void assignCombinedRoundNumber(DAUComp daucomp) async {
     log('In updateCombinedRoundNumber()');
 
     await initialLoadComplete;
-    List<Game> games = await gamesViewModel.getGames();
+    List<Game> games = await userGamesViewModel!.getGames();
 
     // Group games by league and round number
     var groups = groupBy(games, (g) => '${g.league}-${g.roundNumber}');
@@ -384,7 +422,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    // log to the console the start and end times for each combined round
+    // save the start and end times for each combined round
     // include the count of NRL and AFL games in each combined round
     for (var i = 0; i < combinedRounds.length; i++) {
       var minStartTime = combinedRounds[i]
@@ -393,23 +431,15 @@ class DAUCompsViewModel extends ChangeNotifier {
       var maxStartTime = combinedRounds[i]
           .map((g) => g.startTimeUTC)
           .reduce((a, b) => a.isAfter(b) ? a : b);
-      var nrlCount =
-          combinedRounds[i].where((g) => g.league == League.nrl).length;
-      var aflCount =
-          combinedRounds[i].where((g) => g.league == League.afl).length;
-      //log('Date range for combined round ${i + 1}: ${DateFormat('yyyy-MM-dd').format(minStartTime.toLocal())} - ${DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal())} NRL games: $nrlCount, AFL games: $aflCount');
-      log('Excel Round ${i + 1},${DateFormat('yyyy-MM-dd').format(minStartTime.toLocal())},${DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal())},$nrlCount,$aflCount');
-    }
-
-    // Update combined round number for each game in each round
-    for (var i = 0; i < combinedRounds.length; i++) {
-      List<String> listGameKeys = [];
-      for (var game in combinedRounds[i]) {
-        log('Updating combined round number to ${i + 1} for game: ${game.dbkey}');
-        listGameKeys.add(game.dbkey);
-      }
-      //submit a db update for this combined round
-      await updateCompAttribute(daucomp, 'combinedRounds/$i', listGameKeys);
+      // var nrlCount =
+      //     combinedRounds[i].where((g) => g.league == League.nrl).length;
+      // var aflCount =
+      //     combinedRounds[i].where((g) => g.league == League.afl).length;
+      //log('Excel Round ${i + 1},${DateFormat('yyyy-MM-dd').format(minStartTime.toLocal())},${DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal())},$nrlCount,$aflCount');
+      await updateCompAttribute(daucomp, 'combinedRounds/$i/roundStartDate',
+          DateFormat('yyyy-MM-dd').format(minStartTime.toLocal()));
+      await updateCompAttribute(daucomp, 'combinedRounds/$i/roundEndDate',
+          DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal()));
     }
 
     // save all updates to the database
@@ -550,14 +580,11 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     for (var round in _selectedDAUComp!.daurounds!) {
       if (round.dAUroundNumber == combinedRoundNumber) {
-        for (var gameKey in round.gamesAsKeys) {
-          Game? game = await userGamesViewModel!.findGame(gameKey);
-          if (game != null) {
-            if (game.league == League.nrl) {
-              nrlGames.add(game);
-            } else if (game.league == League.afl) {
-              aflGames.add(game);
-            }
+        for (var game in round.games) {
+          if (game.league == League.nrl) {
+            nrlGames.add(game);
+          } else if (game.league == League.afl) {
+            aflGames.add(game);
           }
         }
       }
@@ -699,14 +726,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           scoringTipperRoundTotals[tipperToScore.dbkey]![roundIndex]![
               'nrl_marginUPS'] = 0;
 
-          for (var gameKey in dauRound.gamesAsKeys) {
-            // find each game in this round
-            Game? game = await userGamesViewModel!.findGame(gameKey);
-
-            if (game == null) {
-              throw Exception('Game not found for key: $gameKey');
-            }
-
+          for (var game in dauRound.games) {
             // see if there is a tip for this game and tipper
             TipGame? tipGame =
                 await allTipsViewModel?.findTip(game, tipperToScore);
@@ -883,14 +903,11 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     for (var round in daucomp.daurounds!..sort((a, b) => b.compareTo(a))) {
       bool allGamesPlayed = true;
-      for (var gameKey in round.gamesAsKeys) {
-        Game? game = await userGamesViewModel!.findGame(gameKey);
-        if (game != null) {
-          if (game.gameState == GameState.notStarted ||
-              game.gameState == GameState.startingSoon) {
-            allGamesPlayed = false;
-            break;
-          }
+      for (var game in round.games) {
+        if (game.gameState == GameState.notStarted ||
+            game.gameState == GameState.startingSoon) {
+          allGamesPlayed = false;
+          break;
         }
       }
       if (allGamesPlayed) {

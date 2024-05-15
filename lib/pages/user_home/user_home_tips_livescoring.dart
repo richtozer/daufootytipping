@@ -43,11 +43,11 @@ class LiveScoring extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     gameTipsViewModelConsumer.tipGame?.game.gameState ==
-                            GameState.resultNotKnown
+                            GameState.startedResultNotKnown
                         ? liveScoring(gameTipsViewModelConsumer.tipGame!)
                         : finishedScoring(gameTipsViewModelConsumer.tipGame!),
                     gameTipsViewModelConsumer.tipGame?.game.gameState ==
-                            GameState.resultNotKnown
+                            GameState.startedResultNotKnown
                         ? Text(
                             'Interim Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}')
                         : Text(
@@ -203,7 +203,7 @@ class LiveScoring extends StatelessWidget {
 
       consumerTipGame.game.scoring?.croudSourcedScores?.add(croudSourcedScore);
 
-      // only key a maximum of 3 crowd sourced scores per scoreTeam i.e scoreTeam.away or scoreTeam.home
+      // only keep a maximum of 3 crowd sourced scores per scoreTeam i.e scoreTeam.away or scoreTeam.home
       // delete the oldest score if there are more than 3
       if (consumerTipGame.game.scoring?.croudSourcedScores != null &&
           consumerTipGame.game.scoring!.croudSourcedScores!

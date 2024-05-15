@@ -138,11 +138,11 @@ class _GameListItemState extends State<GameListItem> {
               bannerMessage = "Game today";
               bannerColor = Colors.deepOrangeAccent;
               break;
-            case GameState.resultNotKnown:
+            case GameState.startedResultNotKnown:
               bannerMessage = "Live";
               bannerColor = const Color(0xffe21e31);
               break;
-            case GameState.resultKnown:
+            case GameState.startedResultKnown:
               bannerMessage = "result";
               bannerColor = Colors.grey;
               break;

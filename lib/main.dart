@@ -44,12 +44,12 @@ Future<void> main() async {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
   }
 
-  // if (kDebugMode) {
-  //   FirebaseDatabase database = FirebaseDatabase.instance;
-  //   database.useDatabaseEmulator('http://localhost', 8000);
+  if (kDebugMode) {
+    FirebaseDatabase database = FirebaseDatabase.instance;
+    database.useDatabaseEmulator('http://127.0.0.1', 8000);
 
-  //   //FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
-  // }
+    //FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
+  }
 
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(

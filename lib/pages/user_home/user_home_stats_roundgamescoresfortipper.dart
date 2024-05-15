@@ -66,8 +66,8 @@ class _StatRoundGameScoresForTipperState
           //filter out games that have not started - we do not want to expose tips to other tippers until tipping is closed
           games!.forEach((league, gameList) {
             gameList.retainWhere((game) =>
-                game.gameState == GameState.resultNotKnown ||
-                game.gameState == GameState.resultKnown);
+                game.gameState == GameState.startedResultNotKnown ||
+                game.gameState == GameState.startedResultKnown);
           });
 
           List<Game>? nrlGames = games[League.nrl];

@@ -299,26 +299,17 @@ class LegacyTippingService {
   //function to update the default tipper data with the new tip. Use the league and matchnumber to find the correct character to update
   String _updateDefaultTipperData(String defaultRoundTips, TipGame tipGame) {
     if (tipGame.game.league == League.nrl) {
-      //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
-      // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
+      //figure out the offset to update based on the relative position of game in dauround.games list
       // that is the offset to use to update the proposedGsheetTipChanges
-      int gameIndex = tipGame.game.dauRound.gamesAsKeys
-          .where((element) => element.contains('nrl-'))
-          .toList()
-          .indexOf(tipGame.game.dbkey);
+      int gameIndex = tipGame.game.dauRound.games.indexOf(tipGame.game);
 
       defaultRoundTips = defaultRoundTips.replaceRange(
           gameIndex, gameIndex + 1, tipGame.tip.name);
     } else {
-      //figure out the offset to update based on the relative position of game in dauround.gamesAsKey list
-      // first filter the list for nrl-* and then find the index of the game.dbkey in the filtered list
+      //figure out the offset to update based on the relative position of game in dauround.games list
       // that is the offset to use to update the proposedGsheetTipChanges
       // add 8 to the offset to account for the fact that nrl tips go first in the string
-      int gameIndex = 8 +
-          tipGame.game.dauRound.gamesAsKeys
-              .where((element) => element.contains('afl-'))
-              .toList()
-              .indexOf(tipGame.game.dbkey);
+      int gameIndex = 8 + tipGame.game.dauRound.games.indexOf(tipGame.game);
 
       defaultRoundTips = defaultRoundTips.replaceRange(
           gameIndex, gameIndex + 1, tipGame.tip.name);
