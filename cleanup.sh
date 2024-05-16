@@ -20,7 +20,7 @@ delete_android_gradle() {
 # Function to clean Flutter project
 clean_flutter_project() {
     echo "Cleaning Flutter project..."
-    fvm flutter clean
+    flutter clean
     echo "Flutter project cleaned."
 }
 
