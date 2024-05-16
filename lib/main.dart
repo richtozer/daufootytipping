@@ -1,5 +1,4 @@
 import 'dart:developer';
-
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -38,17 +37,14 @@ Future<void> main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  if (!kDebugMode) {
-    // in release mode, enable persistence for Realtime Database
 
-    FirebaseDatabase.instance.setPersistenceEnabled(true);
-  }
-
+  FirebaseDatabase database = FirebaseDatabase.instance;
   if (kDebugMode) {
-    FirebaseDatabase database = FirebaseDatabase.instance;
-    database.useDatabaseEmulator('http://127.0.0.1', 8000);
+    database.useDatabaseEmulator('localhost', 8000);
 
     //FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
+  } else {
+    database.setPersistenceEnabled(true);
   }
 
   if (!kDebugMode) {
