@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
+import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -147,6 +148,11 @@ class GameTipsViewModel extends ChangeNotifier {
       log('new tip logged: ${updates.toString()}');
 
       _tipGame = tip; // update the tipGame with the new tip
+
+      // now sync the tip to the legacy google sheet
+      LegacyTippingService legacyTippingService = di<LegacyTippingService>();
+      legacyTippingService.syncSingleTipToLegacy(
+          allTipsViewModel, di<DAUCompsViewModel>(), tip);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

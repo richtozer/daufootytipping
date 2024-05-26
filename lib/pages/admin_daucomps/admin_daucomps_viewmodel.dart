@@ -380,7 +380,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       //sync tips to legacy
       await tippingService.initialized();
-      return await tippingService.syncTipsToLegacy(allTipsViewModel, this);
+      return await tippingService.syncAllTipsToLegacy(allTipsViewModel, this);
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
