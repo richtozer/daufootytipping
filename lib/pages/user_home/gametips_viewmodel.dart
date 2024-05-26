@@ -4,9 +4,11 @@ import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 class GameTipsViewModel extends ChangeNotifier {
   TipGame? _tipGame;
@@ -55,6 +57,10 @@ class GameTipsViewModel extends ChangeNotifier {
     // if the game has already started, then we don't need to wait , just return
     if ((game.gameState == GameState.startedResultNotKnown ||
         game.gameState == GameState.startedResultKnown)) {
+      // update the roundState by calling DAUCompsViewModel.setRoundState()
+      di<DAUCompsViewModel>().setRoundState(game
+          .dauRound!); //TODO !!!!!!! _TypeError (Null check operator used on a null value)
+
       notifyListeners();
       return;
     }
@@ -66,6 +72,9 @@ class GameTipsViewModel extends ChangeNotifier {
 
     // wait for the game to start before updating the UI
     await Future.delayed(timeUntilGameStarts);
+
+    // update the roundState by calling DAUCompsViewModel.setRoundState()
+    di<DAUCompsViewModel>().setRoundState(game.dauRound!);
 
     // now that the game has started, trigger the UI to update
     notifyListeners();

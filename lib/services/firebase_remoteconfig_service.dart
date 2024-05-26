@@ -16,6 +16,10 @@ class RemoteConfigService {
     return dbEvent.snapshot.value.toString();
   }
 
+  void setConfigCurrentDAUComp(String value) async {
+    await _database.child('currentDAUComp').set(value);
+  }
+
   Future<String> getConfigMinAppVersion() async {
     DatabaseEvent dbEvent = await _database.child('minAppVersion').once();
     return dbEvent.snapshot.value.toString();
@@ -30,6 +34,7 @@ class RemoteConfigService {
     log('RemoteConfigService.initialize()');
     DatabaseEvent dbEvent = await _database.once();
     if (!dbEvent.snapshot.exists) {
+      // Set default values in db from ENV file if needed
       await _database.set({
         "currentDAUComp": dotenv.env['CURRENT_DAU_COMP'],
         "minAppVersion": dotenv.env['MIN_APP_VERSION'],

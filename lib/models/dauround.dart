@@ -11,40 +11,58 @@ enum RoundState {
 class DAURound implements Comparable<DAURound> {
   String? dbkey;
   final int dAUroundNumber;
-  //List<String> gamesAsKeys = []; //legacy - TODO: remove
   List<Game> games = [];
   CompScore? compScore;
   RoundScores? roundScores;
   RoundState roundState = RoundState.noGames;
   DateTime roundStartDate;
   DateTime roundEndDate;
+  DateTime? adminOverrideRoundStartDate;
+  DateTime? adminOverrideRoundEndDate;
 
   // counstructor
   DAURound({
     required this.dAUroundNumber,
-    //required this.gamesAsKeys,
     required this.roundStartDate,
     required this.roundEndDate,
+    this.adminOverrideRoundStartDate,
+    this.adminOverrideRoundEndDate,
   });
 
   // method to serialize DAURound to JSON
   Map<String, dynamic> toJsonForCompare() {
     return {
       'dAUroundNumber': dAUroundNumber,
-      //'roundGames': gamesAsKeys,
       'roundStartDate': roundStartDate.toIso8601String(),
       'roundEndDate': roundEndDate.toIso8601String(),
+      'adminOverrideRoundStartDate':
+          adminOverrideRoundStartDate?.toIso8601String(),
+      'adminOverrideRoundEndDate': adminOverrideRoundEndDate?.toIso8601String(),
     };
   }
 
-  factory DAURound.fromJson(List<String> gamesAsKeys, int roundNumber,
-      DateTime roundStartDate, DateTime roundEndDate) {
+  factory DAURound.fromJson(Map<String, dynamic> data, int roundNumber) {
     return DAURound(
       dAUroundNumber: roundNumber,
-      //gamesAsKeys: gamesAsKeys,
-      roundStartDate: roundStartDate,
-      roundEndDate: roundEndDate,
+      roundStartDate: DateTime.parse(data['roundStartDate']),
+      roundEndDate: DateTime.parse(data['roundEndDate']),
+      adminOverrideRoundStartDate: data['adminOverrideRoundStartDate'] != null
+          ? DateTime.parse(data['adminOverrideRoundStartDate'])
+          : null,
+      adminOverrideRoundEndDate: data['adminOverrideRoundEndDate'] != null
+          ? DateTime.parse(data['adminOverrideRoundEndDate'])
+          : null,
     );
+  }
+
+  // method returns admin overriden round start data if it exists, otherwise the round start date
+  DateTime getRoundStartDate() {
+    return adminOverrideRoundStartDate ?? roundStartDate;
+  }
+
+  // method returns admin overriden round end data if it exists, otherwise the round end date
+  DateTime getRoundEndDate() {
+    return adminOverrideRoundEndDate ?? roundEndDate;
   }
 
   @override

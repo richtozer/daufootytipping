@@ -10,6 +10,7 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:watch_it/watch_it.dart';
@@ -66,7 +67,9 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   void handleFirebaseServiceChange() {
-    registerLinkedTipperForMessaging();
+    if (!kIsWeb) {
+      registerLinkedTipperForMessaging();
+    }
   }
 
   // monitor changes to tippers records in DB and notify listeners of any changes
@@ -393,11 +396,11 @@ class TippersViewModel extends ChangeNotifier {
           await saveBatchOfTipperAttributes();
         }
 
-        await registerLinkedTipperForMessaging();
+        if (!kIsWeb) {
+          await registerLinkedTipperForMessaging();
+        }
 
-        // init an instance of ScoresViewModel focusing on their scores - TODO - right now we are downloading all scores
-        di.registerLazySingleton<ScoresViewModel>(
-            () => ScoresViewModel(di<DAUCompsViewModel>().defaultDAUCompDbKey));
+        //TODO init an instance of ScoresViewModel focusing on their scores here?
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
 
@@ -433,7 +436,8 @@ class TippersViewModel extends ChangeNotifier {
       return userIsLinked;
     } catch (e) {
       log('linkUserToTipper() Error: $e');
-      return false;
+      // rethow the error
+      rethrow;
     } finally {
       notifyListeners();
     }

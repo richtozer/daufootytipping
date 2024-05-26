@@ -102,8 +102,7 @@ class TeamsViewModel extends ChangeNotifier {
 
     if (foundTeam == null) {
       _addNewTeam(team);
-    } else {
-      log('Team: ${foundTeam.dbkey} already exists in the database, ignoring add request');
+      log('Team: ${team.dbkey} added to the database');
     }
 
     _savingTeam = false;

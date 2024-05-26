@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -43,8 +45,12 @@ class DAUComp implements Comparable<DAUComp> {
     List<DAUComp> daucompList = [];
     for (var compDbKey in compDbKeys) {
       di<DAUCompsViewModel>().findComp(compDbKey).then((daucomp) {
-        if (daucomp!.dbkey == compDbKey) {
-          daucompList.add(daucomp);
+        if (daucomp == null) {
+          log('DAUComp.fromJsonList2: compDbKey not found: $compDbKey');
+        } else {
+          if (daucomp.dbkey == compDbKey) {
+            daucompList.add(daucomp);
+          }
         }
       });
     }

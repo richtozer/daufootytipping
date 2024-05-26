@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 //TODO this code has issues on chome web app - add conditional code
 // to not use fixture services when running on web
@@ -11,7 +12,57 @@ import 'package:dio/dio.dart';
 class FixtureDownloadService {
   FixtureDownloadService();
 
-  Future<List<dynamic>> getLeagueFixtureRaw(Uri endpoint, League league) async {
+  Future<Map<String, List<dynamic>>> fetch(
+      Uri nrlFixtureJsonURL, Uri aflFixtureJsonURL) async {
+    Map<String, dynamic> simpleDAUComp = {
+      'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
+      'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
+    };
+
+    //Map<String, dynamic> result = await compute(fetchFixtures, simpleDAUComp); //TODO enable to run on backgrounf thread
+    Map<String, dynamic> result = await fetchFixtures(simpleDAUComp);
+
+    if (result.containsKey('error')) {
+      throw Exception(result['error']);
+    }
+
+    return {
+      'nrlGames': result['nrlGames'] as List<dynamic>,
+      'aflGames': result['aflGames'] as List<dynamic>,
+    };
+  }
+
+  Future<Map<String, dynamic>> fetchFixtures(
+      Map<String, dynamic> simpleDAUComp) async {
+    List<dynamic> nrlGames = [];
+    List<dynamic> aflGames = [];
+    String errorMessage = '';
+
+    try {
+      nrlGames = await FixtureDownloadService.getLeagueFixtureRaw(
+          Uri.parse(simpleDAUComp['nrlFixtureJsonURL']), League.nrl);
+    } catch (e) {
+      errorMessage = 'Error loading NRL fixture data. Exception was: $e';
+    }
+
+    if (errorMessage.isEmpty) {
+      try {
+        aflGames = await FixtureDownloadService.getLeagueFixtureRaw(
+            Uri.parse(simpleDAUComp['aflFixtureJsonURL']), League.afl);
+      } catch (e) {
+        errorMessage = 'Error loading AFL fixture data. Exception was: $e';
+      }
+    }
+
+    if (errorMessage.isNotEmpty) {
+      return {'error': errorMessage};
+    }
+
+    return {'nrlGames': nrlGames, 'aflGames': aflGames};
+  }
+
+  static Future<List<dynamic>> getLeagueFixtureRaw(
+      Uri endpoint, League league) async {
     final dio = Dio(BaseOptions(
         headers: {'Content-Type': 'application/json; charset=UTF-8'}));
 
@@ -71,7 +122,7 @@ class FixtureDownloadService {
         'Could not receive the league fixture list: ${endpoint.toString()}');
   }
 
-  Game fromFixtureJson(
+  Game fromFixtureJsonNotUsed(
       Map<String, dynamic> data, League league, DAURound linkedDauRound) {
     return Game(
       dbkey:

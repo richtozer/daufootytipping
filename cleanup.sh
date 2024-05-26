@@ -5,6 +5,7 @@ delete_ios_pods() {
     echo "Deleting iOS Pods..."
     cd ios
     rm -rf Pods
+    rm Podfile.lock
     cd ..
     echo "iOS Pods deleted."
 }

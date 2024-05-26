@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
@@ -17,16 +18,16 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
-      {super.key,
-      this.isUserLoggingOut = false,
-      this.isUserDeletingAccount = false});
-
   final String currentDAUCompKey;
   final String? configMinAppVersion;
 
   bool isUserLoggingOut = false;
   bool isUserDeletingAccount = false;
+
+  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
+      {super.key,
+      this.isUserLoggingOut = false,
+      this.isUserDeletingAccount = false});
 
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 
@@ -101,7 +102,8 @@ class UserAuthPage extends StatelessWidget {
             future: isClientVersionOutOfDate(),
             builder: (context, versionSnapshot) {
               if (versionSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                    child: CircularProgressIndicator(color: League.afl.colour));
               }
               if (versionSnapshot.data == true) {
                 //,
@@ -212,7 +214,9 @@ class UserAuthPage extends StatelessWidget {
                 future: tippersViewModel.linkUserToTipper(),
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                        child: CircularProgressIndicator(
+                            color: League.afl.colour));
                   } else if (snapshot.hasError) {
                     return LoginErrorScreen(
                         errorMessage:
@@ -227,14 +231,8 @@ class UserAuthPage extends StatelessWidget {
                       // display an error if no tipper record is found
                       return LoginErrorScreen(
                           errorMessage:
-                              'No tipper record found for email: ${authenticatedFirebaseUser.email}. Contact daufootytipping@gmail.com');
+                              'No tipper record found for login: ${authenticatedFirebaseUser.email}. Contact daufootytipping@gmail.com');
                     }
-
-                    // register TipsViewModel for later use
-                    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-                        di<TippersViewModel>(),
-                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
-                        di<GamesViewModel>()));
 
                     return HomePage(currentDAUCompKey);
                   }
@@ -301,7 +299,7 @@ class LoginErrorScreen extends StatelessWidget {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (context) => UserAuthPage(
-                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
                         null,
                         isUserLoggingOut: true,
                       ),

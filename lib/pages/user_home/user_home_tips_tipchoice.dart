@@ -99,7 +99,7 @@ class TipChoice extends StatelessWidget {
                         gameTipsViewModel.addTip(
                             roundGames,
                             tip,
-                            tip.game.dauRound
+                            tip.game.dauRound!
                                 .dAUroundNumber); //roundGames is passed to support legacy tipping only
                       },
                       child: const Text('Submit'),
@@ -111,6 +111,8 @@ class TipChoice extends StatelessWidget {
 
             return;
           }
+
+          // process a normal user tip
           if (gameTipsViewModel.game.gameState ==
                   GameState.startedResultKnown ||
               gameTipsViewModel.game.gameState ==
@@ -143,7 +145,7 @@ class TipChoice extends StatelessWidget {
             gameTipsViewModel.addTip(
                 roundGames,
                 tip,
-                tip.game.dauRound
+                tip.game.dauRound!
                     .dAUroundNumber); //roundGames is passed to support legacy tipping only
           }
         } catch (e) {

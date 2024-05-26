@@ -301,7 +301,7 @@ class LegacyTippingService {
     if (tipGame.game.league == League.nrl) {
       //figure out the offset to update based on the relative position of game in dauround.games list
       // that is the offset to use to update the proposedGsheetTipChanges
-      int gameIndex = tipGame.game.dauRound.games.indexOf(tipGame.game);
+      int gameIndex = tipGame.game.dauRound!.games.indexOf(tipGame.game);
 
       defaultRoundTips = defaultRoundTips.replaceRange(
           gameIndex, gameIndex + 1, tipGame.tip.name);
@@ -309,7 +309,7 @@ class LegacyTippingService {
       //figure out the offset to update based on the relative position of game in dauround.games list
       // that is the offset to use to update the proposedGsheetTipChanges
       // add 8 to the offset to account for the fact that nrl tips go first in the string
-      int gameIndex = 8 + tipGame.game.dauRound.games.indexOf(tipGame.game);
+      int gameIndex = 8 + tipGame.game.dauRound!.games.indexOf(tipGame.game);
 
       defaultRoundTips = defaultRoundTips.replaceRange(
           gameIndex, gameIndex + 1, tipGame.tip.name);

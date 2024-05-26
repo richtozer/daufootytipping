@@ -45,6 +45,7 @@ class TipsViewModel extends ChangeNotifier {
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
   TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
       this._gamesViewModel, this.tipper) {
+    log('TipsViewModel.forTipper constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
@@ -192,20 +193,20 @@ class TipsViewModel extends ChangeNotifier {
       await _initialLoadCompleter.future;
     }
 
-    //figure out which key to for this search. GoogleSheetService does not have
+    //figure out which key to use for this search. GoogleSheetService does not have
     //access to dbkey, so we need to use tippedID as the key
 
     if (tipper.dbkey != null) {
       return _tipGames
           .where((tipGame) =>
               tipGame?.tipper.dbkey == tipper.dbkey &&
-              tipGame?.game.dauRound.dAUroundNumber == combinedRound)
+              tipGame?.game.dauRound!.dAUroundNumber == combinedRound)
           .toList();
     } else {
       return _tipGames
           .where((tipGame) =>
               tipGame?.tipper.tipperID == tipper.tipperID &&
-              tipGame?.game.dauRound.dAUroundNumber == combinedRound)
+              tipGame?.game.dauRound!.dAUroundNumber == combinedRound)
           .toList();
     }
 
