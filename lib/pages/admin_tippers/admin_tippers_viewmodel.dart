@@ -201,7 +201,7 @@ class TippersViewModel extends ChangeNotifier {
 
       await Future.wait([
         tippingService
-            .getLegacyTippers(di<DAUCompsViewModel>().selectedDAUComp!)
+            .getLegacyTippers()
             .then((tippers) => legacyTippers = tippers),
         _initialLoadCompleter.future,
       ]);

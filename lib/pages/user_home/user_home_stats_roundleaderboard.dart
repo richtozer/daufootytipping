@@ -125,9 +125,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                       return DataRow(
                         color: entry.key ==
                                 di<TippersViewModel>().selectedTipper!
-                            ? MaterialStateProperty.resolveWith(
+                            ? WidgetStateProperty.resolveWith(
                                 (states) => Theme.of(context).highlightColor)
-                            : MaterialStateProperty.resolveWith(
+                            : WidgetStateProperty.resolveWith(
                                 (states) => Colors.transparent),
                         cells: [
                           DataCell(
