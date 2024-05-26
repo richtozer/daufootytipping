@@ -20,7 +20,6 @@ import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 
 Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
