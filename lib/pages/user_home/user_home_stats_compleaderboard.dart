@@ -112,9 +112,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                               color: scoresViewModelConsumer
                                           .leaderboard[index].tipper.name ==
                                       name
-                                  ? MaterialStateProperty.resolveWith(
+                                  ? WidgetStateProperty.resolveWith(
                                       (states) => color)
-                                  : MaterialStateProperty.resolveWith(
+                                  : WidgetStateProperty.resolveWith(
                                       (states) => Colors.transparent),
                               cells: [
                                 DataCell(

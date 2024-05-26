@@ -31,7 +31,7 @@ class TipsPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 class TipsPageState extends State<TipsPage> {
   final String currentDAUCompDbkey =
       di<DAUCompsViewModel>().selectedDAUCompDbKey;
-  late final AllTipsViewModel allTipsViewModel;
+  late final TipsViewModel allTipsViewModel;
   late final Future<DAUComp> dauCompWithScoresFuture;
   //late final CompScore compScores;
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
@@ -46,7 +46,7 @@ class TipsPageState extends State<TipsPage> {
 
     dauCompWithScoresFuture = di<DAUCompsViewModel>().getCompWithScores();
 
-    allTipsViewModel = di<AllTipsViewModel>();
+    allTipsViewModel = di<TipsViewModel>();
 
     allTipsViewModelInitialLoadCompletedFuture =
         allTipsViewModel.initialLoadCompleted;
@@ -333,7 +333,7 @@ class GameListBuilder extends StatefulWidget {
   final Tipper currentTipper;
   final DAURound dauRound;
   final League league;
-  final AllTipsViewModel allTipsViewModel;
+  final TipsViewModel allTipsViewModel;
   final DAUComp selectedDAUComp;
 
   @override
