@@ -118,9 +118,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                           return DataRow(
                             color: winner.tipper ==
                                     di<TippersViewModel>().selectedTipper!
-                                ? MaterialStateProperty.resolveWith((states) =>
+                                ? WidgetStateProperty.resolveWith((states) =>
                                     Theme.of(context).highlightColor)
-                                : MaterialStateProperty.resolveWith(
+                                : WidgetStateProperty.resolveWith(
                                     (states) => Colors.transparent),
                             cells: [
                               DataCell(

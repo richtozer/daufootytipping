@@ -245,11 +245,10 @@ class UserAuthPage extends StatelessWidget {
                     }
 
                     // registry ALlTipsViewModel for later use
-                    di.registerLazySingleton<AllTipsViewModel>(() =>
-                        AllTipsViewModel(
-                            di<TippersViewModel>(),
-                            di<DAUCompsViewModel>().selectedDAUCompDbKey,
-                            di<GamesViewModel>()));
+                    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
+                        di<TippersViewModel>(),
+                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                        di<GamesViewModel>()));
 
                     return HomePage(currentDAUCompKey);
                   }

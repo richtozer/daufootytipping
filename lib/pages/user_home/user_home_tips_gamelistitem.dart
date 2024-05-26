@@ -27,7 +27,7 @@ class GameListItem extends StatefulWidget {
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
-  final AllTipsViewModel allTipsViewModel;
+  final TipsViewModel allTipsViewModel;
 
   @override
   State<GameListItem> createState() => _GameListItemState();

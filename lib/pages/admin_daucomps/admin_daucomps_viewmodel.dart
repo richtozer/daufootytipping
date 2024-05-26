@@ -54,7 +54,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   GamesViewModel? userGamesViewModel;
 
   ScoresViewModel? scoresViewModel;
-  AllTipsViewModel? allTipsViewModel;
+  TipsViewModel? allTipsViewModel;
 
   //constructor
   DAUCompsViewModel(this._selectedDAUCompDbKey) {
@@ -291,12 +291,12 @@ class DAUCompsViewModel extends ChangeNotifier {
       userGamesViewModel ??= GamesViewModel(daucompToUpdate);
 
       // grab everybodies tips
-      AllTipsViewModel allTipsViewModel = AllTipsViewModel(
+      TipsViewModel allTipsViewModel = TipsViewModel(
           tippersViewModel, daucompToUpdate.dbkey!, userGamesViewModel!);
 
       //sync tips to legacy
       await tippingService.initialized();
-      return await tippingService.syncTipsToLegacy(allTipsViewModel, this);
+      return await tippingService.syncAllTipsToLegacy(allTipsViewModel, this);
     } finally {
       _isLegacySyncing = false;
       notifyListeners();
@@ -560,36 +560,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     return {League.nrl: nrlGames, League.afl: aflGames};
   }
 
-  //method to get a List<Game> of the games for a given combined round number and league
-  Future<List<Game>> getGamesForCombinedRoundNumberAndLeague_DELETE(
-      int combinedRoundNumber, League league) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log('getGamesForCombinedRoundNumberAndLeague() waiting for initial Game load to complete');
-    }
-    await initialLoadComplete;
-
-    List<Game> gamesForCombinedRoundNumberAndLeague = [];
-    DAUComp? daucomp = await getCurrentDAUComp();
-
-    userGamesViewModel ??= di<GamesViewModel>();
-
-    for (var round in daucomp!.daurounds!) {
-      if (round.dAUroundNumber == combinedRoundNumber) {
-        for (var gameKey in round.gamesAsKeys) {
-          Game? game = await userGamesViewModel!.findGame(gameKey);
-          if (game != null && game.league == league) {
-            //add the game to the list
-            gamesForCombinedRoundNumberAndLeague.add(game);
-          }
-        }
-      }
-    }
-
-    notifyListeners();
-
-    return gamesForCombinedRoundNumberAndLeague;
-  }
-
   //method to get default tips for a given combined round number and league
   Future<String> getDefaultTipsForCombinedRoundNumber(
       int combinedRoundNumber) async {
@@ -649,12 +619,12 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       // use the AllTipsViewModel as source of data for cosolidated scoring
       if (allTipsViewModel != null &&
-          allTipsViewModel!.currentDAUComp != daucompToUpdate.dbkey!) {
+          allTipsViewModel!.currentDAUCompDbKey != daucompToUpdate.dbkey!) {
         //invalidate the allTipsViewModel
         allTipsViewModel = null;
       }
       // if alltips is null, create a new one
-      allTipsViewModel ??= AllTipsViewModel(
+      allTipsViewModel ??= TipsViewModel(
           tippersViewModel, daucompToUpdate.dbkey!, userGamesViewModel!);
 
       //create a map to store the tipper consolidated scores and name?
