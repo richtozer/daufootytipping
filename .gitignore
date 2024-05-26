@@ -36,6 +36,8 @@ migrate_working_dir/
 .pub/
 /build/
 .env
+/emulator/
+/test/data/
 
 # Symbolication related
 app.*.symbols
