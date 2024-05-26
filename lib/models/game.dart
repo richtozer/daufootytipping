@@ -8,8 +8,8 @@ import 'package:intl/intl.dart';
 enum GameState {
   notStarted, // game start time is in the future
   startingSoon, // game start time is within 14 hours
-  startedResultKnown, // game start time is in the past, but game score is known
-  startedResultNotKnown, // game start time is in the past, but game score is not known
+  startedResultKnown, // game start time is in the past, but 'official' fixture game score is known
+  startedResultNotKnown, // game start time is in the past, but 'official' fixture  game score is not known
 }
 
 class Game implements Comparable<Game> {
@@ -23,7 +23,8 @@ class Game implements Comparable<Game> {
   final int roundNumber;
   final int matchNumber;
   Scoring? scoring; // this should be null until game kickoff
-  DAURound dauRound;
+  DAURound?
+      dauRound; //this should only be null during the initial fixture download
 
   //constructor
   Game({
@@ -59,7 +60,7 @@ class Game implements Comparable<Game> {
     }
   }
 
-  Map<String, dynamic> toFixtureJson() => {
+  Map<String, dynamic> toJson() => {
         'League': league.name,
         'HomeTeam': homeTeam.dbkey.substring(4),
         'AwayTeam': awayTeam.dbkey.substring(4),
@@ -89,18 +90,6 @@ class Game implements Comparable<Game> {
       dauRound: linkedDauRound,
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'league': league.name,
-        'homeTeamDbKey': homeTeam.dbkey,
-        'awayTeamDbKey': awayTeam.dbkey,
-        'location': location,
-        'locationLatLong': locationLatLong?.toJson(),
-        'startTimeUTC': startTimeUTC.toString(),
-        'roundNumber': roundNumber,
-        'matchNumber': matchNumber,
-        'scoring': (scoring != null) ? scoring!.toJson() : null,
-      };
 
   @override
   // method used to provide default sort for Games in a List[]

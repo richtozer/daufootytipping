@@ -226,10 +226,12 @@ class LiveScoring extends StatelessWidget {
       di<ScoresViewModel>().writeLiveScoreToDb(
           consumerTipGame.game.scoring!, consumerTipGame.game);
 
-      //update scoring for everybody for this round
-      // di<DAUCompsViewModel>()
-      //     .updateScoring(selectedDAUComp, null, consumerTipGame.game.dauRound);
-      di<DAUCompsViewModel>().updateScoring(selectedDAUComp, null, null);
+      // Call the function asynchronously to avoid blocking UI
+      updateScoringAsync();
     }
+  }
+
+  Future<void> updateScoringAsync() async {
+    await di<ScoresViewModel>().updateScoring(selectedDAUComp, null, null);
   }
 }

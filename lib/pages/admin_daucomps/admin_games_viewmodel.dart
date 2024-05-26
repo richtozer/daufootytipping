@@ -8,7 +8,7 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -86,24 +86,24 @@ class GamesViewModel extends ChangeNotifier {
           // loop through selectedDAUComp.daurounds to find the coorect dauRound for this game
           // this will be based on the round start and end time
           DAURound? linkedDauRound;
-          for (var dauRound in selectedDAUComp.daurounds!) {
-            // use  dauRound.roundStartDate and dauRound.roundEndDate
-            // if game startTimeUTC is between these dates, then this is the linked dauRound
-            if (gameAsJSON['DateUtc'] != null) {
-              DateTime gameStartTimeUTC = DateTime.parse(gameAsJSON['DateUtc']);
-              if (gameStartTimeUTC.isAfter(dauRound.roundStartDate) ||
-                  gameStartTimeUTC.isAtSameMomentAs(dauRound.roundStartDate) &&
-                      gameStartTimeUTC.isBefore(dauRound.roundEndDate) ||
-                  gameStartTimeUTC.isAtSameMomentAs(dauRound.roundEndDate)) {
-                linkedDauRound = dauRound;
-                break;
+          if (selectedDAUComp.daurounds != null) {
+            // if we have dauRounds, we need to find the correct dauRound for this game
+            for (var dauRound in selectedDAUComp.daurounds!) {
+              // use  dauRound.roundStartDate and dauRound.roundEndDate
+              // if game startTimeUTC is between these dates, then this is the linked dauRound
+              if (gameAsJSON['DateUtc'] != null) {
+                DateTime gameStartTimeUTC =
+                    DateTime.parse(gameAsJSON['DateUtc']);
+                if (gameStartTimeUTC.isAfter(dauRound.roundStartDate) ||
+                    gameStartTimeUTC
+                            .isAtSameMomentAs(dauRound.roundStartDate) &&
+                        gameStartTimeUTC.isBefore(dauRound.roundEndDate) ||
+                    gameStartTimeUTC.isAtSameMomentAs(dauRound.roundEndDate)) {
+                  linkedDauRound = dauRound;
+                  break;
+                }
               }
             }
-          }
-
-          if (linkedDauRound == null) {
-            throw Exception(
-                'Error in GamesViewModel_handleEvent: linkedDauRound is null');
           }
 
           if (homeTeam != null && awayTeam != null) {
@@ -115,8 +115,6 @@ class GamesViewModel extends ChangeNotifier {
                 linkedDauRound);
             game.locationLatLong = locationLatLng;
             game.scoring = scoring;
-            // add the game to the round
-            linkedDauRound.games.add(game);
             return game;
           } else {
             // homeTeam or awayTeam should not be null
@@ -163,7 +161,7 @@ class GamesViewModel extends ChangeNotifier {
     //find the game in the local list. it it's there, compare the attribute value and update if different
     Game? gameToUpdate = await findGame(gameDbKey);
     if (gameToUpdate != null) {
-      dynamic oldValue = gameToUpdate.toFixtureJson()[attributeName];
+      dynamic oldValue = gameToUpdate.toJson()[attributeName];
       if (attributeValue != oldValue) {
         log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
         updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
@@ -172,8 +170,6 @@ class GamesViewModel extends ChangeNotifier {
             attributeName == 'AwayTeamScore') {
           flagScoresUpdated = true;
         }
-      } else {
-        log('Game: $gameDbKey already has $attributeName: $attributeValue');
       }
     } else {
       log('Game: $gameDbKey not found in local list. adding full game record');
@@ -186,7 +182,7 @@ class GamesViewModel extends ChangeNotifier {
     if (flagScoresUpdated) {
       // String result = await di<DAUCompsViewModel>()
       //     .updateScoring(selectedDAUComp, null, linkedDauRound); // TODO updating scores for only a single round - does not work
-      String result = await di<DAUCompsViewModel>()
+      String result = await di<ScoresViewModel>()
           .updateScoring(selectedDAUComp, null, null);
 
       log('updateScoring result: $result');
@@ -211,18 +207,6 @@ class GamesViewModel extends ChangeNotifier {
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
-  //  returns true if any games were held in the last 24 hours
-  Future<bool> anyGamesHeldYesterday() {
-    return initialLoadComplete.then((_) {
-      DateTime now = DateTime.now().toUtc();
-      DateTime yesterday = now.subtract(const Duration(days: 1));
-      return _games.any((game) {
-        return game.startTimeUTC.isAfter(yesterday) &&
-            game.startTimeUTC.isBefore(now);
-      });
-    });
-  }
-
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
@@ -233,5 +217,15 @@ class GamesViewModel extends ChangeNotifier {
     }
 
     super.dispose();
+  }
+
+  List<Game> getGamesForRound(DateTime roundStartDate, DateTime roundEndDate) {
+    return _games
+        .where((game) =>
+            game.startTimeUTC.isAfter(roundStartDate) ||
+            game.startTimeUTC.isAtSameMomentAs(roundStartDate) &&
+                game.startTimeUTC.isBefore(roundEndDate) ||
+            game.startTimeUTC.isAtSameMomentAs(roundEndDate))
+        .toList();
   }
 }

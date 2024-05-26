@@ -31,7 +31,7 @@ class TipsPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 
 class TipsPageState extends State<TipsPage> {
   final String currentDAUCompDbkey =
-      di<DAUCompsViewModel>().selectedDAUCompDbKey;
+      di<DAUCompsViewModel>().selectedDAUComp!.dbkey!;
   late final TipsViewModel tipperTipsViewModel;
   late final Future<DAUComp> dauCompWithScoresFuture;
   //late final CompScore compScores;
@@ -76,7 +76,8 @@ class TipsPageState extends State<TipsPage> {
         future: dauCompWithScoresFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+                child: CircularProgressIndicator(color: League.afl.colour));
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
 
@@ -84,7 +85,9 @@ class TipsPageState extends State<TipsPage> {
                 future: tipperTipsViewModel.getAllTips(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                        child: CircularProgressIndicator(
+                            color: League.afl.colour));
                   } else {
                     WidgetsBinding.instance
                         .addPostFrameCallback((timeStamp) async {
@@ -376,7 +379,8 @@ class _GameListBuilderState extends State<GameListBuilder> {
         future: gamesFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+                child: CircularProgressIndicator(color: League.afl.colour));
           } else {
             games = snapshot.data;
 

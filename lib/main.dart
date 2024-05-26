@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -6,6 +5,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dar
 import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
@@ -28,12 +28,12 @@ Future<void> main() async {
 
   await dotenv.load(); // Loads .env file
 
-  if (kIsWeb) {
-    bool ready = await GRecaptchaV3.ready(
-        "6LfmjfUlAAAAAF0dxFR_6L4BerFoRLEA3iCDxhlI",
-        showBadge: true);
-    log("Is Recaptcha ready? $ready");
-  }
+  // if (kIsWeb) {
+  //   bool ready = await GRecaptchaV3.ready(
+  //       "6LfmjfUlAAAAAF0dxFR_6L4BerFoRLEA3iCDxhlI",
+  //       showBadge: true);
+  //   log("Is Recaptcha ready? $ready");
+  // }
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -54,13 +54,13 @@ Future<void> main() async {
       webProvider:
           ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
-  } else {
-    await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-      appleProvider: AppleProvider.debug,
-      webProvider:
-          ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
-    );
+    // } else {
+    //   await FirebaseAppCheck.instance.activate(
+    //     androidProvider: AndroidProvider.debug,
+    //     appleProvider: AppleProvider.debug,
+    //     webProvider:
+    //         ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
+    //   );
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
@@ -86,7 +86,7 @@ Future<void> main() async {
   // }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
-  di.allowReassignment = true;
+  //di.allowReassignment = true;
 
   if (!kIsWeb) {
     // setup Firebase Messaging Service
@@ -110,6 +110,12 @@ Future<void> main() async {
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
   di.registerLazySingleton<ScoresViewModel>(
       () => ScoresViewModel(dAUComp!.dbkey!));
+
+  // register TipsViewModel for later use
+  di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
+      di<TippersViewModel>(),
+      di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+      di<GamesViewModel>()));
 
   // run the application widget code
 

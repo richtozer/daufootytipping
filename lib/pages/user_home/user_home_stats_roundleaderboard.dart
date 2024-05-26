@@ -23,6 +23,7 @@ class StatRoundLeaderboard extends StatefulWidget {
 class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   late ScoresViewModel scoresViewModel;
   Map<Tipper, RoundScores> roundLeaderboard = {};
+
   bool isAscending = true;
   int? sortColumnIndex = 0;
 
@@ -125,9 +126,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                       return DataRow(
                         color: entry.key ==
                                 di<TippersViewModel>().selectedTipper!
-                            ? MaterialStateProperty.resolveWith(
+                            ? WidgetStateProperty.resolveWith(
                                 (states) => Theme.of(context).highlightColor)
-                            : MaterialStateProperty.resolveWith(
+                            : WidgetStateProperty.resolveWith(
                                 (states) => Colors.transparent),
                         cells: [
                           DataCell(

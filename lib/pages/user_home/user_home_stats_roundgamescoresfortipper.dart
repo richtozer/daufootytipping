@@ -76,7 +76,7 @@ class _StatRoundGameScoresForTipperState
           return buildScaffold(context, aflGames, nrlGames,
               MediaQuery.of(context).size.width > 500);
         } else {
-          return const CircularProgressIndicator();
+          return CircularProgressIndicator(color: League.afl.colour);
         }
       },
     );
@@ -88,7 +88,7 @@ class _StatRoundGameScoresForTipperState
 
     TipsViewModel allTips = TipsViewModel.forTipper(
         di<TippersViewModel>(),
-        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
         di<GamesViewModel>(),
         widget.statsTipper);
 
@@ -258,7 +258,7 @@ class _StatRoundGameScoresForTipperState
 
   DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
     GameTipsViewModel gameTipsViewModel = GameTipsViewModel(widget.statsTipper,
-        di<DAUCompsViewModel>().selectedDAUCompDbKey, games[index], allTips);
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!, games[index], allTips);
     return DataRow(
       cells: [
         DataCell(

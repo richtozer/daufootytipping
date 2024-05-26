@@ -1,4 +1,5 @@
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -17,11 +18,12 @@ class Profile extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(BuildContext context) {
-    String selectedDAUCompDbKey =
-        watch(di<DAUCompsViewModel>()).selectedDAUCompDbKey;
+    DAUComp? selectedDAUComp = watch(di<DAUCompsViewModel>()).selectedDAUComp;
+    String? selectedDAUCompDbKey;
+    if (selectedDAUComp != null) {
+      selectedDAUCompDbKey = selectedDAUComp.dbkey;
+    }
 
-    // return Scaffold(
-    //   body: SingleChildScrollView(
     return Column(
       children: <Widget>[
         HeaderWidget(
@@ -93,7 +95,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                   if (snapshot.connectionState == ConnectionState.done) {
                     return snapshot.data!;
                   } else {
-                    return const CircularProgressIndicator();
+                    return CircularProgressIndicator(color: League.afl.colour);
                   }
                 },
               ),
@@ -113,7 +115,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
                               builder: (context) => UserAuthPage(
-                                di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                                di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
                                 null,
                                 isUserLoggingOut: true,
                               ),
@@ -152,7 +154,8 @@ class Profile extends StatelessWidget with WatchItMixin {
                                         MaterialPageRoute(
                                           builder: (context) => UserAuthPage(
                                             di<DAUCompsViewModel>()
-                                                .selectedDAUCompDbKey,
+                                                .selectedDAUComp!
+                                                .dbkey!,
                                             null,
                                             isUserDeletingAccount: true,
                                           ),

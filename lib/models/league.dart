@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 enum League { nrl, afl }
 
 extension LeagueLogo on League {
@@ -18,6 +20,17 @@ extension LeagueMargin on League {
         return 13;
       case League.afl:
         return 31;
+    }
+  }
+}
+
+extension LeagueColour on League {
+  Color get colour {
+    switch (this) {
+      case League.nrl:
+        return const Color(0xff04cf5d);
+      case League.afl:
+        return const Color(0xffe21e31);
     }
   }
 }

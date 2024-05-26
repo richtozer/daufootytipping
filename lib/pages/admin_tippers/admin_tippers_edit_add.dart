@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -166,7 +167,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             disableSaves = true;
                           });
                           changesNeedSaving = true;
-                          const CircularProgressIndicator();
+                          CircularProgressIndicator(color: League.afl.colour);
                           _saveTipper(
                               context); //save the tipper and pop the page
                           setState(() {
@@ -365,7 +366,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           // if the tipper being editing was not a participant for that year then display a msg that god mode is not available
                           if (!tipper!.compsParticipatedIn.any((element) =>
                               element.dbkey ==
-                              di<DAUCompsViewModel>().selectedDAUCompDbKey)) {
+                              di<DAUCompsViewModel>().selectedDAUComp!.dbkey)) {
                             return Container(
                               child: const Text(
                                   'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\nselected year'),
@@ -413,7 +414,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   builder: (BuildContext context,
                       AsyncSnapshot<List<DAUComp>> snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return Center(
+                          child: CircularProgressIndicator(
+                              color: League.afl.colour));
                     }
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Text('No Records');

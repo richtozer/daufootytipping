@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
@@ -86,7 +87,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                     builder: (BuildContext context,
                         AsyncSnapshot<List<Tipper>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator(); // Show a loading spinner while waiting
+                        return CircularProgressIndicator(
+                            color: League.afl
+                                .colour); // Show a loading spinner while waiting
                       } else {
                         return Column(
                           children: [

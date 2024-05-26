@@ -64,6 +64,14 @@ class _GameListItemState extends State<GameListItem> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Text(
+                        widget.game.dbkey,
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          fontSize:
+                              16.0, // Adjust this value to make the text bigger or smaller
+                        ),
+                      ),
+                      Text(
                         widget.game.homeTeam.name,
                         textAlign: TextAlign.left,
                         style: const TextStyle(
@@ -126,7 +134,9 @@ class _GameListItemState extends State<GameListItem> {
           );
 
           if (gameTipsViewModelConsumer.game.gameState ==
-              GameState.notStarted) {
+                  GameState.notStarted ||
+              gameTipsViewModelConsumer.game.gameState ==
+                  GameState.startedResultKnown) {
             return gameDetailsCard;
           }
 
@@ -144,7 +154,7 @@ class _GameListItemState extends State<GameListItem> {
               break;
             case GameState.startedResultKnown:
               bannerMessage = "result";
-              bannerColor = Colors.grey;
+              bannerColor = Colors.transparent;
               break;
             case GameState.notStarted:
               bannerMessage = "not used";
@@ -192,7 +202,7 @@ class _GameListItemState extends State<GameListItem> {
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
         } else {
-          return const CircularProgressIndicator();
+          return CircularProgressIndicator(color: League.afl.colour);
         }
       },
     );

@@ -54,8 +54,10 @@ class TeamsListPage extends StatelessWidget with WatchItMixin {
                         // Return a widget representing the item
                         return ListTile(
                           dense: true,
-                          leading: SvgPicture.asset(team.logoURI!,
-                              width: 30, height: 30),
+                          leading: team.logoURI != null
+                              ? SvgPicture.asset(team.logoURI!,
+                                  width: 30, height: 30)
+                              : null,
                           trailing: const Icon(Icons.edit),
                           title: Text(team.name),
                           onTap: () async {

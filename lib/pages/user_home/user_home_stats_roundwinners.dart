@@ -38,6 +38,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   void initState() {
     super.initState();
     scoresViewModel = di<ScoresViewModel>();
+    scoresViewModel.updateRoundWinners();
     onSort(0, false);
   }
 
@@ -118,9 +119,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                           return DataRow(
                             color: winner.tipper ==
                                     di<TippersViewModel>().selectedTipper!
-                                ? MaterialStateProperty.resolveWith((states) =>
+                                ? WidgetStateProperty.resolveWith((states) =>
                                     Theme.of(context).highlightColor)
-                                : MaterialStateProperty.resolveWith(
+                                : WidgetStateProperty.resolveWith(
                                     (states) => Colors.transparent),
                             cells: [
                               DataCell(
