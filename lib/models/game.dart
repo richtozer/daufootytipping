@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -23,8 +24,6 @@ class Game implements Comparable<Game> {
   final int roundNumber;
   final int matchNumber;
   Scoring? scoring; // this should be null until game kickoff
-  DAURound?
-      dauRound; //this should only be null during the initial fixture download
 
   //constructor
   Game({
@@ -38,7 +37,6 @@ class Game implements Comparable<Game> {
     required this.roundNumber,
     required this.matchNumber,
     this.scoring,
-    required this.dauRound,
   });
 
   // this getter will return the gamestate based on the current time and the game start time
@@ -58,6 +56,19 @@ class Game implements Comparable<Game> {
     } else {
       return GameState.startedResultNotKnown;
     }
+  }
+
+  // find the round in the supplied comp that this game belongs to
+  DAURound getDAURound(DAUComp daucomp) {
+    for (var dauRound in daucomp.daurounds!) {
+      if ((startTimeUTC.isAfter(dauRound.roundStartDate) ||
+              startTimeUTC.isAtSameMomentAs(dauRound.roundStartDate)) &&
+          (startTimeUTC.isBefore(dauRound.roundEndDate) ||
+              startTimeUTC.isAtSameMomentAs(dauRound.roundEndDate))) {
+        return dauRound;
+      }
+    }
+    throw Exception('Error in Game.getDAURound: no DAURound found');
   }
 
   Map<String, dynamic> toJson() => {
@@ -87,7 +98,6 @@ class Game implements Comparable<Game> {
       startTimeUTC: DateTime.parse(data['DateUtc']),
       roundNumber: data['RoundNumber'] ?? 0,
       matchNumber: data['MatchNumber'] ?? 0,
-      dauRound: linkedDauRound,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tipgame.dart';
@@ -190,7 +191,7 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   Future<List<TipGame?>> getTipsForRound(
-      Tipper tipper, int combinedRound) async {
+      Tipper tipper, int combinedRound, DAUComp daucomp) async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
@@ -199,19 +200,25 @@ class TipsViewModel extends ChangeNotifier {
     //access to dbkey, so we need to use tippedID as the key
 
     if (tipper.dbkey != null) {
-      return _tipGames
-          .where((tipGame) =>
-              tipGame?.tipper.dbkey == tipper.dbkey &&
-              tipGame?.game.dauRound!.dAUroundNumber == combinedRound)
-          .toList();
+      return _tipGames.where((tipGame) {
+        bool dbKeyCheck = tipGame?.tipper.dbkey == tipper.dbkey;
+        bool roundNumberCheck =
+            tipGame?.game.getDAURound(daucomp).dAUroundNumber == combinedRound;
+
+        log('found tipper: ${tipGame!.tipper.name} round: ${tipGame.game.getDAURound(daucomp).dAUroundNumber}');
+
+        log('--dbKeyCheck: $dbKeyCheck');
+        log('--roundNumberCheck: $roundNumberCheck');
+
+        return dbKeyCheck && roundNumberCheck;
+      }).toList();
     } else {
       return _tipGames
           .where((tipGame) =>
               tipGame?.tipper.tipperID == tipper.tipperID &&
-              tipGame?.game.dauRound!.dAUroundNumber == combinedRound)
+              tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
+                  combinedRound)
           .toList();
     }
-
-    // search all tips for the tipper and this round
   }
 }

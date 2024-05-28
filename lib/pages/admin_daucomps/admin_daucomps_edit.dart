@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
@@ -65,7 +66,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           if (daucomp == null) {
             // as this is a new daucomp record, download the fixture data and process
             // the games in rounds and save them to the database
-            await dauCompsViewModel.getNetworkFixtureData(updatedDUAcomp);
+            await dauCompsViewModel.getNetworkFixtureData(updatedDUAcomp, null);
           }
 
           // turn the listener back on
@@ -547,8 +548,8 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             disableBackButton = true;
             disableSaves = true;
 
-            String result =
-                await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+            String result = await dauCompsViewModel.getNetworkFixtureData(
+                daucomp!, di<GamesViewModel>());
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -610,8 +611,8 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             disableBackButton = true;
             disableSaves = true;
 
-            String syncResult =
-                await dauCompsViewModel.syncTipsWithLegacy(daucomp!);
+            String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
+                daucomp!, di<GamesViewModel>());
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -162,11 +163,14 @@ class LegacyTippingService {
     return appTips;
   }
 
-  Future<String> syncSingleTipToLegacy(TipsViewModel allTipsViewModel,
-      DAUCompsViewModel daucompsViewModel, TipGame tipGame) async {
+  Future<String> syncSingleTipToLegacy(
+      TipsViewModel allTipsViewModel,
+      DAUCompsViewModel daucompsViewModel,
+      TipGame tipGame,
+      DAURound dauRound) async {
     await initialized();
 
-    List<int> combinedRounds = [tipGame.game.dauRound!.dAUroundNumber];
+    List<int> combinedRounds = [dauRound.dAUroundNumber];
 
     String res = await _identifySyncChanges(
         allTipsViewModel, daucompsViewModel, combinedRounds, tipGame.tipper);
@@ -246,8 +250,10 @@ class LegacyTippingService {
       Tipper tipper,
       int round,
       String templateDefaultTips) async {
+    DAUComp? daucomp = await daucompsViewModel.getCurrentDAUComp();
+
     GsheetAppTip? gsheetAppTip = await _getAppTipsForRoundTipper(
-        allTipsViewModel, tipper, round, templateDefaultTips);
+        allTipsViewModel, tipper, round, daucomp!, templateDefaultTips);
     // if gsheetAppTip is not null, then check appTipsSheet for this round/tipper combination
     // check GsheetAppTip.roundTipslegacyFormat against the appTipsSheet data
     // if they are different, then submit a gsheet update now
@@ -266,11 +272,16 @@ class LegacyTippingService {
             // submit a gsheet update now
             log('*** Found a difference in round ${gsheetAppTip.dauRoundNumber} for tipper ${gsheetAppTip.name}. Submitting update now');
 
-            // write the row back to the gsheet
+            // write the updated tip back to the gsheet, this will also refresh the timestamp
             bool res = await appTipsSheet.values.insertRow(
                 appTipsData.indexOf(row) + 1,
-                [gsheetAppTip.roundTipslegacyFormat],
-                fromColumn: 4);
+                [
+                  gsheetAppTip.formSubmitTimestamp,
+                  gsheetAppTip.dauRoundNumber,
+                  gsheetAppTip.name,
+                  gsheetAppTip.roundTipslegacyFormat
+                ],
+                fromColumn: 1);
 
             if (res) {
               log('*** Row updated for round ${gsheetAppTip.dauRoundNumber} for tipper ${gsheetAppTip.name}.');
@@ -329,11 +340,12 @@ class LegacyTippingService {
       TipsViewModel allTipsViewModel,
       Tipper tipper,
       int round,
+      DAUComp daucomp,
       String templateDefaultTips) async {
     String roundTips = templateDefaultTips;
 
     List<TipGame?> tipGames =
-        await allTipsViewModel.getTipsForRound(tipper, round);
+        await allTipsViewModel.getTipsForRound(tipper, round, daucomp);
 
     // as we loop through the tips, check if tips are from legacy, if they
     // *all* are then ignore them and drop this update by returning an empty string
@@ -345,16 +357,18 @@ class LegacyTippingService {
     DateTime maxFormSubmitTimestamp = DateTime(1970);
 
     for (TipGame? tipGame in tipGames) {
-      if (tipGame!.legacyTip == false) {
+      DAURound dauround = tipGame!.game.getDAURound(daucomp);
+
+      if (tipGame.legacyTip == false) {
         isAllLegacyTips = false;
         appTipCount++;
         // is the submit time the latest for this round?
         if (tipGame.submittedTimeUTC.isAfter(maxFormSubmitTimestamp)) {
           maxFormSubmitTimestamp = tipGame.submittedTimeUTC;
         }
-        roundTips = _updateDefaultTipperData(roundTips, tipGame);
+        roundTips = _updateDefaultTipperData(roundTips, tipGame, dauround);
       }
-      roundTips = _updateDefaultTipperData(roundTips, tipGame);
+      roundTips = _updateDefaultTipperData(roundTips, tipGame, dauround);
     }
 
     if (!isAllLegacyTips) {
@@ -406,11 +420,12 @@ class LegacyTippingService {
   }
 
   //function to update the default tipper data with the new tip. Use the league and matchnumber to find the correct character to update
-  String _updateDefaultTipperData(String defaultRoundTips, TipGame tipGame) {
+  String _updateDefaultTipperData(
+      String defaultRoundTips, TipGame tipGame, DAURound dauRound) {
     if (tipGame.game.league == League.nrl) {
       //figure out the offset to update based on the relative position of game in dauround.games list
       // that is the offset to use to update the proposedGsheetTipChanges
-      int gameIndex = tipGame.game.dauRound!.games.indexOf(tipGame.game);
+      int gameIndex = dauRound.games.indexOf(tipGame.game);
 
       defaultRoundTips = defaultRoundTips.replaceRange(
           gameIndex, gameIndex + 1, tipGame.tip.name);
@@ -418,7 +433,7 @@ class LegacyTippingService {
       //figure out the offset to update based on the relative position of game in dauround.games list
       // that is the offset to use to update the proposedGsheetTipChanges
       // add 8 to the offset to account for the fact that nrl tips go first in the string
-      int gameIndex = 8 + tipGame.game.dauRound!.games.indexOf(tipGame.game);
+      int gameIndex = 8 + dauRound.games.indexOf(tipGame.game);
 
       defaultRoundTips = defaultRoundTips.replaceRange(
           gameIndex, gameIndex + 1, tipGame.tip.name);

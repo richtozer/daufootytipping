@@ -27,6 +27,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
+  // the tipper/admin can change the selected comp in the UI, we keep track of the original default comp here
   final String _defaultDAUCompDbKey;
   String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
 
@@ -38,6 +39,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   late String _selectedDAUCompDbKey;
 
+  // the tipper/admin can change the selected comp in the UI, this is tracked with selectedDAUComp
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp => _selectedDAUComp;
 
@@ -52,8 +54,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
-
-  GamesViewModel? gamesViewModel;
 
   ScoresViewModel? scoresViewModel;
 
@@ -72,39 +72,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     fixtureUpdateTrigger();
   }
 
-  // this method will migrate each dau comp under /DAUComps to /AllDAUComps if it does not exist
-  // it will bring across the following attributes:
-  // name, aflFixtureJsonURL, nrlFixtureJsonURL
-  // it will not create a combinedRounds attribute
-  Future<void> migrateDAUComps() async {
-    try {
-      log('Migrating DAUComps to AllDAUComps');
-      final legacyDAUComps = Map<String, dynamic>.from(
-          (await _db.child('/DAUComps').get()).value as dynamic);
-
-      for (var legacyDAUcomp in legacyDAUComps.entries) {
-        String key = legacyDAUcomp.key;
-        dynamic daucompAsJSON = legacyDAUcomp.value;
-
-        // check if the DAUComp exists in /AllDAUComps
-        if ((await _db.child('$daucompsPath/$key').get()).value == null) {
-          // create the DAUComp in /AllDAUComps
-          await _db.child('$daucompsPath/$key').set({
-            'name': daucompAsJSON['name'],
-            'aflFixtureJsonURL': daucompAsJSON['aflFixtureJsonURL'],
-            'nrlFixtureJsonURL': daucompAsJSON['nrlFixtureJsonURL'],
-          });
-          log('Migrated DAUComp: $key');
-        } else {
-          log('DAUComp already exists in AllDAUComps: $key');
-        }
-      }
-    } catch (e) {
-      log('Error migrating DAUComps: $e');
-      rethrow;
-    }
-  }
-
   void update() {
     notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
   }
@@ -120,20 +87,18 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     _selectedDAUComp = await findComp(newDAUCompDbkey);
 
-    //reset the gamesViewModel in get_it
-    di.registerLazySingleton<GamesViewModel>(
-        () => GamesViewModel(_selectedDAUComp!));
-    gamesViewModel = di<GamesViewModel>();
-    gamesViewModel?.addListener(update);
-
     //reset the ScoringViewModel registration in get_it
     di.registerLazySingleton<ScoresViewModel>(
         () => ScoresViewModel(newDAUCompDbkey));
     scoresViewModel = di<ScoresViewModel>();
 
+    //reset the gamesViewModel in get_it
+    di.registerLazySingleton<GamesViewModel>(
+        () => GamesViewModel(_selectedDAUComp!));
+
     //reset the AllTipsViewModel registration in get_it
     di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-        di<TippersViewModel>(), newDAUCompDbkey, gamesViewModel!));
+        di<TippersViewModel>(), newDAUCompDbkey, di<GamesViewModel>()));
 
     notifyListeners();
   }
@@ -176,12 +141,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         if (!_initialLoadCompleter.isCompleted) {
           _initialLoadCompleter.complete();
         }
-
-        //TODO - consider deleting this code - let fixture run assignCombinedRoundNumber
-        // DAUComp? selectedDAUComp = await getCurrentDAUComp();
-        // if (selectedDAUComp != null) {
-        //   await assignCombinedRoundNumber(selectedDAUComp);
-        // }
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
@@ -204,7 +163,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   //   allGamesEnded, // round has finished and results known
   void setRoundState(DAURound round) {
     if (round.games.isEmpty) {
-      round.roundState = RoundState.noGames;
+      //round.roundState = RoundState.noGames;
+      throw 'Round has no games. All DAU rounds should have games. Check the fixture data and date ranges for each round.';
     } else {
       // check if all games have started
       bool allGamesStarted = round.games.every((game) {
@@ -275,7 +235,8 @@ class DAUCompsViewModel extends ChangeNotifier {
         selectedDAUComp.lastFixtureUpdateTimestamp == null) {
       log('Triggering fixture update for comp: ${selectedDAUComp.name}');
 
-      String res = await getNetworkFixtureData(selectedDAUComp);
+      String res =
+          await getNetworkFixtureData(selectedDAUComp, di<GamesViewModel>());
 
       FirebaseAnalytics.instance.logEvent(
         name: 'fixture_update',
@@ -286,25 +247,19 @@ class DAUCompsViewModel extends ChangeNotifier {
       selectedDAUComp.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
       updateCompAttribute(selectedDAUComp.dbkey!, 'lastFixtureUpdateTimestamp',
           selectedDAUComp.lastFixtureUpdateTimestamp!.toIso8601String());
-      saveBatchOfCompAttributes();
+      await saveBatchOfCompAttributes();
     } else {
       log('Fixture update has already been triggered for comp: ${selectedDAUComp.name}');
     }
   }
 
-  Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
+  Future<String> getNetworkFixtureData(
+      DAUComp daucompToUpdate, GamesViewModel? gamesViewModel) async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
         log('getNetworkFixtureData() waiting for initial DAUCompsViewModel load to complete');
       }
       await initialLoadComplete;
-
-      if (gamesViewModel != null ||
-          daucompToUpdate.dbkey == null ||
-          gamesViewModel?.selectedDAUComp.dbkey != daucompToUpdate.dbkey!) {
-        //invalidte the adminGamesViewModel
-        gamesViewModel = null;
-      }
 
       gamesViewModel ??= GamesViewModel(daucompToUpdate);
 
@@ -341,10 +296,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       await Future.wait(gamesFuture);
 
       //save all game updates
-      await gamesViewModel!.saveBatchOfGameAttributes();
+      await gamesViewModel.saveBatchOfGameAttributes();
 
       //once all the data is loaded, update the combinedRound field
-      await caclRoundStartEndTimesBasedOnFixture(daucompToUpdate);
+      await caclRoundStartEndTimesBasedOnFixture(
+          daucompToUpdate, gamesViewModel);
 
       return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
     } finally {
@@ -353,7 +309,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> syncTipsWithLegacy(DAUComp daucompToUpdate) async {
+  Future<String> syncTipsWithLegacy(
+      DAUComp daucompToUpdate, GamesViewModel gamesViewModel) async {
     try {
       await initialLoadComplete;
 
@@ -366,17 +323,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       TippersViewModel tippersViewModel = TippersViewModel(false);
 
-      if (gamesViewModel != null ||
-          gamesViewModel?.selectedDAUComp.dbkey != daucompToUpdate.dbkey!) {
-        //invalidte the adminGamesViewModel
-        gamesViewModel = null;
-      }
-
-      gamesViewModel ??= GamesViewModel(daucompToUpdate);
-
       // grab everybodies tips
       TipsViewModel allTipsViewModel = TipsViewModel(
-          tippersViewModel, daucompToUpdate.dbkey!, gamesViewModel!);
+          tippersViewModel, daucompToUpdate.dbkey!, gamesViewModel);
 
       //sync tips to legacy
       await tippingService.initialized();
@@ -400,13 +349,13 @@ class DAUCompsViewModel extends ChangeNotifier {
   // 10) repeat steps 7-9 until all groups have been processed into combined rounds
 
   // Game grouping and sorting
-  Future<void> caclRoundStartEndTimesBasedOnFixture(DAUComp daucomp) async {
+  Future<void> caclRoundStartEndTimesBasedOnFixture(
+      DAUComp daucomp, GamesViewModel gamesViewModel) async {
     log('In caclRoundStartEndTimesBasedOnFixture()');
 
     await initialLoadComplete;
 
-    gamesViewModel ??= GamesViewModel(daucomp);
-    List<Game> games = await gamesViewModel!.getGames();
+    List<Game> games = await gamesViewModel.getGames();
 
     // Group games by league and round number
     var groups = groupBy(games, (g) => '${g.league}-${g.roundNumber}');
@@ -491,9 +440,9 @@ class DAUCompsViewModel extends ChangeNotifier {
           daucomp.daurounds!.isEmpty) {
         // update the roundStartDate and roundEndDate
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
-            DateFormat('yyyy-MM-dd').format(minStartTime.toLocal()));
+            DateFormat('yyyy-MM-ddTHH:mm:ssZ').format(minStartTime.toUtc()));
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
-            DateFormat('yyyy-MM-dd').format(maxStartTime.toLocal()));
+            DateFormat('yyyy-MM-ddTHH:mm:ssZ').format(maxStartTime.toUtc()));
       }
 
       // update the roundState by calling DAUCompsViewModel.setRoundState()
@@ -598,7 +547,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<Map<League, List<Game>>> getGamesForCombinedRoundNumber(
-      int combinedRoundNumber) async {
+      int combinedRoundNumber, GamesViewModel gamesViewModel) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('getGamesForCombinedRoundNumber() waiting for initial Game load to complete');
     }
@@ -647,7 +596,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     //get all the games for this round
     Map<League, List<Game>> gamesForCombinedRoundNumber =
-        await getGamesForCombinedRoundNumber(combinedRoundNumber);
+        await getGamesForCombinedRoundNumber(
+            combinedRoundNumber, di<GamesViewModel>());
 
     if (!_initialLoadCompleter.isCompleted) {
       log('getGamesForCombinedRoundNumber() waiting for initial Game load to complete');
@@ -709,10 +659,42 @@ class DAUCompsViewModel extends ChangeNotifier {
     _listenToDAUComps();
   }
 
+  // this method will migrate each dau comp under /DAUComps to /AllDAUComps if it does not exist
+  // it will bring across the following attributes:
+  // name, aflFixtureJsonURL, nrlFixtureJsonURL
+  // it will not create a combinedRounds attribute
+  Future<void> migrateDAUComps() async {
+    try {
+      log('Migrating DAUComps to AllDAUComps');
+      final legacyDAUComps = Map<String, dynamic>.from(
+          (await _db.child('/DAUComps').get()).value as dynamic);
+
+      for (var legacyDAUcomp in legacyDAUComps.entries) {
+        String key = legacyDAUcomp.key;
+        dynamic daucompAsJSON = legacyDAUcomp.value;
+
+        // check if the DAUComp exists in /AllDAUComps
+        if ((await _db.child('$daucompsPath/$key').get()).value == null) {
+          // create the DAUComp in /AllDAUComps
+          await _db.child('$daucompsPath/$key').set({
+            'name': daucompAsJSON['name'],
+            'aflFixtureJsonURL': daucompAsJSON['aflFixtureJsonURL'],
+            'nrlFixtureJsonURL': daucompAsJSON['nrlFixtureJsonURL'],
+          });
+          log('Migrated DAUComp: $key');
+        } else {
+          log('DAUComp already exists in AllDAUComps: $key');
+        }
+      }
+    } catch (e) {
+      log('Error migrating DAUComps: $e');
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
     _daucompsStream.cancel(); // stop listening to stream
-    gamesViewModel?.removeListener(update);
 
     // create a new Completer if the old one was completed:
     if (_initialLoadCompleter.isCompleted) {

@@ -34,14 +34,6 @@ class Profile extends StatelessWidget with WatchItMixin {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              SizedBox(
-                width: 300,
-                child: Text(
-                  'Tipper in a previous year? Select it below to revisit your tips and scores: ',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
               ChangeNotifierProvider<DAUCompsViewModel>.value(
                 value: di<DAUCompsViewModel>(),
                 child: Consumer<DAUCompsViewModel>(
@@ -62,23 +54,35 @@ class Profile extends StatelessWidget with WatchItMixin {
                         ),
                       );
                     } else {
-                      return DropdownButton<String>(
-                        value: selectedDAUCompDbKey,
-                        icon: const Icon(Icons.arrow_downward),
-                        onChanged: (String? newValue) {
-                          // update the current comp
-                          dauCompsViewModelConsumer
-                              .changeCurrentDAUComp(newValue!);
-                        },
-                        items: di<TippersViewModel>()
-                            .selectedTipper!
-                            .compsParticipatedIn
-                            .map<DropdownMenuItem<String>>((DAUComp comp) {
-                          return DropdownMenuItem<String>(
-                            value: comp.dbkey,
-                            child: Text(comp.name),
-                          );
-                        }).toList(),
+                      return Column(
+                        children: [
+                          SizedBox(
+                            width: 300,
+                            child: Text(
+                              'Tipper in a previous year? Select it below to revisit your tips and scores: ',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          DropdownButton<String>(
+                            value: selectedDAUCompDbKey,
+                            icon: const Icon(Icons.arrow_downward),
+                            onChanged: (String? newValue) {
+                              // update the current comp
+                              dauCompsViewModelConsumer
+                                  .changeCurrentDAUComp(newValue!);
+                            },
+                            items: di<TippersViewModel>()
+                                .selectedTipper!
+                                .compsParticipatedIn
+                                .map<DropdownMenuItem<String>>((DAUComp comp) {
+                              return DropdownMenuItem<String>(
+                                value: comp.dbkey,
+                                child: Text(comp.name),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                       );
                     }
                   },

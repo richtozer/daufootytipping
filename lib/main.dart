@@ -85,7 +85,7 @@ Future<void> main() async {
   // }
 
   // register the viewmodels for later use using dependency injection (Get_it/watch_it)
-  //di.allowReassignment = true;
+  di.allowReassignment = true;
 
   if (!kIsWeb) {
     // setup Firebase Messaging Service
@@ -106,7 +106,9 @@ Future<void> main() async {
 
   DAUComp? dAUComp = await di<DAUCompsViewModel>().getCurrentDAUComp();
 
+  // register GamesViewModel for later use
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
+
   di.registerLazySingleton<ScoresViewModel>(
       () => ScoresViewModel(dAUComp!.dbkey!));
 

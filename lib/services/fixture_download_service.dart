@@ -144,7 +144,6 @@ class FixtureDownloadService {
               homeTeamScore: data['HomeTeamScore'] as int,
               awayTeamScore: data['AwayTeamScore'] as int)
           : null, // if we have official scores then add them to a scoring object
-      dauRound: linkedDauRound,
     );
   }
 }
