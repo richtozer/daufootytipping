@@ -1,4 +1,5 @@
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -49,8 +50,8 @@ class _StatRoundGameScoresForTipperState
     super.initState();
     dauCompsViewModel = di<DAUCompsViewModel>();
 
-    gamesFuture =
-        dauCompsViewModel.getGamesForCombinedRoundNumber(widget.roundToDisplay);
+    gamesFuture = dauCompsViewModel.getGamesForCombinedRoundNumber(
+        widget.roundToDisplay, di<GamesViewModel>());
   }
 
   @override
@@ -257,8 +258,18 @@ class _StatRoundGameScoresForTipperState
   }
 
   DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
-    GameTipsViewModel gameTipsViewModel = GameTipsViewModel(widget.statsTipper,
-        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!, games[index], allTips);
+    DAURound dauRound = di<DAUCompsViewModel>()
+        .selectedDAUComp!
+        .daurounds!
+        .firstWhere(
+            (element) => element.dAUroundNumber == widget.roundToDisplay);
+
+    GameTipsViewModel gameTipsViewModel = GameTipsViewModel(
+        widget.statsTipper,
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+        games[index],
+        allTips,
+        dauRound);
     return DataRow(
       cells: [
         DataCell(

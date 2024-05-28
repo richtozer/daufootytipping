@@ -1,20 +1,23 @@
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 
+double gameCardHeight = 128.0;
+double leagueHeaderHeight = 66;
+double emptyLeagueRoundHeight = 75;
+
 enum RoundState {
-  noGames, // round has no games
   notStarted, // round is in the future
   started, // round is underway
   allGamesEnded, // round has finished and results known
 }
 
 class DAURound implements Comparable<DAURound> {
-  String? dbkey;
   final int dAUroundNumber;
   List<Game> games = [];
   CompScore? compScore;
   RoundScores? roundScores;
-  RoundState roundState = RoundState.noGames;
+  RoundState roundState = RoundState.notStarted;
   DateTime roundStartDate;
   DateTime roundEndDate;
   DateTime? adminOverrideRoundStartDate;
@@ -39,6 +42,40 @@ class DAURound implements Comparable<DAURound> {
           adminOverrideRoundStartDate?.toIso8601String(),
       'adminOverrideRoundEndDate': adminOverrideRoundEndDate?.toIso8601String(),
     };
+  }
+
+  int roundDisplayPixelHeight() {
+    // count the number of nrl and afl games in this round
+    int nrlGames = 0;
+    int aflGames = 0;
+    double totalPixelHeight = 0;
+    for (var game in games) {
+      if (game.league == League.nrl) {
+        nrlGames++;
+      } else {
+        aflGames++;
+      }
+    }
+    // calculate the height of the round
+    // each round has a header of leagueHeaderHeight pixel high,
+    // and a game card for each game of gameCardHeight pixels high
+    // if the league has no games then the height is emptyLeagueRoundHeight
+
+    if (nrlGames == 0) {
+      totalPixelHeight += emptyLeagueRoundHeight;
+    } else {
+      totalPixelHeight += leagueHeaderHeight;
+      totalPixelHeight += nrlGames * gameCardHeight;
+    }
+
+    if (aflGames == 0) {
+      totalPixelHeight += emptyLeagueRoundHeight;
+    } else {
+      totalPixelHeight += leagueHeaderHeight;
+      totalPixelHeight += aflGames * gameCardHeight;
+    }
+
+    return totalPixelHeight.toInt();
   }
 
   factory DAURound.fromJson(Map<String, dynamic> data, int roundNumber) {

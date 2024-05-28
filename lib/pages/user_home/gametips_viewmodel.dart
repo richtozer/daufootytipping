@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -21,6 +22,7 @@ class GameTipsViewModel extends ChangeNotifier {
   Tipper currentTipper;
   final String currentDAUComp;
   final Game game;
+  final DAURound dauRound;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -42,6 +44,7 @@ class GameTipsViewModel extends ChangeNotifier {
     this.currentDAUComp,
     this.game,
     this.allTipsViewModel,
+    this.dauRound,
   ) {
     //scoresViewModel = di<ScoresViewModel>();
     allTipsViewModel.addListener(update);
@@ -58,9 +61,7 @@ class GameTipsViewModel extends ChangeNotifier {
     // if the game has already started, then we don't need to wait , just return
     if ((game.gameState == GameState.startedResultNotKnown ||
         game.gameState == GameState.startedResultKnown)) {
-      // update the roundState by calling DAUCompsViewModel.setRoundState()
-      di<DAUCompsViewModel>().setRoundState(game
-          .dauRound!); //TODO !!!!!!! _TypeError (Null check operator used on a null value)
+      // consider updating the roundState by calling DAUCompsViewModel.setRoundState() //TODO
 
       notifyListeners();
       return;
@@ -73,9 +74,6 @@ class GameTipsViewModel extends ChangeNotifier {
 
     // wait for the game to start before updating the UI
     await Future.delayed(timeUntilGameStarts);
-
-    // update the roundState by calling DAUCompsViewModel.setRoundState()
-    di<DAUCompsViewModel>().setRoundState(game.dauRound!);
 
     // now that the game has started, trigger the UI to update
     notifyListeners();
@@ -130,8 +128,7 @@ class GameTipsViewModel extends ChangeNotifier {
     return _tipGame;
   }
 
-  void addTip(
-      List<Game> roundGames, TipGame tip, int combinedRoundNumber) async {
+  void addTip(List<Game> roundGames, TipGame tip) async {
     try {
       assert(_initialLoadCompleter.isCompleted,
           'GameTipsViewModel.addTip() called before initial load completed');
@@ -152,7 +149,7 @@ class GameTipsViewModel extends ChangeNotifier {
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
       legacyTippingService.syncSingleTipToLegacy(
-          allTipsViewModel, di<DAUCompsViewModel>(), tip);
+          allTipsViewModel, di<DAUCompsViewModel>(), tip, dauRound);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

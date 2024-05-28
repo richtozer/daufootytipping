@@ -1,5 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
@@ -14,20 +15,21 @@ import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 class GameListItem extends StatefulWidget {
-  const GameListItem({
-    super.key,
-    required this.roundGames,
-    required this.game,
-    required this.currentTipper,
-    required this.currentDAUComp,
-    required this.allTipsViewModel,
-  });
+  const GameListItem(
+      {super.key,
+      required this.roundGames,
+      required this.game,
+      required this.currentTipper,
+      required this.currentDAUComp,
+      required this.allTipsViewModel,
+      required this.dauRound});
 
   final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
+  final DAURound dauRound;
 
   @override
   State<GameListItem> createState() => _GameListItemState();
@@ -40,8 +42,12 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = GameTipsViewModel(widget.currentTipper,
-        widget.currentDAUComp.dbkey!, widget.game, widget.allTipsViewModel);
+    gameTipsViewModel = GameTipsViewModel(
+        widget.currentTipper,
+        widget.currentDAUComp.dbkey!,
+        widget.game,
+        widget.allTipsViewModel,
+        widget.dauRound);
   }
 
   @override
@@ -63,14 +69,6 @@ class _GameListItemState extends State<GameListItem> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.game.dbkey,
-                        textAlign: TextAlign.left,
-                        style: const TextStyle(
-                          fontSize:
-                              16.0, // Adjust this value to make the text bigger or smaller
-                        ),
-                      ),
                       Text(
                         widget.game.homeTeam.name,
                         textAlign: TextAlign.left,
