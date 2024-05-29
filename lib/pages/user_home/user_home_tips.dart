@@ -20,6 +20,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
+const appBarHeight = 40.0;
+
 class TipsPage extends StatefulWidget {
   const TipsPage({super.key});
 
@@ -34,6 +36,9 @@ class TipsPageState extends State<TipsPage> {
   late final Future<DAUComp> dauCompWithScoresFuture;
 
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
+
+  Timer? _debounceTimer;
+  ScrollController controller = ScrollController();
 
   @override
   void initState() {
@@ -65,39 +70,80 @@ class TipsPageState extends State<TipsPage> {
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
 
-            return ListView.builder(
-              controller: ScrollController(initialScrollOffset: 2000),
-              itemCount: dauCompWithScores!.daurounds!.length * 4,
-              itemBuilder: (context, index) {
-                final roundIndex = index ~/ 4;
-                final itemIndex = index % 4;
-                final dauRound = dauCompWithScores.daurounds![roundIndex];
+            // work out the offset to scroll to
+            // loop through the rounds and add up pixels returned from roundDisplayPixelHeight()
+            double scrollOffset = appBarHeight;
+            for (var dauRound in dauCompWithScores!.daurounds!) {
+              // only add the offset if the roundstate is allGamesEnded
+              if (dauRound.roundState == RoundState.allGamesEnded) {
+                scrollOffset += dauRound.roundDisplayPixelHeight();
+                log('+ ${dauRound.roundDisplayPixelHeight()} to scrollOffset for round ${dauRound.dAUroundNumber}');
+              }
+            }
+            log('= scrollOffset: $scrollOffset');
+            scrollOffset = scrollOffset / 2.48;
+            log('= scrollOffset2: $scrollOffset');
 
-                if (itemIndex == 0) {
-                  return roundLeagueHeaderListTile(
-                      League.nrl, 50, 50, dauRound);
-                } else if (itemIndex == 1) {
-                  return GameListBuilder(
-                    currentTipper: di<TippersViewModel>().selectedTipper!,
-                    dauRound: dauRound,
-                    league: League.nrl,
-                    allTipsViewModel: tipperTipsViewModel,
-                    selectedDAUComp: dauCompWithScores,
-                  );
-                } else if (itemIndex == 2) {
-                  return roundLeagueHeaderListTile(
-                      League.afl, 40, 40, dauRound);
-                } else if (itemIndex == 3) {
-                  return GameListBuilder(
-                    currentTipper: di<TippersViewModel>().selectedTipper!,
-                    dauRound: dauRound,
-                    league: League.afl,
-                    allTipsViewModel: tipperTipsViewModel,
-                    selectedDAUComp: dauCompWithScores,
-                  );
-                }
-                return null;
-              },
+            WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
+              if (controller.hasClients) {
+                controller.position.isScrollingNotifier.addListener(() {
+                  if (_debounceTimer?.isActive ?? false) {
+                    _debounceTimer!.cancel();
+                  }
+                  _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+                    log('scrolling stopped at ${controller.offset}');
+                  });
+                });
+              }
+              controller.jumpTo(scrollOffset);
+            });
+
+            return Theme(
+              data: myTheme,
+              child: CustomScrollView(
+                controller: controller,
+                slivers: <Widget>[
+                  const AppBarHeader(),
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final roundIndex = index ~/ 4;
+                        final itemIndex = index % 4;
+                        final dauRound =
+                            dauCompWithScores.daurounds![roundIndex];
+
+                        if (itemIndex == 0) {
+                          return roundLeagueHeaderListTile(
+                              League.nrl, 50, 50, dauRound);
+                        } else if (itemIndex == 1) {
+                          return GameListBuilder(
+                            currentTipper:
+                                di<TippersViewModel>().selectedTipper!,
+                            dauRound: dauRound,
+                            league: League.nrl,
+                            allTipsViewModel: tipperTipsViewModel,
+                            selectedDAUComp: dauCompWithScores,
+                          );
+                        } else if (itemIndex == 2) {
+                          return roundLeagueHeaderListTile(
+                              League.afl, 40, 40, dauRound);
+                        } else if (itemIndex == 3) {
+                          return GameListBuilder(
+                            currentTipper:
+                                di<TippersViewModel>().selectedTipper!,
+                            dauRound: dauRound,
+                            league: League.afl,
+                            allTipsViewModel: tipperTipsViewModel,
+                            selectedDAUComp: dauCompWithScores,
+                          );
+                        }
+                        return null;
+                      },
+                      childCount: dauCompWithScores!.daurounds!.length * 4,
+                    ),
+                  ),
+                ],
+              ),
             );
           }
         });
@@ -178,9 +224,9 @@ class AppBarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverAppBar(
       backgroundColor: Colors.white.withOpacity(0.8),
-      pinned: true,
+      pinned: false,
       floating: true,
-      expandedHeight: 50,
+      expandedHeight: appBarHeight,
       flexibleSpace: FlexibleSpaceBar(
           expandedTitleScale: 1.5,
           centerTitle: true,
@@ -325,17 +371,14 @@ class _GameListBuilderState extends State<GameListBuilder> {
               itemBuilder: (context, index) {
                 var game = games![index];
 
-                return Theme(
-                  data: myTheme, // override the flex theme for this widget
-                  child: GameListItem(
-                    key: ValueKey(game.dbkey),
-                    roundGames: games!,
-                    game: game,
-                    currentTipper: widget.currentTipper,
-                    currentDAUComp: widget.selectedDAUComp,
-                    allTipsViewModel: widget.allTipsViewModel,
-                    dauRound: widget.dauRound,
-                  ),
+                return GameListItem(
+                  key: ValueKey(game.dbkey),
+                  roundGames: games!,
+                  game: game,
+                  currentTipper: widget.currentTipper,
+                  currentDAUComp: widget.selectedDAUComp,
+                  allTipsViewModel: widget.allTipsViewModel,
+                  dauRound: widget.dauRound,
                 );
               },
             );

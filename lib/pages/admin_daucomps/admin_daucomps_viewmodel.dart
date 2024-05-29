@@ -519,6 +519,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
 
     for (DAURound round in getRoundInfoAndConsolidatedScores) {
+      // asign the games to this round
+      round.games = await di<GamesViewModel>().getGamesForRound(round);
+      // set the round state
+      setRoundState(round);
       round.roundScores =
           await tipperScoresViewModel.getTipperConsolidatedScoresForRound(
               round, di<TippersViewModel>().selectedTipper!);
@@ -533,7 +537,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   //method to get a List<int> of the combined round numbers
   Future<List<int>> getCombinedRoundNumbers() async {
     if (!_initialLoadCompleter.isCompleted) {
-      log('getCombinedRoundNumbers() waiting for initial Game load to complete');
+      log('getCombinedRoundNumbers() waiting for initial DAUComp load to complete');
       await initialLoadComplete;
     }
 
@@ -549,7 +553,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<Map<League, List<Game>>> getGamesForCombinedRoundNumber(
       int combinedRoundNumber, GamesViewModel gamesViewModel) async {
     if (!_initialLoadCompleter.isCompleted) {
-      log('getGamesForCombinedRoundNumber() waiting for initial Game load to complete');
+      log('getGamesForCombinedRoundNumber() waiting for initial DAUComp load to complete');
     }
 
     await initialLoadComplete;
@@ -557,25 +561,18 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
 
-    gamesViewModel ??= di<GamesViewModel>();
-
     //use dauround.getRoundStartDate and getRoundEndDate to filter the games for the combined round
     //then based on the league, add the games to the appropriate list
-    for (var round in _selectedDAUComp!.daurounds!) {
-      if (round.dAUroundNumber == combinedRoundNumber) {
-        //filter the games for this round
-        gamesViewModel.getGames().then((games) {
-          for (var game in games) {
-            if (game.startTimeUTC.isAfter(round.getRoundStartDate()) &&
-                game.startTimeUTC.isBefore(round.getRoundEndDate())) {
-              if (game.league == League.nrl) {
-                nrlGames.add(game);
-              } else if (game.league == League.afl) {
-                aflGames.add(game);
-              }
-            }
-          }
-        });
+    DAURound dauRound = _selectedDAUComp!.daurounds![combinedRoundNumber - 1];
+    List<Game> roundGames =
+        await di<GamesViewModel>().getGamesForRound(dauRound);
+
+    // sort the games into their respective leagues
+    for (var game in roundGames) {
+      if (game.league == League.nrl) {
+        nrlGames.add(game);
+      } else {
+        aflGames.add(game);
       }
     }
 

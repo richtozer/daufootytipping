@@ -3,7 +3,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 
 double gameCardHeight = 128.0;
-double leagueHeaderHeight = 66;
+double leagueHeaderHeight = 56;
 double emptyLeagueRoundHeight = 75;
 
 enum RoundState {
