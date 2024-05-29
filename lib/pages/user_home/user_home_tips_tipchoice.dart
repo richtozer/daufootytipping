@@ -6,11 +6,31 @@ import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
 import 'package:flutter/material.dart';
 
-class TipChoice extends StatelessWidget {
+class TipChoice extends StatefulWidget {
   final GameTipsViewModel gameTipsViewModel;
   final List<Game> roundGames;
 
   const TipChoice(this.roundGames, this.gameTipsViewModel, {super.key});
+
+  @override
+  State<TipChoice> createState() => _TipChoiceState();
+}
+
+class _TipChoiceState extends State<TipChoice> {
+  final Map<GameResult, Widget> _choiceChipCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _precalculateChoiceChips();
+  }
+
+  void _precalculateChoiceChips() {
+    for (var result in GameResult.values) {
+      _choiceChipCache[result] =
+          generateChoiceChip(result, widget.gameTipsViewModel, context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,27 +44,43 @@ class TipChoice extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.a, gameTipsViewModel, context),
-              generateChoiceChip(GameResult.b, gameTipsViewModel, context)
+              generateChoiceChip(
+                  GameResult.a, widget.gameTipsViewModel, context),
+              generateChoiceChip(
+                  GameResult.b, widget.gameTipsViewModel, context)
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.c, gameTipsViewModel, context),
+              generateChoiceChip(
+                  GameResult.c, widget.gameTipsViewModel, context),
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.d, gameTipsViewModel, context),
-              generateChoiceChip(GameResult.e, gameTipsViewModel, context)
+              generateChoiceChip(
+                  GameResult.d, widget.gameTipsViewModel, context),
+              generateChoiceChip(
+                  GameResult.e, widget.gameTipsViewModel, context)
             ],
           )
         ],
       ),
     );
   }
+
+  // generateChoiceChip(
+  //     GameResult result, GameTipsViewModel model, BuildContext context) {
+  //   if (!_choiceChipCache.containsKey(result)) {
+  //     _choiceChipCache[result] = _generateChoiceChip(result, model, context);
+  //   }
+  //   return _choiceChipCache[result];
+  // }
+
+  // ChoiceChip _generateChoiceChip(GameResult option,
+  //   GameTipsViewModel gameTipsViewModel, BuildContext context) {
 
   ChoiceChip generateChoiceChip(GameResult option,
       GameTipsViewModel gameTipsViewModel, BuildContext context) {
@@ -96,7 +132,7 @@ class TipChoice extends StatelessWidget {
                           submittedTimeUTC: DateTime.now().toUtc(),
                         );
                         //add the tip to the realtime firebase database
-                        gameTipsViewModel.addTip(roundGames,
+                        gameTipsViewModel.addTip(widget.roundGames,
                             tip); //roundGames is passed to support legacy tipping only
                       },
                       child: const Text('Submit'),
@@ -139,7 +175,7 @@ class TipChoice extends StatelessWidget {
               submittedTimeUTC: DateTime.now().toUtc(),
             );
             //add the tip to the realtime firebase database
-            gameTipsViewModel.addTip(roundGames,
+            gameTipsViewModel.addTip(widget.roundGames,
                 tip); //roundGames is passed to support legacy tipping only
           }
         } catch (e) {
