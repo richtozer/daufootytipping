@@ -564,7 +564,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     for (var round in _selectedDAUComp!.daurounds!) {
       if (round.dAUroundNumber == combinedRoundNumber) {
         //filter the games for this round
-        gamesViewModel!.getGames().then((games) {
+        gamesViewModel.getGames().then((games) {
           for (var game in games) {
             if (game.startTimeUTC.isAfter(round.getRoundStartDate()) &&
                 game.startTimeUTC.isBefore(round.getRoundEndDate())) {

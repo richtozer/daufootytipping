@@ -67,64 +67,6 @@ class TipsPageState extends State<TipsPage> {
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
 
-            //TODO - consider deleting - looks like this futurebuilder is unnecessary
-            // return FutureBuilder<void>(
-            //     future: tipperTipsViewModel.getAllTips(),
-            //     builder: (context, snapshot) {
-            //       if (snapshot.connectionState == ConnectionState.waiting) {
-            //         return Center(
-            //             child: CircularProgressIndicator(
-            //                 color: League.afl.colour));
-            //       } else {
-            //         WidgetsBinding.instance
-            // WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
-            //   if (controller.hasClients) {
-            //     controller.position.isScrollingNotifier.addListener(() {
-            //       if (_debounceTimer?.isActive ?? false) {
-            //         _debounceTimer!.cancel();
-            //       }
-            //       _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-            //         log('scrolling stopped');
-            //         SharedPreferences.getInstance().then((prefs) async {
-            //           if (controller.hasClients) {
-            //             await prefs.setDouble(
-            //                 'scrollPosition', controller.offset);
-            //           }
-            //         });
-            //       });
-            //     });
-            //     // find out how many rounds have completed from dauCompWithScores
-            //     // and set the scroll position to the start of the next round
-            //     // for non empty rounds use this calculation : initScrollPosition = (gameCardHeight * gamesStarted) + (leagueHeaderHeight * 2 * roundsStarted);
-            //     // we will use the result if there is no saved pref
-
-            //     double initScrollPosition = 0;
-
-            //     for (var round in dauCompWithScores!.daurounds!) {
-            //       if (round.roundState == RoundState.allGamesEnded) {
-            //         initScrollPosition +=
-            //             (gameCardHeight * round.games.length) +
-            //                 (leagueHeaderHeight * 2);
-            //       }
-            //     }
-
-            //     // in production, use any saved position from user prefs
-            //     if (!kDebugMode) {
-            //       SharedPreferences prefs =
-            //           await SharedPreferences.getInstance();
-            //       initScrollPosition =
-            //           prefs.getDouble('scrollPosition') ?? initScrollPosition;
-            //     }
-
-            //     // now jump to the saved position
-            //     if (controller.hasClients) {
-            //       controller.jumpTo(initScrollPosition);
-            //     }
-            //   } else {
-            //     log('controller has no clients');
-            //   }
-            // });
-
             return CustomScrollView(
               controller: ScrollController(initialScrollOffset: 10000),
               slivers: <Widget>[
@@ -137,9 +79,6 @@ class TipsPageState extends State<TipsPage> {
                       expandedTitleScale: 1.5,
                       centerTitle: true,
                       title: ChangeNotifierProvider<ScoresViewModel>.value(
-                          //StateError (Bad state: GetIt: Object/factory with type ScoresViewModel is not registered inside GetIt.
-                          //(Did you accidentally do GetIt sl=GetIt.instance(); instead of GetIt sl=GetIt.instance;
-                          //Did you forget to register it?))
                           value: di<ScoresViewModel>(),
                           builder: (context, snapshot) {
                             return Consumer<ScoresViewModel>(builder:
