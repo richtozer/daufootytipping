@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class TipsPage extends StatefulWidget {
-  TipsPage({super.key});
+  const TipsPage({super.key});
 
   @override
   TipsPageState createState() => TipsPageState();
@@ -343,6 +343,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
                 return Theme(
                   data: myTheme, // override the flex theme for this widget
                   child: GameListItem(
+                    key: ValueKey(game.dbkey),
                     roundGames: games!,
                     game: game,
                     currentTipper: widget.currentTipper,
