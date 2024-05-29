@@ -139,8 +139,7 @@ class TipsPageState extends State<TipsPage> {
                         }
                         return null;
                       },
-                      childCount: dauCompWithScores!.daurounds!.length * 4,
-                    ),
+                      childCount: dauCompWithScores.daurounds!.length                     ),
                   ),
                 ],
               ),
