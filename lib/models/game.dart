@@ -71,6 +71,18 @@ class Game implements Comparable<Game> {
     throw Exception('Error in Game.getDAURound: no DAURound found');
   }
 
+  // this method will return true is the game is in the supplied round
+  bool isGameInRound(DAURound round) {
+    if ((startTimeUTC.isAfter(round.roundStartDate) ||
+            startTimeUTC.isAtSameMomentAs(round.roundStartDate)) &&
+        (startTimeUTC.isBefore(round.roundEndDate) ||
+            startTimeUTC.isAtSameMomentAs(round.roundEndDate))) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         'League': league.name,
         'HomeTeam': homeTeam.dbkey.substring(4),
@@ -84,8 +96,8 @@ class Game implements Comparable<Game> {
         "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
       };
 
-  factory Game.fromFixtureJson(String dbkey, Map<String, dynamic> data,
-      homeTeam, awayTeam, linkedDauRound) {
+  factory Game.fromFixtureJson(
+      String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
     //use the left 3 chars of the dbkey to determine the league
     final league = League.values.byName(dbkey.substring(0, 3));
     return Game(

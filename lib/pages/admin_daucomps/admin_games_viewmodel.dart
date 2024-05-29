@@ -83,38 +83,12 @@ class GamesViewModel extends ChangeNotifier {
               homeTeamScore: gameAsJSON['HomeTeamScore'],
               awayTeamScore: gameAsJSON['AwayTeamScore']);
 
-          // loop through selectedDAUComp.daurounds to find the coorect dauRound for this game
-          // this will be based on the round start and end time
-          DAURound? linkedDauRound;
-          if (selectedDAUComp.daurounds != null) {
-            // if we have dauRounds, we need to find the correct dauRound for this game
-            for (var dauRound in selectedDAUComp.daurounds!) {
-              // use  dauRound.roundStartDate and dauRound.roundEndDate
-              // if game startTimeUTC is between these dates, then this is the linked dauRound
-              if (gameAsJSON['DateUtc'] != null) {
-                DateTime gameStartTimeUTC =
-                    DateTime.parse(gameAsJSON['DateUtc']);
-                if (gameStartTimeUTC.isAfter(dauRound.roundStartDate) ||
-                    gameStartTimeUTC
-                            .isAtSameMomentAs(dauRound.roundStartDate) &&
-                        gameStartTimeUTC.isBefore(dauRound.roundEndDate) ||
-                    gameStartTimeUTC.isAtSameMomentAs(dauRound.roundEndDate)) {
-                  linkedDauRound = dauRound;
-                  break;
-                }
-              }
-            }
-          }
-
           if (homeTeam != null && awayTeam != null) {
-            Game game = Game.fromFixtureJson(
-                dbKey,
-                Map<String, dynamic>.from(gameAsJSON),
-                homeTeam,
-                awayTeam,
-                linkedDauRound);
+            Game game = Game.fromFixtureJson(dbKey,
+                Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
             game.locationLatLong = locationLatLng;
             game.scoring = scoring;
+
             return game;
           } else {
             // homeTeam or awayTeam should not be null
@@ -207,6 +181,18 @@ class GamesViewModel extends ChangeNotifier {
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
+  Future<List<Game>> getGamesForRound(DAURound dauRound) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for Game load to complete findGame()');
+      await _initialLoadCompleter.future;
+    }
+
+    List<Game> gamesForRound =
+        _games.where((game) => (game.isGameInRound(dauRound))).toList();
+
+    return gamesForRound;
+  }
+
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
@@ -217,15 +203,5 @@ class GamesViewModel extends ChangeNotifier {
     }
 
     super.dispose();
-  }
-
-  List<Game> getGamesForRound(DateTime roundStartDate, DateTime roundEndDate) {
-    return _games
-        .where((game) =>
-            game.startTimeUTC.isAfter(roundStartDate) ||
-            game.startTimeUTC.isAtSameMomentAs(roundStartDate) &&
-                game.startTimeUTC.isBefore(roundEndDate) ||
-            game.startTimeUTC.isAtSameMomentAs(roundEndDate))
-        .toList();
   }
 }
