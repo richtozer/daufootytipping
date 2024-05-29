@@ -103,43 +103,38 @@ class TipsPageState extends State<TipsPage> {
               child: CustomScrollView(
                 controller: controller,
                 slivers: <Widget>[
-                  const AppBarHeader(),
+                  //const AppBarHeader(),
                   SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final roundIndex = index ~/ 4;
-                        final itemIndex = index % 4;
-                        final dauRound =
-                            dauCompWithScores.daurounds![roundIndex];
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final roundIndex = index ~/ 4;
+                      final itemIndex = index % 4;
+                      final dauRound = dauCompWithScores.daurounds![roundIndex];
 
-                        if (itemIndex == 0) {
-                          return roundLeagueHeaderListTile(
-                              League.nrl, 50, 50, dauRound);
-                        } else if (itemIndex == 1) {
-                          return GameListBuilder(
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper!,
-                            dauRound: dauRound,
-                            league: League.nrl,
-                            allTipsViewModel: tipperTipsViewModel,
-                            selectedDAUComp: dauCompWithScores,
-                          );
-                        } else if (itemIndex == 2) {
-                          return roundLeagueHeaderListTile(
-                              League.afl, 40, 40, dauRound);
-                        } else if (itemIndex == 3) {
-                          return GameListBuilder(
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper!,
-                            dauRound: dauRound,
-                            league: League.afl,
-                            allTipsViewModel: tipperTipsViewModel,
-                            selectedDAUComp: dauCompWithScores,
-                          );
-                        }
-                        return null;
-                      },
-                      childCount: dauCompWithScores.daurounds!.length                     ),
+                      if (itemIndex == 0) {
+                        return roundLeagueHeaderListTile(
+                            League.nrl, 50, 50, dauRound);
+                      } else if (itemIndex == 1) {
+                        return GameListBuilder(
+                          currentTipper: di<TippersViewModel>().selectedTipper!,
+                          dauRound: dauRound,
+                          league: League.nrl,
+                          allTipsViewModel: tipperTipsViewModel,
+                          selectedDAUComp: dauCompWithScores,
+                        );
+                      } else if (itemIndex == 2) {
+                        return roundLeagueHeaderListTile(
+                            League.afl, 40, 40, dauRound);
+                      } else if (itemIndex == 3) {
+                        return GameListBuilder(
+                          currentTipper: di<TippersViewModel>().selectedTipper!,
+                          dauRound: dauRound,
+                          league: League.afl,
+                          allTipsViewModel: tipperTipsViewModel,
+                          selectedDAUComp: dauCompWithScores,
+                        );
+                      }
+                      return null;
+                    }, childCount: dauCompWithScores.daurounds!.length),
                   ),
                 ],
               ),
