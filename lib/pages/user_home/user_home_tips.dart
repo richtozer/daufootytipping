@@ -35,8 +35,6 @@ class TipsPageState extends State<TipsPage> {
 
   late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
 
-  // Timer? _debounceTimer;
-
   @override
   void initState() {
     super.initState();
@@ -58,7 +56,7 @@ class TipsPageState extends State<TipsPage> {
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
 
-    Widget scrollView = FutureBuilder<DAUComp>(
+    return FutureBuilder<DAUComp>(
         future: dauCompWithScoresFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -67,134 +65,42 @@ class TipsPageState extends State<TipsPage> {
           } else {
             DAUComp? dauCompWithScores = snapshot.data;
 
-            return CustomScrollView(
-              controller: ScrollController(initialScrollOffset: 10000),
-              slivers: <Widget>[
-                SliverAppBar(
-                  backgroundColor: Colors.white.withOpacity(0.8),
-                  pinned: true,
-                  floating: true,
-                  expandedHeight: 50,
-                  flexibleSpace: FlexibleSpaceBar(
-                      expandedTitleScale: 1.5,
-                      centerTitle: true,
-                      title: ChangeNotifierProvider<ScoresViewModel>.value(
-                          value: di<ScoresViewModel>(),
-                          builder: (context, snapshot) {
-                            return Consumer<ScoresViewModel>(builder:
-                                (context, scoresViewModelConsumer, child) {
-                              CompScore compScores = scoresViewModelConsumer
-                                  .getTipperConsolidatedScoresForComp(
-                                      di<TippersViewModel>().selectedTipper!);
-                              // from scoresViewModelConsumer.leaderboard list,
-                              // find the tipper and record their rank
-                              int tipperCompRank =
-                                  scoresViewModelConsumer.leaderboard
-                                      .firstWhere(
-                                        (element) =>
-                                            element.tipper.dbkey ==
-                                            di<TippersViewModel>()
-                                                .selectedTipper!
-                                                .dbkey,
-                                        orElse: () => LeaderboardEntry(
-                                            rank: 0,
-                                            tipper: di<TippersViewModel>()
-                                                .selectedTipper!,
-                                            total: 0,
-                                            nRL: 0,
-                                            aFL: 0,
-                                            numRoundsWon: 0,
-                                            aflMargins: 0,
-                                            aflUPS: 0,
-                                            nrlMargins: 0,
-                                            nrlUPS: 0),
-                                      )
-                                      .rank;
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            StatRoundScoresForTipper(
-                                                di<TippersViewModel>()
-                                                    .selectedTipper!)),
-                                  );
-                                },
-                                child: Text(
-                                  'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              );
-                            });
-                          }),
-                      background: Stack(
-                        children: <Widget>[
-                          Image.asset(
-                            width: MediaQuery.of(context).size.width,
-                            'assets/teams/daulogo.jpg',
-                            fit: BoxFit.fitWidth,
-                          ),
-                          Container(
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                        ],
-                      )),
-                ),
-                ...dauCompWithScores!.daurounds!
-                    .asMap()
-                    .entries
-                    // .skip(filterShowFinishedRounds
-                    //     ? 0
-                    //     : dauCompWithScores.daurounds!.length - 1)
-                    .map((entry) {
-                  DAURound dauRound = entry.value;
-                  return SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (BuildContext context, int index) {
-                        if (index == 0) {
-                          return roundLeagueHeaderListTile(
-                              League.nrl, 50, 50, dauRound);
-                        } else if (index == 1) {
-                          return GameListBuilder(
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper!,
-                            dauRound: dauRound,
-                            league: League.nrl,
-                            allTipsViewModel: tipperTipsViewModel,
-                            selectedDAUComp: dauCompWithScores,
-                          );
-                        } else if (index == 2) {
-                          return roundLeagueHeaderListTile(
-                              League.afl, 40, 40, dauRound);
-                        } else if (index == 3) {
-                          return GameListBuilder(
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper!,
-                            dauRound: dauRound,
-                            league: League.afl,
-                            allTipsViewModel: tipperTipsViewModel,
-                            selectedDAUComp: dauCompWithScores,
-                          );
-                        }
-                        return null; // Add this line if your child count isn't fixed
-                      },
-                      childCount: 4, // The number of children in the delegate
-                    ),
+            return ListView.builder(
+              controller: ScrollController(initialScrollOffset: 2000),
+              itemCount: dauCompWithScores!.daurounds!.length * 4,
+              itemBuilder: (context, index) {
+                final roundIndex = index ~/ 4;
+                final itemIndex = index % 4;
+                final dauRound = dauCompWithScores.daurounds![roundIndex];
+
+                if (itemIndex == 0) {
+                  return roundLeagueHeaderListTile(
+                      League.nrl, 50, 50, dauRound);
+                } else if (itemIndex == 1) {
+                  return GameListBuilder(
+                    currentTipper: di<TippersViewModel>().selectedTipper!,
+                    dauRound: dauRound,
+                    league: League.nrl,
+                    allTipsViewModel: tipperTipsViewModel,
+                    selectedDAUComp: dauCompWithScores,
                   );
-                }),
-              ],
+                } else if (itemIndex == 2) {
+                  return roundLeagueHeaderListTile(
+                      League.afl, 40, 40, dauRound);
+                } else if (itemIndex == 3) {
+                  return GameListBuilder(
+                    currentTipper: di<TippersViewModel>().selectedTipper!,
+                    dauRound: dauRound,
+                    league: League.afl,
+                    allTipsViewModel: tipperTipsViewModel,
+                    selectedDAUComp: dauCompWithScores,
+                  );
+                }
+                return null;
+              },
             );
-            //   }
-            // });
           }
         });
-
-    return scrollView;
   }
 
   Widget roundLeagueHeaderListTile(
@@ -259,6 +165,85 @@ class TipsPageState extends State<TipsPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class AppBarHeader extends StatelessWidget {
+  const AppBarHeader({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      backgroundColor: Colors.white.withOpacity(0.8),
+      pinned: true,
+      floating: true,
+      expandedHeight: 50,
+      flexibleSpace: FlexibleSpaceBar(
+          expandedTitleScale: 1.5,
+          centerTitle: true,
+          title: ChangeNotifierProvider<ScoresViewModel>.value(
+              value: di<ScoresViewModel>(),
+              builder: (context, snapshot) {
+                return Consumer<ScoresViewModel>(
+                    builder: (context, scoresViewModelConsumer, child) {
+                  CompScore compScores = scoresViewModelConsumer
+                      .getTipperConsolidatedScoresForComp(
+                          di<TippersViewModel>().selectedTipper!);
+                  // from scoresViewModelConsumer.leaderboard list,
+                  // find the tipper and record their rank
+                  int tipperCompRank = scoresViewModelConsumer.leaderboard
+                      .firstWhere(
+                        (element) =>
+                            element.tipper.dbkey ==
+                            di<TippersViewModel>().selectedTipper!.dbkey,
+                        orElse: () => LeaderboardEntry(
+                            rank: 0,
+                            tipper: di<TippersViewModel>().selectedTipper!,
+                            total: 0,
+                            nRL: 0,
+                            aFL: 0,
+                            numRoundsWon: 0,
+                            aflMargins: 0,
+                            aflUPS: 0,
+                            nrlMargins: 0,
+                            nrlUPS: 0),
+                      )
+                      .rank;
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => StatRoundScoresForTipper(
+                                di<TippersViewModel>().selectedTipper!)),
+                      );
+                    },
+                    child: Text(
+                      'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: Colors.black,
+                      ),
+                    ),
+                  );
+                });
+              }),
+          background: Stack(
+            children: <Widget>[
+              Image.asset(
+                width: MediaQuery.of(context).size.width,
+                'assets/teams/daulogo.jpg',
+                fit: BoxFit.fitWidth,
+              ),
+              Container(
+                color: Colors.white.withOpacity(0.5),
+              ),
+            ],
+          )),
     );
   }
 }
