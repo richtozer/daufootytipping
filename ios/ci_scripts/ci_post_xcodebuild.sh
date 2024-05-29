@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # 1. Create 'ci_scripts' folder in your main project directory
 # 2. Create 'ci_post_xcodebuild.sh' inside of it
 # 3. Make it an executable by running 'chmod +x $ci_post_xcodebuild.sh'
@@ -9,7 +11,7 @@ then
     exit 1
 fi
 
-if [[ - $CI_APP_STORE_SIGNED_APP_PATH ]]; # checks if there is an AppStore signed archive after running xcodebuild
+if [[ -n $CI_APP_STORE_SIGNED_APP_PATH ]]; # checks if there is an AppStore signed archive after running xcodebuild
 then
     BUILD_TAG=${CI_BUILD_NUMBER}
     VERSION=$(cat ../${CI_PRODUCT}.xcodeproj/project.pbxproj | grep -m1 'MARKETING_VERSION' | cut -d'=' -f2 | tr -d ';' | tr -d ' ')
