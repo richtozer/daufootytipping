@@ -266,11 +266,16 @@ class LegacyTippingService {
             // submit a gsheet update now
             log('*** Found a difference in round ${gsheetAppTip.dauRoundNumber} for tipper ${gsheetAppTip.name}. Submitting update now');
 
-            // write the row back to the gsheet
+            // write the updated tip back to the gsheet, this will also refresh the timestamp
             bool res = await appTipsSheet.values.insertRow(
                 appTipsData.indexOf(row) + 1,
-                [gsheetAppTip.roundTipslegacyFormat],
-                fromColumn: 4);
+                [
+                  gsheetAppTip.formSubmitTimestamp,
+                  gsheetAppTip.dauRoundNumber,
+                  gsheetAppTip.name,
+                  gsheetAppTip.roundTipslegacyFormat
+                ],
+                fromColumn: 1);
 
             if (res) {
               log('*** Row updated for round ${gsheetAppTip.dauRoundNumber} for tipper ${gsheetAppTip.name}.');
@@ -306,7 +311,7 @@ class LegacyTippingService {
             '=ARRAYFORMULA(SUM(IF((MID(D$nextNewRowNumber,ROW(INDIRECT("1:"&LEN(D$nextNewRowNumber))),1) = MID(F$nextNewRowNumber,ROW(INDIRECT("1:"&LEN(F$nextNewRowNumber))),1)) * (MID(D$nextNewRowNumber,ROW(INDIRECT("1:"&LEN(D$nextNewRowNumber))),1) = {"a","e"}), 1, 0)))',
             '=VLOOKUP(mid(\$F$nextNewRowNumber,1,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,1,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,2,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,2,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,3,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,3,1), NRLScoreTipper, 0), FALSE) +VLOOKUP(mid(\$F$nextNewRowNumber,4,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,4,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,5,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,5,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,6,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,6,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,7,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,7,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,8,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,8,1), NRLScoreTipper, 0), FALSE)',
             '=VLOOKUP(mid(\$F$nextNewRowNumber,9,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,9,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,10,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,10,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,11,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,11,1), AFLScoreTipper, 0), FALSE) +VLOOKUP(mid(\$F$nextNewRowNumber,12,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,12,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,13,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,13,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,14,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,14,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,15,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,15,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,16,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,16,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,17,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,17,1), AFLScoreTipper, 0), FALSE)',
-            '=I$nextNewRowNumber+J$nextNewRowNumber + VLOOKUP(mid(\$F$nextNewRowNumber,17,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,17,1), AFLScoreTipper, 0), FALSE)',
+            '=I$nextNewRowNumber+J$nextNewRowNumber',
           ],
           fromColumn: 1);
       if (res) {

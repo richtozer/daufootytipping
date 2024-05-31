@@ -36,7 +36,7 @@ class TipsViewModel extends ChangeNotifier {
   //constructor - this will get all tips from db
   TipsViewModel(
       this.tipperViewModel, this.currentDAUCompDbKey, this._gamesViewModel) {
-    log('TipsViewModel constructor');
+    log('AllTipsViewModel constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
