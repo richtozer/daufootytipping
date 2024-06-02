@@ -274,7 +274,7 @@ class ScoresViewModel extends ChangeNotifier {
         scoringTipperCompTotals[tipperToScore.dbkey]!['total_afl_score'] = 0;
         scoringTipperCompTotals[tipperToScore.dbkey]!['total_afl_maxScore'] = 0;
 
-        var dauRoundsEdited = daucompToUpdate.daurounds!;
+        var dauRoundsEdited = daucompToUpdate.daurounds;
 
         // if onlyUpdateThisRound != null then only update the scores for this round,
         // otherwise update all rounds
@@ -420,7 +420,7 @@ class ScoresViewModel extends ChangeNotifier {
 
       if (onlyUpdateThisRound == null) {
         for (var roundIndex = 0;
-            roundIndex < daucompToUpdate.daurounds!.length;
+            roundIndex < daucompToUpdate.daurounds.length;
             roundIndex++) {
           // get the round total scores for each tipper
           List<MapEntry<String, int>> roundScores = [];
@@ -465,7 +465,7 @@ class ScoresViewModel extends ChangeNotifier {
       await writeScoresToDb(
           scoringTipperRoundTotals, scoringTipperCompTotals, daucompToUpdate);
 
-      return 'Completed scoring updates for ${tippers.length} tippers and ${daucompToUpdate.daurounds!.length} games.';
+      return 'Completed scoring updates for ${tippers.length} tippers and ${daucompToUpdate.daurounds.length} games.';
     } finally {
       _isScoring = false;
       notifyListeners();

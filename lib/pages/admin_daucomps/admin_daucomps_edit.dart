@@ -433,7 +433,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                             ),
                           ],
                         ),
-                        for (var round in daucomp!.daurounds!)
+                        for (var round in daucomp!.daurounds)
                           TableRow(
                             children: [
                               TableCell(

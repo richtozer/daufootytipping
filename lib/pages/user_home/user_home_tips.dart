@@ -79,12 +79,12 @@ class TipsPageState extends State<TipsPage> {
                     child: ScrollablePositionedList.builder(
                       initialAlignment: -2, //display a few pixels of prev round
                       initialScrollIndex: (latestRoundNumber * 4),
-                      itemCount: dauCompWithScores!.daurounds.length * 4,
+                      itemCount: dauCompWithScores.daurounds.length * 4,
                       itemBuilder: (context, index) {
                         final roundIndex = index ~/ 4;
                         final itemIndex = index % 4;
                         final dauRound =
-                            dauCompWithScores.daurounds![roundIndex];
+                            dauCompWithScores.daurounds[roundIndex];
 
                         if (itemIndex == 0) {
                           return roundLeagueHeaderListTile(

@@ -260,7 +260,7 @@ class _StatRoundGameScoresForTipperState
   DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
     DAURound dauRound = di<DAUCompsViewModel>()
         .selectedDAUComp!
-        .daurounds!
+        .daurounds
         .firstWhere(
             (element) => element.dAUroundNumber == widget.roundToDisplay);
 
