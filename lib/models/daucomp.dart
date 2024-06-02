@@ -1,6 +1,5 @@
 import 'dart:developer';
 
-import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -75,12 +74,10 @@ class DAUComp implements Comparable<DAUComp> {
   Map<String, dynamic> toJsonForCompare() {
     // Serialize DAURound list separately
     List<Map<String, dynamic>> dauroundsJson = [];
-    if (daurounds != null) {
-      for (var dauround in daurounds!) {
-        dauroundsJson.add(dauround.toJsonForCompare());
-      }
+    for (var dauround in daurounds) {
+      dauroundsJson.add(dauround.toJsonForCompare());
     }
-    return {
+      return {
       'name': name,
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),

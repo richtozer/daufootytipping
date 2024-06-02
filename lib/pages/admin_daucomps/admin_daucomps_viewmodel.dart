@@ -515,7 +515,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     List<DAURound> getRoundInfoAndConsolidatedScores =
-        _selectedDAUComp!.daurounds!;
+        _selectedDAUComp!.daurounds;
     ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
 
     for (DAURound round in getRoundInfoAndConsolidatedScores) {
@@ -542,7 +542,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     List<int> combinedRoundNumbers = [];
-    for (var round in _selectedDAUComp!.daurounds!) {
+    for (var round in _selectedDAUComp!.daurounds) {
       combinedRoundNumbers.add(round.dAUroundNumber);
     }
 
@@ -563,7 +563,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     //use dauround.getRoundStartDate and getRoundEndDate to filter the games for the combined round
     //then based on the league, add the games to the appropriate list
-    DAURound dauRound = _selectedDAUComp!.daurounds![combinedRoundNumber - 1];
+    DAURound dauRound = _selectedDAUComp!.daurounds[combinedRoundNumber - 1];
     List<Game> roundGames =
         await di<GamesViewModel>().getGamesForRound(dauRound);
 

@@ -1,5 +1,4 @@
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
