@@ -163,8 +163,9 @@ class DAUCompsViewModel extends ChangeNotifier {
   //   allGamesEnded, // round has finished and results known
   void setRoundState(DAURound round) {
     if (round.games.isEmpty) {
-      //round.roundState = RoundState.noGames;
-      throw 'Round has no games. All DAU rounds should have games. Check the fixture data and date ranges for each round.';
+      round.roundState = RoundState.noGames;
+      log('Round ${round.dAUroundNumber} has no games. All DAU rounds should have games. Check the fixture data and date ranges for each round.');
+      return;
     } else {
       // check if all games have started
       bool allGamesStarted = round.games.every((game) {
@@ -436,13 +437,12 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       if (combinedRounds[i].roundStartDate != minStartTime ||
           combinedRounds[i].roundEndDate != maxStartTime ||
-          daucomp.daurounds == null ||
-          daucomp.daurounds!.isEmpty) {
+          daucomp.daurounds.isEmpty) {
         // update the roundStartDate and roundEndDate
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
-            DateFormat('yyyy-MM-ddTHH:mm:ssZ').format(minStartTime.toUtc()));
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(minStartTime).toString()}Z');
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
-            DateFormat('yyyy-MM-ddTHH:mm:ssZ').format(maxStartTime.toUtc()));
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(maxStartTime).toString()}Z');
       }
 
       // update the roundState by calling DAUCompsViewModel.setRoundState()
@@ -624,28 +624,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     setSelectedDAUComp(daucomp);
     return daucomp;
-  }
-
-  // method to return the highest round number, where all the games have been played
-  Future<int> getHighestRoundNumberWithAllGamesPlayed(DAUComp daucomp) async {
-    int highestRoundNumber = 0;
-
-    for (var round in daucomp.daurounds!..sort((a, b) => b.compareTo(a))) {
-      bool allGamesPlayed = true;
-      for (var game in round.games) {
-        if (game.gameState == GameState.notStarted ||
-            game.gameState == GameState.startingSoon) {
-          allGamesPlayed = false;
-          break;
-        }
-      }
-      if (allGamesPlayed) {
-        highestRoundNumber = round.dAUroundNumber;
-      } else {
-        break;
-      }
-    }
-    return highestRoundNumber;
   }
 
   turnOffListener() {

@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
@@ -10,7 +11,7 @@ class DAUComp implements Comparable<DAUComp> {
   final String name;
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
-  List<DAURound>? daurounds = [];
+  List<DAURound> daurounds = [];
   final bool active;
   CompScore? consolidatedCompScores;
   DateTime? lastFixtureUpdateTimestamp;
@@ -22,12 +23,25 @@ class DAUComp implements Comparable<DAUComp> {
     required this.aflFixtureJsonURL,
     required this.nrlFixtureJsonURL,
     this.active = true,
-    this.daurounds,
+    required this.daurounds,
     this.lastFixtureUpdateTimestamp,
   });
 
+  // method to return the highest round number, where DAURound.RoundState is allGamesEnded
+  int getHighestRoundNumberWithAllGamesPlayed() {
+    int highestRoundNumber = 0;
+    for (var dauround in daurounds) {
+      if (dauround.roundState == RoundState.allGamesEnded) {
+        if (dauround.dAUroundNumber > highestRoundNumber) {
+          highestRoundNumber = dauround.dAUroundNumber;
+        }
+      }
+    }
+    return highestRoundNumber;
+  }
+
   factory DAUComp.fromJson(
-      Map<String, dynamic> data, String? key, List<DAURound>? daurounds) {
+      Map<String, dynamic> data, String? key, List<DAURound> daurounds) {
     return DAUComp(
       dbkey: key,
       name: data['name'] ?? '',
