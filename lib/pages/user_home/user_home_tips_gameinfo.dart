@@ -33,9 +33,7 @@ class GameInfo extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                '${gameTipsViewModel.game.league == League.afl ? 'AFL' : 'NRL'} round: ${gameTipsViewModel.game.roundNumber}',
-              ),
+
               // if the tipper has tipped, or they can been given a defaul tip
               // then display the tip submitted time in their local time
               // if they have yet to tip, then display nothing
@@ -49,6 +47,9 @@ class GameInfo extends StatelessWidget {
                 const Text(
                   'Default tip of [Away] given',
                 ),
+              Text(
+                'Fixture: round ${gameTipsViewModel.game.roundNumber}, match ${gameTipsViewModel.game.matchNumber}',
+              ),
             ],
           ),
         ],

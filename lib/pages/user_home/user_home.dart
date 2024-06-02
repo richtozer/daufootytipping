@@ -31,7 +31,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> content() {
     return [
-      TipsPage(),
+      const TipsPage(),
       StatsPage(widget.currentDAUCompKey),
       Profile(), // Display profile and settings for the logged on tipper
     ];

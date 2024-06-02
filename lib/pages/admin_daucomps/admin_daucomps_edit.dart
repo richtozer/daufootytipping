@@ -53,6 +53,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             name: _daucompNameController.text,
             aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController.text),
             nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController.text),
+            daurounds: [],
           );
 
           // turn off the listener for daucompsmodel, as we are going to update the

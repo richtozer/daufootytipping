@@ -58,29 +58,24 @@ class Game implements Comparable<Game> {
     }
   }
 
-  // find the round in the supplied comp that this game belongs to
+  bool isDateInRound(DateTime date, DAURound round) {
+    return ((date.isAfter(round.roundStartDate) ||
+            date.isAtSameMomentAs(round.roundStartDate)) &&
+        (date.isBefore(round.roundEndDate) ||
+            date.isAtSameMomentAs(round.roundEndDate)));
+  }
+
   DAURound getDAURound(DAUComp daucomp) {
-    for (var dauRound in daucomp.daurounds!) {
-      if ((startTimeUTC.isAfter(dauRound.roundStartDate) ||
-              startTimeUTC.isAtSameMomentAs(dauRound.roundStartDate)) &&
-          (startTimeUTC.isBefore(dauRound.roundEndDate) ||
-              startTimeUTC.isAtSameMomentAs(dauRound.roundEndDate))) {
+    for (var dauRound in daucomp.daurounds) {
+      if (isDateInRound(startTimeUTC, dauRound)) {
         return dauRound;
       }
     }
     throw Exception('Error in Game.getDAURound: no DAURound found');
   }
 
-  // this method will return true is the game is in the supplied round
   bool isGameInRound(DAURound round) {
-    if ((startTimeUTC.isAfter(round.roundStartDate) ||
-            startTimeUTC.isAtSameMomentAs(round.roundStartDate)) &&
-        (startTimeUTC.isBefore(round.roundEndDate) ||
-            startTimeUTC.isAtSameMomentAs(round.roundEndDate))) {
-      return true;
-    } else {
-      return false;
-    }
+    return isDateInRound(startTimeUTC, round);
   }
 
   Map<String, dynamic> toJson() => {

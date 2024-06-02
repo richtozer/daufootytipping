@@ -116,8 +116,8 @@ class LegacyTippingService {
                     'blah', //dummy data ok here, because this object is not saved anywhere, we just need it for the current comp key
                 aflFixtureJsonURL: Uri.parse(
                     'https://www.google.com'), //dummy data ok here, because this object is not saved anywhere, we just need it for the current comp key
-                nrlFixtureJsonURL: Uri.parse(
-                    'https://www.google.com')), // dummy data ok here, because this object is not saved anywhere,  we just need it for the current comp key
+                nrlFixtureJsonURL: Uri.parse('https://www.google.com'),
+                daurounds: []), // dummy data ok here, because this object is not saved anywhere,  we just need it for the current comp key
           ],
         );
 
@@ -317,7 +317,7 @@ class LegacyTippingService {
             '=ARRAYFORMULA(SUM(IF((MID(D$nextNewRowNumber,ROW(INDIRECT("1:"&LEN(D$nextNewRowNumber))),1) = MID(F$nextNewRowNumber,ROW(INDIRECT("1:"&LEN(F$nextNewRowNumber))),1)) * (MID(D$nextNewRowNumber,ROW(INDIRECT("1:"&LEN(D$nextNewRowNumber))),1) = {"a","e"}), 1, 0)))',
             '=VLOOKUP(mid(\$F$nextNewRowNumber,1,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,1,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,2,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,2,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,3,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,3,1), NRLScoreTipper, 0), FALSE) +VLOOKUP(mid(\$F$nextNewRowNumber,4,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,4,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,5,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,5,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,6,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,6,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,7,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,7,1), NRLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,8,1), NRLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,8,1), NRLScoreTipper, 0), FALSE)',
             '=VLOOKUP(mid(\$F$nextNewRowNumber,9,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,9,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,10,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,10,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,11,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,11,1), AFLScoreTipper, 0), FALSE) +VLOOKUP(mid(\$F$nextNewRowNumber,12,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,12,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,13,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,13,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,14,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,14,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,15,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,15,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,16,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,16,1), AFLScoreTipper, 0), FALSE) + VLOOKUP(mid(\$F$nextNewRowNumber,17,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,17,1), AFLScoreTipper, 0), FALSE)',
-            '=I$nextNewRowNumber+J$nextNewRowNumber + VLOOKUP(mid(\$F$nextNewRowNumber,17,1), AFLScoreMatch, MATCH(mid(\$D$nextNewRowNumber,17,1), AFLScoreTipper, 0), FALSE)',
+            '=I$nextNewRowNumber+J$nextNewRowNumber',
           ],
           fromColumn: 1);
       if (res) {
