@@ -54,6 +54,25 @@ class TipsPageState extends State<TipsPage> {
     super.initState();
   }
 
+  // method to scroll to the current round
+  void scrollToCurrentRound() {
+    log('TipsPageBody.scrollToCurrentRound()');
+
+    int latestRoundNumber = di<DAUCompsViewModel>()
+        .selectedDAUComp!
+        .getHighestRoundNumberWithAllGamesPlayed();
+
+    log('TipsPageBody.scrollToCurrentRound() latestRoundNumber: $latestRoundNumber');
+
+    int index = (latestRoundNumber) * 4;
+
+    di<DAUCompsViewModel>().itemScrollController.scrollTo(
+          index: index,
+          duration: const Duration(seconds: 1),
+          curve: Curves.easeInOut,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
@@ -74,11 +93,15 @@ class TipsPageState extends State<TipsPage> {
                   int latestRoundNumber = dauCompWithScores!
                       .getHighestRoundNumberWithAllGamesPlayed();
 
+                  log('TipsPageBody.build() latestRoundNumber: $latestRoundNumber');
+
                   return Theme(
                     data: myTheme,
                     child: ScrollablePositionedList.builder(
+                      itemScrollController:
+                          di<DAUCompsViewModel>().itemScrollController,
                       initialAlignment: -2, //display a few pixels of prev round
-                      initialScrollIndex: (latestRoundNumber * 4),
+                      initialScrollIndex: (latestRoundNumber - 1) * 4,
                       itemCount: dauCompWithScores.daurounds.length * 4,
                       itemBuilder: (context, index) {
                         final roundIndex = index ~/ 4;
@@ -125,6 +148,7 @@ class TipsPageState extends State<TipsPage> {
     return Stack(
       children: [
         ListTile(
+          onTap: scrollToCurrentRound,
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [

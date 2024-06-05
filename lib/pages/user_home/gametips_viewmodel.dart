@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -17,7 +18,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
-  //late ScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
@@ -47,10 +48,12 @@ class GameTipsViewModel extends ChangeNotifier {
     this.dauRound,
   ) {
     log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
-    //scoresViewModel = di<ScoresViewModel>();
+
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
-    //scoresViewModel.addListener(update);
+
+    scoresViewModel = di<ScoresViewModel>();
+    scoresViewModel.addListener(update);
 
     _findTip();
     gameStartedTrigger();
@@ -164,7 +167,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
-    //scoresViewModel.removeListener(update);
+    scoresViewModel.removeListener(update);
     super.dispose();
   }
 }

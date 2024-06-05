@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -208,9 +209,6 @@ class ScoresViewModel extends ChangeNotifier {
           _gamesWithLiveScores.add(game);
 
           notifyListeners();
-
-          //cleanup any stale live scores
-          staleLiveScoreCleanup();
         }
       }
     } catch (e) {
@@ -223,7 +221,7 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> updateScoring(DAUComp daucompToUpdate,
+  Future<String> calculateScoring(DAUComp daucompToUpdate,
       Tipper? updateThisTipper, DAURound? onlyUpdateThisRound) async {
     try {
       if (onlyUpdateThisRound != null) {
@@ -239,8 +237,6 @@ class ScoresViewModel extends ChangeNotifier {
       notifyListeners();
 
       TippersViewModel tippersViewModel = di<TippersViewModel>();
-
-      GamesViewModel gamesViewModel = di<GamesViewModel>();
 
       TipsViewModel allTipsViewModel = di<TipsViewModel>();
 
@@ -462,7 +458,7 @@ class ScoresViewModel extends ChangeNotifier {
         }
       }
 
-      await writeScoresToDb(
+      await _writeScoresToDb(
           scoringTipperRoundTotals, scoringTipperCompTotals, daucompToUpdate);
 
       return 'Completed scoring updates for ${tippers.length} tippers and ${daucompToUpdate.daurounds.length} games.';
@@ -472,7 +468,7 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
-  writeLiveScoreToDb(Scoring scoring, Game game) async {
+  _writeLiveScoreToDb(Game game) async {
     // check if the game is already in the list of games with live scores
     // if it is, update the game with the new live score
     // if it is not, add the game to the list of games with live scores
@@ -482,7 +478,7 @@ class ScoresViewModel extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 100));
 
     if (_gamesWithLiveScores.contains(game)) {
-      game.scoring = scoring;
+      game.scoring = game.scoring;
     } else {
       _gamesWithLiveScores.add(game);
     }
@@ -501,7 +497,7 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
-  writeScoresToDb(Map<String, Map<int, Map<String, int>>> roundScores,
+  _writeScoresToDb(Map<String, Map<int, Map<String, int>>> roundScores,
       Map<String, Map<String, dynamic>> compScores, DAUComp dauComp) async {
     _db
         .child(scoresPathRoot)
@@ -781,21 +777,44 @@ class ScoresViewModel extends ChangeNotifier {
     return _allTipperCompScores[tipper]!;
   }
 
-  void staleLiveScoreCleanup() {
-    // iterate over _gamesWithLiveScores
-    // if the gamestate is GameState.startedResultKnown then go ahead and delete the record from the db
-    // at this location  _db.child(scoresPathRoot).child(currentDAUComp).child(liveScoresRoot).child(game.dbkey)
+  void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) {
+    final oldScoring = game.scoring;
 
-    for (var game in _gamesWithLiveScores) {
-      if (game.gameState == GameState.startedResultKnown) {
-        _db
-            .child(scoresPathRoot)
-            .child(currentDAUComp)
-            .child(liveScoresRoot)
-            .child(game.dbkey)
-            .remove();
-      }
+    final newScoring = oldScoring?.copyWith(
+        croudSourcedScores: oldScoring.croudSourcedScores == null
+            ? [croudSourcedScore]
+            : [...oldScoring.croudSourcedScores!, croudSourcedScore]);
+
+    game.scoring = newScoring;
+
+    // only keep a maximum of 3 crowd sourced scores per scoreTeam i.e scoreTeam.away or scoreTeam.home
+    // delete the oldest score if there are more than 3
+    if (game.scoring?.croudSourcedScores != null &&
+        game.scoring!.croudSourcedScores!
+                .where((element) =>
+                    element.scoreTeam == croudSourcedScore.scoreTeam)
+                .length >
+            3) {
+      game.scoring!.croudSourcedScores!.removeWhere((element) =>
+          element.scoreTeam == croudSourcedScore.scoreTeam &&
+          element.submittedTimeUTC ==
+              game.scoring!.croudSourcedScores!
+                  .where((element) =>
+                      element.scoreTeam == croudSourcedScore.scoreTeam)
+                  .reduce((value, element) =>
+                      value.submittedTimeUTC.isBefore(element.submittedTimeUTC)
+                          ? value
+                          : element)
+                  .submittedTimeUTC);
     }
+
+    di<ScoresViewModel>()._writeLiveScoreToDb(game);
+
+    notifyListeners();
+
+    // Call the function asynchronously to avoid blocking UI
+    //TODO
+    //updateScoringAsync();
   }
 
   @override
