@@ -6,10 +6,12 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 class LiveScoring extends StatelessWidget {
   const LiveScoring(
@@ -43,8 +45,10 @@ class LiveScoring extends StatelessWidget {
                   children: [
                     gameTipsViewModelConsumer.tipGame?.game.gameState ==
                             GameState.startedResultNotKnown
-                        ? liveScoring(gameTipsViewModelConsumer.tipGame!)
-                        : finishedScoring(gameTipsViewModelConsumer.tipGame!),
+                        ? liveScoring(
+                            gameTipsViewModelConsumer.tipGame!, context)
+                        : fixtureScoresAvailable(
+                            gameTipsViewModelConsumer.tipGame!),
                     gameTipsViewModelConsumer.tipGame?.game.gameState ==
                             GameState.startedResultNotKnown
                         ? Text(
@@ -97,79 +101,34 @@ class LiveScoring extends StatelessWidget {
         }));
   }
 
-  Row liveScoring(TipGame consumerTipGame) {
-    TextEditingController homeScoreController = TextEditingController(
-        text: consumerTipGame.game.scoring?.currentHomeScore() == null
-            ? '-'
-            : '${consumerTipGame.game.scoring?.currentHomeScore()}');
-    TextEditingController awayScoreController = TextEditingController(
-        text: consumerTipGame.game.scoring?.currentAwayScore() == null
-            ? '-'
-            : '${consumerTipGame.game.scoring?.currentAwayScore()}');
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text('🏉'),
-        SizedBox(
-          width: 35,
-          child: Tooltip(
-            message: 'Enter the current home team score here',
-            child: TextField(
-                textAlign: TextAlign.center,
-                decoration: null,
-                maxLength: 3,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true, signed: true),
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                controller: homeScoreController,
-                textInputAction: TextInputAction.done,
-                onTap: () => homeScoreController.selection = TextSelection(
-                    baseOffset: 0,
-                    extentOffset: homeScoreController.value.text.length),
-                onSubmitted: (value) {
-                  liveScoreUpdated(
-                      value, ScoreTeam.home, consumerTipGame, selectedDAUComp);
-                }),
+  Widget liveScoring(TipGame consumerTipGame, BuildContext context) {
+    return GestureDetector(
+      onTap: () => showMaterialModalBottomSheet(
+          expand: false,
+          context: context,
+          builder: (context) => LiveScoringModal(consumerTipGame)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.edit),
+          SizedBox(
+            width: 70,
+            child: Tooltip(
+              message: 'Click here to enter live scores',
+              child: Text(
+                  ' ${consumerTipGame.game.scoring?.currentScore(ScoringTeam.home) ?? '0'} v ${consumerTipGame.game.scoring?.currentScore(ScoringTeam.away) ?? '0'} '),
+            ),
           ),
-        ),
-        const Text(' v '),
-        SizedBox(
-          width: 35,
-          child: Tooltip(
-            message: 'Enter the current away team score here',
-            child: TextField(
-                textAlign: TextAlign.center,
-                decoration: null,
-                maxLength: 3,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true, signed: true),
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                controller: awayScoreController,
-                textInputAction: TextInputAction.done,
-                onTap: () => awayScoreController.selection = TextSelection(
-                    baseOffset: 0,
-                    extentOffset: awayScoreController.value.text.length),
-                onSubmitted: (value) {
-                  liveScoreUpdated(
-                      value, ScoreTeam.away, consumerTipGame, selectedDAUComp);
-                }),
-          ),
-        ),
-        const Text('🏉'),
-      ],
+        ],
+      ),
     );
   }
 
-  Row finishedScoring(TipGame consumerTipGame) {
+  Row fixtureScoresAvailable(TipGame consumerTipGame) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('${consumerTipGame.game.scoring?.currentHomeScore()}',
+        Text('${consumerTipGame.game.scoring?.currentScore(ScoringTeam.home)}',
             style: consumerTipGame.game.scoring!.didHomeTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
@@ -177,7 +136,7 @@ class LiveScoring extends StatelessWidget {
                     fontWeight: FontWeight.w900)
                 : null),
         const Text(textAlign: TextAlign.left, ' v '),
-        Text('${consumerTipGame.game.scoring?.currentAwayScore()}',
+        Text('${consumerTipGame.game.scoring?.currentScore(ScoringTeam.away)}',
             style: consumerTipGame.game.scoring!.didAwayTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
@@ -186,51 +145,5 @@ class LiveScoring extends StatelessWidget {
                 : null),
       ],
     );
-  }
-
-  void liveScoreUpdated(dynamic score, ScoreTeam scoreTeam,
-      TipGame consumerTipGame, DAUComp selectedDAUComp) {
-    if (score.isNotEmpty) {
-      CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
-          DateTime.now().toUtc(),
-          scoreTeam,
-          consumerTipGame.tipper.dbkey!,
-          int.tryParse(score)!,
-          false);
-
-      consumerTipGame.game.scoring?.croudSourcedScores ??= [];
-
-      consumerTipGame.game.scoring?.croudSourcedScores?.add(croudSourcedScore);
-
-      // only keep a maximum of 3 crowd sourced scores per scoreTeam i.e scoreTeam.away or scoreTeam.home
-      // delete the oldest score if there are more than 3
-      if (consumerTipGame.game.scoring?.croudSourcedScores != null &&
-          consumerTipGame.game.scoring!.croudSourcedScores!
-                  .where((element) => element.scoreTeam == scoreTeam)
-                  .length >
-              3) {
-        consumerTipGame.game.scoring!.croudSourcedScores!.removeWhere(
-            (element) =>
-                element.scoreTeam == scoreTeam &&
-                element.submittedTimeUTC ==
-                    consumerTipGame.game.scoring!.croudSourcedScores!
-                        .where((element) => element.scoreTeam == scoreTeam)
-                        .reduce((value, element) => value.submittedTimeUTC
-                                .isBefore(element.submittedTimeUTC)
-                            ? value
-                            : element)
-                        .submittedTimeUTC);
-      }
-
-      di<ScoresViewModel>().writeLiveScoreToDb(
-          consumerTipGame.game.scoring!, consumerTipGame.game);
-
-      // Call the function asynchronously to avoid blocking UI
-      updateScoringAsync();
-    }
-  }
-
-  Future<void> updateScoringAsync() async {
-    await di<ScoresViewModel>().updateScoring(selectedDAUComp, null, null);
   }
 }

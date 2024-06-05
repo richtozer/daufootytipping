@@ -1,8 +1,7 @@
-
 class CrowdSourcedScore {
   DateTime submittedTimeUTC;
   String tipperID;
-  ScoreTeam scoreTeam;
+  ScoringTeam scoreTeam;
   int interimScore;
   bool gameComplete;
 
@@ -25,7 +24,7 @@ class CrowdSourcedScore {
   factory CrowdSourcedScore.fromJson(Map data) {
     return CrowdSourcedScore(
       DateTime.parse(data['submittedTimeUTC']),
-      ScoreTeam.values.byName(data['scoreTeam']),
+      ScoringTeam.values.byName(data['scoreTeam']),
       data['tipperID'],
       data['interimScore'],
       data['gameComplete'] as bool,
@@ -33,4 +32,4 @@ class CrowdSourcedScore {
   }
 }
 
-enum ScoreTeam { home, away }
+enum ScoringTeam { home, away }

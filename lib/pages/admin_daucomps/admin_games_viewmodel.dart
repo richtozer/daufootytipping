@@ -157,7 +157,7 @@ class GamesViewModel extends ChangeNotifier {
       // String result = await di<DAUCompsViewModel>()
       //     .updateScoring(selectedDAUComp, null, linkedDauRound); // TODO updating scores for only a single round - does not work
       String result = await di<ScoresViewModel>()
-          .updateScoring(selectedDAUComp, null, null);
+          .calculateScoring(selectedDAUComp, null, null);
 
       log('updateScoring result: $result');
     }
