@@ -1,4 +1,4 @@
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:test/test.dart';
 // replace with your actual package
 

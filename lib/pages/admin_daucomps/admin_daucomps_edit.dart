@@ -1,9 +1,9 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -133,7 +133,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             SnackBar(
               content:
                   Text('URL not valid, status code: ${response.statusCode}'),
-              backgroundColor: Colors.red,
+              backgroundColor: League.afl.colour,
             ),
           );
         }
@@ -145,7 +145,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('URL not valid, error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: League.afl.colour,
           ),
         );
         log('Error checking URL: $uri, exception: $e');
@@ -247,10 +247,10 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           // if this is a new record, dont allow the user to change the active comp
                           if (daucomp == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
+                              SnackBar(
+                                content: const Text(
                                     'You cannot set the active comp for a new record. Save the record first.'),
-                                backgroundColor: Colors.red,
+                                backgroundColor: League.afl.colour,
                               ),
                             );
                             return;
@@ -269,10 +269,10 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           } else {
                             // if the user is trying to turn off the active comp, show a snackbar
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
+                              SnackBar(
+                                content: const Text(
                                     'You cannot turn off the active comp. Instead edit another comp to be active.'),
-                                backgroundColor: Colors.red,
+                                backgroundColor: League.afl.colour,
                               ),
                             );
                           }
@@ -540,9 +540,9 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
       return OutlinedButton(
         onPressed: () async {
           if (dauCompsViewModel.isDownloading) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Fixture download already in progress')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                backgroundColor: League.afl.colour,
+                content: const Text('Fixture download already in progress')));
             return;
           }
           try {
@@ -554,7 +554,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  backgroundColor: Colors.green,
+                  backgroundColor: League.nrl.colour,
                   content: Text(result),
                   duration: const Duration(seconds: 10),
                 ),
@@ -564,7 +564,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  backgroundColor: Colors.red,
+                  backgroundColor: League.afl.colour,
                   content:
                       Text('An error occurred during fixture download: $e'),
                   duration: const Duration(seconds: 10),
@@ -613,7 +613,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             disableSaves = true;
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                daucomp!, di<GamesViewModel>());
+                daucomp!, di<GamesViewModel>(), null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

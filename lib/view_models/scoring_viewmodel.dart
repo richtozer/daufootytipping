@@ -11,9 +11,9 @@ import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -461,7 +461,7 @@ class ScoresViewModel extends ChangeNotifier {
       await _writeScoresToDb(
           scoringTipperRoundTotals, scoringTipperCompTotals, daucompToUpdate);
 
-      return 'Completed scoring updates for ${tippers.length} tippers and ${daucompToUpdate.daurounds.length} games.';
+      return 'Completed scoring updates for ${tippers.length} tippers and ${daucompToUpdate.daurounds.length} rounds.';
     } finally {
       _isScoring = false;
       notifyListeners();

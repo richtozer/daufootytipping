@@ -2,7 +2,7 @@ import 'dart:developer';
 
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
 
 class DAUComp implements Comparable<DAUComp> {
@@ -10,7 +10,7 @@ class DAUComp implements Comparable<DAUComp> {
   final String name;
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
-  List<DAURound> daurounds = [];
+  final List<DAURound> daurounds;
   final bool active;
   CompScore? consolidatedCompScores;
   DateTime? lastFixtureUpdateTimestamp;
@@ -77,7 +77,7 @@ class DAUComp implements Comparable<DAUComp> {
     for (var dauround in daurounds) {
       dauroundsJson.add(dauround.toJsonForCompare());
     }
-      return {
+    return {
       'name': name,
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),

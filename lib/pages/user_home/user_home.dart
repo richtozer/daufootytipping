@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';

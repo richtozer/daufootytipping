@@ -1,6 +1,6 @@
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
+import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';

@@ -5,11 +5,11 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
@@ -18,11 +18,12 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundGameScoresForTipper extends StatefulWidget {
-  const StatRoundGameScoresForTipper(this.statsTipper, this.roundToDisplay,
+  const StatRoundGameScoresForTipper(
+      this.statsTipper, this.roundNumberToDisplay,
       {super.key});
 
   final Tipper statsTipper;
-  final int roundToDisplay;
+  final int roundNumberToDisplay;
 
   @override
   State<StatRoundGameScoresForTipper> createState() =>
@@ -50,8 +51,11 @@ class _StatRoundGameScoresForTipperState
     super.initState();
     dauCompsViewModel = di<DAUCompsViewModel>();
 
-    gamesFuture = dauCompsViewModel.getGamesForCombinedRoundNumber(
-        widget.roundToDisplay, di<GamesViewModel>());
+    DAURound roundToDisplay = dauCompsViewModel
+        .selectedDAUComp!.daurounds[widget.roundNumberToDisplay - 1];
+
+    gamesFuture = dauCompsViewModel.getGamesForCombinedRound(
+        roundToDisplay, di<GamesViewModel>());
   }
 
   @override
@@ -108,11 +112,11 @@ class _StatRoundGameScoresForTipperState
             orientation == Orientation.portrait
                 ? HeaderWidget(
                     text:
-                        '${widget.statsTipper.name} - Round ${widget.roundToDisplay} games',
-                    leadingIconAvatar:
-                        avatarPic(widget.statsTipper, widget.roundToDisplay))
+                        '${widget.statsTipper.name} - Round ${widget.roundNumberToDisplay} games',
+                    leadingIconAvatar: avatarPic(
+                        widget.statsTipper, widget.roundNumberToDisplay))
                 : Text(
-                    '${widget.statsTipper.name} - Round ${widget.roundToDisplay} games'),
+                    '${widget.statsTipper.name} - Round ${widget.roundNumberToDisplay} games'),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -262,7 +266,7 @@ class _StatRoundGameScoresForTipperState
         .selectedDAUComp!
         .daurounds
         .firstWhere(
-            (element) => element.dAUroundNumber == widget.roundToDisplay);
+            (element) => element.dAUroundNumber == widget.roundNumberToDisplay);
 
     GameTipsViewModel gameTipsViewModel = GameTipsViewModel(
         widget.statsTipper,

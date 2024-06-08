@@ -91,8 +91,7 @@ class FirebaseMessagingService {
         if (now - tokenTimestamp > tokenExpirationDuaration) {
           prunedTokens.add('$tipperId/$tokenId');
         } else {
-          print(
-              'Token ending in ${tokenId.toString().substring(tokenId.toString().length - 5)} is still valid');
+          log('Token ending in ${tokenId.toString().substring(tokenId.toString().length - 5)} is still valid');
         }
       });
     });
@@ -133,9 +132,9 @@ class FirebaseMessagingService {
     );
 
     if (response.statusCode == 200) {
-      print('Notification sent successfully');
+      log('Notification sent successfully');
     } else {
-      print('Notification not sent');
+      log('Notification not sent');
       // If that call was not successful, throw an error.
       throw Exception('Failed to send notification: ${response.body}');
     }

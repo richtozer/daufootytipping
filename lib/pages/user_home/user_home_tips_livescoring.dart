@@ -4,13 +4,10 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:watch_it/watch_it.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 class LiveScoring extends StatelessWidget {
