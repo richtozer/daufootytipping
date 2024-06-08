@@ -1,9 +1,12 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 //TODO this code has issues on chome web app - add conditional code
 // to not use fixture services when running on web
@@ -11,15 +14,22 @@ import 'package:dio/dio.dart';
 class FixtureDownloadService {
   FixtureDownloadService();
 
-  Future<Map<String, List<dynamic>>> fetch(
-      Uri nrlFixtureJsonURL, Uri aflFixtureJsonURL) async {
+  Future<Map<String, List<dynamic>>> fetch(Uri nrlFixtureJsonURL,
+      Uri aflFixtureJsonURL, bool downloadOnSeparateThread) async {
     Map<String, dynamic> simpleDAUComp = {
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
     };
 
-    //Map<String, dynamic> result = await compute(fetchFixtures, simpleDAUComp); //TODO enable to run on backgrounf thread
-    Map<String, dynamic> result = await fetchFixtures(simpleDAUComp);
+    Map<String, dynamic> result;
+
+    if (!downloadOnSeparateThread) {
+      result = await fetchFixtures(simpleDAUComp);
+      log('Fixture data loaded on MAIN thread.');
+    } else {
+      result = await compute(fetchFixtures, simpleDAUComp);
+      log('Fixture data loaded on BACKGROUND thread.');
+    }
 
     if (result.containsKey('error')) {
       throw Exception(result['error']);

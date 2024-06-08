@@ -6,8 +6,8 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
 import 'package:googleapis_auth/googleapis_auth.dart';
@@ -168,36 +168,42 @@ class LegacyTippingService {
       DAUCompsViewModel daucompsViewModel,
       TipGame tipGame,
       DAURound dauRound) async {
-    await initialized();
+    try {
+      await initialized();
 
-    List<int> combinedRounds = [dauRound.dAUroundNumber];
+      String res = await _identifySyncChanges(
+          allTipsViewModel, daucompsViewModel, [dauRound], tipGame.tipper);
 
-    String res = await _identifySyncChanges(
-        allTipsViewModel, daucompsViewModel, combinedRounds, tipGame.tipper);
-
-    log(res);
-
-    return res;
+      return res;
+    } catch (e) {
+      log('Error syncing single tip to legacy: $e');
+      return 'Error syncing single tip to legacy: $e';
+    }
   }
 
 // method to sync tips to legacy tipping sheet
   Future<String> syncAllTipsToLegacy(TipsViewModel allTipsViewModel,
-      DAUCompsViewModel daucompsViewModel) async {
-    await initialized();
+      DAUCompsViewModel daucompsViewModel, Tipper? onlySyncThisTipper) async {
+    try {
+      await initialized();
 
-    List<int> combinedRounds =
-        await daucompsViewModel.getCombinedRoundNumbers();
+      List<DAURound> combinedRounds =
+          await daucompsViewModel.getCombinedRounds();
 
-    String res = await _identifySyncChanges(
-        allTipsViewModel, daucompsViewModel, combinedRounds, null);
+      String res = await _identifySyncChanges(allTipsViewModel,
+          daucompsViewModel, combinedRounds, onlySyncThisTipper);
 
-    return res;
+      return res;
+    } catch (e) {
+      log('Error syncing all tips to legacy: $e');
+      return 'Error syncing all tips to legacy: $e';
+    }
   }
 
   Future<String> _identifySyncChanges(
       TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel,
-      List<int> combinedRounds,
+      List<DAURound> syncTheseRounds,
       Tipper? onlySyncThisTipper) async {
     // List<String> templateDefaultTips =
     //     await _getDefaultTips(daucompsViewModel, combinedRounds);
@@ -221,18 +227,18 @@ class LegacyTippingService {
     int syncChanges = 0;
 
     // loop through the supplied combined rounds and get the tips for each round
-    for (int round in combinedRounds) {
+    for (DAURound syncThisRound in syncTheseRounds) {
       // get the default tips for this round
-      String templateDefaultTips =
-          await daucompsViewModel.getDefaultTipsForCombinedRoundNumber(round);
+      String templateDefaultTips = await daucompsViewModel
+          .getDefaultTipsForCombinedRoundNumber(syncThisRound);
       // for each tipper in the supplied list, get their tips for each round and create a GsheetAppTip object
       for (Tipper tipper in tippers) {
         bool res = await _syncChangesForRoundTipper(
             allTipsViewModel,
             daucompsViewModel,
-            combinedRounds,
+            syncTheseRounds,
             tipper,
-            round,
+            syncThisRound,
             templateDefaultTips);
         if (res) {
           syncChanges++;
@@ -246,9 +252,9 @@ class LegacyTippingService {
   Future<bool> _syncChangesForRoundTipper(
       TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel,
-      List<int> combinedRounds,
+      List<DAURound> combinedRounds,
       Tipper tipper,
-      int round,
+      DAURound round,
       String templateDefaultTips) async {
     DAUComp? daucomp = await daucompsViewModel.getCurrentDAUComp();
 
@@ -339,7 +345,7 @@ class LegacyTippingService {
   Future<GsheetAppTip?> _getAppTipsForRoundTipper(
       TipsViewModel allTipsViewModel,
       Tipper tipper,
-      int round,
+      DAURound round,
       DAUComp daucomp,
       String templateDefaultTips) async {
     String roundTips = templateDefaultTips;
@@ -347,8 +353,8 @@ class LegacyTippingService {
     List<TipGame?> tipGames =
         await allTipsViewModel.getTipsForRound(tipper, round, daucomp);
 
-    // as we loop through the tips, check if tips are from legacy, if they
-    // *all* are then ignore them and drop this update by returning an empty string
+    // as we loop through the tips, check if tips any are from legacy, if they
+    // *ALL* are then ignore them and drop this update by returning an empty string
 
     bool isAllLegacyTips = true;
     int appTipCount = 0;
@@ -357,24 +363,24 @@ class LegacyTippingService {
     DateTime maxFormSubmitTimestamp = DateTime(1970);
 
     for (TipGame? tipGame in tipGames) {
-      DAURound dauround = tipGame!.game.getDAURound(daucomp);
+      //DAURound dauround = tipGame!.game.getDAURound(daucomp);
 
-      if (tipGame.legacyTip == false) {
+      if (tipGame!.legacyTip == false) {
         isAllLegacyTips = false;
         appTipCount++;
         // is the submit time the latest for this round?
         if (tipGame.submittedTimeUTC.isAfter(maxFormSubmitTimestamp)) {
           maxFormSubmitTimestamp = tipGame.submittedTimeUTC;
         }
-        roundTips = _updateDefaultTipperData(roundTips, tipGame, dauround);
       }
-      roundTips = _updateDefaultTipperData(roundTips, tipGame, dauround);
+
+      roundTips = _updateLegacyTipsString(roundTips, tipGame, round);
     }
 
     if (!isAllLegacyTips) {
-      log('*** $appTipCount tips for ${tipper.name} in round $round are from the app.');
+      log('*** $appTipCount tips for ${tipper.name} in round ${round.dAUroundNumber} are from the app.');
       return GsheetAppTip(maxFormSubmitTimestamp.toLocal().toIso8601String(),
-          round, tipper.name, roundTips);
+          round.dAUroundNumber, tipper.name, roundTips);
     } else {
       // this round/tipper combination did not have any app tips, so return null
       //log('All tips for ${tipper.name} in round $round are from the legacy system, so skipping this round/tipper combination for sync');
@@ -382,62 +388,63 @@ class LegacyTippingService {
     }
   }
 
-  BatchUpdateSpreadsheetRequest _addHeaderRowData(
-      BatchUpdateSpreadsheetRequest differences, List<int> combinedRounds) {
-    RowData headerRowData = RowData();
+  // BatchUpdateSpreadsheetRequest _addHeaderRowData(
+  //     BatchUpdateSpreadsheetRequest differences, List<int> combinedRounds) {
+  //   RowData headerRowData = RowData();
 
-    // add cell data for these column headers: FormSubmitTimestamp	DAU Round	Name	Round Tips
-    headerRowData.values = [
-      CellData(
-          userEnteredValue: ExtendedValue(stringValue: 'FormSubmitTimestamp')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'DAU Round')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Name')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Round Tips')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Latest Tip')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Round result')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Margin Picks')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Margin UPS')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'NRL Score')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'AFL Score')),
-      CellData(userEnteredValue: ExtendedValue(stringValue: 'Total Score')),
+  //   // add cell data for these column headers: FormSubmitTimestamp	DAU Round	Name	Round Tips
+  //   headerRowData.values = [
+  //     CellData(
+  //         userEnteredValue: ExtendedValue(stringValue: 'FormSubmitTimestamp')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'DAU Round')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Name')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Round Tips')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Latest Tip')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Round result')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Margin Picks')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Margin UPS')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'NRL Score')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'AFL Score')),
+  //     CellData(userEnteredValue: ExtendedValue(stringValue: 'Total Score')),
 
-      //Latest Tip	Round result	Margin Picks	Margin UPS	NRL Score	AFL Score	Total Score
-    ];
+  //     //Latest Tip	Round result	Margin Picks	Margin UPS	NRL Score	AFL Score	Total Score
+  //   ];
 
-    differences.requests!.add(Request(
-        updateCells: UpdateCellsRequest(
-            fields: '*',
-            range: GridRange(
-              sheetId: appTipsSheet.id,
-              startRowIndex: 2,
-              endRowIndex: 3,
-              startColumnIndex: 0,
-              endColumnIndex: headerRowData.values!.length + 2,
-            ),
-            rows: [headerRowData])));
+  //   differences.requests!.add(Request(
+  //       updateCells: UpdateCellsRequest(
+  //           fields: '*',
+  //           range: GridRange(
+  //             sheetId: appTipsSheet.id,
+  //             startRowIndex: 2,
+  //             endRowIndex: 3,
+  //             startColumnIndex: 0,
+  //             endColumnIndex: headerRowData.values!.length + 2,
+  //           ),
+  //           rows: [headerRowData])));
 
-    return differences;
-  }
+  //   return differences;
+  // }
 
   //function to update the default tipper data with the new tip. Use the league and matchnumber to find the correct character to update
-  String _updateDefaultTipperData(
+  String _updateLegacyTipsString(
       String defaultRoundTips, TipGame tipGame, DAURound dauRound) {
-    if (tipGame.game.league == League.nrl) {
-      //figure out the offset to update based on the relative position of game in dauround.games list
-      // that is the offset to use to update the proposedGsheetTipChanges
-      int gameIndex = dauRound.games.indexOf(tipGame.game);
+    //figure out the offset to update based on the relative position of game in dauround.games list
+    // that is the offset to use to update the proposedGsheetTipChanges
+    int gameIndex = dauRound.games.indexOf(tipGame.game);
 
-      defaultRoundTips = defaultRoundTips.replaceRange(
-          gameIndex, gameIndex + 1, tipGame.tip.name);
-    } else {
-      //figure out the offset to update based on the relative position of game in dauround.games list
-      // that is the offset to use to update the proposedGsheetTipChanges
-      // add 8 to the offset to account for the fact that nrl tips go first in the string
-      int gameIndex = 8 + dauRound.games.indexOf(tipGame.game);
-
-      defaultRoundTips = defaultRoundTips.replaceRange(
-          gameIndex, gameIndex + 1, tipGame.tip.name);
+    // if the count of NRL games is less than 8, then we need to add the difference to
+    // any gameIndex when the game is for AFL
+    if (dauRound.games.where((game) => game.league == League.nrl).length < 8 &&
+        tipGame.game.league == League.afl) {
+      gameIndex +=
+          8 - dauRound.games.where((game) => game.league == League.nrl).length;
     }
+
+    // assert that gameindex is not -1
+    assert(gameIndex != -1);
+
+    defaultRoundTips = defaultRoundTips.replaceRange(
+        gameIndex, gameIndex + 1, tipGame.tip.name);
 
     return defaultRoundTips;
   }

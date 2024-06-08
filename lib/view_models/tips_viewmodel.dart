@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -191,7 +192,7 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   Future<List<TipGame?>> getTipsForRound(
-      Tipper tipper, int combinedRound, DAUComp daucomp) async {
+      Tipper tipper, DAURound combinedRound, DAUComp daucomp) async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
@@ -203,12 +204,8 @@ class TipsViewModel extends ChangeNotifier {
       return _tipGames.where((tipGame) {
         bool dbKeyCheck = tipGame?.tipper.dbkey == tipper.dbkey;
         bool roundNumberCheck =
-            tipGame?.game.getDAURound(daucomp).dAUroundNumber == combinedRound;
-
-        log('found tipper: ${tipGame!.tipper.name} round: ${tipGame.game.getDAURound(daucomp).dAUroundNumber}');
-
-        log('--dbKeyCheck: $dbKeyCheck');
-        log('--roundNumberCheck: $roundNumberCheck');
+            tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
+                combinedRound.dAUroundNumber;
 
         return dbKeyCheck && roundNumberCheck;
       }).toList();
@@ -217,7 +214,7 @@ class TipsViewModel extends ChangeNotifier {
           .where((tipGame) =>
               tipGame?.tipper.tipperID == tipper.tipperID &&
               tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
-                  combinedRound)
+                  combinedRound.dAUroundNumber)
           .toList();
     }
   }

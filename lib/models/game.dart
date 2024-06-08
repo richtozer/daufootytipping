@@ -111,7 +111,12 @@ class Game implements Comparable<Game> {
   @override
   // method used to provide default sort for Games in a List[]
   int compareTo(Game other) {
-    return startTimeUTC
-        .compareTo(other.startTimeUTC); //sort by the Game start time
+    // sort by league decending i.e. NRL first, and then by match number
+    // this is to support legacy round sorting
+    if (league == other.league) {
+      return matchNumber.compareTo(other.matchNumber);
+    } else {
+      return league.index.compareTo(other.league.index);
+    }
   }
 }

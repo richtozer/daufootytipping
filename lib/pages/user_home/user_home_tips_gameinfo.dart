@@ -1,7 +1,7 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 
 class GameInfo extends StatelessWidget {
   const GameInfo(this.game, this.gameTipsViewModel, {super.key});

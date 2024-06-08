@@ -1,8 +1,8 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
@@ -12,9 +12,9 @@ import 'package:watch_it/watch_it.dart';
 
 class StatRoundLeaderboard extends StatefulWidget {
   //constructor
-  StatRoundLeaderboard(this.roundToDisplay, {super.key});
+  StatRoundLeaderboard(this.roundNumberToDisplay, {super.key});
 
-  int roundToDisplay;
+  int roundNumberToDisplay;
 
   @override
   State<StatRoundLeaderboard> createState() => _StatRoundLeaderboardState();
@@ -52,7 +52,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   void getConsolidatedScoresForRoundLeaderboard() {
     for (var tipper in scoresViewModel.allTipperRoundScores.keys) {
       roundLeaderboard[tipper] = scoresViewModel
-          .allTipperRoundScores[tipper]![widget.roundToDisplay - 1];
+          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1];
     }
   }
 
@@ -65,7 +65,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           return buildScaffold(
             context,
             scoresViewModelConsumer,
-            'Round ${widget.roundToDisplay} Leaderboard',
+            'Round ${widget.roundNumberToDisplay} Leaderboard',
             Colors.blue,
           );
         },
@@ -94,13 +94,13 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           children: [
             orientation == Orientation.portrait
                 ? HeaderWidget(
-                    text: 'Round ${widget.roundToDisplay} Leaderboard',
+                    text: 'Round ${widget.roundNumberToDisplay} Leaderboard',
                     leadingIconAvatar: const Hero(
                         tag: 'one_two_three',
                         child: Icon(Icons.onetwothree,
                             color: Colors.white, size: 50)),
                   )
-                : Text('Round ${widget.roundToDisplay} Leaderboard'),
+                : Text('Round ${widget.roundNumberToDisplay} Leaderboard'),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),
@@ -138,7 +138,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                     Icons.arrow_forward,
                                     size: 15,
                                   ),
-                                  avatarPic(entry.key, widget.roundToDisplay),
+                                  avatarPic(
+                                      entry.key, widget.roundNumberToDisplay),
                                   Expanded(
                                     child: Text(
                                       entry.key.name,
@@ -151,8 +152,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) =>
-                                        StatRoundGameScoresForTipper(
-                                            entry.key, widget.roundToDisplay)));
+                                        StatRoundGameScoresForTipper(entry.key,
+                                            widget.roundNumberToDisplay)));
                           }),
                           DataCell(Text(entry.value.rank.toString())),
                           DataCell(Text(
