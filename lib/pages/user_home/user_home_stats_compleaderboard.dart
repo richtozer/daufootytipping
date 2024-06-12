@@ -36,8 +36,6 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   @override
   void initState() {
     super.initState();
-    //scoresViewModel =
-    //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     scoresViewModel = di<ScoresViewModel>();
     scoresViewModel.updateLeaderboardForComp();
   }
@@ -127,6 +125,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                             .leaderboard[index].tipper),
                                         Expanded(
                                           child: Text(
+                                            softWrap: false,
                                             scoresViewModelConsumer
                                                 .leaderboard[index].tipper.name,
                                             overflow: TextOverflow.fade,

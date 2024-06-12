@@ -90,9 +90,9 @@ class TipsPageState extends State<TipsPage> {
                 } else {
                   DAUComp? dauCompWithScores = snapshot.data;
 
+                  //TODO enable this
                   int latestRoundNumber = dauCompWithScores!
                       .getHighestRoundNumberWithAllGamesPlayed();
-
                   log('TipsPageBody.build() latestRoundNumber: $latestRoundNumber');
 
                   return Theme(
@@ -323,7 +323,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
 
     //get all the games for this round
     Future<Map<League, List<Game>>> gamesForCombinedRoundNumber =
-        daucompsViewModel.getGamesForCombinedRound(
+        daucompsViewModel.sortGamesIntoLeagues(
             widget.dauRound, di<GamesViewModel>());
 
     //get all the games for this round and league

@@ -65,14 +65,14 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         backgroundColor: Colors.green,
                         content: Text(res),
-                        duration: const Duration(seconds: 10),
+                        duration: const Duration(seconds: 4),
                       ));
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: Colors.red,
                           content: Text('An error occurred: $e'),
-                          duration: const Duration(seconds: 10),
+                          duration: const Duration(seconds: 4),
                         ),
                       );
                     }

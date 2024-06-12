@@ -29,7 +29,7 @@ class GameInfo extends StatelessWidget {
               Flexible(
                 child: Text(
                   gameTipsViewModel.game.location,
-                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
 

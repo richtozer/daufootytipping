@@ -12,6 +12,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
 import 'package:googleapis_auth/googleapis_auth.dart';
 import 'package:gsheets/gsheets.dart';
+import 'package:watch_it/watch_it.dart';
 
 /* 
 https://itnext.io/dart-working-with-google-sheets-793ed322daa0
@@ -109,9 +110,9 @@ class LegacyTippingService {
               4], //this is the primary key to support lecacy tipping service
           tipperRole: row[2] == 'Admin' ? TipperRole.admin : TipperRole.tipper,
           compsParticipatedIn: [
-            //auto assign all new tippers created in sheet this year to the current comp
+            //auto assign all new tippers created in sheet this year, to the current comp
             DAUComp(
-                dbkey: '-Nk88l-ww9pYF1j_jUq7', //TODO remove hard coding
+                dbkey: di<DAUCompsViewModel>().selectedDAUComp!.dbkey,
                 name:
                     'blah', //dummy data ok here, because this object is not saved anywhere, we just need it for the current comp key
                 aflFixtureJsonURL: Uri.parse(

@@ -396,8 +396,6 @@ class TippersViewModel extends ChangeNotifier {
         if (!kIsWeb) {
           await registerLinkedTipperForMessaging();
         }
-
-        //TODO init an instance of ScoresViewModel focusing on their scores here?
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
 
@@ -456,18 +454,10 @@ class TippersViewModel extends ChangeNotifier {
     await firebaseService.initialLoadComplete;
     String? token = firebaseService.fbmToken;
 
-    // write the token to the database using the token as the the path
-    // update the timestamp if the token already exists
-
-    if (token == null) {
-      log('registerLinkedTipperForMessaging() Token is null, cannot register for messaging');
-      return;
-    }
-
     _db
         .child(tokensPath)
         .child(_authenticatedTipper!.dbkey!)
-        .update({token: DateTime.now().toIso8601String()});
+        .update({token!: DateTime.now().toIso8601String()});
 
     log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${token.substring(token.length - 5)}');
   }

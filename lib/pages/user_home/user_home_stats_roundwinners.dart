@@ -151,7 +151,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                       children: [
                                         avatarPic(
                                             winner.tipper, winner.roundNumber),
-                                        Text(winner.tipper.name.toString()),
+                                        Text(
+                                            softWrap: false,
+                                            winner.tipper.name.toString()),
                                       ],
                                     ),
                                   ),
@@ -161,45 +163,63 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                 },
                               ),
                               DataCell(
-                                CellContents(
-                                    currentColor: currentColor,
-                                    cellText: winner.total.toString()),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                CellContents(
-                                    currentColor: currentColor,
-                                    cellText: winner.nRL.toString()),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                CellContents(
-                                    currentColor: currentColor,
-                                    cellText: winner.aFL.toString()),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                CellContents(
-                                  currentColor: currentColor,
-                                  cellText:
-                                      (winner.aflMargins + winner.nrlMargins)
-                                          .toString(),
+                                SizedBox.expand(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    color: currentColor,
+                                    child: Text(winner.total.toString()),
+                                  ),
                                 ),
                                 onTap: () {
                                   onRowTapped(context, winner);
                                 },
                               ),
                               DataCell(
-                                CellContents(
-                                  currentColor: currentColor,
-                                  cellText: (winner.aflUPS + winner.nrlUPS)
-                                      .toString(),
+                                SizedBox.expand(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    color: currentColor,
+                                    child: Text(winner.nRL.toString()),
+                                  ),
+                                ),
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                SizedBox.expand(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    color: currentColor,
+                                    child: Text(winner.aFL.toString()),
+                                  ),
+                                ),
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                SizedBox.expand(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    color: currentColor,
+                                    child: Text(
+                                        (winner.aflMargins + winner.nrlMargins)
+                                            .toString()),
+                                  ),
+                                ),
+                                onTap: () {
+                                  onRowTapped(context, winner);
+                                },
+                              ),
+                              DataCell(
+                                SizedBox.expand(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    color: currentColor,
+                                    child: Text((winner.aflUPS + winner.nrlUPS)
+                                        .toString()),
+                                  ),
                                 ),
                                 onTap: () {
                                   onRowTapped(context, winner);
