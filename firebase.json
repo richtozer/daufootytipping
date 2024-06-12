@@ -22,6 +22,7 @@
   },
   "functions": [
     {
+      "runtime": "nodejs18",
       "source": "functions",
       "codebase": "default",
       "ignore": [

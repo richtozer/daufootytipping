@@ -158,7 +158,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                 SnackBar(
                   backgroundColor: Colors.green,
                   content: Text(syncResult),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -169,7 +169,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   backgroundColor: Colors.red,
                   content:
                       Text('An error occurred during the leagcy tip sync: $e'),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }

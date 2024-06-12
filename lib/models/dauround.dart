@@ -31,6 +31,7 @@ class DAURound implements Comparable<DAURound> {
     required this.roundEndDate,
     this.adminOverrideRoundStartDate,
     this.adminOverrideRoundEndDate,
+    this.games = const [],
   });
 
   // method to serialize DAURound to JSON
@@ -108,4 +109,23 @@ class DAURound implements Comparable<DAURound> {
   int compareTo(DAURound other) {
     return dAUroundNumber.compareTo(other.dAUroundNumber);
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DAURound &&
+        other.dAUroundNumber == dAUroundNumber &&
+        other.roundStartDate == roundStartDate &&
+        other.roundEndDate == roundEndDate &&
+        other.adminOverrideRoundStartDate == adminOverrideRoundStartDate &&
+        other.adminOverrideRoundEndDate == adminOverrideRoundEndDate;
+  }
+
+  @override
+  int get hashCode =>
+      dAUroundNumber.hashCode ^
+      roundStartDate.hashCode ^
+      roundEndDate.hashCode ^
+      adminOverrideRoundStartDate.hashCode ^
+      adminOverrideRoundEndDate.hashCode;
 }

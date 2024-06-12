@@ -47,13 +47,13 @@ class GameTipsViewModel extends ChangeNotifier {
     this.allTipsViewModel,
     this.dauRound,
   ) {
-    log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
+    //log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
 
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
 
-    scoresViewModel = di<ScoresViewModel>();
-    scoresViewModel.addListener(update);
+    // scoresViewModel = di<ScoresViewModel>();
+    // scoresViewModel.addListener(update);
 
     _findTip();
     gameStartedTrigger();

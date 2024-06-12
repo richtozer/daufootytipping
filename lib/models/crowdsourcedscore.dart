@@ -1,12 +1,12 @@
 class CrowdSourcedScore {
-  DateTime submittedTimeUTC;
-  String tipperID;
-  ScoringTeam scoreTeam;
-  int interimScore;
-  bool gameComplete;
+  final DateTime submittedTimeUTC;
+  final String tipperID;
+  final ScoringTeam scoreTeam;
+  final int interimScore;
+  final bool gameComplete;
 
   //constructor
-  CrowdSourcedScore(this.submittedTimeUTC, this.scoreTeam, this.tipperID,
+  const CrowdSourcedScore(this.submittedTimeUTC, this.scoreTeam, this.tipperID,
       this.interimScore, this.gameComplete);
 
   //tojson method

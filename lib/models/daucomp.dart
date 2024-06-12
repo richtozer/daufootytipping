@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -10,7 +11,7 @@ class DAUComp implements Comparable<DAUComp> {
   final String name;
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
-  final List<DAURound> daurounds;
+  List<DAURound> daurounds;
   final bool active;
   CompScore? consolidatedCompScores;
   DateTime? lastFixtureUpdateTimestamp;
@@ -28,7 +29,8 @@ class DAUComp implements Comparable<DAUComp> {
 
   // method to return the highest round number, where DAURound.RoundState is allGamesEnded
   int getHighestRoundNumberWithAllGamesPlayed() {
-    int highestRoundNumber = 0;
+    int highestRoundNumber = 1;
+
     for (var dauround in daurounds) {
       if (dauround.roundState == RoundState.allGamesEnded) {
         if (dauround.dAUroundNumber > highestRoundNumber) {
@@ -90,5 +92,30 @@ class DAUComp implements Comparable<DAUComp> {
   // method used to provide default sort for DAUComp(s) in a List[]
   int compareTo(DAUComp other) {
     return name.compareTo(other.name);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is DAUComp &&
+        other.dbkey == dbkey &&
+        other.name == name &&
+        other.aflFixtureJsonURL == aflFixtureJsonURL &&
+        other.nrlFixtureJsonURL == nrlFixtureJsonURL &&
+        other.active == active &&
+        other.lastFixtureUpdateTimestamp == lastFixtureUpdateTimestamp &&
+        const ListEquality().equals(other.daurounds, daurounds);
+  }
+
+  @override
+  int get hashCode {
+    return dbkey.hashCode ^
+        active.hashCode ^
+        name.hashCode ^
+        aflFixtureJsonURL.hashCode ^
+        nrlFixtureJsonURL.hashCode ^
+        lastFixtureUpdateTimestamp.hashCode ^
+        daurounds.hashCode;
   }
 }

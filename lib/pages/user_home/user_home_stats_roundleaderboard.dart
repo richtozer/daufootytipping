@@ -52,7 +52,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   void getConsolidatedScoresForRoundLeaderboard() {
     for (var tipper in scoresViewModel.allTipperRoundScores.keys) {
       roundLeaderboard[tipper] = scoresViewModel
-          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1];
+          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1]!;
     }
   }
 

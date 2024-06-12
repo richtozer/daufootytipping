@@ -76,7 +76,7 @@ extension GameResultString on GameResult {
 class Scoring {
   int? homeTeamScore; // will be null until official score is downloaded
   int? awayTeamScore; // will be null until official score is downloaded
-  List<CrowdSourcedScore>? croudSourcedScores; //TODO make this final
+  List<CrowdSourcedScore>? croudSourcedScores;
 
   //constructor
   Scoring({

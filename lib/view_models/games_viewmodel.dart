@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -27,6 +28,8 @@ class GamesViewModel extends ChangeNotifier {
 
   DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
+
+  final List<DAURound> _roundsThatNeedScoringUpdate = [];
 
   // Getters
   //List<Game> get games => _games;
@@ -100,17 +103,21 @@ class GamesViewModel extends ChangeNotifier {
         _games = gamesList;
         _games.sort();
         log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
+
+        // Now that we have all the games from db
+        // call linkGamesWithRounds() to link the games with the rounds
+        // and notify listeners
+        di<DAUCompsViewModel>().linkGameWithRounds(selectedDAUComp, this);
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
+      if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
+      notifyListeners();
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
-      rethrow;
-    } finally {
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
+      if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
       notifyListeners();
+      rethrow;
     }
   }
 
@@ -119,8 +126,6 @@ class GamesViewModel extends ChangeNotifier {
   Future<void> updateGameAttribute(String gameDbKey, String attributeName,
       dynamic attributeValue, String league) async {
     await _initialLoadCompleter.future;
-
-    bool flagScoresUpdated = false;
 
     //make sure the related team records exist
     if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
@@ -142,7 +147,13 @@ class GamesViewModel extends ChangeNotifier {
             attributeValue;
         if (attributeName == 'HomeTeamScore' ||
             attributeName == 'AwayTeamScore') {
-          flagScoresUpdated = true;
+          // the score has changed, add the round to the list of rounds that need scoring updates
+          // avoid adding duplicate rounds
+          if (!_roundsThatNeedScoringUpdate
+              .contains(gameToUpdate.getDAURound(selectedDAUComp))) {
+            _roundsThatNeedScoringUpdate
+                .add(gameToUpdate.getDAURound(selectedDAUComp));
+          }
         }
       }
     } else {
@@ -151,22 +162,26 @@ class GamesViewModel extends ChangeNotifier {
       updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
           attributeValue;
     }
-
-    // if the scores have been updated, we need to update scoring
-    if (flagScoresUpdated) {
-      // String result = await di<DAUCompsViewModel>()
-      //     .updateScoring(selectedDAUComp, null, linkedDauRound); // TODO updating scores for only a single round - does not work
-      String result = await di<ScoresViewModel>()
-          .calculateScoring(selectedDAUComp, null, null);
-
-      log('updateScoring result: $result');
-    }
   }
 
   Future<void> saveBatchOfGameAttributes() async {
     try {
       await initialLoadComplete;
+      // turn off listeners
+      _gamesStream.cancel();
       await _db.update(updates);
+      // turn listeners back on
+      _listenToGames();
+
+      // if any game scores have changes, the round will be flagged for scoring
+      // update in List<DAURound> _roundsThatNeedScoringUpdate
+      // update the round scores then remove the round from the list
+      for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
+        await di<ScoresViewModel>()
+            .updateScoring(selectedDAUComp, null, dauRound);
+      }
+      // clear the list
+      _roundsThatNeedScoringUpdate.clear();
     } finally {
       _savingGame = false;
       notifyListeners();

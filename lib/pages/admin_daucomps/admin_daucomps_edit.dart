@@ -56,10 +56,6 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             daurounds: [],
           );
 
-          // turn off the listener for daucompsmodel, as we are going to update the
-          // database in multiple goes
-          await dauCompsViewModel.turnOffListener();
-
           await dauCompsViewModel.newDAUComp(updatedDUAcomp);
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
@@ -67,11 +63,17 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           if (daucomp == null) {
             // as this is a new daucomp record, download the fixture data and process
             // the games in rounds and save them to the database
-            await dauCompsViewModel.getNetworkFixtureData(updatedDUAcomp, null);
+            String res = await dauCompsViewModel.getNetworkFixtureData(
+                updatedDUAcomp, null);
+            // snackbar to show the result of the fixture download
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: League.afl.colour,
+                content: Text(res),
+                duration: const Duration(seconds: 4),
+              ),
+            );
           }
-
-          // turn the listener back on
-          await dauCompsViewModel.turnOnListener();
         } else {
           // this is an existing record
           dauCompsViewModel.updateCompAttribute(
@@ -325,6 +327,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                     children: [
                       Expanded(
                         child: TextFormField(
+                          style: const TextStyle(fontSize: 14),
                           enabled: !disableBackButton,
                           decoration: const InputDecoration(
                             hintText: 'enter URL here',
@@ -362,6 +365,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                     children: [
                       Expanded(
                         child: TextFormField(
+                          style: const TextStyle(fontSize: 14),
                           enabled: !disableBackButton,
                           decoration: const InputDecoration(
                             hintText: 'enter URL here',
@@ -396,7 +400,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   if (daucomp != null)
                     const Text('Round details:',
                         style: TextStyle(fontWeight: FontWeight.bold)),
-                  if (daucomp != null) const SizedBox(height: 20.0),
+
                   // add a table with the round data laid out in rows. column 1 is the round number
                   // column 2 is the start date, column 3 is the end date
                   // the dates are edititable, with changes to the dates enabling the save button
@@ -417,19 +421,41 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                         const TableRow(
                           children: [
                             TableCell(
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.bottom,
                               child: Text('#'),
                             ),
                             TableCell(
-                              child: Text('Start Date'),
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.bottom,
+                              child: Center(
+                                child: Text('First Game',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
                             ),
                             TableCell(
-                              child: Text('End Date'),
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.bottom,
+                              child: Center(
+                                child: Text('Last Game',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
                             ),
                             TableCell(
-                              child: Text('# NRL'),
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.bottom,
+                              child: Text('# NRL',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                             ),
                             TableCell(
-                              child: Text('# AFL'),
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.bottom,
+                              child: Text('# AFL',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),
@@ -437,13 +463,16 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           TableRow(
                             children: [
                               TableCell(
+                                verticalAlignment:
+                                    TableCellVerticalAlignment.middle,
                                 child: Text(round.dAUroundNumber.toString()),
                               ),
                               TableCell(
                                 child: TextFormField(
+                                  style: const TextStyle(fontSize: 14),
                                   enabled: !disableBackButton,
                                   initialValue:
-                                      '${DateFormat('dd-MMM').format(round.roundStartDate.toLocal())} ${DateFormat('HH:mm').format(round.roundStartDate.toLocal())}',
+                                      '${DateFormat('E d/M').format(round.roundStartDate.toLocal())} ${DateFormat('h:mm a').format(round.roundStartDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
                                   onTap: () async {
                                     FocusScope.of(context).requestFocus(
                                         FocusNode()); // to prevent opening of the keyboard
@@ -453,32 +482,27 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                                       firstDate: DateTime(2000),
                                       lastDate: DateTime(2100),
                                     );
-                                    if (date != null) {
-                                      TimeOfDay? time = await showTimePicker(
-                                        context: context,
-                                        initialTime: TimeOfDay.fromDateTime(
-                                            round.roundStartDate),
-                                      );
-                                      if (time != null) {
-                                        round.adminOverrideRoundStartDate =
-                                            DateTime(
-                                                date.year,
-                                                date.month,
-                                                date.day,
-                                                time.hour,
-                                                time.minute);
-                                        // Enable the save button
-                                        disableSaves = false;
-                                      }
+                                    TimeOfDay? time = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.fromDateTime(
+                                          round.roundStartDate),
+                                    );
+                                    if (time != null) {
+                                      round.adminOverrideRoundStartDate =
+                                          DateTime(date!.year, date.month,
+                                              date.day, time.hour, time.minute);
+                                      // Enable the save button
+                                      disableSaves = false;
                                     }
                                   },
                                 ),
                               ),
                               TableCell(
                                 child: TextFormField(
+                                  style: const TextStyle(fontSize: 14),
                                   enabled: !disableBackButton,
                                   initialValue:
-                                      '${DateFormat('dd-MMM').format(round.roundEndDate.toLocal())} ${DateFormat('HH:mm').format(round.roundEndDate.toLocal())}',
+                                      '${DateFormat('E d/M').format(round.roundEndDate.toLocal())} ${DateFormat('h:mm a').format(round.roundEndDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
                                   onTap: () async {
                                     FocusScope.of(context).requestFocus(
                                         FocusNode()); // to prevent opening of the keyboard
@@ -488,34 +512,32 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                                       firstDate: DateTime(2000),
                                       lastDate: DateTime(2100),
                                     );
-                                    if (date != null) {
-                                      TimeOfDay? time = await showTimePicker(
-                                        context: context,
-                                        initialTime: TimeOfDay.fromDateTime(
-                                            round.roundEndDate),
-                                      );
-                                      if (time != null) {
-                                        round.adminOverrideRoundEndDate =
-                                            DateTime(
-                                                date.year,
-                                                date.month,
-                                                date.day,
-                                                time.hour,
-                                                time.minute);
-                                        // Enable the save button
-                                        disableSaves = false;
-                                      }
+                                    TimeOfDay? time = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.fromDateTime(
+                                          round.roundEndDate),
+                                    );
+                                    if (time != null) {
+                                      round.adminOverrideRoundEndDate =
+                                          DateTime(date!.year, date.month,
+                                              date.day, time.hour, time.minute);
+                                      // Enable the save button
+                                      disableSaves = false;
                                     }
                                   },
                                 ),
                               ),
                               TableCell(
+                                verticalAlignment:
+                                    TableCellVerticalAlignment.middle,
                                 child: Text(round.games
                                     .where((game) => game.league == League.nrl)
                                     .length
                                     .toString()),
                               ),
                               TableCell(
+                                verticalAlignment:
+                                    TableCellVerticalAlignment.middle,
                                 child: Text(round.games
                                     .where((game) => game.league == League.afl)
                                     .length
@@ -556,7 +578,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                 SnackBar(
                   backgroundColor: League.nrl.colour,
                   content: Text(result),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -567,7 +589,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   backgroundColor: League.afl.colour,
                   content:
                       Text('An error occurred during fixture download: $e'),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -619,7 +641,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                 SnackBar(
                   backgroundColor: Colors.green,
                   content: Text(syncResult),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -630,7 +652,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   backgroundColor: Colors.red,
                   content:
                       Text('An error occurred during the leagcy tip sync: $e'),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -661,13 +683,13 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           // ...if not, initiate the sync
           try {
             String syncResult =
-                await scoresViewModel.calculateScoring(daucomp!, null, null);
+                await scoresViewModel.updateScoring(daucomp!, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: Colors.green,
                   content: Text(syncResult),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -678,13 +700,13 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   backgroundColor: Colors.red,
                   content:
                       Text('An error occurred during scoring calculation: $e'),
-                  duration: const Duration(seconds: 10),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
           }
         },
-        child: Text(!scoresViewModel.isScoring ? 'Score' : 'Scoring...'),
+        child: Text(!scoresViewModel.isScoring ? 'Full Rescore' : 'Scoring...'),
       );
     }
   }

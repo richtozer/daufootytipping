@@ -54,7 +54,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
           children: const [
             TableRow(children: [
               Text(
-                'Edit Live Scoring',
+                'Enter final or\ninterim score',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
               ),
@@ -63,7 +63,6 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
         ),
         // 2
         Container(
-          //width: 300,
           padding: const EdgeInsets.all(10.0),
           child: Table(
             defaultColumnWidth: const FlexColumnWidth(1.0),
@@ -91,8 +90,13 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                       : null,
                 ),
                 const Center(
-                    child: Text('◀Select▶︎',
-                        style: TextStyle(fontWeight: FontWeight.w900))),
+                    child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.arrow_back, size: 30),
+                    Icon(Icons.arrow_forward, size: 30)
+                  ],
+                )),
                 _buildElevatedButton(
                     widget.tipGame.game.awayTeam.name, awayScore, () {
                   setState(() {
@@ -109,7 +113,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
             ],
           ),
         ),
-        const Text('Enter latest score:',
+        const Text('Enter score:',
             style: TextStyle(fontWeight: FontWeight.w900)),
         // 3 - keypad
         Container(
@@ -195,6 +199,15 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                         ScoringTeam.home,
                                         di<DAUCompsViewModel>()
                                             .selectedDAUComp!);
+
+                                    if (awayScore == '0') {
+                                      // In this case we need to write a default score of 0 so that the interim result is not 'No Result'
+                                      liveScoreUpdated(
+                                          awayScore,
+                                          ScoringTeam.away,
+                                          di<DAUCompsViewModel>()
+                                              .selectedDAUComp!);
+                                    }
                                   }
                                   // if away score changed then update the away score
                                   if (awayScore != originalAwayScore) {
@@ -203,7 +216,24 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                         ScoringTeam.away,
                                         di<DAUCompsViewModel>()
                                             .selectedDAUComp!);
+
+                                    if (homeScore == '0') {
+                                      // In this case we need to write a default score of 0 so that the interim result is not 'No Result'
+                                      liveScoreUpdated(
+                                          homeScore,
+                                          ScoringTeam.home,
+                                          di<DAUCompsViewModel>()
+                                              .selectedDAUComp!);
+                                    }
                                   }
+
+                                  // update the scoring for the game's round asynchronously to avoid blocking UI
+                                  di<ScoresViewModel>().updateScoring(
+                                      di<DAUCompsViewModel>().selectedDAUComp!,
+                                      null,
+                                      widget.tipGame.game.getDAURound(
+                                          di<DAUCompsViewModel>()
+                                              .selectedDAUComp!));
 
                                   // close the modal
                                   Navigator.pop(context);

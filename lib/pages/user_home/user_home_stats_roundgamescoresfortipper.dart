@@ -54,7 +54,7 @@ class _StatRoundGameScoresForTipperState
     DAURound roundToDisplay = dauCompsViewModel
         .selectedDAUComp!.daurounds[widget.roundNumberToDisplay - 1];
 
-    gamesFuture = dauCompsViewModel.getGamesForCombinedRound(
+    gamesFuture = dauCompsViewModel.sortGamesIntoLeagues(
         roundToDisplay, di<GamesViewModel>());
   }
 
@@ -112,11 +112,11 @@ class _StatRoundGameScoresForTipperState
             orientation == Orientation.portrait
                 ? HeaderWidget(
                     text:
-                        '${widget.statsTipper.name} - Round ${widget.roundNumberToDisplay} games',
+                        'Round ${widget.roundNumberToDisplay} games\n${widget.statsTipper.name}',
                     leadingIconAvatar: avatarPic(
                         widget.statsTipper, widget.roundNumberToDisplay))
                 : Text(
-                    '${widget.statsTipper.name} - Round ${widget.roundNumberToDisplay} games'),
+                    'Round ${widget.roundNumberToDisplay} games${widget.statsTipper.name}\n'),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -296,15 +296,9 @@ class _StatRoundGameScoresForTipperState
           ),
         ),
         DataCell(
-          Text(
-            games[index].league == League.afl
-                ? gameTipsViewModel.game.scoring!
-                    .getGameResultCalculated(games[index].league)
-                    .afl
-                : gameTipsViewModel.game.scoring!
-                    .getGameResultCalculated(games[index].league)
-                    .nrl,
-          ),
+          Text(games[index].league == League.afl
+              ? '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).afl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})'
+              : '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).nrl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})'),
         ),
         DataCell(
           FutureBuilder<TipGame?>(
@@ -314,16 +308,17 @@ class _StatRoundGameScoresForTipperState
                 return const Text('loading..');
               } else {
                 return Text(snapshot.data?.game.league == League.afl
-                    ? snapshot.data?.tip.afl ?? 'No data'
-                    : snapshot.data?.tip.nrl ?? 'No data');
+                    ? '${snapshot.data?.tip.afl} (${snapshot.data?.tip.name})' ??
+                        'No data'
+                    : '${snapshot.data?.tip.nrl} (${snapshot.data?.tip.name})' ??
+                        'No data');
               }
             },
           ),
         ),
         DataCell(
           FutureBuilder<TipGame?>(
-            future: gameTipsViewModel
-                .gettip(), // Replace with your method that returns Future<TipGame>
+            future: gameTipsViewModel.gettip(),
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
@@ -336,8 +331,7 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           FutureBuilder<TipGame?>(
-            future: gameTipsViewModel
-                .gettip(), // Replace with your method that returns Future<TipGame>
+            future: gameTipsViewModel.gettip(),
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');

@@ -72,9 +72,9 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
           children: [
             orientation == Orientation.portrait
                 ? HeaderWidget(
-                    text: '${widget.statsTipper.name} - Round scores',
+                    text: 'Round scores\n${widget.statsTipper.name}',
                     leadingIconAvatar: avatarPic(widget.statsTipper))
-                : Text('${widget.statsTipper.name} - Round scores'),
+                : Text('Round scores\n${widget.statsTipper.name}'),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),

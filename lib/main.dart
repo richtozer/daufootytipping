@@ -109,8 +109,7 @@ Future<void> main() async {
   // register GamesViewModel for later use
   di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
 
-  di.registerLazySingleton<ScoresViewModel>(
-      () => ScoresViewModel(dAUComp!.dbkey!));
+  di.registerLazySingleton<ScoresViewModel>(() => ScoresViewModel(dAUComp!));
 
   // register TipsViewModel for later use
   di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
