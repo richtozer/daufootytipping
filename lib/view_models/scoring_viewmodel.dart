@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
@@ -59,9 +60,6 @@ class ScoresViewModel extends ChangeNotifier {
 
   Map<int, List<RoundWinnerEntry>> _roundWinners = {};
   Map<int, List<RoundWinnerEntry>> get roundWinners => _roundWinners;
-
-  // Cache for findTip results
-  final Map<String, TipGame?> _tipCache = {};
 
   // Constructor
   ScoresViewModel(this.currentDAUComp) {
@@ -575,7 +573,16 @@ class ScoresViewModel extends ChangeNotifier {
     }
 
     if (_allTipperRoundScores.containsKey(tipper)) {
-      return _allTipperRoundScores[tipper]!;
+      // return the scores for each round, exclude rounds that have not been played yet
+      // use getHighestRoundNumberWithAllGamesPlayed to determine the last round with all games played
+      // then use that as an index to only return first n rounds in List<RoundScores>
+      int latestRoundNumber = di<DAUCompsViewModel>()
+          .selectedDAUComp!
+          .getHighestRoundNumberWithAllGamesPlayed();
+
+      return _allTipperRoundScores[tipper]!.sublist(0, latestRoundNumber);
+
+      //return _allTipperRoundScores[tipper]!;
     } else {
       return [];
     }
@@ -589,6 +596,7 @@ class ScoresViewModel extends ChangeNotifier {
 
     if (_allTipperRoundScores[tipper] == null) {
       return RoundScores(
+        roundNumber: round.dAUroundNumber,
         rank: 0,
         rankChange: 0,
         aflScore: 0,
@@ -604,6 +612,7 @@ class ScoresViewModel extends ChangeNotifier {
 
     if (_allTipperRoundScores[tipper]!.length < round.dAUroundNumber) {
       return RoundScores(
+        roundNumber: round.dAUroundNumber,
         rank: 0,
         rankChange: 0,
         aflScore: 0,
@@ -704,6 +713,7 @@ class ScoresViewModel extends ChangeNotifier {
     scoringTipperRoundTotals[tipperToScore.dbkey!] = List.filled(
         currentDAUComp.daurounds.length,
         RoundScores(
+          roundNumber: 0,
           rank: 0,
           rankChange: 0,
           aflScore: 0,
@@ -746,6 +756,7 @@ class ScoresViewModel extends ChangeNotifier {
     }
 
     scoringTipperRoundTotals[tipperToScore.dbkey]![roundIndex] = RoundScores(
+      roundNumber: dauRound.dAUroundNumber,
       aflScore: 0,
       aflMaxScore: 0,
       aflMarginTips: 0,
@@ -759,8 +770,7 @@ class ScoresViewModel extends ChangeNotifier {
     );
 
     for (var game in dauRound.games) {
-      TipGame? tipGame =
-          await _findTipWithCache(allTipsViewModel, game, tipperToScore);
+      TipGame? tipGame = await allTipsViewModel.findTip(game, tipperToScore);
 
       if (tipGame == null) {
         continue;
@@ -835,17 +845,6 @@ class ScoresViewModel extends ChangeNotifier {
         }
       }
     }
-  }
-
-  Future<TipGame?> _findTipWithCache(
-      TipsViewModel tipsViewModel, Game game, Tipper tipper) async {
-    final cacheKey = '${game.dbkey}-${tipper.dbkey}';
-    if (_tipCache.containsKey(cacheKey)) {
-      return _tipCache[cacheKey];
-    }
-    final tipGame = await tipsViewModel.findTip(game, tipper);
-    _tipCache[cacheKey] = tipGame;
-    return tipGame;
   }
 
   void _rankTippers(Map<String, List<RoundScores>> scoringTipperRoundTotals,

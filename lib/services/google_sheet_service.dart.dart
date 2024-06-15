@@ -3,10 +3,13 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
@@ -467,6 +470,119 @@ class LegacyTippingService {
     numInsertedRows = appTipsData.length;
 
     log('Legacy sheet ${appTipsSheet.title} data loaded in app. Found $numInsertedRows rows.');
+  }
+
+// List<RoundScores> getTipperRoundScoresForComp(Tipper tipper)
+  // Method to sync round scores to a dedicated sheet in the gsheet
+  // All data will be refreshed with each sync.
+  // Using the list of active tippers use List<RoundScores> getTipperRoundScoresForComp(Tipper tipper)
+  // to grab data from ScoresViewModel.
+  // Write the data to the sheet using this header:
+  //  DAU Round,Name,Margin Picks,Margin UPS,NRL Score,AFL Score,Total Score
+
+  Future<void> syncRoundScoresToLegacy() async {
+    await initialized();
+
+    // get the sheet to write to
+    final Worksheet roundScoresSheet =
+        spreadsheet.worksheetByTitle('AppScores')!;
+
+    // get the current data from the sheet
+    final List<List<String?>> roundScoresData =
+        await roundScoresSheet.values.allRows();
+
+    // clear the sheet
+    await roundScoresSheet.clear();
+
+    // keep track of number of inserted rows
+    numInsertedRows = 0;
+
+    // add the header row
+    await roundScoresSheet.values.insertRow(
+        1,
+        [
+          'DAU Round',
+          'Name',
+          'Margin Picks',
+          'Margin UPS',
+          'NRL Score',
+          'AFL Score',
+          'Total Score'
+          // =QUERY(ValidTips2!$A$5:$J, "Select F Where B = " & $A2 & " AND C = '" & $B2 & "'")
+          //=QUERY(ValidTips2!$A$5:$J, "Select F Where B = " & $A3 & " AND C = '" & $B3 & "'")
+          //...
+        ],
+        fromColumn: 1);
+
+    numInsertedRows++;
+
+    //grab the active tippers from TippersViewModel
+    List<Tipper> activeTippers = await di<TippersViewModel>()
+        .getActiveTippers(di<DAUCompsViewModel>().selectedDAUComp!);
+
+    // grab all the round scores from ScoresViewModel.allTipperRoundScores
+    // the rounds are ordered in the list by index i.e round 1 is at index 0
+    Map<Tipper, List<RoundScores>> roundScores =
+        di<ScoresViewModel>().allTipperRoundScores;
+
+    // call getHighestRoundNumberWithAllGamesPlayed to get the highest round number
+    // with all games played
+    int highestRoundNumber = di<DAUCompsViewModel>()
+        .selectedDAUComp!
+        .getHighestRoundNumberWithAllGamesPlayed();
+
+    // Get the maximum length of tipperRoundScores
+    int maxLen = activeTippers
+        .map((tipper) => highestRoundNumber)
+        .reduce((a, b) => a > b ? a : b);
+
+    // Create a list to hold the rows
+    List<List<Object>> rows = [];
+
+    // Loop through the round scores
+    for (int i = 0; i < maxLen; i++) {
+      // Loop through the active tippers
+      for (Tipper tipper in activeTippers) {
+        List<RoundScores> tipperRoundScores = roundScores[tipper]!;
+        // Check if the current index is within the length of the tipperRoundScores
+        if (i < tipperRoundScores.length) {
+          // Add the round score to the list of rows
+          rows.add([
+            i + 1,
+            tipper.name,
+            (tipperRoundScores[i].aflMarginTips +
+                    tipperRoundScores[i].nrlMarginTips)
+                .toString(),
+            (tipperRoundScores[i].aflMarginUPS +
+                    tipperRoundScores[i].nrlMarginUPS)
+                .toString(),
+            tipperRoundScores[i].nrlScore.toString(),
+            tipperRoundScores[i].aflScore.toString(),
+            (tipperRoundScores[i].nrlScore + tipperRoundScores[i].aflScore)
+                .toString(),
+            // compare with sheet scores by adding the queries for each column
+            '=QUERY(ValidTips2!\$A\$5:\$J, "Select F Where B = " & \$A${numInsertedRows + 1} & " AND C = '
+                " & \$B${numInsertedRows + 1} & "
+                '")',
+            '=QUERY(ValidTips2!\$A\$5:\$J, "Select G Where B = " & \$A${numInsertedRows + 1} & " AND C = '
+                " & \$B${numInsertedRows + 1} & "
+                '")',
+            '=QUERY(ValidTips2!\$A\$5:\$J, "Select H Where B = " & \$A${numInsertedRows + 1} & " AND C = '
+                " & \$B${numInsertedRows + 1} & "
+                '")',
+            '=QUERY(ValidTips2!\$A\$5:\$J, "Select I Where B = " & \$A${numInsertedRows + 1} & " AND C = '
+                " & \$B${numInsertedRows + 1} & "
+                '")',
+            '=QUERY(ValidTips2!\$A\$5:\$J, "Select J Where B = " & \$A${numInsertedRows + 1} & " AND C = '
+                " & \$B${numInsertedRows + 1} & "
+                '")',
+          ]);
+        }
+      }
+    }
+
+    // Write all the rows to the sheet at once
+    await roundScoresSheet.values.appendRows(rows, fromColumn: 1);
   }
 }
 
