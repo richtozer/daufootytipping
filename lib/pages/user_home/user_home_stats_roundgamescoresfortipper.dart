@@ -346,13 +346,6 @@ class _StatRoundGameScoresForTipperState
     );
   }
 
-  void onSort(int columnIndex, bool ascending) {
-    setState(() {
-      sortColumnIndex = columnIndex;
-      isAscending = ascending;
-    });
-  }
-
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
             fixedWidth: column.startsWith('Teams')
@@ -365,7 +358,6 @@ class _StatRoundGameScoresForTipperState
             label: Text(
               column,
             ),
-            onSort: onSort,
           ))
       .toList();
 

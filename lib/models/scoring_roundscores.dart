@@ -1,4 +1,5 @@
 class RoundScores {
+  int roundNumber = 0;
   int aflScore = 0;
   int aflMaxScore = 0;
   int aflMarginTips = 0;
@@ -12,6 +13,7 @@ class RoundScores {
 
 //contructor
   RoundScores({
+    required this.roundNumber,
     required this.aflScore,
     required this.aflMaxScore,
     required this.aflMarginTips,
@@ -26,6 +28,7 @@ class RoundScores {
 
   toJson() {
     return {
+      'roundNumber': roundNumber,
       'afl_score': aflScore,
       'afl_maxScore': aflMaxScore,
       'afl_marginTips': aflMarginTips,
@@ -41,6 +44,7 @@ class RoundScores {
 
   factory RoundScores.fromJson(Map<String, dynamic> data) {
     return RoundScores(
+      roundNumber: data['roundNumber'] ?? 0,
       aflScore: data['afl_score'] ?? 0,
       aflMaxScore: data['afl_maxScore'] ?? 0,
       aflMarginTips: data['afl_marginTips'] ?? 0,
@@ -52,6 +56,21 @@ class RoundScores {
       rank: data['rank'] ?? 0,
       rankChange: data['changeInRank'] ?? 0,
     );
+  }
+
+  toCsv() {
+    return [
+      aflScore,
+      aflMaxScore,
+      aflMarginTips,
+      aflMarginUPS,
+      nrlScore,
+      nrlMaxScore,
+      nrlMarginTips,
+      nrlMarginUPS,
+      rank,
+      rankChange,
+    ];
   }
 }
 

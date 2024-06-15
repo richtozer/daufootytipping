@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
@@ -615,7 +616,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           if (dauCompsViewModel.isLegacySyncing) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
-                content: Text('Legacy tip sync already in progress')));
+                content: Text('Legacy sync already in progress')));
             return;
           }
           // check if daucomp dbkey for this record matches the current daucomp dbkey
@@ -636,6 +637,10 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
                 daucomp!, di<GamesViewModel>(), null);
+
+            // sync scores to legacy
+
+            di<LegacyTippingService>().syncRoundScoresToLegacy();
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -706,7 +711,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             }
           }
         },
-        child: Text(!scoresViewModel.isScoring ? 'Full Rescore' : 'Scoring...'),
+        child: Text(!scoresViewModel.isScoring ? 'Score' : 'Scoring...'),
       );
     }
   }

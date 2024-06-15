@@ -31,39 +31,34 @@ class TipsPage extends StatefulWidget {
 class TipsPageState extends State<TipsPage> {
   final String currentDAUCompDbkey =
       di<DAUCompsViewModel>().selectedDAUComp!.dbkey!;
-  late final TipsViewModel tipperTipsViewModel;
-  late final Future<DAUComp> dauCompWithScoresFuture;
-
-  late final Future<void> allTipsViewModelInitialLoadCompletedFuture;
+  late TipsViewModel tipperTipsViewModel;
+  late Future<DAUComp> dauCompWithScoresFuture;
 
   @override
   void initState() {
     log('TipsPageBody.constructor()');
+    super.initState();
+    dauCompWithScoresFuture = _fetchData();
+  }
 
-    dauCompWithScoresFuture = di<DAUCompsViewModel>().getCompWithScores();
-
+  Future<DAUComp> _fetchData() async {
+    final dauComp = await di<DAUCompsViewModel>().getCompWithScores();
     tipperTipsViewModel = TipsViewModel.forTipper(
         di<TippersViewModel>(),
         currentDAUCompDbkey,
         di<GamesViewModel>(),
         di<TippersViewModel>().selectedTipper);
-
-    allTipsViewModelInitialLoadCompletedFuture =
-        tipperTipsViewModel.initialLoadCompleted;
-
-    super.initState();
+    await tipperTipsViewModel.initialLoadCompleted;
+    return dauComp;
   }
 
   // method to scroll to the current round
   void scrollToCurrentRound() {
     log('TipsPageBody.scrollToCurrentRound()');
-
     int latestRoundNumber = di<DAUCompsViewModel>()
         .selectedDAUComp!
         .getHighestRoundNumberWithAllGamesPlayed();
-
     log('TipsPageBody.scrollToCurrentRound() latestRoundNumber: $latestRoundNumber');
-
     int index = (latestRoundNumber) * 4;
 
     di<DAUCompsViewModel>().itemScrollController.scrollTo(
@@ -78,69 +73,69 @@ class TipsPageState extends State<TipsPage> {
     log('TipsPageBody.build()');
 
     return ChangeNotifierProvider<DAUCompsViewModel>(
-        create: (context) => di<DAUCompsViewModel>(),
-        builder: (context, isAlternateMode) {
-          return FutureBuilder<DAUComp>(
-              future: dauCompWithScoresFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                      child:
-                          CircularProgressIndicator(color: League.afl.colour));
-                } else {
-                  DAUComp? dauCompWithScores = snapshot.data;
+      create: (context) => di<DAUCompsViewModel>(),
+      builder: (context, isAlternateMode) {
+        return FutureBuilder<DAUComp>(
+          future: dauCompWithScoresFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                  child: CircularProgressIndicator(color: League.afl.colour));
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else {
+              DAUComp? dauCompWithScores = snapshot.data;
 
-                  //TODO enable this
-                  int latestRoundNumber = dauCompWithScores!
-                      .getHighestRoundNumberWithAllGamesPlayed();
-                  log('TipsPageBody.build() latestRoundNumber: $latestRoundNumber');
+              //TODO enable this
+              int latestRoundNumber =
+                  dauCompWithScores!.getHighestRoundNumberWithAllGamesPlayed();
+              log('TipsPageBody.build() latestRoundNumber: $latestRoundNumber');
 
-                  return Theme(
-                    data: myTheme,
-                    child: ScrollablePositionedList.builder(
-                      itemScrollController:
-                          di<DAUCompsViewModel>().itemScrollController,
-                      initialAlignment: -2, //display a few pixels of prev round
-                      initialScrollIndex: (latestRoundNumber - 1) * 4,
-                      itemCount: dauCompWithScores.daurounds.length * 4,
-                      itemBuilder: (context, index) {
-                        final roundIndex = index ~/ 4;
-                        final itemIndex = index % 4;
-                        final dauRound =
-                            dauCompWithScores.daurounds[roundIndex];
+              return Theme(
+                data: myTheme,
+                child: ScrollablePositionedList.builder(
+                  itemScrollController:
+                      di<DAUCompsViewModel>().itemScrollController,
+                  initialAlignment: -2, //display a few pixels of prev round
+                  initialScrollIndex: (latestRoundNumber - 1) * 4,
+                  itemCount: dauCompWithScores.daurounds.length * 4,
+                  itemBuilder: (context, index) {
+                    final roundIndex = index ~/ 4;
+                    final itemIndex = index % 4;
+                    final dauRound = dauCompWithScores.daurounds[roundIndex];
 
-                        if (itemIndex == 0) {
-                          return roundLeagueHeaderListTile(
-                              League.nrl, 50, 50, dauRound);
-                        } else if (itemIndex == 1) {
-                          return GameListBuilder(
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper!,
-                            dauRound: dauRound,
-                            league: League.nrl,
-                            allTipsViewModel: tipperTipsViewModel,
-                            selectedDAUComp: dauCompWithScores,
-                          );
-                        } else if (itemIndex == 2) {
-                          return roundLeagueHeaderListTile(
-                              League.afl, 40, 40, dauRound);
-                        } else if (itemIndex == 3) {
-                          return GameListBuilder(
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper!,
-                            dauRound: dauRound,
-                            league: League.afl,
-                            allTipsViewModel: tipperTipsViewModel,
-                            selectedDAUComp: dauCompWithScores,
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  );
-                }
-              });
-        });
+                    if (itemIndex == 0) {
+                      return roundLeagueHeaderListTile(
+                          League.nrl, 50, 50, dauRound);
+                    } else if (itemIndex == 1) {
+                      return GameListBuilder(
+                        currentTipper: di<TippersViewModel>().selectedTipper!,
+                        dauRound: dauRound,
+                        league: League.nrl,
+                        allTipsViewModel: tipperTipsViewModel,
+                        selectedDAUComp: dauCompWithScores,
+                      );
+                    } else if (itemIndex == 2) {
+                      return roundLeagueHeaderListTile(
+                          League.afl, 40, 40, dauRound);
+                    } else if (itemIndex == 3) {
+                      return GameListBuilder(
+                        currentTipper: di<TippersViewModel>().selectedTipper!,
+                        dauRound: dauRound,
+                        league: League.afl,
+                        allTipsViewModel: tipperTipsViewModel,
+                        selectedDAUComp: dauCompWithScores,
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              );
+            }
+          },
+        );
+      },
+    );
   }
 
   Widget roundLeagueHeaderListTile(League leagueHeader, double logoWidth,
@@ -223,80 +218,84 @@ class AppBarHeader extends StatelessWidget {
       floating: true,
       expandedHeight: 40,
       flexibleSpace: FlexibleSpaceBar(
-          expandedTitleScale: 1.5,
-          centerTitle: true,
-          title: ChangeNotifierProvider<ScoresViewModel>.value(
-              value: di<ScoresViewModel>(),
-              builder: (context, snapshot) {
-                return Consumer<ScoresViewModel>(
-                    builder: (context, scoresViewModelConsumer, child) {
-                  CompScore compScores = scoresViewModelConsumer
-                      .getTipperConsolidatedScoresForComp(
-                          di<TippersViewModel>().selectedTipper!);
-                  // from scoresViewModelConsumer.leaderboard list,
-                  // find the tipper and record their rank
-                  int tipperCompRank = scoresViewModelConsumer.leaderboard
-                      .firstWhere(
-                        (element) =>
-                            element.tipper.dbkey ==
-                            di<TippersViewModel>().selectedTipper!.dbkey,
-                        orElse: () => LeaderboardEntry(
-                            rank: 0,
-                            tipper: di<TippersViewModel>().selectedTipper!,
-                            total: 0,
-                            nRL: 0,
-                            aFL: 0,
-                            numRoundsWon: 0,
-                            aflMargins: 0,
-                            aflUPS: 0,
-                            nrlMargins: 0,
-                            nrlUPS: 0),
-                      )
-                      .rank;
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => StatRoundScoresForTipper(
-                                di<TippersViewModel>().selectedTipper!)),
-                      );
-                    },
-                    child: Text(
-                      'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: Colors.black,
-                      ),
+        expandedTitleScale: 1.5,
+        centerTitle: true,
+        title: ChangeNotifierProvider<ScoresViewModel>.value(
+          value: di<ScoresViewModel>(),
+          builder: (context, snapshot) {
+            return Consumer<ScoresViewModel>(
+              builder: (context, scoresViewModelConsumer, child) {
+                CompScore compScores =
+                    scoresViewModelConsumer.getTipperConsolidatedScoresForComp(
+                        di<TippersViewModel>().selectedTipper!);
+                // from scoresViewModelConsumer.leaderboard list,
+                // find the tipper and record their rank
+                int tipperCompRank = scoresViewModelConsumer.leaderboard
+                    .firstWhere(
+                      (element) =>
+                          element.tipper.dbkey ==
+                          di<TippersViewModel>().selectedTipper!.dbkey,
+                      orElse: () => LeaderboardEntry(
+                          rank: 0,
+                          tipper: di<TippersViewModel>().selectedTipper!,
+                          total: 0,
+                          nRL: 0,
+                          aFL: 0,
+                          numRoundsWon: 0,
+                          aflMargins: 0,
+                          aflUPS: 0,
+                          nrlMargins: 0,
+                          nrlUPS: 0),
+                    )
+                    .rank;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => StatRoundScoresForTipper(
+                              di<TippersViewModel>().selectedTipper!)),
+                    );
+                  },
+                  child: Text(
+                    'R a n k: $tipperCompRank NRL: ${compScores.nrlCompScore} AFL: ${compScores.aflCompScore}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      color: Colors.black,
                     ),
-                  );
-                });
-              }),
-          background: Stack(
-            children: <Widget>[
-              Image.asset(
-                width: MediaQuery.of(context).size.width,
-                'assets/teams/daulogo.jpg',
-                fit: BoxFit.fitWidth,
-              ),
-              Container(
-                color: Colors.white.withOpacity(0.5),
-              ),
-            ],
-          )),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        background: Stack(
+          children: <Widget>[
+            Image.asset(
+              width: MediaQuery.of(context).size.width,
+              'assets/teams/daulogo.jpg',
+              fit: BoxFit.fitWidth,
+            ),
+            Container(
+              color: Colors.white.withOpacity(0.5),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class GameListBuilder extends StatefulWidget {
-  const GameListBuilder(
-      {super.key,
-      required this.currentTipper,
-      required this.dauRound,
-      required this.league,
-      required this.allTipsViewModel,
-      required this.selectedDAUComp});
+  const GameListBuilder({
+    super.key,
+    required this.currentTipper,
+    required this.dauRound,
+    required this.league,
+    required this.allTipsViewModel,
+    required this.selectedDAUComp,
+  });
 
   final Tipper currentTipper;
   final DAURound dauRound;
@@ -324,7 +323,9 @@ class _GameListBuilderState extends State<GameListBuilder> {
     //get all the games for this round
     Future<Map<League, List<Game>>> gamesForCombinedRoundNumber =
         daucompsViewModel.sortGamesIntoLeagues(
-            widget.dauRound, di<GamesViewModel>());
+      widget.dauRound,
+      di<GamesViewModel>(),
+    );
 
     //get all the games for this round and league
     gamesFuture =
@@ -336,48 +337,52 @@ class _GameListBuilderState extends State<GameListBuilder> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Game>?>(
-        future: gamesFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return Center(
-                child: CircularProgressIndicator(color: League.afl.colour));
-          } else {
-            games = snapshot.data;
+      future: gamesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Center(
+            child: CircularProgressIndicator(color: League.afl.colour),
+          );
+        } else {
+          games = snapshot.data;
 
-            if (games!.isEmpty) {
-              return SizedBox(
-                height: 75,
-                child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    color: Colors.grey[300],
-                    child: Center(
-                        child: Text(
-                            'No ${widget.league.name.toUpperCase()} games this round'))),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(0),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: games!.length,
-              itemBuilder: (context, index) {
-                var game = games![index];
-
-                return GameListItem(
-                  key: ValueKey(game.dbkey),
-                  roundGames: games!,
-                  game: game,
-                  currentTipper: widget.currentTipper,
-                  currentDAUComp: widget.selectedDAUComp,
-                  allTipsViewModel: widget.allTipsViewModel,
-                  dauRound: widget.dauRound,
-                );
-              },
+          if (games!.isEmpty) {
+            return SizedBox(
+              height: 75,
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                color: Colors.grey[300],
+                child: Center(
+                  child: Text(
+                      'No ${widget.league.name.toUpperCase()} games this round'),
+                ),
+              ),
             );
           }
-        });
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(0),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: games!.length,
+            itemBuilder: (context, index) {
+              var game = games![index];
+
+              return GameListItem(
+                key: ValueKey(game.dbkey),
+                roundGames: games!,
+                game: game,
+                currentTipper: widget.currentTipper,
+                currentDAUComp: widget.selectedDAUComp,
+                allTipsViewModel: widget.allTipsViewModel,
+                dauRound: widget.dauRound,
+              );
+            },
+          );
+        }
+      },
+    );
   }
 }

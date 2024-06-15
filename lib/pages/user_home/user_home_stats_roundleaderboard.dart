@@ -40,8 +40,6 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   @override
   void initState() {
     super.initState();
-    //scoresViewModel =
-    //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
 
     scoresViewModel = di<ScoresViewModel>();
 
@@ -52,7 +50,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   void getConsolidatedScoresForRoundLeaderboard() {
     for (var tipper in scoresViewModel.allTipperRoundScores.keys) {
       roundLeaderboard[tipper] = scoresViewModel
-          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1]!;
+          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1];
     }
   }
 
@@ -191,37 +189,69 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) =>
-              b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()));
+              a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
     }
     if (columnIndex == 1 || columnIndex == 2) {
       if (ascending) {
-        // Sort by RoundScores.rank
+        // Sort by RoundScores.rank and then by name
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => a.value.rank.compareTo(b.value.rank));
+          ..sort((a, b) {
+            if (a.value.rank == b.value.rank) {
+              return a.key.name
+                  .toLowerCase()
+                  .compareTo(b.key.name.toLowerCase());
+            } else {
+              return a.value.rank.compareTo(b.value.rank);
+            }
+          });
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.rank
+        // Sort by RoundScores.rank and then by name
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => b.value.rank.compareTo(a.value.rank));
+          ..sort((a, b) {
+            if (a.value.rank == b.value.rank) {
+              return a.key.name
+                  .toLowerCase()
+                  .compareTo(b.key.name.toLowerCase());
+            } else {
+              return b.value.rank.compareTo(a.value.rank);
+            }
+          });
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
     }
     if (columnIndex == 3) {
       if (ascending) {
-        // Sort by RoundScores.nrlScore
+        // Sort by RoundScores.nrlScore and then name
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => a.value.nrlScore.compareTo(b.value.nrlScore));
+          ..sort((a, b) {
+            if (a.value.nrlScore == b.value.nrlScore) {
+              return a.key.name
+                  .toLowerCase()
+                  .compareTo(b.key.name.toLowerCase());
+            } else {
+              return a.value.nrlScore.compareTo(b.value.nrlScore);
+            }
+          });
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.nrlScore
+        // Sort by RoundScores.nrlScore and then name
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => b.value.nrlScore.compareTo(a.value.nrlScore));
+          ..sort((a, b) {
+            if (a.value.nrlScore == b.value.nrlScore) {
+              return a.key.name
+                  .toLowerCase()
+                  .compareTo(b.key.name.toLowerCase());
+            } else {
+              return b.value.nrlScore.compareTo(a.value.nrlScore);
+            }
+          });
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
