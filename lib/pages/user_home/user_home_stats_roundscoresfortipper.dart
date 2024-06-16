@@ -44,9 +44,9 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   @override
   Widget build(BuildContext context) {
     return FutureProvider<List<RoundScores>>(
-      initialData: [],
+      initialData: const [],
       create: (context) async {
-        var scores = await scoresViewModel
+        var scores = scoresViewModel
             .getTipperRoundScoresForComp(widget.statsTipper);
         scores.sort(
             (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort

@@ -9,12 +9,13 @@ import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 // this class supports both creating and updating DAUComp records.
 // it has 2 modes, then daucomp is null it is in new record mode,
 // when it is not null it is in edit record mode
-class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
+class DAUCompsEditPage extends StatefulWidget {
   final DAUComp?
       daucomp; //if this is an edit for a new comp, this will stay null
   //final DAUCompsViewModel dauCompViewModel;
@@ -23,12 +24,6 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
   late final TextEditingController _daucompAflJsonURLController;
   late final TextEditingController _daucompNrlJsonURLController;
 
-  bool disableBackButton = false;
-  bool disableSaves = false;
-
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  //constructor
   DAUCompsEditPage(this.daucomp, {super.key}) {
     _daucompNameController = TextEditingController(text: daucomp?.name);
     _daucompAflJsonURLController =
@@ -37,23 +32,38 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
         TextEditingController(text: daucomp?.nrlFixtureJsonURL.toString());
   }
 
+  @override
+  State<DAUCompsEditPage> createState() => _DAUCompsEditPageState();
+}
+
+class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
+  bool disableBackButton = false;
+
+  bool disableSaves = false;
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
   void _saveDAUComp(
       DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
     try {
       //check the URL's are active on the server,
       //if yes, save the record and show a green snackbar saying the record is saved
       //if no, reject the save and show a red snackbar saying the URL's are not active
-      if (await isUriActive(_daucompAflJsonURLController.text, context) &&
-          await isUriActive(_daucompNrlJsonURLController.text, context)) {
+      if (await isUriActive(
+              widget._daucompAflJsonURLController.text, context) &&
+          await isUriActive(
+              widget._daucompNrlJsonURLController.text, context)) {
         //create a new temp daucomp record to hold changes
 
-        if (daucomp == null) {
+        if (widget.daucomp == null) {
           // this is a new record
           DAUComp updatedDUAcomp = DAUComp(
-            dbkey: daucomp?.dbkey,
-            name: _daucompNameController.text,
-            aflFixtureJsonURL: Uri.parse(_daucompAflJsonURLController.text),
-            nrlFixtureJsonURL: Uri.parse(_daucompNrlJsonURLController.text),
+            dbkey: widget.daucomp?.dbkey,
+            name: widget._daucompNameController.text,
+            aflFixtureJsonURL:
+                Uri.parse(widget._daucompAflJsonURLController.text),
+            nrlFixtureJsonURL:
+                Uri.parse(widget._daucompNrlJsonURLController.text),
             daurounds: [],
           );
 
@@ -61,7 +71,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
 
-          if (daucomp == null) {
+          if (widget.daucomp == null) {
             // as this is a new daucomp record, download the fixture data and process
             // the games in rounds and save them to the database
             String res = await dauCompsViewModel.getNetworkFixtureData(
@@ -77,12 +87,12 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           }
         } else {
           // this is an existing record
-          dauCompsViewModel.updateCompAttribute(
-              daucomp!.dbkey!, "name", _daucompNameController.text);
-          dauCompsViewModel.updateCompAttribute(daucomp!.dbkey!,
-              "aflFixtureJsonURL", _daucompAflJsonURLController.text);
-          dauCompsViewModel.updateCompAttribute(daucomp!.dbkey!,
-              "nrlFixtureJsonURL", _daucompNrlJsonURLController.text);
+          dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!, "name",
+              widget._daucompNameController.text);
+          dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
+              "aflFixtureJsonURL", widget._daucompAflJsonURLController.text);
+          dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
+              "nrlFixtureJsonURL", widget._daucompNrlJsonURLController.text);
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
         }
@@ -159,10 +169,10 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(BuildContext context) {
-    DAUCompsViewModel dauCompsViewModel = watchIt<DAUCompsViewModel>();
-    ScoresViewModel scoresViewModel = watchIt<ScoresViewModel>();
+    DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
+    ScoresViewModel scoresViewModel = di<ScoresViewModel>();
 
-    if (daucomp == null) {
+    if (widget.daucomp == null) {
       // this is a new record, so disable the save button until the user has entered some data
       disableSaves = true;
     }
@@ -199,15 +209,19 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           final isValid = _formKey.currentState!.validate();
                           if (isValid) {
                             // disable the save and back button while the save is in progress
-                            disableSaves = true;
-                            disableBackButton = true;
+                            setState(() {
+                              disableSaves = true;
+                              disableBackButton = true;
+                            });
 
                             // save the record
                             _saveDAUComp(dauCompsViewModel, context);
                             // re-enable the save and back button
 
-                            disableBackButton = false;
-                            disableSaves = false;
+                            setState(() {
+                              disableSaves = false;
+                              disableBackButton = false;
+                            });
                           }
                         },
                 );
@@ -231,11 +245,11 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                       buttonFixture(context, dauCompsViewModel),
                       // only show the scoring and legacy sync buttons if this record daucomp dbkey
                       // is the selected daucomp dbkey
-                      if (daucomp?.dbkey ==
+                      if (widget.daucomp?.dbkey ==
                           dauCompsViewModel.defaultDAUCompDbKey)
                         buttonLegacy(context, dauCompsViewModel),
 
-                      if (daucomp?.dbkey ==
+                      if (widget.daucomp?.dbkey ==
                           dauCompsViewModel.defaultDAUCompDbKey)
                         buttonScoring(context, scoresViewModel),
                     ],
@@ -244,11 +258,11 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                     children: [
                       const Text('Active Comp:'),
                       Switch(
-                        value: daucomp?.dbkey ==
+                        value: widget.daucomp?.dbkey ==
                             dauCompsViewModel.defaultDAUCompDbKey,
                         onChanged: (bool value) {
                           // if this is a new record, dont allow the user to change the active comp
-                          if (daucomp == null) {
+                          if (widget.daucomp == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Text(
@@ -260,15 +274,15 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           }
                           if (value) {
                             dauCompsViewModel
-                                .changeCurrentDAUComp(daucomp!.dbkey!);
+                                .changeCurrentDAUComp(widget.daucomp!.dbkey!);
                             // write the change to /AppConfig
                             RemoteConfigService remoteConfigService =
                                 RemoteConfigService();
-                            remoteConfigService
-                                .setConfigCurrentDAUComp(daucomp!.dbkey!);
+                            remoteConfigService.setConfigCurrentDAUComp(
+                                widget.daucomp!.dbkey!);
                             // also make change to model
                             dauCompsViewModel
-                                .setDefaultDAUCompDbKey(daucomp!.dbkey!);
+                                .setDefaultDAUCompDbKey(widget.daucomp!.dbkey!);
                           } else {
                             // if the user is trying to turn off the active comp, show a snackbar
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -290,15 +304,19 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                       Expanded(
                         child: TextFormField(
                           enabled: !disableBackButton,
-                          controller: _daucompNameController,
+                          controller: widget._daucompNameController,
                           onChanged: (String value) {
-                            if (daucomp?.name != value) {
+                            if (widget.daucomp?.name != value) {
                               //something has changed, allow saves
 
-                              disableSaves = false;
+                              setState(() {
+                                disableSaves = false;
+                              });
                               log('name changed to: $value');
                             } else {
-                              disableSaves = true;
+                              setState(() {
+                                disableSaves = true;
+                              });
                               log('name has not changed');
                             }
                           },
@@ -333,16 +351,20 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           decoration: const InputDecoration(
                             hintText: 'enter URL here',
                           ),
-                          controller: _daucompNrlJsonURLController,
+                          controller: widget._daucompNrlJsonURLController,
                           onChanged: (String value) {
-                            if (daucomp?.nrlFixtureJsonURL.toString() !=
+                            if (widget.daucomp?.nrlFixtureJsonURL.toString() !=
                                 value) {
                               //something has changed, allow saves
 
-                              disableSaves = false;
+                              setState(() {
+                                disableSaves = false;
+                              });
                               log('nrlFixtureJsonURL changed to: $value');
                             } else {
-                              disableSaves = true;
+                              setState(() {
+                                disableSaves = true;
+                              });
                               log('nrlFixtureJsonURL has not changed');
                             }
                           },
@@ -371,16 +393,20 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                           decoration: const InputDecoration(
                             hintText: 'enter URL here',
                           ),
-                          controller: _daucompAflJsonURLController,
+                          controller: widget._daucompAflJsonURLController,
                           onChanged: (String value) {
-                            if (daucomp?.aflFixtureJsonURL.toString() !=
+                            if (widget.daucomp?.aflFixtureJsonURL.toString() !=
                                 value) {
                               //something has changed, allow saves
+                              setState(() {
+                                disableSaves = false;
+                              });
 
-                              disableSaves = false;
                               log('aflFixtureJsonURL changed to: $value');
                             } else {
-                              disableSaves = true;
+                              setState(() {
+                                disableSaves = true;
+                              });
                               log('aflFixtureJsonURL has not changed');
                             }
                           },
@@ -398,7 +424,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                     ],
                   ),
                   const SizedBox(height: 20.0),
-                  if (daucomp != null)
+                  if (widget.daucomp != null)
                     const Text('Round details:',
                         style: TextStyle(fontWeight: FontWeight.bold)),
 
@@ -409,7 +435,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                   // column 5 is the number of afl games in the round
 
                   // only show the table if the daucomp is not null
-                  if (daucomp != null)
+                  if (widget.daucomp != null)
                     Table(
                       columnWidths: const {
                         0: FlexColumnWidth(0.40),
@@ -460,7 +486,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                             ),
                           ],
                         ),
-                        for (var round in daucomp!.daurounds)
+                        for (var round in widget.daucomp!.daurounds)
                           TableRow(
                             children: [
                               TableCell(
@@ -493,7 +519,9 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                                           DateTime(date!.year, date.month,
                                               date.day, time.hour, time.minute);
                                       // Enable the save button
-                                      disableSaves = false;
+                                      setState(() {
+                                        disableSaves = false;
+                                      });
                                     }
                                   },
                                 ),
@@ -523,7 +551,9 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                                           DateTime(date!.year, date.month,
                                               date.day, time.hour, time.minute);
                                       // Enable the save button
-                                      disableSaves = false;
+                                      setState(() {
+                                        disableSaves = false;
+                                      });
                                     }
                                   },
                                 ),
@@ -557,7 +587,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
   Widget buttonFixture(
       BuildContext context, DAUCompsViewModel dauCompsViewModel) {
-    if (daucomp == null) {
+    if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
       return OutlinedButton(
@@ -569,11 +599,13 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
             return;
           }
           try {
-            disableBackButton = true;
-            disableSaves = true;
+            setState(() {
+              disableBackButton = true;
+              disableSaves = true;
+            });
 
             String result = await dauCompsViewModel.getNetworkFixtureData(
-                daucomp!, di<GamesViewModel>());
+                widget.daucomp!, di<GamesViewModel>());
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -595,8 +627,10 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
               );
             }
           } finally {
-            disableBackButton = false;
-            disableSaves = false;
+            setState(() {
+              disableBackButton = false;
+              disableSaves = false;
+            });
           }
         },
         child: Text(
@@ -607,7 +641,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
   Widget buttonLegacy(
       BuildContext context, DAUCompsViewModel dauCompsViewModel) {
-    if (daucomp == null) {
+    if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
       return OutlinedButton(
@@ -621,7 +655,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
           }
           // check if daucomp dbkey for this record matches the current daucomp dbkey
           // if not, show a snackbar and return without syncing
-          if (daucomp?.dbkey != dauCompsViewModel.defaultDAUCompDbKey) {
+          if (widget.daucomp?.dbkey != dauCompsViewModel.defaultDAUCompDbKey) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 duration: Duration(seconds: 15),
@@ -632,11 +666,25 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
           // ...if not, initiate the sync
           try {
-            disableBackButton = true;
-            disableSaves = true;
+            setState(() {
+              disableBackButton = true;
+              disableSaves = true;
+            });
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                daucomp!, di<GamesViewModel>(), null);
+                widget.daucomp!, di<GamesViewModel>(), null);
+
+            // show a snackbar with the result of the sync
+
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green,
+                  content: Text(syncResult),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
 
             // sync scores to legacy
 
@@ -662,8 +710,10 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
               );
             }
           } finally {
-            disableBackButton = false;
-            disableSaves = false;
+            setState(() {
+              disableBackButton = false;
+              disableSaves = false;
+            });
           }
         },
         child: Text(!dauCompsViewModel.isLegacySyncing ? 'Sync' : 'Syncing...'),
@@ -672,7 +722,7 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
   }
 
   Widget buttonScoring(BuildContext context, ScoresViewModel scoresViewModel) {
-    if (daucomp == null) {
+    if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
       return OutlinedButton(
@@ -687,8 +737,14 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
 
           // ...if not, initiate the sync
           try {
-            String syncResult =
-                await scoresViewModel.updateScoring(daucomp!, null, null);
+            setState(() {
+              disableBackButton = true;
+              disableSaves = true;
+            });
+            //yield so UI updates
+            await Future.delayed(const Duration(milliseconds: 100));
+            String syncResult = await scoresViewModel.updateScoring(
+                widget.daucomp!, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -709,9 +765,21 @@ class DAUCompsEditPage extends StatelessWidget with WatchItMixin {
                 ),
               );
             }
+          } finally {
+            setState(() {
+              disableBackButton = false;
+              disableSaves = false;
+            });
           }
         },
-        child: Text(!scoresViewModel.isScoring ? 'Score' : 'Scoring...'),
+        child: ChangeNotifierProvider<ScoresViewModel>(
+            create: (context) => di<ScoresViewModel>(),
+            child: Consumer<ScoresViewModel>(
+              builder: (context, scoresViewModel, child) {
+                return Text(
+                    !scoresViewModel.isScoring ? 'Score' : 'Scoring...');
+              },
+            )),
       );
     }
   }
