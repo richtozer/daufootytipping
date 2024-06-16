@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-//import * as functions from "firebase-functions";
+import * as functions from "firebase-functions";
 
 /**
  * Sends reminders.
@@ -7,9 +7,9 @@ import * as admin from "firebase-admin";
  * to tippers that have registered tokens and have not yet tipped
  * within 3 hours of game start time
  */
-//  export const sendReminders = functions.pubsub
-//    .schedule("every 1 hour").onRun(async () => {
-  export async function sendReminders() {
+export const sendReminders = functions.pubsub
+    .schedule("every 1 hour").onRun(async () => {
+  //export async function sendReminders() {
     const now = admin.firestore.Timestamp.now();
     const twoHoursFromNow = now.toMillis() + 2 * 60 * 60 * 1000;
     const threeHoursFromNow = now.toMillis() + 3 * 60 * 60 * 1000;
@@ -75,4 +75,4 @@ import * as admin from "firebase-admin";
     }
 
     return null;
-  };
+  });

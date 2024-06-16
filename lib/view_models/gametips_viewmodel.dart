@@ -152,7 +152,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
-      legacyTippingService.syncSingleTipToLegacy(
+      legacyTippingService.syncSingleRoundTipperToLegacy(
           allTipsViewModel, di<DAUCompsViewModel>(), tip, dauRound);
     } catch (e) {
       // rethrow exception so that the UI can handle it

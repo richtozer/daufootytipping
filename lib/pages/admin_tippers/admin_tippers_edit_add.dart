@@ -147,7 +147,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
           // ...if not, initiate the sync
           try {
-            disableSaves = true;
+            setState(() {
+              disableSaves = true;
+            });
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
                 di<DAUCompsViewModel>().selectedDAUComp!,
@@ -174,7 +176,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
               );
             }
           } finally {
-            disableSaves = false;
+            setState(() {
+              disableSaves = false;
+            });
           }
         },
         child: Text(

@@ -236,6 +236,7 @@ class ScoresViewModel extends ChangeNotifier {
       }
 
       _isScoring = true;
+      notifyListeners();
 
       if (!_initialCompAllTipperLoadCompleter.isCompleted) {
         await _initialCompAllTipperLoadCompleter.future;
