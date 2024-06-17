@@ -49,12 +49,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
       //check the URL's are active on the server,
       //if yes, save the record and show a green snackbar saying the record is saved
       //if no, reject the save and show a red snackbar saying the URL's are not active
-      if (await isUriActive(
-              widget._daucompAflJsonURLController.text, context) &&
-          await isUriActive(
-              widget._daucompNrlJsonURLController.text, context)) {
-        //create a new temp daucomp record to hold changes
 
+      bool aflURLActive =
+          await isUriActive(widget._daucompAflJsonURLController.text);
+      bool nrlURLActive =
+          await isUriActive(widget._daucompNrlJsonURLController.text);
+      log('aflURLActive = $aflURLActive');
+      log('nrlURLActive = $nrlURLActive');
+
+      if (aflURLActive && nrlURLActive) {
         if (widget.daucomp == null) {
           // this is a new record
           DAUComp updatedDUAcomp = DAUComp(
@@ -135,34 +138,16 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     }
   }
 
-  Future<bool> isUriActive(String uri, BuildContext context) async {
+  Future<bool> isUriActive(String uri) async {
     try {
       final response = await http.get(Uri.parse(uri));
       if (response.statusCode == 200) {
         return true;
       } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('URL not valid, status code: ${response.statusCode}'),
-              backgroundColor: League.afl.colour,
-            ),
-          );
-        }
         log('Error checking URL: $uri, status code: ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('URL not valid, error: $e'),
-            backgroundColor: League.afl.colour,
-          ),
-        );
-        log('Error checking URL: $uri, exception: $e');
-      }
       return false;
     }
   }

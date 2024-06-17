@@ -308,10 +308,8 @@ class _StatRoundGameScoresForTipperState
                 return const Text('loading..');
               } else {
                 return Text(snapshot.data?.game.league == League.afl
-                    ? '${snapshot.data?.tip.afl} (${snapshot.data?.tip.name})' ??
-                        'No data'
-                    : '${snapshot.data?.tip.nrl} (${snapshot.data?.tip.name})' ??
-                        'No data');
+                    ? '${snapshot.data?.tip.afl} (${snapshot.data?.tip.name})'
+                    : '${snapshot.data?.tip.nrl} (${snapshot.data?.tip.name})');
               }
             },
           ),

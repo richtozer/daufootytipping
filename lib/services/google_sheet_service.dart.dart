@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer';
-import 'dart:ui';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -82,7 +81,7 @@ class LegacyTippingService {
       tippersRows = await tippersSheet.values.allRows();
       log('Initial legacy gsheet load of sheet ${tippersSheet.title} complete. Found ${tippersRows.length} rows.');
 
-      refreshAppTipsData();
+      _refreshAppTipsData();
     } catch (e) {
       log('Error initializing legacy tipping service: ${e.toString()}');
     } finally {
@@ -90,6 +89,7 @@ class LegacyTippingService {
     }
   }
 
+  // Retrieves legacy tippers from the legacy gsheet and constructs Tipper objects based on the data retrieved.
   Future<List<Tipper>> getLegacyTippers() async {
     List<Tipper> tippers = [];
 
@@ -126,33 +126,33 @@ class LegacyTippingService {
     return tippers;
   }
 
-  Future<List<GsheetAppTip>> getLegacyAppTips() async {
-    List<GsheetAppTip> appTips = [];
+  // Future<List<GsheetAppTip>> _getLegacyAppTips() async {
+  //   List<GsheetAppTip> appTips = [];
 
-    await initialized();
+  //   await initialized();
 
-    appTipsData = (await appTipsSheet.values.allRows()).skip(3).toList();
-    numInsertedRows = appTipsData.length;
+  //   appTipsData = (await appTipsSheet.values.allRows()).skip(3).toList();
+  //   numInsertedRows = appTipsData.length;
 
-    log('Refresh of legacy gsheet ${appTipsSheet.title} complete. Found $numInsertedRows rows.');
+  //   log('Refresh of legacy gsheet ${appTipsSheet.title} complete. Found $numInsertedRows rows.');
 
-    for (var row in appTipsData) {
-      if (row.length < 4) {
-        log('Error in legacy tipping sheet: row has less than 4 columns of data. We need at least formSubmitTimestamp, dauRoundNumber, name, roundTipslegacyFormat : $row. skipping this row');
-      } else {
-        GsheetAppTip appTip = GsheetAppTip(
-          row[0] ?? '',
-          int.parse(row[1] ?? '0'),
-          row[2] ?? '',
-          row[3] ?? '',
-        );
+  //   for (var row in appTipsData) {
+  //     if (row.length < 4) {
+  //       log('Error in legacy tipping sheet: row has less than 4 columns of data. We need at least formSubmitTimestamp, dauRoundNumber, name, roundTipslegacyFormat : $row. skipping this row');
+  //     } else {
+  //       GsheetAppTip appTip = GsheetAppTip(
+  //         row[0] ?? '',
+  //         int.parse(row[1] ?? '0'),
+  //         row[2] ?? '',
+  //         row[3] ?? '',
+  //       );
 
-        appTips.add(appTip);
-      }
-    }
+  //       appTips.add(appTip);
+  //     }
+  //   }
 
-    return appTips;
-  }
+  //   return appTips;
+  // }
 
   Future<String> syncSingleRoundTipperToLegacy(
       TipsViewModel allTipsViewModel,
@@ -212,7 +212,7 @@ class LegacyTippingService {
       tippers = await getLegacyTippers();
     }
 
-    //await refreshAppTipsData(); ?/TODO this puts load on gsheets - it may be unecessary
+    await _refreshAppTipsData();
 
     int syncChanges = 0;
 
@@ -362,7 +362,7 @@ class LegacyTippingService {
     return defaultRoundTips;
   }
 
-  Future<void> refreshAppTipsData() async {
+  Future<void> _refreshAppTipsData() async {
     await initialized();
 
     final values = await sheetsApi.spreadsheets.values.get(
@@ -479,6 +479,7 @@ class GsheetAppTip {
   }
 }
 
+/// A class that helps coalesce multiple calls into a single call.
 class CallCoalescer {
   Timer? _timer;
   bool _isTimerActive = false;

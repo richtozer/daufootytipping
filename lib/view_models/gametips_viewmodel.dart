@@ -65,8 +65,6 @@ class GameTipsViewModel extends ChangeNotifier {
     // if the game has already started, then we don't need to wait , just return
     if ((game.gameState == GameState.startedResultNotKnown ||
         game.gameState == GameState.startedResultKnown)) {
-      // consider updating the roundState by calling DAUCompsViewModel.setRoundState() //TODO
-
       notifyListeners();
       return;
     }
