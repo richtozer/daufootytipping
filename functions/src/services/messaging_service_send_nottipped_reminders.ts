@@ -10,7 +10,9 @@ import * as functions from "firebase-functions";
 export const sendReminders = functions.pubsub
     .schedule("every 1 hour").onRun(async () => {
   //export async function sendReminders() {
-    const now = admin.firestore.Timestamp.now();
+    //const now = Timestamp.now();
+    const now = admin.firestore.Timestamp.fromMillis(1718577400000);
+    
     const twoHoursFromNow = now.toMillis() + 2 * 60 * 60 * 1000;
     const threeHoursFromNow = now.toMillis() + 3 * 60 * 60 * 1000;
 

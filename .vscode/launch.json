@@ -6,6 +6,15 @@
   "configurations": 
   [
     {
+        "name": "Debug TypeScript",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceFolder}/functions/src/test.ts",
+        "args": [],
+        "console": "integratedTerminal"
+      ]
+    },
+    {
         "type": "chrome",
         "request": "launch",
         "name": "Launch Chrome against localhost",

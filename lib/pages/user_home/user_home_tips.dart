@@ -86,7 +86,6 @@ class TipsPageState extends State<TipsPage> {
             } else {
               DAUComp? dauCompWithScores = snapshot.data;
 
-              //TODO enable this
               int latestRoundNumber =
                   dauCompWithScores!.getHighestRoundNumberWithAllGamesPlayed();
               log('TipsPageBody.build() latestRoundNumber: $latestRoundNumber');
@@ -96,7 +95,7 @@ class TipsPageState extends State<TipsPage> {
                 child: ScrollablePositionedList.builder(
                   itemScrollController:
                       di<DAUCompsViewModel>().itemScrollController,
-                  initialAlignment: -2, //display a few pixels of prev round
+                  initialAlignment: -1, //display a few pixels of prev round
                   initialScrollIndex: (latestRoundNumber - 1) * 4,
                   itemCount: dauCompWithScores.daurounds.length * 4,
                   itemBuilder: (context, index) {
