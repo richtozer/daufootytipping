@@ -1,8 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-admin.initializeApp();
-
 export const submitLegacyTips = functions
   .region("us-central1", "asia-southeast1")
   .https.onRequest(

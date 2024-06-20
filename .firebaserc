@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "dau-footy-tipping-f8a42"
+  },
+  "targets": {
+    "emulators-test-244be": {
+      "database": {
+        "default": [
+          "dau-footy-tipping-f8a42"
+        ]
+      }
+    }
   }
 }

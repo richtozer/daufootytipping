@@ -21,13 +21,13 @@ class FirebaseMessagingService {
   String? get fbmToken => _fbmToken;
 
   static const tokenExpirationDuaration = 60 * 60 * 1000 * 24 * 30; //30 days
-  final DatabaseReference _tokensRef;
-  final String tokensPath = dotenv.env['TOKENS_PATH'] as String;
+  late DatabaseReference _tokensRef;
 
   //constructor
-  FirebaseMessagingService()
-      : _tokensRef = FirebaseDatabase.instance.ref().child('AllTippersTokens');
-
+  FirebaseMessagingService() {
+    final String tokensPath = dotenv.env['TOKENS_PATH'] as String;
+    _tokensRef = FirebaseDatabase.instance.ref().child(tokensPath);
+  }
   Future<void> initializeFirebaseMessaging() async {
     log('Initializing Firebase messaging');
 

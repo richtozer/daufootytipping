@@ -114,7 +114,7 @@ class _TipChoiceState extends State<TipChoice> {
                   iconColor: Colors.red,
                   title: const Text('Warning: God Mode'),
                   content: const Text(
-                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change thus tip later if needed.'),
+                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change this tip later if needed.'),
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
