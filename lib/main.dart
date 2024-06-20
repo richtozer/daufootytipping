@@ -40,8 +40,6 @@ Future<void> main() async {
   FirebaseDatabase database = FirebaseDatabase.instance;
   if (kDebugMode) {
     database.useDatabaseEmulator('localhost', 8000);
-
-    //FirebaseAuth.instance.useAuthEmulator('http://localhost', 8099);
   } else {
     database.setPersistenceEnabled(true);
   }

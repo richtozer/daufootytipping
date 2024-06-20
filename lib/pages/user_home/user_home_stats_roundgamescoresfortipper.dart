@@ -139,7 +139,7 @@ class _StatRoundGameScoresForTipperState
                           // fixedLeftColumns:
                           //     orientation == Orientation.portrait ? 1 : 0,
                           showCheckboxColumn: false,
-                          isHorizontalScrollBarVisible: true,
+                          isHorizontalScrollBarVisible: false,
                           isVerticalScrollBarVisible: true,
                           columns: getColumns(columns),
                           rows: [
@@ -255,6 +255,7 @@ class _StatRoundGameScoresForTipperState
                 ),
               ),
             ),
+            const SizedBox(height: 100)
           ],
         ),
       ),
@@ -349,7 +350,7 @@ class _StatRoundGameScoresForTipperState
             fixedWidth: column.startsWith('Teams')
                 ? 175
                 : column.startsWith('Tip')
-                    ? 50
+                    ? 60
                     : 60,
             numeric:
                 column.startsWith('Max') || column == 'Score' ? true : false,
