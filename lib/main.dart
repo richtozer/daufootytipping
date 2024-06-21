@@ -25,7 +25,7 @@ Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(); // Loads .env file
+  await dotenv.load(fileName: "./dotenv"); // Loads .env file
 
   // if (kIsWeb) {
   //   bool ready = await GRecaptchaV3.ready(
