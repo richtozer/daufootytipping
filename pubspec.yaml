@@ -119,7 +119,7 @@ flutter:
     - assets/teams/nrl/
     - assets/teams/
     - assets/icon/
-    - .env
+    - dotenv
     - html/
 
   # An image asset can refer to one or more resolution-specific "variants", see

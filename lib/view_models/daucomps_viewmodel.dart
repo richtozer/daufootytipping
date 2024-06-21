@@ -61,7 +61,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> init() async {
-    await _oneTimeMigrateDAUComps();
     _listenToDAUComps();
     _fixtureUpdateTrigger();
   }
@@ -526,31 +525,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   void turnOnListener() {
     _listenToDAUComps();
-  }
-
-  Future<void> _oneTimeMigrateDAUComps() async {
-    try {
-      log('Migrating DAUComps to AllDAUComps');
-      final legacyDAUComps = Map<String, dynamic>.from(
-          (await _db.child('/DAUComps').get()).value as dynamic);
-
-      for (var legacyDAUcomp in legacyDAUComps.entries) {
-        String key = legacyDAUcomp.key;
-        dynamic daucompAsJSON = legacyDAUcomp.value;
-
-        if ((await _db.child('$daucompsPath/$key').get()).value == null) {
-          await _db.child('$daucompsPath/$key').set({
-            'name': daucompAsJSON['name'],
-            'aflFixtureJsonURL': daucompAsJSON['aflFixtureJsonURL'],
-            'nrlFixtureJsonURL': daucompAsJSON['nrlFixtureJsonURL'],
-          });
-          log('Migrated DAUComp: $key');
-        }
-      }
-    } catch (e) {
-      log('Error migrating DAUComps: $e');
-      rethrow;
-    }
   }
 
   @override

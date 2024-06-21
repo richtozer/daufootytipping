@@ -4,37 +4,61 @@ import {getMessaging} from "firebase-admin/messaging";
 
 export const sendHourlyReminders =
   onSchedule("every hour", async () => {
-    const zeroHoursFromNow = new Date(new Date()
-      .getTime()).toISOString();
+    const isTestingMode = false; // Set to false for production
+    const testTipperId = "-NoGNrrChbi0sETPpJNq";
+
+    // Format the current date to match the database format:
+    // "YYYY-MM-DD HH:MM:SSZ"
+    const zeroHoursFromNow = new Date().toISOString()
+      .replace("T", " ")
+      .slice(0, -5) + "Z";
+    console.log("Now: ", zeroHoursFromNow);
+    // Calculate three hours from now and format it
     const threeHoursFromNow = new Date(new Date()
-      .getTime() + 3 * 60 * 60 * 1000).toISOString();
+      .getTime() + 3 * 60 * 60 * 1000).toISOString()
+      .replace("T", " ")
+      .slice(0, -5) + "Z";
+    console.log("threeHoursFromNow: ", threeHoursFromNow);
 
     const compRef = database().ref("/AppConfig/currentDAUComp");
     const compSnapshot = await compRef.once("value");
     const compDBKey = compSnapshot.val();
 
-    // get all the short team names from /Teams
     const teamsRef = database().ref("/Teams");
     const teamsSnapshot = await teamsRef.once("value");
     const teams = teamsSnapshot.val();
 
     const gamesRef = database().ref(`/DAUCompsGames/${compDBKey}`);
     const gamesSnapshot = await gamesRef
-      .orderByChild("DateUtc").startAt(zeroHoursFromNow)
-      .endAt(threeHoursFromNow).once("value");
+      .orderByChild("DateUtc")
+      .startAt(zeroHoursFromNow)
+      .endAt(threeHoursFromNow)
+      .once("value");
 
     if (!gamesSnapshot.exists()) {
-      console.log("No games found in the specified time range. Ending processing.");
-      // terminate the function early
+      console.log("No games in the specified time range " +
+        " found at " + gamesRef + ". Ending processing.");
       return;
+    } else {
+      console.log("Found the following games in the specified time range:");
+      gamesSnapshot.forEach((game) => {
+        console.log("game: %s v %s, startDate: %s", game.val().HomeTeam,
+          game.val().AwayTeam, game.val().DateUtc);
+      });
     }
 
     const games = gamesSnapshot.val();
     const gameKeys = Object.keys(games);
 
     const tokensRef = database().ref("/AllTippersTokens");
-    const tokensSnapshot = await tokensRef.once("value");
-    const tippersWithTokens = tokensSnapshot.val();
+    let tippersWithTokens;
+    if (isTestingMode) {
+      const tokensSnapshot = await tokensRef.child(testTipperId).once("value");
+      tippersWithTokens = {[testTipperId]: tokensSnapshot.val()};
+    } else {
+      const tokensSnapshot = await tokensRef.once("value");
+      tippersWithTokens = tokensSnapshot.val();
+    }
 
     const reminders: Reminder[] = [];
 
@@ -42,41 +66,41 @@ export const sendHourlyReminders =
       if (Object.prototype.hasOwnProperty.call(tippersWithTokens, tipperId)) {
         const tokens = tippersWithTokens[tipperId];
 
-        // check if this tipper with a token has not tipped upcoming games
         for (const gameKey of gameKeys) {
           const tipRef = database()
             .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
           const tipSnapshot = await tipRef.once("value");
 
           if (!tipSnapshot.exists()) {
-            // log tipper has not tipped game
             console.log(`Tipper ${tipperId} has not tipped game ${gameKey}.`);
-            // send a reminder to all their tokens
+
             for (const tokenKey in tokens) {
               if (Object.prototype.hasOwnProperty.call(tokens, tokenKey)) {
-                // use the short team names to get the team names
-                // use team key [league]-[long team name] to find
-                // the team record. use the team record name element
-                // for the short team name
-
                 const homeTeamLongName = games[gameKey].HomeTeam;
                 const awayTeamLongName = games[gameKey].AwayTeam;
 
-                const shortHomeTeam = teams[`${gameKey.substring(0, 3)
-                }-${homeTeamLongName}`]?.name || homeTeamLongName;
-                const shortAwayTeam = teams[`${gameKey.substring(0, 3)
-                }-${awayTeamLongName}`]?.name || awayTeamLongName;
+                const shortHomeTeam = teams[`${gameKey
+                  .substring(0, 3)}-${homeTeamLongName}`]?.name ||
+                  homeTeamLongName;
+                const shortAwayTeam = teams[`${gameKey
+                  .substring(0, 3)}-${awayTeamLongName}`]?.name ||
+                  awayTeamLongName;
 
                 reminders.push({
                   tipperId: tipperId,
                   token: tokenKey,
                   homeTeam: shortHomeTeam,
                   awayTeam: shortAwayTeam,
+                  gameStartTimeUTC: new Date(games[gameKey].DateUtc),
                 });
               }
             }
+          } else {
+            console.log(`Tipper ${tipperId} has tipped game ${gameKey}.`);
           }
         }
+      } else {
+        console.log("No tokens found for tipperId: ", tipperId);
       }
     }
 
@@ -86,10 +110,21 @@ export const sendHourlyReminders =
         const message = {
           notification: {
             title: "Tipping closing soon!",
-            body: "Game " + reminder.homeTeam + " v " + reminder.awayTeam +
-                  " starts soon. You have not yet tipped. Get your tip in now.",
+            body:
+            `Game ${reminder.homeTeam} v ${reminder.awayTeam} starts soon. ` +
+            "You have not yet tipped. Get your tip in now.",
           },
           token: reminder.token,
+          apns: {
+            headers: {
+              "apns-expiration": `${Math
+                .floor(new Date(reminder.gameStartTimeUTC).getTime() / 1000)}`,
+            },
+          },
+          android: {
+            ttl: Math.floor(new Date(reminder.gameStartTimeUTC)
+              .getTime() / 1000) - Math.floor(Date.now() / 1000),
+          },
         };
 
         try {
@@ -98,10 +133,7 @@ export const sendHourlyReminders =
         } catch (error: any) {
           console.error("Error sending message to:", reminder.token, error);
           if (error.code === "messaging/registration-token-not-registered") {
-            // Handle the invalid token, e.g., remove it from your database
             console.log("Removing invalid token:", reminder.token);
-            // remove the token from the database location:
-            // /AllTippersTokens/{tipperId}/{tokenKey}
             await tokensRef
               .child(`/${reminder.tipperId}/${reminder.token}`).remove();
           }
@@ -117,4 +149,5 @@ interface Reminder {
   token: string;
   homeTeam: string;
   awayTeam: string;
+  gameStartTimeUTC: Date;
 }
