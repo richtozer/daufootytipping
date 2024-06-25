@@ -50,6 +50,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get isLegacySyncing => _isLegacySyncing;
 
   ScoresViewModel? scoresViewModel;
+  ScoresViewModel? tipperScoresViewModel;
 
   ItemScrollController itemScrollController = ItemScrollController();
 
@@ -403,7 +404,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> linkGameWithRounds(
       DAUComp daucompToUpdate, GamesViewModel gamesViewModel) async {
-    log('In updateDAUCompWithCombinedRoundsAndGames()');
+    log('In linkGameWithRounds()');
 
     await initialLoadComplete;
 
@@ -455,12 +456,13 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<DAUComp> getCompWithScores() async {
     await initialLoadComplete;
 
-    ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.addListener(_scoresUpdated);
     List<DAURound> listOfRounds = _selectedDAUComp!.daurounds;
 
     await Future.wait(listOfRounds.map((round) async {
-      round.roundScores =
-          await tipperScoresViewModel.getTipperConsolidatedScoresForRound(
+      round.roundScores = await tipperScoresViewModel!
+          .getTipperConsolidatedScoresForRound(
               round, di<TippersViewModel>().selectedTipper!);
     }));
 
@@ -527,9 +529,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     _listenToDAUComps();
   }
 
+  void _scoresUpdated() {
+    // Notify listeners when scores are updated
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _daucompsStream.cancel();
+    tipperScoresViewModel!.removeListener(_scoresUpdated);
     super.dispose();
   }
 

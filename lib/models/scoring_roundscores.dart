@@ -72,37 +72,34 @@ class RoundScores {
       rankChange,
     ];
   }
-}
 
-class CompScore {
-  int aflCompScore = 0;
-  int aflCompMaxScore = 0;
-  int nrlCompScore = 0;
-  int nrlCompMaxScore = 0;
+  // compare two roundscores using == operator
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
 
-//contructor
-  CompScore({
-    required this.aflCompScore,
-    required this.aflCompMaxScore,
-    required this.nrlCompScore,
-    required this.nrlCompMaxScore,
-  });
-
-  toJson() {
-    return {
-      'total_afl_score': aflCompScore,
-      'total_afl_maxScore': aflCompMaxScore,
-      'total_nrl_score': nrlCompScore,
-      'total_nrl_maxScore': nrlCompMaxScore,
-    };
+    return other is RoundScores &&
+        other.roundNumber == roundNumber &&
+        other.aflScore == aflScore &&
+        other.aflMaxScore == aflMaxScore &&
+        other.aflMarginTips == aflMarginTips &&
+        other.aflMarginUPS == aflMarginUPS &&
+        other.nrlScore == nrlScore &&
+        other.nrlMaxScore == nrlMaxScore &&
+        other.nrlMarginTips == nrlMarginTips &&
+        other.nrlMarginUPS == nrlMarginUPS;
   }
 
-  factory CompScore.fromJson(Map<String, dynamic> data) {
-    return CompScore(
-      aflCompScore: data['total_afl_score'] ?? 0,
-      aflCompMaxScore: data['total_afl_maxScore'] ?? 0,
-      nrlCompScore: data['total_nrl_score'] ?? 0,
-      nrlCompMaxScore: data['total_nrl_maxScore'] ?? 0,
-    );
+  @override
+  int get hashCode {
+    return roundNumber.hashCode ^
+        aflScore.hashCode ^
+        aflMaxScore.hashCode ^
+        aflMarginTips.hashCode ^
+        aflMarginUPS.hashCode ^
+        nrlScore.hashCode ^
+        nrlMaxScore.hashCode ^
+        nrlMarginTips.hashCode ^
+        nrlMarginUPS.hashCode;
   }
 }

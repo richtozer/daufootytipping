@@ -9,7 +9,6 @@ import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 // this class supports both creating and updating DAUComp records.
@@ -757,14 +756,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             });
           }
         },
-        child: ChangeNotifierProvider<ScoresViewModel>(
-            create: (context) => di<ScoresViewModel>(),
-            child: Consumer<ScoresViewModel>(
-              builder: (context, scoresViewModel, child) {
-                return Text(
-                    !scoresViewModel.isScoring ? 'Score' : 'Scoring...');
-              },
-            )),
+        child: Text(!scoresViewModel.isScoring ? 'Score' : 'Scoring...'),
       );
     }
   }
