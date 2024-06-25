@@ -52,8 +52,8 @@ class GameTipsViewModel extends ChangeNotifier {
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
 
-    // scoresViewModel = di<ScoresViewModel>();
-    // scoresViewModel.addListener(update);
+    scoresViewModel = di<ScoresViewModel>();
+    scoresViewModel.addListener(update);
 
     _findTip();
     gameStartedTrigger();

@@ -411,7 +411,7 @@ class LegacyTippingService {
     List<Tipper> activeTippers = await di<TippersViewModel>()
         .getActiveTippers(di<DAUCompsViewModel>().selectedDAUComp!);
 
-    Map<Tipper, List<RoundScores>> roundScores =
+    Map<Tipper, Map<int, RoundScores>> roundScores =
         di<ScoresViewModel>().allTipperRoundScores;
 
     int highestRoundNumber = di<DAUCompsViewModel>()
@@ -426,20 +426,20 @@ class LegacyTippingService {
 
     for (int i = 0; i < maxLen; i++) {
       for (Tipper tipper in activeTippers) {
-        List<RoundScores> tipperRoundScores = roundScores[tipper]!;
+        Map<int, RoundScores> tipperRoundScores = roundScores[tipper]!;
         if (i < tipperRoundScores.length) {
           rows.add([
             i + 1,
             tipper.name,
-            (tipperRoundScores[i].aflMarginTips +
-                    tipperRoundScores[i].nrlMarginTips)
+            (tipperRoundScores[i]!.aflMarginTips +
+                    tipperRoundScores[i]!.nrlMarginTips)
                 .toString(),
-            (tipperRoundScores[i].aflMarginUPS +
-                    tipperRoundScores[i].nrlMarginUPS)
+            (tipperRoundScores[i]!.aflMarginUPS +
+                    tipperRoundScores[i]!.nrlMarginUPS)
                 .toString(),
-            tipperRoundScores[i].nrlScore.toString(),
-            tipperRoundScores[i].aflScore.toString(),
-            (tipperRoundScores[i].nrlScore + tipperRoundScores[i].aflScore)
+            tipperRoundScores[i]!.nrlScore.toString(),
+            tipperRoundScores[i]!.aflScore.toString(),
+            (tipperRoundScores[i]!.nrlScore + tipperRoundScores[i]!.aflScore)
                 .toString(),
           ]);
         }

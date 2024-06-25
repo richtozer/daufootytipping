@@ -46,7 +46,7 @@ class StatsPage extends StatelessWidget {
                     leading:
                         const Hero(tag: 'person', child: Icon(Icons.person_3)),
                     trailing: const Icon(Icons.arrow_forward),
-                    title: const Text('Round winners & leaderboard'),
+                    title: const Text('Round winners & leaderboards'),
                     onTap: () {
                       // Navigate to the round winners
                       Navigator.push(

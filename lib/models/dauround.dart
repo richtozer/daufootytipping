@@ -16,7 +16,6 @@ enum RoundState {
 class DAURound implements Comparable<DAURound> {
   final int dAUroundNumber;
   List<Game> games = [];
-  CompScore? compScore;
   RoundScores? roundScores;
   RoundState roundState = RoundState.notStarted;
   DateTime roundStartDate;

@@ -1,7 +1,5 @@
 import 'dart:developer';
-
 import 'package:collection/collection.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
@@ -13,7 +11,7 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri nrlFixtureJsonURL;
   List<DAURound> daurounds;
   final bool active;
-  CompScore? consolidatedCompScores;
+
   DateTime? lastFixtureUpdateTimestamp;
 
   //constructor

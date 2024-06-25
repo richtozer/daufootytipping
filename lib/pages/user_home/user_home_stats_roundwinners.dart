@@ -38,7 +38,6 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   void initState() {
     super.initState();
     scoresViewModel = di<ScoresViewModel>();
-    scoresViewModel.updateRoundWinners();
     onSort(0, false);
   }
 

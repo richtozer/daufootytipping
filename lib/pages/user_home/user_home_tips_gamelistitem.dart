@@ -197,6 +197,7 @@ class _GameListItemState extends State<GameListItem> {
         if (snapshot.hasData) {
           return LiveScoring(
               tipGame: snapshot.data!,
+              dauround: widget.dauRound,
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
         } else {
