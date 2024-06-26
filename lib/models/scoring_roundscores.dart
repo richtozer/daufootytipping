@@ -37,8 +37,8 @@ class RoundScores {
       'nrl_maxScore': nrlMaxScore,
       'nrl_marginTips': nrlMarginTips,
       'nrl_marginUPS': nrlMarginUPS,
-      'rank': rank,
-      'changeInRank': rankChange,
+      // 'rank': rank,
+      // 'changeInRank': rankChange,
     };
   }
 
@@ -53,8 +53,8 @@ class RoundScores {
       nrlMaxScore: data['nrl_maxScore'] ?? 0,
       nrlMarginTips: data['nrl_marginTips'] ?? 0,
       nrlMarginUPS: data['nrl_marginUPS'] ?? 0,
-      rank: data['rank'] ?? 0,
-      rankChange: data['changeInRank'] ?? 0,
+      rank: 0,
+      rankChange: 0,
     );
   }
 

@@ -58,7 +58,16 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> init() async {
     _listenToDAUComps();
+    await _initialLoadCompleter.future;
+    // get the current DAUComp
+    _selectedDAUComp ??= await getCurrentDAUComp();
+
+    // initialize other viewmodels
+    await _initOtherViewModels();
+
     _fixtureUpdateTrigger();
+    linkGameWithRounds(_selectedDAUComp!, di<GamesViewModel>());
+    //await _getScores();
   }
 
   void _setSelectedDAUComp(DAUComp? daucomp) {
@@ -135,31 +144,35 @@ class DAUCompsViewModel extends ChangeNotifier {
         if (!_initialLoadCompleter.isCompleted) {
           _initialLoadCompleter.complete();
         }
-
-        _selectedDAUComp ??= await getCurrentDAUComp();
-
-        // initialize other viewmodels
-        di.registerLazySingleton<GamesViewModel>(
-            () => GamesViewModel(_selectedDAUComp!));
-        di.registerLazySingleton<ScoresViewModel>(
-            () => ScoresViewModel(_selectedDAUComp!));
-        di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-            di<TippersViewModel>(),
-            di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-            di<GamesViewModel>()));
-
-        linkGameWithRounds(_selectedDAUComp!, di<GamesViewModel>());
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
       }
 
-      await _getScores();
       notifyListeners();
     } catch (e) {
       log('Error listening to $daucompsPath: $e');
       rethrow;
     }
+  }
+
+  Future<void> _initOtherViewModels() async {
+    await initialLoadComplete;
+    // initialize other viewmodels
+    di.registerLazySingleton<GamesViewModel>(
+        () => GamesViewModel(_selectedDAUComp!));
+    di.registerLazySingleton<ScoresViewModel>(
+        () => ScoresViewModel(_selectedDAUComp!));
+    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
+        di<TippersViewModel>(),
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+        di<GamesViewModel>()));
+
+    GamesViewModel gamesViewModel = di<GamesViewModel>();
+    gamesViewModel.addListener(_otherViewModelUpdated);
+
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.addListener(_otherViewModelUpdated);
   }
 
   void _setRoundState(DAURound round) {
@@ -415,12 +428,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       DAUComp daucompToUpdate, GamesViewModel gamesViewModel) async {
     log('In linkGameWithRounds()');
 
-    gamesViewModel.addListener(() {
-      notifyListeners();
-    });
-
-    await initialLoadComplete;
-
     for (var round in daucompToUpdate.daurounds) {
       round.games = await gamesViewModel.getGamesForRound(round);
       _setRoundState(round);
@@ -464,18 +471,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<List<DAUComp>> getDAUcomps() async {
     await initialLoadComplete;
     return _daucomps;
-  }
-
-  Future<void> _getScores() async {
-    tipperScoresViewModel = di<ScoresViewModel>();
-    tipperScoresViewModel!.addListener(_scoresUpdated);
-    List<DAURound> listOfRounds = _selectedDAUComp!.daurounds;
-
-    await Future.wait(listOfRounds.map((round) async {
-      round.roundScores = await tipperScoresViewModel!
-          .getTipperConsolidatedScoresForRound(
-              round, di<TippersViewModel>().selectedTipper!);
-    }));
   }
 
   Future<List<DAURound>> getCombinedRounds() async {
@@ -538,14 +533,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     _listenToDAUComps();
   }
 
-  void _scoresUpdated() {
+  void _otherViewModelUpdated() {
     notifyListeners();
   }
 
   @override
   void dispose() {
     _daucompsStream.cancel();
-    tipperScoresViewModel!.removeListener(_scoresUpdated);
+    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
     super.dispose();
   }
 

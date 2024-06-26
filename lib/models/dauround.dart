@@ -1,5 +1,4 @@
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 
 double gameCardHeight = 128.0;
@@ -16,7 +15,6 @@ enum RoundState {
 class DAURound implements Comparable<DAURound> {
   final int dAUroundNumber;
   List<Game> games = [];
-  late RoundScores roundScores;
   RoundState roundState = RoundState.notStarted;
   DateTime roundStartDate;
   DateTime roundEndDate;
@@ -31,21 +29,7 @@ class DAURound implements Comparable<DAURound> {
     this.adminOverrideRoundStartDate,
     this.adminOverrideRoundEndDate,
     this.games = const [],
-    RoundScores? roundScores, // Make roundScores nullable
-  }) : roundScores = roundScores ??
-            RoundScores(
-              roundNumber: dAUroundNumber,
-              aflScore: 0,
-              nrlScore: 0,
-              aflMaxScore: 0,
-              nrlMaxScore: 0,
-              aflMarginTips: 0,
-              aflMarginUPS: 0,
-              nrlMarginTips: 0,
-              nrlMarginUPS: 0,
-              rank: 0,
-              rankChange: 0,
-            ); // Initialize roundScores if null
+  });
 
   // method to serialize DAURound to JSON
   Map<String, dynamic> toJsonForCompare() {
