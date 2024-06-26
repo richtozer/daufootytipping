@@ -18,7 +18,6 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
-  late ScoresViewModel scoresViewModel;
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
@@ -51,9 +50,6 @@ class GameTipsViewModel extends ChangeNotifier {
 
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
-
-    scoresViewModel = di<ScoresViewModel>();
-    scoresViewModel.addListener(update);
 
     _findTip();
     gameStartedTrigger();
@@ -165,7 +161,6 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
-    scoresViewModel.removeListener(update);
     super.dispose();
   }
 }

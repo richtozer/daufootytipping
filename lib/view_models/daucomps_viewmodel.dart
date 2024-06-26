@@ -24,16 +24,12 @@ const daucompsPath = '/AllDAUComps';
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
-
   final _db = FirebaseDatabase.instance.ref();
-
   late StreamSubscription<DatabaseEvent> _daucompsStream;
-
   final String _defaultDAUCompDbKey;
   String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
 
   late String _selectedDAUCompDbKey;
-
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp => _selectedDAUComp;
 
@@ -53,7 +49,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   ScoresViewModel? tipperScoresViewModel;
 
   ItemScrollController itemScrollController = ItemScrollController();
-
   final Map<String, dynamic> updates = {};
 
   DAUCompsViewModel(this._defaultDAUCompDbKey) {
@@ -128,7 +123,6 @@ class DAUCompsViewModel extends ChangeNotifier {
             if (existingDAUComp != databaseDAUComp) {
               existingDAUCompsMap[key] = databaseDAUComp;
               log('Updated DAUComp from database: $key');
-              await linkGameWithRounds(databaseDAUComp, di<GamesViewModel>());
             }
           } else {
             existingDAUCompsMap[key] = databaseDAUComp;
@@ -137,15 +131,30 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
 
         _daucomps = existingDAUCompsMap.values.toList();
+
+        if (!_initialLoadCompleter.isCompleted) {
+          _initialLoadCompleter.complete();
+        }
+
+        _selectedDAUComp ??= await getCurrentDAUComp();
+
+        // initialize other viewmodels
+        di.registerLazySingleton<GamesViewModel>(
+            () => GamesViewModel(_selectedDAUComp!));
+        di.registerLazySingleton<ScoresViewModel>(
+            () => ScoresViewModel(_selectedDAUComp!));
+        di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
+            di<TippersViewModel>(),
+            di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+            di<GamesViewModel>()));
+
+        linkGameWithRounds(_selectedDAUComp!, di<GamesViewModel>());
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
       }
 
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
-
+      await _getScores();
       notifyListeners();
     } catch (e) {
       log('Error listening to $daucompsPath: $e');
@@ -406,6 +415,10 @@ class DAUCompsViewModel extends ChangeNotifier {
       DAUComp daucompToUpdate, GamesViewModel gamesViewModel) async {
     log('In linkGameWithRounds()');
 
+    gamesViewModel.addListener(() {
+      notifyListeners();
+    });
+
     await initialLoadComplete;
 
     for (var round in daucompToUpdate.daurounds) {
@@ -453,9 +466,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _daucomps;
   }
 
-  Future<DAUComp> getCompWithScores() async {
-    await initialLoadComplete;
-
+  Future<void> _getScores() async {
     tipperScoresViewModel = di<ScoresViewModel>();
     tipperScoresViewModel!.addListener(_scoresUpdated);
     List<DAURound> listOfRounds = _selectedDAUComp!.daurounds;
@@ -465,8 +476,6 @@ class DAUCompsViewModel extends ChangeNotifier {
           .getTipperConsolidatedScoresForRound(
               round, di<TippersViewModel>().selectedTipper!);
     }));
-
-    return _selectedDAUComp!;
   }
 
   Future<List<DAURound>> getCombinedRounds() async {
@@ -530,7 +539,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   void _scoresUpdated() {
-    // Notify listeners when scores are updated
     notifyListeners();
   }
 
