@@ -119,6 +119,9 @@ class ScoresViewModel extends ChangeNotifier {
       // Update the round winners
       _updateRoundWinners();
 
+      // rank the tippers
+      _rankTippers();
+
       notifyListeners();
     } catch (e) {
       log('Error listening to /Scores/round_scores: $e');
@@ -646,6 +649,10 @@ class ScoresViewModel extends ChangeNotifier {
   }
 
   void _rankTippers() async {
+    // if an initial scoring update has not completed then return
+    if (_allTipperRoundScores.isEmpty) {
+      return;
+    }
     for (var roundIndex = 0;
         roundIndex < currentDAUComp.daurounds.length;
         roundIndex++) {
