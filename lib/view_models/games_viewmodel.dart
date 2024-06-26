@@ -106,8 +106,8 @@ class GamesViewModel extends ChangeNotifier {
 
         // Now that we have all the games from db
         // call linkGamesWithRounds() to link the games with the rounds
-        // and notify listeners
-        di<DAUCompsViewModel>().linkGameWithRounds(selectedDAUComp, this);
+        DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
+        dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
@@ -116,7 +116,6 @@ class GamesViewModel extends ChangeNotifier {
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
-      notifyListeners();
       rethrow;
     }
   }

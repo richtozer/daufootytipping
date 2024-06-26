@@ -22,7 +22,6 @@ import 'package:watch_it/watch_it.dart';
 // Define constants for Firestore database location
 const scoresPathRoot = '/AllScores';
 const roundScoresRoot = 'round_scores';
-const compScoresRoot = 'comp_scores';
 const liveScoresRoot = 'live_scores';
 
 class ScoresViewModel extends ChangeNotifier {
@@ -35,7 +34,6 @@ class ScoresViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
-  late StreamSubscription<DatabaseEvent> _allCompScoresStream;
 
   final DAUComp currentDAUComp;
 
@@ -61,9 +59,9 @@ class ScoresViewModel extends ChangeNotifier {
     _listenToScores();
   }
 
-  void update() {
-    notifyListeners(); // Notify our consumers that the data may have changed to the parent gamesviewmodel.games data
-  }
+  // void update() {
+  //   notifyListeners(); // Notify our consumers that the data may have changed to the parent gamesviewmodel.games data
+  // }
 
   void _listenToScores() async {
     _allRoundScoresStream = _db
@@ -228,7 +226,6 @@ class ScoresViewModel extends ChangeNotifier {
       return res;
     } catch (e) {
       _isScoring = false;
-      notifyListeners();
       rethrow;
     }
   }
@@ -249,16 +246,6 @@ class ScoresViewModel extends ChangeNotifier {
           .child(scoresPathRoot)
           .child(daucompToUpdate.dbkey!)
           .child(roundScoresRoot)
-          .child(tipper.dbkey!)
-          .remove();
-    }
-
-    //also remove their comp scores
-    for (var tipper in tippersToRemove) {
-      await _db
-          .child(scoresPathRoot)
-          .child(daucompToUpdate.dbkey!)
-          .child(compScoresRoot)
           .child(tipper.dbkey!)
           .remove();
     }
@@ -481,7 +468,7 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
-  Future<RoundScores?> getTipperConsolidatedScoresForRound(
+  Future<RoundScores> getTipperConsolidatedScoresForRound(
       DAURound round, Tipper tipper) async {
     if (!_initialRoundLoadCompleted.isCompleted) {
       await _initialRoundLoadCompleted.future;
@@ -519,7 +506,7 @@ class ScoresViewModel extends ChangeNotifier {
       );
     }
 
-    return _allTipperRoundScores[tipper]![round.dAUroundNumber - 1];
+    return _allTipperRoundScores[tipper]![round.dAUroundNumber - 1]!;
   }
 
   void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) {
@@ -552,8 +539,6 @@ class ScoresViewModel extends ChangeNotifier {
     }
 
     di<ScoresViewModel>()._writeLiveScoreToDb(game);
-
-    notifyListeners();
   }
 
   Future<void> _writeLiveScoreToDb(Game game) async {
@@ -708,7 +693,6 @@ class ScoresViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _allRoundScoresStream.cancel();
-    _allCompScoresStream.cancel();
     _liveScoresStream.cancel();
 
     super.dispose();
