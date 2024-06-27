@@ -140,6 +140,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                       entry.key, widget.roundNumberToDisplay),
                                   Expanded(
                                     child: Text(
+                                      softWrap: false,
                                       entry.key.name,
                                       overflow: TextOverflow.fade,
                                     ),

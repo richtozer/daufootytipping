@@ -1,5 +1,4 @@
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
 
 double gameCardHeight = 128.0;
 double leagueHeaderHeight = 56;
