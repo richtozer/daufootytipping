@@ -28,7 +28,7 @@ class TipsPageState extends State<TipsPage> {
       di<DAUCompsViewModel>().selectedDAUComp!.dbkey!;
   late TipsViewModel tipperTipsViewModel;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
-  int latestRoundNumber = 1;
+  int latestRoundNumber = 17;
 
   @override
   void initState() {

@@ -107,12 +107,15 @@ class GamesViewModel extends ChangeNotifier {
         // Now that we have all the games from db
         // call linkGamesWithRounds() to link the games with the rounds
         DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-        dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
+        //await dauCompsViewModel.initialLoadComplete;
+        await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
+        //TODO note the above call can be removed once gamelist builder is refactored to not use futurebuilder
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
       notifyListeners();
+      log('GamesViewModel_handleEvent: notifyListeners()');
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
@@ -196,10 +199,12 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log('Waiting for Game load to complete findGame()');
-      await _initialLoadCompleter.future;
-    }
+    // if (!_initialLoadCompleter.isCompleted) {
+    //   log('Waiting for Game load to complete findGame()');
+    //   await _initialLoadCompleter.future;
+    // }
+    //TODO above commented out due to the poor design of the GameListBuilder.
+    // once it moves away from the FutureBuilder, this entire function can be refactored or remvoed
 
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
