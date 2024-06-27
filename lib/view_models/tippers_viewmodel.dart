@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -127,9 +128,10 @@ class TippersViewModel extends ChangeNotifier {
       return;
     }
 
-    // if the attribute name is deviceTokens store the token in another tree
-    // this is to avoid the need to update the entire tipper record every time a new token is added
-    // this is due to firebase billing
+    // the Tipper serialisation relies on daucompsviewmodel being ready
+    // so we need to wait for it to be ready before we can update the tipper
+
+    await di<DAUCompsViewModel>().initialLoadComplete;
 
     dynamic oldValue = tipperToUpdate.toJson()[attributeName];
     if (attributeValue != oldValue) {
