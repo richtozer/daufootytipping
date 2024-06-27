@@ -46,8 +46,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     return FutureProvider<List<RoundScores>>(
       initialData: const [],
       create: (context) async {
-        var scores = scoresViewModel
-            .getTipperRoundScoresForComp(widget.statsTipper);
+        var scores =
+            scoresViewModel.getTipperRoundScoresForComp(widget.statsTipper);
         scores.sort(
             (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort
         return scores;
@@ -128,28 +128,28 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text((score.nrlScore + score.aflScore).toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text(score.nrlScore.toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text(score.aflScore.toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text((score.aflMarginTips + score.nrlMarginTips).toString())),
         DataCell(Text((score.aflMarginUPS + score.nrlMarginUPS).toString()),
@@ -158,7 +158,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
       ],
     );

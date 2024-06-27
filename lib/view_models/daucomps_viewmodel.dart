@@ -66,8 +66,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     await _initOtherViewModels();
 
     _fixtureUpdateTrigger();
-    linkGameWithRounds(_selectedDAUComp!, di<GamesViewModel>());
-    //await _getScores();
   }
 
   void _setSelectedDAUComp(DAUComp? daucomp) {
@@ -480,7 +478,13 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<Map<League, List<Game>>> sortGamesIntoLeagues(
       DAURound combinedRound, GamesViewModel gamesViewModel) async {
+    // wait for daucomp initial load to complete
     await initialLoadComplete;
+
+    // wait for games initial load to complete
+    await gamesViewModel.initialLoadComplete;
+    //TODO the above is a bit of a hack. When we move away from a futurebuilder for the gameslist page.
+    // we can use notify listener to build the games list and awaiting the completer will not be required here
 
     List<Game> nrlGames = [];
     List<Game> aflGames = [];

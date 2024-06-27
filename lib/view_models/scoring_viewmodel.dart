@@ -124,7 +124,7 @@ class ScoresViewModel extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      log('Error listening to /Scores/round_scores: $e');
+      log('Error listening to /AllScores/round_scores: $e');
 
       if (!_initialRoundLoadCompleted.isCompleted) {
         _initialRoundLoadCompleted.complete();
@@ -157,7 +157,7 @@ class ScoresViewModel extends ChangeNotifier {
         }
       }
     } catch (e) {
-      log('Error listening to /Scores/live_scores: $e');
+      log('Error listening to /AllScores/live_scores: $e');
       rethrow;
     } finally {
       if (!_initialLiveScoreLoadCompleter.isCompleted) {
@@ -312,7 +312,7 @@ class ScoresViewModel extends ChangeNotifier {
             roundScores.nrlMaxScore + roundScores.aflMaxScore > 0) {
           roundWinners[round.key] ??= [];
           roundWinners[round.key]!.add(RoundWinnerEntry(
-            roundNumber: round.key,
+            roundNumber: roundScores.roundNumber,
             tipper: tipper,
             total: roundScores.aflScore + roundScores.nrlScore,
             nRL: roundScores.nrlScore,
@@ -463,7 +463,7 @@ class ScoresViewModel extends ChangeNotifier {
 
       return _allTipperRoundScores[tipper]!
           .entries
-          .where((entry) => entry.key <= latestRoundNumber)
+          .where((entry) => entry.key <= latestRoundNumber - 1)
           .map((entry) => entry.value)
           .toList();
     } else {
