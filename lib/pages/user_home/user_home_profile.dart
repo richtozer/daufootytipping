@@ -54,36 +54,38 @@ class Profile extends StatelessWidget with WatchItMixin {
                         ),
                       );
                     } else {
-                      return Column(
-                        children: [
-                          SizedBox(
-                            width: 300,
-                            child: Text(
-                              'Tipper in a previous year? Select it below to revisit your tips and scores: ',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          DropdownButton<String>(
-                            value: selectedDAUCompDbKey,
-                            icon: const Icon(Icons.arrow_downward),
-                            onChanged: (String? newValue) {
-                              // update the current comp
-                              dauCompsViewModelConsumer
-                                  .changeCurrentDAUComp(newValue!);
-                            },
-                            items: di<TippersViewModel>()
-                                .selectedTipper!
-                                .compsParticipatedIn
-                                .map<DropdownMenuItem<String>>((DAUComp comp) {
-                              return DropdownMenuItem<String>(
-                                value: comp.dbkey,
-                                child: Text(comp.name),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      );
+                      // TODO temporarily removed the ability to switch comps
+                      return const SizedBox.shrink();
+                      // return Column(
+                      //   children: [
+                      //     SizedBox(
+                      //       width: 300,
+                      //       child: Text(
+                      //         'Tipper in a previous year? Select it below to revisit your tips and scores: ',
+                      //         textAlign: TextAlign.center,
+                      //         style: Theme.of(context).textTheme.titleMedium,
+                      //       ),
+                      //     ),
+                      //     DropdownButton<String>(
+                      //       value: selectedDAUCompDbKey,
+                      //       icon: const Icon(Icons.arrow_downward),
+                      //       onChanged: (String? newValue) {
+                      //         // update the current comp
+                      //         dauCompsViewModelConsumer
+                      //             .changeCurrentDAUComp(newValue!);
+                      //       },
+                      //       items: di<TippersViewModel>()
+                      //           .selectedTipper!
+                      //           .compsParticipatedIn
+                      //           .map<DropdownMenuItem<String>>((DAUComp comp) {
+                      //         return DropdownMenuItem<String>(
+                      //           value: comp.dbkey,
+                      //           child: Text(comp.name),
+                      //         );
+                      //       }).toList(),
+                      //     ),
+                      //   ],
+                      // );
                     }
                   },
                 ),
