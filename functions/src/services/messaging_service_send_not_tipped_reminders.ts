@@ -67,12 +67,16 @@ export const sendHourlyReminders =
       if (Object.prototype.hasOwnProperty.call(tippersWithTokens, tipperId)) {
         const tokens = tippersWithTokens[tipperId];
 
+        // track the number of games not tipped for the badge count
+        let gamesNotTipped = 0;
+
         for (const gameKey of gameKeys) {
           const tipRef = database()
             .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
           const tipSnapshot = await tipRef.once("value");
 
           if (!tipSnapshot.exists()) {
+            gamesNotTipped++;
             const homeTeamLongName = games[gameKey].HomeTeam;
             const awayTeamLongName = games[gameKey].AwayTeam;
 
@@ -93,6 +97,7 @@ export const sendHourlyReminders =
                   homeTeam: homeTeam,
                   awayTeam: awayTeam,
                   gameStartTimeUTC: new Date(games[gameKey].DateUtc),
+                  gamesNotTipped: gamesNotTipped,
                 });
               }
             }
@@ -118,6 +123,12 @@ export const sendHourlyReminders =
             headers: {
               "apns-expiration": `${Math
                 .floor(new Date(reminder.gameStartTimeUTC).getTime() / 1000)}`,
+            },
+            payload: {
+              aps: {
+                "sound": "default",
+                "content-available": 1,
+              },
             },
           },
           android: {
@@ -149,4 +160,5 @@ interface Reminder {
   homeTeam: string;
   awayTeam: string;
   gameStartTimeUTC: Date;
+  gamesNotTipped?: number;
 }

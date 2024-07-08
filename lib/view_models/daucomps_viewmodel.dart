@@ -498,8 +498,10 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    nrlGames.sort((a, b) => a.matchNumber.compareTo(b.matchNumber));
-    aflGames.sort((a, b) => a.matchNumber.compareTo(b.matchNumber));
+    nrlGames
+        .sort(); //use the default sort which is game start time then match number
+    aflGames
+        .sort(); //use the default sort which is game start time then match number
 
     return {League.nrl: nrlGames, League.afl: aflGames};
   }

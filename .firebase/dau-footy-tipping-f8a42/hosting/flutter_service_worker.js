@@ -3,19 +3,11 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-<<<<<<< Updated upstream
-const RESOURCES = {"flutter_bootstrap.js": "3639daba18878fb364c194a26e5cca00",
-"version.json": "50e03e07101daea9e01f1249b8358692",
+const RESOURCES = {"flutter_bootstrap.js": "3de463574629a993d6ffa3f33d60ae93",
+"version.json": "762e3718bb4b21be4a502de1c4730dfb",
 "index.html": "a91f74097f810a425fb67ffa77702ef7",
 "/": "a91f74097f810a425fb67ffa77702ef7",
-"main.dart.js": "c48ff6a28d2ef44c3a23dd4f11d58958",
-=======
-const RESOURCES = {"flutter_bootstrap.js": "42d88073b39240de44bf32a900cad465",
-"version.json": "50e03e07101daea9e01f1249b8358692",
-"index.html": "a91f74097f810a425fb67ffa77702ef7",
-"/": "a91f74097f810a425fb67ffa77702ef7",
-"main.dart.js": "cfb6948da20d9c342ca17379e184fe11",
->>>>>>> Stashed changes
+"main.dart.js": "d12f993738838bad7663d5932751d758",
 "flutter.js": "383e55f7f3cce5be08fcf1f3881f585c",
 "favicon.png": "5dcef449791fa27946b3d35ad8803796",
 "icons/Icon-192.png": "ac9a721a12bbc803b44f645561ecb1e1",
@@ -33,7 +25,7 @@ const RESOURCES = {"flutter_bootstrap.js": "42d88073b39240de44bf32a900cad465",
 "assets/packages/firebase_ui_auth/fonts/SocialIcons.ttf": "c6d1e3f66e3ca5b37c7578e6f80f37d8",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
 "assets/AssetManifest.bin": "222d721d5038de5e858b9243b068bfa0",
-"assets/fonts/MaterialIcons-Regular.otf": "85164015c5d334a9b5fab41051c195dd",
+"assets/fonts/MaterialIcons-Regular.otf": "496df687b815a153c5d892be5eadd515",
 "assets/assets/teams/nrl/Canterbury_colours.svg": "7b206a789b13a6f2151b37292631af03",
 "assets/assets/teams/nrl/Melbourne_colours.svg": "21fcead34bcc42f878175d5c6e89a0ef",
 "assets/assets/teams/nrl/St._George_colours.svg": "069ee87753a236f83ba3e4503df34066",
