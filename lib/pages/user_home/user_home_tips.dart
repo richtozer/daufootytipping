@@ -1,15 +1,13 @@
-import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -26,29 +24,22 @@ class TipsPage extends StatefulWidget {
 class TipsPageState extends State<TipsPage> {
   final String currentDAUCompDbkey =
       di<DAUCompsViewModel>().selectedDAUComp!.dbkey!;
-  late TipsViewModel tipperTipsViewModel;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
-  int latestRoundNumber = 17;
+  int latestRoundNumber = 1;
 
   @override
   void initState() {
     log('TipsPageBody.constructor()');
     super.initState();
-    _fetchData();
 
-    latestRoundNumber = daucompsViewModel.selectedDAUComp!
-        .getHighestRoundNumberWithAllGamesPlayed();
+    latestRoundNumber =
+        daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
     log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
-  }
 
-  Future<void> _fetchData() async {
-    tipperTipsViewModel = TipsViewModel.forTipper(
-        di<TippersViewModel>(),
-        currentDAUCompDbkey,
-        di<GamesViewModel>(),
-        di<TippersViewModel>().selectedTipper);
-    await tipperTipsViewModel.initialLoadCompleted;
-    return;
+    if (daucompsViewModel.selectedDAUComp!.daurounds.isEmpty) {
+      latestRoundNumber = 0;
+      log('no rounds found. setting initial scroll position to 0');
+    }
   }
 
   @override
@@ -90,7 +81,8 @@ class TipsPageState extends State<TipsPage> {
                   currentTipper: di<TippersViewModel>().selectedTipper!,
                   dauRound: dauRound,
                   league: League.nrl,
-                  allTipsViewModel: tipperTipsViewModel,
+                  tipperTipsViewModel:
+                      daucompsViewmodelConsumer.tipperTipsViewModel!,
                   dauCompsViewModel: daucompsViewmodelConsumer,
                 );
               } else if (itemIndex == 2) {
@@ -104,7 +96,8 @@ class TipsPageState extends State<TipsPage> {
                   currentTipper: di<TippersViewModel>().selectedTipper!,
                   dauRound: dauRound,
                   league: League.afl,
-                  allTipsViewModel: tipperTipsViewModel,
+                  tipperTipsViewModel:
+                      daucompsViewmodelConsumer.tipperTipsViewModel,
                   dauCompsViewModel: daucompsViewmodelConsumer,
                 );
               }
@@ -113,6 +106,45 @@ class TipsPageState extends State<TipsPage> {
           );
         }),
       ),
+    );
+  }
+
+  Widget leagueNotTippedCountBadge(int counter) {
+    return Stack(
+      children: <Widget>[
+        IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // setState(() {
+              //   counter = 0;
+              // });
+            }),
+        counter != 0
+            ? Positioned(
+                right: 11,
+                top: 11,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: League.afl.colour,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 14,
+                    minHeight: 14,
+                  ),
+                  child: Text(
+                    '$counter',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            : Container()
+      ],
     );
   }
 

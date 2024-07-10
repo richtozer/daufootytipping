@@ -19,7 +19,6 @@ import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:watch_it/watch_it.dart';
 
-// Define constants for Firestore database locations
 const daucompsPath = '/AllDAUComps';
 
 class DAUCompsViewModel extends ChangeNotifier {
@@ -29,7 +28,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   final String _defaultDAUCompDbKey;
   String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
 
-  late String _selectedDAUCompDbKey;
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp => _selectedDAUComp;
 
@@ -45,54 +43,54 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
 
-  ScoresViewModel? scoresViewModel;
   ScoresViewModel? tipperScoresViewModel;
+
+  TipsViewModel? tipperTipsViewModel;
 
   ItemScrollController itemScrollController = ItemScrollController();
   final Map<String, dynamic> updates = {};
 
   DAUCompsViewModel(this._defaultDAUCompDbKey) {
-    _selectedDAUCompDbKey = _defaultDAUCompDbKey;
     init();
   }
 
   Future<void> init() async {
     _listenToDAUComps();
-    await _initialLoadCompleter.future;
-    // get the current DAUComp
-    _selectedDAUComp ??= await getCurrentDAUComp();
-
-    // initialize other viewmodels
-    await _initOtherViewModels();
-
+    await initialLoadComplete;
+    await changeCurrentDAUComp(_defaultDAUCompDbKey);
     _fixtureUpdateTrigger();
   }
 
-  void _setSelectedDAUComp(DAUComp? daucomp) {
-    _selectedDAUComp = daucomp;
-    notifyListeners();
-  }
-
-  void setDefaultDAUCompDbKey(String newDefaultDAUCompDbKey) {
-    _selectedDAUCompDbKey = newDefaultDAUCompDbKey;
-    notifyListeners();
-  }
-
-  void changeCurrentDAUComp(String newDAUCompDbkey) async {
-    _selectedDAUCompDbKey = newDAUCompDbkey;
+  Future<void> changeCurrentDAUComp(String newDAUCompDbkey) async {
     _selectedDAUComp = await findComp(newDAUCompDbkey);
-    _resetViewModels();
+    await _initializeAndResetViewModels();
     notifyListeners();
   }
 
-  void _resetViewModels() {
+  Future<void> _initializeAndResetViewModels() async {
+    await initialLoadComplete;
     di.registerLazySingleton<ScoresViewModel>(
         () => ScoresViewModel(_selectedDAUComp!));
-    scoresViewModel = di<ScoresViewModel>();
+
     di.registerLazySingleton<GamesViewModel>(
         () => GamesViewModel(_selectedDAUComp!));
-    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-        di<TippersViewModel>(), _selectedDAUCompDbKey, di<GamesViewModel>()));
+
+    // get the current selected tipper from the TipperViewModel
+    await di<TippersViewModel>().isUserLinked;
+    Tipper currentTipper = di<TippersViewModel>().selectedTipper!;
+
+    tipperTipsViewModel = TipsViewModel.forTipper(
+        di<TippersViewModel>(),
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+        di<GamesViewModel>(),
+        currentTipper);
+    tipperTipsViewModel!.addListener(_otherViewModelUpdated);
+
+    GamesViewModel gamesViewModel = di<GamesViewModel>();
+    gamesViewModel.addListener(_otherViewModelUpdated);
+
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.addListener(_otherViewModelUpdated);
   }
 
   void _listenToDAUComps() {
@@ -154,25 +152,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _initOtherViewModels() async {
-    await initialLoadComplete;
-    // initialize other viewmodels
-    di.registerLazySingleton<GamesViewModel>(
-        () => GamesViewModel(_selectedDAUComp!));
-    di.registerLazySingleton<ScoresViewModel>(
-        () => ScoresViewModel(_selectedDAUComp!));
-    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-        di<TippersViewModel>(),
-        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-        di<GamesViewModel>()));
-
-    GamesViewModel gamesViewModel = di<GamesViewModel>();
-    gamesViewModel.addListener(_otherViewModelUpdated);
-
-    tipperScoresViewModel = di<ScoresViewModel>();
-    tipperScoresViewModel!.addListener(_otherViewModelUpdated);
-  }
-
   void _setRoundState(DAURound round) {
     if (round.games.isEmpty) {
       round.roundState = RoundState.noGames;
@@ -205,26 +184,25 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _fixtureUpdateTrigger() async {
     await initialLoadComplete;
 
-    DAUComp? selectedDAUComp = await getCurrentDAUComp();
-    if (selectedDAUComp == null) {
+    if (_selectedDAUComp == null) {
       log('Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
       return;
     }
 
-    DateTime? lastUpdate =
-        selectedDAUComp.lastFixtureUpdateTimestamp ?? DateTime.utc(2021, 1, 1);
+    DateTime? lastUpdate = _selectedDAUComp!.lastFixtureUpdateTimestamp ??
+        DateTime.utc(2021, 1, 1);
     Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
 
     log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
     await Future.delayed(timeUntilNewDay);
     log('Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
 
-    if (selectedDAUComp.lastFixtureUpdateTimestamp == lastUpdate ||
-        selectedDAUComp.lastFixtureUpdateTimestamp == null) {
-      log('Starting fixture update for comp: ${selectedDAUComp.name}');
-      await getNetworkFixtureData(selectedDAUComp, di<GamesViewModel>());
+    if (_selectedDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
+        _selectedDAUComp!.lastFixtureUpdateTimestamp == null) {
+      log('Starting fixture update for comp: ${_selectedDAUComp!.name}');
+      await getNetworkFixtureData(_selectedDAUComp!, di<GamesViewModel>());
     } else {
-      log('Fixture update has already been triggered for comp: ${selectedDAUComp.name}. Skipping');
+      log('Fixture update has already been triggered for comp: ${_selectedDAUComp!.name}. Skipping');
     }
   }
 
@@ -478,13 +456,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<Map<League, List<Game>>> sortGamesIntoLeagues(
       DAURound combinedRound, GamesViewModel gamesViewModel) async {
-    // wait for daucomp initial load to complete
     await initialLoadComplete;
-
-    // wait for games initial load to complete
     await gamesViewModel.initialLoadComplete;
-    //TODO the above is a bit of a hack. When we move away from a futurebuilder for the gameslist page.
-    // we can use notify listener to build the games list and awaiting the completer will not be required here
 
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
@@ -525,11 +498,11 @@ class DAUCompsViewModel extends ChangeNotifier {
     return defaultRoundNrlTips + defaultRoundAflTips;
   }
 
-  Future<DAUComp?> getCurrentDAUComp() async {
-    DAUComp? daucomp = await findComp(_selectedDAUCompDbKey);
-    _setSelectedDAUComp(daucomp);
-    return daucomp;
-  }
+  // Future<DAUComp?> getCurrentDAUComp() async {
+  //   DAUComp? daucomp = await findComp(_selectedDAUCompDbKey);
+  //   _setSelectedDAUComp(daucomp);
+  //   return daucomp;
+  // }
 
   void turnOffListener() {
     _daucompsStream.cancel();

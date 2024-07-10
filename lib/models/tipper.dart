@@ -28,18 +28,6 @@ class Tipper implements Comparable<Tipper> {
       required this.tipperRole});
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
-/*     // Handle deviceTokens list
-    dynamic deviceTokensData = data['deviceTokens'];
-    List<DeviceToken?> deviceTokensList = [];
-
-    if (deviceTokensData != null) {
-      deviceTokensList =
-          data['deviceTokens'].map<DeviceToken?>((deviceTokensasJSON) {
-        return DeviceToken.fromJson(
-            Map<String, dynamic>.from(deviceTokensasJSON));
-      }).toList();
-    } */
-
     return Tipper(
       dbkey: key,
       //deviceTokens: deviceTokensList,
@@ -77,9 +65,6 @@ class Tipper implements Comparable<Tipper> {
   }
 
   Map<String, dynamic> toJson() {
-/*     List deviceTokenList =
-        deviceTokens?.map((deviceToken) => deviceToken!.toJson()).toList() ??
-            []; */
     return {
       "authuid": authuid,
       "email": email,

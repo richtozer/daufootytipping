@@ -16,14 +16,14 @@ class GameListBuilder extends StatefulWidget {
     required this.currentTipper,
     required this.dauRound,
     required this.league,
-    required this.allTipsViewModel,
+    required this.tipperTipsViewModel,
     required this.dauCompsViewModel,
   });
 
   final Tipper currentTipper;
   final DAURound dauRound;
   final League league;
-  final TipsViewModel allTipsViewModel;
+  final TipsViewModel? tipperTipsViewModel;
   final DAUCompsViewModel dauCompsViewModel;
 
   @override
@@ -89,14 +89,17 @@ class _GameListBuilderState extends State<GameListBuilder> {
             itemCount: games!.length,
             itemBuilder: (context, index) {
               var game = games![index];
-
+              if (widget.tipperTipsViewModel == null) {
+                return Center(
+                    child: CircularProgressIndicator(color: League.afl.colour));
+              }
               return GameListItem(
                 key: ValueKey(game.dbkey),
                 roundGames: games!,
                 game: game,
                 currentTipper: widget.currentTipper,
                 currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
-                allTipsViewModel: widget.allTipsViewModel,
+                allTipsViewModel: widget.tipperTipsViewModel!,
                 dauRound: widget.dauRound,
               );
             },

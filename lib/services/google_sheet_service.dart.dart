@@ -243,7 +243,7 @@ class LegacyTippingService {
       Tipper tipper,
       DAURound round,
       String templateDefaultTips) async {
-    DAUComp? daucomp = await daucompsViewModel.getCurrentDAUComp();
+    DAUComp? daucomp = daucompsViewModel.selectedDAUComp;
 
     GsheetAppTip? gsheetAppTip = await _getAppTipsForRoundTipper(
         allTipsViewModel, tipper, round, daucomp!, templateDefaultTips);

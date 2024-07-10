@@ -266,7 +266,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                 widget.daucomp!.dbkey!);
                             // also make change to model
                             dauCompsViewModel
-                                .setDefaultDAUCompDbKey(widget.daucomp!.dbkey!);
+                                .changeCurrentDAUComp(widget.daucomp!.dbkey!);
                           } else {
                             // if the user is trying to turn off the active comp, show a snackbar
                             ScaffoldMessenger.of(context).showSnackBar(

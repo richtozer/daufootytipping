@@ -25,6 +25,22 @@ class DAUComp implements Comparable<DAUComp> {
     this.lastFixtureUpdateTimestamp,
   });
 
+  int highestRoundNumberInPast() {
+    int highestRoundNumber = 1;
+
+    //find the highest round number where roundEndDate is the past UTC
+
+    for (var dauround in daurounds) {
+      if (dauround.roundEndDate.isBefore(DateTime.now().toUtc())) {
+        if (dauround.dAUroundNumber > highestRoundNumber) {
+          highestRoundNumber = dauround.dAUroundNumber;
+        }
+      }
+    }
+
+    return highestRoundNumber;
+  }
+
   // method to return the highest round number, where DAURound.RoundState is allGamesEnded
   int getHighestRoundNumberWithAllGamesPlayed() {
     int highestRoundNumber = 1;

@@ -2,13 +2,14 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
-import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about.dart';
-import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_about.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -54,38 +55,36 @@ class Profile extends StatelessWidget with WatchItMixin {
                         ),
                       );
                     } else {
-                      // TODO temporarily removed the ability to switch comps
-                      return const SizedBox.shrink();
-                      // return Column(
-                      //   children: [
-                      //     SizedBox(
-                      //       width: 300,
-                      //       child: Text(
-                      //         'Tipper in a previous year? Select it below to revisit your tips and scores: ',
-                      //         textAlign: TextAlign.center,
-                      //         style: Theme.of(context).textTheme.titleMedium,
-                      //       ),
-                      //     ),
-                      //     DropdownButton<String>(
-                      //       value: selectedDAUCompDbKey,
-                      //       icon: const Icon(Icons.arrow_downward),
-                      //       onChanged: (String? newValue) {
-                      //         // update the current comp
-                      //         dauCompsViewModelConsumer
-                      //             .changeCurrentDAUComp(newValue!);
-                      //       },
-                      //       items: di<TippersViewModel>()
-                      //           .selectedTipper!
-                      //           .compsParticipatedIn
-                      //           .map<DropdownMenuItem<String>>((DAUComp comp) {
-                      //         return DropdownMenuItem<String>(
-                      //           value: comp.dbkey,
-                      //           child: Text(comp.name),
-                      //         );
-                      //       }).toList(),
-                      //     ),
-                      //   ],
-                      // );
+                      return Column(
+                        children: [
+                          SizedBox(
+                            width: 300,
+                            child: Text(
+                              'Tipper in a previous year? Select it below to revisit your tips and scores: ',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          DropdownButton<String>(
+                            value: selectedDAUCompDbKey,
+                            icon: const Icon(Icons.arrow_downward),
+                            onChanged: (String? newValue) {
+                              // update the current comp
+                              dauCompsViewModelConsumer
+                                  .changeCurrentDAUComp(newValue!);
+                            },
+                            items: di<TippersViewModel>()
+                                .selectedTipper!
+                                .compsParticipatedIn
+                                .map<DropdownMenuItem<String>>((DAUComp comp) {
+                              return DropdownMenuItem<String>(
+                                value: comp.dbkey,
+                                child: Text(comp.name),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      );
                     }
                   },
                 ),
@@ -96,6 +95,17 @@ class Profile extends StatelessWidget with WatchItMixin {
                   : const SizedBox.shrink(),
               FutureBuilder<Widget>(
                 future: aboutDialog(context),
+                builder:
+                    (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    return snapshot.data!;
+                  } else {
+                    return CircularProgressIndicator(color: League.afl.colour);
+                  }
+                },
+              ),
+              FutureBuilder<Widget>(
+                future: faq(context),
                 builder:
                     (BuildContext context, AsyncSnapshot<Widget> snapshot) {
                   if (snapshot.connectionState == ConnectionState.done) {
