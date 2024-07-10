@@ -56,6 +56,9 @@ class TippersViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
+  final Completer<void> _isUserLinked = Completer<void>();
+  get isUserLinked => _isUserLinked.future;
+
   bool createLinkedTipper;
 
   //constructor
@@ -80,6 +83,7 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     if (event.snapshot.exists) {
+      log('Tippers db Listener called');
       List<Tipper?> tippersList = Tipper.fromJsonList(event.snapshot.value);
 
       _tippers =
@@ -157,7 +161,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Tipper?> findTipperByUid(String authuid) async {
+  Future<Tipper?> _findTipperByUid(String authuid) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbyuid($authuid)');
       await _initialLoadCompleter.future;
@@ -167,7 +171,7 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.authuid == authuid);
   }
 
-  Future<Tipper?> findTipperByEmail(String email) async {
+  Future<Tipper?> _findTipperByEmail(String email) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbyemail($email)');
       await _initialLoadCompleter.future;
@@ -176,7 +180,7 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
   }
 
-  Future<Tipper?> findTipperByLogon(String logon) async {
+  Future<Tipper?> _findTipperByLogon(String logon) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbylogon($logon)');
       await _initialLoadCompleter.future;
@@ -185,7 +189,7 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.logon == logon);
   }
 
-  Future<Tipper?> findTipperByLegayTipperID(String tipperId) async {
+  Future<Tipper?> _findTipperByLegayTipperID(String tipperId) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findTipperByLegayTipperID($tipperId)');
       await _initialLoadCompleter.future;
@@ -240,7 +244,7 @@ class TippersViewModel extends ChangeNotifier {
       await Future.forEach(legacyTippers.skip(1), (legacyTipper) async {
         // if the Tipper does not exist in the Firebase database, add it
         Tipper? existingTipper =
-            await findTipperByLegayTipperID(legacyTipper.tipperID);
+            await _findTipperByLegayTipperID(legacyTipper.tipperID);
         if (existingTipper == null) {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the Firebase database, adding it');
           // newTipper() will create a new db key for the new record and return a modified Tipper object with the new db key
@@ -326,7 +330,7 @@ class TippersViewModel extends ChangeNotifier {
 
     try {
       // first try finding the tipper based on authuid
-      foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
+      foundTipper = await _findTipperByUid(authenticatedFirebaseUser.uid);
 
       if (foundTipper != null) {
         log('linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
@@ -346,7 +350,7 @@ class TippersViewModel extends ChangeNotifier {
       } else {
         // if that fails, try finding the tipper based on logon email
         foundTipper ??=
-            await findTipperByLogon(authenticatedFirebaseUser.email!);
+            await _findTipperByLogon(authenticatedFirebaseUser.email!);
 
         if (foundTipper != null) {
           log('linkUserToTipper() Tipper ${foundTipper.name} found using logon: ${authenticatedFirebaseUser.email}. Updating UID in database');
@@ -365,7 +369,7 @@ class TippersViewModel extends ChangeNotifier {
         } else {
           // try finding using email address
           foundTipper =
-              await findTipperByEmail(authenticatedFirebaseUser.email!);
+              await _findTipperByEmail(authenticatedFirebaseUser.email!);
 
           if (foundTipper != null) {
             log('linkUserToTipper() Tipper ${foundTipper.name} found using email: ${authenticatedFirebaseUser.email}');
@@ -387,6 +391,7 @@ class TippersViewModel extends ChangeNotifier {
         // in god mode this can be changed
         _selectedTipper = foundTipper;
         userIsLinked = true;
+        _isUserLinked.complete();
 
         //update photoURL if it has changed
         if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
@@ -428,6 +433,7 @@ class TippersViewModel extends ChangeNotifier {
         _authenticatedTipper = newTipper;
         _selectedTipper = newTipper;
         userIsLinked = true;
+        _isUserLinked.complete();
       }
 
       return userIsLinked;
