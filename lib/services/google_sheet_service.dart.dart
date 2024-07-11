@@ -386,8 +386,8 @@ class LegacyTippingService {
     final Worksheet roundScoresSheet =
         spreadsheet.worksheetByTitle('AppScores')!;
 
-    final List<List<String?>> roundScoresData =
-        await roundScoresSheet.values.allRows();
+    // final List<List<String?>> roundScoresData =
+    //     await roundScoresSheet.values.allRows();
 
     await roundScoresSheet.clear();
 

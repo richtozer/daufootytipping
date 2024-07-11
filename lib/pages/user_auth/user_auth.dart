@@ -19,17 +19,17 @@ class UserAuthPage extends StatelessWidget {
   final String currentDAUCompKey;
   final String? configMinAppVersion;
 
-  bool isUserLoggingOut = false;
-  bool isUserDeletingAccount = false;
+  final bool isUserLoggingOut;
+  final bool isUserDeletingAccount;
+
+  final String clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
+  final PackageInfoService packageInfoService =
+      GetIt.instance<PackageInfoService>();
 
   UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
       this.isUserDeletingAccount = false});
-
-  var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
-
-  PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
     //skip version check if the configMinAppVersion is null

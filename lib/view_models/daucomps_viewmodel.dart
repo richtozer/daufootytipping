@@ -25,7 +25,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
-  final String _defaultDAUCompDbKey;
+  String _defaultDAUCompDbKey;
   String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
 
   DAUComp? _selectedDAUComp;
@@ -57,12 +57,21 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> init() async {
     _listenToDAUComps();
     await initialLoadComplete;
-    await changeCurrentDAUComp(_defaultDAUCompDbKey);
+    await changeCurrentDAUComp(_defaultDAUCompDbKey, false);
     _fixtureUpdateTrigger();
   }
 
-  Future<void> changeCurrentDAUComp(String newDAUCompDbkey) async {
+  Future<void> changeCurrentDAUComp(
+      String newDAUCompDbkey, bool changingActiveComp) async {
     _selectedDAUComp = await findComp(newDAUCompDbkey);
+    if (changingActiveComp) {
+      _defaultDAUCompDbKey = newDAUCompDbkey;
+    }
+    await _initializeAndResetViewModels();
+    notifyListeners();
+  }
+
+  Future<void> selectedTipperChanged() async {
     await _initializeAndResetViewModels();
     notifyListeners();
   }
@@ -521,6 +530,13 @@ class DAUCompsViewModel extends ChangeNotifier {
   void dispose() {
     _daucompsStream.cancel();
     tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
+
+    GamesViewModel gamesViewModel = di<GamesViewModel>();
+    gamesViewModel.removeListener(_otherViewModelUpdated);
+
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
+
     super.dispose();
   }
 

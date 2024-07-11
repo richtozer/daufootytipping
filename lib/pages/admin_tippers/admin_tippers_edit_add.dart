@@ -450,7 +450,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                   if (value == true) {
                                     // if godmode is already turned on for another tipper
                                     // then continue with this change, but display a snackbar
-                                    // saying we turned it off for tipper a, and turned it on here for this tipper
+                                    // saying we turned it off for tipper A, and turned it on here for tipper B
                                     if (tippersViewModelConsumer.inGodMode) {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
@@ -468,6 +468,10 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                         tippersViewModelConsumer
                                             .authenticatedTipper;
                                   }
+                                  // reset the other view models in daucompsviewmodel to reflect
+                                  // any changes in the selected tipper
+                                  di<DAUCompsViewModel>()
+                                      .selectedTipperChanged();
                                 },
                               );
                             },

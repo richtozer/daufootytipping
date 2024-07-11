@@ -70,8 +70,8 @@ class Profile extends StatelessWidget with WatchItMixin {
                             icon: const Icon(Icons.arrow_downward),
                             onChanged: (String? newValue) {
                               // update the current comp
-                              dauCompsViewModelConsumer
-                                  .changeCurrentDAUComp(newValue!);
+                              dauCompsViewModelConsumer.changeCurrentDAUComp(
+                                  newValue!, false);
                             },
                             items: di<TippersViewModel>()
                                 .selectedTipper!
