@@ -61,9 +61,31 @@ class TipsPageState extends State<TipsPage> {
                 daucompsViewmodelConsumer.itemScrollController,
             initialScrollIndex: (latestRoundNumber) * 4,
             initialAlignment: 0.1,
+            // Increase itemCount by 1 to account for the final "end of competition" item
             itemCount:
-                daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length * 4,
+                daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
+                        4 +
+                    1,
             itemBuilder: (context, index) {
+              // Check if this is the last item
+              if (index ==
+                  daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
+                      4) {
+                // Return a widget indicating the end of the competition
+                return const Padding(
+                  padding: EdgeInsets.all(10.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.flag, color: Colors.white),
+                      Text("This is the end of the competition",
+                          style: TextStyle(color: Colors.white)),
+                      Icon(Icons.flag, color: Colors.white),
+                    ],
+                  ),
+                );
+              }
+
               final roundIndex = index ~/ 4;
               final itemIndex = index % 4;
               final dauRound = daucompsViewmodelConsumer

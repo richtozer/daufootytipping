@@ -12,9 +12,9 @@ import 'package:watch_it/watch_it.dart';
 
 class StatRoundLeaderboard extends StatefulWidget {
   //constructor
-  StatRoundLeaderboard(this.roundNumberToDisplay, {super.key});
+  const StatRoundLeaderboard(this.roundNumberToDisplay, {super.key});
 
-  int roundNumberToDisplay;
+  final int roundNumberToDisplay;
 
   @override
   State<StatRoundLeaderboard> createState() => _StatRoundLeaderboardState();
