@@ -81,7 +81,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     tipperTipsViewModel = TipsViewModel.forTipper(
         di<TippersViewModel>(),
-        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+        di<DAUCompsViewModel>().selectedDAUComp!,
         di<GamesViewModel>(),
         currentTipper);
     tipperTipsViewModel!.addListener(_otherViewModelUpdated);
@@ -265,8 +265,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       LegacyTippingService tippingService =
           GetIt.instance<LegacyTippingService>();
       TippersViewModel tippersViewModel = di<TippersViewModel>();
-      TipsViewModel allTipsViewModel = TipsViewModel(
-          tippersViewModel, daucompToUpdate.dbkey!, gamesViewModel);
+      TipsViewModel allTipsViewModel =
+          TipsViewModel(tippersViewModel, daucompToUpdate, gamesViewModel);
 
       await tippingService.initialized();
       String res;
@@ -386,7 +386,8 @@ class DAUCompsViewModel extends ChangeNotifier {
           .map((g) => g.startTimeUTC)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
-      if (_selectedDAUComp!.daurounds[i].roundStartDate != minStartTime ||
+      if (_selectedDAUComp!.daurounds.isEmpty ||
+          _selectedDAUComp!.daurounds[i].roundStartDate != minStartTime ||
           _selectedDAUComp!.daurounds[i].roundEndDate != maxStartTime) {
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
             '${DateFormat('yyyy-MM-dd HH:mm:ss').format(minStartTime).toString()}Z');

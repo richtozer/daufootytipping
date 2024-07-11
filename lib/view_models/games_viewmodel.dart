@@ -107,9 +107,7 @@ class GamesViewModel extends ChangeNotifier {
         // Now that we have all the games from db
         // call linkGamesWithRounds() to link the games with the rounds
         DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-        //await dauCompsViewModel.initialLoadComplete;
         await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
-        //TODO note the above call can be removed once gamelist builder is refactored to not use futurebuilder
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }

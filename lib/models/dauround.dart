@@ -42,40 +42,6 @@ class DAURound implements Comparable<DAURound> {
     };
   }
 
-  // int roundDisplayPixelHeight() {
-  //   // count the number of nrl and afl games in this round
-  //   int nrlGames = 0;
-  //   int aflGames = 0;
-  //   double totalPixelHeight = 0;
-  //   for (var game in games) {
-  //     if (game.league == League.nrl) {
-  //       nrlGames++;
-  //     } else {
-  //       aflGames++;
-  //     }
-  //   }
-  //   // calculate the height of the round
-  //   // each round has a header of leagueHeaderHeight pixel high,
-  //   // and a game card for each game of gameCardHeight pixels high
-  //   // if the league has no games then the height is emptyLeagueRoundHeight
-
-  //   if (nrlGames == 0) {
-  //     totalPixelHeight += emptyLeagueRoundHeight;
-  //   } else {
-  //     totalPixelHeight += leagueHeaderHeight;
-  //     totalPixelHeight += nrlGames * gameCardHeight;
-  //   }
-
-  //   if (aflGames == 0) {
-  //     totalPixelHeight += emptyLeagueRoundHeight;
-  //   } else {
-  //     totalPixelHeight += leagueHeaderHeight;
-  //     totalPixelHeight += aflGames * gameCardHeight;
-  //   }
-
-  //   return totalPixelHeight.toInt();
-  // }
-
   factory DAURound.fromJson(Map<String, dynamic> data, int roundNumber) {
     return DAURound(
       dAUroundNumber: roundNumber,

@@ -93,7 +93,7 @@ class _StatRoundGameScoresForTipperState
 
     TipsViewModel allTips = TipsViewModel.forTipper(
         di<TippersViewModel>(),
-        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+        di<DAUCompsViewModel>().selectedDAUComp!,
         di<GamesViewModel>(),
         widget.statsTipper);
 

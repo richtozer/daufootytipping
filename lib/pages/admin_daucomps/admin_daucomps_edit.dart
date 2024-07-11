@@ -471,97 +471,119 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           ],
                         ),
                         for (var round in widget.daucomp!.daurounds)
-                          TableRow(
+                          // only show the round if it has games
+                          if (round.games.isNotEmpty)
+                            TableRow(
+                              children: [
+                                TableCell(
+                                  verticalAlignment:
+                                      TableCellVerticalAlignment.middle,
+                                  child: Text(round.dAUroundNumber.toString()),
+                                ),
+                                TableCell(
+                                  child: TextFormField(
+                                    style: const TextStyle(fontSize: 14),
+                                    enabled: !disableBackButton,
+                                    initialValue:
+                                        '${DateFormat('E d/M').format(round.roundStartDate.toLocal())} ${DateFormat('h:mm a').format(round.roundStartDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+                                    onTap: () async {
+                                      FocusScope.of(context).requestFocus(
+                                          FocusNode()); // to prevent opening of the keyboard
+                                      DateTime? date = await showDatePicker(
+                                        context: context,
+                                        initialDate: round.roundStartDate,
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                      );
+                                      TimeOfDay? time = await showTimePicker(
+                                        context: context,
+                                        initialTime: TimeOfDay.fromDateTime(
+                                            round.roundStartDate),
+                                      );
+                                      if (time != null) {
+                                        round.adminOverrideRoundStartDate =
+                                            DateTime(
+                                                date!.year,
+                                                date.month,
+                                                date.day,
+                                                time.hour,
+                                                time.minute);
+                                        // Enable the save button
+                                        setState(() {
+                                          disableSaves = false;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                TableCell(
+                                  child: TextFormField(
+                                    style: const TextStyle(fontSize: 14),
+                                    enabled: !disableBackButton,
+                                    initialValue:
+                                        '${DateFormat('E d/M').format(round.roundEndDate.toLocal())} ${DateFormat('h:mm a').format(round.roundEndDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+                                    onTap: () async {
+                                      FocusScope.of(context).requestFocus(
+                                          FocusNode()); // to prevent opening of the keyboard
+                                      DateTime? date = await showDatePicker(
+                                        context: context,
+                                        initialDate: round.roundEndDate,
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                      );
+                                      TimeOfDay? time = await showTimePicker(
+                                        context: context,
+                                        initialTime: TimeOfDay.fromDateTime(
+                                            round.roundEndDate),
+                                      );
+                                      if (time != null) {
+                                        round.adminOverrideRoundEndDate =
+                                            DateTime(
+                                                date!.year,
+                                                date.month,
+                                                date.day,
+                                                time.hour,
+                                                time.minute);
+                                        // Enable the save button
+                                        setState(() {
+                                          disableSaves = false;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                TableCell(
+                                  verticalAlignment:
+                                      TableCellVerticalAlignment.middle,
+                                  child: Text(round.games
+                                      .where(
+                                          (game) => game.league == League.nrl)
+                                      .length
+                                      .toString()),
+                                ),
+                                TableCell(
+                                  verticalAlignment:
+                                      TableCellVerticalAlignment.middle,
+                                  child: Text(round.games
+                                      .where(
+                                          (game) => game.league == League.afl)
+                                      .length
+                                      .toString()),
+                                ),
+                              ],
+                            ),
+                        // if games is empty, show a message
+                        if (widget.daucomp!.daurounds.isEmpty)
+                          const TableRow(
                             children: [
                               TableCell(
-                                verticalAlignment:
-                                    TableCellVerticalAlignment.middle,
-                                child: Text(round.dAUroundNumber.toString()),
-                              ),
-                              TableCell(
-                                child: TextFormField(
-                                  style: const TextStyle(fontSize: 14),
-                                  enabled: !disableBackButton,
-                                  initialValue:
-                                      '${DateFormat('E d/M').format(round.roundStartDate.toLocal())} ${DateFormat('h:mm a').format(round.roundStartDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
-                                  onTap: () async {
-                                    FocusScope.of(context).requestFocus(
-                                        FocusNode()); // to prevent opening of the keyboard
-                                    DateTime? date = await showDatePicker(
-                                      context: context,
-                                      initialDate: round.roundStartDate,
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    TimeOfDay? time = await showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.fromDateTime(
-                                          round.roundStartDate),
-                                    );
-                                    if (time != null) {
-                                      round.adminOverrideRoundStartDate =
-                                          DateTime(date!.year, date.month,
-                                              date.day, time.hour, time.minute);
-                                      // Enable the save button
-                                      setState(() {
-                                        disableSaves = false;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              TableCell(
-                                child: TextFormField(
-                                  style: const TextStyle(fontSize: 14),
-                                  enabled: !disableBackButton,
-                                  initialValue:
-                                      '${DateFormat('E d/M').format(round.roundEndDate.toLocal())} ${DateFormat('h:mm a').format(round.roundEndDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
-                                  onTap: () async {
-                                    FocusScope.of(context).requestFocus(
-                                        FocusNode()); // to prevent opening of the keyboard
-                                    DateTime? date = await showDatePicker(
-                                      context: context,
-                                      initialDate: round.roundEndDate,
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    TimeOfDay? time = await showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.fromDateTime(
-                                          round.roundEndDate),
-                                    );
-                                    if (time != null) {
-                                      round.adminOverrideRoundEndDate =
-                                          DateTime(date!.year, date.month,
-                                              date.day, time.hour, time.minute);
-                                      // Enable the save button
-                                      setState(() {
-                                        disableSaves = false;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              TableCell(
-                                verticalAlignment:
-                                    TableCellVerticalAlignment.middle,
-                                child: Text(round.games
-                                    .where((game) => game.league == League.nrl)
-                                    .length
-                                    .toString()),
-                              ),
-                              TableCell(
-                                verticalAlignment:
-                                    TableCellVerticalAlignment.middle,
-                                child: Text(round.games
-                                    .where((game) => game.league == League.afl)
-                                    .length
-                                    .toString()),
+                                child: Text(
+                                    'Make this the active comp to see round details'),
                               ),
                             ],
                           ),
                       ],
-                    )
+                    ),
                 ],
               ),
             ),
