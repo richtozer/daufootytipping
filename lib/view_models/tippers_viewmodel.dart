@@ -391,7 +391,9 @@ class TippersViewModel extends ChangeNotifier {
         // in god mode this can be changed
         _selectedTipper = foundTipper;
         userIsLinked = true;
-        _isUserLinked.complete();
+        if (!_isUserLinked.isCompleted) {
+          _isUserLinked.complete();
+        }
 
         //update photoURL if it has changed
         if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
@@ -433,7 +435,9 @@ class TippersViewModel extends ChangeNotifier {
         _authenticatedTipper = newTipper;
         _selectedTipper = newTipper;
         userIsLinked = true;
-        _isUserLinked.complete();
+        if (!_isUserLinked.isCompleted) {
+          _isUserLinked.complete();
+        }
       }
 
       return userIsLinked;
