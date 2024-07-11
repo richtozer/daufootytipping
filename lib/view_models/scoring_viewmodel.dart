@@ -427,7 +427,6 @@ class ScoresViewModel extends ChangeNotifier {
 
     _leaderboard = leaderboard.toList();
 
-    log('Updated leaderboard: $_leaderboard');
     return;
   }
 
@@ -706,7 +705,6 @@ class ScoresViewModel extends ChangeNotifier {
         }
         lastScore = entry.value;
       }
-      log('Ranked tippers for round $roundIndex: $roundScores');
     }
   }
 
