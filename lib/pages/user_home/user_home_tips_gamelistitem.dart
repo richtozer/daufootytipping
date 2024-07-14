@@ -134,7 +134,11 @@ class _GameListItemState extends State<GameListItem> {
           if (gameTipsViewModelConsumer.game.gameState ==
                   GameState.notStarted ||
               gameTipsViewModelConsumer.game.gameState ==
-                  GameState.startedResultKnown) {
+                  GameState.startedResultKnown ||
+              (gameTipsViewModelConsumer.game.startTimeUTC
+                      .difference(DateTime.now())
+                      .inHours <
+                  -3)) {
             return gameDetailsCard;
           }
 
@@ -148,10 +152,10 @@ class _GameListItemState extends State<GameListItem> {
               break;
             case GameState.startedResultNotKnown:
               bannerMessage = "Live";
-              bannerColor = const Color(0xffe21e31);
+              bannerColor = League.afl.colour;
               break;
             case GameState.startedResultKnown:
-              bannerMessage = "result";
+              bannerMessage = "not used";
               bannerColor = Colors.transparent;
               break;
             case GameState.notStarted:
