@@ -516,8 +516,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           cells: [
                                             DataCell(
                                               Checkbox(
-                                                value: tipper!
-                                                    .activeInComp(comp.dbkey!),
+                                                value:
+                                                    tipper!.activeInComp(comp),
                                                 onChanged: (bool? value) {
                                                   log('Checkbox changed to $value');
                                                   setState(() {

@@ -57,7 +57,8 @@ Future<void> main() async {
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
-  String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
+  String configDAUCompDbkey =
+      await remoteConfigService.getConfigCurrentDAUComp();
   String configMinAppVersion =
       await remoteConfigService.getConfigMinAppVersion();
   bool createLinkedTipper = await remoteConfigService.getCreateLinkedTipper();
@@ -95,18 +96,17 @@ Future<void> main() async {
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   di.registerLazySingleton<DAUCompsViewModel>(
-      () => DAUCompsViewModel(configDAUComp));
+      () => DAUCompsViewModel(configDAUCompDbkey));
   di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
 
   // run the application widget code
 
-  runApp(MyApp(configMinAppVersion, configDAUComp));
+  runApp(MyApp(configMinAppVersion));
 }
 
 class MyApp extends StatelessWidget {
   final String? configMinAppVersion;
-  final String configDAUComp;
-  const MyApp(this.configMinAppVersion, this.configDAUComp, {super.key});
+  const MyApp(this.configMinAppVersion, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +116,7 @@ class MyApp extends StatelessWidget {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: UserAuthPage(configDAUComp, configMinAppVersion),
+      home: UserAuthPage(configMinAppVersion),
     );
   }
 }

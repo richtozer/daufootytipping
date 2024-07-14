@@ -108,10 +108,8 @@ class TippersViewModel extends ChangeNotifier {
   Future<List<Tipper>> getActiveTippers(DAUComp thisComp) async {
     await _initialLoadCompleter.future;
     // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
-    // that matched the current comp
-    return _tippers
-        .where((tipper) => tipper.activeInComp(thisComp.dbkey!))
-        .toList();
+    // that matched the supplied comp
+    return _tippers.where((tipper) => tipper.activeInComp(thisComp)).toList();
   }
 
   final Map<String, dynamic> updates = {};

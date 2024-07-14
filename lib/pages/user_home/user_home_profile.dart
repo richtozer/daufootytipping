@@ -55,6 +55,25 @@ class Profile extends StatelessWidget with WatchItMixin {
                         ),
                       );
                     } else {
+                      // check if they are in this years comp.
+                      // if not, then default to the first comp they are in
+                      if (!di<TippersViewModel>()
+                          .selectedTipper!
+                          .compsParticipatedIn
+                          .contains(
+                              dauCompsViewModelConsumer.selectedDAUComp)) {
+                        return Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: SizedBox(
+                            width: 250,
+                            child: Text(
+                              'You are not active in this years compettion. Contact daufootytipping@gmail.com.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                        );
+                      }
                       return Column(
                         children: [
                           SizedBox(
@@ -70,7 +89,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                             icon: const Icon(Icons.arrow_downward),
                             onChanged: (String? newValue) {
                               // update the current comp
-                              dauCompsViewModelConsumer.changeCurrentDAUComp(
+                              dauCompsViewModelConsumer.changeSelectedDAUComp(
                                   newValue!, false);
                             },
                             items: di<TippersViewModel>()
@@ -131,7 +150,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
                               builder: (context) => UserAuthPage(
-                                di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
                                 null,
                                 isUserLoggingOut: true,
                               ),
@@ -169,9 +187,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                                       Navigator.of(context).pushReplacement(
                                         MaterialPageRoute(
                                           builder: (context) => UserAuthPage(
-                                            di<DAUCompsViewModel>()
-                                                .selectedDAUComp!
-                                                .dbkey!,
                                             null,
                                             isUserDeletingAccount: true,
                                           ),

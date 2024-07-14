@@ -25,8 +25,9 @@ class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
-  String _defaultDAUCompDbKey;
-  String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
+  String _activeDAUCompDbKey;
+  DAUComp? _activeDAUComp;
+  DAUComp? get activeDAUComp => _activeDAUComp;
 
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp => _selectedDAUComp;
@@ -50,22 +51,23 @@ class DAUCompsViewModel extends ChangeNotifier {
   ItemScrollController itemScrollController = ItemScrollController();
   final Map<String, dynamic> updates = {};
 
-  DAUCompsViewModel(this._defaultDAUCompDbKey) {
+  DAUCompsViewModel(this._activeDAUCompDbKey) {
     init();
   }
 
   Future<void> init() async {
     _listenToDAUComps();
     await initialLoadComplete;
-    await changeCurrentDAUComp(_defaultDAUCompDbKey, false);
+    await changeSelectedDAUComp(_activeDAUCompDbKey, true);
     _fixtureUpdateTrigger();
   }
 
-  Future<void> changeCurrentDAUComp(
+  Future<void> changeSelectedDAUComp(
       String newDAUCompDbkey, bool changingActiveComp) async {
     _selectedDAUComp = await findComp(newDAUCompDbkey);
     if (changingActiveComp) {
-      _defaultDAUCompDbKey = newDAUCompDbkey;
+      _activeDAUCompDbKey = newDAUCompDbkey;
+      _activeDAUComp = _selectedDAUComp;
     }
     await _initializeAndResetViewModels();
     notifyListeners();
@@ -252,6 +254,9 @@ class DAUCompsViewModel extends ChangeNotifier {
       updateCompAttribute(selectedDAUComp!.dbkey!, 'lastFixtureUpdateTimestamp',
           selectedDAUComp!.lastFixtureUpdateTimestamp!.toIso8601String());
       await saveBatchOfCompAttributes();
+
+      await gamesViewModel.initialLoadComplete;
+      await linkGameWithRounds(daucompToUpdate, gamesViewModel);
 
       return res;
     } catch (e) {

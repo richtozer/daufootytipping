@@ -12,13 +12,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-// this class supports both creating and updating DAUComp records.
-// it has 2 modes, then daucomp is null it is in new record mode,
-// when it is not null it is in edit record mode
 class DAUCompsEditPage extends StatefulWidget {
-  final DAUComp?
-      daucomp; //if this is an edit for a new comp, this will stay null
-  //final DAUCompsViewModel dauCompViewModel;
+  final DAUComp? daucomp;
 
   late final TextEditingController _daucompNameController;
   late final TextEditingController _daucompAflJsonURLController;
@@ -38,18 +33,56 @@ class DAUCompsEditPage extends StatefulWidget {
 
 class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   bool disableBackButton = false;
-
-  bool disableSaves = false;
+  bool disableSaves = true;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  void _saveDAUComp(
+  @override
+  void initState() {
+    super.initState();
+    initTextControllersListeners();
+    updateSaveButtonState();
+  }
+
+  void initTextControllersListeners() {
+    widget._daucompNameController.addListener(updateSaveButtonState);
+    widget._daucompAflJsonURLController.addListener(updateSaveButtonState);
+    widget._daucompNrlJsonURLController.addListener(updateSaveButtonState);
+  }
+
+  void updateSaveButtonState() {
+    bool shouldEnableSave;
+    if (widget.daucomp == null) {
+      shouldEnableSave = widget._daucompNameController.text.isNotEmpty &&
+          widget._daucompAflJsonURLController.text.isNotEmpty &&
+          widget._daucompNrlJsonURLController.text.isNotEmpty;
+    } else {
+      shouldEnableSave =
+          widget._daucompNameController.text != widget.daucomp!.name ||
+              widget._daucompAflJsonURLController.text !=
+                  widget.daucomp!.aflFixtureJsonURL.toString() ||
+              widget._daucompNrlJsonURLController.text !=
+                  widget.daucomp!.nrlFixtureJsonURL.toString();
+    }
+
+    if (disableSaves != !shouldEnableSave) {
+      setState(() {
+        disableSaves = !shouldEnableSave;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget._daucompNameController.removeListener(updateSaveButtonState);
+    widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
+    widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
+    super.dispose();
+  }
+
+  Future<void> _saveDAUComp(
       DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
     try {
-      //check the URL's are active on the server,
-      //if yes, save the record and show a green snackbar saying the record is saved
-      //if no, reject the save and show a red snackbar saying the URL's are not active
-
       bool aflURLActive =
           await isUriActive(widget._daucompAflJsonURLController.text);
       bool nrlURLActive =
@@ -59,9 +92,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
       if (aflURLActive && nrlURLActive) {
         if (widget.daucomp == null) {
-          // this is a new record
-          DAUComp updatedDUAcomp = DAUComp(
-            dbkey: widget.daucomp?.dbkey,
+          DAUComp newDAUComp = DAUComp(
             name: widget._daucompNameController.text,
             aflFixtureJsonURL:
                 Uri.parse(widget._daucompAflJsonURLController.text),
@@ -70,26 +101,22 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             daurounds: [],
           );
 
-          await dauCompsViewModel.newDAUComp(updatedDUAcomp);
-
+          await dauCompsViewModel.newDAUComp(newDAUComp);
           await dauCompsViewModel.saveBatchOfCompAttributes();
 
-          if (widget.daucomp == null) {
-            // as this is a new daucomp record, download the fixture data and process
-            // the games in rounds and save them to the database
-            String res = await dauCompsViewModel.getNetworkFixtureData(
-                updatedDUAcomp, null);
-            // snackbar to show the result of the fixture download
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: League.afl.colour,
-                content: Text(res),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
+          GamesViewModel newCompGamesViewModel = GamesViewModel(newDAUComp);
+          String res = await dauCompsViewModel.getNetworkFixtureData(
+              newDAUComp, newCompGamesViewModel);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: League.nrl.colour,
+              content: Text(res),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+
+          Navigator.of(context).pop();
         } else {
-          // this is an existing record
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!, "name",
               widget._daucompNameController.text);
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
@@ -157,10 +184,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
     ScoresViewModel scoresViewModel = di<ScoresViewModel>();
 
-    if (widget.daucomp == null) {
-      // this is a new record, so disable the save button until the user has entered some data
-      disableSaves = true;
-    }
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
         value: dauCompsViewModel,
         builder: (context, snapshot) {
@@ -170,13 +193,39 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   builder: (BuildContext context) {
                     return IconButton(
                       icon: disableBackButton
-                          ? const ImageIcon(
-                              null) // dont show anything clickable while saving is in progress
+                          ? const ImageIcon(null)
                           : const Icon(Icons.arrow_back),
                       onPressed: disableBackButton
                           ? null
                           : () {
-                              Navigator.maybePop(context);
+                              if (disableSaves) {
+                                Navigator.maybePop(context);
+                              } else {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    content: const Text(
+                                        'You have unsaved changes. Do you really want to discard them?'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context)
+                                              .pop(); // Close the dialog
+                                          Navigator.of(context)
+                                              .pop(); // Go back
+                                        },
+                                        child: const Text('Discard'),
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }
                             },
                     );
                   },
@@ -186,26 +235,20 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     builder: (BuildContext context) {
                       return IconButton(
                         color: Colors.white,
-                        icon: !disableSaves
-                            ? const Icon(Icons.save, color: Colors.white)
-                            : const SizedBox.shrink(),
+                        icon: const Icon(Icons.save, color: Colors.white),
                         onPressed: disableSaves
                             ? null
                             : () async {
-                                // Validate will return true if the form is valid, or false if
-                                // the form is invalid.
                                 final isValid =
                                     _formKey.currentState!.validate();
                                 if (isValid) {
-                                  // disable the save and back button while the save is in progress
                                   setState(() {
                                     disableSaves = true;
                                     disableBackButton = true;
                                   });
 
-                                  // save the record
-                                  _saveDAUComp(dauCompsViewModel, context);
-                                  // re-enable the save and back button
+                                  await _saveDAUComp(
+                                      dauCompsViewModel, context);
 
                                   setState(() {
                                     disableSaves = false;
@@ -227,19 +270,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        // add a row with a sync button download fixture data from the URL's
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             buttonFixture(context, dauCompsViewModel),
-                            // only show the scoring and legacy sync buttons if this record daucomp dbkey
-                            // is the selected daucomp dbkey
-                            if (widget.daucomp?.dbkey ==
-                                dauCompsViewModel.selectedDAUComp!.dbkey)
+                            if (widget.daucomp ==
+                                dauCompsViewModel.activeDAUComp)
                               buttonLegacy(context, dauCompsViewModel),
-
-                            if (widget.daucomp?.dbkey ==
-                                dauCompsViewModel.selectedDAUComp!.dbkey)
+                            if (widget.daucomp ==
+                                dauCompsViewModel.activeDAUComp)
                               buttonScoring(context, scoresViewModel),
                           ],
                         ),
@@ -249,10 +288,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             Consumer<DAUCompsViewModel>(
                                 builder: (context, model, child) {
                               return Switch(
-                                value: widget.daucomp?.dbkey ==
-                                    model.selectedDAUComp!.dbkey,
+                                value: widget.daucomp == model.activeDAUComp,
                                 onChanged: (bool value) async {
-                                  // if this is a new record, dont allow the user to change the active comp
                                   if (widget.daucomp == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -264,18 +301,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                     return;
                                   }
                                   if (value) {
-                                    // save the new comp in config
                                     RemoteConfigService remoteConfigService =
                                         RemoteConfigService();
                                     remoteConfigService.setConfigCurrentDAUComp(
                                         widget.daucomp!.dbkey!);
-                                    // also make change to model
                                     await dauCompsViewModel
-                                        .changeCurrentDAUComp(
+                                        .changeSelectedDAUComp(
                                             widget.daucomp!.dbkey!, true);
                                     log('Active comp changed to: ${widget.daucomp!.name}');
                                   } else {
-                                    // if the user is trying to turn off the active comp, show a snackbar
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: const Text(
@@ -297,27 +331,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                               child: TextFormField(
                                 enabled: !disableBackButton,
                                 controller: widget._daucompNameController,
-                                onChanged: (String value) {
-                                  if (widget.daucomp?.name != value) {
-                                    //something has changed, allow saves
-
-                                    setState(() {
-                                      disableSaves = false;
-                                    });
-                                    log('name changed to: $value');
-                                  } else {
-                                    setState(() {
-                                      disableSaves = true;
-                                    });
-                                    log('name has not changed');
-                                  }
-                                },
                                 decoration: const InputDecoration(
                                   hintText: 'DAU Comp name',
                                 ),
-                                onFieldSubmitted: (_) {
-                                  // TODO move focus to next field?
-                                },
                                 validator: (String? value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Please enter a DAU Comp name';
@@ -344,26 +360,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                   hintText: 'enter URL here',
                                 ),
                                 controller: widget._daucompNrlJsonURLController,
-                                onChanged: (String value) {
-                                  if (widget.daucomp?.nrlFixtureJsonURL
-                                          .toString() !=
-                                      value) {
-                                    //something has changed, allow saves
-
-                                    setState(() {
-                                      disableSaves = false;
-                                    });
-                                    log('nrlFixtureJsonURL changed to: $value');
-                                  } else {
-                                    setState(() {
-                                      disableSaves = true;
-                                    });
-                                    log('nrlFixtureJsonURL has not changed');
-                                  }
-                                },
-                                onFieldSubmitted: (_) {
-                                  // TODO move focus to next field?
-                                },
                                 validator: (String? value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Please enter a NRL fixture link';
@@ -387,26 +383,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                   hintText: 'enter URL here',
                                 ),
                                 controller: widget._daucompAflJsonURLController,
-                                onChanged: (String value) {
-                                  if (widget.daucomp?.aflFixtureJsonURL
-                                          .toString() !=
-                                      value) {
-                                    //something has changed, allow saves
-                                    setState(() {
-                                      disableSaves = false;
-                                    });
-
-                                    log('aflFixtureJsonURL changed to: $value');
-                                  } else {
-                                    setState(() {
-                                      disableSaves = true;
-                                    });
-                                    log('aflFixtureJsonURL has not changed');
-                                  }
-                                },
-                                onFieldSubmitted: (_) {
-                                  // TODO move focus to next field?
-                                },
                                 validator: (String? value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Please enter a AFL fixture link';
@@ -421,14 +397,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         if (widget.daucomp != null)
                           const Text('Round details:',
                               style: TextStyle(fontWeight: FontWeight.bold)),
-
-                        // add a table with the round data laid out in rows. column 1 is the round number
-                        // column 2 is the start date, column 3 is the end date
-                        // the dates are edititable, with changes to the dates enabling the save button
-                        // column 4 is the number of nrl games in the round
-                        // column 5 is the number of afl games in the round
-
-                        // only show the table if the daucomp is not null
                         if (widget.daucomp != null)
                           Table(
                             columnWidths: const {
@@ -481,7 +449,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                 ],
                               ),
                               for (var round in widget.daucomp!.daurounds)
-                                // only show the round if it has games
                                 if (round.games.isNotEmpty)
                                   TableRow(
                                     children: [
@@ -498,8 +465,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                           initialValue:
                                               '${DateFormat('E d/M').format(round.roundStartDate.toLocal())} ${DateFormat('h:mm a').format(round.roundStartDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
                                           onTap: () async {
-                                            FocusScope.of(context).requestFocus(
-                                                FocusNode()); // to prevent opening of the keyboard
+                                            FocusScope.of(context)
+                                                .requestFocus(FocusNode());
                                             DateTime? date =
                                                 await showDatePicker(
                                               context: context,
@@ -522,7 +489,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                                       date.day,
                                                       time.hour,
                                                       time.minute);
-                                              // Enable the save button
                                               setState(() {
                                                 disableSaves = false;
                                               });
@@ -537,8 +503,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                           initialValue:
                                               '${DateFormat('E d/M').format(round.roundEndDate.toLocal())} ${DateFormat('h:mm a').format(round.roundEndDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
                                           onTap: () async {
-                                            FocusScope.of(context).requestFocus(
-                                                FocusNode()); // to prevent opening of the keyboard
+                                            FocusScope.of(context)
+                                                .requestFocus(FocusNode());
                                             DateTime? date =
                                                 await showDatePicker(
                                               context: context,
@@ -561,7 +527,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                                       date.day,
                                                       time.hour,
                                                       time.minute);
-                                              // Enable the save button
                                               setState(() {
                                                 disableSaves = false;
                                               });
@@ -589,16 +554,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                       ),
                                     ],
                                   ),
-                              // if games is empty, show a message
-                              if (widget.daucomp!.daurounds.isEmpty)
-                                const TableRow(
-                                  children: [
-                                    TableCell(
-                                      child: Text(
-                                          'Make this the active comp to see round details'),
-                                    ),
-                                  ],
-                                ),
                             ],
                           ),
                       ],
@@ -670,15 +625,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     } else {
       return OutlinedButton(
         onPressed: () async {
-          //check if syncing already in progress...
           if (dauCompsViewModel.isLegacySyncing) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 content: Text('Legacy sync already in progress')));
             return;
           }
-          // check if daucomp dbkey for this record matches the current daucomp dbkey
-          // if not, show a snackbar and return without syncing
+
           if (widget.daucomp?.dbkey !=
               dauCompsViewModel.selectedDAUComp!.dbkey) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -689,7 +642,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             return;
           }
 
-          // ...if not, initiate the sync
           try {
             setState(() {
               disableBackButton = true;
@@ -698,8 +650,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
                 widget.daucomp!, di<GamesViewModel>(), null);
-
-            // show a snackbar with the result of the sync
 
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -710,8 +660,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                 ),
               );
             }
-
-            // sync scores to legacy
 
             di<LegacyTippingService>().syncRoundScoresToLegacy();
             if (context.mounted) {
@@ -752,7 +700,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     } else {
       return OutlinedButton(
         onPressed: () async {
-          //check if syncing already in progress...
           if (scoresViewModel.isScoring) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
@@ -760,13 +707,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             return;
           }
 
-          // ...if not, initiate the sync
           try {
             setState(() {
               disableBackButton = true;
               disableSaves = true;
             });
-            //yield so UI updates
             await Future.delayed(const Duration(milliseconds: 100));
             String syncResult = await scoresViewModel.updateScoring(
                 widget.daucomp!, null, null);

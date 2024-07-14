@@ -91,8 +91,12 @@ class LiveScoring extends StatelessWidget {
                               ),
                       ],
                     ),
-                    Text(
-                        'Your points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
+                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                            GameState.startedResultNotKnown
+                        ? Text(
+                            'Interim points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}')
+                        : Text(
+                            'Points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
                   ],
                 ),
               ],
