@@ -13,14 +13,14 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-class TipsPage extends StatefulWidget {
-  const TipsPage({super.key});
+class TipsTab extends StatefulWidget {
+  const TipsTab({super.key});
 
   @override
-  TipsPageState createState() => TipsPageState();
+  TipsTabState createState() => TipsTabState();
 }
 
-class TipsPageState extends State<TipsPage> {
+class TipsTabState extends State<TipsTab> {
   final String currentDAUCompDbkey =
       di<DAUCompsViewModel>().selectedDAUComp!.dbkey!;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();

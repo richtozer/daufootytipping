@@ -3,11 +3,11 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "fefc23e5ccf57de8866e25723cf7ddab",
-"version.json": "72cd5e2d53673758c710eaa084a25e31",
+const RESOURCES = {"flutter_bootstrap.js": "293407adedeccf1ebe0f98112ae503ea",
+"version.json": "dc350e098a3c890106b9c27aeabafafc",
 "index.html": "a91f74097f810a425fb67ffa77702ef7",
 "/": "a91f74097f810a425fb67ffa77702ef7",
-"main.dart.js": "167b447abf7b74a8c13ca0253856eb62",
+"main.dart.js": "4fb260f70bb9124900abead33145bb3d",
 "flutter.js": "383e55f7f3cce5be08fcf1f3881f585c",
 "favicon.png": "5dcef449791fa27946b3d35ad8803796",
 "icons/Icon-192.png": "ac9a721a12bbc803b44f645561ecb1e1",
@@ -25,7 +25,7 @@ const RESOURCES = {"flutter_bootstrap.js": "fefc23e5ccf57de8866e25723cf7ddab",
 "assets/packages/firebase_ui_auth/fonts/SocialIcons.ttf": "c6d1e3f66e3ca5b37c7578e6f80f37d8",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
 "assets/AssetManifest.bin": "222d721d5038de5e858b9243b068bfa0",
-"assets/fonts/MaterialIcons-Regular.otf": "c19f58921f32c2a1bbef0fababb37568",
+"assets/fonts/MaterialIcons-Regular.otf": "edcd8f666778ae02cfb48bbcbc25c8e7",
 "assets/assets/teams/nrl/Canterbury_colours.svg": "7b206a789b13a6f2151b37292631af03",
 "assets/assets/teams/nrl/Melbourne_colours.svg": "21fcead34bcc42f878175d5c6e89a0ef",
 "assets/assets/teams/nrl/St._George_colours.svg": "069ee87753a236f83ba3e4503df34066",

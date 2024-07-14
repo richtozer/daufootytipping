@@ -16,7 +16,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  final String currentDAUCompKey;
   final String? configMinAppVersion;
 
   final bool isUserLoggingOut;
@@ -26,7 +25,7 @@ class UserAuthPage extends StatelessWidget {
   final PackageInfoService packageInfoService =
       GetIt.instance<PackageInfoService>();
 
-  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
+  UserAuthPage(this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
       this.isUserDeletingAccount = false});
@@ -71,8 +70,7 @@ class UserAuthPage extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-              builder: (BuildContext context) =>
-                  MyApp(null, currentDAUCompKey)),
+              builder: (BuildContext context) => const MyApp(null)),
           (Route<dynamic> route) => false,
         );
       });
@@ -83,8 +81,7 @@ class UserAuthPage extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-              builder: (BuildContext context) =>
-                  MyApp(null, currentDAUCompKey)),
+              builder: (BuildContext context) => const MyApp(null)),
           (Route<dynamic> route) => false,
         );
       });
@@ -232,7 +229,7 @@ class UserAuthPage extends StatelessWidget {
                               'No tipper record found for login: ${authenticatedFirebaseUser.email}. Contact daufootytipping@gmail.com');
                     }
 
-                    return HomePage(currentDAUCompKey);
+                    return const HomePage();
                   }
                 },
               );
@@ -298,7 +295,6 @@ class LoginErrorScreen extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => UserAuthPage(
                         di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-                        null,
                         isUserLoggingOut: true,
                       ),
                     ),

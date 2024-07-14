@@ -1,5 +1,5 @@
 import 'dart:ui';
-
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 
@@ -10,10 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage(this.currentDAUCompKey, {super.key});
-
-  final String currentDAUCompKey;
-
+  const HomePage({super.key});
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -31,21 +28,14 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> content() {
     return [
-      const TipsPage(),
-      StatsPage(widget.currentDAUCompKey),
+      const TipsTab(),
+      const StatsTab(),
       Profile(), // Display profile and settings for the logged on tipper
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    activeInComp = di<TippersViewModel>()
-        .selectedTipper!
-        .activeInComp(widget.currentDAUCompKey);
-
-    if (activeInComp == false) {
-      _currentIndex = 2; // default to profile page for non-participants
-    }
     List<Widget> destinationContent = content();
 
     Widget scaffold = Stack(children: [
@@ -80,7 +70,7 @@ class _HomePageState extends State<HomePage> {
             NavigationDestination(
               enabled: di<TippersViewModel>()
                   .selectedTipper!
-                  .activeInComp(widget.currentDAUCompKey),
+                  .activeInComp(di<DAUCompsViewModel>().activeDAUComp),
               icon: activeInComp == false
                   ? const Icon(Icons.sports_rugby)
                   : const Icon(Icons.sports_rugby_outlined),
@@ -89,7 +79,7 @@ class _HomePageState extends State<HomePage> {
             NavigationDestination(
               enabled: di<TippersViewModel>()
                   .selectedTipper!
-                  .activeInComp(widget.currentDAUCompKey),
+                  .activeInComp(di<DAUCompsViewModel>().activeDAUComp),
               icon: activeInComp == false
                   ? const Icon(Icons.auto_graph)
                   : const Icon(Icons.auto_graph_outlined),
@@ -104,25 +94,40 @@ class _HomePageState extends State<HomePage> {
       )
     ]);
 
-    return ChangeNotifierProvider<TippersViewModel>.value(
+    return ChangeNotifierProvider<DAUCompsViewModel>.value(
+      value: di<DAUCompsViewModel>(),
+      child: ChangeNotifierProvider<TippersViewModel>.value(
         value: di<TippersViewModel>(),
-        child: Consumer<TippersViewModel>(
-            builder: (context, tippersViewModelConsumer, child) {
-          if (tippersViewModelConsumer.inGodMode) {
-            return Banner(
-              message: tippersViewModelConsumer.selectedTipper!.name,
-              location: BannerLocation.bottomStart,
-              color: Colors.red,
-              child: Banner(
-                message: 'God mode',
-                location: BannerLocation.bottomEnd,
+        child: Consumer<DAUCompsViewModel>(
+            builder: (context, dauCompsViewModelConsumer, child) {
+          return Consumer<TippersViewModel>(
+              builder: (context, tippersViewModelConsumer, child) {
+            activeInComp = tippersViewModelConsumer.selectedTipper!
+                .activeInComp(dauCompsViewModelConsumer.activeDAUComp);
+
+            if (activeInComp == false) {
+              _currentIndex =
+                  2; // default to profile page for non-participants for this year
+            }
+            if (tippersViewModelConsumer.inGodMode) {
+              // display a god mode banner
+              return Banner(
+                message: tippersViewModelConsumer.selectedTipper!.name,
+                location: BannerLocation.bottomStart,
                 color: Colors.red,
-                child: scaffold,
-              ),
-            );
-          } else {
-            return scaffold;
-          }
-        }));
+                child: Banner(
+                  message: 'God mode',
+                  location: BannerLocation.bottomEnd,
+                  color: Colors.red,
+                  child: scaffold,
+                ),
+              );
+            } else {
+              return scaffold;
+            }
+          });
+        }),
+      ),
+    );
   }
 }
