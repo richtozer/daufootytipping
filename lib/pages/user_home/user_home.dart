@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -122,6 +123,23 @@ class _HomePageState extends State<HomePage> {
                   child: scaffold,
                 ),
               );
+            } else if (!dauCompsViewModelConsumer.isSelectedCompActiveComp()) {
+              //display a previous comp banner
+              // using regex extract a 4 digit year from the comp name,
+              // if none is found use the full comp name
+              String compYear = dauCompsViewModelConsumer.selectedDAUComp!.name;
+              RegExp regExp = RegExp(r'\d{4}');
+              Match? match = regExp.firstMatch(compYear);
+              if (match != null) {
+                compYear = match.group(0)!;
+              }
+
+              return Banner(
+                  message: compYear,
+                  textStyle: const TextStyle(color: Colors.black),
+                  location: BannerLocation.bottomStart,
+                  color: League.nrl.colour,
+                  child: scaffold);
             } else {
               return scaffold;
             }

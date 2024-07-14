@@ -78,6 +78,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isSelectedCompActiveComp() {
+    return _selectedDAUComp == _activeDAUComp;
+  }
+
   Future<void> _initializeAndResetViewModels() async {
     await initialLoadComplete;
     di.registerLazySingleton<ScoresViewModel>(
