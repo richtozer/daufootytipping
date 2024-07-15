@@ -47,8 +47,8 @@ class GameTipsViewModel extends ChangeNotifier {
   ) {
     //log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
 
-    allTipsViewModel.addListener(update);
-    allTipsViewModel.gamesViewModel.addListener(update);
+    allTipsViewModel.addListener(_updateGameTip);
+    allTipsViewModel.gamesViewModel.addListener(_updateGameTip);
 
     _findTip();
     gameStartedTrigger();
@@ -99,7 +99,7 @@ class GameTipsViewModel extends ChangeNotifier {
     }
   }
 
-  void update() {
+  void _updateGameTip() {
     // we may have new data lets check if we need to update our tip
     _findTip();
   }
@@ -158,8 +158,8 @@ class GameTipsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    allTipsViewModel.removeListener(update);
-    allTipsViewModel.gamesViewModel.removeListener(update);
+    allTipsViewModel.removeListener(_updateGameTip);
+    allTipsViewModel.gamesViewModel.removeListener(_updateGameTip);
     super.dispose();
   }
 }

@@ -87,7 +87,8 @@ class ScoresViewModel extends ChangeNotifier {
             var list = entry.value as List<dynamic>;
             Map<int, RoundScores> scores = {
               for (int i = 0; i < list.length; i++)
-                i: RoundScores.fromJson(Map<String, dynamic>.from(list[i]))
+                if (list[i] != null)
+                  i: RoundScores.fromJson(Map<String, dynamic>.from(list[i]))
             };
             return MapEntry(tipper, scores);
           } else {
@@ -234,6 +235,8 @@ class ScoresViewModel extends ChangeNotifier {
 
       stopwatch.stop();
       log('updateScoring executed in ${stopwatch.elapsed}');
+
+      _deleteStaleLiveScores();
 
       _isScoring = false;
 
@@ -571,6 +574,43 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
+  // method to delete any live scores for games that have a gamestate of startedResultKnown
+  Future<void> _deleteStaleLiveScores() async {
+    List<Game> gamesToDelete = [];
+    for (var game in _gamesWithLiveScores) {
+      if (game.gameState == GameState.startedResultKnown) {
+        gamesToDelete.add(game);
+      }
+    }
+
+    // if there are any games to delete turn off the listener
+    if (gamesToDelete.isNotEmpty) {
+      _liveScoresStream.cancel();
+    }
+
+    for (var game in gamesToDelete) {
+      _gamesWithLiveScores.remove(game);
+
+      await _db
+          .child(scoresPathRoot)
+          .child(currentDAUComp.dbkey!)
+          .child(liveScoresRoot)
+          .child(game.dbkey)
+          .remove();
+      log('Deleted live scores for game ${game.dbkey}');
+    }
+
+    // if we turned the lisnter off, turn it back on
+    if (gamesToDelete.isNotEmpty) {
+      _liveScoresStream = _db
+          .child('$scoresPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
+          .onValue
+          .listen(_handleEventLiveScores, onError: (error) {
+        log('Error listening to live scores: $error');
+      });
+    }
+  }
+
   Future<List<Tipper>> _getTippersToUpdate(Tipper? updateThisTipper,
       TippersViewModel tippersViewModel, DAUComp daucompToUpdate) async {
     if (updateThisTipper != null) {
@@ -704,6 +744,10 @@ class ScoresViewModel extends ChangeNotifier {
         _allTipperRoundScores[entry.key]![roundIndex]!.rank = rank;
 
         if (roundIndex > 0) {
+          if (_allTipperRoundScores[entry.key]![roundIndex - 1] == null) {
+            log('No scores for tipper ${entry.key.name} in round ${roundIndex - 1}');
+            continue;
+          }
           int? lastRank =
               _allTipperRoundScores[entry.key]![roundIndex - 1]!.rank;
           int? changeInRank = lastRank - rank;

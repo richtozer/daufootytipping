@@ -1,6 +1,7 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
@@ -38,7 +39,10 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<ScoresViewModel>();
+    // is selecteddaucomp is not null then get the scores model
+    if (di<DAUCompsViewModel>().selectedDAUComp != null) {
+      scoresViewModel = di<ScoresViewModel>();
+    }
   }
 
   @override

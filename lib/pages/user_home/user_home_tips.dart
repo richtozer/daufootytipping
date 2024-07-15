@@ -21,8 +21,9 @@ class TipsTab extends StatefulWidget {
 }
 
 class TipsTabState extends State<TipsTab> {
-  final String currentDAUCompDbkey =
-      di<DAUCompsViewModel>().selectedDAUComp!.dbkey!;
+  final String? currentDAUCompDbkey =
+      di<DAUCompsViewModel>().selectedDAUComp?.dbkey;
+
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
   int latestRoundNumber = 1;
 
@@ -30,6 +31,11 @@ class TipsTabState extends State<TipsTab> {
   void initState() {
     log('TipsPageBody.constructor()');
     super.initState();
+
+    if (daucompsViewModel.selectedDAUComp == null) {
+      log('TipsPageBody.initState() selectedDAUComp is null');
+      return;
+    }
 
     latestRoundNumber =
         daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
@@ -44,6 +50,13 @@ class TipsTabState extends State<TipsTab> {
   @override
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
+
+    if (daucompsViewModel.selectedDAUComp == null) {
+      log('TipsPageBody.build() selectedDAUComp is null');
+      return const Center(
+        child: Text('Not a valid competition. Contact a DAU admin.'),
+      );
+    }
 
     return MultiProvider(
       providers: [
@@ -60,7 +73,8 @@ class TipsTabState extends State<TipsTab> {
             itemScrollController:
                 daucompsViewmodelConsumer.itemScrollController,
             initialScrollIndex: (latestRoundNumber) * 4,
-            initialAlignment: 0.1,
+            initialAlignment:
+                0.15, // peek at the last game in the previous round
             // Increase itemCount by 1 to account for the final "end of competition" item
             itemCount:
                 daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *

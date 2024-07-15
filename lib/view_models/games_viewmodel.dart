@@ -197,12 +197,7 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
-    // if (!_initialLoadCompleter.isCompleted) {
-    //   log('Waiting for Game load to complete findGame()');
-    //   await _initialLoadCompleter.future;
-    // }
-    //TODO above commented out due to the poor design of the GameListBuilder.
-    // once it moves away from the FutureBuilder, this entire function can be refactored or remvoed
+    log('GamesViewModel_getGamesForRound: round=${dauRound.dAUroundNumber}');
 
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();

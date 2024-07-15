@@ -94,6 +94,11 @@ class DAUCompsViewModel extends ChangeNotifier {
     await di<TippersViewModel>().isUserLinked;
     Tipper currentTipper = di<TippersViewModel>().selectedTipper!;
 
+    if (di<DAUCompsViewModel>().selectedDAUComp == null) {
+      log('Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+      return;
+    }
+
     tipperTipsViewModel = TipsViewModel.forTipper(
         di<TippersViewModel>(),
         di<DAUCompsViewModel>().selectedDAUComp!,
@@ -151,13 +156,13 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
 
         _daucomps = existingDAUCompsMap.values.toList();
-
-        if (!_initialLoadCompleter.isCompleted) {
-          _initialLoadCompleter.complete();
-        }
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
+      }
+
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
       }
 
       notifyListeners();
@@ -167,7 +172,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  void _setRoundState(DAURound round) {
+  void _initRoundState(DAURound round) {
     if (round.games.isEmpty) {
       round.roundState = RoundState.noGames;
       log('Round ${round.dAUroundNumber} has no games. Check the fixture data and date ranges for each round.');
@@ -252,15 +257,17 @@ class DAUCompsViewModel extends ChangeNotifier {
           'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
       FirebaseAnalytics.instance.logEvent(
           name: 'fixture_update',
-          parameters: {'comp': selectedDAUComp!.name, 'result': res});
+          parameters: {'comp': daucompToUpdate.name, 'result': res});
 
-      selectedDAUComp!.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
-      updateCompAttribute(selectedDAUComp!.dbkey!, 'lastFixtureUpdateTimestamp',
-          selectedDAUComp!.lastFixtureUpdateTimestamp!.toIso8601String());
+      daucompToUpdate.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
+      updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUpdateTimestamp',
+          daucompToUpdate.lastFixtureUpdateTimestamp!.toIso8601String());
       await saveBatchOfCompAttributes();
 
-      await gamesViewModel.initialLoadComplete;
-      await linkGameWithRounds(daucompToUpdate, gamesViewModel);
+      // TODO below should not be needed - linking is done in the GamesViewModel handleEvent method
+
+      // await gamesViewModel.initialLoadComplete;
+      // await linkGameWithRounds(daucompToUpdate, gamesViewModel);
 
       return res;
     } catch (e) {
@@ -394,6 +401,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _updateDatabaseWithCombinedRounds(
       List<DAURound> combinedRounds, DAUComp daucomp) async {
+    log('In _updateDatabaseWithCombinedRounds()');
     for (var i = 0; i < combinedRounds.length; i++) {
       var minStartTime = combinedRounds[i]
           .games
@@ -404,16 +412,13 @@ class DAUCompsViewModel extends ChangeNotifier {
           .map((g) => g.startTimeUTC)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
-      if (_selectedDAUComp!.daurounds.isEmpty ||
-          _selectedDAUComp!.daurounds[i].roundStartDate != minStartTime ||
-          _selectedDAUComp!.daurounds[i].roundEndDate != maxStartTime) {
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(minStartTime).toString()}Z');
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(maxStartTime).toString()}Z');
-      }
+      // write the combined round start and end times to the database
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
+          '${DateFormat('yyyy-MM-dd HH:mm:ss').format(minStartTime).toString()}Z');
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
+          '${DateFormat('yyyy-MM-dd HH:mm:ss').format(maxStartTime).toString()}Z');
 
-      _setRoundState(combinedRounds[i]);
+      _initRoundState(combinedRounds[i]);
     }
 
     await saveBatchOfCompAttributes();
@@ -421,11 +426,13 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> linkGameWithRounds(
       DAUComp daucompToUpdate, GamesViewModel gamesViewModel) async {
-    log('In linkGameWithRounds()');
+    log('In daucompsviewmodel.linkGameWithRounds()');
+
+    await initialLoadComplete;
 
     for (var round in daucompToUpdate.daurounds) {
       round.games = await gamesViewModel.getGamesForRound(round);
-      _setRoundState(round);
+      _initRoundState(round);
     }
   }
 

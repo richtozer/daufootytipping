@@ -131,14 +131,11 @@ class _GameListItemState extends State<GameListItem> {
             ]),
           );
 
-          if (gameTipsViewModelConsumer.game.gameState ==
-                  GameState.notStarted ||
-              gameTipsViewModelConsumer.game.gameState ==
-                  GameState.startedResultKnown ||
-              (gameTipsViewModelConsumer.game.startTimeUTC
-                      .difference(DateTime.now())
-                      .inHours <
-                  -3)) {
+          // if game is more than 3 hours in the past, don't show any banner
+          if (gameTipsViewModelConsumer.game.startTimeUTC
+                  .difference(DateTime.now())
+                  .inHours <
+              -3) {
             return gameDetailsCard;
           }
 
@@ -155,13 +152,11 @@ class _GameListItemState extends State<GameListItem> {
               bannerColor = League.afl.colour;
               break;
             case GameState.startedResultKnown:
-              bannerMessage = "not used";
-              bannerColor = Colors.transparent;
-              break;
+              // return standard gameDetailsCard with no banner overlay
+              return gameDetailsCard;
             case GameState.notStarted:
-              bannerMessage = "not used";
-              bannerColor = Colors.purple;
-              break;
+              // return standard gameDetailsCard with no banner overlay
+              return gameDetailsCard;
           }
 
           // return gameDetailsCard with banner overlay
