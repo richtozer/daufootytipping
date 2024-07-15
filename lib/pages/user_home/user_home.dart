@@ -106,6 +106,10 @@ class _HomePageState extends State<HomePage> {
             activeInComp = tippersViewModelConsumer.selectedTipper!
                 .activeInComp(dauCompsViewModelConsumer.activeDAUComp);
 
+            if (dauCompsViewModelConsumer.activeDAUComp == null) {
+              _currentIndex = 2; // default to profile page if no comp is active
+            }
+
             if (activeInComp == false) {
               _currentIndex =
                   2; // default to profile page for non-participants for this year

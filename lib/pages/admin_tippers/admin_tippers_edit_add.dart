@@ -390,94 +390,104 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     ],
                   ),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('DAU Admin:'),
-                      Switch(
-                        value: admin,
-                        activeColor: Colors.yellow,
-                        onChanged: (value) {
-                          setState(() {
-                            admin = value;
-                          });
-
-                          if (tipper!.tipperRole.index.isEven
-                              ? false
-                              : true == value) {
-                            //something has changed, maybe allow saves
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('DAU Admin:'),
+                        Switch(
+                          value: admin,
+                          activeColor: Colors.yellow,
+                          onChanged: (value) {
                             setState(() {
-                              changes++; //increment the number of changes
-                              if (changes == 0) {
-                                disableSaves = true;
-                              } else {
-                                disableSaves = false;
-                              }
+                              admin = value;
                             });
-                          } else {
-                            setState(() {
-                              changes--; //decrement the number of changes, maybe stop saves
-                              if (changes == 0) {
-                                disableSaves = true;
-                              } else {
-                                disableSaves = false;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      const Text(' God mode: '),
-                      ChangeNotifierProvider<TippersViewModel>.value(
-                          value: di<TippersViewModel>(),
-                          child: Consumer<TippersViewModel>(
-                            builder:
-                                (context, tippersViewModelConsumer, child) {
-                              // if the tipper being editing was not a participant for that year then display a msg that god mode is not available
-                              if (!tipper!.compsParticipatedIn.any((element) =>
-                                  element.dbkey ==
-                                  di<DAUCompsViewModel>()
-                                      .selectedDAUComp!
-                                      .dbkey)) {
-                                return const Text(
-                                    'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\nselected year');
-                              }
 
-                              return Switch(
-                                value: (tippersViewModelConsumer.inGodMode &&
-                                    tippersViewModelConsumer.selectedTipper ==
-                                        tipper),
-                                activeColor: Colors.yellow,
-                                onChanged: (value) {
-                                  if (value == true) {
-                                    // if godmode is already turned on for another tipper
-                                    // then continue with this change, but display a snackbar
-                                    // saying we turned it off for tipper A, and turned it on here for tipper B
-                                    if (tippersViewModelConsumer.inGodMode) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          backgroundColor: Colors.green,
-                                          content: Text(
-                                              'God mode changed from ${tippersViewModelConsumer.selectedTipper!.name} to ${tipper!.name}'),
-                                        ),
+                            if (tipper!.tipperRole.index.isEven
+                                ? false
+                                : true == value) {
+                              //something has changed, maybe allow saves
+                              setState(() {
+                                changes++; //increment the number of changes
+                                if (changes == 0) {
+                                  disableSaves = true;
+                                } else {
+                                  disableSaves = false;
+                                }
+                              });
+                            } else {
+                              setState(() {
+                                changes--; //decrement the number of changes, maybe stop saves
+                                if (changes == 0) {
+                                  disableSaves = true;
+                                } else {
+                                  disableSaves = false;
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        // if selectedDAUComp is not null then offer god mode
+                        if (di<DAUCompsViewModel>().selectedDAUComp != null)
+                          Row(
+                            children: [
+                              const Text(' God mode: '),
+                              ChangeNotifierProvider<TippersViewModel>.value(
+                                  value: di<TippersViewModel>(),
+                                  child: Consumer<TippersViewModel>(
+                                    builder: (context, tippersViewModelConsumer,
+                                        child) {
+                                      // if the tipper being editing was not a participant for the active year then display a msg that god mode is not available
+                                      if (!tipper!.compsParticipatedIn.any(
+                                          (element) =>
+                                              element.dbkey ==
+                                              di<DAUCompsViewModel>()
+                                                  .selectedDAUComp!
+                                                  .dbkey)) {
+                                        return const Text(
+                                            'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\active year');
+                                      }
+
+                                      return Switch(
+                                        value: (tippersViewModelConsumer
+                                                .inGodMode &&
+                                            tippersViewModelConsumer
+                                                    .selectedTipper ==
+                                                tipper),
+                                        activeColor: Colors.yellow,
+                                        onChanged: (value) {
+                                          if (value == true) {
+                                            // if godmode is already turned on for another tipper
+                                            // then continue with this change, but display a snackbar
+                                            // saying we turned it off for tipper A, and turned it on here for tipper B
+                                            if (tippersViewModelConsumer
+                                                .inGodMode) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  backgroundColor: Colors.green,
+                                                  content: Text(
+                                                      'God mode changed from ${tippersViewModelConsumer.selectedTipper!.name} to ${tipper!.name}'),
+                                                ),
+                                              );
+                                            }
+                                            tippersViewModelConsumer
+                                                .selectedTipper = tipper;
+                                          } else {
+                                            tippersViewModelConsumer
+                                                    .selectedTipper =
+                                                tippersViewModelConsumer
+                                                    .authenticatedTipper;
+                                          }
+                                          // reset the other view models in daucompsviewmodel to reflect
+                                          // any changes in the selected tipper
+                                          di<DAUCompsViewModel>()
+                                              .selectedTipperChanged();
+                                        },
                                       );
-                                    }
-                                    tippersViewModelConsumer.selectedTipper =
-                                        tipper;
-                                  } else {
-                                    tippersViewModelConsumer.selectedTipper =
-                                        tippersViewModelConsumer
-                                            .authenticatedTipper;
-                                  }
-                                  // reset the other view models in daucompsviewmodel to reflect
-                                  // any changes in the selected tipper
-                                  di<DAUCompsViewModel>()
-                                      .selectedTipperChanged();
-                                },
-                              );
-                            },
-                          )),
-                    ],
-                  ),
+                                    },
+                                  )),
+                            ],
+                          ),
+                      ]),
                   // add a row for 'Active Comps', display a list of all DAUComps
                   // if the tippers is active in the comp, then show a tick
                   // allow the admin to edit which comps this tipper is active in

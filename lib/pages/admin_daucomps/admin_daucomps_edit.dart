@@ -35,6 +35,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   bool disableBackButton = false;
   bool disableSaves = true;
 
+  ScoresViewModel? scoresViewModel;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -92,6 +94,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
       if (aflURLActive && nrlURLActive) {
         if (widget.daucomp == null) {
+          // this is a new comp
           DAUComp newDAUComp = DAUComp(
             name: widget._daucompNameController.text,
             aflFixtureJsonURL:
@@ -182,7 +185,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   Widget build(BuildContext context) {
     DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-    ScoresViewModel scoresViewModel = di<ScoresViewModel>();
+    if (dauCompsViewModel.selectedDAUComp != null) {
+      scoresViewModel = di<ScoresViewModel>();
+    }
 
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
         value: dauCompsViewModel,
@@ -278,8 +283,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                 dauCompsViewModel.activeDAUComp)
                               buttonLegacy(context, dauCompsViewModel),
                             if (widget.daucomp ==
-                                dauCompsViewModel.activeDAUComp)
-                              buttonScoring(context, scoresViewModel),
+                                    dauCompsViewModel.activeDAUComp &&
+                                scoresViewModel != null)
+                              buttonScoring(context, scoresViewModel!),
                           ],
                         ),
                         Row(
@@ -288,7 +294,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             Consumer<DAUCompsViewModel>(
                                 builder: (context, model, child) {
                               return Switch(
-                                value: widget.daucomp == model.activeDAUComp,
+                                value: widget.daucomp != null &&
+                                    model.activeDAUComp != null &&
+                                    widget.daucomp == model.activeDAUComp,
                                 onChanged: (bool value) async {
                                   if (widget.daucomp == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -583,8 +591,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               disableSaves = true;
             });
 
+            GamesViewModel gamesViewModel = GamesViewModel(widget.daucomp!);
+
             String result = await dauCompsViewModel.getNetworkFixtureData(
-                widget.daucomp!, di<GamesViewModel>());
+                widget.daucomp!, gamesViewModel);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
