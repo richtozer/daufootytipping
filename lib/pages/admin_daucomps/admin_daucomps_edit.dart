@@ -46,6 +46,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     updateSaveButtonState();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+    widget._daucompNameController.removeListener(updateSaveButtonState);
+    widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
+    widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
+  }
+
   void initTextControllersListeners() {
     widget._daucompNameController.addListener(updateSaveButtonState);
     widget._daucompAflJsonURLController.addListener(updateSaveButtonState);
@@ -74,14 +82,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     }
   }
 
-  @override
-  void dispose() {
-    widget._daucompNameController.removeListener(updateSaveButtonState);
-    widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
-    widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
-    super.dispose();
-  }
-
   Future<void> _saveDAUComp(
       DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
     try {
@@ -94,7 +94,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
       if (aflURLActive && nrlURLActive) {
         if (widget.daucomp == null) {
-          // this is a new comp
           DAUComp newDAUComp = DAUComp(
             name: widget._daucompNameController.text,
             aflFixtureJsonURL:
@@ -128,15 +127,19 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               "nrlFixtureJsonURL", widget._daucompNrlJsonURLController.text);
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
-        }
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('DAUComp record saved'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('DAUComp record saved'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+
+          setState(() {
+            disableSaves = true;
+          });
         }
       } else {
         if (context.mounted) {
@@ -256,7 +259,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                       dauCompsViewModel, context);
 
                                   setState(() {
-                                    disableSaves = false;
+                                    disableSaves = true;
                                     disableBackButton = false;
                                   });
                                 }
@@ -279,12 +282,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             buttonFixture(context, dauCompsViewModel),
-                            if (widget.daucomp ==
-                                dauCompsViewModel.activeDAUComp)
+                            if (widget.daucomp!.dbkey ==
+                                dauCompsViewModel.activeDAUComp!.dbkey)
                               buttonLegacy(context, dauCompsViewModel),
-                            if (widget.daucomp ==
-                                    dauCompsViewModel.activeDAUComp &&
-                                scoresViewModel != null)
+                            if (scoresViewModel != null)
                               buttonScoring(context, scoresViewModel!),
                           ],
                         ),
@@ -296,7 +297,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                               return Switch(
                                 value: widget.daucomp != null &&
                                     model.activeDAUComp != null &&
-                                    widget.daucomp == model.activeDAUComp,
+                                    widget.daucomp!.dbkey ==
+                                        model.activeDAUComp!.dbkey,
                                 onChanged: (bool value) async {
                                   if (widget.daucomp == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -752,7 +754,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             });
           }
         },
-        child: Text(!scoresViewModel.isScoring ? 'Score' : 'Scoring...'),
+        child: Text(!scoresViewModel.isScoring ? 'Rescore' : 'Scoring...'),
       );
     }
   }
