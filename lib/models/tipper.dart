@@ -10,7 +10,7 @@ class Tipper implements Comparable<Tipper> {
   final String name;
   final String
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
-  //final bool active;  //no longer used
+  //final bool active;  //no longer used. use compsParticipatedIn instead
   final TipperRole tipperRole;
   String? photoURL;
   List<DAUComp> compsParticipatedIn = [];
