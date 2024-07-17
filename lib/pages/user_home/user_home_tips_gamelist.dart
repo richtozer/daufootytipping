@@ -5,10 +5,8 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:watch_it/watch_it.dart';
 
 class GameListBuilder extends StatefulWidget {
   const GameListBuilder({
@@ -44,7 +42,6 @@ class _GameListBuilderState extends State<GameListBuilder> {
     Future<Map<League, List<Game>>> gamesForCombinedRoundNumber =
         widget.dauCompsViewModel.sortGamesIntoLeagues(
       widget.dauRound,
-      di<GamesViewModel>(),
     );
 
     //get all the games for this round and league

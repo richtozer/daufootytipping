@@ -272,7 +272,6 @@ class LegacyTippingService {
 
             return res;
           } else {
-            log('*** Found no difference in round ${gsheetAppTip.dauRoundNumber} for tipper ${gsheetAppTip.name}. Skipping update');
             return false;
           }
         }

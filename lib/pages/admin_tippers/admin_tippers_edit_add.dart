@@ -1,11 +1,9 @@
 import 'dart:developer';
-
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
@@ -152,9 +150,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             });
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                di<DAUCompsViewModel>().selectedDAUComp!,
-                di<GamesViewModel>(),
-                widget.tipper);
+                di<DAUCompsViewModel>().selectedDAUComp!, widget.tipper);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

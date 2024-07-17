@@ -54,7 +54,7 @@ class TipsTabState extends State<TipsTab> {
     if (daucompsViewModel.selectedDAUComp == null) {
       log('TipsPageBody.build() selectedDAUComp is null');
       return const Center(
-        child: Text('Not a valid competition. Contact a DAU admin.'),
+        child: Text('Nothing to see here. Contact a DAU admin.'),
       );
     }
 
