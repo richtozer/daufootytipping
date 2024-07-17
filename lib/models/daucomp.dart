@@ -1,5 +1,4 @@
 import 'dart:developer';
-import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
@@ -123,20 +122,14 @@ class DAUComp implements Comparable<DAUComp> {
         other.dbkey == dbkey &&
         other.name == name &&
         other.aflFixtureJsonURL == aflFixtureJsonURL &&
-        other.nrlFixtureJsonURL == nrlFixtureJsonURL &&
-        other.active == active &&
-        other.lastFixtureUpdateTimestamp == lastFixtureUpdateTimestamp &&
-        const ListEquality().equals(other.daurounds, daurounds);
+        other.nrlFixtureJsonURL == nrlFixtureJsonURL;
   }
 
   @override
   int get hashCode {
     return dbkey.hashCode ^
-        active.hashCode ^
         name.hashCode ^
         aflFixtureJsonURL.hashCode ^
-        nrlFixtureJsonURL.hashCode ^
-        lastFixtureUpdateTimestamp.hashCode ^
-        daurounds.hashCode;
+        nrlFixtureJsonURL.hashCode;
   }
 }

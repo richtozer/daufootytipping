@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
@@ -106,9 +105,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           await dauCompsViewModel.newDAUComp(newDAUComp);
           await dauCompsViewModel.saveBatchOfCompAttributes();
 
-          GamesViewModel newCompGamesViewModel = GamesViewModel(newDAUComp);
-          String res = await dauCompsViewModel.getNetworkFixtureData(
-              newDAUComp, newCompGamesViewModel);
+          String res =
+              await dauCompsViewModel.getNetworkFixtureData(newDAUComp);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: League.nrl.colour,
@@ -278,61 +276,66 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            buttonFixture(context, dauCompsViewModel),
-                            if (widget.daucomp!.dbkey ==
-                                dauCompsViewModel.activeDAUComp!.dbkey)
-                              buttonLegacy(context, dauCompsViewModel),
-                            if (scoresViewModel != null)
-                              buttonScoring(context, scoresViewModel!),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const Text('Active Comp:'),
-                            Consumer<DAUCompsViewModel>(
-                                builder: (context, model, child) {
-                              return Switch(
-                                value: widget.daucomp != null &&
-                                    model.activeDAUComp != null &&
-                                    widget.daucomp!.dbkey ==
-                                        model.activeDAUComp!.dbkey,
-                                onChanged: (bool value) async {
-                                  if (widget.daucomp == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                            'You cannot set the active comp for a new record. Save the record first.'),
-                                        backgroundColor: League.afl.colour,
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  if (value) {
-                                    RemoteConfigService remoteConfigService =
-                                        RemoteConfigService();
-                                    remoteConfigService.setConfigCurrentDAUComp(
-                                        widget.daucomp!.dbkey!);
-                                    await dauCompsViewModel
-                                        .changeSelectedDAUComp(
-                                            widget.daucomp!.dbkey!, true);
-                                    log('Active comp changed to: ${widget.daucomp!.name}');
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                            'You cannot turn off the active comp. Instead edit another comp to be active.'),
-                                        backgroundColor: League.afl.colour,
-                                      ),
-                                    );
-                                  }
-                                },
-                              );
-                            }),
-                          ],
-                        ),
+                        if (widget.daucomp != null)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              buttonFixture(context, dauCompsViewModel),
+                              if (widget.daucomp!.dbkey ==
+                                  dauCompsViewModel.activeDAUComp!.dbkey)
+                                buttonLegacy(context, dauCompsViewModel),
+                              if (scoresViewModel != null)
+                                buttonScoring(context, scoresViewModel!),
+                            ],
+                          ),
+                        if (widget.daucomp != null)
+                          Row(
+                            children: [
+                              const Text('Active Comp:'),
+                              Consumer<DAUCompsViewModel>(
+                                  builder: (context, model, child) {
+                                return Switch(
+                                  value: widget.daucomp != null &&
+                                      model.activeDAUComp != null &&
+                                      widget.daucomp!.dbkey ==
+                                          model.activeDAUComp!.dbkey,
+                                  onChanged: (bool value) async {
+                                    if (widget.daucomp == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                              'You cannot set the active comp for a new record. Save the record first.'),
+                                          backgroundColor: League.afl.colour,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    if (value) {
+                                      RemoteConfigService remoteConfigService =
+                                          RemoteConfigService();
+                                      remoteConfigService
+                                          .setConfigCurrentDAUComp(
+                                              widget.daucomp!.dbkey!);
+                                      await dauCompsViewModel
+                                          .changeSelectedDAUComp(
+                                              widget.daucomp!.dbkey!, true);
+                                      log('Active comp changed to: ${widget.daucomp!.name}');
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                              'You cannot turn off the active comp. Instead edit another comp to be active.'),
+                                          backgroundColor: League.afl.colour,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                );
+                              }),
+                            ],
+                          ),
                         const Text('Name:',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Row(
@@ -593,10 +596,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               disableSaves = true;
             });
 
-            GamesViewModel gamesViewModel = GamesViewModel(widget.daucomp!);
-
-            String result = await dauCompsViewModel.getNetworkFixtureData(
-                widget.daucomp!, gamesViewModel);
+            String result =
+                await dauCompsViewModel.getNetworkFixtureData(widget.daucomp!);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -644,13 +645,12 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             return;
           }
 
-          if (widget.daucomp?.dbkey !=
-              dauCompsViewModel.selectedDAUComp!.dbkey) {
+          if (widget.daucomp?.dbkey != dauCompsViewModel.activeDAUComp!.dbkey) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 duration: Duration(seconds: 15),
                 content: Text(
-                    'You can only sync to legacy if this record is the active comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
+                    'You can only sync to legacy if this record is the active comp in remote config')));
             return;
           }
 
@@ -661,7 +661,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             });
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                widget.daucomp!, di<GamesViewModel>(), null);
+                widget.daucomp!, null);
 
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

@@ -50,8 +50,8 @@ class Tipper implements Comparable<Tipper> {
       return false;
     }
     return compsParticipatedIn.any((compParticipatedIn) =>
-        compParticipatedIn ==
-        checkThisComp); //check if the tipper is active in the comp
+        compParticipatedIn.dbkey ==
+        checkThisComp.dbkey); //check if the tipper is active in the comp
   }
 
   static List<Tipper?> fromJsonList(dynamic json) {

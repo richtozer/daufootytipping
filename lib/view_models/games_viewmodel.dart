@@ -23,22 +23,18 @@ class GamesViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
 
-  bool _savingGame = false;
-  Completer<void> _initialLoadCompleter = Completer<void>();
+  final Completer<void> _initialLoadCompleter = Completer<void>();
 
   DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
 
   final List<DAURound> _roundsThatNeedScoringUpdate = [];
 
-  // Getters
-  //List<Game> get games => _games;
   Future<List<Game>> getGames() async {
     await initialLoadComplete;
     return _games;
   }
 
-  bool get savingGame => _savingGame;
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   // Constructor
@@ -111,7 +107,11 @@ class GamesViewModel extends ChangeNotifier {
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
-      if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
+
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
     } catch (e) {
@@ -166,6 +166,11 @@ class GamesViewModel extends ChangeNotifier {
 
   Future<void> saveBatchOfGameAttributes() async {
     try {
+      // check if there are any updates to save
+      if (updates.isEmpty) {
+        log('GamesViewModel_saveBatchOfGameAttributes: no updates to save');
+        return;
+      }
       await initialLoadComplete;
       // turn off listeners
       _gamesStream.cancel();
@@ -177,13 +182,13 @@ class GamesViewModel extends ChangeNotifier {
       // update in List<DAURound> _roundsThatNeedScoringUpdate
       // update the round scores then remove the round from the list
       for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
+        log('GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}');
         await di<ScoresViewModel>()
             .updateScoring(selectedDAUComp, null, dauRound);
       }
       // clear the list
       _roundsThatNeedScoringUpdate.clear();
     } finally {
-      _savingGame = false;
       notifyListeners();
     }
   }
@@ -209,10 +214,10 @@ class GamesViewModel extends ChangeNotifier {
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
 
-    // create a new Completer if the old one was completed:
-    if (_initialLoadCompleter.isCompleted) {
-      _initialLoadCompleter = Completer<void>();
-    }
+    // // create a new Completer if the old one was completed:
+    // if (_initialLoadCompleter.isCompleted) {
+    //   _initialLoadCompleter = Completer<void>();
+    // }
 
     super.dispose();
   }

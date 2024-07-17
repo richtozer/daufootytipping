@@ -12,7 +12,6 @@ import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -55,7 +54,7 @@ class ScoresViewModel extends ChangeNotifier {
 
   // Constructor
   ScoresViewModel(this.currentDAUComp) {
-    log('***** ScoresViewModel_constructor(ALL TIPPERS)*** for comp: ${currentDAUComp.dbkey}');
+    log('ScoresViewModel_constructor(ALL TIPPERS) for comp: ${currentDAUComp.dbkey}');
     _listenToScores();
   }
 
@@ -136,10 +135,10 @@ class ScoresViewModel extends ChangeNotifier {
         var dbData = event.snapshot.value as Map<dynamic, dynamic>;
 
         _gamesWithLiveScores.clear();
-        var gamesViewModel = di<GamesViewModel>();
+        var gamesViewModel = di<DAUCompsViewModel>().gamesViewModel;
 
         for (var entry in dbData.entries) {
-          var game = await gamesViewModel.findGame(entry.key);
+          var game = await gamesViewModel!.findGame(entry.key);
           var scoring =
               Scoring.fromJson(Map<String, dynamic>.from(entry.value));
           if (game!.scoring == null) {
@@ -184,8 +183,8 @@ class ScoresViewModel extends ChangeNotifier {
       // we need to load tips for all tippers if onlyUpdateThisTipper is null
       TipsViewModel allTipsViewModel;
       if (onlyUpdateThisTipper == null) {
-        allTipsViewModel = TipsViewModel(
-            di<TippersViewModel>(), daucompToUpdate, di<GamesViewModel>());
+        allTipsViewModel = TipsViewModel(di<TippersViewModel>(),
+            daucompToUpdate, di<DAUCompsViewModel>().gamesViewModel!);
       } else {
         // load the existing model via di
         allTipsViewModel = di<DAUCompsViewModel>().tipperTipsViewModel!;
