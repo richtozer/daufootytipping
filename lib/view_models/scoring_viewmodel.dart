@@ -194,7 +194,10 @@ class ScoresViewModel extends ChangeNotifier {
       List<Tipper> tippersToUpdate = await _getTippersToUpdate(
           onlyUpdateThisTipper, tippersViewModel, daucompToUpdate);
 
-      await _removeScoresInactiveTippers(tippersToUpdate, daucompToUpdate);
+      // if we are doing a full scoring sync then use this time to remove any inactive tippers
+      if (onlyUpdateThisTipper == null) {
+        await _removeScoresInactiveTippers(tippersToUpdate, daucompToUpdate);
+      }
 
       var dauRoundsEdited =
           _getRoundsToUpdate(onlyUpdateThisRound, daucompToUpdate);
@@ -478,47 +481,6 @@ class ScoresViewModel extends ChangeNotifier {
     } else {
       return [];
     }
-  }
-
-  Future<RoundScores> getTipperConsolidatedScoresForRound(
-      DAURound round, Tipper tipper) async {
-    if (!_initialRoundLoadCompleted.isCompleted) {
-      await _initialRoundLoadCompleted.future;
-    }
-
-    if (_allTipperRoundScores[tipper] == null) {
-      return RoundScores(
-        roundNumber: round.dAUroundNumber,
-        rank: 0,
-        rankChange: 0,
-        aflScore: 0,
-        aflMaxScore: 0,
-        nrlScore: 0,
-        nrlMaxScore: 0,
-        aflMarginTips: 0,
-        aflMarginUPS: 0,
-        nrlMarginTips: 0,
-        nrlMarginUPS: 0,
-      );
-    }
-
-    if (!_allTipperRoundScores[tipper]!.containsKey(round.dAUroundNumber - 1)) {
-      return RoundScores(
-        roundNumber: round.dAUroundNumber,
-        rank: 0,
-        rankChange: 0,
-        aflScore: 0,
-        aflMaxScore: 0,
-        nrlScore: 0,
-        nrlMaxScore: 0,
-        aflMarginTips: 0,
-        aflMarginUPS: 0,
-        nrlMarginTips: 0,
-        nrlMarginUPS: 0,
-      );
-    }
-
-    return _allTipperRoundScores[tipper]![round.dAUroundNumber - 1]!;
   }
 
   void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) {

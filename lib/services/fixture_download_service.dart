@@ -24,10 +24,10 @@ class FixtureDownloadService {
     Map<String, dynamic> result;
 
     if (!downloadOnSeparateThread) {
-      result = await fetchFixtures(simpleDAUComp);
+      result = await _fetchFixtures(simpleDAUComp);
       log('Fixture data loaded on MAIN thread.');
     } else {
-      result = await compute(fetchFixtures, simpleDAUComp);
+      result = await compute(_fetchFixtures, simpleDAUComp);
       log('Fixture data loaded on BACKGROUND thread.');
     }
 
@@ -41,14 +41,14 @@ class FixtureDownloadService {
     };
   }
 
-  Future<Map<String, dynamic>> fetchFixtures(
+  Future<Map<String, dynamic>> _fetchFixtures(
       Map<String, dynamic> simpleDAUComp) async {
     List<dynamic> nrlGames = [];
     List<dynamic> aflGames = [];
     String errorMessage = '';
 
     try {
-      nrlGames = await FixtureDownloadService.getLeagueFixtureRaw(
+      nrlGames = await FixtureDownloadService._getLeagueFixtureRaw(
           Uri.parse(simpleDAUComp['nrlFixtureJsonURL']), League.nrl);
     } catch (e) {
       errorMessage = 'Error loading NRL fixture data. Exception was: $e';
@@ -56,7 +56,7 @@ class FixtureDownloadService {
 
     if (errorMessage.isEmpty) {
       try {
-        aflGames = await FixtureDownloadService.getLeagueFixtureRaw(
+        aflGames = await FixtureDownloadService._getLeagueFixtureRaw(
             Uri.parse(simpleDAUComp['aflFixtureJsonURL']), League.afl);
       } catch (e) {
         errorMessage = 'Error loading AFL fixture data. Exception was: $e';
@@ -70,7 +70,7 @@ class FixtureDownloadService {
     return {'nrlGames': nrlGames, 'aflGames': aflGames};
   }
 
-  static Future<List<dynamic>> getLeagueFixtureRaw(
+  static Future<List<dynamic>> _getLeagueFixtureRaw(
       Uri endpoint, League league) async {
     final dio = Dio(BaseOptions(
         headers: {'Content-Type': 'application/json; charset=UTF-8'}));
@@ -129,31 +129,5 @@ class FixtureDownloadService {
     }
     throw Exception(
         'Could not receive the league fixture list: ${endpoint.toString()}');
-  }
-
-  Game fromFixtureJsonNotUsed(
-      Map<String, dynamic> data, League league, DAURound linkedDauRound) {
-    return Game(
-      dbkey:
-          '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, roune number and match number. Pad the numbers so they sort correctly in the firebase console
-      league: league,
-      homeTeam: Team(
-          name: data['HomeTeam'],
-          dbkey: '${league.name}-${data['HomeTeam']}',
-          league: league),
-      awayTeam: Team(
-          name: data['AwayTeam'],
-          dbkey: '${league.name}-${data['AwayTeam']}',
-          league: league),
-      location: data['Location'] ?? '',
-      startTimeUTC: DateTime.parse(data['DateUtc']),
-      roundNumber: data['RoundNumber'] ?? 0,
-      matchNumber: data['MatchNumber'] ?? 0,
-      scoring: (data['HomeTeamScore'] != null && data['AwayTeamScore'] != null)
-          ? Scoring(
-              homeTeamScore: data['HomeTeamScore'] as int,
-              awayTeamScore: data['AwayTeamScore'] as int)
-          : null, // if we have official scores then add them to a scoring object
-    );
   }
 }

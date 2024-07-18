@@ -52,10 +52,10 @@ class DAUCompsViewModel extends ChangeNotifier {
   final Map<String, dynamic> updates = {};
 
   DAUCompsViewModel(this._activeDAUCompDbKey) {
-    init();
+    _init();
   }
 
-  Future<void> init() async {
+  Future<void> _init() async {
     _listenToDAUComps();
     await initialLoadComplete;
     if (_activeDAUCompDbKey != null) {
@@ -554,29 +554,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     return defaultRoundNrlTips + defaultRoundAflTips;
   }
 
-  void turnOffListener() {
-    _daucompsStream.cancel();
-  }
-
-  void turnOnListener() {
-    _listenToDAUComps();
-  }
-
   void _otherViewModelUpdated() {
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _daucompsStream.cancel();
-    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
-
-    gamesViewModel?.removeListener(_otherViewModelUpdated);
-
-    tipperScoresViewModel = di<ScoresViewModel>();
-    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
-
-    super.dispose();
   }
 
   List<Future> _processGames(List<dynamic> nrlGames, List<dynamic> aflGames) {
@@ -597,5 +576,18 @@ class DAUCompsViewModel extends ChangeNotifier {
     processGames(aflGames, League.afl);
 
     return gamesFuture;
+  }
+
+  @override
+  void dispose() {
+    _daucompsStream.cancel();
+    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
+
+    gamesViewModel?.removeListener(_otherViewModelUpdated);
+
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
+
+    super.dispose();
   }
 }

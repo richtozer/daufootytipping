@@ -67,9 +67,9 @@ class TippersViewModel extends ChangeNotifier {
     _listenToTippers();
   }
 
-  void handleFirebaseServiceChange() {
+  void _handleFirebaseServiceChange() {
     if (!kIsWeb) {
-      registerLinkedTipperForMessaging();
+      _registerLinkedTipperForMessaging();
     }
   }
 
@@ -246,7 +246,7 @@ class TippersViewModel extends ChangeNotifier {
         if (existingTipper == null) {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the Firebase database, adding it');
           // newTipper() will create a new db key for the new record and return a modified Tipper object with the new db key
-          await createNewTipper(legacyTipper);
+          await _createNewTipper(legacyTipper);
         } else {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
 
@@ -291,7 +291,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> createNewTipper(
+  Future<void> _createNewTipper(
     Tipper newTipper,
   ) async {
     await _initialLoadCompleter.future;
@@ -307,7 +307,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  bool isValidEmail(String? email) {
+  bool _isValidEmail(String? email) {
     if (email == null) {
       return false;
     }
@@ -339,7 +339,7 @@ class TippersViewModel extends ChangeNotifier {
             foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
 
         // check if tipper.email is a valid email address, if not make it the sane as logon
-        if (!isValidEmail(foundTipper.email)) {
+        if (!_isValidEmail(foundTipper.email)) {
           await updateTipperAttribute(
               foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);
         }
@@ -401,7 +401,7 @@ class TippersViewModel extends ChangeNotifier {
         }
 
         if (!kIsWeb) {
-          await registerLinkedTipperForMessaging();
+          await _registerLinkedTipperForMessaging();
         }
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
@@ -425,7 +425,7 @@ class TippersViewModel extends ChangeNotifier {
           compsParticipatedIn: [], // do not assign tippers created this way to any comps
         );
 
-        await createNewTipper(newTipper);
+        await _createNewTipper(newTipper);
 
         await saveBatchOfTipperAttributes();
         log('linkUserToTipper() Tipper ${newTipper.dbkey} created for user ${authenticatedFirebaseUser.email}');
@@ -450,7 +450,7 @@ class TippersViewModel extends ChangeNotifier {
 
   // DeviceTokens are stored in another tree in db
   // this is to keep firebase billing low/nil
-  Future<void> registerLinkedTipperForMessaging() async {
+  Future<void> _registerLinkedTipperForMessaging() async {
     // loop through any existing device tokens for this tipper, if the token
     // does not exist, add it, otherwise update the timestamp for the existing token
     if (!_initialLoadCompleter.isCompleted) {
@@ -473,8 +473,8 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   //this is the callback method when there are changes in the FBM token
-  Future<void> updateFbmToken() async {
-    await registerLinkedTipperForMessaging();
+  Future<void> _updateFbmToken() async {
+    await _registerLinkedTipperForMessaging();
   }
 
   // method to delete acctount
@@ -567,5 +567,3 @@ class TippersViewModel extends ChangeNotifier {
     return foundTipper;
   }
 }
-
-class Log {}

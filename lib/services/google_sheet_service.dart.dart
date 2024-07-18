@@ -126,34 +126,6 @@ class LegacyTippingService {
     return tippers;
   }
 
-  // Future<List<GsheetAppTip>> _getLegacyAppTips() async {
-  //   List<GsheetAppTip> appTips = [];
-
-  //   await initialized();
-
-  //   appTipsData = (await appTipsSheet.values.allRows()).skip(3).toList();
-  //   numInsertedRows = appTipsData.length;
-
-  //   log('Refresh of legacy gsheet ${appTipsSheet.title} complete. Found $numInsertedRows rows.');
-
-  //   for (var row in appTipsData) {
-  //     if (row.length < 4) {
-  //       log('Error in legacy tipping sheet: row has less than 4 columns of data. We need at least formSubmitTimestamp, dauRoundNumber, name, roundTipslegacyFormat : $row. skipping this row');
-  //     } else {
-  //       GsheetAppTip appTip = GsheetAppTip(
-  //         row[0] ?? '',
-  //         int.parse(row[1] ?? '0'),
-  //         row[2] ?? '',
-  //         row[3] ?? '',
-  //       );
-
-  //       appTips.add(appTip);
-  //     }
-  //   }
-
-  //   return appTips;
-  // }
-
   Future<String> syncSingleRoundTipperToLegacy(
       TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel,
