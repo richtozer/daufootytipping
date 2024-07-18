@@ -53,13 +53,6 @@ class TipsViewModel extends ChangeNotifier {
     _listenToTips();
   }
 
-  Future<List<TipGame?>> getAllTips() async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
-    }
-    return _tipGames;
-  }
-
   void update() {
     notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
   }
@@ -88,9 +81,9 @@ class TipsViewModel extends ChangeNotifier {
         if (tipper == null) {
           log('deserializing tips for all tippers');
           final allTips =
-              deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+              _deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
           log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
-          _tipGames = await deserializeTips(allTips);
+          _tipGames = await _deserializeTips(allTips);
         } else {
           log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
@@ -119,17 +112,17 @@ class TipsViewModel extends ChangeNotifier {
 
   //this method, which allows for recusrsive maps, is no longer nessisary and could be removed
 
-  Map<String, dynamic> deepMapFromObject(Map<Object?, Object?> map) {
+  Map<String, dynamic> _deepMapFromObject(Map<Object?, Object?> map) {
     return Map<String, dynamic>.from(map.map((key, value) {
       if (value is Map<Object?, Object?>) {
-        return MapEntry(key.toString(), deepMapFromObject(value));
+        return MapEntry(key.toString(), _deepMapFromObject(value));
       } else {
         return MapEntry(key.toString(), value);
       }
     }));
   }
 
-  Future<List<TipGame>> deserializeTips(Map<String, dynamic> json,
+  Future<List<TipGame>> _deserializeTips(Map<String, dynamic> json,
       {tipper}) async {
     List<TipGame> allCompTips = [];
 
@@ -185,13 +178,6 @@ class TipsViewModel extends ChangeNotifier {
     return tipGame;
   }
 
-  @override
-  void dispose() {
-    _tipsStream.cancel(); // stop listening to stream
-    _gamesViewModel.removeListener(update);
-    super.dispose();
-  }
-
   Future<List<TipGame?>> getTipsForRound(
       Tipper tipper, DAURound combinedRound, DAUComp daucomp) async {
     if (!_initialLoadCompleter.isCompleted) {
@@ -218,5 +204,12 @@ class TipsViewModel extends ChangeNotifier {
                   combinedRound.dAUroundNumber)
           .toList();
     }
+  }
+
+  @override
+  void dispose() {
+    _tipsStream.cancel(); // stop listening to stream
+    _gamesViewModel.removeListener(update);
+    super.dispose();
   }
 }
