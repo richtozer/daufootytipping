@@ -179,7 +179,7 @@ class TipsViewModel extends ChangeNotifier {
         game: game,
         tipper: tipper,
       );
-      log('Tip not found for game ${game.dbkey} and tipper ${tipper.name}. Defaulting to Away tip.');
+      //log('Tip not found for game ${game.dbkey} and tipper ${tipper.name}. Defaulting to Away tip.');
     }
 
     return tipGame;

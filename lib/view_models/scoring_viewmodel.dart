@@ -166,6 +166,7 @@ class ScoresViewModel extends ChangeNotifier {
 
   Future<String> updateScoring(DAUComp daucompToUpdate,
       Tipper? onlyUpdateThisTipper, DAURound? onlyUpdateThisRound) async {
+    log('updateScoring() called for comp: ${daucompToUpdate.name}');
     var stopwatch = Stopwatch()..start();
     try {
       if (_isScoring) {
@@ -650,19 +651,19 @@ class ScoresViewModel extends ChangeNotifier {
         continue;
       }
 
+      // count margin tips regardless of round state
+
+      int marginTip =
+          (tipGame.tip == GameResult.a || tipGame.tip == GameResult.e) ? 1 : 0;
+
+      if (tipGame.game.league == League.afl) {
+        proposedRoundScores.aflMarginTips += marginTip;
+      } else {
+        proposedRoundScores.nrlMarginTips += marginTip;
+      }
+
       if (tipGame.game.gameState != GameState.notStarted &&
           tipGame.game.gameState != GameState.startingSoon) {
-        int marginTip =
-            (tipGame.tip == GameResult.a || tipGame.tip == GameResult.e)
-                ? 1
-                : 0;
-
-        if (tipGame.game.league == League.afl) {
-          proposedRoundScores.aflMarginTips += marginTip;
-        } else {
-          proposedRoundScores.nrlMarginTips += marginTip;
-        }
-
         int score = tipGame.getTipScoreCalculated();
         int maxScore = tipGame.getMaxScoreCalculated();
 

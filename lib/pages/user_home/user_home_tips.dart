@@ -230,7 +230,7 @@ class TipsTabState extends State<TipsTab> {
                       : Text(
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
-                          'Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips} '),
+                          'Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginTips ?? 0 : roundScores?.nrlMarginTips ?? 0} '),
                   dauRound.roundState != RoundState.notStarted
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,

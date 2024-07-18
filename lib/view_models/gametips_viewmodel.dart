@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -20,7 +21,7 @@ class GameTipsViewModel extends ChangeNotifier {
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
-  final Game game;
+  Game game;
   final DAURound dauRound;
 
   final _db = FirebaseDatabase.instance.ref();
@@ -99,8 +100,9 @@ class GameTipsViewModel extends ChangeNotifier {
     }
   }
 
-  void _updateGameTip() {
+  void _updateGameTip() async {
     // we may have new data lets check if we need to update our tip
+    game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     _findTip();
   }
 
@@ -139,9 +141,14 @@ class GameTipsViewModel extends ChangeNotifier {
       updates['$tipsPathRoot/$currentDAUComp/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
-      log('new tip logged: ${updates.toString()}');
+      log('new tip submitted: ${updates.toString()}');
 
       _tipGame = tip; // update the tipGame with the new tip
+
+      // run a scoring update for the round and tipper - this is to keep track of margin counts
+      // and to update the round scores
+      await di<ScoresViewModel>().updateScoring(
+          di<DAUCompsViewModel>().selectedDAUComp!, currentTipper, dauRound);
 
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
