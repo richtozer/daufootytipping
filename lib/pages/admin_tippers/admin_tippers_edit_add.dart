@@ -439,7 +439,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                                   .selectedDAUComp!
                                                   .dbkey)) {
                                         return const Text(
-                                            'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\active year');
+                                            'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for theactive year');
                                       }
 
                                       return Switch(

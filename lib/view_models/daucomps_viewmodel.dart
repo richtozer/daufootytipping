@@ -80,7 +80,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     await _initializeAndResetViewModels();
-    await di<ScoresViewModel>().updateScoring(_selectedDAUComp!, null, null);
     notifyListeners();
   }
 
