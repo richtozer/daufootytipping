@@ -232,18 +232,17 @@ class ScoresViewModel extends ChangeNotifier {
           'Completed scoring updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
       log(res);
 
-      stopwatch.stop();
-      log('updateScoring executed in ${stopwatch.elapsed}');
-
       _deleteStaleLiveScores();
-
-      _isScoring = false;
 
       return res;
     } catch (e) {
       log('Error updating scoring: $e');
-      _isScoring = false;
       rethrow;
+    } finally {
+      stopwatch.stop();
+      log('updateScoring executed in ${stopwatch.elapsed}');
+      _isScoring = false;
+      notifyListeners();
     }
   }
 
