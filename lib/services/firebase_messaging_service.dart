@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io' show Platform;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 
 class FirebaseMessagingService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -21,12 +18,12 @@ class FirebaseMessagingService {
   String? get fbmToken => _fbmToken;
 
   static const tokenExpirationDuaration = 60 * 60 * 1000 * 24 * 30; //30 days
-  late DatabaseReference _tokensRef;
+  //late DatabaseReference _tokensRef;
 
   //constructor
   FirebaseMessagingService() {
-    final String tokensPath = dotenv.env['TOKENS_PATH'] as String;
-    _tokensRef = FirebaseDatabase.instance.ref().child(tokensPath);
+    // final String tokensPath = dotenv.env['TOKENS_PATH'] as String;
+    // _tokensRef = FirebaseDatabase.instance.ref().child(tokensPath);
   }
   Future<void> initializeFirebaseMessaging() async {
     log('Initializing Firebase messaging');

@@ -122,8 +122,7 @@ class TipsViewModel extends ChangeNotifier {
     }));
   }
 
-  Future<List<TipGame>> _deserializeTips(Map<String, dynamic> json,
-      {tipper}) async {
+  Future<List<TipGame>> _deserializeTips(Map<String, dynamic> json) async {
     List<TipGame> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
