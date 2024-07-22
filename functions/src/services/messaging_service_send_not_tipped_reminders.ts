@@ -127,7 +127,7 @@ export const sendHourlyReminders =
             payload: {
               aps: {
                 "sound": "default",
-                "content-available": 1,
+                "content-available": 0,
               },
             },
           },

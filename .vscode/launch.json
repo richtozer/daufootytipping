@@ -6,6 +6,12 @@
   "configurations": 
   [
     {
+      "name": "Start JSON-SERVER - 2024-3rounds",
+      "preLaunchTask": "LaunchJSONServer",
+      "type": "node",
+      "request": "launch",
+    },
+    {
         "name": "Debug TypeScript",
         "type": "node",
         "request": "launch",
@@ -30,6 +36,6 @@
       "skipFiles": ["<node_internals>/**"],
       "preLaunchTask": "start firebase emulator",
       "postDebugTask": "stop firebase emulator"
-    }
+    },
   ]
 }

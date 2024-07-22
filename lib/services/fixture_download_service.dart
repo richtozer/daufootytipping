@@ -1,10 +1,6 @@
 import 'dart:developer';
 
-import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/team.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
