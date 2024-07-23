@@ -126,34 +126,6 @@ class LegacyTippingService {
     return tippers;
   }
 
-  // Future<List<GsheetAppTip>> _getLegacyAppTips() async {
-  //   List<GsheetAppTip> appTips = [];
-
-  //   await initialized();
-
-  //   appTipsData = (await appTipsSheet.values.allRows()).skip(3).toList();
-  //   numInsertedRows = appTipsData.length;
-
-  //   log('Refresh of legacy gsheet ${appTipsSheet.title} complete. Found $numInsertedRows rows.');
-
-  //   for (var row in appTipsData) {
-  //     if (row.length < 4) {
-  //       log('Error in legacy tipping sheet: row has less than 4 columns of data. We need at least formSubmitTimestamp, dauRoundNumber, name, roundTipslegacyFormat : $row. skipping this row');
-  //     } else {
-  //       GsheetAppTip appTip = GsheetAppTip(
-  //         row[0] ?? '',
-  //         int.parse(row[1] ?? '0'),
-  //         row[2] ?? '',
-  //         row[3] ?? '',
-  //       );
-
-  //       appTips.add(appTip);
-  //     }
-  //   }
-
-  //   return appTips;
-  // }
-
   Future<String> syncSingleRoundTipperToLegacy(
       TipsViewModel allTipsViewModel,
       DAUCompsViewModel daucompsViewModel,
@@ -243,7 +215,7 @@ class LegacyTippingService {
       Tipper tipper,
       DAURound round,
       String templateDefaultTips) async {
-    DAUComp? daucomp = await daucompsViewModel.getCurrentDAUComp();
+    DAUComp? daucomp = daucompsViewModel.selectedDAUComp;
 
     GsheetAppTip? gsheetAppTip = await _getAppTipsForRoundTipper(
         allTipsViewModel, tipper, round, daucomp!, templateDefaultTips);
@@ -272,7 +244,6 @@ class LegacyTippingService {
 
             return res;
           } else {
-            log('*** Found no difference in round ${gsheetAppTip.dauRoundNumber} for tipper ${gsheetAppTip.name}. Skipping update');
             return false;
           }
         }
@@ -386,8 +357,8 @@ class LegacyTippingService {
     final Worksheet roundScoresSheet =
         spreadsheet.worksheetByTitle('AppScores')!;
 
-    final List<List<String?>> roundScoresData =
-        await roundScoresSheet.values.allRows();
+    // final List<List<String?>> roundScoresData =
+    //     await roundScoresSheet.values.allRows();
 
     await roundScoresSheet.clear();
 
@@ -411,7 +382,7 @@ class LegacyTippingService {
     List<Tipper> activeTippers = await di<TippersViewModel>()
         .getActiveTippers(di<DAUCompsViewModel>().selectedDAUComp!);
 
-    Map<Tipper, List<RoundScores>> roundScores =
+    Map<Tipper, Map<int, RoundScores>> roundScores =
         di<ScoresViewModel>().allTipperRoundScores;
 
     int highestRoundNumber = di<DAUCompsViewModel>()
@@ -426,20 +397,20 @@ class LegacyTippingService {
 
     for (int i = 0; i < maxLen; i++) {
       for (Tipper tipper in activeTippers) {
-        List<RoundScores> tipperRoundScores = roundScores[tipper]!;
+        Map<int, RoundScores> tipperRoundScores = roundScores[tipper]!;
         if (i < tipperRoundScores.length) {
           rows.add([
             i + 1,
             tipper.name,
-            (tipperRoundScores[i].aflMarginTips +
-                    tipperRoundScores[i].nrlMarginTips)
+            (tipperRoundScores[i]!.aflMarginTips +
+                    tipperRoundScores[i]!.nrlMarginTips)
                 .toString(),
-            (tipperRoundScores[i].aflMarginUPS +
-                    tipperRoundScores[i].nrlMarginUPS)
+            (tipperRoundScores[i]!.aflMarginUPS +
+                    tipperRoundScores[i]!.nrlMarginUPS)
                 .toString(),
-            tipperRoundScores[i].nrlScore.toString(),
-            tipperRoundScores[i].aflScore.toString(),
-            (tipperRoundScores[i].nrlScore + tipperRoundScores[i].aflScore)
+            tipperRoundScores[i]!.nrlScore.toString(),
+            tipperRoundScores[i]!.aflScore.toString(),
+            (tipperRoundScores[i]!.nrlScore + tipperRoundScores[i]!.aflScore)
                 .toString(),
           ]);
         }

@@ -1,11 +1,7 @@
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
@@ -61,7 +57,8 @@ Future<void> main() async {
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
-  String configDAUComp = await remoteConfigService.getConfigCurrentDAUComp();
+  String configDAUCompDbkey =
+      await remoteConfigService.getConfigCurrentDAUComp();
   String configMinAppVersion =
       await remoteConfigService.getConfigMinAppVersion();
   bool createLinkedTipper = await remoteConfigService.getCreateLinkedTipper();
@@ -99,31 +96,17 @@ Future<void> main() async {
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   di.registerLazySingleton<DAUCompsViewModel>(
-      () => DAUCompsViewModel(configDAUComp));
+      () => DAUCompsViewModel(configDAUCompDbkey));
   di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
-
-  DAUComp? dAUComp = await di<DAUCompsViewModel>().getCurrentDAUComp();
-
-  // register GamesViewModel for later use
-  di.registerLazySingleton<GamesViewModel>(() => GamesViewModel(dAUComp!));
-
-  di.registerLazySingleton<ScoresViewModel>(() => ScoresViewModel(dAUComp!));
-
-  // register TipsViewModel for later use
-  di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-      di<TippersViewModel>(),
-      di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-      di<GamesViewModel>()));
 
   // run the application widget code
 
-  runApp(MyApp(configMinAppVersion, configDAUComp));
+  runApp(MyApp(configMinAppVersion));
 }
 
 class MyApp extends StatelessWidget {
   final String? configMinAppVersion;
-  final String configDAUComp;
-  const MyApp(this.configMinAppVersion, this.configDAUComp, {super.key});
+  const MyApp(this.configMinAppVersion, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +116,7 @@ class MyApp extends StatelessWidget {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: UserAuthPage(configDAUComp, configMinAppVersion),
+      home: UserAuthPage(configMinAppVersion),
     );
   }
 }

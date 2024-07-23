@@ -21,7 +21,7 @@ class TipsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _tipsStream;
 
   late final GamesViewModel _gamesViewModel;
-  final String currentDAUCompDbKey;
+  final DAUComp currentDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
 
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
@@ -37,27 +37,20 @@ class TipsViewModel extends ChangeNotifier {
 
   //constructor - this will get all tips from db
   TipsViewModel(
-      this.tipperViewModel, this.currentDAUCompDbKey, this._gamesViewModel) {
-    log('AllTipsViewModel constructor');
+      this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
+    log('TipsViewModel constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
-  TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUCompDbKey,
+  TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
       this._gamesViewModel, this.tipper) {
     log('TipsViewModel.forTipper constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
-  }
-
-  Future<List<TipGame?>> getAllTips() async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
-    }
-    return _tipGames;
   }
 
   void update() {
@@ -67,14 +60,14 @@ class TipsViewModel extends ChangeNotifier {
   void _listenToTips() async {
     if (tipper != null) {
       _tipsStream = _db
-          .child('$tipsPathRoot/$currentDAUCompDbKey/${tipper!.dbkey}')
+          .child('$tipsPathRoot/${currentDAUComp.dbkey}/${tipper!.dbkey}')
           .onValue
           .listen((event) {
         _handleEvent(event);
       });
     } else {
       _tipsStream = _db
-          .child('$tipsPathRoot/$currentDAUCompDbKey')
+          .child('$tipsPathRoot/${currentDAUComp.dbkey}')
           .onValue
           .listen((event) {
         _handleEvent(event);
@@ -88,9 +81,9 @@ class TipsViewModel extends ChangeNotifier {
         if (tipper == null) {
           log('deserializing tips for all tippers');
           final allTips =
-              deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+              _deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
           log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
-          _tipGames = await deserializeTips(allTips);
+          _tipGames = await _deserializeTips(allTips);
         } else {
           log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
@@ -119,18 +112,17 @@ class TipsViewModel extends ChangeNotifier {
 
   //this method, which allows for recusrsive maps, is no longer nessisary and could be removed
 
-  Map<String, dynamic> deepMapFromObject(Map<Object?, Object?> map) {
+  Map<String, dynamic> _deepMapFromObject(Map<Object?, Object?> map) {
     return Map<String, dynamic>.from(map.map((key, value) {
       if (value is Map<Object?, Object?>) {
-        return MapEntry(key.toString(), deepMapFromObject(value));
+        return MapEntry(key.toString(), _deepMapFromObject(value));
       } else {
         return MapEntry(key.toString(), value);
       }
     }));
   }
 
-  Future<List<TipGame>> deserializeTips(Map<String, dynamic> json,
-      {tipper}) async {
+  Future<List<TipGame>> _deserializeTips(Map<String, dynamic> json) async {
     List<TipGame> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
@@ -179,16 +171,10 @@ class TipsViewModel extends ChangeNotifier {
         game: game,
         tipper: tipper,
       );
+      //log('Tip not found for game ${game.dbkey} and tipper ${tipper.name}. Defaulting to Away tip.');
     }
 
     return tipGame;
-  }
-
-  @override
-  void dispose() {
-    _tipsStream.cancel(); // stop listening to stream
-    _gamesViewModel.removeListener(update);
-    super.dispose();
   }
 
   Future<List<TipGame?>> getTipsForRound(
@@ -217,5 +203,12 @@ class TipsViewModel extends ChangeNotifier {
                   combinedRound.dAUroundNumber)
           .toList();
     }
+  }
+
+  @override
+  void dispose() {
+    _tipsStream.cancel(); // stop listening to stream
+    _gamesViewModel.removeListener(update);
+    super.dispose();
   }
 }

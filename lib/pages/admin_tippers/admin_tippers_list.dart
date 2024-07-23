@@ -102,7 +102,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
 
                                   bool tipperActiveInCurrentComp = tipper
                                       .activeInComp(di<DAUCompsViewModel>()
-                                          .defaultDAUCompDbKey);
+                                          .activeDAUComp);
 
                                   return Card(
                                     child: ListTile(

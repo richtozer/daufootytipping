@@ -16,20 +16,19 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  final String currentDAUCompKey;
   final String? configMinAppVersion;
 
-  bool isUserLoggingOut = false;
-  bool isUserDeletingAccount = false;
+  final bool isUserLoggingOut;
+  final bool isUserDeletingAccount;
 
-  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
+  final String clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
+  final PackageInfoService packageInfoService =
+      GetIt.instance<PackageInfoService>();
+
+  UserAuthPage(this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
       this.isUserDeletingAccount = false});
-
-  var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
-
-  PackageInfoService packageInfoService = GetIt.instance<PackageInfoService>();
 
   Future<bool> isClientVersionOutOfDate() async {
     //skip version check if the configMinAppVersion is null
@@ -71,8 +70,7 @@ class UserAuthPage extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-              builder: (BuildContext context) =>
-                  MyApp(null, currentDAUCompKey)),
+              builder: (BuildContext context) => const MyApp(null)),
           (Route<dynamic> route) => false,
         );
       });
@@ -83,8 +81,7 @@ class UserAuthPage extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-              builder: (BuildContext context) =>
-                  MyApp(null, currentDAUCompKey)),
+              builder: (BuildContext context) => const MyApp(null)),
           (Route<dynamic> route) => false,
         );
       });
@@ -232,7 +229,7 @@ class UserAuthPage extends StatelessWidget {
                               'No tipper record found for login: ${authenticatedFirebaseUser.email}. Contact daufootytipping@gmail.com');
                     }
 
-                    return HomePage(currentDAUCompKey);
+                    return const HomePage();
                   }
                 },
               );
@@ -298,7 +295,6 @@ class LoginErrorScreen extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => UserAuthPage(
                         di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-                        null,
                         isUserLoggingOut: true,
                       ),
                     ),

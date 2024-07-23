@@ -1,6 +1,7 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
@@ -38,7 +39,10 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<ScoresViewModel>();
+    // is selecteddaucomp is not null then get the scores model
+    if (di<DAUCompsViewModel>().selectedDAUComp != null) {
+      scoresViewModel = di<ScoresViewModel>();
+    }
   }
 
   @override
@@ -46,8 +50,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     return FutureProvider<List<RoundScores>>(
       initialData: const [],
       create: (context) async {
-        var scores = scoresViewModel
-            .getTipperRoundScoresForComp(widget.statsTipper);
+        var scores =
+            scoresViewModel.getTipperRoundScoresForComp(widget.statsTipper);
         scores.sort(
             (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort
         return scores;
@@ -128,28 +132,28 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text((score.nrlScore + score.aflScore).toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text(score.nrlScore.toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text(score.aflScore.toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
         DataCell(Text((score.aflMarginTips + score.nrlMarginTips).toString())),
         DataCell(Text((score.aflMarginUPS + score.nrlMarginUPS).toString()),
@@ -158,7 +162,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
-                      widget.statsTipper, index + 1)));
+                      widget.statsTipper, score.roundNumber)));
         }),
       ],
     );

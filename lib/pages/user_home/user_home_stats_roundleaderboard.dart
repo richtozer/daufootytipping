@@ -12,9 +12,9 @@ import 'package:watch_it/watch_it.dart';
 
 class StatRoundLeaderboard extends StatefulWidget {
   //constructor
-  StatRoundLeaderboard(this.roundNumberToDisplay, {super.key});
+  const StatRoundLeaderboard(this.roundNumberToDisplay, {super.key});
 
-  int roundNumberToDisplay;
+  final int roundNumberToDisplay;
 
   @override
   State<StatRoundLeaderboard> createState() => _StatRoundLeaderboardState();
@@ -50,7 +50,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   void getConsolidatedScoresForRoundLeaderboard() {
     for (var tipper in scoresViewModel.allTipperRoundScores.keys) {
       roundLeaderboard[tipper] = scoresViewModel
-          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1];
+          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1]!;
     }
   }
 
@@ -140,6 +140,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                       entry.key, widget.roundNumberToDisplay),
                                   Expanded(
                                     child: Text(
+                                      softWrap: false,
                                       entry.key.name,
                                       overflow: TextOverflow.fade,
                                     ),

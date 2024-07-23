@@ -114,7 +114,14 @@ class Game implements Comparable<Game> {
     // sort by league decending i.e. NRL first, and then by match number
     // this is to support legacy round sorting
     if (league == other.league) {
-      return matchNumber.compareTo(other.matchNumber);
+      //sort by game start time first, then by match number
+      if (startTimeUTC.isBefore(other.startTimeUTC)) {
+        return -1;
+      } else if (startTimeUTC.isAfter(other.startTimeUTC)) {
+        return 1;
+      } else {
+        return matchNumber.compareTo(other.matchNumber);
+      }
     } else {
       return league.index.compareTo(other.league.index);
     }

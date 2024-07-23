@@ -2,13 +2,14 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
-import 'package:daufootytipping/pages/user_home/user_home_profile_settings_about.dart';
-import 'package:daufootytipping/pages/user_home/user_home_profile_settings_adminfunctions.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_about.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -34,66 +35,102 @@ class Profile extends StatelessWidget with WatchItMixin {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              ChangeNotifierProvider<DAUCompsViewModel>.value(
-                value: di<DAUCompsViewModel>(),
-                child: Consumer<DAUCompsViewModel>(
-                  builder: (context, dauCompsViewModelConsumer, child) {
-                    if (di<TippersViewModel>()
-                        .selectedTipper!
-                        .compsParticipatedIn
-                        .isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: SizedBox(
-                          width: 250,
-                          child: Text(
-                            'You are not active in any competition. Contact daufootytipping@gmail.com.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                      );
-                    } else {
-                      return Column(
-                        children: [
-                          SizedBox(
-                            width: 300,
-                            child: Text(
-                              'Tipper in a previous year? Select it below to revisit your tips and scores: ',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          DropdownButton<String>(
-                            value: selectedDAUCompDbKey,
-                            icon: const Icon(Icons.arrow_downward),
-                            onChanged: (String? newValue) {
-                              // update the current comp
-                              dauCompsViewModelConsumer
-                                  .changeCurrentDAUComp(newValue!);
-                            },
-                            items: di<TippersViewModel>()
-                                .selectedTipper!
-                                .compsParticipatedIn
-                                .map<DropdownMenuItem<String>>((DAUComp comp) {
-                              return DropdownMenuItem<String>(
-                                value: comp.dbkey,
-                                child: Text(comp.name),
+              ChangeNotifierProvider<TippersViewModel>.value(
+                  value: di<TippersViewModel>(),
+                  child: ChangeNotifierProvider<DAUCompsViewModel>.value(
+                    value: di<DAUCompsViewModel>(),
+                    child: Consumer<TippersViewModel>(
+                        builder: (context, tippersViewModelConsumer, child) {
+                      return Consumer<DAUCompsViewModel>(
+                        builder: (context, dauCompsViewModelConsumer, child) {
+                          if (tippersViewModelConsumer
+                              .selectedTipper!.compsParticipatedIn.isEmpty) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: SizedBox(
+                                width: 250,
+                                child: Text(
+                                  'You are not active in any competition. Contact daufootytipping@gmail.com.',
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
+                                ),
+                              ),
+                            );
+                          } else {
+                            // check if they are in this years comp.
+                            // if not, then default to the first comp they are in
+                            if (!tippersViewModelConsumer
+                                .selectedTipper!.compsParticipatedIn
+                                .contains(dauCompsViewModelConsumer
+                                    .selectedDAUComp)) {
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: SizedBox(
+                                  width: 250,
+                                  child: Text(
+                                    'You are not active in this years compettion. Contact daufootytipping@gmail.com.',
+                                    textAlign: TextAlign.center,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                ),
                               );
-                            }).toList(),
-                          ),
-                        ],
+                            }
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  width: 300,
+                                  child: Text(
+                                    'Tipper in a previous year? Select it below to revisit your tips and scores: ',
+                                    textAlign: TextAlign.center,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                ),
+                                DropdownButton<String>(
+                                  value: selectedDAUCompDbKey,
+                                  icon: const Icon(Icons.arrow_downward),
+                                  onChanged: (String? newValue) {
+                                    // update the current comp
+                                    dauCompsViewModelConsumer
+                                        .changeSelectedDAUComp(
+                                            newValue!, false);
+                                  },
+                                  items: tippersViewModelConsumer
+                                      .selectedTipper!.compsParticipatedIn
+                                      .map<DropdownMenuItem<String>>(
+                                          (DAUComp comp) {
+                                    return DropdownMenuItem<String>(
+                                      value: comp.dbkey,
+                                      child: Text(comp.name),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            );
+                          }
+                        },
                       );
-                    }
-                  },
-                ),
-              ),
+                    }),
+                  )),
               di<TippersViewModel>().authenticatedTipper!.tipperRole ==
                       TipperRole.admin
                   ? const Center(child: AdminFunctionsWidget())
                   : const SizedBox.shrink(),
               FutureBuilder<Widget>(
                 future: aboutDialog(context),
+                builder:
+                    (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    return snapshot.data!;
+                  } else {
+                    return CircularProgressIndicator(color: League.afl.colour);
+                  }
+                },
+              ),
+              FutureBuilder<Widget>(
+                future: faq(context),
                 builder:
                     (BuildContext context, AsyncSnapshot<Widget> snapshot) {
                   if (snapshot.connectionState == ConnectionState.done) {
@@ -119,7 +156,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
                               builder: (context) => UserAuthPage(
-                                di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
                                 null,
                                 isUserLoggingOut: true,
                               ),
@@ -157,9 +193,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                                       Navigator.of(context).pushReplacement(
                                         MaterialPageRoute(
                                           builder: (context) => UserAuthPage(
-                                            di<DAUCompsViewModel>()
-                                                .selectedDAUComp!
-                                                .dbkey!,
                                             null,
                                             isUserDeletingAccount: true,
                                           ),

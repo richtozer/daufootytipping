@@ -3,10 +3,8 @@ import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:flutter/material.dart';
 
-class StatsPage extends StatelessWidget {
-  final String currentCompDbKey;
-
-  const StatsPage(this.currentCompDbKey, {super.key});
+class StatsTab extends StatelessWidget {
+  const StatsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +44,7 @@ class StatsPage extends StatelessWidget {
                     leading:
                         const Hero(tag: 'person', child: Icon(Icons.person_3)),
                     trailing: const Icon(Icons.arrow_forward),
-                    title: const Text('Round winners & leaderboard'),
+                    title: const Text('Round winners & leaderboards'),
                     onTap: () {
                       // Navigate to the round winners
                       Navigator.push(

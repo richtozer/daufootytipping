@@ -18,11 +18,10 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
-  late ScoresViewModel scoresViewModel;
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
-  final Game game;
+  Game game;
   final DAURound dauRound;
 
   final _db = FirebaseDatabase.instance.ref();
@@ -49,19 +48,16 @@ class GameTipsViewModel extends ChangeNotifier {
   ) {
     //log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
 
-    allTipsViewModel.addListener(update);
-    allTipsViewModel.gamesViewModel.addListener(update);
-
-    // scoresViewModel = di<ScoresViewModel>();
-    // scoresViewModel.addListener(update);
+    allTipsViewModel.addListener(_updateGameTip);
+    allTipsViewModel.gamesViewModel.addListener(_updateGameTip);
 
     _findTip();
-    gameStartedTrigger();
+    _gameStartedTrigger();
   }
 
   // this method will delay returning until the game has started,
   // then use notifiyListeners to trigger the UI to update
-  void gameStartedTrigger() async {
+  void _gameStartedTrigger() async {
     // if the game has already started, then we don't need to wait , just return
     if ((game.gameState == GameState.startedResultNotKnown ||
         game.gameState == GameState.startedResultKnown)) {
@@ -81,31 +77,9 @@ class GameTipsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // this method will return true if the game start time is within 3 hours,
-  // and they have yet to tip
-  Future<bool> wait3HoursFromGameTimeCheckIfTipped() async {
-    // if the game has already started, then we don't need to send a notification
-    if ((game.gameState == GameState.startedResultNotKnown ||
-        game.gameState == GameState.startedResultKnown)) {
-      return false;
-    }
-
-    // calculate the time until the game starts and create a future.delayed
-    // to wait until the game starts
-    var timeUntilGameStarts =
-        game.startTimeUTC.difference(DateTime.now().toUtc());
-
-    // if the game starts within 3 hours, and the tipper has not tipped
-    // return true
-    if (timeUntilGameStarts.inHours <= 3 && _tipGame == null) {
-      return false;
-    } else {
-      return true;
-    }
-  }
-
-  void update() {
+  void _updateGameTip() async {
     // we may have new data lets check if we need to update our tip
+    game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     _findTip();
   }
 
@@ -144,9 +118,14 @@ class GameTipsViewModel extends ChangeNotifier {
       updates['$tipsPathRoot/$currentDAUComp/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
-      log('new tip logged: ${updates.toString()}');
+      log('new tip submitted: ${updates.toString()}');
 
       _tipGame = tip; // update the tipGame with the new tip
+
+      // run a scoring update for the round and tipper - this is to keep track of margin counts
+      // and to update the round scores
+      await di<ScoresViewModel>().updateScoring(
+          di<DAUCompsViewModel>().selectedDAUComp!, currentTipper, dauRound);
 
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
@@ -163,9 +142,8 @@ class GameTipsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    allTipsViewModel.removeListener(update);
-    allTipsViewModel.gamesViewModel.removeListener(update);
-    scoresViewModel.removeListener(update);
+    allTipsViewModel.removeListener(_updateGameTip);
+    allTipsViewModel.gamesViewModel.removeListener(_updateGameTip);
     super.dispose();
   }
 }
