@@ -1,9 +1,8 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -17,16 +16,16 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatelessWidget {
-  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
-      {super.key,
-      this.isUserLoggingOut = false,
-      this.isUserDeletingAccount = false});
-
   final String currentDAUCompKey;
   final String? configMinAppVersion;
 
   bool isUserLoggingOut = false;
   bool isUserDeletingAccount = false;
+
+  UserAuthPage(this.currentDAUCompKey, this.configMinAppVersion,
+      {super.key,
+      this.isUserLoggingOut = false,
+      this.isUserDeletingAccount = false});
 
   var clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
 
@@ -62,76 +61,24 @@ class UserAuthPage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
   }
 
-  // method to delete acctount
-  void deleteAccount() async {
-    try {
-      await FirebaseAuth.instance.currentUser!.delete();
-    } catch (e) {
-      if ((e as FirebaseAuthException).code == 'requires-recent-login') {
-        // reauthenticate the user
-        log('UserAuthPage.deleteAccount() - reauthenticating user');
-        final String providerId =
-            FirebaseAuth.instance.currentUser!.providerData[0].providerId;
-
-        if (providerId == 'apple.com') {
-          await _reauthenticateWithApple();
-        } else if (providerId == 'google.com') {
-          await _reauthenticateWithGoogle();
-        }
-      }
-
-      await FirebaseAuth.instance.currentUser!.delete();
-    }
-  }
-
-  Future<void> _reauthenticateWithApple() async {
-    // If user is not authenticated
-    if (FirebaseAuth.instance.currentUser == null) {
-      throw 'Cannot reauthenticate with Apple the user is not authenticated';
-    }
-
-    final AppleAuthProvider appleProvider = AppleAuthProvider();
-
-    // Try to reauthenticate
-    try {
-      await FirebaseAuth.instance.currentUser!
-          .reauthenticateWithProvider(appleProvider);
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-mismatch' ||
-          e.code == 'user-not-found' ||
-          e.code == 'invalid-credential' ||
-          e.code == 'invalid-verification-code' ||
-          e.code == 'invalid-verification-id') {
-        // Show a Snackbar
-        log('UserAuthPage._reauthenticateWithApple() - error: ${e.code}');
-      } else {
-        rethrow;
-      }
-    }
-  }
-
-  Future<void> _reauthenticateWithGoogle() async {
-    // If user is not authenticated
-    if (FirebaseAuth.instance.currentUser == null) {
-      throw 'Cannot reauthenticate with Google the user is not authenticated';
-    }
-
-    final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-
-    // Tries to reauthenticate
-    await FirebaseAuth.instance.currentUser!
-        .reauthenticateWithProvider(googleProvider);
-  }
-
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
     if (isUserLoggingOut) {
       signOut();
       log('UserAuthPage.build() - user signed out');
+      // return to the main app
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (BuildContext context) =>
+                  MyApp(null, currentDAUCompKey)),
+          (Route<dynamic> route) => false,
+        );
+      });
     }
     if (isUserDeletingAccount) {
-      deleteAccount();
+      di<TippersViewModel>().deleteAccount();
       log('UserAuthPage.build() - user deleted account');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -153,13 +100,44 @@ class UserAuthPage extends StatelessWidget {
             future: isClientVersionOutOfDate(),
             builder: (context, versionSnapshot) {
               if (versionSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                    child: CircularProgressIndicator(color: League.afl.colour));
               }
               if (versionSnapshot.data == true) {
+                //,
                 return const Center(
-                    child: Text(
-                  "This version of the app is no longer supported, please update the app from the app store.",
-                ));
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 50),
+                      Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Image(
+                          height: 110,
+                          width: 110,
+                          image: AssetImage('assets/icon/AppIcon.png'),
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      SizedBox(
+                        width: 300,
+                        child: Center(
+                          child: Card(
+                            color: Colors.red,
+                            child: Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text(
+                                "This version of the app is no longer supported, please update the app from the app store.",
+                                style: TextStyle(color: Colors.white),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               }
               if (!authSnapshot.hasData) {
                 return SignInScreen(
@@ -234,7 +212,9 @@ class UserAuthPage extends StatelessWidget {
                 future: tippersViewModel.linkUserToTipper(),
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                        child: CircularProgressIndicator(
+                            color: League.afl.colour));
                   } else if (snapshot.hasError) {
                     return LoginErrorScreen(
                         errorMessage:
@@ -244,18 +224,13 @@ class UserAuthPage extends StatelessWidget {
                         errorMessage:
                             'Unexpected null from linkUserToTipper. Contact daufootytipping@gmail.com');
                   } else {
-                    if (tippersViewModel.authenticatedTipper == null) {
+                    // snapshot.data will be true if there is an existing tipper record, otherwise false
+                    if (snapshot.data == false) {
                       // display an error if no tipper record is found
-                      return const LoginErrorScreen(
+                      return LoginErrorScreen(
                           errorMessage:
-                              'No tipper record found. Contact daufootytipping@gmail.com');
+                              'No tipper record found for login: ${authenticatedFirebaseUser.email}. Contact daufootytipping@gmail.com');
                     }
-
-                    // registry ALlTipsViewModel for later use
-                    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-                        di<TippersViewModel>(),
-                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
-                        di<GamesViewModel>()));
 
                     return HomePage(currentDAUCompKey);
                   }
@@ -322,7 +297,7 @@ class LoginErrorScreen extends StatelessWidget {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (context) => UserAuthPage(
-                        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+                        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
                         null,
                         isUserLoggingOut: true,
                       ),

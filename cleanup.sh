@@ -5,6 +5,7 @@ delete_ios_pods() {
     echo "Deleting iOS Pods..."
     cd ios
     rm -rf Pods
+    rm Podfile.lock
     cd ..
     echo "iOS Pods deleted."
 }
@@ -20,7 +21,7 @@ delete_android_gradle() {
 # Function to clean Flutter project
 clean_flutter_project() {
     echo "Cleaning Flutter project..."
-    fvm flutter clean
+    flutter clean
     echo "Flutter project cleaned."
 }
 

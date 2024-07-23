@@ -1,6 +1,6 @@
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
-import 'package:daufootytipping/pages/admin_teams/admin_teams_viewmodel.dart';
+import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -54,8 +54,10 @@ class TeamsListPage extends StatelessWidget with WatchItMixin {
                         // Return a widget representing the item
                         return ListTile(
                           dense: true,
-                          leading: SvgPicture.asset(team.logoURI!,
-                              width: 30, height: 30),
+                          leading: team.logoURI != null
+                              ? SvgPicture.asset(team.logoURI!,
+                                  width: 30, height: 30)
+                              : null,
                           trailing: const Icon(Icons.edit),
                           title: Text(team.name),
                           onTap: () async {

@@ -1,5 +1,6 @@
 {
   "database": {
+    "target": "default",
     "rules": "database.rules.json"
   },
   "emulators": {
@@ -15,10 +16,17 @@
     "singleProjectMode": true,
     "functions": {
       "port": 9229
+    },
+    "pubsub": {
+      "port": 8085
+    },
+    "hosting": {
+      "port": 6001
     }
   },
   "functions": [
     {
+      "runtime": "nodejs18",
       "source": "functions",
       "codebase": "default",
       "ignore": [
@@ -41,7 +49,7 @@
       "**/node_modules/**"
     ],
     "frameworksBackend": {
-      "region": "us-west1"
+      "region": "us-central1"
     }
   }
 }

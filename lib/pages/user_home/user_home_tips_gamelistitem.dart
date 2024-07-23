@@ -1,11 +1,12 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
@@ -14,20 +15,21 @@ import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 class GameListItem extends StatefulWidget {
-  const GameListItem({
-    super.key,
-    required this.roundGames,
-    required this.game,
-    required this.currentTipper,
-    required this.currentDAUComp,
-    required this.allTipsViewModel,
-  });
+  const GameListItem(
+      {super.key,
+      required this.roundGames,
+      required this.game,
+      required this.currentTipper,
+      required this.currentDAUComp,
+      required this.allTipsViewModel,
+      required this.dauRound});
 
   final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
+  final DAURound dauRound;
 
   @override
   State<GameListItem> createState() => _GameListItemState();
@@ -40,8 +42,12 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = GameTipsViewModel(widget.currentTipper,
-        widget.currentDAUComp.dbkey!, widget.game, widget.allTipsViewModel);
+    gameTipsViewModel = GameTipsViewModel(
+        widget.currentTipper,
+        widget.currentDAUComp.dbkey!,
+        widget.game,
+        widget.allTipsViewModel,
+        widget.dauRound);
   }
 
   @override
@@ -126,7 +132,9 @@ class _GameListItemState extends State<GameListItem> {
           );
 
           if (gameTipsViewModelConsumer.game.gameState ==
-              GameState.notStarted) {
+                  GameState.notStarted ||
+              gameTipsViewModelConsumer.game.gameState ==
+                  GameState.startedResultKnown) {
             return gameDetailsCard;
           }
 
@@ -138,13 +146,13 @@ class _GameListItemState extends State<GameListItem> {
               bannerMessage = "Game today";
               bannerColor = Colors.deepOrangeAccent;
               break;
-            case GameState.resultNotKnown:
+            case GameState.startedResultNotKnown:
               bannerMessage = "Live";
               bannerColor = const Color(0xffe21e31);
               break;
-            case GameState.resultKnown:
+            case GameState.startedResultKnown:
               bannerMessage = "result";
-              bannerColor = Colors.grey;
+              bannerColor = Colors.transparent;
               break;
             case GameState.notStarted:
               bannerMessage = "not used";
@@ -192,7 +200,7 @@ class _GameListItemState extends State<GameListItem> {
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
         } else {
-          return const CircularProgressIndicator();
+          return CircularProgressIndicator(color: League.afl.colour);
         }
       },
     );

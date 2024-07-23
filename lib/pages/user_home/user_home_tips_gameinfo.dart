@@ -1,8 +1,7 @@
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 
 class GameInfo extends StatelessWidget {
   const GameInfo(this.game, this.gameTipsViewModel, {super.key});
@@ -22,7 +21,7 @@ class GameInfo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              game.gameState == GameState.resultKnown
+              game.gameState == GameState.startedResultKnown
                   ? Text(DateFormat('EEE dd MMM yyyy')
                       .format(game.startTimeUTC.toLocal()))
                   : Text(DateFormat('EEE dd MMM hh:mm a')
@@ -30,11 +29,25 @@ class GameInfo extends StatelessWidget {
               Flexible(
                 child: Text(
                   gameTipsViewModel.game.location,
-                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
+
+              // if the tipper has tipped, or they can been given a defaul tip
+              // then display the tip submitted time in their local time
+              // if they have yet to tip, then display nothing
+              if (gameTipsViewModel.tipGame != null &&
+                  gameTipsViewModel.tipGame!.isDefaultTip() == false)
+                Text(
+                  'Tipped: ${DateFormat('EEE dd MMM hh:mm a').format(gameTipsViewModel.tipGame!.submittedTimeUTC.toLocal())}',
+                ),
+              if (gameTipsViewModel.tipGame != null &&
+                  gameTipsViewModel.tipGame!.isDefaultTip() == true)
+                const Text(
+                  'Default tip of [Away] given',
+                ),
               Text(
-                '${gameTipsViewModel.game.league == League.afl ? 'AFL' : 'NRL'} round: ${gameTipsViewModel.game.roundNumber}',
+                'Fixture: round ${gameTipsViewModel.game.roundNumber}, match ${gameTipsViewModel.game.matchNumber}',
               ),
             ],
           ),

@@ -1,8 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-admin.initializeApp();
-
 export const submitLegacyTips = functions
   .region("us-central1", "asia-southeast1")
   .https.onRequest(
@@ -17,6 +15,13 @@ export const submitLegacyTips = functions
           response.status(400).send(msg);
           return;
         }
+
+        // log each of the parameters
+        functions.logger.info(`submittime: ${submittime}`);
+        functions.logger.info(`tipperID: ${tipperID}`);
+        functions.logger.info(`dauRound: ${dauRound}`);
+        functions.logger.info(`dauCompDbKey: ${dauCompDbKey}`);
+        functions.logger.info(`tips: ${tips}`);
 
         // Search for tipperID in Firebase Realtime Database
         const tippersRef = admin.database().ref("AllTippers");
@@ -68,9 +73,32 @@ export const submitLegacyTips = functions
               dbKey: gameKey,
               league: gameKey.substring(0, 3),
               matchNumber: gameSnapshot.val().MatchNumber,
+              startTime: gameSnapshot.val().DateUtc,
             });
           }
         }
+
+        gameData.sort((a, b) => {
+        // Compare leagues
+          if (a.league < b.league) {
+            return -1;
+          } else if (a.league > b.league) {
+            return 1;
+          }
+          // Convert start times to Date objects
+          const aStartTime = new Date(a.startTime);
+          const bStartTime = new Date(b.startTime);
+
+          // Compare start times
+          if (aStartTime < bStartTime) {
+            return -1;
+          } else if (aStartTime > bStartTime) {
+            return 1;
+          } else {
+          // If start times are equal, compare match numbers
+            return a.matchNumber - b.matchNumber;
+          }
+        });
 
         // check if gameData is empty, if so throw an error
         if (gameData.length === 0) {
@@ -83,9 +111,6 @@ export const submitLegacyTips = functions
         }
 
         // Loop through the round games and create a tip as needed
-        // assumes the data is sorted by key i.e. league-round-matchnumber
-
-        // assume the games are sorted by league, afl first, then nrl
         // store index when the league changes
         let leagueChangeIndex = -1;
         for (const [index, game] of gameData.entries()) {
@@ -113,8 +138,8 @@ export const submitLegacyTips = functions
           // Update/set the tip in the database for this game
           if (tips[tipIndex] !== "z" && tips[tipIndex] !== "D") {
             functions.logger.info(
-              `About to process tip [${tips[tipIndex]}] at ` +
-              `index ${tipIndex} for game ${tipsRef}`
+              `About to submit tip [${tips[tipIndex]}] at ` +
+              `index ${tipIndex} for game ${game.dbKey}`
             );
             await tipsRef.update({
               gameResult: tips[tipIndex],
@@ -124,7 +149,7 @@ export const submitLegacyTips = functions
           } else {
             functions.logger.info(
               `Ignored 'z' or 'D' tip [${tips[tipIndex]}] at ` +
-              `index ${tipIndex} for game ${tipsRef}`
+              `index ${tipIndex} for game ${game.dbKey}`
             );
           }
         }

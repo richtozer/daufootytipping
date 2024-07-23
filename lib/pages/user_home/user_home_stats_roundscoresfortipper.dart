@@ -1,6 +1,7 @@
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
@@ -20,9 +21,8 @@ class StatRoundScoresForTipper extends StatefulWidget {
 
 class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   late ScoresViewModel scoresViewModel;
-  bool isAscending = true;
-  int? sortColumnIndex = 1;
-  int initialRound = 1;
+  bool isAscending = false;
+  int? sortColumnIndex = 0;
 
   final List<String> columns = [
     'Round',
@@ -33,29 +33,37 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     'UPS'
   ];
 
+  List<RoundScores> sortedScores = [];
+
   @override
   void initState() {
     super.initState();
-    //scoresViewModel =
-    //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     scoresViewModel = di<ScoresViewModel>();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>.value(
-      value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
-        builder: (context, scoresViewModelConsumer, child) {
-          return buildScaffold(context, scoresViewModelConsumer,
-              MediaQuery.of(context).size.width > 500);
+    return FutureProvider<List<RoundScores>>(
+      initialData: const [],
+      create: (context) async {
+        var scores = scoresViewModel
+            .getTipperRoundScoresForComp(widget.statsTipper);
+        scores.sort(
+            (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort
+        return scores;
+      },
+      child: Consumer<List<RoundScores>>(
+        builder: (context, scores, child) {
+          sortedScores = scores;
+          return buildScaffold(
+              context, scores, MediaQuery.of(context).size.width > 500);
         },
       ),
     );
   }
 
-  Scaffold buildScaffold(BuildContext context,
-      ScoresViewModel scoresViewModelConsumer, bool isLargeScreen) {
+  Scaffold buildScaffold(
+      BuildContext context, List<RoundScores> scores, bool isLargeScreen) {
     Orientation orientation = MediaQuery.of(context).orientation;
 
     return Scaffold(
@@ -72,9 +80,9 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
           children: [
             orientation == Orientation.portrait
                 ? HeaderWidget(
-                    text: '${widget.statsTipper.name} - Round scores',
+                    text: 'Round scores\n${widget.statsTipper.name}',
                     leadingIconAvatar: avatarPic(widget.statsTipper))
-                : Text('${widget.statsTipper.name} - Round scores'),
+                : Text('Round scores\n${widget.statsTipper.name}'),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),
@@ -95,14 +103,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                     isHorizontalScrollBarVisible: true,
                     isVerticalScrollBarVisible: true,
                     columns: getColumns(columns),
-                    rows: List<DataRow>.generate(
-                            scoresViewModelConsumer
-                                .getTipperRoundScoresForComp(widget.statsTipper)
-                                .length,
-                            (index) =>
-                                buildDataRow(scoresViewModelConsumer, index))
-                        .reversed
-                        .toList(),
+                    rows: List<DataRow>.generate(sortedScores.length,
+                        (index) => buildDataRow(sortedScores, index)).toList(),
                   )),
             ),
           ],
@@ -111,16 +113,15 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  DataRow buildDataRow(ScoresViewModel scoresViewModelConsumer, int index) {
-    var scores = scoresViewModelConsumer
-        .getTipperRoundScoresForComp(widget.statsTipper)[index];
+  DataRow buildDataRow(List<RoundScores> scores, int index) {
+    var score = scores[index];
     return DataRow(
       cells: [
         DataCell(
             Row(
               children: [
                 const Icon(Icons.arrow_forward, size: 15),
-                Text((index + 1).toString()),
+                Text((score.roundNumber).toString()),
               ],
             ), onTap: () {
           Navigator.push(
@@ -129,31 +130,29 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                   builder: (context) => StatRoundGameScoresForTipper(
                       widget.statsTipper, index + 1)));
         }),
-        DataCell(Text((scores.nrlScore + scores.aflScore).toString()),
-            onTap: () {
+        DataCell(Text((score.nrlScore + score.aflScore).toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
                       widget.statsTipper, index + 1)));
         }),
-        DataCell(Text(scores.nrlScore.toString()), onTap: () {
+        DataCell(Text(score.nrlScore.toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
                       widget.statsTipper, index + 1)));
         }),
-        DataCell(Text(scores.aflScore.toString()), onTap: () {
+        DataCell(Text(score.aflScore.toString()), onTap: () {
           Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (context) => StatRoundGameScoresForTipper(
                       widget.statsTipper, index + 1)));
         }),
-        DataCell(
-            Text((scores.aflMarginTips + scores.nrlMarginTips).toString())),
-        DataCell(Text((scores.aflMarginUPS + scores.nrlMarginUPS).toString()),
+        DataCell(Text((score.aflMarginTips + score.nrlMarginTips).toString())),
+        DataCell(Text((score.aflMarginUPS + score.nrlMarginUPS).toString()),
             onTap: () {
           Navigator.push(
               context,
@@ -165,70 +164,43 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  void onSort(int columnIndex, bool ascending) {
-    if (columnIndex == 0) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) =>
-            a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase()));
-      } else {
-        scoresViewModel.leaderboard.sort((a, b) =>
-            b.tipper.name.toLowerCase().compareTo(a.tipper.name.toLowerCase()));
-      }
-    }
-    if (columnIndex == 1) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.rank.compareTo(b.rank));
-      } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.rank.compareTo(a.rank));
-      }
-    }
-    if (columnIndex == 2) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.total.compareTo(b.total));
-      } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.total.compareTo(a.total));
-      }
-    }
-    if (columnIndex == 3) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.nRL.compareTo(b.nRL));
-      } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.nRL.compareTo(a.nRL));
-      }
-    }
-    if (columnIndex == 4) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.aFL.compareTo(b.aFL));
-      } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.aFL.compareTo(a.aFL));
-      }
-    }
-    if (columnIndex == 5) {
-      if (ascending) {
-        scoresViewModel.leaderboard
-            .sort((a, b) => a.numRoundsWon.compareTo(b.numRoundsWon));
-      } else {
-        scoresViewModel.leaderboard
-            .sort((a, b) => b.numRoundsWon.compareTo(a.numRoundsWon));
-      }
-    }
-    if (columnIndex == 6) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => (a.aflMargins + a.nrlMargins)
-            .compareTo(b.aflMargins + b.nrlMargins));
-      } else {
-        scoresViewModel.leaderboard.sort((a, b) => (b.aflMargins + b.nrlMargins)
-            .compareTo(a.aflMargins + a.nrlMargins));
-      }
-    }
-    if (columnIndex == 7) {
-      if (ascending) {
-        scoresViewModel.leaderboard.sort(
-            (a, b) => (a.aflUPS + a.nrlUPS).compareTo(b.aflUPS + b.nrlUPS));
-      } else {
-        scoresViewModel.leaderboard.sort(
-            (a, b) => (b.aflUPS + b.nrlUPS).compareTo(a.aflUPS + a.nrlUPS));
-      }
+  void onSort(int columnIndex, bool ascending, List<RoundScores> scores) {
+    switch (columnIndex) {
+      case 0:
+        scores.sort((a, b) => ascending
+            ? a.roundNumber.compareTo(b.roundNumber)
+            : b.roundNumber.compareTo(a.roundNumber));
+
+        break;
+      case 1:
+        scores.sort((a, b) => ascending
+            ? (a.nrlScore + a.aflScore).compareTo(b.nrlScore + b.aflScore)
+            : (b.nrlScore + b.aflScore).compareTo(a.nrlScore + a.aflScore));
+        break;
+      case 2:
+        scores.sort((a, b) => ascending
+            ? a.nrlScore.compareTo(b.nrlScore)
+            : b.nrlScore.compareTo(a.nrlScore));
+        break;
+      case 3:
+        scores.sort((a, b) => ascending
+            ? a.aflScore.compareTo(b.aflScore)
+            : b.aflScore.compareTo(a.aflScore));
+        break;
+      case 4:
+        scores.sort((a, b) => ascending
+            ? (a.aflMarginTips + a.nrlMarginTips)
+                .compareTo(b.aflMarginTips + b.nrlMarginTips)
+            : (b.aflMarginTips + b.nrlMarginTips)
+                .compareTo(a.aflMarginTips + a.nrlMarginTips));
+        break;
+      case 5:
+        scores.sort((a, b) => ascending
+            ? (a.aflMarginUPS + a.nrlMarginUPS)
+                .compareTo(b.aflMarginUPS + b.nrlMarginUPS)
+            : (b.aflMarginUPS + b.nrlMarginUPS)
+                .compareTo(a.aflMarginUPS + a.nrlMarginUPS));
+        break;
     }
 
     setState(() {
@@ -239,16 +211,17 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
-            fixedWidth: column == 'Name'
-                ? 150
-                : column == '#\nrounds\nwon' || column == 'Margins'
+            fixedWidth: column == 'Round'
+                ? 75
+                : column == 'Total' || column == 'Margins'
                     ? 75
                     : 60,
-            numeric: column == 'Name' || column == 'Round' ? false : true,
+            numeric: column != 'Round',
             label: Text(
               column,
             ),
-            onSort: onSort,
+            onSort: (columnIndex, ascending) =>
+                onSort(columnIndex, ascending, sortedScores),
           ))
       .toList();
 

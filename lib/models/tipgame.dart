@@ -11,7 +11,7 @@ class TipGame implements Comparable<TipGame> {
   final GameResult tip; //their tip
   final bool legacyTip; //true if the tip came from the legacy google form
   final DateTime submittedTimeUTC; //the time the tip was submitted -
-  // interesting tidbit to tell if the tip came from the app or the legacy google form
+  // interesting tidbit, to tell if the tip came from the app or the legacy google form
   // the time stamp will be suttly different.
   // for the app the format is:         2023-12-28 02:21:55.932148Z
   // for the google form the format is: 2024-01-18T04:03:19.095Z

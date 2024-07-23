@@ -85,43 +85,34 @@ class Scoring {
     this.croudSourcedScores,
   });
 
-  int? currentHomeScore() {
-    //always return the official score from fixture if available
-    if (homeTeamScore != null) {
-      return homeTeamScore!;
-    }
-    //if official score is not available, return the latest crowd sourced score
-    if (croudSourcedScores != null && croudSourcedScores!.isNotEmpty) {
-      // find the latest crowd sourced score for ScroringTeam.home with the most
-      //recent submittedTimeUTC timestamp
-      final homeScores = croudSourcedScores!
-          .where((element) => element.scoreTeam == ScoreTeam.home)
-          .toList();
-      if (homeScores.isNotEmpty) {
-        homeScores
-            .sort((a, b) => b.submittedTimeUTC.compareTo(a.submittedTimeUTC));
-        return homeScores.first.interimScore;
-      }
-    }
-    return null;
+  Scoring copyWith({
+    int? homeTeamScore,
+    int? awayTeamScore,
+    List<CrowdSourcedScore>? croudSourcedScores,
+  }) {
+    return Scoring(
+      homeTeamScore: homeTeamScore ?? this.homeTeamScore,
+      awayTeamScore: awayTeamScore ?? this.awayTeamScore,
+      croudSourcedScores: croudSourcedScores ?? this.croudSourcedScores,
+    );
   }
 
-  int? currentAwayScore() {
+  int? currentScore(ScoringTeam team) {
     //always return the official score from fixture if available
-    if (awayTeamScore != null) {
-      return awayTeamScore!;
+    int? officialScore =
+        (team == ScoringTeam.home) ? homeTeamScore : awayTeamScore;
+    if (officialScore != null) {
+      return officialScore;
     }
     //if official score is not available, return the latest crowd sourced score
     if (croudSourcedScores != null && croudSourcedScores!.isNotEmpty) {
-      // find the latest crowd sourced score for ScroringTeam.away with the most
-      //recent submittedTimeUTC timestamp
-      final awayScores = croudSourcedScores!
-          .where((element) => element.scoreTeam == ScoreTeam.away)
+      // find the latest crowd sourced score for the specified team with the most recent submittedTimeUTC timestamp
+      final scores = croudSourcedScores!
+          .where((element) => element.scoreTeam == team)
           .toList();
-      if (awayScores.isNotEmpty) {
-        awayScores
-            .sort((a, b) => b.submittedTimeUTC.compareTo(a.submittedTimeUTC));
-        return awayScores.first.interimScore;
+      if (scores.isNotEmpty) {
+        scores.sort((a, b) => b.submittedTimeUTC.compareTo(a.submittedTimeUTC));
+        return scores.first.interimScore;
       }
     }
     return null;
@@ -142,8 +133,8 @@ class Scoring {
   }
 
   GameResult getGameResultCalculated(League league) {
-    int? homeScore = currentHomeScore();
-    int? awayScore = currentAwayScore();
+    int? homeScore = currentScore(ScoringTeam.home);
+    int? awayScore = currentScore(ScoringTeam.away);
     if (homeScore != null && awayScore != null) {
       switch (league) {
         case League.nrl:

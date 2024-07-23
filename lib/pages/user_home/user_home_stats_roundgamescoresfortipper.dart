@@ -1,14 +1,15 @@
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
@@ -17,11 +18,12 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundGameScoresForTipper extends StatefulWidget {
-  const StatRoundGameScoresForTipper(this.statsTipper, this.roundToDisplay,
+  const StatRoundGameScoresForTipper(
+      this.statsTipper, this.roundNumberToDisplay,
       {super.key});
 
   final Tipper statsTipper;
-  final int roundToDisplay;
+  final int roundNumberToDisplay;
 
   @override
   State<StatRoundGameScoresForTipper> createState() =>
@@ -49,8 +51,11 @@ class _StatRoundGameScoresForTipperState
     super.initState();
     dauCompsViewModel = di<DAUCompsViewModel>();
 
-    gamesFuture =
-        dauCompsViewModel.getGamesForCombinedRoundNumber(widget.roundToDisplay);
+    DAURound roundToDisplay = dauCompsViewModel
+        .selectedDAUComp!.daurounds[widget.roundNumberToDisplay - 1];
+
+    gamesFuture = dauCompsViewModel.sortGamesIntoLeagues(
+        roundToDisplay, di<GamesViewModel>());
   }
 
   @override
@@ -66,8 +71,8 @@ class _StatRoundGameScoresForTipperState
           //filter out games that have not started - we do not want to expose tips to other tippers until tipping is closed
           games!.forEach((league, gameList) {
             gameList.retainWhere((game) =>
-                game.gameState == GameState.resultNotKnown ||
-                game.gameState == GameState.resultKnown);
+                game.gameState == GameState.startedResultNotKnown ||
+                game.gameState == GameState.startedResultKnown);
           });
 
           List<Game>? nrlGames = games[League.nrl];
@@ -76,7 +81,7 @@ class _StatRoundGameScoresForTipperState
           return buildScaffold(context, aflGames, nrlGames,
               MediaQuery.of(context).size.width > 500);
         } else {
-          return const CircularProgressIndicator();
+          return CircularProgressIndicator(color: League.afl.colour);
         }
       },
     );
@@ -88,7 +93,7 @@ class _StatRoundGameScoresForTipperState
 
     TipsViewModel allTips = TipsViewModel.forTipper(
         di<TippersViewModel>(),
-        di<DAUCompsViewModel>().selectedDAUCompDbKey,
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
         di<GamesViewModel>(),
         widget.statsTipper);
 
@@ -107,11 +112,11 @@ class _StatRoundGameScoresForTipperState
             orientation == Orientation.portrait
                 ? HeaderWidget(
                     text:
-                        '${widget.statsTipper.name} - Round ${widget.roundToDisplay} games',
-                    leadingIconAvatar:
-                        avatarPic(widget.statsTipper, widget.roundToDisplay))
+                        'Round ${widget.roundNumberToDisplay} games\n${widget.statsTipper.name}',
+                    leadingIconAvatar: avatarPic(
+                        widget.statsTipper, widget.roundNumberToDisplay))
                 : Text(
-                    '${widget.statsTipper.name} - Round ${widget.roundToDisplay} games'),
+                    'Round ${widget.roundNumberToDisplay} games${widget.statsTipper.name}\n'),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -134,7 +139,7 @@ class _StatRoundGameScoresForTipperState
                           // fixedLeftColumns:
                           //     orientation == Orientation.portrait ? 1 : 0,
                           showCheckboxColumn: false,
-                          isHorizontalScrollBarVisible: true,
+                          isHorizontalScrollBarVisible: false,
                           isVerticalScrollBarVisible: true,
                           columns: getColumns(columns),
                           rows: [
@@ -250,6 +255,7 @@ class _StatRoundGameScoresForTipperState
                 ),
               ),
             ),
+            const SizedBox(height: 100)
           ],
         ),
       ),
@@ -257,8 +263,18 @@ class _StatRoundGameScoresForTipperState
   }
 
   DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
-    GameTipsViewModel gameTipsViewModel = GameTipsViewModel(widget.statsTipper,
-        di<DAUCompsViewModel>().selectedDAUCompDbKey, games[index], allTips);
+    DAURound dauRound = di<DAUCompsViewModel>()
+        .selectedDAUComp!
+        .daurounds
+        .firstWhere(
+            (element) => element.dAUroundNumber == widget.roundNumberToDisplay);
+
+    GameTipsViewModel gameTipsViewModel = GameTipsViewModel(
+        widget.statsTipper,
+        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+        games[index],
+        allTips,
+        dauRound);
     return DataRow(
       cells: [
         DataCell(
@@ -281,15 +297,9 @@ class _StatRoundGameScoresForTipperState
           ),
         ),
         DataCell(
-          Text(
-            games[index].league == League.afl
-                ? gameTipsViewModel.game.scoring!
-                    .getGameResultCalculated(games[index].league)
-                    .afl
-                : gameTipsViewModel.game.scoring!
-                    .getGameResultCalculated(games[index].league)
-                    .nrl,
-          ),
+          Text(games[index].league == League.afl
+              ? '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).afl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})'
+              : '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).nrl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})'),
         ),
         DataCell(
           FutureBuilder<TipGame?>(
@@ -299,16 +309,15 @@ class _StatRoundGameScoresForTipperState
                 return const Text('loading..');
               } else {
                 return Text(snapshot.data?.game.league == League.afl
-                    ? snapshot.data?.tip.afl ?? 'No data'
-                    : snapshot.data?.tip.nrl ?? 'No data');
+                    ? '${snapshot.data?.tip.afl} (${snapshot.data?.tip.name})'
+                    : '${snapshot.data?.tip.nrl} (${snapshot.data?.tip.name})');
               }
             },
           ),
         ),
         DataCell(
           FutureBuilder<TipGame?>(
-            future: gameTipsViewModel
-                .gettip(), // Replace with your method that returns Future<TipGame>
+            future: gameTipsViewModel.gettip(),
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
@@ -321,8 +330,7 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           FutureBuilder<TipGame?>(
-            future: gameTipsViewModel
-                .gettip(), // Replace with your method that returns Future<TipGame>
+            future: gameTipsViewModel.gettip(),
             builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
@@ -337,26 +345,18 @@ class _StatRoundGameScoresForTipperState
     );
   }
 
-  void onSort(int columnIndex, bool ascending) {
-    setState(() {
-      sortColumnIndex = columnIndex;
-      isAscending = ascending;
-    });
-  }
-
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
             fixedWidth: column.startsWith('Teams')
                 ? 175
                 : column.startsWith('Tip')
-                    ? 50
+                    ? 60
                     : 60,
             numeric:
                 column.startsWith('Max') || column == 'Score' ? true : false,
             label: Text(
               column,
             ),
-            onSort: onSort,
           ))
       .toList();
 

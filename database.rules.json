@@ -1,8 +1,12 @@
 {
   "rules": {
-    ".read" : "true",
-    ".write" : "true",
+    ".read": "true",
+    ".write": "true",
     "Tippers": {
-      ".indexOn": ["authuid", "email"] }
+      ".indexOn": ["authuid", "email"]
+    },
+    "DAUCompsGames": {
+      ".indexOn": "DateUtc"
+    }
   }
 }
