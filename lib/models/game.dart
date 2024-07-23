@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -8,8 +9,8 @@ import 'package:intl/intl.dart';
 enum GameState {
   notStarted, // game start time is in the future
   startingSoon, // game start time is within 14 hours
-  resultKnown, // game start time is in the past, but game score is known
-  resultNotKnown, // game start time is in the past, but game score is not known
+  startedResultKnown, // game start time is in the past, but 'official' fixture game score is known
+  startedResultNotKnown, // game start time is in the past, but 'official' fixture  game score is not known
 }
 
 class Game implements Comparable<Game> {
@@ -23,7 +24,6 @@ class Game implements Comparable<Game> {
   final int roundNumber;
   final int matchNumber;
   Scoring? scoring; // this should be null until game kickoff
-  DAURound dauRound;
 
   //constructor
   Game({
@@ -37,7 +37,6 @@ class Game implements Comparable<Game> {
     required this.roundNumber,
     required this.matchNumber,
     this.scoring,
-    required this.dauRound,
   });
 
   // this getter will return the gamestate based on the current time and the game start time
@@ -53,13 +52,33 @@ class Game implements Comparable<Game> {
         scoring != null &&
         scoring?.awayTeamScore != null &&
         scoring?.homeTeamScore != null) {
-      return GameState.resultKnown;
+      return GameState.startedResultKnown;
     } else {
-      return GameState.resultNotKnown;
+      return GameState.startedResultNotKnown;
     }
   }
 
-  Map<String, dynamic> toFixtureJson() => {
+  bool isDateInRound(DateTime date, DAURound round) {
+    return ((date.isAfter(round.roundStartDate) ||
+            date.isAtSameMomentAs(round.roundStartDate)) &&
+        (date.isBefore(round.roundEndDate) ||
+            date.isAtSameMomentAs(round.roundEndDate)));
+  }
+
+  DAURound getDAURound(DAUComp daucomp) {
+    for (var dauRound in daucomp.daurounds) {
+      if (isDateInRound(startTimeUTC, dauRound)) {
+        return dauRound;
+      }
+    }
+    throw Exception('Error in Game.getDAURound: no DAURound found');
+  }
+
+  bool isGameInRound(DAURound round) {
+    return isDateInRound(startTimeUTC, round);
+  }
+
+  Map<String, dynamic> toJson() => {
         'League': league.name,
         'HomeTeam': homeTeam.dbkey.substring(4),
         'AwayTeam': awayTeam.dbkey.substring(4),
@@ -72,8 +91,8 @@ class Game implements Comparable<Game> {
         "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
       };
 
-  factory Game.fromFixtureJson(String dbkey, Map<String, dynamic> data,
-      homeTeam, awayTeam, linkedDauRound) {
+  factory Game.fromFixtureJson(
+      String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
     //use the left 3 chars of the dbkey to determine the league
     final league = League.values.byName(dbkey.substring(0, 3));
     return Game(
@@ -86,26 +105,18 @@ class Game implements Comparable<Game> {
       startTimeUTC: DateTime.parse(data['DateUtc']),
       roundNumber: data['RoundNumber'] ?? 0,
       matchNumber: data['MatchNumber'] ?? 0,
-      dauRound: linkedDauRound,
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'league': league.name,
-        'homeTeamDbKey': homeTeam.dbkey,
-        'awayTeamDbKey': awayTeam.dbkey,
-        'location': location,
-        'locationLatLong': locationLatLong?.toJson(),
-        'startTimeUTC': startTimeUTC.toString(),
-        'roundNumber': roundNumber,
-        'matchNumber': matchNumber,
-        'scoring': (scoring != null) ? scoring!.toJson() : null,
-      };
 
   @override
   // method used to provide default sort for Games in a List[]
   int compareTo(Game other) {
-    return startTimeUTC
-        .compareTo(other.startTimeUTC); //sort by the Game start time
+    // sort by league decending i.e. NRL first, and then by match number
+    // this is to support legacy round sorting
+    if (league == other.league) {
+      return matchNumber.compareTo(other.matchNumber);
+    } else {
+      return league.index.compareTo(other.league.index);
+    }
   }
 }

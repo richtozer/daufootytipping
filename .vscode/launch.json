@@ -5,23 +5,31 @@
   "version": "0.2.0",
   "configurations": 
   [
-  
     {
+        "name": "Debug TypeScript",
         "type": "node",
-        "request": "attach",
-        "name": "Debug Firebase Function",
-        "port": 9229,
-        "restart": true,
-        "skipFiles": ["<node_internals>/**"],
-        "preLaunchTask": "start firebase emulator",
-        "postDebugTask": "stop firebase emulator"
+        "request": "launch",
+        "program": "${workspaceFolder}/functions/src/test.ts",
+        "args": [],
+        "console": "integratedTerminal"
+      ]
     },
     {
         "type": "chrome",
         "request": "launch",
         "name": "Launch Chrome against localhost",
-        "url": "http://localhost:8080",
+        "url": "http://localhost:6001",
         "webRoot": "${workspaceFolder}"
     },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Debug Functions",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
+      "preLaunchTask": "start firebase emulator",
+      "postDebugTask": "stop firebase emulator"
+    }
   ]
 }

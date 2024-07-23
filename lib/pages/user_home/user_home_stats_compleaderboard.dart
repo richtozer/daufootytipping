@@ -1,7 +1,7 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_scoring_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
@@ -36,9 +36,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   @override
   void initState() {
     super.initState();
-    //scoresViewModel =
-    //    AllScoresViewModel(di<DAUCompsViewModel>().selectedDAUCompDbKey);
     scoresViewModel = di<ScoresViewModel>();
+    scoresViewModel.updateLeaderboardForComp();
   }
 
   @override
@@ -126,6 +125,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                             .leaderboard[index].tipper),
                                         Expanded(
                                           child: Text(
+                                            softWrap: false,
                                             scoresViewModelConsumer
                                                 .leaderboard[index].tipper.name,
                                             overflow: TextOverflow.fade,

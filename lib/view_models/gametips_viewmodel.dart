@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
-import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/alltips_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -17,11 +18,12 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipGame? get tipGame => _tipGame;
 
-  //late ScoresViewModel scoresViewModel;
+  late ScoresViewModel scoresViewModel;
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
   final String currentDAUComp;
   final Game game;
+  final DAURound dauRound;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -43,11 +45,15 @@ class GameTipsViewModel extends ChangeNotifier {
     this.currentDAUComp,
     this.game,
     this.allTipsViewModel,
+    this.dauRound,
   ) {
-    //scoresViewModel = di<ScoresViewModel>();
+    //log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
+
     allTipsViewModel.addListener(update);
     allTipsViewModel.gamesViewModel.addListener(update);
-    //scoresViewModel.addListener(update);
+
+    // scoresViewModel = di<ScoresViewModel>();
+    // scoresViewModel.addListener(update);
 
     _findTip();
     gameStartedTrigger();
@@ -57,8 +63,8 @@ class GameTipsViewModel extends ChangeNotifier {
   // then use notifiyListeners to trigger the UI to update
   void gameStartedTrigger() async {
     // if the game has already started, then we don't need to wait , just return
-    if ((game.gameState == GameState.resultNotKnown ||
-        game.gameState == GameState.resultKnown)) {
+    if ((game.gameState == GameState.startedResultNotKnown ||
+        game.gameState == GameState.startedResultKnown)) {
       notifyListeners();
       return;
     }
@@ -67,10 +73,35 @@ class GameTipsViewModel extends ChangeNotifier {
     // to wait until the game starts
     var timeUntilGameStarts =
         game.startTimeUTC.difference(DateTime.now().toUtc());
+
+    // wait for the game to start before updating the UI
     await Future.delayed(timeUntilGameStarts);
 
     // now that the game has started, trigger the UI to update
     notifyListeners();
+  }
+
+  // this method will return true if the game start time is within 3 hours,
+  // and they have yet to tip
+  Future<bool> wait3HoursFromGameTimeCheckIfTipped() async {
+    // if the game has already started, then we don't need to send a notification
+    if ((game.gameState == GameState.startedResultNotKnown ||
+        game.gameState == GameState.startedResultKnown)) {
+      return false;
+    }
+
+    // calculate the time until the game starts and create a future.delayed
+    // to wait until the game starts
+    var timeUntilGameStarts =
+        game.startTimeUTC.difference(DateTime.now().toUtc());
+
+    // if the game starts within 3 hours, and the tipper has not tipped
+    // return true
+    if (timeUntilGameStarts.inHours <= 3 && _tipGame == null) {
+      return false;
+    } else {
+      return true;
+    }
   }
 
   void update() {
@@ -99,8 +130,7 @@ class GameTipsViewModel extends ChangeNotifier {
     return _tipGame;
   }
 
-  void addTip(
-      List<Game> roundGames, TipGame tip, int combinedRoundNumber) async {
+  void addTip(List<Game> roundGames, TipGame tip) async {
     try {
       assert(_initialLoadCompleter.isCompleted,
           'GameTipsViewModel.addTip() called before initial load completed');
@@ -120,8 +150,8 @@ class GameTipsViewModel extends ChangeNotifier {
 
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
-      legacyTippingService.syncSingleTipToLegacy(
-          allTipsViewModel, di<DAUCompsViewModel>(), tip);
+      legacyTippingService.syncSingleRoundTipperToLegacy(
+          allTipsViewModel, di<DAUCompsViewModel>(), tip, dauRound);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
@@ -135,7 +165,7 @@ class GameTipsViewModel extends ChangeNotifier {
   void dispose() {
     allTipsViewModel.removeListener(update);
     allTipsViewModel.gamesViewModel.removeListener(update);
-    //scoresViewModel.removeListener(update);
+    scoresViewModel.removeListener(update);
     super.dispose();
   }
 }

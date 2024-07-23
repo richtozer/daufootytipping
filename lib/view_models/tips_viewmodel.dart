@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_games_viewmodel.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -45,6 +47,7 @@ class TipsViewModel extends ChangeNotifier {
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
   TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUCompDbKey,
       this._gamesViewModel, this.tipper) {
+    log('TipsViewModel.forTipper constructor');
     _gamesViewModel.addListener(
         update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
@@ -86,10 +89,12 @@ class TipsViewModel extends ChangeNotifier {
           log('deserializing tips for all tippers');
           final allTips =
               deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+          log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
           _tipGames = await deserializeTips(allTips);
         } else {
           log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
+          log('_handleEvent (Tipper ${tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
           _tipGames = await Future.wait(dbData.entries.map((entry) async {
             Game? game = await _gamesViewModel.findGame(entry.key);
             if (game == null) {
@@ -163,8 +168,8 @@ class TipsViewModel extends ChangeNotifier {
 
     // return a default 'd' tip if they forgot to submit a tip
     // and game has already started
-    if ((game.gameState == GameState.resultKnown ||
-            game.gameState == GameState.resultNotKnown) &&
+    if ((game.gameState == GameState.startedResultKnown ||
+            game.gameState == GameState.startedResultNotKnown) &&
         tipGame == null) {
       tipGame = TipGame(
         tip: GameResult.d,
@@ -187,28 +192,30 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   Future<List<TipGame?>> getTipsForRound(
-      Tipper tipper, int combinedRound) async {
+      Tipper tipper, DAURound combinedRound, DAUComp daucomp) async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
 
-    //figure out which key to for this search. GoogleSheetService does not have
+    //figure out which key to use for this search. GoogleSheetService does not have
     //access to dbkey, so we need to use tippedID as the key
 
     if (tipper.dbkey != null) {
-      return _tipGames
-          .where((tipGame) =>
-              tipGame?.tipper.dbkey == tipper.dbkey &&
-              tipGame?.game.dauRound.dAUroundNumber == combinedRound)
-          .toList();
+      return _tipGames.where((tipGame) {
+        bool dbKeyCheck = tipGame?.tipper.dbkey == tipper.dbkey;
+        bool roundNumberCheck =
+            tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
+                combinedRound.dAUroundNumber;
+
+        return dbKeyCheck && roundNumberCheck;
+      }).toList();
     } else {
       return _tipGames
           .where((tipGame) =>
               tipGame?.tipper.tipperID == tipper.tipperID &&
-              tipGame?.game.dauRound.dAUroundNumber == combinedRound)
+              tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
+                  combinedRound.dAUroundNumber)
           .toList();
     }
-
-    // search all tips for the tipper and this round
   }
 }

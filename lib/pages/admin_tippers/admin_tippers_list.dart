@@ -1,8 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -20,6 +21,17 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    // _scrollController.addListener(() {
+    //   // Save the scroll position in your state management solution
+    //   di<TippersViewModel>().tipperListScrollPosition =
+    //       _scrollController.offset;
+    // });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -53,14 +65,14 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         backgroundColor: Colors.green,
                         content: Text(res),
-                        duration: const Duration(seconds: 10),
+                        duration: const Duration(seconds: 4),
                       ));
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: Colors.red,
                           content: Text('An error occurred: $e'),
-                          duration: const Duration(seconds: 10),
+                          duration: const Duration(seconds: 4),
                         ),
                       );
                     }
@@ -75,13 +87,15 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                     builder: (BuildContext context,
                         AsyncSnapshot<List<Tipper>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator(); // Show a loading spinner while waiting
+                        return CircularProgressIndicator(
+                            color: League.afl
+                                .colour); // Show a loading spinner while waiting
                       } else {
                         return Column(
                           children: [
                             Expanded(
                               child: ListView.builder(
-                                controller: _scrollController,
+                                //controller: _scrollController,
                                 itemCount: snapshot.data!.length,
                                 itemBuilder: (context, index) {
                                   var tipper = snapshot.data![index];

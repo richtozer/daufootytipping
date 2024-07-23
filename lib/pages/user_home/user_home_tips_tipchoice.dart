@@ -3,14 +3,34 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
-import 'package:daufootytipping/pages/user_home/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 import 'package:flutter/material.dart';
 
-class TipChoice extends StatelessWidget {
+class TipChoice extends StatefulWidget {
   final GameTipsViewModel gameTipsViewModel;
   final List<Game> roundGames;
 
   const TipChoice(this.roundGames, this.gameTipsViewModel, {super.key});
+
+  @override
+  State<TipChoice> createState() => _TipChoiceState();
+}
+
+class _TipChoiceState extends State<TipChoice> {
+  final Map<GameResult, Widget> _choiceChipCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _precalculateChoiceChips();
+  }
+
+  void _precalculateChoiceChips() {
+    for (var result in GameResult.values) {
+      _choiceChipCache[result] =
+          generateChoiceChip(result, widget.gameTipsViewModel, context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,27 +44,43 @@ class TipChoice extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.a, gameTipsViewModel, context),
-              generateChoiceChip(GameResult.b, gameTipsViewModel, context)
+              generateChoiceChip(
+                  GameResult.a, widget.gameTipsViewModel, context),
+              generateChoiceChip(
+                  GameResult.b, widget.gameTipsViewModel, context)
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.c, gameTipsViewModel, context),
+              generateChoiceChip(
+                  GameResult.c, widget.gameTipsViewModel, context),
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              generateChoiceChip(GameResult.d, gameTipsViewModel, context),
-              generateChoiceChip(GameResult.e, gameTipsViewModel, context)
+              generateChoiceChip(
+                  GameResult.d, widget.gameTipsViewModel, context),
+              generateChoiceChip(
+                  GameResult.e, widget.gameTipsViewModel, context)
             ],
           )
         ],
       ),
     );
   }
+
+  // generateChoiceChip(
+  //     GameResult result, GameTipsViewModel model, BuildContext context) {
+  //   if (!_choiceChipCache.containsKey(result)) {
+  //     _choiceChipCache[result] = _generateChoiceChip(result, model, context);
+  //   }
+  //   return _choiceChipCache[result];
+  // }
+
+  // ChoiceChip _generateChoiceChip(GameResult option,
+  //   GameTipsViewModel gameTipsViewModel, BuildContext context) {
 
   ChoiceChip generateChoiceChip(GameResult option,
       GameTipsViewModel gameTipsViewModel, BuildContext context) {
@@ -78,7 +114,7 @@ class TipChoice extends StatelessWidget {
                   iconColor: Colors.red,
                   title: const Text('Warning: God Mode'),
                   content: const Text(
-                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change thus tip later if needed.'),
+                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change this tip later if needed.'),
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
@@ -96,11 +132,8 @@ class TipChoice extends StatelessWidget {
                           submittedTimeUTC: DateTime.now().toUtc(),
                         );
                         //add the tip to the realtime firebase database
-                        gameTipsViewModel.addTip(
-                            roundGames,
-                            tip,
-                            tip.game.dauRound
-                                .dAUroundNumber); //roundGames is passed to support legacy tipping only
+                        gameTipsViewModel.addTip(widget.roundGames,
+                            tip); //roundGames is passed to support legacy tipping only
                       },
                       child: const Text('Submit'),
                     ),
@@ -111,8 +144,12 @@ class TipChoice extends StatelessWidget {
 
             return;
           }
-          if (gameTipsViewModel.game.gameState == GameState.resultKnown ||
-              gameTipsViewModel.game.gameState == GameState.resultNotKnown) {
+
+          // process a normal user tip
+          if (gameTipsViewModel.game.gameState ==
+                  GameState.startedResultKnown ||
+              gameTipsViewModel.game.gameState ==
+                  GameState.startedResultNotKnown) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 backgroundColor: Colors.red,
@@ -138,11 +175,8 @@ class TipChoice extends StatelessWidget {
               submittedTimeUTC: DateTime.now().toUtc(),
             );
             //add the tip to the realtime firebase database
-            gameTipsViewModel.addTip(
-                roundGames,
-                tip,
-                tip.game.dauRound
-                    .dAUroundNumber); //roundGames is passed to support legacy tipping only
+            gameTipsViewModel.addTip(widget.roundGames,
+                tip); //roundGames is passed to support legacy tipping only
           }
         } catch (e) {
           String msg = 'Error submitting tip: $e';

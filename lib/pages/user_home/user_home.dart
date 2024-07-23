@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:daufootytipping/pages/admin_tippers/admin_tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
@@ -31,7 +31,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> content() {
     return [
-      TipsPage(),
+      const TipsPage(),
       StatsPage(widget.currentDAUCompKey),
       Profile(), // Display profile and settings for the logged on tipper
     ];
@@ -81,14 +81,18 @@ class _HomePageState extends State<HomePage> {
               enabled: di<TippersViewModel>()
                   .selectedTipper!
                   .activeInComp(widget.currentDAUCompKey),
-              icon: const Icon(Icons.sports_rugby),
+              icon: activeInComp == false
+                  ? const Icon(Icons.sports_rugby)
+                  : const Icon(Icons.sports_rugby_outlined),
               label: 'T  I  P  S',
             ),
             NavigationDestination(
               enabled: di<TippersViewModel>()
                   .selectedTipper!
                   .activeInComp(widget.currentDAUCompKey),
-              icon: const Icon(Icons.auto_graph),
+              icon: activeInComp == false
+                  ? const Icon(Icons.auto_graph)
+                  : const Icon(Icons.auto_graph_outlined),
               label: 'S  T  A  T  S',
             ),
             const NavigationDestination(

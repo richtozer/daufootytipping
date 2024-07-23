@@ -1,4 +1,5 @@
 class RoundScores {
+  int roundNumber = 0;
   int aflScore = 0;
   int aflMaxScore = 0;
   int aflMarginTips = 0;
@@ -12,6 +13,7 @@ class RoundScores {
 
 //contructor
   RoundScores({
+    required this.roundNumber,
     required this.aflScore,
     required this.aflMaxScore,
     required this.aflMarginTips,
@@ -24,8 +26,25 @@ class RoundScores {
     required this.rankChange,
   });
 
+  toJson() {
+    return {
+      'roundNumber': roundNumber,
+      'afl_score': aflScore,
+      'afl_maxScore': aflMaxScore,
+      'afl_marginTips': aflMarginTips,
+      'afl_marginUPS': aflMarginUPS,
+      'nrl_score': nrlScore,
+      'nrl_maxScore': nrlMaxScore,
+      'nrl_marginTips': nrlMarginTips,
+      'nrl_marginUPS': nrlMarginUPS,
+      'rank': rank,
+      'changeInRank': rankChange,
+    };
+  }
+
   factory RoundScores.fromJson(Map<String, dynamic> data) {
     return RoundScores(
+      roundNumber: data['roundNumber'] ?? 0,
       aflScore: data['afl_score'] ?? 0,
       aflMaxScore: data['afl_maxScore'] ?? 0,
       aflMarginTips: data['afl_marginTips'] ?? 0,
@@ -37,6 +56,21 @@ class RoundScores {
       rank: data['rank'] ?? 0,
       rankChange: data['changeInRank'] ?? 0,
     );
+  }
+
+  toCsv() {
+    return [
+      aflScore,
+      aflMaxScore,
+      aflMarginTips,
+      aflMarginUPS,
+      nrlScore,
+      nrlMaxScore,
+      nrlMarginTips,
+      nrlMarginUPS,
+      rank,
+      rankChange,
+    ];
   }
 }
 
@@ -53,6 +87,15 @@ class CompScore {
     required this.nrlCompScore,
     required this.nrlCompMaxScore,
   });
+
+  toJson() {
+    return {
+      'total_afl_score': aflCompScore,
+      'total_afl_maxScore': aflCompMaxScore,
+      'total_nrl_score': nrlCompScore,
+      'total_nrl_maxScore': nrlCompMaxScore,
+    };
+  }
 
   factory CompScore.fromJson(Map<String, dynamic> data) {
     return CompScore(

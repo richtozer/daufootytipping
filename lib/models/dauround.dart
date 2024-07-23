@@ -1,43 +1,107 @@
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 
+double gameCardHeight = 128.0;
+double leagueHeaderHeight = 56;
+double emptyLeagueRoundHeight = 75;
+
 enum RoundState {
-  noGames, // round has no games
   notStarted, // round is in the future
   started, // round is underway
   allGamesEnded, // round has finished and results known
+  noGames, // this is an error state, all rounds should have games
 }
 
 class DAURound implements Comparable<DAURound> {
-  String? dbkey;
   final int dAUroundNumber;
-  List<String> gamesAsKeys = []; //legacy - TODO: remove
   List<Game> games = [];
   CompScore? compScore;
   RoundScores? roundScores;
-  RoundState roundState = RoundState.noGames;
-  //DateTime roundStartDate;
-  //DateTime roundEndDate;
+  RoundState roundState = RoundState.notStarted;
+  DateTime roundStartDate;
+  DateTime roundEndDate;
+  DateTime? adminOverrideRoundStartDate;
+  DateTime? adminOverrideRoundEndDate;
 
   // counstructor
   DAURound({
     required this.dAUroundNumber,
-    required this.gamesAsKeys,
+    required this.roundStartDate,
+    required this.roundEndDate,
+    this.adminOverrideRoundStartDate,
+    this.adminOverrideRoundEndDate,
+    this.games = const [],
   });
 
   // method to serialize DAURound to JSON
   Map<String, dynamic> toJsonForCompare() {
     return {
       'dAUroundNumber': dAUroundNumber,
-      'roundGames': gamesAsKeys,
+      'roundStartDate': roundStartDate.toIso8601String(),
+      'roundEndDate': roundEndDate.toIso8601String(),
+      'adminOverrideRoundStartDate':
+          adminOverrideRoundStartDate?.toIso8601String(),
+      'adminOverrideRoundEndDate': adminOverrideRoundEndDate?.toIso8601String(),
     };
   }
 
-  factory DAURound.fromJson(List<String> gamesAsKeys, int roundNumber) {
+  int roundDisplayPixelHeight() {
+    // count the number of nrl and afl games in this round
+    int nrlGames = 0;
+    int aflGames = 0;
+    double totalPixelHeight = 0;
+    for (var game in games) {
+      if (game.league == League.nrl) {
+        nrlGames++;
+      } else {
+        aflGames++;
+      }
+    }
+    // calculate the height of the round
+    // each round has a header of leagueHeaderHeight pixel high,
+    // and a game card for each game of gameCardHeight pixels high
+    // if the league has no games then the height is emptyLeagueRoundHeight
+
+    if (nrlGames == 0) {
+      totalPixelHeight += emptyLeagueRoundHeight;
+    } else {
+      totalPixelHeight += leagueHeaderHeight;
+      totalPixelHeight += nrlGames * gameCardHeight;
+    }
+
+    if (aflGames == 0) {
+      totalPixelHeight += emptyLeagueRoundHeight;
+    } else {
+      totalPixelHeight += leagueHeaderHeight;
+      totalPixelHeight += aflGames * gameCardHeight;
+    }
+
+    return totalPixelHeight.toInt();
+  }
+
+  factory DAURound.fromJson(Map<String, dynamic> data, int roundNumber) {
     return DAURound(
       dAUroundNumber: roundNumber,
-      gamesAsKeys: gamesAsKeys,
+      roundStartDate: DateTime.parse(data['roundStartDate']),
+      roundEndDate: DateTime.parse(data['roundEndDate']),
+      adminOverrideRoundStartDate: data['adminOverrideRoundStartDate'] != null
+          ? DateTime.parse(data['adminOverrideRoundStartDate'])
+          : null,
+      adminOverrideRoundEndDate: data['adminOverrideRoundEndDate'] != null
+          ? DateTime.parse(data['adminOverrideRoundEndDate'])
+          : null,
     );
+  }
+
+  // method returns admin overriden round start data if it exists, otherwise the round start date
+  DateTime getRoundStartDate() {
+    return adminOverrideRoundStartDate ?? roundStartDate;
+  }
+
+  // method returns admin overriden round end data if it exists, otherwise the round end date
+  DateTime getRoundEndDate() {
+    return adminOverrideRoundEndDate ?? roundEndDate;
   }
 
   @override
@@ -45,4 +109,23 @@ class DAURound implements Comparable<DAURound> {
   int compareTo(DAURound other) {
     return dAUroundNumber.compareTo(other.dAUroundNumber);
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DAURound &&
+        other.dAUroundNumber == dAUroundNumber &&
+        other.roundStartDate == roundStartDate &&
+        other.roundEndDate == roundEndDate &&
+        other.adminOverrideRoundStartDate == adminOverrideRoundStartDate &&
+        other.adminOverrideRoundEndDate == adminOverrideRoundEndDate;
+  }
+
+  @override
+  int get hashCode =>
+      dAUroundNumber.hashCode ^
+      roundStartDate.hashCode ^
+      roundEndDate.hashCode ^
+      adminOverrideRoundStartDate.hashCode ^
+      adminOverrideRoundEndDate.hashCode;
 }
