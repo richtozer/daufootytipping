@@ -66379,8 +66379,8 @@ A.JZ.prototype={
 V(){return new A.abd(B.h)}}
 A.abd.prototype={
 aQv(a){this.O(new A.aY2(this,a))},
-E(a){var s,r,q,p,o,n,m,l=this,k=null,j=$.ak().Js(8,8,B.bK),i=t.w,h=A.ax(a,k,i).w,g=t.p
-h=A.bp(A.b([new A.a00(j,A.bej("assets/teams/daulogo-grass.jpg",B.Lp,A.ax(a,k,i).w.a.b,h.a.a),k)],g),B.l,B.k,B.o)
+E(a){var s,r,q,p,o,n,m,l=this,k=null,j=$.ak().Js(1,1,B.bK),i=t.w,h=A.ax(a,k,i).w,g=t.p
+h=A.bp(A.b([new A.a00(j,A.bej("assets/teams/grass for dau app.png",B.Lp,A.ax(a,k,i).w.a.b,h.a.a),k)],g),B.l,B.k,B.o)
 i=l.d
 j=A.co([B.aoQ,B.agv,new A.a32(k)][i],k,k)
 s=A.mC(8)

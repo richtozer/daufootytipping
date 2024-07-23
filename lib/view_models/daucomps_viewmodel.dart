@@ -403,28 +403,28 @@ class DAUCompsViewModel extends ChangeNotifier {
       List<Map<String, dynamic>> sortedGameGroups) {
     List<DAURound> combinedRounds = [];
     for (var group in sortedGameGroups) {
-      // given two consecutive groups A and B in sortedGameGroups,
-      // if A's minStartTime or A's maxStartTime is between B's minStartTime and B's minStartTime,
-      // then A and B are in the same combined round
+      DateTime groupMinStartTime = (group['minStartTime'] as DateTime).toUtc();
+      DateTime groupMaxStartTime = (group['maxStartTime'] as DateTime).toUtc();
+
       if (combinedRounds.isEmpty) {
         combinedRounds.add(DAURound(
             dAUroundNumber: combinedRounds.length + 1,
-            roundStartDate: group['minStartTime'] as DateTime,
-            roundEndDate: group['maxStartTime'] as DateTime,
+            roundStartDate: groupMinStartTime,
+            roundEndDate: groupMaxStartTime,
             games: []));
       } else {
         DAURound lastRound = combinedRounds.last;
-        // Assuming 'isSameMomentAs' is a function that checks if two DateTime objects represent the same moment.
-        bool isSameMomentAs(DateTime a, DateTime b) => a.isAtSameMomentAs(b);
-        if (lastRound.roundEndDate.isAfter(group['minStartTime'] as DateTime) ||
-            isSameMomentAs(
-                lastRound.roundEndDate, group['minStartTime'] as DateTime)) {
-          lastRound.roundEndDate = group['maxStartTime'] as DateTime;
+        if (groupMinStartTime.isBefore(lastRound.roundEndDate) ||
+            groupMinStartTime.isAtSameMomentAs(lastRound.roundEndDate)) {
+          lastRound.roundEndDate =
+              groupMaxStartTime.isAfter(lastRound.roundEndDate)
+                  ? groupMaxStartTime
+                  : lastRound.roundEndDate;
         } else {
           combinedRounds.add(DAURound(
               dAUroundNumber: combinedRounds.length + 1,
-              roundStartDate: group['minStartTime'] as DateTime,
-              roundEndDate: group['maxStartTime'] as DateTime,
+              roundStartDate: groupMinStartTime,
+              roundEndDate: groupMaxStartTime,
               games: []));
         }
       }

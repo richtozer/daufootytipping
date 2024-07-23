@@ -67,7 +67,6 @@ Future<void> main() async {
   if (!kDebugMode) {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
@@ -79,11 +78,9 @@ Future<void> main() async {
   //   FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
   // }
 
-  // register the viewmodels for later use using dependency injection (Get_it/watch_it)
   di.allowReassignment = true;
 
   if (!kIsWeb) {
-    // setup Firebase Messaging Service
     di.registerLazySingleton<FirebaseMessagingService>(
         () => FirebaseMessagingService());
     di<FirebaseMessagingService>().initializeFirebaseMessaging();
@@ -98,8 +95,6 @@ Future<void> main() async {
   di.registerLazySingleton<DAUCompsViewModel>(
       () => DAUCompsViewModel(configDAUCompDbkey));
   di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
-
-  // run the application widget code
 
   runApp(MyApp(configMinAppVersion));
 }
