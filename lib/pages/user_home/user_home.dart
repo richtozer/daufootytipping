@@ -44,8 +44,10 @@ class _HomePageState extends State<HomePage> {
         children: [
           ImageFiltered(
             imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            //imageFilter: ImageFilter.blur(sigmaX: 1, sigmaY: 1),
             child: Image.asset(
               'assets/teams/daulogo-grass.jpg',
+              //'assets/teams/grass with scoreboard.png',
               width: MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.height,
               fit: BoxFit.fill,
