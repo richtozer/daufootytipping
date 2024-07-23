@@ -71,17 +71,6 @@ class _TipChoiceState extends State<TipChoice> {
     );
   }
 
-  // generateChoiceChip(
-  //     GameResult result, GameTipsViewModel model, BuildContext context) {
-  //   if (!_choiceChipCache.containsKey(result)) {
-  //     _choiceChipCache[result] = _generateChoiceChip(result, model, context);
-  //   }
-  //   return _choiceChipCache[result];
-  // }
-
-  // ChoiceChip _generateChoiceChip(GameResult option,
-  //   GameTipsViewModel gameTipsViewModel, BuildContext context) {
-
   ChoiceChip generateChoiceChip(GameResult option,
       GameTipsViewModel gameTipsViewModel, BuildContext context) {
     return ChoiceChip.elevated(
@@ -131,7 +120,7 @@ class _TipChoiceState extends State<TipChoice> {
                           tip: option,
                           submittedTimeUTC: DateTime.now().toUtc(),
                         );
-                        //add the tip to the realtime firebase database
+                        //add the god mode tip to the realtime firebase database
                         gameTipsViewModel.addTip(widget.roundGames,
                             tip); //roundGames is passed to support legacy tipping only
                       },

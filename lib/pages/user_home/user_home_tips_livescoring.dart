@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/game_scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -14,12 +15,14 @@ class LiveScoring extends StatelessWidget {
   const LiveScoring(
       {super.key,
       required this.tipGame,
+      required this.dauround,
       required this.gameTipsViewModel,
       required this.selectedDAUComp});
 
   final GameTipsViewModel gameTipsViewModel;
   final TipGame tipGame;
   final DAUComp selectedDAUComp;
+  final DAURound dauround;
 
   @override
   Widget build(BuildContext context) {
@@ -88,8 +91,12 @@ class LiveScoring extends StatelessWidget {
                               ),
                       ],
                     ),
-                    Text(
-                        'Your points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
+                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                            GameState.startedResultNotKnown
+                        ? Text(
+                            'Interim points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}')
+                        : Text(
+                            'Points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
                   ],
                 ),
               ],
@@ -103,7 +110,7 @@ class LiveScoring extends StatelessWidget {
       onTap: () => showMaterialModalBottomSheet(
           expand: false,
           context: context,
-          builder: (context) => LiveScoringModal(consumerTipGame)),
+          builder: (context) => LiveScoringModal(consumerTipGame, dauround)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

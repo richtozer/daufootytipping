@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
@@ -12,13 +11,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-// this class supports both creating and updating DAUComp records.
-// it has 2 modes, then daucomp is null it is in new record mode,
-// when it is not null it is in edit record mode
 class DAUCompsEditPage extends StatefulWidget {
-  final DAUComp?
-      daucomp; //if this is an edit for a new comp, this will stay null
-  //final DAUCompsViewModel dauCompViewModel;
+  final DAUComp? daucomp;
 
   late final TextEditingController _daucompNameController;
   late final TextEditingController _daucompAflJsonURLController;
@@ -37,19 +31,57 @@ class DAUCompsEditPage extends StatefulWidget {
 }
 
 class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
-  bool disableBackButton = false;
-
-  bool disableSaves = false;
+  bool disableSaves = true;
+  bool disableBack = false;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  void _saveDAUComp(
+  @override
+  void initState() {
+    super.initState();
+    initTextControllersListeners();
+    updateSaveButtonState();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    widget._daucompNameController.removeListener(updateSaveButtonState);
+    widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
+    widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
+  }
+
+  void initTextControllersListeners() {
+    widget._daucompNameController.addListener(updateSaveButtonState);
+    widget._daucompAflJsonURLController.addListener(updateSaveButtonState);
+    widget._daucompNrlJsonURLController.addListener(updateSaveButtonState);
+  }
+
+  void updateSaveButtonState() {
+    bool shouldEnableSave;
+    if (widget.daucomp == null) {
+      shouldEnableSave = widget._daucompNameController.text.isNotEmpty &&
+          widget._daucompAflJsonURLController.text.isNotEmpty &&
+          widget._daucompNrlJsonURLController.text.isNotEmpty;
+    } else {
+      shouldEnableSave =
+          widget._daucompNameController.text != widget.daucomp!.name ||
+              widget._daucompAflJsonURLController.text !=
+                  widget.daucomp!.aflFixtureJsonURL.toString() ||
+              widget._daucompNrlJsonURLController.text !=
+                  widget.daucomp!.nrlFixtureJsonURL.toString();
+    }
+
+    if (disableSaves != !shouldEnableSave) {
+      setState(() {
+        disableSaves = !shouldEnableSave;
+      });
+    }
+  }
+
+  Future<void> _saveDAUComp(
       DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
     try {
-      //check the URL's are active on the server,
-      //if yes, save the record and show a green snackbar saying the record is saved
-      //if no, reject the save and show a red snackbar saying the URL's are not active
-
       bool aflURLActive =
           await isUriActive(widget._daucompAflJsonURLController.text);
       bool nrlURLActive =
@@ -59,9 +91,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
       if (aflURLActive && nrlURLActive) {
         if (widget.daucomp == null) {
-          // this is a new record
-          DAUComp updatedDUAcomp = DAUComp(
-            dbkey: widget.daucomp?.dbkey,
+          DAUComp newDAUComp = DAUComp(
             name: widget._daucompNameController.text,
             aflFixtureJsonURL:
                 Uri.parse(widget._daucompAflJsonURLController.text),
@@ -70,26 +100,21 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             daurounds: [],
           );
 
-          await dauCompsViewModel.newDAUComp(updatedDUAcomp);
-
+          await dauCompsViewModel.newDAUComp(newDAUComp);
           await dauCompsViewModel.saveBatchOfCompAttributes();
 
-          if (widget.daucomp == null) {
-            // as this is a new daucomp record, download the fixture data and process
-            // the games in rounds and save them to the database
-            String res = await dauCompsViewModel.getNetworkFixtureData(
-                updatedDUAcomp, null);
-            // snackbar to show the result of the fixture download
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: League.afl.colour,
-                content: Text(res),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
+          String res =
+              await dauCompsViewModel.getNetworkFixtureData(newDAUComp);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: League.nrl.colour,
+              content: Text(res),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+
+          Navigator.of(context).pop();
         } else {
-          // this is an existing record
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!, "name",
               widget._daucompNameController.text);
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
@@ -98,15 +123,19 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               "nrlFixtureJsonURL", widget._daucompNrlJsonURLController.text);
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
-        }
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('DAUComp record saved'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('DAUComp record saved'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+
+          setState(() {
+            disableSaves = true;
+          });
         }
       } else {
         if (context.mounted) {
@@ -155,419 +184,383 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   Widget build(BuildContext context) {
     DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-    ScoresViewModel scoresViewModel = di<ScoresViewModel>();
 
-    if (widget.daucomp == null) {
-      // this is a new record, so disable the save button until the user has entered some data
-      disableSaves = true;
-    }
-    return Scaffold(
-        appBar: AppBar(
-          leading: Builder(
-            builder: (BuildContext context) {
-              return IconButton(
-                icon: disableBackButton
-                    ? const ImageIcon(
-                        null) // dont show anything clickable while saving is in progress
-                    : const Icon(Icons.arrow_back),
-                onPressed: disableBackButton
-                    ? null
-                    : () {
-                        Navigator.maybePop(context);
+    return ChangeNotifierProvider<DAUCompsViewModel>.value(
+        value: dauCompsViewModel,
+        builder: (context, snapshot) {
+          return Scaffold(
+              appBar: AppBar(
+                leading: Builder(
+                  builder: (BuildContext context) {
+                    return IconButton(
+                      icon: disableBack
+                          ? const ImageIcon(null)
+                          : const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        if (!disableBack) {
+                          Navigator.maybePop(context);
+                        } else {
+                          showDialog(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              content: const Text(
+                                  'You have unsaved changes. Do you really want to discard them?'),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context)
+                                        .pop(); // Close the dialog
+                                    Navigator.of(context).pop(); // Go back
+                                  },
+                                  child: const Text('Discard'),
+                                )
+                              ],
+                            ),
+                          );
+                        }
                       },
-              );
-            },
-          ),
-          actions: <Widget>[
-            Builder(
-              builder: (BuildContext context) {
-                return IconButton(
-                  color: Colors.white,
-                  icon: !disableSaves
-                      ? const Icon(Icons.save, color: Colors.white)
-                      : const SizedBox.shrink(),
-                  onPressed: disableSaves
-                      ? null
-                      : () async {
-                          // Validate will return true if the form is valid, or false if
-                          // the form is invalid.
-                          final isValid = _formKey.currentState!.validate();
-                          if (isValid) {
-                            // disable the save and back button while the save is in progress
-                            setState(() {
-                              disableSaves = true;
-                              disableBackButton = true;
-                            });
+                    );
+                  },
+                ),
+                actions: <Widget>[
+                  Builder(
+                    builder: (BuildContext context) {
+                      return IconButton(
+                        color: Colors.white,
+                        icon: disableSaves
+                            ? const ImageIcon(null)
+                            : const Icon(Icons.save, color: Colors.white),
+                        onPressed: disableSaves
+                            ? null
+                            : () async {
+                                final isValid =
+                                    _formKey.currentState!.validate();
+                                if (isValid) {
+                                  setState(() {
+                                    disableSaves = true;
+                                  });
 
-                            // save the record
-                            _saveDAUComp(dauCompsViewModel, context);
-                            // re-enable the save and back button
+                                  await _saveDAUComp(
+                                      dauCompsViewModel, context);
 
-                            setState(() {
-                              disableSaves = false;
-                              disableBackButton = false;
-                            });
-                          }
-                        },
-                );
-              },
-            ),
-          ],
-          title: const Text('Edit DAU Comp'),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  // add a row with a sync button download fixture data from the URL's
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      buttonFixture(context, dauCompsViewModel),
-                      // only show the scoring and legacy sync buttons if this record daucomp dbkey
-                      // is the selected daucomp dbkey
-                      if (widget.daucomp?.dbkey ==
-                          dauCompsViewModel.defaultDAUCompDbKey)
-                        buttonLegacy(context, dauCompsViewModel),
-
-                      if (widget.daucomp?.dbkey ==
-                          dauCompsViewModel.defaultDAUCompDbKey)
-                        buttonScoring(context, scoresViewModel),
-                    ],
+                                  setState(() {
+                                    disableSaves = true;
+                                  });
+                                }
+                              },
+                      );
+                    },
                   ),
-                  Row(
-                    children: [
-                      const Text('Active Comp:'),
-                      Switch(
-                        value: widget.daucomp?.dbkey ==
-                            dauCompsViewModel.defaultDAUCompDbKey,
-                        onChanged: (bool value) {
-                          // if this is a new record, dont allow the user to change the active comp
-                          if (widget.daucomp == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                    'You cannot set the active comp for a new record. Save the record first.'),
-                                backgroundColor: League.afl.colour,
-                              ),
-                            );
-                            return;
-                          }
-                          if (value) {
-                            dauCompsViewModel
-                                .changeCurrentDAUComp(widget.daucomp!.dbkey!);
-                            // write the change to /AppConfig
-                            RemoteConfigService remoteConfigService =
-                                RemoteConfigService();
-                            remoteConfigService.setConfigCurrentDAUComp(
-                                widget.daucomp!.dbkey!);
-                            // also make change to model
-                            dauCompsViewModel
-                                .setDefaultDAUCompDbKey(widget.daucomp!.dbkey!);
-                          } else {
-                            // if the user is trying to turn off the active comp, show a snackbar
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                    'You cannot turn off the active comp. Instead edit another comp to be active.'),
-                                backgroundColor: League.afl.colour,
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const Text('Name:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          enabled: !disableBackButton,
-                          controller: widget._daucompNameController,
-                          onChanged: (String value) {
-                            if (widget.daucomp?.name != value) {
-                              //something has changed, allow saves
-
-                              setState(() {
-                                disableSaves = false;
-                              });
-                              log('name changed to: $value');
-                            } else {
-                              setState(() {
-                                disableSaves = true;
-                              });
-                              log('name has not changed');
-                            }
-                          },
-                          decoration: const InputDecoration(
-                            hintText: 'DAU Comp name',
+                ],
+                title: const Text('Edit DAU Comp'),
+              ),
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (widget.daucomp != null)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              buttonFixture(context, dauCompsViewModel),
+                              if (widget.daucomp!.dbkey ==
+                                  dauCompsViewModel.activeDAUComp?.dbkey)
+                                buttonLegacy(context, dauCompsViewModel),
+                              buttonScoring(context),
+                            ],
                           ),
-                          onFieldSubmitted: (_) {
-                            // TODO move focus to next field?
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a DAU Comp name';
-                            }
-                            return null;
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 20.0),
-                  const Text('Fixture JSON URLs',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20.0),
-                  const Text('NRL:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          style: const TextStyle(fontSize: 14),
-                          enabled: !disableBackButton,
-                          decoration: const InputDecoration(
-                            hintText: 'enter URL here',
+                        if (widget.daucomp != null)
+                          Row(
+                            children: [
+                              const Text('Active Comp:'),
+                              Consumer<DAUCompsViewModel>(
+                                  builder: (context, model, child) {
+                                return Switch(
+                                  value: widget.daucomp != null &&
+                                      model.activeDAUComp != null &&
+                                      widget.daucomp!.dbkey ==
+                                          model.activeDAUComp!.dbkey,
+                                  onChanged: (bool value) async {
+                                    if (widget.daucomp == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                              'You cannot set the active comp for a new record. Save the record first.'),
+                                          backgroundColor: League.afl.colour,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    if (value) {
+                                      RemoteConfigService remoteConfigService =
+                                          RemoteConfigService();
+                                      remoteConfigService
+                                          .setConfigCurrentDAUComp(
+                                              widget.daucomp!.dbkey!);
+                                      await dauCompsViewModel
+                                          .changeSelectedDAUComp(
+                                              widget.daucomp!.dbkey!, true);
+                                      log('Active comp changed to: ${widget.daucomp!.name}');
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                              'You cannot turn off the active comp. Instead edit another comp to be active.'),
+                                          backgroundColor: League.afl.colour,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                );
+                              }),
+                            ],
                           ),
-                          controller: widget._daucompNrlJsonURLController,
-                          onChanged: (String value) {
-                            if (widget.daucomp?.nrlFixtureJsonURL.toString() !=
-                                value) {
-                              //something has changed, allow saves
-
-                              setState(() {
-                                disableSaves = false;
-                              });
-                              log('nrlFixtureJsonURL changed to: $value');
-                            } else {
-                              setState(() {
-                                disableSaves = true;
-                              });
-                              log('nrlFixtureJsonURL has not changed');
-                            }
-                          },
-                          onFieldSubmitted: (_) {
-                            // TODO move focus to next field?
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a NRL fixture link';
-                            }
-                            return null;
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 20.0),
-                  const Text('AFL:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          style: const TextStyle(fontSize: 14),
-                          enabled: !disableBackButton,
-                          decoration: const InputDecoration(
-                            hintText: 'enter URL here',
-                          ),
-                          controller: widget._daucompAflJsonURLController,
-                          onChanged: (String value) {
-                            if (widget.daucomp?.aflFixtureJsonURL.toString() !=
-                                value) {
-                              //something has changed, allow saves
-                              setState(() {
-                                disableSaves = false;
-                              });
-
-                              log('aflFixtureJsonURL changed to: $value');
-                            } else {
-                              setState(() {
-                                disableSaves = true;
-                              });
-                              log('aflFixtureJsonURL has not changed');
-                            }
-                          },
-                          onFieldSubmitted: (_) {
-                            // TODO move focus to next field?
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a AFL fixture link';
-                            }
-                            return null;
-                          },
-                        ),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 20.0),
-                  if (widget.daucomp != null)
-                    const Text('Round details:',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-
-                  // add a table with the round data laid out in rows. column 1 is the round number
-                  // column 2 is the start date, column 3 is the end date
-                  // the dates are edititable, with changes to the dates enabling the save button
-                  // column 4 is the number of nrl games in the round
-                  // column 5 is the number of afl games in the round
-
-                  // only show the table if the daucomp is not null
-                  if (widget.daucomp != null)
-                    Table(
-                      columnWidths: const {
-                        0: FlexColumnWidth(0.40),
-                        1: FlexColumnWidth(2),
-                        2: FlexColumnWidth(2),
-                        3: FlexColumnWidth(0.5),
-                        4: FlexColumnWidth(0.5),
-                      },
-                      children: [
-                        const TableRow(
+                        const Text('Name:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
                           children: [
-                            TableCell(
-                              verticalAlignment:
-                                  TableCellVerticalAlignment.bottom,
-                              child: Text('#'),
-                            ),
-                            TableCell(
-                              verticalAlignment:
-                                  TableCellVerticalAlignment.bottom,
-                              child: Center(
-                                child: Text('First Game',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: TextFormField(
+                                controller: widget._daucompNameController,
+                                decoration: const InputDecoration(
+                                  hintText: 'DAU Comp name',
+                                ),
+                                validator: (String? value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter a DAU Comp name';
+                                  }
+                                  return null;
+                                },
                               ),
-                            ),
-                            TableCell(
-                              verticalAlignment:
-                                  TableCellVerticalAlignment.bottom,
-                              child: Center(
-                                child: Text('Last Game',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                            TableCell(
-                              verticalAlignment:
-                                  TableCellVerticalAlignment.bottom,
-                              child: Text('# NRL',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            TableCell(
-                              verticalAlignment:
-                                  TableCellVerticalAlignment.bottom,
-                              child: Text('# AFL',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                            ),
+                            )
                           ],
                         ),
-                        for (var round in widget.daucomp!.daurounds)
-                          TableRow(
+                        const SizedBox(height: 20.0),
+                        const Text('Fixture JSON URLs',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 20.0),
+                        const Text('NRL:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                style: const TextStyle(fontSize: 14),
+                                decoration: const InputDecoration(
+                                  hintText: 'enter URL here',
+                                ),
+                                controller: widget._daucompNrlJsonURLController,
+                                validator: (String? value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter a NRL fixture link';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            )
+                          ],
+                        ),
+                        const SizedBox(height: 20.0),
+                        const Text('AFL:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                style: const TextStyle(fontSize: 14),
+                                decoration: const InputDecoration(
+                                  hintText: 'enter URL here',
+                                ),
+                                controller: widget._daucompAflJsonURLController,
+                                validator: (String? value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter a AFL fixture link';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            )
+                          ],
+                        ),
+                        const SizedBox(height: 20.0),
+                        if (widget.daucomp != null)
+                          const Text('Round details:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        if (widget.daucomp != null)
+                          Table(
+                            columnWidths: const {
+                              0: FlexColumnWidth(0.40),
+                              1: FlexColumnWidth(2),
+                              2: FlexColumnWidth(2),
+                              3: FlexColumnWidth(0.5),
+                              4: FlexColumnWidth(0.5),
+                            },
                             children: [
-                              TableCell(
-                                verticalAlignment:
-                                    TableCellVerticalAlignment.middle,
-                                child: Text(round.dAUroundNumber.toString()),
+                              const TableRow(
+                                children: [
+                                  TableCell(
+                                    verticalAlignment:
+                                        TableCellVerticalAlignment.bottom,
+                                    child: Text('#'),
+                                  ),
+                                  TableCell(
+                                    verticalAlignment:
+                                        TableCellVerticalAlignment.bottom,
+                                    child: Center(
+                                      child: Text('First Game',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                  TableCell(
+                                    verticalAlignment:
+                                        TableCellVerticalAlignment.bottom,
+                                    child: Center(
+                                      child: Text('Last Game',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                  TableCell(
+                                    verticalAlignment:
+                                        TableCellVerticalAlignment.bottom,
+                                    child: Text('# NRL',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                  TableCell(
+                                    verticalAlignment:
+                                        TableCellVerticalAlignment.bottom,
+                                    child: Text('# AFL',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
                               ),
-                              TableCell(
-                                child: TextFormField(
-                                  style: const TextStyle(fontSize: 14),
-                                  enabled: !disableBackButton,
-                                  initialValue:
-                                      '${DateFormat('E d/M').format(round.roundStartDate.toLocal())} ${DateFormat('h:mm a').format(round.roundStartDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
-                                  onTap: () async {
-                                    FocusScope.of(context).requestFocus(
-                                        FocusNode()); // to prevent opening of the keyboard
-                                    DateTime? date = await showDatePicker(
-                                      context: context,
-                                      initialDate: round.roundStartDate,
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    TimeOfDay? time = await showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.fromDateTime(
-                                          round.roundStartDate),
-                                    );
-                                    if (time != null) {
-                                      round.adminOverrideRoundStartDate =
-                                          DateTime(date!.year, date.month,
-                                              date.day, time.hour, time.minute);
-                                      // Enable the save button
-                                      setState(() {
-                                        disableSaves = false;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              TableCell(
-                                child: TextFormField(
-                                  style: const TextStyle(fontSize: 14),
-                                  enabled: !disableBackButton,
-                                  initialValue:
-                                      '${DateFormat('E d/M').format(round.roundEndDate.toLocal())} ${DateFormat('h:mm a').format(round.roundEndDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
-                                  onTap: () async {
-                                    FocusScope.of(context).requestFocus(
-                                        FocusNode()); // to prevent opening of the keyboard
-                                    DateTime? date = await showDatePicker(
-                                      context: context,
-                                      initialDate: round.roundEndDate,
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    TimeOfDay? time = await showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.fromDateTime(
-                                          round.roundEndDate),
-                                    );
-                                    if (time != null) {
-                                      round.adminOverrideRoundEndDate =
-                                          DateTime(date!.year, date.month,
-                                              date.day, time.hour, time.minute);
-                                      // Enable the save button
-                                      setState(() {
-                                        disableSaves = false;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              TableCell(
-                                verticalAlignment:
-                                    TableCellVerticalAlignment.middle,
-                                child: Text(round.games
-                                    .where((game) => game.league == League.nrl)
-                                    .length
-                                    .toString()),
-                              ),
-                              TableCell(
-                                verticalAlignment:
-                                    TableCellVerticalAlignment.middle,
-                                child: Text(round.games
-                                    .where((game) => game.league == League.afl)
-                                    .length
-                                    .toString()),
-                              ),
+                              for (var round in widget.daucomp!.daurounds)
+                                if (round.games.isNotEmpty)
+                                  TableRow(
+                                    children: [
+                                      TableCell(
+                                        verticalAlignment:
+                                            TableCellVerticalAlignment.middle,
+                                        child: Text(
+                                            round.dAUroundNumber.toString()),
+                                      ),
+                                      TableCell(
+                                        child: TextFormField(
+                                          style: const TextStyle(fontSize: 14),
+                                          initialValue:
+                                              '${DateFormat('E d/M').format(round.roundStartDate.toLocal())} ${DateFormat('h:mm a').format(round.roundStartDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+                                          onTap: () async {
+                                            FocusScope.of(context)
+                                                .requestFocus(FocusNode());
+                                            DateTime? date =
+                                                await showDatePicker(
+                                              context: context,
+                                              initialDate: round.roundStartDate,
+                                              firstDate: DateTime(2000),
+                                              lastDate: DateTime(2100),
+                                            );
+                                            TimeOfDay? time =
+                                                await showTimePicker(
+                                              context: context,
+                                              initialTime:
+                                                  TimeOfDay.fromDateTime(
+                                                      round.roundStartDate),
+                                            );
+                                            if (time != null) {
+                                              round.adminOverrideRoundStartDate =
+                                                  DateTime(
+                                                      date!.year,
+                                                      date.month,
+                                                      date.day,
+                                                      time.hour,
+                                                      time.minute);
+                                              setState(() {
+                                                disableSaves = false;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      TableCell(
+                                        child: TextFormField(
+                                          style: const TextStyle(fontSize: 14),
+                                          initialValue:
+                                              '${DateFormat('E d/M').format(round.roundEndDate.toLocal())} ${DateFormat('h:mm a').format(round.roundEndDate.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+                                          onTap: () async {
+                                            FocusScope.of(context)
+                                                .requestFocus(FocusNode());
+                                            DateTime? date =
+                                                await showDatePicker(
+                                              context: context,
+                                              initialDate: round.roundEndDate,
+                                              firstDate: DateTime(2000),
+                                              lastDate: DateTime(2100),
+                                            );
+                                            TimeOfDay? time =
+                                                await showTimePicker(
+                                              context: context,
+                                              initialTime:
+                                                  TimeOfDay.fromDateTime(
+                                                      round.roundEndDate),
+                                            );
+                                            if (time != null) {
+                                              round.adminOverrideRoundEndDate =
+                                                  DateTime(
+                                                      date!.year,
+                                                      date.month,
+                                                      date.day,
+                                                      time.hour,
+                                                      time.minute);
+                                              setState(() {
+                                                disableSaves = false;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      TableCell(
+                                        verticalAlignment:
+                                            TableCellVerticalAlignment.middle,
+                                        child: Text(round.games
+                                            .where((game) =>
+                                                game.league == League.nrl)
+                                            .length
+                                            .toString()),
+                                      ),
+                                      TableCell(
+                                        verticalAlignment:
+                                            TableCellVerticalAlignment.middle,
+                                        child: Text(round.games
+                                            .where((game) =>
+                                                game.league == League.afl)
+                                            .length
+                                            .toString()),
+                                      ),
+                                    ],
+                                  ),
                             ],
                           ),
                       ],
-                    )
-                ],
-              ),
-            ),
-          ),
-        ));
+                    ),
+                  ),
+                ),
+              ));
+        });
   }
 
   Widget buttonFixture(
@@ -585,12 +578,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           }
           try {
             setState(() {
-              disableBackButton = true;
-              disableSaves = true;
+              disableBack = true;
             });
 
-            String result = await dauCompsViewModel.getNetworkFixtureData(
-                widget.daucomp!, di<GamesViewModel>());
+            String result =
+                await dauCompsViewModel.getNetworkFixtureData(widget.daucomp!);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -613,8 +605,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             }
           } finally {
             setState(() {
-              disableBackButton = false;
-              disableSaves = false;
+              disableBack = false;
             });
           }
         },
@@ -631,35 +622,29 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     } else {
       return OutlinedButton(
         onPressed: () async {
-          //check if syncing already in progress...
           if (dauCompsViewModel.isLegacySyncing) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 content: Text('Legacy sync already in progress')));
             return;
           }
-          // check if daucomp dbkey for this record matches the current daucomp dbkey
-          // if not, show a snackbar and return without syncing
-          if (widget.daucomp?.dbkey != dauCompsViewModel.defaultDAUCompDbKey) {
+
+          if (widget.daucomp?.dbkey != dauCompsViewModel.activeDAUComp!.dbkey) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 duration: Duration(seconds: 15),
                 content: Text(
-                    'You can only sync to legacy if this record is the active comp in remote config. Change it here: https://console.firebase.google.com/project/dau-footy-tipping-f8a42/config')));
+                    'You can only sync to legacy if this record is the active comp in remote config')));
             return;
           }
 
-          // ...if not, initiate the sync
           try {
             setState(() {
-              disableBackButton = true;
-              disableSaves = true;
+              disableBack = true;
             });
 
             String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                widget.daucomp!, di<GamesViewModel>(), null);
-
-            // show a snackbar with the result of the sync
+                widget.daucomp!, null);
 
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -670,8 +655,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                 ),
               );
             }
-
-            // sync scores to legacy
 
             di<LegacyTippingService>().syncRoundScoresToLegacy();
             if (context.mounted) {
@@ -696,8 +679,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             }
           } finally {
             setState(() {
-              disableBackButton = false;
-              disableSaves = false;
+              disableBack = false;
             });
           }
         },
@@ -706,13 +688,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     }
   }
 
-  Widget buttonScoring(BuildContext context, ScoresViewModel scoresViewModel) {
+  Widget buttonScoring(BuildContext context) {
     if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
+      ScoresViewModel scoresViewModel = ScoresViewModel(widget.daucomp!);
       return OutlinedButton(
         onPressed: () async {
-          //check if syncing already in progress...
           if (scoresViewModel.isScoring) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
@@ -720,13 +702,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             return;
           }
 
-          // ...if not, initiate the sync
           try {
             setState(() {
-              disableBackButton = true;
-              disableSaves = true;
+              disableBack = true;
             });
-            //yield so UI updates
             await Future.delayed(const Duration(milliseconds: 100));
             String syncResult = await scoresViewModel.updateScoring(
                 widget.daucomp!, null, null);
@@ -752,19 +731,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             }
           } finally {
             setState(() {
-              disableBackButton = false;
-              disableSaves = false;
+              disableBack = false;
             });
           }
         },
-        child: ChangeNotifierProvider<ScoresViewModel>(
-            create: (context) => di<ScoresViewModel>(),
-            child: Consumer<ScoresViewModel>(
-              builder: (context, scoresViewModel, child) {
-                return Text(
-                    !scoresViewModel.isScoring ? 'Score' : 'Scoring...');
-              },
-            )),
+        child: Text(!scoresViewModel.isScoring ? 'Rescore' : 'Scoring...'),
       );
     }
   }

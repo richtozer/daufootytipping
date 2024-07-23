@@ -2,6 +2,11 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": " ",
+      "type": "shell",
+      "command": "json-server --watch ./test/data/fixture-2024-3rounds.json"
+    },
+    {
       "label": "start firebase emulator",
       "type": "shell",
       "isBackground": true,

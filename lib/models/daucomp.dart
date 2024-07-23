@@ -1,7 +1,4 @@
 import 'dart:developer';
-
-import 'package:collection/collection.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
@@ -13,7 +10,7 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri nrlFixtureJsonURL;
   List<DAURound> daurounds;
   final bool active;
-  CompScore? consolidatedCompScores;
+
   DateTime? lastFixtureUpdateTimestamp;
 
   //constructor
@@ -27,7 +24,30 @@ class DAUComp implements Comparable<DAUComp> {
     this.lastFixtureUpdateTimestamp,
   });
 
+  // method to return the highest round number where roundEndDate is the past UTC
+  // it does not require gamesviewmodel to fully load all games
+  // tips page calls this method ahead of gamesviewmodel loading all games
+  // because round end date is actually the start time for the last game,
+  // we will add an arbitrary 9 hours to the round end date to ensure the round is considered past
+  int highestRoundNumberInPast() {
+    int highestRoundNumber = 1;
+
+    //find the highest round number where roundEndDate + 9 hours is the past UTC
+    for (var dauround in daurounds) {
+      if (dauround.roundEndDate
+          .add(const Duration(hours: 9))
+          .isBefore(DateTime.now().toUtc())) {
+        if (dauround.dAUroundNumber > highestRoundNumber) {
+          highestRoundNumber = dauround.dAUroundNumber;
+        }
+      }
+    }
+
+    return highestRoundNumber;
+  }
+
   // method to return the highest round number, where DAURound.RoundState is allGamesEnded
+  // this method requires gamesviewmodel to fully load all games
   int getHighestRoundNumberWithAllGamesPlayed() {
     int highestRoundNumber = 1;
 
@@ -102,20 +122,14 @@ class DAUComp implements Comparable<DAUComp> {
         other.dbkey == dbkey &&
         other.name == name &&
         other.aflFixtureJsonURL == aflFixtureJsonURL &&
-        other.nrlFixtureJsonURL == nrlFixtureJsonURL &&
-        other.active == active &&
-        other.lastFixtureUpdateTimestamp == lastFixtureUpdateTimestamp &&
-        const ListEquality().equals(other.daurounds, daurounds);
+        other.nrlFixtureJsonURL == nrlFixtureJsonURL;
   }
 
   @override
   int get hashCode {
     return dbkey.hashCode ^
-        active.hashCode ^
         name.hashCode ^
         aflFixtureJsonURL.hashCode ^
-        nrlFixtureJsonURL.hashCode ^
-        lastFixtureUpdateTimestamp.hashCode ^
-        daurounds.hashCode;
+        nrlFixtureJsonURL.hashCode;
   }
 }

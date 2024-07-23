@@ -37,7 +37,6 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   void initState() {
     super.initState();
     scoresViewModel = di<ScoresViewModel>();
-    scoresViewModel.updateLeaderboardForComp();
   }
 
   @override

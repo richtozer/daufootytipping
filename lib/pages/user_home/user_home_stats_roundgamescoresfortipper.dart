@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
@@ -54,8 +53,7 @@ class _StatRoundGameScoresForTipperState
     DAURound roundToDisplay = dauCompsViewModel
         .selectedDAUComp!.daurounds[widget.roundNumberToDisplay - 1];
 
-    gamesFuture = dauCompsViewModel.sortGamesIntoLeagues(
-        roundToDisplay, di<GamesViewModel>());
+    gamesFuture = dauCompsViewModel.sortGamesIntoLeagues(roundToDisplay);
   }
 
   @override
@@ -93,8 +91,8 @@ class _StatRoundGameScoresForTipperState
 
     TipsViewModel allTips = TipsViewModel.forTipper(
         di<TippersViewModel>(),
-        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-        di<GamesViewModel>(),
+        di<DAUCompsViewModel>().selectedDAUComp!,
+        di<DAUCompsViewModel>().gamesViewModel!,
         widget.statsTipper);
 
     return Scaffold(

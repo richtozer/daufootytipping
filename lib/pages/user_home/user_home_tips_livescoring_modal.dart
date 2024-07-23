@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/tipgame.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
@@ -8,8 +9,9 @@ import 'package:watch_it/watch_it.dart';
 
 class LiveScoringModal extends StatefulWidget {
   final TipGame tipGame;
+  final DAURound dauround;
 
-  const LiveScoringModal(this.tipGame, {super.key});
+  const LiveScoringModal(this.tipGame, this.dauround, {super.key});
 
   @override
   State<LiveScoringModal> createState() => _LiveScoringModalState();
@@ -179,7 +181,13 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                         // close the modal without saving
                         Navigator.pop(context);
                       },
-                      child: const Text('Cancel'),
+                      style: ElevatedButton.styleFrom(
+                          minimumSize:
+                              const Size(100, 36), // Set a smaller size
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8)), // Reduce padding
+                      child:
+                          const Text('Cancel', style: TextStyle(fontSize: 15)),
                     ),
                   ),
                   Container(),
@@ -192,9 +200,11 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                   awayScore == originalAwayScore)
                               ? null
                               : () {
+                                  // close the modal
+                                  Navigator.pop(context);
                                   // if home score changed then update the home score
                                   if (homeScore != originalHomeScore) {
-                                    liveScoreUpdated(
+                                    _liveScoreUpdated(
                                         homeScore,
                                         ScoringTeam.home,
                                         di<DAUCompsViewModel>()
@@ -202,7 +212,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
 
                                     if (awayScore == '0') {
                                       // In this case we need to write a default score of 0 so that the interim result is not 'No Result'
-                                      liveScoreUpdated(
+                                      _liveScoreUpdated(
                                           awayScore,
                                           ScoringTeam.away,
                                           di<DAUCompsViewModel>()
@@ -211,7 +221,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                   }
                                   // if away score changed then update the away score
                                   if (awayScore != originalAwayScore) {
-                                    liveScoreUpdated(
+                                    _liveScoreUpdated(
                                         awayScore,
                                         ScoringTeam.away,
                                         di<DAUCompsViewModel>()
@@ -219,7 +229,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
 
                                     if (homeScore == '0') {
                                       // In this case we need to write a default score of 0 so that the interim result is not 'No Result'
-                                      liveScoreUpdated(
+                                      _liveScoreUpdated(
                                           homeScore,
                                           ScoringTeam.home,
                                           di<DAUCompsViewModel>()
@@ -231,14 +241,15 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                   di<ScoresViewModel>().updateScoring(
                                       di<DAUCompsViewModel>().selectedDAUComp!,
                                       null,
-                                      widget.tipGame.game.getDAURound(
-                                          di<DAUCompsViewModel>()
-                                              .selectedDAUComp!));
-
-                                  // close the modal
-                                  Navigator.pop(context);
+                                      widget.dauround);
                                 },
-                      child: const Text('Submit'),
+                      style: ElevatedButton.styleFrom(
+                          minimumSize:
+                              const Size(100, 36), // Set a smaller size
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8)), // Reduce padding
+                      child:
+                          const Text('Submit', style: TextStyle(fontSize: 15)),
                     ),
                   ),
                 ],
@@ -348,7 +359,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
     }
   }
 
-  void liveScoreUpdated(
+  void _liveScoreUpdated(
       dynamic score, ScoringTeam scoreTeam, DAUComp selectedDAUComp) {
     // prepare the crowd sourced score
     CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(

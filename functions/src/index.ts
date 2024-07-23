@@ -1,7 +1,7 @@
 // This is the entry point for the Firebase Functions
 import tipperFunctions = require("./services/legacy_service");
 import msgFunctionNotTipped =
-    require("./services/messaging_service_send_nottipped_reminders");
+    require("./services/messaging_service_send_not_tipped_reminders");
 
 import * as admin from "firebase-admin";
 

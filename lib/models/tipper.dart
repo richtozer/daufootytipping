@@ -10,7 +10,7 @@ class Tipper implements Comparable<Tipper> {
   final String name;
   final String
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
-  //final bool active;  //no longer used
+  //final bool active;  //no longer used. use compsParticipatedIn instead
   final TipperRole tipperRole;
   String? photoURL;
   List<DAUComp> compsParticipatedIn = [];
@@ -28,18 +28,6 @@ class Tipper implements Comparable<Tipper> {
       required this.tipperRole});
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
-/*     // Handle deviceTokens list
-    dynamic deviceTokensData = data['deviceTokens'];
-    List<DeviceToken?> deviceTokensList = [];
-
-    if (deviceTokensData != null) {
-      deviceTokensList =
-          data['deviceTokens'].map<DeviceToken?>((deviceTokensasJSON) {
-        return DeviceToken.fromJson(
-            Map<String, dynamic>.from(deviceTokensasJSON));
-      }).toList();
-    } */
-
     return Tipper(
       dbkey: key,
       //deviceTokens: deviceTokensList,
@@ -57,10 +45,13 @@ class Tipper implements Comparable<Tipper> {
     );
   }
 
-  bool activeInComp(String checkThisCompDbKey) {
+  bool activeInComp(DAUComp? checkThisComp) {
+    if (checkThisComp == null) {
+      return false;
+    }
     return compsParticipatedIn.any((compParticipatedIn) =>
         compParticipatedIn.dbkey ==
-        checkThisCompDbKey); //check if the tipper is active in the comp
+        checkThisComp.dbkey); //check if the tipper is active in the comp
   }
 
   static List<Tipper?> fromJsonList(dynamic json) {
@@ -77,9 +68,6 @@ class Tipper implements Comparable<Tipper> {
   }
 
   Map<String, dynamic> toJson() {
-/*     List deviceTokenList =
-        deviceTokens?.map((deviceToken) => deviceToken!.toJson()).toList() ??
-            []; */
     return {
       "authuid": authuid,
       "email": email,

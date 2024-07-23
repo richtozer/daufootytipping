@@ -19,20 +19,15 @@ import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:watch_it/watch_it.dart';
 
-// Define constants for Firestore database locations
 const daucompsPath = '/AllDAUComps';
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
-
   final _db = FirebaseDatabase.instance.ref();
-
   late StreamSubscription<DatabaseEvent> _daucompsStream;
-
-  final String _defaultDAUCompDbKey;
-  String get defaultDAUCompDbKey => _defaultDAUCompDbKey;
-
-  late String _selectedDAUCompDbKey;
+  String? _activeDAUCompDbKey;
+  DAUComp? _activeDAUComp;
+  DAUComp? get activeDAUComp => _activeDAUComp;
 
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp => _selectedDAUComp;
@@ -49,47 +44,80 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
 
-  ScoresViewModel? scoresViewModel;
+  GamesViewModel? gamesViewModel;
+  ScoresViewModel? tipperScoresViewModel;
+  TipsViewModel? tipperTipsViewModel;
 
   ItemScrollController itemScrollController = ItemScrollController();
-
   final Map<String, dynamic> updates = {};
 
-  DAUCompsViewModel(this._defaultDAUCompDbKey) {
-    _selectedDAUCompDbKey = _defaultDAUCompDbKey;
-    init();
+  DAUCompsViewModel(this._activeDAUCompDbKey) {
+    _init();
   }
 
-  Future<void> init() async {
+  Future<void> _init() async {
     _listenToDAUComps();
+    await initialLoadComplete;
+    if (_activeDAUCompDbKey != null) {
+      DAUComp? comp = await findComp(_activeDAUCompDbKey!);
+      if (comp != null) {
+        await changeSelectedDAUComp(comp.dbkey!, true);
+      }
+    }
     _fixtureUpdateTrigger();
   }
 
-  void _setSelectedDAUComp(DAUComp? daucomp) {
-    _selectedDAUComp = daucomp;
-    notifyListeners();
-  }
-
-  void setDefaultDAUCompDbKey(String newDefaultDAUCompDbKey) {
-    _selectedDAUCompDbKey = newDefaultDAUCompDbKey;
-    notifyListeners();
-  }
-
-  void changeCurrentDAUComp(String newDAUCompDbkey) async {
-    _selectedDAUCompDbKey = newDAUCompDbkey;
+  Future<void> changeSelectedDAUComp(
+      String newDAUCompDbkey, bool changingActiveComp) async {
     _selectedDAUComp = await findComp(newDAUCompDbkey);
-    _resetViewModels();
+    if (_selectedDAUComp == null) {
+      log('Cannot find DAUComp with dbkey: $newDAUCompDbkey');
+      return;
+    }
+    if (changingActiveComp) {
+      _activeDAUCompDbKey = newDAUCompDbkey;
+      _activeDAUComp = _selectedDAUComp;
+    }
+
+    await _initializeAndResetViewModels();
     notifyListeners();
   }
 
-  void _resetViewModels() {
+  Future<void> selectedTipperChanged() async {
+    await _initializeAndResetViewModels();
+    notifyListeners();
+  }
+
+  bool isSelectedCompActiveComp() {
+    return _selectedDAUComp == _activeDAUComp;
+  }
+
+  Future<void> _initializeAndResetViewModels() async {
+    if (di<DAUCompsViewModel>()._selectedDAUComp == null) {
+      log('Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+      return;
+    }
+
+    await initialLoadComplete;
     di.registerLazySingleton<ScoresViewModel>(
         () => ScoresViewModel(_selectedDAUComp!));
-    scoresViewModel = di<ScoresViewModel>();
-    di.registerLazySingleton<GamesViewModel>(
-        () => GamesViewModel(_selectedDAUComp!));
-    di.registerLazySingleton<TipsViewModel>(() => TipsViewModel(
-        di<TippersViewModel>(), _selectedDAUCompDbKey, di<GamesViewModel>()));
+
+    gamesViewModel = GamesViewModel(_selectedDAUComp!);
+
+    await di<TippersViewModel>().isUserLinked;
+    Tipper currentTipper = di<TippersViewModel>().selectedTipper!;
+
+    tipperTipsViewModel = TipsViewModel.forTipper(
+        di<TippersViewModel>(),
+        di<DAUCompsViewModel>().selectedDAUComp!,
+        gamesViewModel!,
+        currentTipper);
+    tipperTipsViewModel!.addListener(_otherViewModelUpdated);
+
+    gamesViewModel!.addListener(_otherViewModelUpdated);
+
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.addListener(_otherViewModelUpdated);
   }
 
   void _listenToDAUComps() {
@@ -98,7 +126,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
-      log('***DAUCompsViewModel_handleEvent()***');
+      log('DAUCompsViewModel_handleEvent()');
       if (event.snapshot.exists) {
         final allDAUComps =
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
@@ -127,7 +155,6 @@ class DAUCompsViewModel extends ChangeNotifier {
             if (existingDAUComp != databaseDAUComp) {
               existingDAUCompsMap[key] = databaseDAUComp;
               log('Updated DAUComp from database: $key');
-              await linkGameWithRounds(databaseDAUComp, di<GamesViewModel>());
             }
           } else {
             existingDAUCompsMap[key] = databaseDAUComp;
@@ -152,7 +179,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  void _setRoundState(DAURound round) {
+  void _initRoundState(DAURound round) {
     if (round.games.isEmpty) {
       round.roundState = RoundState.noGames;
       log('Round ${round.dAUroundNumber} has no games. Check the fixture data and date ranges for each round.');
@@ -184,31 +211,34 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _fixtureUpdateTrigger() async {
     await initialLoadComplete;
 
-    DAUComp? selectedDAUComp = await getCurrentDAUComp();
-    if (selectedDAUComp == null) {
-      log('Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+    if (_selectedDAUComp == null) {
+      log('_fixtureUpdateTrigger() Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
       return;
     }
 
-    DateTime? lastUpdate =
-        selectedDAUComp.lastFixtureUpdateTimestamp ?? DateTime.utc(2021, 1, 1);
+    DateTime? lastUpdate = _selectedDAUComp!.lastFixtureUpdateTimestamp ??
+        DateTime.utc(2021, 1, 1);
     Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
 
     log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
     await Future.delayed(timeUntilNewDay);
     log('Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
 
-    if (selectedDAUComp.lastFixtureUpdateTimestamp == lastUpdate ||
-        selectedDAUComp.lastFixtureUpdateTimestamp == null) {
-      log('Starting fixture update for comp: ${selectedDAUComp.name}');
-      await getNetworkFixtureData(selectedDAUComp, di<GamesViewModel>());
+    if (_selectedDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
+        _selectedDAUComp!.lastFixtureUpdateTimestamp == null) {
+      log('Starting fixture update for comp: ${_selectedDAUComp!.name}');
+      await getNetworkFixtureData(_selectedDAUComp!);
+
+      if (_selectedDAUComp!.dbkey == _activeDAUCompDbKey) {
+        log("starting sync with legacy");
+        await syncTipsWithLegacy(_selectedDAUComp!, null);
+      }
     } else {
-      log('Fixture update has already been triggered for comp: ${selectedDAUComp.name}. Skipping');
+      log('Fixture update has already been triggered for comp: ${_selectedDAUComp!.name}. Skipping');
     }
   }
 
-  Future<String> getNetworkFixtureData(
-      DAUComp daucompToUpdate, GamesViewModel? gamesViewModel) async {
+  Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
       return 'Fixture data is already downloading';
@@ -218,6 +248,12 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     _isDownloading = true;
     notifyListeners();
+
+    // if the comp being updated is not the active comp then we need to reset the viewmodels
+    if (daucompToUpdate.dbkey != _activeDAUCompDbKey) {
+      log('getNetworkFixtureData() Changing selected comp to ${daucompToUpdate.name}');
+      await changeSelectedDAUComp(daucompToUpdate.dbkey!, false);
+    }
 
     FixtureDownloadService fetcher = FixtureDownloadService();
 
@@ -229,21 +265,38 @@ class DAUCompsViewModel extends ChangeNotifier {
       List<dynamic> nrlGames = fixtures['nrlGames']!;
       List<dynamic> aflGames = fixtures['aflGames']!;
 
-      await Future.wait(_processGames(nrlGames, aflGames, gamesViewModel));
+      await Future.wait(_processGames(nrlGames, aflGames));
       await gamesViewModel!.saveBatchOfGameAttributes();
+
+      // tag each game with the league
+      for (var game in nrlGames) {
+        game['league'] = 'nrl';
+      }
+      for (var game in aflGames) {
+        game['league'] = 'afl';
+      }
+
+      List<dynamic> allGames = nrlGames + aflGames;
+
       await _updateRoundStartEndTimesBasedOnFixture(
-          daucompToUpdate, gamesViewModel);
+          daucompToUpdate, gamesViewModel!, allGames);
 
       String res =
           'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
       FirebaseAnalytics.instance.logEvent(
           name: 'fixture_update',
-          parameters: {'comp': selectedDAUComp!.name, 'result': res});
+          parameters: {'comp': daucompToUpdate.name, 'result': res});
 
-      selectedDAUComp!.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
-      updateCompAttribute(selectedDAUComp!.dbkey!, 'lastFixtureUpdateTimestamp',
-          selectedDAUComp!.lastFixtureUpdateTimestamp!.toIso8601String());
+      daucompToUpdate.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
+      updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUpdateTimestamp',
+          daucompToUpdate.lastFixtureUpdateTimestamp!.toIso8601String());
       await saveBatchOfCompAttributes();
+
+      // if the comp being updated is not the active comp then we need to reset the viewmodels back
+      if (daucompToUpdate.dbkey != _activeDAUCompDbKey) {
+        log('getNetworkFixtureData() Changing selected comp back to $_activeDAUCompDbKey');
+        await changeSelectedDAUComp(_activeDAUCompDbKey!, true);
+      }
 
       return res;
     } catch (e) {
@@ -255,8 +308,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> syncTipsWithLegacy(DAUComp daucompToUpdate,
-      GamesViewModel gamesViewModel, Tipper? onlySyncThisTipper) async {
+  Future<String> syncTipsWithLegacy(
+      DAUComp daucompToUpdate, Tipper? onlySyncThisTipper) async {
     await initialLoadComplete;
 
     _isLegacySyncing = true;
@@ -266,8 +319,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       LegacyTippingService tippingService =
           GetIt.instance<LegacyTippingService>();
       TippersViewModel tippersViewModel = di<TippersViewModel>();
-      TipsViewModel allTipsViewModel = TipsViewModel(
-          tippersViewModel, daucompToUpdate.dbkey!, gamesViewModel);
+      TipsViewModel allTipsViewModel =
+          TipsViewModel(tippersViewModel, daucompToUpdate, gamesViewModel!);
 
       await tippingService.initialized();
       String res;
@@ -290,12 +343,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateRoundStartEndTimesBasedOnFixture(
-      DAUComp daucomp, GamesViewModel gamesViewModel) async {
+  Future<void> _updateRoundStartEndTimesBasedOnFixture(DAUComp daucomp,
+      GamesViewModel gamesViewModel, List<dynamic> rawGames) async {
     await initialLoadComplete;
 
-    List<Game> games = await gamesViewModel.getGames();
-    Map<String, List<Game>> groups = _groupGamesByLeagueAndRound(games);
+    Map<String, List<Map<dynamic, dynamic>>> groups =
+        _groupGamesByLeagueAndRound(rawGames.cast<Map<dynamic, dynamic>>());
     List<Map<String, Object>?> sortedGameGroups =
         _sortGameGroupsByStartTimeThenMatchNumber(groups);
 
@@ -305,21 +358,27 @@ class DAUCompsViewModel extends ChangeNotifier {
         daucomp);
   }
 
-  Map<String, List<Game>> _groupGamesByLeagueAndRound(List<Game> games) {
-    return groupBy(games, (Game g) => '${g.league}-${g.roundNumber}');
+  Map<String, List<Map<dynamic, dynamic>>> _groupGamesByLeagueAndRound(
+      List<Map<dynamic, dynamic>> games) {
+    return groupBy(
+        games,
+        (Map<dynamic, dynamic> rawGame) =>
+            '${rawGame["league"]}-${rawGame["RoundNumber"]}');
   }
 
-  Map<String, DateTime> _calculateStartEndTimes(List<Game> games) {
-    var minStartTime = games
-        .map((g) => g.startTimeUTC)
+  Map<String, DateTime> _calculateStartEndTimes(
+      List<Map<dynamic, dynamic>> rawGames) {
+    var minStartTime = rawGames
+        .map((rawGame) => DateTime.parse(rawGame["DateUtc"]))
         .reduce((a, b) => a.isBefore(b) ? a : b);
-    var maxStartTime =
-        games.map((g) => g.startTimeUTC).reduce((a, b) => a.isAfter(b) ? a : b);
+    var maxStartTime = rawGames
+        .map((rawGame) => DateTime.parse(rawGame["DateUtc"]))
+        .reduce((a, b) => a.isAfter(b) ? a : b);
     return {'minStartTime': minStartTime, 'maxStartTime': maxStartTime};
   }
 
   List<Map<String, Object>?> _sortGameGroupsByStartTimeThenMatchNumber(
-      Map<String, List<Game>> groups) {
+      Map<String, List<Map<dynamic, dynamic>>> groups) {
     return groups.entries
         .map((e) {
           if (e.value.isEmpty) return null;
@@ -332,10 +391,9 @@ class DAUCompsViewModel extends ChangeNotifier {
         int startTimeCompare = (a!['minStartTime'] as DateTime)
             .compareTo(b!['minStartTime'] as DateTime);
         if (startTimeCompare == 0) {
-          return (a['games'] as List<Game>)
-              .first
-              .matchNumber
-              .compareTo((b['games'] as List<Game>).first.matchNumber);
+          return (a['games'] as List<Map>)
+              .first['MatchNumber']
+              .compareTo((b['games'] as List<Map>).first['MatchNumber']);
         }
         return startTimeCompare;
       });
@@ -345,30 +403,29 @@ class DAUCompsViewModel extends ChangeNotifier {
       List<Map<String, dynamic>> sortedGameGroups) {
     List<DAURound> combinedRounds = [];
     for (var group in sortedGameGroups) {
-      List<Game> games = group['games'] as List<Game>;
-      DateTime minStartTime = group['minStartTime'] as DateTime;
-      DateTime maxStartTime = group['maxStartTime'] as DateTime;
-
+      // given two consecutive groups A and B in sortedGameGroups,
+      // if A's minStartTime or A's maxStartTime is between B's minStartTime and B's minStartTime,
+      // then A and B are in the same combined round
       if (combinedRounds.isEmpty) {
         combinedRounds.add(DAURound(
             dAUroundNumber: combinedRounds.length + 1,
-            roundStartDate: minStartTime,
-            roundEndDate: maxStartTime)
-          ..games = games);
+            roundStartDate: group['minStartTime'] as DateTime,
+            roundEndDate: group['maxStartTime'] as DateTime,
+            games: []));
       } else {
         DAURound lastRound = combinedRounds.last;
-        DateTime lastRoundMaxStartTime = lastRound.games
-            .map((g) => g.startTimeUTC)
-            .reduce((a, b) => a.isAfter(b) ? a : b);
-
-        if (minStartTime.isBefore(lastRoundMaxStartTime)) {
-          lastRound.games.addAll(games);
+        // Assuming 'isSameMomentAs' is a function that checks if two DateTime objects represent the same moment.
+        bool isSameMomentAs(DateTime a, DateTime b) => a.isAtSameMomentAs(b);
+        if (lastRound.roundEndDate.isAfter(group['minStartTime'] as DateTime) ||
+            isSameMomentAs(
+                lastRound.roundEndDate, group['minStartTime'] as DateTime)) {
+          lastRound.roundEndDate = group['maxStartTime'] as DateTime;
         } else {
           combinedRounds.add(DAURound(
               dAUroundNumber: combinedRounds.length + 1,
-              roundStartDate: minStartTime,
-              roundEndDate: maxStartTime)
-            ..games = games);
+              roundStartDate: group['minStartTime'] as DateTime,
+              roundEndDate: group['maxStartTime'] as DateTime,
+              games: []));
         }
       }
     }
@@ -377,25 +434,18 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _updateDatabaseWithCombinedRounds(
       List<DAURound> combinedRounds, DAUComp daucomp) async {
+    log('In _updateDatabaseWithCombinedRounds()');
     for (var i = 0; i < combinedRounds.length; i++) {
-      var minStartTime = combinedRounds[i]
-          .games
-          .map((g) => g.startTimeUTC)
-          .reduce((a, b) => a.isBefore(b) ? a : b);
-      var maxStartTime = combinedRounds[i]
-          .games
-          .map((g) => g.startTimeUTC)
-          .reduce((a, b) => a.isAfter(b) ? a : b);
-
-      if (_selectedDAUComp!.daurounds[i].roundStartDate != minStartTime ||
-          _selectedDAUComp!.daurounds[i].roundEndDate != maxStartTime) {
+      // only update if daurounds is empty or the dates have changed
+      if (daucomp.daurounds.isEmpty ||
+          daucomp.daurounds[i].roundStartDate !=
+              combinedRounds[i].roundStartDate ||
+          daucomp.daurounds[i].roundEndDate != combinedRounds[i].roundEndDate) {
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(minStartTime).toString()}Z');
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
         updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(maxStartTime).toString()}Z');
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
       }
-
-      _setRoundState(combinedRounds[i]);
     }
 
     await saveBatchOfCompAttributes();
@@ -403,13 +453,13 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> linkGameWithRounds(
       DAUComp daucompToUpdate, GamesViewModel gamesViewModel) async {
-    log('In updateDAUCompWithCombinedRoundsAndGames()');
+    log('In daucompsviewmodel.linkGameWithRounds()');
 
     await initialLoadComplete;
 
     for (var round in daucompToUpdate.daurounds) {
       round.games = await gamesViewModel.getGamesForRound(round);
-      _setRoundState(round);
+      _initRoundState(round);
     }
   }
 
@@ -440,6 +490,11 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> saveBatchOfCompAttributes() async {
+    // check if there are any updates to save
+    if (updates.isEmpty) {
+      log('No DAUComp updates to save');
+      return;
+    }
     await initialLoadComplete;
     log('Saving batch of ${updates.length} DAUComp database updates');
     await _db.update(updates);
@@ -452,29 +507,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _daucomps;
   }
 
-  Future<DAUComp> getCompWithScores() async {
-    await initialLoadComplete;
-
-    ScoresViewModel? tipperScoresViewModel = di<ScoresViewModel>();
-    List<DAURound> listOfRounds = _selectedDAUComp!.daurounds;
-
-    await Future.wait(listOfRounds.map((round) async {
-      round.roundScores =
-          await tipperScoresViewModel.getTipperConsolidatedScoresForRound(
-              round, di<TippersViewModel>().selectedTipper!);
-    }));
-
-    return _selectedDAUComp!;
-  }
-
   Future<List<DAURound>> getCombinedRounds() async {
     await initialLoadComplete;
     return _selectedDAUComp!.daurounds;
   }
 
   Future<Map<League, List<Game>>> sortGamesIntoLeagues(
-      DAURound combinedRound, GamesViewModel gamesViewModel) async {
+      DAURound combinedRound) async {
     await initialLoadComplete;
+    await gamesViewModel!.initialLoadComplete;
 
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
@@ -488,8 +529,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    nrlGames.sort((a, b) => a.matchNumber.compareTo(b.matchNumber));
-    aflGames.sort((a, b) => a.matchNumber.compareTo(b.matchNumber));
+    nrlGames.sort();
+    aflGames.sort();
 
     return {League.nrl: nrlGames, League.afl: aflGames};
   }
@@ -499,7 +540,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     await initialLoadComplete;
 
     Map<League, List<Game>> gamesForCombinedRoundNumber =
-        await sortGamesIntoLeagues(combinedRound, di<GamesViewModel>());
+        await sortGamesIntoLeagues(combinedRound);
 
     List<Game> filteredNrlGames = gamesForCombinedRoundNumber[League.nrl]!;
     List<Game> filteredAflGames = gamesForCombinedRoundNumber[League.afl]!;
@@ -513,32 +554,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     return defaultRoundNrlTips + defaultRoundAflTips;
   }
 
-  Future<DAUComp?> getCurrentDAUComp() async {
-    DAUComp? daucomp = await findComp(_selectedDAUCompDbKey);
-    _setSelectedDAUComp(daucomp);
-    return daucomp;
+  void _otherViewModelUpdated() {
+    notifyListeners();
   }
 
-  void turnOffListener() {
-    _daucompsStream.cancel();
-  }
-
-  void turnOnListener() {
-    _listenToDAUComps();
-  }
-
-  @override
-  void dispose() {
-    _daucompsStream.cancel();
-    super.dispose();
-  }
-
-  List<Future> _processGames(List<dynamic> nrlGames, List<dynamic> aflGames,
-      GamesViewModel? gamesViewModel) {
+  List<Future> _processGames(List<dynamic> nrlGames, List<dynamic> aflGames) {
     List<Future> gamesFuture = [];
 
-    void processGames(List games, League league) {
-      for (var gamejson in games) {
+    void processGames(List<dynamic> games, League league) {
+      for (var gamejson in games.cast<Map<dynamic, dynamic>>()) {
         String dbkey =
             '${league.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
         for (var attribute in gamejson.keys) {
@@ -552,5 +576,18 @@ class DAUCompsViewModel extends ChangeNotifier {
     processGames(aflGames, League.afl);
 
     return gamesFuture;
+  }
+
+  @override
+  void dispose() {
+    _daucompsStream.cancel();
+    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
+
+    gamesViewModel?.removeListener(_otherViewModelUpdated);
+
+    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
+
+    super.dispose();
   }
 }

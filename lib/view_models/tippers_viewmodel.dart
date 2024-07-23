@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -55,6 +56,9 @@ class TippersViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
+  final Completer<void> _isUserLinked = Completer<void>();
+  get isUserLinked => _isUserLinked.future;
+
   bool createLinkedTipper;
 
   //constructor
@@ -63,9 +67,9 @@ class TippersViewModel extends ChangeNotifier {
     _listenToTippers();
   }
 
-  void handleFirebaseServiceChange() {
+  void _handleFirebaseServiceChange() {
     if (!kIsWeb) {
-      registerLinkedTipperForMessaging();
+      _registerLinkedTipperForMessaging();
     }
   }
 
@@ -79,6 +83,7 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> _handleEvent(DatabaseEvent event) async {
     if (event.snapshot.exists) {
+      log('Tippers db Listener called');
       List<Tipper?> tippersList = Tipper.fromJsonList(event.snapshot.value);
 
       _tippers =
@@ -103,10 +108,8 @@ class TippersViewModel extends ChangeNotifier {
   Future<List<Tipper>> getActiveTippers(DAUComp thisComp) async {
     await _initialLoadCompleter.future;
     // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
-    // that matched the current comp
-    return _tippers
-        .where((tipper) => tipper.activeInComp(thisComp.dbkey!))
-        .toList();
+    // that matched the supplied comp
+    return _tippers.where((tipper) => tipper.activeInComp(thisComp)).toList();
   }
 
   final Map<String, dynamic> updates = {};
@@ -127,9 +130,10 @@ class TippersViewModel extends ChangeNotifier {
       return;
     }
 
-    // if the attribute name is deviceTokens store the token in another tree
-    // this is to avoid the need to update the entire tipper record every time a new token is added
-    // this is due to firebase billing
+    // the Tipper serialisation relies on daucompsviewmodel being ready
+    // so we need to wait for it to be ready before we can update the tipper
+
+    await di<DAUCompsViewModel>().initialLoadComplete;
 
     dynamic oldValue = tipperToUpdate.toJson()[attributeName];
     if (attributeValue != oldValue) {
@@ -155,7 +159,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Tipper?> findTipperByUid(String authuid) async {
+  Future<Tipper?> _findTipperByUid(String authuid) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbyuid($authuid)');
       await _initialLoadCompleter.future;
@@ -165,7 +169,7 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.authuid == authuid);
   }
 
-  Future<Tipper?> findTipperByEmail(String email) async {
+  Future<Tipper?> _findTipperByEmail(String email) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbyemail($email)');
       await _initialLoadCompleter.future;
@@ -174,7 +178,7 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
   }
 
-  Future<Tipper?> findTipperByLogon(String logon) async {
+  Future<Tipper?> _findTipperByLogon(String logon) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbylogon($logon)');
       await _initialLoadCompleter.future;
@@ -183,7 +187,7 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.logon == logon);
   }
 
-  Future<Tipper?> findTipperByLegayTipperID(String tipperId) async {
+  Future<Tipper?> _findTipperByLegayTipperID(String tipperId) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findTipperByLegayTipperID($tipperId)');
       await _initialLoadCompleter.future;
@@ -238,11 +242,11 @@ class TippersViewModel extends ChangeNotifier {
       await Future.forEach(legacyTippers.skip(1), (legacyTipper) async {
         // if the Tipper does not exist in the Firebase database, add it
         Tipper? existingTipper =
-            await findTipperByLegayTipperID(legacyTipper.tipperID);
+            await _findTipperByLegayTipperID(legacyTipper.tipperID);
         if (existingTipper == null) {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the Firebase database, adding it');
           // newTipper() will create a new db key for the new record and return a modified Tipper object with the new db key
-          await createNewTipper(legacyTipper);
+          await _createNewTipper(legacyTipper);
         } else {
           log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
 
@@ -287,7 +291,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> createNewTipper(
+  Future<void> _createNewTipper(
     Tipper newTipper,
   ) async {
     await _initialLoadCompleter.future;
@@ -303,7 +307,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  bool isValidEmail(String? email) {
+  bool _isValidEmail(String? email) {
     if (email == null) {
       return false;
     }
@@ -324,7 +328,7 @@ class TippersViewModel extends ChangeNotifier {
 
     try {
       // first try finding the tipper based on authuid
-      foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
+      foundTipper = await _findTipperByUid(authenticatedFirebaseUser.uid);
 
       if (foundTipper != null) {
         log('linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
@@ -335,7 +339,7 @@ class TippersViewModel extends ChangeNotifier {
             foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
 
         // check if tipper.email is a valid email address, if not make it the sane as logon
-        if (!isValidEmail(foundTipper.email)) {
+        if (!_isValidEmail(foundTipper.email)) {
           await updateTipperAttribute(
               foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);
         }
@@ -344,7 +348,7 @@ class TippersViewModel extends ChangeNotifier {
       } else {
         // if that fails, try finding the tipper based on logon email
         foundTipper ??=
-            await findTipperByLogon(authenticatedFirebaseUser.email!);
+            await _findTipperByLogon(authenticatedFirebaseUser.email!);
 
         if (foundTipper != null) {
           log('linkUserToTipper() Tipper ${foundTipper.name} found using logon: ${authenticatedFirebaseUser.email}. Updating UID in database');
@@ -363,7 +367,7 @@ class TippersViewModel extends ChangeNotifier {
         } else {
           // try finding using email address
           foundTipper =
-              await findTipperByEmail(authenticatedFirebaseUser.email!);
+              await _findTipperByEmail(authenticatedFirebaseUser.email!);
 
           if (foundTipper != null) {
             log('linkUserToTipper() Tipper ${foundTipper.name} found using email: ${authenticatedFirebaseUser.email}');
@@ -385,6 +389,9 @@ class TippersViewModel extends ChangeNotifier {
         // in god mode this can be changed
         _selectedTipper = foundTipper;
         userIsLinked = true;
+        if (!_isUserLinked.isCompleted) {
+          _isUserLinked.complete();
+        }
 
         //update photoURL if it has changed
         if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
@@ -394,7 +401,7 @@ class TippersViewModel extends ChangeNotifier {
         }
 
         if (!kIsWeb) {
-          await registerLinkedTipperForMessaging();
+          await _registerLinkedTipperForMessaging();
         }
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
@@ -418,7 +425,7 @@ class TippersViewModel extends ChangeNotifier {
           compsParticipatedIn: [], // do not assign tippers created this way to any comps
         );
 
-        await createNewTipper(newTipper);
+        await _createNewTipper(newTipper);
 
         await saveBatchOfTipperAttributes();
         log('linkUserToTipper() Tipper ${newTipper.dbkey} created for user ${authenticatedFirebaseUser.email}');
@@ -426,6 +433,9 @@ class TippersViewModel extends ChangeNotifier {
         _authenticatedTipper = newTipper;
         _selectedTipper = newTipper;
         userIsLinked = true;
+        if (!_isUserLinked.isCompleted) {
+          _isUserLinked.complete();
+        }
       }
 
       return userIsLinked;
@@ -440,7 +450,7 @@ class TippersViewModel extends ChangeNotifier {
 
   // DeviceTokens are stored in another tree in db
   // this is to keep firebase billing low/nil
-  Future<void> registerLinkedTipperForMessaging() async {
+  Future<void> _registerLinkedTipperForMessaging() async {
     // loop through any existing device tokens for this tipper, if the token
     // does not exist, add it, otherwise update the timestamp for the existing token
     if (!_initialLoadCompleter.isCompleted) {
@@ -463,8 +473,8 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   //this is the callback method when there are changes in the FBM token
-  Future<void> updateFbmToken() async {
-    await registerLinkedTipperForMessaging();
+  Future<void> _updateFbmToken() async {
+    await _registerLinkedTipperForMessaging();
   }
 
   // method to delete acctount
@@ -557,5 +567,3 @@ class TippersViewModel extends ChangeNotifier {
     return foundTipper;
   }
 }
-
-class Log {}
