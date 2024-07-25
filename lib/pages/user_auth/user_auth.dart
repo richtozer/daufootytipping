@@ -294,7 +294,7 @@ class LoginErrorScreen extends StatelessWidget {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (context) => UserAuthPage(
-                        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
+                        null,
                         isUserLoggingOut: true,
                       ),
                     ),
