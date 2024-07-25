@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -12,6 +14,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -23,22 +26,15 @@ Future<void> main() async {
 
   await dotenv.load(fileName: "./dotenv"); // Loads .env file
 
-  // if (kIsWeb) {
-  //   bool ready = await GRecaptchaV3.ready(
-  //       "6LfmjfUlAAAAAF0dxFR_6L4BerFoRLEA3iCDxhlI",
-  //       showBadge: true);
-  //   log("Is Recaptcha ready? $ready");
-  // }
+  if (kIsWeb) {
+    bool ready = await GRecaptchaV3.ready(
+        "6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E",
+        showBadge: true);
+    log("Is Recaptcha ready? $ready");
+  }
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  FirebaseDatabase database = FirebaseDatabase.instance;
-  if (kDebugMode) {
-    database.useDatabaseEmulator('localhost', 8000);
-  } else {
-    database.setPersistenceEnabled(true);
-  }
 
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(
@@ -47,13 +43,24 @@ Future<void> main() async {
       webProvider:
           ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
-    // } else {
-    //   await FirebaseAppCheck.instance.activate(
-    //     androidProvider: AndroidProvider.debug,
-    //     appleProvider: AppleProvider.debug,
-    //     webProvider:
-    //         ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
-    //   );
+  } else {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.debug,
+      appleProvider: AppleProvider.debug,
+      webProvider:
+          ReCaptchaV3Provider('6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'),
+    );
+  }
+
+  FirebaseDatabase database = FirebaseDatabase.instance;
+  if (kDebugMode) {
+    database.useDatabaseEmulator('localhost', 8000);
+  } else {
+    if (!kIsWeb) {
+      database.setPersistenceEnabled(true);
+    } else {
+      database.setPersistenceEnabled(false);
+    }
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
@@ -111,7 +118,22 @@ class MyApp extends StatelessWidget {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: UserAuthPage(configMinAppVersion),
+      home: LayoutBuilder(
+        builder: (context, constraints) {
+          // Set the maximum width of the app
+          const maxWidth = 500.0; // Adjust this value as needed
+          // Calculate the width to be used, ensuring it does not exceed maxWidth
+          final width =
+              constraints.maxWidth > maxWidth ? maxWidth : constraints.maxWidth;
+
+          return Center(
+            child: SizedBox(
+              width: width,
+              child: UserAuthPage(configMinAppVersion),
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -60,7 +60,8 @@ class _GameListItemState extends State<GameListItem> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
             ),
-            color: Colors.lightGreen[100],
+            color: Colors.white70,
+            surfaceTintColor: League.nrl.colour,
             child: Row(children: [
               Padding(
                 padding: const EdgeInsets.all(0.0),
