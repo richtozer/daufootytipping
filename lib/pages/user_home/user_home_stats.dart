@@ -9,74 +9,58 @@ class StatsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Orientation orientation = MediaQuery.of(context).orientation;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          orientation == Orientation.portrait
-              ? const HeaderWidget(
-                  text: 'S t a t s',
-                  leadingIconAvatar: Hero(
-                      tag: 'stats',
-                      child: Icon(Icons.auto_graph,
-                          color: Colors.white, size: 40)))
-              : const Text(style: TextStyle(color: Colors.white), 'Stats'),
-          Expanded(
-            child: Card(
-              margin: const EdgeInsets.all(10),
-              child: ListView(
-                children: <Widget>[
-                  ListTile(
-                    leading: const Hero(
-                        tag: 'trophy', child: Icon(Icons.emoji_events)),
-                    trailing: const Icon(Icons.arrow_forward),
-                    title: const Text('Comp Leaderboard'),
-                    onTap: () {
-                      // Navigate to the comp leaderboard
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const StatCompLeaderboard()),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading:
-                        const Hero(tag: 'person', child: Icon(Icons.person_3)),
-                    trailing: const Icon(Icons.arrow_forward),
-                    title: const Text('Round winners & leaderboards'),
-                    onTap: () {
-                      // Navigate to the round winners
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const StatRoundWinners()),
-                      );
-                    },
-                  ),
-                ],
+    return Column(
+      children: <Widget>[
+        orientation == Orientation.portrait
+            ? const HeaderWidget(
+                text: 'S t a t s',
+                leadingIconAvatar: Hero(
+                    tag: 'stats',
+                    child: Icon(Icons.auto_graph,
+                        color: Colors.black54, size: 40)))
+            : const Text(style: TextStyle(color: Colors.white), 'Stats'),
+        Card(
+          margin: const EdgeInsets.all(4),
+          child: Column(
+            children: <Widget>[
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  leading: const Hero(
+                      tag: 'trophy', child: Icon(Icons.emoji_events)),
+                  trailing: const Icon(Icons.arrow_forward),
+                  title: const Text('Comp Leaderboard'),
+                  onTap: () {
+                    // Navigate to the comp leaderboard
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const StatCompLeaderboard()),
+                    );
+                  },
+                ),
               ),
-            ),
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  leading:
+                      const Hero(tag: 'person', child: Icon(Icons.person_3)),
+                  trailing: const Icon(Icons.arrow_forward),
+                  title: const Text('Round winners & leaderboards'),
+                  onTap: () {
+                    // Navigate to the round winners
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const StatRoundWinners()),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  //@override
-  Widget build2(BuildContext context) {
-    // home page for all stats
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Stats'),
-      ),
-      body: const Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Stats'),
-          StatCompLeaderboard(),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

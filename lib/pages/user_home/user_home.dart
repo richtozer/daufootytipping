@@ -40,22 +40,21 @@ class _HomePageState extends State<HomePage> {
     List<Widget> destinationContent = content();
 
     Widget scaffold = Stack(children: [
-      Column(
-        children: [
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: Image.asset(
-              //'assets/teams/daulogo-grass.jpg',
-              'assets/teams/grass with scoreboard.png',
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height,
-              fit: BoxFit.fill,
-            ),
-          ),
-        ],
+      ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: Image.asset(
+          'assets/teams/grass with scoreboard.png',
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height,
+          fit: BoxFit.fill,
+        ),
       ),
       Scaffold(
-        backgroundColor: Colors.transparent,
+        // switch background if in dark mode
+        backgroundColor:
+            MediaQuery.of(context).platformBrightness != Brightness.dark
+                ? Colors.white54
+                : Colors.black54,
         body: Center(
           child: (destinationContent[_currentIndex]),
         ),

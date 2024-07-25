@@ -53,8 +53,22 @@ class TipsTabState extends State<TipsTab> {
 
     if (daucompsViewModel.selectedDAUComp == null) {
       log('TipsPageBody.build() selectedDAUComp is null');
-      return const Center(
-        child: Text('Nothing to see here. Contact a DAU admin.'),
+      return Center(
+        child: SizedBox(
+          height: 75,
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            color: Colors.black38,
+            child: const Center(
+              child: Text(
+                'Nothing to see here. Contact a DAU Admin.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ),
+        ),
       );
     }
 
@@ -76,10 +90,10 @@ class TipsTabState extends State<TipsTab> {
             initialAlignment:
                 0.15, // peek at the last game in the previous round
             // Increase itemCount by 1 to account for the final "end of competition" item
-            itemCount:
-                daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
-                        4 +
-                    1,
+            itemCount: daucompsViewmodelConsumer
+                        .selectedDAUComp!.daurounds.length *
+                    4 +
+                1, // 4 items per round plus 1 for the end of competition card
             itemBuilder: (context, index) {
               // Check if this is the last item
               if (index ==
