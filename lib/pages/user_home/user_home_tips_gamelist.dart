@@ -70,7 +70,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8.0),
                 ),
-                color: Colors.grey[300],
+                color: Colors.white70,
                 child: Center(
                   child: Text(
                       'No ${widget.league.name.toUpperCase()} games this round'),

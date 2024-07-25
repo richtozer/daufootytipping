@@ -74,8 +74,7 @@ class _GameListItemState extends State<GameListItem> {
                         widget.game.homeTeam.name,
                         textAlign: TextAlign.left,
                         style: const TextStyle(
-                          fontSize:
-                              16.0, // Adjust this value to make the text bigger or smaller
+                          fontSize: 16.0,
                         ),
                       ),
                       Row(
