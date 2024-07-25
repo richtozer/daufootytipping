@@ -5,7 +5,8 @@ class HeaderWidget extends StatelessWidget {
   final String text;
   final Widget leadingIconAvatar;
 
-  const HeaderWidget({super.key, required this.text, required this.leadingIconAvatar});
+  const HeaderWidget(
+      {super.key, required this.text, required this.leadingIconAvatar});
 
   @override
   Widget build(BuildContext context) {

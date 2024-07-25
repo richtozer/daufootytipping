@@ -92,13 +92,16 @@ class TipsTabState extends State<TipsTab> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
                     ),
-                    color: Colors.grey[300],
+                    color: Colors.black38,
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Icon(Icons.flag, color: Colors.black),
-                        Text('End of the competition'),
-                        Icon(Icons.flag, color: Colors.black),
+                        Icon(Icons.flag, color: Colors.white70),
+                        Text(
+                          'End of the competition',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                        Icon(Icons.flag, color: Colors.white70),
                       ],
                     ),
                   ),
@@ -204,96 +207,88 @@ class TipsTabState extends State<TipsTab> {
     } else {
       roundScores = null; // Or assign a default value if appropriate.
     }
-    return Stack(
-      children: [
-        ListTile(
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 300,
-                child: Card(
-                  color: Colors.black26,
-                  //shadowColor: League.nrl.colour,
-                  surfaceTintColor: League.nrl.colour,
-                  //elevation: 5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      children: [
-                        Text(
-                            style: const TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold),
-                            'R o u n d: ${dauRound.dAUroundNumber} ${leagueHeader.name.toUpperCase()}'),
-                        dauRound.roundState != RoundState.notStarted
-                            ? Text(
-                                style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.bold),
-                                'Score: ${leagueHeader == League.afl ? roundScores?.aflScore : roundScores?.nrlScore} / ${leagueHeader == League.afl ? roundScores?.aflMaxScore : roundScores?.nrlMaxScore}')
-                            : const SizedBox.shrink(),
-                        dauRound.roundState != RoundState.notStarted
-                            ? Text(
-                                style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.bold),
-                                'Margins/ups: ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips} / ${leagueHeader == League.afl ? roundScores?.aflMarginUPS : roundScores?.nrlMarginUPS}')
-                            : Text(
-                                style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.bold),
-                                'Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginTips ?? 0 : roundScores?.nrlMarginTips ?? 0} '),
-                        dauRound.roundState != RoundState.notStarted
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontWeight: FontWeight.bold),
-                                      'Rank: ${roundScores?.rank}  '),
-                                  roundScores == null
+    return Card(
+      color: Colors.black54,
+      //shadowColor: League.nrl.colour,
+      surfaceTintColor: League.nrl.colour,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Column(
+              children: [
+                const Text('Round',
+                    style: const TextStyle(
+                        color: Colors.white70, fontWeight: FontWeight.bold)),
+                Text('${dauRound.dAUroundNumber}',
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 30)),
+              ],
+            ),
+            Column(
+              children: [
+                dauRound.roundState != RoundState.notStarted
+                    ? Text(
+                        style: const TextStyle(
+                            color: Colors.white70, fontWeight: FontWeight.bold),
+                        'Score: ${leagueHeader == League.afl ? roundScores?.aflScore : roundScores?.nrlScore} / ${leagueHeader == League.afl ? roundScores?.aflMaxScore : roundScores?.nrlMaxScore}')
+                    : const SizedBox.shrink(),
+                dauRound.roundState != RoundState.notStarted
+                    ? Text(
+                        style: const TextStyle(
+                            color: Colors.white70, fontWeight: FontWeight.bold),
+                        'Margins/ups: ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips} / ${leagueHeader == League.afl ? roundScores?.aflMarginUPS : roundScores?.nrlMarginUPS}')
+                    : Text(
+                        style: const TextStyle(
+                            color: Colors.white70, fontWeight: FontWeight.bold),
+                        'Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginTips ?? 0 : roundScores?.nrlMarginTips ?? 0} '),
+                dauRound.roundState != RoundState.notStarted
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                              style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.bold),
+                              'Rank: ${roundScores?.rank}  '),
+                          roundScores == null
+                              ? const Icon(
+                                  Icons.question_mark,
+                                  color: Colors.grey,
+                                )
+                              : roundScores.rankChange > 0
+                                  ? const Icon(
+                                      color: Colors.green, Icons.arrow_upward)
+                                  : roundScores.rankChange < 0
                                       ? const Icon(
-                                          Icons.question_mark,
-                                          color: Colors.grey,
-                                        )
-                                      : roundScores.rankChange > 0
-                                          ? const Icon(
-                                              color: Colors.green,
-                                              Icons.arrow_upward)
-                                          : roundScores.rankChange < 0
-                                              ? const Icon(
-                                                  color: Colors.red,
-                                                  Icons.arrow_downward)
-                                              : const Icon(
-                                                  color: Colors.green,
-                                                  Icons.sync_alt),
-                                  Text(
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontWeight: FontWeight.bold),
-                                      '${roundScores?.rankChange}'),
-                                ],
-                              )
-                            : const SizedBox.shrink(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SvgPicture.asset(
-                leagueHeader.logo,
-                width: logoWidth,
-                height: logoHeight,
-              ),
-            ],
-          ),
+                                          color: Colors.red,
+                                          Icons.arrow_downward)
+                                      : const Icon(
+                                          color: Colors.green, Icons.sync_alt),
+                          Text(
+                              style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.bold),
+                              '${roundScores?.rankChange}'),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ],
+            ),
+            SvgPicture.asset(
+              leagueHeader.logo,
+              width: logoWidth,
+              height: logoHeight,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

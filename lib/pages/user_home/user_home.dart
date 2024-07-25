@@ -43,8 +43,7 @@ class _HomePageState extends State<HomePage> {
       Column(
         children: [
           ImageFiltered(
-            //imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+            imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: Image.asset(
               //'assets/teams/daulogo-grass.jpg',
               'assets/teams/grass with scoreboard.png',
