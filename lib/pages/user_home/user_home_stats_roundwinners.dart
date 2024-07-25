@@ -78,8 +78,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                           text: 'Round Winners',
                           leadingIconAvatar: Hero(
                               tag: 'person',
-                              child: Icon(Icons.person,
-                                  color: Colors.white, size: 50)),
+                              child: Icon(Icons.person, size: 40)),
                         )
                       : const Text('Round Winners'),
                   Expanded(
