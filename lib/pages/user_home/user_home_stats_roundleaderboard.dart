@@ -95,8 +95,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                     text: 'Round ${widget.roundNumberToDisplay} Leaderboard',
                     leadingIconAvatar: const Hero(
                         tag: 'one_two_three',
-                        child: Icon(Icons.onetwothree,
-                            color: Colors.white, size: 50)),
+                        child: Icon(Icons.onetwothree, size: 50)),
                   )
                 : Text('Round ${widget.roundNumberToDisplay} Leaderboard'),
             Expanded(

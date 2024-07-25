@@ -26,7 +26,7 @@ class HeaderWidget extends StatelessWidget {
                 child: Text(
                   text,
                   style: const TextStyle(
-                      color: Colors.black54,
+                      //color: Colors.black54,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),

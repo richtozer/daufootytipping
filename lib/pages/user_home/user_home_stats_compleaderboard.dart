@@ -79,8 +79,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                     text: 'C o m p   L e a d e r b o a r d',
                     leadingIconAvatar: Hero(
                       tag: 'trophy',
-                      child: Icon(Icons.emoji_events,
-                          color: Colors.white, size: 50),
+                      child: Icon(Icons.emoji_events, size: 40),
                     ),
                   )
                 : Container(), // Return an empty container in landscape mode
