@@ -236,7 +236,7 @@ class TipsTabState extends State<TipsTab> {
             Column(
               children: [
                 const Text('Round',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.white70, fontWeight: FontWeight.bold)),
                 Text('${dauRound.dAUroundNumber}',
                     style: const TextStyle(

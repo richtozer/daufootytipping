@@ -730,9 +730,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               );
             }
           } finally {
-            setState(() {
-              disableBack = false;
-            });
+            if (context.mounted) {
+              setState(() {
+                disableBack = false;
+              });
+            }
           }
         },
         child: Text(!scoresViewModel.isScoring ? 'Rescore' : 'Scoring...'),
