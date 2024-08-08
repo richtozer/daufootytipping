@@ -1,6 +1,6 @@
 Key source code locations:
 
-- /lib/src - Mobile app
+- /lib - Mobile app
 - /functions/src - Serverless firebase functions
 
 The main flow of data is:
