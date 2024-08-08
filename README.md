@@ -1,3 +1,8 @@
+Source code locations:
+
+- /lib/src - Mobile app
+- /functions/src - Serverless firebase functions
+
 Link to icon generator:
 
 https://icon.kitchen/i/H4sIAAAAAAAAAz2QTW%2FDIAyG%2F4t3zSHpxzrl2sOuk9bbNE0QG4JGQgSkVVXlv9emaTmAeW2%2FPPgGZ%2BVnStDeAFX8P%2FU0ELRG%2BUQVGHu6TnyFzrtJxQwiHdeYOxLxAUhGzV6SrgsjC2kKMae%2FOFt9haUCbY%2FBh8iZt12nzL7m0iwP4eslrdDSq%2Bq9PuCH5iptv3v1IHCx81SklclGhY7GFerZasoq2pdCdKMV0BwmaJu6guhsz8wS6pBzGB6xJ1PUAvv5NObGTnwbMaZNQ9uGjYu0EamucXeQz6jRMlvbbPcLOwwBZy8j%2FeEExuBQRhMS7xfS8LvcAYr7GUB1AQAA
