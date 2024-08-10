@@ -655,17 +655,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                 ),
               );
             }
-
-            di<LegacyTippingService>().syncRoundScoresToLegacy();
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text(syncResult),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
