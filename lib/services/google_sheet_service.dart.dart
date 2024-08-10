@@ -325,7 +325,12 @@ class LegacyTippingService {
           8 - dauRound.games.where((game) => game.league == League.nrl).length;
     }
 
-    assert(gameIndex != -1);
+    // if gameIndex is -1, then the game is not in the round
+    // throw an error with more context
+    if (gameIndex == -1) {
+      throw Exception(
+          'Game ${tipGame.game.dbkey} is not in round ${dauRound.dAUroundNumber}. There are ${dauRound.games.length} games in the round.');
+    }
 
     defaultRoundTips = defaultRoundTips.replaceRange(
         gameIndex, gameIndex + 1, tipGame.tip.name);
@@ -349,75 +354,6 @@ class LegacyTippingService {
     numInsertedRows = appTipsData.length;
 
     log('Legacy sheet ${appTipsSheet.title} data loaded in app. Found $numInsertedRows rows.');
-  }
-
-  Future<void> syncRoundScoresToLegacy() async {
-    await initialized();
-
-    final Worksheet roundScoresSheet =
-        spreadsheet.worksheetByTitle('AppScores')!;
-
-    // final List<List<String?>> roundScoresData =
-    //     await roundScoresSheet.values.allRows();
-
-    await roundScoresSheet.clear();
-
-    numInsertedRows = 0;
-
-    await roundScoresSheet.values.insertRow(
-        1,
-        [
-          'DAU Round',
-          'Name',
-          'Margin Picks',
-          'Margin UPS',
-          'NRL Score',
-          'AFL Score',
-          'Total Score'
-        ],
-        fromColumn: 1);
-
-    numInsertedRows++;
-
-    List<Tipper> activeTippers = await di<TippersViewModel>()
-        .getActiveTippers(di<DAUCompsViewModel>().selectedDAUComp!);
-
-    Map<Tipper, Map<int, RoundScores>> roundScores =
-        di<ScoresViewModel>().allTipperRoundScores;
-
-    int highestRoundNumber = di<DAUCompsViewModel>()
-        .selectedDAUComp!
-        .getHighestRoundNumberWithAllGamesPlayed();
-
-    int maxLen = activeTippers
-        .map((tipper) => highestRoundNumber)
-        .reduce((a, b) => a > b ? a : b);
-
-    List<List<Object>> rows = [];
-
-    for (int i = 0; i < maxLen; i++) {
-      for (Tipper tipper in activeTippers) {
-        Map<int, RoundScores> tipperRoundScores = roundScores[tipper]!;
-        if (i < tipperRoundScores.length) {
-          rows.add([
-            i + 1,
-            tipper.name,
-            (tipperRoundScores[i]!.aflMarginTips +
-                    tipperRoundScores[i]!.nrlMarginTips)
-                .toString(),
-            (tipperRoundScores[i]!.aflMarginUPS +
-                    tipperRoundScores[i]!.nrlMarginUPS)
-                .toString(),
-            tipperRoundScores[i]!.nrlScore.toString(),
-            tipperRoundScores[i]!.aflScore.toString(),
-            (tipperRoundScores[i]!.nrlScore + tipperRoundScores[i]!.aflScore)
-                .toString(),
-          ]);
-        }
-      }
-    }
-
-    await roundScoresSheet.values.appendRows(rows, fromColumn: 1);
   }
 }
 
