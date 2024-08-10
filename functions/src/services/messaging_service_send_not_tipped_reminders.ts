@@ -12,7 +12,6 @@ export const sendHourlyReminders =
     const now = new Date().toISOString()
       .replace("T", " ")
       .slice(0, -5) + "Z";
-    // Calculate three hours from now and format it
     const threeHoursFromNow = new Date(new Date()
       .getTime() + 3 * 60 * 60 * 1000).toISOString()
       .replace("T", " ")
@@ -61,44 +60,50 @@ export const sendHourlyReminders =
       tippersWithTokens = tokensSnapshot.val();
     }
 
+    const tippersRef = database().ref("/AllTippers");
+    const tippersSnapshot = await tippersRef.once("value");
+    const tippers = tippersSnapshot.val();
+
     const reminders: Reminder[] = [];
 
     for (const tipperId in tippersWithTokens) {
       if (Object.prototype.hasOwnProperty.call(tippersWithTokens, tipperId)) {
-        const tokens = tippersWithTokens[tipperId];
+        const tipper = tippers[tipperId];
+        if (tipper.compsParticipatedIn && tipper.compsParticipatedIn
+          .includes(compDBKey)) {
+          const tokens = tippersWithTokens[tipperId];
+          let gamesNotTipped = 0;
 
-        // track the number of games not tipped for the badge count
-        let gamesNotTipped = 0;
+          for (const gameKey of gameKeys) {
+            const tipRef = database()
+              .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
+            const tipSnapshot = await tipRef.once("value");
 
-        for (const gameKey of gameKeys) {
-          const tipRef = database()
-            .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
-          const tipSnapshot = await tipRef.once("value");
+            if (!tipSnapshot.exists()) {
+              gamesNotTipped++;
+              const homeTeamLongName = games[gameKey].HomeTeam;
+              const awayTeamLongName = games[gameKey].AwayTeam;
 
-          if (!tipSnapshot.exists()) {
-            gamesNotTipped++;
-            const homeTeamLongName = games[gameKey].HomeTeam;
-            const awayTeamLongName = games[gameKey].AwayTeam;
+              const homeTeam = teams[`${gameKey
+                .substring(0, 3)}-${homeTeamLongName}`]?.name ||
+                homeTeamLongName;
+              const awayTeam = teams[`${gameKey
+                .substring(0, 3)}-${awayTeamLongName}`]?.name ||
+                awayTeamLongName;
+              console
+                .log(`Tipper ${tipperId} no tip: ${homeTeam} v ${awayTeam}.`);
 
-            const homeTeam = teams[`${gameKey
-              .substring(0, 3)}-${homeTeamLongName}`]?.name ||
-              homeTeamLongName;
-            const awayTeam = teams[`${gameKey
-              .substring(0, 3)}-${awayTeamLongName}`]?.name ||
-              awayTeamLongName;
-            console
-              .log(`Tipper ${tipperId} no tip: ${homeTeam} v ${awayTeam}.`);
-
-            for (const tokenKey in tokens) {
-              if (Object.prototype.hasOwnProperty.call(tokens, tokenKey)) {
-                reminders.push({
-                  tipperId: tipperId,
-                  token: tokenKey,
-                  homeTeam: homeTeam,
-                  awayTeam: awayTeam,
-                  gameStartTimeUTC: new Date(games[gameKey].DateUtc),
-                  gamesNotTipped: gamesNotTipped,
-                });
+              for (const tokenKey in tokens) {
+                if (Object.prototype.hasOwnProperty.call(tokens, tokenKey)) {
+                  reminders.push({
+                    tipperId: tipperId,
+                    token: tokenKey,
+                    homeTeam: homeTeam,
+                    awayTeam: awayTeam,
+                    gameStartTimeUTC: new Date(games[gameKey].DateUtc),
+                    gamesNotTipped: gamesNotTipped,
+                  });
+                }
               }
             }
           }
@@ -140,9 +145,10 @@ export const sendHourlyReminders =
         try {
           await getMessaging().send(message);
           console.log("Reminder sent to:", reminder.tipperId);
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("Error sending reminder to:", reminder.token, error);
-          if (error.code === "messaging/registration-token-not-registered") {
+          if (error instanceof Error && error.message
+            .includes("registration-token-not-registered")) {
             console.log("Removing invalid token:", reminder.token);
             await tokensRef
               .child(`/${reminder.tipperId}/${reminder.token}`).remove();

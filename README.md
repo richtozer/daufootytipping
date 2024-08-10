@@ -1,51 +1,57 @@
-Link to icon generator:
+DAU Footy Tipping
+=================
+DAU Footy Tipping is a Flutter application designed to manage and display footy tipping competitions. This README provides an overview of the project structure and its dependencies to help developers get started with the project.
 
-https://icon.kitchen/i/H4sIAAAAAAAAAz2QTW%2FDIAyG%2F4t3zSHpxzrl2sOuk9bbNE0QG4JGQgSkVVXlv9emaTmAeW2%2FPPgGZ%2BVnStDeAFX8P%2FU0ELRG%2BUQVGHu6TnyFzrtJxQwiHdeYOxLxAUhGzV6SrgsjC2kKMae%2FOFt9haUCbY%2FBh8iZt12nzL7m0iwP4eslrdDSq%2Bq9PuCH5iptv3v1IHCx81SklclGhY7GFerZasoq2pdCdKMV0BwmaJu6guhsz8wS6pBzGB6xJ1PUAvv5NObGTnwbMaZNQ9uGjYu0EamucXeQz6jRMlvbbPcLOwwBZy8j%2FeEExuBQRhMS7xfS8LvcAYr7GUB1AQAA
+Project Structure
+=================
+The project is organized into the following main directories and files:
 
-https://icon.kitchen/i/H4sIAAAAAAAAAz2QTU%2FDMAyG%2F4u57tD1A6be0JC4IjFOCCHnsxFpUyUpaJr637Gzbjkk8eP49Rtf4Bf9ohP0F1AYf06DHjX0Bn3SOzD2dJ4pBOndjDEDo%2BN2p4qk6QClDS6ek06GiUCaQ8zpOy5WnGHdgbDH4EOkzEMr0XQVPc3cSN07CVSWG708f1CyRPeax%2BpJHQRj%2Bz7g1Y%2BL0uuCNoc2onJ62izeSk1Zhb2hUm6ybDuHGfpqB9HZgT6w70gn5BzG691rU2hx%2FnrTpTrJsnvWbZquq2vSLahmdBCyaZEQTpas9W23ksAY1OJ5vJ%2FEVQxO8ZhCov1PC%2Fha%2FwEwOupmgQEAAA%3D%3D
+Key Directories and Files
+lib/: Contains the main Dart code for the application, including models, view models, and UI components.
+assets/: Stores static assets such as images and fonts.
+android/, ios/, linux/, macos/, web/, windows/: Platform-specific code and configurations.
+functions/: Contains Firebase Cloud Functions.
+pubspec.yaml: Defines the project's dependencies and environment settings.
+firebase.json: Firebase configuration file.
+dotenv: Environment variables for the project.
+analysis_options.yaml: Linter rules for Dart code analysis.
 
+Dependencies
+============
+The project relies on several dependencies, which are specified in the pubspec.yaml file. Here are some of the key dependencies:
 
-curl -X PUT -d '{ "rules": { ".read": true } }' https://dau-footy-tipping-f8a42-default-rtdb.firebaseio.com/.settings/rules.json?auth=FIREBASE_SECRET
+firebase_core: Core Firebase SDK for Flutter.
+firebase_database: Firebase Realtime Database plugin for Flutter.
+provider: State management library for Flutter.
+flutter_localizations: Provides localizations for Flutter.
+http: A composable, Future-based library for making HTTP requests.
+intl: Provides internationalization and localization facilities.
+Example pubspec.yaml
 
-Useful links:
-
-Integrate Firebase Realtime with Google sheets
-https://gist.github.com/CodingDoug/44ad12f4836e79ca9fa11ba5af6955f7
-
-Firestore provider model is based on the examples in this good Youtube tutorial:
-
+This is a useful video to get up to speed on how the Firebase Realtime Database is used in this project:
 https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
 
-==========================================
+Legacy integration with Google sheets is based on this example:
 
-https://docs.flutter.dev/data-and-backend/state-mgmt/simple
+https://gist.github.com/CodingDoug/44ad12f4836e79ca9fa11ba5af6955f7
 
-! Provider CheatSheet
+Getting Started
+===============
+To get started with the project, follow these steps:
 
-// Step 1: Create Model class
-class Counter extends ChangeNotifier {
-  int count = 0;
+Clone the repository:
 
-  void increase() {
-    count++;
-    notifyListeners();
-  }
-}
+Install dependencies:
 
-// Step 2: Wrap root widget in MultiProvider, Also initialise Counter() here
-MultiProvider(
-  providers: [
-    ChangeNotifierProvider(create: (_) => Counter()),
-  ],
-  child: MaterialApp(),
-)
+Set up Firebase:
 
-// Step 3: Read value
-final count = Provider.of<Counter>(context).count;
+Add your Firebase configuration files (google-services.json for Android and GoogleService-Info.plist for iOS) to the respective platform directories.
+Run the application:
 
-// Step 4: Write value
-Provider.of<Counter>(context, listen: false).increase();
+Contributing
+============
+Contributions are welcome! Please open an issue or submit a pull request if you have any improvements or bug fixes.
 
-
-
-
+License
+=======
+This project is licensed under the MIT License. See the LICENSE file for more details.
