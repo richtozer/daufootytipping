@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:carousel_slider/carousel_controller.dart';
+import 'package:carousel_slider/carousel_controller.dart' as carousel_slider;
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tipgame.dart';
@@ -35,7 +35,8 @@ class GameTipsViewModel extends ChangeNotifier {
 
   int currentIndex = 0;
 
-  final CarouselController _controller = CarouselController();
+  final carousel_slider.CarouselController _controller =
+      carousel_slider.CarouselController();
   get controller => _controller;
 
   //constructor
