@@ -1,7 +1,6 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
