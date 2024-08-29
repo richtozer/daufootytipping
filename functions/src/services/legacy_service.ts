@@ -41,20 +41,38 @@ export const submitLegacyTips = functions
           );
         }
 
-        // Get a list of gameDbKey's from the new location in the database
-        const roundsRef = admin.database()
-          .ref(`DAUComps/${dauCompDbKey}/combinedRounds`);
-        const roundsSnapshot = await roundsRef.once("value");
+        // get the round start and end times from
+        // /AllDAUComps/compDBKey/combinedRounds/dauRound
+        const roundRef = admin.database()
+          .ref(`/AllDAUComps/${dauCompDbKey}/combinedRounds/${dauRound - 1}`);
+        const roundSnapshot = await roundRef.once("value");
 
-        if (!roundsSnapshot.exists()) {
-          const msg = `Error, no rounds found for dauCompDbKey ${dauCompDbKey}`;
+        if (!roundSnapshot.exists()) {
+          const msg = `Error, no round  found
+              for dauCompDbKey ${dauCompDbKey}`;
           functions.logger.error(msg);
           throw new Error(msg);
         }
 
-        // Get the list of game keys for the round
-        const gameKeys = roundsSnapshot
-          .val()[dauRound - 1]; // Subtract 1 because array indices are 0-based
+        // grab the round start and end times
+        const roundStartDate = roundSnapshot.val().roundStartDate;
+        const roundEndDate = roundSnapshot.val().roundEndDate;
+
+        if (!roundStartDate || !roundEndDate) {
+          const msg = `Error, no round start or end date found
+              for dauCompDbKey ${dauCompDbKey}`;
+          functions.logger.error(msg);
+          throw new Error(msg);
+        }
+
+        // get the games for the round
+        const gamesRef = admin.database()
+          .ref(`DAUCompsGames/${dauCompDbKey}`)
+          .orderByChild("DateUtc")
+          .startAt(roundStartDate)
+          .endAt(roundEndDate);
+        const gamesSnapshot = await gamesRef.once("value");
+        const gameKeys = Object.keys(gamesSnapshot.val());
 
         if (!gameKeys) {
           const msg = `Error, no games found for dauRound ${dauRound}`;
@@ -74,6 +92,8 @@ export const submitLegacyTips = functions
               league: gameKey.substring(0, 3),
               matchNumber: gameSnapshot.val().MatchNumber,
               startTime: gameSnapshot.val().DateUtc,
+              homeTeam: gameSnapshot.val().HomeTeam,
+              awayTeam: gameSnapshot.val().AwayTeam,
             });
           }
         }
@@ -139,7 +159,8 @@ export const submitLegacyTips = functions
           if (tips[tipIndex] !== "z" && tips[tipIndex] !== "D") {
             functions.logger.info(
               `About to submit tip [${tips[tipIndex]}] at ` +
-              `index ${tipIndex} for game ${game.dbKey}`
+              `index ${tipIndex} for game ${game.dbKey} -' +
+              ' ${game.homeTeam} vs ${game.awayTeam}`
             );
             await tipsRef.update({
               gameResult: tips[tipIndex],
