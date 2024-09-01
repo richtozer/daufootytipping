@@ -59,18 +59,12 @@ class TippersViewModel extends ChangeNotifier {
   final Completer<void> _isUserLinked = Completer<void>();
   get isUserLinked => _isUserLinked.future;
 
-  bool createLinkedTipper;
+  final bool _createLinkedTipper;
 
   //constructor
-  TippersViewModel(this.createLinkedTipper) {
+  TippersViewModel(this._createLinkedTipper) {
     log('TippersViewModel() constructor called');
     _listenToTippers();
-  }
-
-  void _handleFirebaseServiceChange() {
-    if (!kIsWeb) {
-      _registerLinkedTipperForMessaging();
-    }
   }
 
   // monitor changes to tippers records in DB and notify listeners of any changes
@@ -406,7 +400,7 @@ class TippersViewModel extends ChangeNotifier {
       } else {
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
 
-        if (createLinkedTipper == false) {
+        if (_createLinkedTipper == false) {
           log('linkUserToTipper() createLinkedTipper is false, not creating a new tipper');
           return false;
         }
@@ -479,9 +473,9 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   //this is the callback method when there are changes in the FBM token
-  Future<void> _updateFbmToken() async {
-    await _registerLinkedTipperForMessaging();
-  }
+  // Future<void> _updateFbmToken() async {
+  //   await _registerLinkedTipperForMessaging();
+  // }
 
   // method to delete acctount
   void deleteAccount() async {

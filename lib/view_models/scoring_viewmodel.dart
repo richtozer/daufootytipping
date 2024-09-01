@@ -19,7 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
 // Define constants for Firestore database location
-const scoresPathRoot = '/AllScores';
+const scoresPathRoot = '/Scores';
 const roundScoresRoot = 'round_scores';
 const liveScoresRoot = 'live_scores';
 
@@ -38,6 +38,7 @@ class ScoresViewModel extends ChangeNotifier {
 
   bool _isScoring = false;
   bool get isScoring => _isScoring;
+  bool _isCompOrWinnerOrRankScoring = false;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
   Future<void> get initialLiveScoreLoadComplete =>
@@ -83,6 +84,11 @@ class ScoresViewModel extends ChangeNotifier {
             dbData.entries.map((entry) async {
           Tipper? tipper = await di<TippersViewModel>().findTipper(entry.key);
           if (tipper != null) {
+            //entry.value should be a list of RoundScores, if not, log and skip
+            if (entry.value is! List<dynamic>) {
+              log('_handleEventRoundScores() Tipper ${entry.key} has invalid data in round_scores. Skipping.');
+              return null;
+            }
             var list = entry.value as List<dynamic>;
             Map<int, RoundScores> scores = {
               for (int i = 0; i < list.length; i++)
@@ -111,6 +117,18 @@ class ScoresViewModel extends ChangeNotifier {
         _initialRoundLoadCompleted.complete();
       }
 
+      //check if updateScoring is in progress, if so, skip the following steps
+      if (_isScoring) {
+        return;
+      }
+
+      if (_isCompOrWinnerOrRankScoring) {
+        return;
+      } else {
+        log('ScoresViewModel: _handleEventRoundScores() - Scoring not in progress, updating leaderboard and round winners');
+        _isCompOrWinnerOrRankScoring = true;
+      }
+
       // update the leaderboard
       await _updateLeaderboardForComp();
       // Update the round winners
@@ -120,12 +138,14 @@ class ScoresViewModel extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      log('Error listening to /AllScores/round_scores: $e');
+      log('Error listening to /Scores/round_scores: $e');
 
       if (!_initialRoundLoadCompleted.isCompleted) {
         _initialRoundLoadCompleted.complete();
       }
       rethrow;
+    } finally {
+      _isCompOrWinnerOrRankScoring = false;
     }
   }
 
@@ -155,7 +175,7 @@ class ScoresViewModel extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      log('Error listening to /AllScores/live_scores: $e');
+      log('Error listening to /Scores/live_scores: $e');
       rethrow;
     } finally {
       if (!_initialLiveScoreLoadCompleter.isCompleted) {

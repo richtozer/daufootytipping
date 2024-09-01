@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
-
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:flutter/material.dart';
@@ -17,9 +16,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // are they participating in the current comp, if not, they can't see the tips or stats
   int _currentIndex = 0;
-  bool activeInComp = false;
 
   void onTabTapped(int index) {
     setState(() {
@@ -31,69 +28,23 @@ class _HomePageState extends State<HomePage> {
     return [
       const TipsTab(),
       const StatsTab(),
-      Profile(), // Display profile and settings for the logged on tipper
+      Profile(),
     ];
+  }
+
+  int _calculateCurrentIndex(
+      DAUCompsViewModel dauCompsViewModel, TippersViewModel tippersViewModel) {
+    if (dauCompsViewModel.activeDAUComp == null ||
+        !tippersViewModel.selectedTipper!
+            .activeInComp(dauCompsViewModel.activeDAUComp)) {
+      return 2; // Default to profile page if no comp is active or tipper is not active in comp
+    }
+    return _currentIndex;
   }
 
   @override
   Widget build(BuildContext context) {
     List<Widget> destinationContent = content();
-
-    Widget scaffold = Stack(children: [
-      ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: Image.asset(
-          'assets/teams/grass with scoreboard.png',
-          width: MediaQuery.of(context).size.width,
-          height: MediaQuery.of(context).size.height,
-          fit: BoxFit.fill,
-        ),
-      ),
-      Scaffold(
-        // switch background if in dark mode
-        backgroundColor:
-            MediaQuery.of(context).platformBrightness != Brightness.dark
-                ? Colors.white54
-                : Colors.black54,
-        body: Center(
-          child: (destinationContent[_currentIndex]),
-        ),
-        bottomNavigationBar: NavigationBar(
-          indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          onDestinationSelected: (int index) {
-            onTabTapped(index);
-          },
-          selectedIndex: _currentIndex,
-          height: 60,
-          destinations: [
-            NavigationDestination(
-              enabled: di<TippersViewModel>()
-                  .selectedTipper!
-                  .activeInComp(di<DAUCompsViewModel>().activeDAUComp),
-              icon: activeInComp == false
-                  ? const Icon(Icons.sports_rugby)
-                  : const Icon(Icons.sports_rugby_outlined),
-              label: 'T  I  P  S',
-            ),
-            NavigationDestination(
-              enabled: di<TippersViewModel>()
-                  .selectedTipper!
-                  .activeInComp(di<DAUCompsViewModel>().activeDAUComp),
-              icon: activeInComp == false
-                  ? const Icon(Icons.auto_graph)
-                  : const Icon(Icons.auto_graph_outlined),
-              label: 'S  T  A  T  S',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.person),
-              label: 'P  R  O  F  I  L  E',
-            ),
-          ],
-        ),
-      )
-    ]);
 
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
       value: di<DAUCompsViewModel>(),
@@ -103,19 +54,64 @@ class _HomePageState extends State<HomePage> {
             builder: (context, dauCompsViewModelConsumer, child) {
           return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-            activeInComp = tippersViewModelConsumer.selectedTipper!
+            _currentIndex = _calculateCurrentIndex(
+                dauCompsViewModelConsumer, tippersViewModelConsumer);
+
+            bool isTipperActiveInComp = tippersViewModelConsumer.selectedTipper!
                 .activeInComp(dauCompsViewModelConsumer.activeDAUComp);
 
-            if (dauCompsViewModelConsumer.activeDAUComp == null) {
-              _currentIndex = 2; // default to profile page if no comp is active
-            }
+            Widget scaffold = Stack(children: [
+              ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                child: Image.asset(
+                  'assets/teams/grass with scoreboard.png',
+                  width: MediaQuery.of(context).size.width,
+                  height: MediaQuery.of(context).size.height,
+                  fit: BoxFit.fill,
+                ),
+              ),
+              Scaffold(
+                backgroundColor:
+                    MediaQuery.of(context).platformBrightness != Brightness.dark
+                        ? Colors.white54
+                        : Colors.black54,
+                body: Center(
+                  child: (destinationContent[_currentIndex]),
+                ),
+                bottomNavigationBar: NavigationBar(
+                  indicatorShape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  onDestinationSelected: (int index) {
+                    onTabTapped(index);
+                  },
+                  selectedIndex: _currentIndex,
+                  height: 60,
+                  destinations: [
+                    NavigationDestination(
+                      enabled: isTipperActiveInComp,
+                      icon: isTipperActiveInComp
+                          ? const Icon(Icons.sports_rugby)
+                          : const Icon(Icons.sports_rugby_outlined),
+                      label: 'T  I  P  S',
+                    ),
+                    NavigationDestination(
+                      enabled: isTipperActiveInComp,
+                      icon: isTipperActiveInComp
+                          ? const Icon(Icons.auto_graph)
+                          : const Icon(Icons.auto_graph_outlined),
+                      label: 'S  T  A  T  S',
+                    ),
+                    const NavigationDestination(
+                      icon: Icon(Icons.person),
+                      label: 'P  R  O  F  I  L  E',
+                    ),
+                  ],
+                ),
+              )
+            ]);
 
-            if (activeInComp == false) {
-              _currentIndex =
-                  2; // default to profile page for non-participants for this year
-            }
             if (tippersViewModelConsumer.inGodMode) {
-              // display a god mode banner
               return Banner(
                 message: tippersViewModelConsumer.selectedTipper!.name,
                 location: BannerLocation.bottomStart,
@@ -128,9 +124,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               );
             } else if (!dauCompsViewModelConsumer.isSelectedCompActiveComp()) {
-              //display a previous comp banner
-              // using regex extract a 4 digit year from the comp name,
-              // if none is found use the full comp name
               String compYear = dauCompsViewModelConsumer.selectedDAUComp!.name;
               RegExp regExp = RegExp(r'\d{4}');
               Match? match = regExp.firstMatch(compYear);

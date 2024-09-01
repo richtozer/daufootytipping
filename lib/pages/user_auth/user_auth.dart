@@ -14,30 +14,40 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
-class UserAuthPage extends StatelessWidget {
+class UserAuthPage extends StatefulWidget {
   final String? configMinAppVersion;
-
   final bool isUserLoggingOut;
   final bool isUserDeletingAccount;
 
-  final String clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
-  final PackageInfoService packageInfoService =
-      GetIt.instance<PackageInfoService>();
-
-  UserAuthPage(this.configMinAppVersion,
+  const UserAuthPage(this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
       this.isUserDeletingAccount = false});
 
+  @override
+  UserAuthPageState createState() => UserAuthPageState();
+}
+
+class UserAuthPageState extends State<UserAuthPage> {
+  final String clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
+  final PackageInfoService packageInfoService =
+      GetIt.instance<PackageInfoService>();
+  //late Future<bool> _linkUserToTipperFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    //_linkUserToTipperFuture = _linkUserToTipper();
+  }
+
   Future<bool> isClientVersionOutOfDate() async {
-    //skip version check if the configMinAppVersion is null
-    if (configMinAppVersion == null) {
+    if (widget.configMinAppVersion == null) {
       return false;
     }
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
     List<String> currentVersionParts = packageInfo.version.split('.');
-    List<String> newVersionParts = configMinAppVersion!.split('.');
+    List<String> newVersionParts = widget.configMinAppVersion!.split('.');
 
     for (int i = 0; i < newVersionParts.length; i++) {
       int currentPart = int.parse(currentVersionParts[i]);
@@ -50,11 +60,18 @@ class UserAuthPage extends StatelessWidget {
       }
     }
 
-    // If we get to this point, the versions are equal
     return false;
   }
 
-  // method to log user out
+  Future<bool> _linkUserToTipper() async {
+    User? authenticatedFirebaseUser = FirebaseAuth.instance.currentUser;
+    if (authenticatedFirebaseUser == null) {
+      return false;
+    }
+    TippersViewModel tippersViewModel = di<TippersViewModel>();
+    return await tippersViewModel.linkUserToTipper();
+  }
+
   void signOut() async {
     await FirebaseAuth.instance.signOut();
   }
@@ -62,10 +79,9 @@ class UserAuthPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
-    if (isUserLoggingOut) {
+    if (widget.isUserLoggingOut) {
       signOut();
       log('UserAuthPage.build() - user signed out');
-      // return to the main app
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
@@ -74,7 +90,7 @@ class UserAuthPage extends StatelessWidget {
         );
       });
     }
-    if (isUserDeletingAccount) {
+    if (widget.isUserDeletingAccount) {
       di<TippersViewModel>().deleteAccount();
       log('UserAuthPage.build() - user deleted account');
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -90,8 +106,6 @@ class UserAuthPage extends StatelessWidget {
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, authSnapshot) {
-          // check if the current app version is lower than the value set in
-          // remote config, if so, force the user to update the app
           return FutureBuilder<bool>(
             future: isClientVersionOutOfDate(),
             builder: (context, versionSnapshot) {
@@ -100,7 +114,6 @@ class UserAuthPage extends StatelessWidget {
                     child: CircularProgressIndicator(color: League.afl.colour));
               }
               if (versionSnapshot.data == true) {
-                //,
                 return const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -175,7 +188,6 @@ class UserAuthPage extends StatelessWidget {
                 );
               }
 
-              //once we pass signin we have a firebase auth user context
               User? authenticatedFirebaseUser = authSnapshot.data;
               if (authenticatedFirebaseUser == null) {
                 return const LoginErrorScreen(
@@ -193,19 +205,12 @@ class UserAuthPage extends StatelessWidget {
                         'Your email is not verified. Please contact daufootytipping@gmail.com');
               }
 
-              //at this point we have a verfied logged on user - as we send them
-              //to the home page, make sure they are represented in the realtime database
-              // as a tipper linked to their firebase auth record,
-              //if not create a Tipper record for them.
-
               FirebaseAnalytics.instance.logLogin(
                   loginMethod:
                       authenticatedFirebaseUser.providerData[0].providerId);
 
-              TippersViewModel tippersViewModel = di<TippersViewModel>();
-
               return FutureBuilder<bool>(
-                future: tippersViewModel.linkUserToTipper(),
+                future: _linkUserToTipper(),
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
@@ -220,12 +225,10 @@ class UserAuthPage extends StatelessWidget {
                         errorMessage:
                             'Unexpected null from linkUserToTipper. Contact daufootytipping@gmail.com');
                   } else {
-                    // snapshot.data will be true if there is an existing tipper record, otherwise false
                     if (snapshot.data == false) {
-                      // display an error if no tipper record is found
                       return LoginErrorScreen(
                           errorMessage:
-                              'No tipper record found for login: ${authenticatedFirebaseUser.email}. Contact daufootytipping@gmail.com');
+                              'No tipper record found for login: ${authenticatedFirebaseUser.email}.\n\nContact daufootytipping@gmail.com to have your login associated with your existing tipper record.');
                     }
 
                     return const HomePage();
@@ -292,7 +295,7 @@ class LoginErrorScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
-                      builder: (context) => UserAuthPage(
+                      builder: (context) => const UserAuthPage(
                         null,
                         isUserLoggingOut: true,
                       ),

@@ -50,7 +50,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                               child: SizedBox(
                                 width: 250,
                                 child: Text(
-                                  'You are not active in any competition. Contact daufootytipping@gmail.com.',
+                                  '${tippersViewModelConsumer.authenticatedTipper?.logon} is not active in any competition. Contact daufootytipping@gmail.com.',
                                   textAlign: TextAlign.center,
                                   style:
                                       Theme.of(context).textTheme.titleMedium,
@@ -155,7 +155,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                         onPressed: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) => UserAuthPage(
+                              builder: (context) => const UserAuthPage(
                                 null,
                                 isUserLoggingOut: true,
                               ),
@@ -192,7 +192,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                       Navigator.of(context).pop();
                                       Navigator.of(context).pushReplacement(
                                         MaterialPageRoute(
-                                          builder: (context) => UserAuthPage(
+                                          builder: (context) => const UserAuthPage(
                                             null,
                                             isUserDeletingAccount: true,
                                           ),
