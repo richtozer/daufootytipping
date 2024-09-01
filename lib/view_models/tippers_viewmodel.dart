@@ -462,12 +462,18 @@ class TippersViewModel extends ChangeNotifier {
     // wait for the token to be populated
     FirebaseMessagingService? firebaseService = di<FirebaseMessagingService>();
     await firebaseService.initialLoadComplete;
-    String? token = firebaseService.fbmToken;
+    String token = firebaseService.fbmToken ?? '';
+
+    if (token.isEmpty) {
+      log('registerLinkedTipperForMessaging() FBM token is empty, skipping registration');
+      return;
+    }
+    String timeNow = DateTime.now().toIso8601String();
 
     _db
         .child(tokensPath)
         .child(_authenticatedTipper!.dbkey!)
-        .update({token!: DateTime.now().toIso8601String()});
+        .update({token: timeNow});
 
     log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${token.substring(token.length - 5)}');
   }
