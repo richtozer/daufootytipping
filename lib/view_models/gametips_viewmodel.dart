@@ -124,8 +124,10 @@ class GameTipsViewModel extends ChangeNotifier {
 
       // run a scoring update for the round and tipper - this is to keep track of margin counts
       // and to update the round scores
+      // TODO we need to do margin counts outside of the tip logic
+      // TODO need to avoid scoring updates here
       await di<ScoresViewModel>().updateScoring(
-          di<DAUCompsViewModel>().selectedDAUComp!, currentTipper, dauRound);
+          di<DAUCompsViewModel>().selectedDAUComp!, currentTipper, null);
 
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
