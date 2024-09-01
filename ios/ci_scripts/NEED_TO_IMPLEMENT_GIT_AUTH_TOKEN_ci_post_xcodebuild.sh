@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/zsh
 
 # 1. Create 'ci_scripts' folder in your main project directory
 # 2. Create 'ci_post_xcodebuild.sh' inside of it
@@ -18,7 +18,7 @@ then
 
     git tag ${CI_PRODUCT}/Release/$VERSION\($BUILD_TAG\)
 
-    git push --tags https://${GIT_AUTH}@github.com/USER_NAME/REPOSITORY.git
+    git push --tags https://${GIT_AUTH}@github.com/richtozer/daufootytipping.git
 fi
 
 # use workflow Environment to configure your GIT_AUTH variable - username:personalAccessToken
