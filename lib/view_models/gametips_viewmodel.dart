@@ -20,9 +20,11 @@ class GameTipsViewModel extends ChangeNotifier {
 
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
-  final String currentDAUComp;
+  final String _currentDAUCompDbkey;
   Game game;
-  final DAURound dauRound;
+  GameState? _gameState;
+  GameState get gameState => _gameState!;
+  final DAURound _dauRound;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -41,15 +43,14 @@ class GameTipsViewModel extends ChangeNotifier {
   //constructor
   GameTipsViewModel(
     this.currentTipper,
-    this.currentDAUComp,
+    this._currentDAUCompDbkey,
     this.game,
     this.allTipsViewModel,
-    this.dauRound,
+    this._dauRound,
   ) {
-    //log('GameTipsViewModel constructor called for game.key: ${game.dbkey}');
-
-    allTipsViewModel.addListener(_updateGameTip);
-    allTipsViewModel.gamesViewModel.addListener(_updateGameTip);
+    _gameState = game.gameState;
+    allTipsViewModel.addListener(_tipsUpdated);
+    allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
 
     _findTip();
     _gameStartedTrigger();
@@ -77,10 +78,22 @@ class GameTipsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _updateGameTip() async {
+  void _tipsUpdated() async {
     // we may have new data lets check if we need to update our tip
+    //game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
+    log('GameTipsViewModel._tipsUpdated() called. TEST - DONT Notify listeners');
+    //_findTip();
+  }
+
+  void _gamesViewModelUpdated() async {
+    // we may have new game data, notify listeners
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
-    _findTip();
+    _tipGame = (await allTipsViewModel.findTip(game, currentTipper));
+    log('GameTipsViewModel._gamesViewModelUpdated() called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. Notify listeners');
+    if (_gameState != game.gameState) {
+      _gameState = game.gameState;
+    }
+    notifyListeners();
   }
 
   void _findTip() async {
@@ -115,7 +128,7 @@ class GameTipsViewModel extends ChangeNotifier {
       final tipJson = await tip.toJson();
 
       final Map<String, Map> updates = {};
-      updates['$tipsPathRoot/$currentDAUComp/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
+      updates['$tipsPathRoot/$_currentDAUCompDbkey/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
       log('new tip submitted: ${updates.toString()}');
@@ -132,7 +145,7 @@ class GameTipsViewModel extends ChangeNotifier {
       // now sync the tip to the legacy google sheet
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
       legacyTippingService.syncSingleRoundTipperToLegacy(
-          allTipsViewModel, di<DAUCompsViewModel>(), tip, dauRound);
+          allTipsViewModel, di<DAUCompsViewModel>(), tip, _dauRound);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
@@ -144,8 +157,8 @@ class GameTipsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    allTipsViewModel.removeListener(_updateGameTip);
-    allTipsViewModel.gamesViewModel.removeListener(_updateGameTip);
+    allTipsViewModel.removeListener(_tipsUpdated);
+    allTipsViewModel.gamesViewModel.removeListener(_tipsUpdated);
     super.dispose();
   }
 }

@@ -257,7 +257,7 @@ class TipsTabState extends State<TipsTab> {
                     ? Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Margins/ups: ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips} / ${leagueHeader == League.afl ? roundScores?.aflMarginUPS : roundScores?.nrlMarginUPS}')
+                        'UPS/Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginUPS : roundScores?.nrlMarginUPS} / ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips}')
                     : Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),

@@ -1,18 +1,6 @@
-<<<<<<< HEAD
 DAU Footy Tipping
 =================
 DAU Footy Tipping is a Flutter application designed to manage and display footy tipping competitions. This README provides an overview of the project structure and its dependencies to help developers get started with the project.
-=======
-Key source code locations:
-
-- /lib - Mobile app
-- /functions/src - Serverless firebase functions
-
-The main flow of data is:
-data updated in view mode e.g fixture, score -> write changes to firebase realtime database -> view model event handler fires -> updates view model state
-
-Link to icon generator:
->>>>>>> d4362cf5f4ad7f1f0b1246eb1613cdad73c8c6c7
 
 Project Structure
 =================
@@ -28,9 +16,35 @@ firebase.json: Firebase configuration file.
 dotenv: Environment variables for the project.
 analysis_options.yaml: Linter rules for Dart code analysis.
 
-<<<<<<< HEAD
-Dependencies
-============
+View Model dependancy Tree
+==========================
+
+DAUCompsViewModel
+├── GamesViewModel
+│   ├── DAUCompsViewModel
+│   ├── ScoringViewModel
+│   └── TeamsViewModel
+├── ScoringViewModel
+│   ├── DAUCompsViewModel
+│   ├── TipsViewModel
+│   └── TippersViewModel
+├── TipsViewModel
+│   ├── GamesViewModel
+│   └── DAUCompsViewModel
+├── TippersViewModel
+│   ├── FirebaseMessagingService
+│   ├── GoogleSheetService
+│   └── DAUCompsViewModel
+├── FixtureDownloadService
+└── GoogleSheetService
+
+GameTipsViewModel
+├── TipsViewModel
+├── DAUCompsViewModel
+└── ScoringViewModel
+
+External Dependencies
+=====================
 The project relies on several dependencies, which are specified in the pubspec.yaml file. Here are some of the key dependencies:
 
 firebase_core: Core Firebase SDK for Flutter.
@@ -40,14 +54,6 @@ flutter_localizations: Provides localizations for Flutter.
 http: A composable, Future-based library for making HTTP requests.
 intl: Provides internationalization and localization facilities.
 Example pubspec.yaml
-=======
-Useful links:
-
-Integrate Firebase Realtime with Google sheets
-https://gist.github.com/CodingDoug/44ad12f4836e79ca9fa11ba5af6955f7
-
-Firestore provider model is based on the examples in this good Youtube tutorial:
->>>>>>> d4362cf5f4ad7f1f0b1246eb1613cdad73c8c6c7
 
 This is a useful video to get up to speed on how the Firebase Realtime Database is used in this project:
 https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
