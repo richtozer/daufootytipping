@@ -148,7 +148,7 @@ class GamesViewModel extends ChangeNotifier {
         if (attributeName == 'HomeTeamScore' ||
             attributeName == 'AwayTeamScore') {
           // the score has changed, add the round to the list of rounds that need scoring updates
-          // avoid adding duplicate rounds
+          // avoid adding rounds multiple times
           if (!_roundsThatNeedScoringUpdate
               .contains(gameToUpdate.getDAURound(selectedDAUComp))) {
             _roundsThatNeedScoringUpdate
@@ -190,6 +190,7 @@ class GamesViewModel extends ChangeNotifier {
       _roundsThatNeedScoringUpdate.clear();
     } finally {
       notifyListeners();
+      log('GamesViewModel_saveBatchOfGameAttributes: notifyListeners()');
     }
   }
 

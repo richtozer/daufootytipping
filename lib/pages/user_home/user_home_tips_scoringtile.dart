@@ -11,8 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
-class LiveScoring extends StatelessWidget {
-  const LiveScoring(
+class ScoringTile extends StatelessWidget {
+  const ScoringTile(
       {super.key,
       required this.tipGame,
       required this.dauround,
@@ -43,13 +43,12 @@ class LiveScoring extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                    gameTipsViewModelConsumer.gameState ==
                             GameState.startedResultNotKnown
                         ? liveScoring(
                             gameTipsViewModelConsumer.tipGame!, context)
-                        : fixtureScoresAvailable(
-                            gameTipsViewModelConsumer.tipGame!),
-                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                        : fixtureScoring(gameTipsViewModelConsumer.tipGame!),
+                    gameTipsViewModelConsumer.gameState ==
                             GameState.startedResultNotKnown
                         ? Text(
                             'Interim Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}')
@@ -128,7 +127,7 @@ class LiveScoring extends StatelessWidget {
     );
   }
 
-  Row fixtureScoresAvailable(TipGame consumerTipGame) {
+  Row fixtureScoring(TipGame consumerTipGame) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

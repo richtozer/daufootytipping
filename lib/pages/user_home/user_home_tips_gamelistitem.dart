@@ -8,7 +8,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -180,7 +180,7 @@ class _GameListItemState extends State<GameListItem> {
       ];
     } else {
       return [
-        liveScoringBuilder(
+        scoringTileBuilder(
             gameTipsViewModelConsumer), // game is underway or ended - show scoring card
         gameTipCard(gameTipsViewModel),
         GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel)
@@ -188,13 +188,13 @@ class _GameListItemState extends State<GameListItem> {
     }
   }
 
-  FutureBuilder<dynamic> liveScoringBuilder(
+  FutureBuilder<dynamic> scoringTileBuilder(
       GameTipsViewModel gameTipsViewModelConsumer) {
     return FutureBuilder<TipGame?>(
       future: gameTipsViewModelConsumer.gettip(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return LiveScoring(
+          return ScoringTile(
               tipGame: snapshot.data!,
               dauround: widget.dauRound,
               gameTipsViewModel: gameTipsViewModelConsumer,

@@ -230,8 +230,13 @@ class DAUCompsViewModel extends ChangeNotifier {
       await getNetworkFixtureData(_selectedDAUComp!);
 
       if (_selectedDAUComp!.dbkey == _activeDAUCompDbKey) {
-        log("starting sync with legacy");
-        await syncTipsWithLegacy(_selectedDAUComp!, null);
+        // only sync with legacy if this client is running in production mode
+        if (kReleaseMode) {
+          log("starting sync with legacy");
+          await syncTipsWithLegacy(_selectedDAUComp!, null);
+        } else {
+          log("Not syncing with legacy as this is debug build");
+        }
       }
     } else {
       log('Fixture update has already been triggered for comp: ${_selectedDAUComp!.name}. Skipping');

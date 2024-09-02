@@ -20,7 +20,6 @@ class TipsViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
 
-  late final GamesViewModel _gamesViewModel;
   final DAUComp currentDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
 
@@ -29,8 +28,7 @@ class TipsViewModel extends ChangeNotifier {
   Tipper?
       tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
 
-  //List<Tip> get tips => _tips;
-  //List<Game> get games => _gamesViewModel.games;
+  late final GamesViewModel _gamesViewModel;
   GamesViewModel get gamesViewModel => _gamesViewModel;
 
   late final TippersViewModel tipperViewModel;
@@ -39,8 +37,6 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel(
       this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
     log('TipsViewModel constructor');
-    _gamesViewModel.addListener(
-        update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
@@ -48,12 +44,10 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
       this._gamesViewModel, this.tipper) {
     log('TipsViewModel.forTipper constructor');
-    _gamesViewModel.addListener(
-        update); //listen for changes to _gamesViewModel so that we can notify our consumers that the data, we rely on, may have changed
     _listenToTips();
   }
 
-  void update() {
+  void _update() {
     notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
   }
 
@@ -208,7 +202,7 @@ class TipsViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _tipsStream.cancel(); // stop listening to stream
-    _gamesViewModel.removeListener(update);
+    _gamesViewModel.removeListener(_update);
     super.dispose();
   }
 }
