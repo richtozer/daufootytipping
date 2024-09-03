@@ -80,9 +80,9 @@ class GameTipsViewModel extends ChangeNotifier {
 
   void _tipsUpdated() async {
     // we may have new data lets check if we need to update our tip
-    //game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
+    _tipGame = (await allTipsViewModel.findTip(game, currentTipper));
     log('GameTipsViewModel._tipsUpdated() called. TEST - DONT Notify listeners');
-    //_findTip();
+    notifyListeners();
   }
 
   void _gamesViewModelUpdated() async {
