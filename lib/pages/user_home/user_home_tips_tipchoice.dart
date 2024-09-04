@@ -1,13 +1,13 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tipgame.dart';
-import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
+import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:flutter/material.dart';
 
 class TipChoice extends StatefulWidget {
-  final GameTipsViewModel gameTipsViewModel;
+  final GameTipViewModel gameTipsViewModel;
   final List<Game> roundGames;
 
   const TipChoice(this.roundGames, this.gameTipsViewModel, {super.key});
@@ -72,7 +72,7 @@ class _TipChoiceState extends State<TipChoice> {
   }
 
   ChoiceChip generateChoiceChip(GameResult option,
-      GameTipsViewModel gameTipsViewModel, BuildContext context) {
+      GameTipViewModel gameTipsViewModel, BuildContext context) {
     return ChoiceChip.elevated(
       label: Text(gameTipsViewModel.game.league == League.afl
           ? option.afl
@@ -87,8 +87,8 @@ class _TipChoiceState extends State<TipChoice> {
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
       selectedColor: Colors.lightGreen[500],
-      selected: gameTipsViewModel.tipGame != null &&
-          gameTipsViewModel.tipGame!.tip == option,
+      selected:
+          gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
       onSelected: (bool selected) {
         try {
           if (gameTipsViewModel.allTipsViewModel.tipperViewModel.inGodMode) {
@@ -114,7 +114,7 @@ class _TipChoiceState extends State<TipChoice> {
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        TipGame tip = TipGame(
+                        Tip tip = Tip(
                           tipper: gameTipsViewModel.currentTipper,
                           game: gameTipsViewModel.game,
                           tip: option,
@@ -147,17 +147,17 @@ class _TipChoiceState extends State<TipChoice> {
             );
             return;
           }
-          if (gameTipsViewModel.tipGame != null &&
-              gameTipsViewModel.tipGame!.tip == option) {
+          if (gameTipsViewModel.tip != null &&
+              gameTipsViewModel.tip!.tip == option) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: Colors.red,
                 content: Text(
-                    'Your tip [${gameTipsViewModel.game.league == League.afl ? gameTipsViewModel.tipGame!.tip.aflTooltip : gameTipsViewModel.tipGame!.tip.nrlTooltip}] has already been submitted.'),
+                    'Your tip [${gameTipsViewModel.game.league == League.afl ? gameTipsViewModel.tip!.tip.aflTooltip : gameTipsViewModel.tip!.tip.nrlTooltip}] has already been submitted.'),
               ),
             );
           } else {
-            TipGame tip = TipGame(
+            Tip tip = Tip(
               tipper: gameTipsViewModel.currentTipper,
               game: gameTipsViewModel.game,
               tip: option,

@@ -4,7 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -24,18 +24,12 @@ class GamesViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _gamesStream;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
+  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
 
   final List<DAURound> _roundsThatNeedScoringUpdate = [];
-
-  Future<List<Game>> getGames() async {
-    await initialLoadComplete;
-    return _games;
-  }
-
-  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   // Constructor
   GamesViewModel(this.selectedDAUComp) {
@@ -99,11 +93,6 @@ class GamesViewModel extends ChangeNotifier {
         _games = gamesList;
         _games.sort();
         log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
-
-        // Now that we have all the games from db
-        // call linkGamesWithRounds() to link the games with the rounds
-        DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-        await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
@@ -111,6 +100,11 @@ class GamesViewModel extends ChangeNotifier {
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.complete();
       }
+
+      // Now that we have all the games from db
+      // call linkGamesWithRounds() to link the games with the rounds
+      DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
+      await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
 
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
@@ -125,7 +119,7 @@ class GamesViewModel extends ChangeNotifier {
 
   Future<void> updateGameAttribute(String gameDbKey, String attributeName,
       dynamic attributeValue, String league) async {
-    await _initialLoadCompleter.future;
+    await initialLoadComplete;
 
     //make sure the related team records exist
     if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
@@ -194,17 +188,18 @@ class GamesViewModel extends ChangeNotifier {
     }
   }
 
+  Future<List<Game>> getGames() async {
+    await initialLoadComplete;
+    return _games;
+  }
+
   Future<Game?> findGame(String gameDbKey) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log('Waiting for Game load to complete findGame()');
-      await _initialLoadCompleter.future;
-    }
+    await initialLoadComplete;
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);
   }
 
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
-    log('GamesViewModel_getGamesForRound: round=${dauRound.dAUroundNumber}');
-
+    await initialLoadComplete;
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
 
@@ -214,12 +209,6 @@ class GamesViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
-
-    // // create a new Completer if the old one was completed:
-    // if (_initialLoadCompleter.isCompleted) {
-    //   _initialLoadCompleter = Completer<void>();
-    // }
-
     super.dispose();
   }
 }
