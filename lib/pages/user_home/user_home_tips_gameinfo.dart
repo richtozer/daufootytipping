@@ -57,7 +57,7 @@ class GameInfo extends StatelessWidget {
 
               Text(
                 style: const TextStyle(fontSize: 12),
-                'Fixture: round ${gameTipsViewModel.game.roundNumber}, match ${gameTipsViewModel.game.matchNumber}',
+                'Fixture: round ${gameTipsViewModel.game.fixtureRoundNumber}, match ${gameTipsViewModel.game.fixtureMatchNumber}',
               ),
             ],
           ),

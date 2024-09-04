@@ -21,8 +21,8 @@ class Game implements Comparable<Game> {
   final String location;
   LatLng? locationLatLong;
   final DateTime startTimeUTC;
-  final int roundNumber;
-  final int matchNumber;
+  final int fixtureRoundNumber;
+  final int fixtureMatchNumber;
   Scoring? scoring; // this should be null until game kickoff
 
   //constructor
@@ -34,8 +34,8 @@ class Game implements Comparable<Game> {
     required this.location,
     this.locationLatLong,
     required this.startTimeUTC,
-    required this.roundNumber,
-    required this.matchNumber,
+    required this.fixtureRoundNumber,
+    required this.fixtureMatchNumber,
     this.scoring,
   });
 
@@ -85,8 +85,8 @@ class Game implements Comparable<Game> {
         'Location': location,
         'DateUtc':
             '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
-        'RoundNumber': roundNumber,
-        'MatchNumber': matchNumber,
+        'RoundNumber': fixtureRoundNumber,
+        'MatchNumber': fixtureMatchNumber,
         'HomeTeamScore': (scoring != null) ? scoring!.homeTeamScore : null,
         "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
       };
@@ -103,8 +103,8 @@ class Game implements Comparable<Game> {
       awayTeam: awayTeam,
       location: data['Location'] ?? '',
       startTimeUTC: DateTime.parse(data['DateUtc']),
-      roundNumber: data['RoundNumber'] ?? 0,
-      matchNumber: data['MatchNumber'] ?? 0,
+      fixtureRoundNumber: data['RoundNumber'] ?? 0,
+      fixtureMatchNumber: data['MatchNumber'] ?? 0,
     );
   }
 
@@ -120,7 +120,7 @@ class Game implements Comparable<Game> {
       } else if (startTimeUTC.isAfter(other.startTimeUTC)) {
         return 1;
       } else {
-        return matchNumber.compareTo(other.matchNumber);
+        return fixtureMatchNumber.compareTo(other.fixtureMatchNumber);
       }
     } else {
       return league.index.compareTo(other.league.index);
