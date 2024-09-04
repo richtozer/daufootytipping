@@ -3,7 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -123,11 +123,8 @@ class LegacyTippingService {
     return tippers;
   }
 
-  Future<String> syncSingleRoundTipperToLegacy(
-      TipsViewModel allTipsViewModel,
-      DAUCompsViewModel daucompsViewModel,
-      TipGame tipGame,
-      DAURound dauRound) async {
+  Future<String> syncSingleRoundTipperToLegacy(TipsViewModel allTipsViewModel,
+      DAUCompsViewModel daucompsViewModel, Tip tip, DAURound dauRound) async {
     try {
       await initialized();
 
@@ -136,12 +133,12 @@ class LegacyTippingService {
         delay: const Duration(seconds: 10),
         onTimeout: () async {
           String res = await _identifySyncChanges(
-              allTipsViewModel, daucompsViewModel, [dauRound], tipGame.tipper);
+              allTipsViewModel, daucompsViewModel, [dauRound], tip.tipper);
           return res;
         },
       );
 
-      log('Syncing single tip to legacy for ${tipGame.tipper.name} in round ${dauRound.dAUroundNumber}');
+      log('Syncing single tip to legacy for ${tip.tipper.name} in round ${dauRound.dAUroundNumber}');
 
       log(await coalescers[dauRound]!.call());
       return 'Sync scheduled';
@@ -283,7 +280,7 @@ class LegacyTippingService {
       String templateDefaultTips) async {
     String roundTips = templateDefaultTips;
 
-    List<TipGame?> tipGames =
+    List<Tip?> tipGames =
         await allTipsViewModel.getTipsForRound(tipper, round, daucomp);
 
     bool isAllLegacyTips = true;
@@ -291,16 +288,16 @@ class LegacyTippingService {
 
     DateTime maxFormSubmitTimestamp = DateTime(1970);
 
-    for (TipGame? tipGame in tipGames) {
-      if (tipGame!.legacyTip == false) {
+    for (Tip? tip in tipGames) {
+      if (tip!.legacyTip == false) {
         isAllLegacyTips = false;
         appTipCount++;
-        if (tipGame.submittedTimeUTC.isAfter(maxFormSubmitTimestamp)) {
-          maxFormSubmitTimestamp = tipGame.submittedTimeUTC;
+        if (tip.submittedTimeUTC.isAfter(maxFormSubmitTimestamp)) {
+          maxFormSubmitTimestamp = tip.submittedTimeUTC;
         }
       }
 
-      roundTips = _updateLegacyTipsString(roundTips, tipGame, round);
+      roundTips = _updateLegacyTipsString(roundTips, tip, round);
     }
 
     if (!isAllLegacyTips) {
@@ -313,11 +310,11 @@ class LegacyTippingService {
   }
 
   String _updateLegacyTipsString(
-      String defaultRoundTips, TipGame tipGame, DAURound dauRound) {
-    int gameIndex = dauRound.games.indexOf(tipGame.game);
+      String defaultRoundTips, Tip tip, DAURound dauRound) {
+    int gameIndex = dauRound.games.indexOf(tip.game);
 
     if (dauRound.games.where((game) => game.league == League.nrl).length < 8 &&
-        tipGame.game.league == League.afl) {
+        tip.game.league == League.afl) {
       gameIndex +=
           8 - dauRound.games.where((game) => game.league == League.nrl).length;
     }
@@ -326,11 +323,11 @@ class LegacyTippingService {
     // throw an error with more context
     if (gameIndex == -1) {
       throw Exception(
-          'Game ${tipGame.game.dbkey} is not in round ${dauRound.dAUroundNumber}. There are ${dauRound.games.length} games in the round.');
+          'Game ${tip.game.dbkey} is not in round ${dauRound.dAUroundNumber}. There are ${dauRound.games.length} games in the round.');
     }
 
-    defaultRoundTips = defaultRoundTips.replaceRange(
-        gameIndex, gameIndex + 1, tipGame.tip.name);
+    defaultRoundTips =
+        defaultRoundTips.replaceRange(gameIndex, gameIndex + 1, tip.tip.name);
 
     return defaultRoundTips;
   }

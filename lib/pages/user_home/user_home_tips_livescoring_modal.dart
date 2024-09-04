@@ -1,17 +1,17 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
 class LiveScoringModal extends StatefulWidget {
-  final TipGame tipGame;
+  final Tip tip;
   final DAURound dauround;
 
-  const LiveScoringModal(this.tipGame, this.dauround, {super.key});
+  const LiveScoringModal(this.tip, this.dauround, {super.key});
 
   @override
   State<LiveScoringModal> createState() => _LiveScoringModalState();
@@ -32,12 +32,10 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
   @override
   void initState() {
     super.initState();
-    homeScore =
-        (widget.tipGame.game.scoring?.currentScore(ScoringTeam.home) ?? 0)
-            .toString();
-    awayScore =
-        (widget.tipGame.game.scoring?.currentScore(ScoringTeam.away) ?? 0)
-            .toString();
+    homeScore = (widget.tip.game.scoring?.currentScore(ScoringTeam.home) ?? 0)
+        .toString();
+    awayScore = (widget.tip.game.scoring?.currentScore(ScoringTeam.away) ?? 0)
+        .toString();
 
     // keep track of the original scores. if scores change enable the submit button
     originalHomeScore = homeScore;
@@ -77,7 +75,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
             children: [
               TableRow(children: [
                 _buildElevatedButton(
-                  widget.tipGame.game.homeTeam.name,
+                  widget.tip.game.homeTeam.name,
                   homeScore,
                   () {
                     setState(() {
@@ -99,8 +97,8 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                     Icon(Icons.arrow_forward, size: 30)
                   ],
                 )),
-                _buildElevatedButton(
-                    widget.tipGame.game.awayTeam.name, awayScore, () {
+                _buildElevatedButton(widget.tip.game.awayTeam.name, awayScore,
+                    () {
                   setState(() {
                     enableKeypad = true;
                     isUpdatingHomeScore = false;
@@ -365,10 +363,10 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
     CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         scoreTeam,
-        widget.tipGame.tipper.dbkey!,
+        widget.tip.tipper.dbkey!,
         int.tryParse(score)!,
         false);
 
-    di<ScoresViewModel>().addLiveScore(widget.tipGame.game, croudSourcedScore);
+    di<ScoresViewModel>().addLiveScore(widget.tip.game, croudSourcedScore);
   }
 }

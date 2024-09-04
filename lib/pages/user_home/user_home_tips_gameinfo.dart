@@ -1,13 +1,13 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 
 class GameInfo extends StatelessWidget {
   const GameInfo(this.game, this.gameTipsViewModel, {super.key});
 
   final Game game;
-  final GameTipsViewModel gameTipsViewModel;
+  final GameTipViewModel gameTipsViewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -24,18 +24,18 @@ class GameInfo extends StatelessWidget {
               // if the tipper has tipped, or they can been given a defaul tip
               // then display the tip submitted time in their local time
               // if they have yet to tip, then display nothing
-              if (gameTipsViewModel.tipGame != null &&
-                  gameTipsViewModel.tipGame!.isDefaultTip() == false)
+              if (gameTipsViewModel.tip != null &&
+                  gameTipsViewModel.tip!.isDefaultTip() == false)
                 Text(
                   style: const TextStyle(fontSize: 12),
-                  'You tipped: ${DateFormat('EEE dd MMM hh:mm a').format(gameTipsViewModel.tipGame!.submittedTimeUTC.toLocal())}',
+                  'You tipped: ${DateFormat('EEE dd MMM hh:mm a').format(gameTipsViewModel.tip!.submittedTimeUTC.toLocal())}',
                 ),
               // display a line separator here
               const Divider(
                 height: 5,
               ),
-              if (gameTipsViewModel.tipGame != null &&
-                  gameTipsViewModel.tipGame!.isDefaultTip() == true)
+              if (gameTipsViewModel.tip != null &&
+                  gameTipsViewModel.tip!.isDefaultTip() == true)
                 const Text(
                   style: TextStyle(fontSize: 12),
                   'Default tip of [Away] given',

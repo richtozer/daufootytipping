@@ -1,14 +1,14 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
@@ -32,10 +32,11 @@ class StatRoundGameScoresForTipper extends StatefulWidget {
 class _StatRoundGameScoresForTipperState
     extends State<StatRoundGameScoresForTipper> {
   late DAUCompsViewModel dauCompsViewModel;
-  late Future<Map<League, List<Game>>> gamesFuture;
+  late Map<League, List<Game>> games;
   bool isAscending = true;
   int? sortColumnIndex = 1;
   int initialRound = 1;
+  late DAURound roundToDisplay;
 
   final List<String> columns = [
     'Teams/\nScores',
@@ -50,24 +51,22 @@ class _StatRoundGameScoresForTipperState
     super.initState();
     dauCompsViewModel = di<DAUCompsViewModel>();
 
-    DAURound roundToDisplay = dauCompsViewModel
+    roundToDisplay = dauCompsViewModel
         .selectedDAUComp!.daurounds[widget.roundNumberToDisplay - 1];
-
-    gamesFuture = dauCompsViewModel.sortGamesIntoLeagues(roundToDisplay);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<League, List<Game>>>(
-      future: gamesFuture,
+    return ChangeNotifierProvider<DAUCompsViewModel>.value(
+      value: dauCompsViewModel,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (!snapshot.hasData) {
-            return const Text('No data');
-          }
-          var games = snapshot.data;
+        return Consumer<DAUCompsViewModel>(
+            builder: (context, dauCompsViewModelConsumer, child) {
+          games =
+              dauCompsViewModelConsumer.sortGamesIntoLeagues(roundToDisplay);
+
           //filter out games that have not started - we do not want to expose tips to other tippers until tipping is closed
-          games!.forEach((league, gameList) {
+          games.forEach((league, gameList) {
             gameList.retainWhere((game) =>
                 game.gameState == GameState.startedResultNotKnown ||
                 game.gameState == GameState.startedResultKnown);
@@ -78,9 +77,7 @@ class _StatRoundGameScoresForTipperState
 
           return buildScaffold(context, aflGames, nrlGames,
               MediaQuery.of(context).size.width > 500);
-        } else {
-          return CircularProgressIndicator(color: League.afl.colour);
-        }
+        });
       },
     );
   }
@@ -267,7 +264,7 @@ class _StatRoundGameScoresForTipperState
         .firstWhere(
             (element) => element.dAUroundNumber == widget.roundNumberToDisplay);
 
-    GameTipsViewModel gameTipsViewModel = GameTipsViewModel(
+    GameTipViewModel gameTipsViewModel = GameTipViewModel(
         widget.statsTipper,
         di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
         games[index],
@@ -300,9 +297,9 @@ class _StatRoundGameScoresForTipperState
               : '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).nrl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})'),
         ),
         DataCell(
-          FutureBuilder<TipGame?>(
+          FutureBuilder<Tip?>(
             future: gameTipsViewModel.gettip(),
-            builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
+            builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
               } else {
@@ -314,9 +311,9 @@ class _StatRoundGameScoresForTipperState
           ),
         ),
         DataCell(
-          FutureBuilder<TipGame?>(
+          FutureBuilder<Tip?>(
             future: gameTipsViewModel.gettip(),
-            builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
+            builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
               } else {
@@ -327,9 +324,9 @@ class _StatRoundGameScoresForTipperState
           ),
         ),
         DataCell(
-          FutureBuilder<TipGame?>(
+          FutureBuilder<Tip?>(
             future: gameTipsViewModel.gettip(),
-            builder: (BuildContext context, AsyncSnapshot<TipGame?> snapshot) {
+            builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
               } else {
