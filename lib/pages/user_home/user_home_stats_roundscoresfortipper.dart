@@ -34,8 +34,6 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     'UPS'
   ];
 
-  List<RoundScores> sortedScores = [];
-
   @override
   void initState() {
     super.initState();
@@ -47,18 +45,14 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureProvider<List<RoundScores>>(
-      initialData: const [],
-      create: (context) async {
-        var scores =
-            scoresViewModel.getTipperRoundScoresForComp(widget.statsTipper);
-        scores.sort(
-            (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort
-        return scores;
-      },
-      child: Consumer<List<RoundScores>>(
-        builder: (context, scores, child) {
-          sortedScores = scores;
+    return ChangeNotifierProvider<ScoresViewModel>.value(
+      value: scoresViewModel,
+      child: Consumer<ScoresViewModel>(
+        builder: (context, scoresViewModelConsumer, child) {
+          var scores = scoresViewModelConsumer
+              .getTipperRoundScoresForComp(widget.statsTipper);
+          scores.sort(
+              (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort
           return buildScaffold(
               context, scores, MediaQuery.of(context).size.width > 500);
         },
@@ -106,9 +100,9 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                     showCheckboxColumn: false,
                     isHorizontalScrollBarVisible: true,
                     isVerticalScrollBarVisible: true,
-                    columns: getColumns(columns),
-                    rows: List<DataRow>.generate(sortedScores.length,
-                        (index) => buildDataRow(sortedScores, index)).toList(),
+                    columns: getColumns(columns, scores),
+                    rows: List<DataRow>.generate(scores.length,
+                        (index) => buildDataRow(scores, index)).toList(),
                   )),
             ),
           ],
@@ -213,21 +207,22 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .map((String column) => DataColumn2(
-            fixedWidth: column == 'Round'
-                ? 75
-                : column == 'Total' || column == 'Margins'
+  List<DataColumn> getColumns(List<String> columns, List<RoundScores> scores) =>
+      columns
+          .map((String column) => DataColumn2(
+                fixedWidth: column == 'Round'
                     ? 75
-                    : 60,
-            numeric: column != 'Round',
-            label: Text(
-              column,
-            ),
-            onSort: (columnIndex, ascending) =>
-                onSort(columnIndex, ascending, sortedScores),
-          ))
-      .toList();
+                    : column == 'Total' || column == 'Margins'
+                        ? 75
+                        : 60,
+                numeric: column != 'Round',
+                label: Text(
+                  column,
+                ),
+                onSort: (columnIndex, ascending) =>
+                    onSort(columnIndex, ascending, scores),
+              ))
+          .toList();
 
   Widget avatarPic(Tipper tipper) {
     return Hero(

@@ -8,6 +8,7 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -57,7 +58,7 @@ Future<void> main() async {
     database.useDatabaseEmulator('localhost', 8000);
   } else {
     if (!kIsWeb) {
-      database.setPersistenceEnabled(true);
+      //database.setPersistenceEnabled(true);
     } else {
       database.setPersistenceEnabled(false);
     }
@@ -80,10 +81,10 @@ Future<void> main() async {
     };
   }
 
-  // setup some default analytics parameters
-  // if (!kIsWeb) {
-  //   FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
-  // }
+  //setup some default analytics parameters
+  if (!kIsWeb) {
+    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+  }
 
   di.allowReassignment = true;
 

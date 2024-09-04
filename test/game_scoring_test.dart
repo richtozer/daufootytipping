@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 
 void main() {

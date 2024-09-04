@@ -4,8 +4,8 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 const tipsPathRoot = '/AllTips';
 
 class TipsViewModel extends ChangeNotifier {
-  List<TipGame?> _tipGames = [];
+  List<Tip?> _tip = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
 
@@ -37,6 +37,7 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel(
       this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
     log('TipsViewModel constructor');
+    _gamesViewModel.addListener(_update);
     _listenToTips();
   }
 
@@ -77,18 +78,18 @@ class TipsViewModel extends ChangeNotifier {
           final allTips =
               _deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
           log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
-          _tipGames = await _deserializeTips(allTips);
+          _tip = await _deserializeTips(allTips);
         } else {
           log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
           log('_handleEvent (Tipper ${tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
-          _tipGames = await Future.wait(dbData.entries.map((entry) async {
+          _tip = await Future.wait(dbData.entries.map((entry) async {
             Game? game = await _gamesViewModel.findGame(entry.key);
             if (game == null) {
               //log('game not found for tip ${entry.key}');
             } else {
               Map entryValue = entry.value as Map;
-              return TipGame.fromJson(entryValue, entry.key, tipper!, game);
+              return Tip.fromJson(entryValue, entry.key, tipper!, game);
             }
             return null;
           }));
@@ -116,8 +117,8 @@ class TipsViewModel extends ChangeNotifier {
     }));
   }
 
-  Future<List<TipGame>> _deserializeTips(Map<String, dynamic> json) async {
-    List<TipGame> allCompTips = [];
+  Future<List<Tip>> _deserializeTips(Map<String, dynamic> json) async {
+    List<Tip> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
       Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
@@ -129,9 +130,8 @@ class TipsViewModel extends ChangeNotifier {
             log('game not found for tip ${tipEntry.key}');
           } else {
             //log('game found for tip ${tipEntry.key}'
-            TipGame tipGame =
-                TipGame.fromJson(tipEntry.value, tipEntry.key, tipper, game);
-            allCompTips.add(tipGame);
+            Tip tip = Tip.fromJson(tipEntry.value, tipEntry.key, tipper, game);
+            allCompTips.add(tip);
           }
         }
       } else {
@@ -142,12 +142,10 @@ class TipsViewModel extends ChangeNotifier {
     return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
   }
 
-  Future<TipGame?> findTip(Game game, Tipper tipper) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
-    }
+  Future<Tip?> findTip(Game game, Tipper tipper) async {
+    await initialLoadCompleted;
 
-    TipGame? tipGame = _tipGames.firstWhereOrNull(
+    Tip? foundTip = _tip.firstWhereOrNull(
       (tip) =>
           tip?.game.dbkey == game.dbkey && tip?.tipper.dbkey == tipper.dbkey,
     );
@@ -156,8 +154,8 @@ class TipsViewModel extends ChangeNotifier {
     // and game has already started
     if ((game.gameState == GameState.startedResultKnown ||
             game.gameState == GameState.startedResultNotKnown) &&
-        tipGame == null) {
-      tipGame = TipGame(
+        foundTip == null) {
+      foundTip = Tip(
         tip: GameResult.d,
         // set this tipper time as ephoch,
         // allows us to easily identify tips that were not submitted
@@ -168,32 +166,29 @@ class TipsViewModel extends ChangeNotifier {
       //log('Tip not found for game ${game.dbkey} and tipper ${tipper.name}. Defaulting to Away tip.');
     }
 
-    return tipGame;
+    return foundTip;
   }
 
-  Future<List<TipGame?>> getTipsForRound(
+  Future<List<Tip?>> getTipsForRound(
       Tipper tipper, DAURound combinedRound, DAUComp daucomp) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      await _initialLoadCompleter.future;
-    }
+    await initialLoadCompleted;
 
     //figure out which key to use for this search. GoogleSheetService does not have
     //access to dbkey, so we need to use tippedID as the key
 
     if (tipper.dbkey != null) {
-      return _tipGames.where((tipGame) {
-        bool dbKeyCheck = tipGame?.tipper.dbkey == tipper.dbkey;
-        bool roundNumberCheck =
-            tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
-                combinedRound.dAUroundNumber;
+      return _tip.where((tip) {
+        bool dbKeyCheck = tip?.tipper.dbkey == tipper.dbkey;
+        bool roundNumberCheck = tip?.game.getDAURound(daucomp).dAUroundNumber ==
+            combinedRound.dAUroundNumber;
 
         return dbKeyCheck && roundNumberCheck;
       }).toList();
     } else {
-      return _tipGames
-          .where((tipGame) =>
-              tipGame?.tipper.tipperID == tipper.tipperID &&
-              tipGame?.game.getDAURound(daucomp).dAUroundNumber ==
+      return _tip
+          .where((tip) =>
+              tip?.tipper.tipperID == tipper.tipperID &&
+              tip?.game.getDAURound(daucomp).dAUroundNumber ==
                   combinedRound.dAUroundNumber)
           .toList();
     }

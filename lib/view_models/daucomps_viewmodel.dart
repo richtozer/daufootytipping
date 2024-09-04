@@ -58,6 +58,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _init() async {
     _listenToDAUComps();
     await initialLoadComplete;
+
     if (_activeDAUCompDbKey != null) {
       DAUComp? comp = await findComp(_activeDAUCompDbKey!);
       if (comp != null) {
@@ -103,6 +104,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         () => ScoresViewModel(_selectedDAUComp!));
 
     gamesViewModel = GamesViewModel(_selectedDAUComp!);
+    gamesViewModel!.addListener(_otherViewModelUpdated);
 
     await di<TippersViewModel>().isUserLinked;
     Tipper currentTipper = di<TippersViewModel>().selectedTipper!;
@@ -113,8 +115,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         gamesViewModel!,
         currentTipper);
     tipperTipsViewModel!.addListener(_otherViewModelUpdated);
-
-    gamesViewModel!.addListener(_otherViewModelUpdated);
 
     tipperScoresViewModel = di<ScoresViewModel>();
     tipperScoresViewModel!.addListener(_otherViewModelUpdated);
@@ -466,6 +466,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       round.games = await gamesViewModel.getGamesForRound(round);
       _initRoundState(round);
     }
+    notifyListeners();
   }
 
   Future<DAUComp?> findComp(String compDbKey) async {
@@ -517,10 +518,9 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _selectedDAUComp!.daurounds;
   }
 
-  Future<Map<League, List<Game>>> sortGamesIntoLeagues(
-      DAURound combinedRound) async {
-    await initialLoadComplete;
-    await gamesViewModel!.initialLoadComplete;
+  Map<League, List<Game>> sortGamesIntoLeagues(DAURound combinedRound) {
+    //await initialLoadComplete;
+    //await gamesViewModel!.initialLoadComplete;
 
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
@@ -545,7 +545,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     await initialLoadComplete;
 
     Map<League, List<Game>> gamesForCombinedRoundNumber =
-        await sortGamesIntoLeagues(combinedRound);
+        sortGamesIntoLeagues(combinedRound);
 
     List<Game> filteredNrlGames = gamesForCombinedRoundNumber[League.nrl]!;
     List<Game> filteredAflGames = gamesForCombinedRoundNumber[League.afl]!;
