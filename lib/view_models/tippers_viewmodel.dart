@@ -5,7 +5,6 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -198,91 +197,6 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, findTipper($tipperDbKey)');
     }
     return _tippers.firstWhereOrNull((tipper) => tipper.dbkey == tipperDbKey);
-  }
-
-  //method to sync Tipper changes from Legacy GSheet Tipping Service Tipper sheet to Firebase
-  // 1) input parameter is a list of Tippers from the Legacy GSheet Tipping Service
-  // 2) compare each Tipper in the list to the Tippers in the Firebase database
-  // 3) if the Tipper does not exist in the Firebase database, add it
-  // 4) if the Tipper does exist in the Firebase database, update it
-  // 5) if the Tipper exists in the Firebase database but not in the Legacy GSheet Tipping Service, delete it
-
-  Future<String> syncTippers() async {
-    try {
-      _isLegacySyncing = true;
-      notifyListeners();
-
-      LegacyTippingService tippingService =
-          GetIt.instance<LegacyTippingService>();
-
-      List<Tipper> legacyTippers = [];
-
-      await Future.wait([
-        tippingService
-            .getLegacyTippers()
-            .then((tippers) => legacyTippers = tippers),
-        _initialLoadCompleter.future,
-      ]);
-
-      log('syncTippers() legacy tipper sheet load complete');
-
-      if (!_initialLoadCompleter.isCompleted) {
-        log('Waiting for initial App Tipper load to complete in syncTippers()');
-        await _initialLoadCompleter.future;
-        log('App tipper load complete, syncTippers()');
-      }
-
-      // loop through each Tipper in the legacyTippers list - skip the header row
-      await Future.forEach(legacyTippers.skip(1), (legacyTipper) async {
-        // if the Tipper does not exist in the Firebase database, add it
-        Tipper? existingTipper =
-            await _findTipperByLegayTipperID(legacyTipper.tipperID);
-        if (existingTipper == null) {
-          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} does not exist in the Firebase database, adding it');
-          // newTipper() will create a new db key for the new record and return a modified Tipper object with the new db key
-          await _createNewTipper(legacyTipper);
-        } else {
-          log('syncTippers() TipperID: ${legacyTipper.tipperID} for tipper ${legacyTipper.name} exists in the Firebase database, updating it');
-
-          // submit each attribute of the legacyTipper to the updateTipperAttribute method,
-          // it will take care of only submitting the attributes that have changed to db
-          await updateTipperAttribute(
-              existingTipper.dbkey!, 'name', legacyTipper.name);
-          await updateTipperAttribute(
-              existingTipper.dbkey!, 'email', legacyTipper.email);
-          await updateTipperAttribute(
-              existingTipper.dbkey!, 'tipperID', legacyTipper.tipperID);
-          await updateTipperAttribute(existingTipper.dbkey!, 'tipperRole',
-              legacyTipper.tipperRole.name);
-
-          // make the existing tipper logon be the same as email, only if it's null
-          if (existingTipper.logon == null) {
-            await updateTipperAttribute(
-                existingTipper.dbkey!, 'logon', existingTipper.email);
-          }
-
-          //
-        }
-      });
-
-      await saveBatchOfTipperAttributes();
-
-      // loop through each Tipper in the Firebase database
-      await Future.forEach(_tippers, ((firebaseTipper) async {
-        // find the Tipper in the legacyTippers list
-        Tipper? legacyTipper = legacyTippers.firstWhereOrNull(
-            (tipper) => tipper.tipperID == firebaseTipper.tipperID);
-
-        // if the Tipper does not exist in the legacyTippers list, investigate it
-        if (legacyTipper == null) {
-          log('syncTippers() TipperID: ${firebaseTipper.tipperID} for tipper ${firebaseTipper.name} does not exist in the legacyTippers list, investigate it');
-        }
-      }));
-      return 'Successfully synced ${legacyTippers.length} tippers from the legacy tipping sheet';
-    } finally {
-      _isLegacySyncing = false;
-      notifyListeners();
-    }
   }
 
   Future<void> _createNewTipper(

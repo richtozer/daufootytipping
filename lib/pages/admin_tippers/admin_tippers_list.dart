@@ -51,36 +51,6 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                OutlinedButton(
-                  onPressed: () async {
-                    if (tipperViewModel.isLegacySyncing) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          backgroundColor: Colors.red,
-                          content:
-                              Text('Legacy Tipper sync already in progress')));
-                      return;
-                    }
-                    try {
-                      String res = await tipperViewModel.syncTippers();
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        backgroundColor: Colors.green,
-                        content: Text(res),
-                        duration: const Duration(seconds: 4),
-                      ));
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: Colors.red,
-                          content: Text('An error occurred: $e'),
-                          duration: const Duration(seconds: 4),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(!tipperViewModel.isLegacySyncing
-                      ? 'Sync Legacy Tippers'
-                      : 'Sync processing...'),
-                ),
                 Expanded(
                   child: FutureBuilder<List<Tipper>>(
                     future: tipperViewModel.getAllTippers(),
