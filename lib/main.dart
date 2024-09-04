@@ -6,7 +6,6 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -97,7 +96,6 @@ Future<void> main() async {
   di.registerLazySingleton<TippersViewModel>(
       () => TippersViewModel(createLinkedTipper));
 
-  di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   di.registerLazySingleton<DAUCompsViewModel>(

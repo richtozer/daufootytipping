@@ -128,61 +128,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     }
   }
 
-  Widget buttonLegacy(
-      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
-    if (di<DAUCompsViewModel>().selectedDAUComp == null) {
-      return const SizedBox.shrink();
-    } else {
-      return OutlinedButton(
-        onPressed: () async {
-          //check if syncing already in progress...
-          if (dauCompsViewModel.isLegacySyncing) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Legacy tip sync already in progress')));
-            return;
-          }
-
-          // ...if not, initiate the sync
-          try {
-            setState(() {
-              disableSaves = true;
-            });
-
-            String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                di<DAUCompsViewModel>().selectedDAUComp!, widget.tipper);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text(syncResult),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.red,
-                  content:
-                      Text('An error occurred during the leagcy tip sync: $e'),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } finally {
-            setState(() {
-              disableSaves = false;
-            });
-          }
-        },
-        child: Text(
-            !dauCompsViewModel.isLegacySyncing ? 'Sync Tips' : 'Syncing...'),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -241,12 +186,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                buttonLegacy(context, di<DAUCompsViewModel>()),
-              ],
-            ),
             Form(
               key: _formKey,
               child: Column(

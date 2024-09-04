@@ -11,7 +11,6 @@ import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -228,16 +227,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         _selectedDAUComp!.lastFixtureUpdateTimestamp == null) {
       log('Starting fixture update for comp: ${_selectedDAUComp!.name}');
       await getNetworkFixtureData(_selectedDAUComp!);
-
-      if (_selectedDAUComp!.dbkey == _activeDAUCompDbKey) {
-        // only sync with legacy if this client is running in production mode
-        if (kReleaseMode) {
-          log("starting sync with legacy");
-          await syncTipsWithLegacy(_selectedDAUComp!, null);
-        } else {
-          log("Not syncing with legacy as this is debug build");
-        }
-      }
     } else {
       log('Fixture update has already been triggered for comp: ${_selectedDAUComp!.name}. Skipping');
     }
@@ -309,41 +298,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       rethrow;
     } finally {
       _isDownloading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<String> syncTipsWithLegacy(
-      DAUComp daucompToUpdate, Tipper? onlySyncThisTipper) async {
-    await initialLoadComplete;
-
-    _isLegacySyncing = true;
-    notifyListeners();
-
-    try {
-      LegacyTippingService tippingService =
-          GetIt.instance<LegacyTippingService>();
-      TippersViewModel tippersViewModel = di<TippersViewModel>();
-      TipsViewModel allTipsViewModel =
-          TipsViewModel(tippersViewModel, daucompToUpdate, gamesViewModel!);
-
-      await tippingService.initialized();
-      String res;
-
-      if (onlySyncThisTipper != null) {
-        res = await tippingService.syncAllTipsToLegacy(
-            allTipsViewModel, this, onlySyncThisTipper);
-      } else {
-        res = await tippingService.syncAllTipsToLegacy(
-            allTipsViewModel, this, null);
-      }
-
-      return res;
-    } catch (e) {
-      log('Error syncing tips with legacy: $e');
-      rethrow;
-    } finally {
-      _isLegacySyncing = false;
       notifyListeners();
     }
   }

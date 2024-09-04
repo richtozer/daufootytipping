@@ -272,9 +272,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               buttonFixture(context, dauCompsViewModel),
-                              if (widget.daucomp!.dbkey ==
-                                  dauCompsViewModel.activeDAUComp?.dbkey)
-                                buttonLegacy(context, dauCompsViewModel),
                               buttonScoring(context),
                             ],
                           ),
@@ -610,68 +607,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         },
         child: Text(
             !dauCompsViewModel.isDownloading ? 'Download' : 'Downloading...'),
-      );
-    }
-  }
-
-  Widget buttonLegacy(
-      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
-    if (widget.daucomp == null) {
-      return const SizedBox.shrink();
-    } else {
-      return OutlinedButton(
-        onPressed: () async {
-          if (dauCompsViewModel.isLegacySyncing) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Legacy sync already in progress')));
-            return;
-          }
-
-          if (widget.daucomp?.dbkey != dauCompsViewModel.activeDAUComp!.dbkey) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 15),
-                content: Text(
-                    'You can only sync to legacy if this record is the active comp in remote config')));
-            return;
-          }
-
-          try {
-            setState(() {
-              disableBack = true;
-            });
-
-            String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                widget.daucomp!, null);
-
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text(syncResult),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.red,
-                  content:
-                      Text('An error occurred during the leagcy tip sync: $e'),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } finally {
-            setState(() {
-              disableBack = false;
-            });
-          }
-        },
-        child: Text(!dauCompsViewModel.isLegacySyncing ? 'Sync' : 'Syncing...'),
       );
     }
   }
