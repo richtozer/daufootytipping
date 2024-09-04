@@ -130,6 +130,10 @@ class GameTipViewModel extends ChangeNotifier {
           'GameTipsViewModel.addTip() called before initial load completed');
 
       _savingTip = true;
+      notifyListeners();
+
+      // remember the tip prior to the update
+      final Tip? oldTip = _tip;
 
       // create a json representation of the tip
       final tipJson = await tip.toJson();
@@ -142,14 +146,10 @@ class GameTipViewModel extends ChangeNotifier {
 
       _tip = tip; // update the tip with the new tip
 
-      // run a scoring update for the round and tipper - this is to keep track of margin counts
-      // and to update the round scores
-      // TODO we need to do margin counts outside of the tip logic
-      // TODO need to avoid scoring updates here
-      await di<ScoresViewModel>().updateScoring(
-          di<DAUCompsViewModel>().selectedDAUComp!, currentTipper, null);
+      // update the margin counts.
+      await di<ScoresViewModel>().updateMargins(tip, oldTip, _dauRound);
 
-      // now sync the tip to the legacy google sheet
+      // now sync the tip to the legacy google sheet, do it async so that the UI can update
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
       legacyTippingService.syncSingleRoundTipperToLegacy(
           allTipsViewModel, di<DAUCompsViewModel>(), tip, _dauRound);
@@ -157,8 +157,8 @@ class GameTipViewModel extends ChangeNotifier {
       // rethrow exception so that the UI can handle it
       rethrow;
     } finally {
-      notifyListeners();
       _savingTip = false;
+      notifyListeners();
     }
   }
 

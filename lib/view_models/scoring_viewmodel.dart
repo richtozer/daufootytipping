@@ -273,6 +273,75 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
+  // method to update margin counts. Params are the tip to update
+  Future<String> updateMargins(
+      Tip tip, Tip? originalTip, DAURound dauRound) async {
+    log('updateMargins() called for tip: ${tip.tipper.name}');
+
+    try {
+      if (!_initialRoundLoadCompleted.isCompleted) {
+        await _initialRoundLoadCompleted.future;
+      }
+
+      // find the current round score record for this tipper
+      RoundScores? roundScores =
+          _allTipperRoundScores[tip.tipper]![dauRound.dAUroundNumber - 1];
+      // take note of the current afl and nrl margin counts
+      int originalAFLMarginCount = roundScores?.aflMarginTips ?? 0;
+      int originalNRLMarginCount = roundScores?.nrlMarginTips ?? 0;
+
+      // if originalTip is null and the tip is a margin tip, then we are incrementing the current margin count
+      // if originalTip is null and the tip is a not margin tip, then do nothing
+      // if originalTip is not null, then if the change is from a margin tip to a not margin tip, we decrement the margin count
+      // if originalTip is not null, then if the change is from a not margin tip to a margin tip, we increment the margin count
+
+      if (originalTip == null) {
+        if (tip.tip == GameResult.a || tip.tip == GameResult.e) {
+          tip.game.league == League.afl
+              ? originalAFLMarginCount++
+              : originalNRLMarginCount++;
+        }
+      } else {
+        if ((originalTip.tip == GameResult.a ||
+                originalTip.tip == GameResult.e) &&
+            (tip.tip != GameResult.a && tip.tip != GameResult.e)) {
+          originalTip.game.league == League.afl
+              ? originalAFLMarginCount--
+              : originalNRLMarginCount--;
+        } else if ((originalTip.tip != GameResult.a &&
+                originalTip.tip != GameResult.e) &&
+            (tip.tip == GameResult.a || tip.tip == GameResult.e)) {
+          tip.game.league == League.afl
+              ? originalAFLMarginCount++
+              : originalNRLMarginCount++;
+        }
+      }
+
+      // update the database with the new margin counts
+      await _db
+          .child(scoresPathRoot)
+          .child(currentDAUComp.dbkey!)
+          .child(roundScoresRoot)
+          .child(tip.tipper.dbkey!)
+          .child((dauRound.dAUroundNumber - 1).toString())
+          .update({
+        'afl_marginTips': originalAFLMarginCount,
+        'nrl_marginTips': originalNRLMarginCount,
+      });
+
+      String res =
+          'Completed updating margins for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}. AFL margins: $originalAFLMarginCount, NRL margins: $originalNRLMarginCount';
+      log(res);
+
+      return res;
+    } catch (e) {
+      log('Error updating margins: $e');
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<void> _removeScoresInactiveTippers(
       List<Tipper> tippersToUpdate, DAUComp daucompToUpdate) async {
     List<Tipper> tippersToRemove = [];
