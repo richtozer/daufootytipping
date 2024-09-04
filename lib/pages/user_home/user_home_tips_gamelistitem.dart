@@ -3,10 +3,10 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
@@ -36,13 +36,13 @@ class GameListItem extends StatefulWidget {
 }
 
 class _GameListItemState extends State<GameListItem> {
-  TipGame? tipGame;
-  late final GameTipsViewModel gameTipsViewModel;
+  Tip? tip;
+  late final GameTipViewModel gameTipsViewModel;
 
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = GameTipsViewModel(
+    gameTipsViewModel = GameTipViewModel(
         widget.currentTipper,
         widget.currentDAUComp.dbkey!,
         widget.game,
@@ -52,9 +52,9 @@ class _GameListItemState extends State<GameListItem> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<GameTipsViewModel>.value(
+    return ChangeNotifierProvider<GameTipViewModel>.value(
       value: gameTipsViewModel,
-      child: Consumer<GameTipsViewModel>(
+      child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
           Widget gameDetailsCard = Card(
             shape: RoundedRectangleBorder(
@@ -71,7 +71,7 @@ class _GameListItemState extends State<GameListItem> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Text(
-                        widget.game.homeTeam.name,
+                        gameTipsViewModelConsumer.game.homeTeam.name,
                         textAlign: TextAlign.left,
                         style: const TextStyle(
                           fontSize: 16.0,
@@ -81,8 +81,9 @@ class _GameListItemState extends State<GameListItem> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           SvgPicture.asset(
-                            widget.game.homeTeam.logoURI ??
-                                (widget.game.league == League.nrl
+                            gameTipsViewModelConsumer.game.homeTeam.logoURI ??
+                                (gameTipsViewModelConsumer.game.league ==
+                                        League.nrl
                                     ? League.nrl.logo
                                     : League.afl.logo),
                             width: 20,
@@ -90,8 +91,9 @@ class _GameListItemState extends State<GameListItem> {
                           ),
                           const Text(textAlign: TextAlign.left, ' V '),
                           SvgPicture.asset(
-                            widget.game.awayTeam.logoURI ??
-                                (widget.game.league == League.nrl
+                            gameTipsViewModelConsumer.game.awayTeam.logoURI ??
+                                (gameTipsViewModelConsumer.game.league ==
+                                        League.nrl
                                     ? League.nrl.logo
                                     : League.afl.logo),
                             width: 20,
@@ -104,7 +106,7 @@ class _GameListItemState extends State<GameListItem> {
                             fontSize: 16.0,
                           ),
                           textAlign: TextAlign.left,
-                          widget.game.awayTeam.name),
+                          gameTipsViewModelConsumer.game.awayTeam.name),
                     ],
                   ),
                 ),
@@ -171,7 +173,7 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  List<Widget> carouselItems(GameTipsViewModel gameTipsViewModelConsumer) {
+  List<Widget> carouselItems(GameTipViewModel gameTipsViewModelConsumer) {
     if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
@@ -189,13 +191,13 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   FutureBuilder<dynamic> scoringTileBuilder(
-      GameTipsViewModel gameTipsViewModelConsumer) {
-    return FutureBuilder<TipGame?>(
+      GameTipViewModel gameTipsViewModelConsumer) {
+    return FutureBuilder<Tip?>(
       future: gameTipsViewModelConsumer.gettip(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return ScoringTile(
-              tipGame: snapshot.data!,
+              tip: snapshot.data!,
               dauround: widget.dauRound,
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
@@ -206,8 +208,8 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  Widget gameTipCard(GameTipsViewModel gameTipsViewModelConsumer) {
+  Widget gameTipCard(GameTipViewModel gameTipsViewModelConsumer) {
     return TipChoice(widget.roundGames,
-        gameTipsViewModel); //roundGames is to support legacy tipping service only
+        gameTipsViewModelConsumer); //roundGames is to support legacy tipping service only
   }
 }

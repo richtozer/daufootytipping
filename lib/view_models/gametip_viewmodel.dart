@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
@@ -13,10 +14,10 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
-class GameTipsViewModel extends ChangeNotifier {
-  TipGame? _tipGame;
+class GameTipViewModel extends ChangeNotifier {
+  Tip? _tip;
 
-  TipGame? get tipGame => _tipGame;
+  Tip? get tip => _tip;
 
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
@@ -25,6 +26,11 @@ class GameTipsViewModel extends ChangeNotifier {
   GameState? _gameState;
   GameState get gameState => _gameState!;
   final DAURound _dauRound;
+
+  int? _homeTeamScore;
+  int? get homeTeamScore => _homeTeamScore;
+  int? _awayTeamScore;
+  int? get awayTeamScore => _awayTeamScore;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -41,7 +47,7 @@ class GameTipsViewModel extends ChangeNotifier {
   get controller => _controller;
 
   //constructor
-  GameTipsViewModel(
+  GameTipViewModel(
     this.currentTipper,
     this._currentDAUCompDbkey,
     this.game,
@@ -80,7 +86,7 @@ class GameTipsViewModel extends ChangeNotifier {
 
   void _tipsUpdated() async {
     // we may have new data lets check if we need to update our tip
-    _tipGame = (await allTipsViewModel.findTip(game, currentTipper));
+    _tip = (await allTipsViewModel.findTip(game, currentTipper));
     log('GameTipsViewModel._tipsUpdated() called. TEST - DONT Notify listeners');
     notifyListeners();
   }
@@ -88,18 +94,19 @@ class GameTipsViewModel extends ChangeNotifier {
   void _gamesViewModelUpdated() async {
     // we may have new game data, notify listeners
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
-    _tipGame = (await allTipsViewModel.findTip(game, currentTipper));
     log('GameTipsViewModel._gamesViewModelUpdated() called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. Notify listeners');
-    if (_gameState != game.gameState) {
-      _gameState = game.gameState;
-    }
+
+    _gameState = game.gameState;
+    _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
+    _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
+
     notifyListeners();
   }
 
   void _findTip() async {
     await allTipsViewModel.initialLoadCompleted;
 
-    _tipGame = await allTipsViewModel.findTip(game, currentTipper);
+    _tip = await allTipsViewModel.findTip(game, currentTipper);
 
     // flag our intial load as complete
     if (!_initialLoadCompleter.isCompleted) {
@@ -109,20 +116,24 @@ class GameTipsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<TipGame?> gettip() async {
+  Future<Tip?> gettip() async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
 
-    return _tipGame;
+    return _tip;
   }
 
-  void addTip(List<Game> roundGames, TipGame tip) async {
+  void addTip(List<Game> roundGames, Tip tip) async {
     try {
       assert(_initialLoadCompleter.isCompleted,
           'GameTipsViewModel.addTip() called before initial load completed');
 
       _savingTip = true;
+      notifyListeners();
+
+      // remember the tip prior to the update
+      final Tip? oldTip = _tip;
 
       // create a json representation of the tip
       final tipJson = await tip.toJson();
@@ -133,16 +144,12 @@ class GameTipsViewModel extends ChangeNotifier {
       await _db.update(updates);
       log('new tip submitted: ${updates.toString()}');
 
-      _tipGame = tip; // update the tipGame with the new tip
+      _tip = tip; // update the tip with the new tip
 
-      // run a scoring update for the round and tipper - this is to keep track of margin counts
-      // and to update the round scores
-      // TODO we need to do margin counts outside of the tip logic
-      // TODO need to avoid scoring updates here
-      await di<ScoresViewModel>().updateScoring(
-          di<DAUCompsViewModel>().selectedDAUComp!, currentTipper, null);
+      // update the margin counts.
+      await di<ScoresViewModel>().updateMargins(tip, oldTip, _dauRound);
 
-      // now sync the tip to the legacy google sheet
+      // now sync the tip to the legacy google sheet, do it async so that the UI can update
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();
       legacyTippingService.syncSingleRoundTipperToLegacy(
           allTipsViewModel, di<DAUCompsViewModel>(), tip, _dauRound);
@@ -150,8 +157,8 @@ class GameTipsViewModel extends ChangeNotifier {
       // rethrow exception so that the UI can handle it
       rethrow;
     } finally {
-      notifyListeners();
       _savingTip = false;
+      notifyListeners();
     }
   }
 

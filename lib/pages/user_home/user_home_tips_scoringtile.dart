@@ -2,10 +2,10 @@ import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/tipgame.dart';
-import 'package:daufootytipping/view_models/gametips_viewmodel.dart';
+import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,21 +14,21 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 class ScoringTile extends StatelessWidget {
   const ScoringTile(
       {super.key,
-      required this.tipGame,
+      required this.tip,
       required this.dauround,
       required this.gameTipsViewModel,
       required this.selectedDAUComp});
 
-  final GameTipsViewModel gameTipsViewModel;
-  final TipGame tipGame;
+  final GameTipViewModel gameTipsViewModel;
+  final Tip tip;
   final DAUComp selectedDAUComp;
   final DAURound dauround;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<GameTipsViewModel>.value(
+    return ChangeNotifierProvider<GameTipViewModel>.value(
         value: gameTipsViewModel,
-        child: Consumer<GameTipsViewModel>(
+        child: Consumer<GameTipViewModel>(
             builder: (context, gameTipsViewModelConsumer, child) {
           return Card(
             shape: RoundedRectangleBorder(
@@ -45,30 +45,28 @@ class ScoringTile extends StatelessWidget {
                   children: [
                     gameTipsViewModelConsumer.gameState ==
                             GameState.startedResultNotKnown
-                        ? liveScoring(
-                            gameTipsViewModelConsumer.tipGame!, context)
-                        : fixtureScoring(gameTipsViewModelConsumer.tipGame!),
+                        ? liveScoring(gameTipsViewModelConsumer.tip!, context)
+                        : fixtureScoring(gameTipsViewModelConsumer),
                     gameTipsViewModelConsumer.gameState ==
                             GameState.startedResultNotKnown
                         ? Text(
-                            'Interim Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}')
+                            'Interim Result: ${gameTipsViewModelConsumer.tip?.getGameResultText()}')
                         : Text(
-                            'Result: ${gameTipsViewModelConsumer.tipGame?.getGameResultText()}'),
+                            'Result: ${gameTipsViewModelConsumer.tip?.getGameResultText()}'),
                     Row(
                       children: [
-                        !tipGame.isDefaultTip()
-                            ? Text(gameTipsViewModelConsumer
-                                        .tipGame?.game.league ==
+                        !tip.isDefaultTip()
+                            ? Text(gameTipsViewModelConsumer.tip?.game.league ==
                                     League.nrl
-                                ? 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.nrl}'
-                                : 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.afl}')
+                                ? 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.nrl}'
+                                : 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.afl}')
                             : Row(
                                 children: [
                                   Text(gameTipsViewModelConsumer
-                                              .tipGame?.game.league ==
+                                              .tip?.game.league ==
                                           League.nrl
-                                      ? 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.nrl}'
-                                      : 'Your tip: ${gameTipsViewModelConsumer.tipGame?.tip.afl}'),
+                                      ? 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.nrl}'
+                                      : 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.afl}'),
                                   InkWell(
                                     onTap: () {
                                       ScaffoldMessenger.of(context)
@@ -90,12 +88,12 @@ class ScoringTile extends StatelessWidget {
                               ),
                       ],
                     ),
-                    gameTipsViewModelConsumer.tipGame?.game.gameState ==
+                    gameTipsViewModelConsumer.tip?.game.gameState ==
                             GameState.startedResultNotKnown
                         ? Text(
-                            'Interim points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}')
+                            'Interim points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}')
                         : Text(
-                            'Points: ${gameTipsViewModelConsumer.tipGame?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tipGame?.getMaxScoreCalculated()}'),
+                            'Points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}'),
                   ],
                 ),
               ],
@@ -104,7 +102,7 @@ class ScoringTile extends StatelessWidget {
         }));
   }
 
-  Widget liveScoring(TipGame consumerTipGame, BuildContext context) {
+  Widget liveScoring(Tip consumerTipGame, BuildContext context) {
     return GestureDetector(
       onTap: () => showMaterialModalBottomSheet(
           expand: false,
@@ -127,20 +125,20 @@ class ScoringTile extends StatelessWidget {
     );
   }
 
-  Row fixtureScoring(TipGame consumerTipGame) {
+  Row fixtureScoring(GameTipViewModel consumerTipGameViewModel) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('${consumerTipGame.game.scoring?.currentScore(ScoringTeam.home)}',
-            style: consumerTipGame.game.scoring!.didHomeTeamWin()
+        Text('${consumerTipGameViewModel.game.scoring!.homeTeamScore}',
+            style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
                     backgroundColor: Colors.lightGreen,
                     fontWeight: FontWeight.w900)
                 : null),
         const Text(textAlign: TextAlign.left, ' v '),
-        Text('${consumerTipGame.game.scoring?.currentScore(ScoringTeam.away)}',
-            style: consumerTipGame.game.scoring!.didAwayTeamWin()
+        Text('${consumerTipGameViewModel.game.scoring!.awayTeamScore}',
+            style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
                 ? const TextStyle(
                     fontSize: 18,
                     backgroundColor: Colors.lightGreen,

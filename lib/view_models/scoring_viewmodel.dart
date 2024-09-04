@@ -3,17 +3,18 @@ import 'dart:developer';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/game_scoring.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundscores.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
-import 'package:daufootytipping/models/tipgame.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -130,19 +131,15 @@ class ScoresViewModel extends ChangeNotifier {
       }
 
       // update the leaderboard
-      await _updateLeaderboardForComp();
+      _updateLeaderboardForComp();
       // Update the round winners
-      await _updateRoundWinners();
+      _updateRoundWinners();
       // rank the tippers
       await _rankTippers();
 
       notifyListeners();
     } catch (e) {
       log('Error listening to /Scores/round_scores: $e');
-
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        _initialRoundLoadCompleted.complete();
-      }
       rethrow;
     } finally {
       _isCompOrWinnerOrRankScoring = false;
@@ -192,6 +189,12 @@ class ScoresViewModel extends ChangeNotifier {
       if (_isScoring) {
         return 'Scoring already in progress';
       }
+
+      // write a firebase analytic event that scoring is underway
+      FirebaseAnalytics.instance.logEvent(
+          name:
+              'scoring_initiated, tipper param: ${onlyUpdateThisTipper?.name} , dauround param: ${onlyUpdateThisRound?.dAUroundNumber} ',
+          parameters: null);
 
       _isScoring = true;
 
@@ -270,6 +273,75 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
+  // method to update margin counts. Params are the tip to update
+  Future<String> updateMargins(
+      Tip tip, Tip? originalTip, DAURound dauRound) async {
+    log('updateMargins() called for tip: ${tip.tipper.name}');
+
+    try {
+      if (!_initialRoundLoadCompleted.isCompleted) {
+        await _initialRoundLoadCompleted.future;
+      }
+
+      // find the current round score record for this tipper
+      RoundScores? roundScores =
+          _allTipperRoundScores[tip.tipper]![dauRound.dAUroundNumber - 1];
+      // take note of the current afl and nrl margin counts
+      int originalAFLMarginCount = roundScores?.aflMarginTips ?? 0;
+      int originalNRLMarginCount = roundScores?.nrlMarginTips ?? 0;
+
+      // if originalTip is null and the tip is a margin tip, then we are incrementing the current margin count
+      // if originalTip is null and the tip is a not margin tip, then do nothing
+      // if originalTip is not null, then if the change is from a margin tip to a not margin tip, we decrement the margin count
+      // if originalTip is not null, then if the change is from a not margin tip to a margin tip, we increment the margin count
+
+      if (originalTip == null) {
+        if (tip.tip == GameResult.a || tip.tip == GameResult.e) {
+          tip.game.league == League.afl
+              ? originalAFLMarginCount++
+              : originalNRLMarginCount++;
+        }
+      } else {
+        if ((originalTip.tip == GameResult.a ||
+                originalTip.tip == GameResult.e) &&
+            (tip.tip != GameResult.a && tip.tip != GameResult.e)) {
+          originalTip.game.league == League.afl
+              ? originalAFLMarginCount--
+              : originalNRLMarginCount--;
+        } else if ((originalTip.tip != GameResult.a &&
+                originalTip.tip != GameResult.e) &&
+            (tip.tip == GameResult.a || tip.tip == GameResult.e)) {
+          tip.game.league == League.afl
+              ? originalAFLMarginCount++
+              : originalNRLMarginCount++;
+        }
+      }
+
+      // update the database with the new margin counts
+      await _db
+          .child(scoresPathRoot)
+          .child(currentDAUComp.dbkey!)
+          .child(roundScoresRoot)
+          .child(tip.tipper.dbkey!)
+          .child((dauRound.dAUroundNumber - 1).toString())
+          .update({
+        'afl_marginTips': originalAFLMarginCount,
+        'nrl_marginTips': originalNRLMarginCount,
+      });
+
+      String res =
+          'Completed updating margins for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}. AFL margins: $originalAFLMarginCount, NRL margins: $originalNRLMarginCount';
+      log(res);
+
+      return res;
+    } catch (e) {
+      log('Error updating margins: $e');
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<void> _removeScoresInactiveTippers(
       List<Tipper> tippersToUpdate, DAUComp daucompToUpdate) async {
     List<Tipper> tippersToRemove = [];
@@ -295,34 +367,29 @@ class ScoresViewModel extends ChangeNotifier {
       DAUComp dauComp) async {
     log('Writing round scores to DB for ${updatedTipperRoundScores.length} tippers');
 
-    // turn off the listener
-    _allRoundScoresStream.cancel();
-
     for (var roundScore in updatedTipperRoundScores.entries) {
       final updateData =
           (roundScore.value).map((k, v) => MapEntry(k.toString(), v.toJson()));
-      final updateMap = {
-        for (var entry in updateData.entries) entry.key: entry.value
-      };
 
       await _db
           .child(scoresPathRoot)
           .child(dauComp.dbkey!)
           .child(roundScoresRoot)
           .child(roundScore.key.dbkey!)
-          .update(updateMap);
+          .runTransaction((mutableData) {
+        // Apply your updates to mutableData here
+        if (mutableData != null) {
+          mutableData = updateData;
+        } else {
+          return Transaction.abort(); // Abort the transaction if necessary
+        }
+        return Transaction.success(
+            mutableData); // Return the modified data wrapped in Transaction.success
+      });
     }
-
-    // turn the listener back on
-    _allRoundScoresStream = _db
-        .child('$scoresPathRoot/${currentDAUComp.dbkey}/$roundScoresRoot')
-        .onValue
-        .listen(_handleEventRoundScores, onError: (error) {
-      log('Error listening to round scores: $error');
-    });
   }
 
-  Future<void> _updateRoundWinners() async {
+  void _updateRoundWinners() {
     Map<int, List<RoundWinnerEntry>> roundWinners = {};
     Map<int, int> maxRoundScores = {};
 
@@ -369,9 +436,10 @@ class ScoresViewModel extends ChangeNotifier {
     }
 
     _roundWinners = roundWinners;
+    notifyListeners();
   }
 
-  Future<void> _updateLeaderboardForComp() async {
+  void _updateLeaderboardForComp() {
     var leaderboard = _allTipperRoundScores.entries.map((e) {
       int totalScore = e.value.values.fold<int>(
           0,
@@ -449,6 +517,8 @@ class ScoresViewModel extends ChangeNotifier {
     });
 
     _leaderboard = leaderboard.toList();
+
+    notifyListeners();
 
     return;
   }
@@ -627,27 +697,27 @@ class ScoresViewModel extends ChangeNotifier {
     );
 
     for (var game in dauRound.games) {
-      TipGame? tipGame = await allTipsViewModel.findTip(game, tipperToScore);
+      Tip? tip = await allTipsViewModel.findTip(game, tipperToScore);
 
-      if (tipGame == null) {
+      if (tip == null) {
         continue;
       }
 
       // count margin tips regardless of round state
 
       int marginTip =
-          (tipGame.tip == GameResult.a || tipGame.tip == GameResult.e) ? 1 : 0;
+          (tip.tip == GameResult.a || tip.tip == GameResult.e) ? 1 : 0;
 
-      if (tipGame.game.league == League.afl) {
+      if (tip.game.league == League.afl) {
         proposedRoundScores.aflMarginTips += marginTip;
       } else {
         proposedRoundScores.nrlMarginTips += marginTip;
       }
 
-      if (tipGame.game.gameState != GameState.notStarted &&
-          tipGame.game.gameState != GameState.startingSoon) {
-        int score = tipGame.getTipScoreCalculated();
-        int maxScore = tipGame.getMaxScoreCalculated();
+      if (tip.game.gameState != GameState.notStarted &&
+          tip.game.gameState != GameState.startingSoon) {
+        int score = tip.getTipScoreCalculated();
+        int maxScore = tip.getMaxScoreCalculated();
 
         if (game.league == League.afl) {
           proposedRoundScores.aflScore += score;
@@ -658,18 +728,17 @@ class ScoresViewModel extends ChangeNotifier {
         }
 
         int marginUPS = 0;
-        if (tipGame.game.scoring != null) {
-          marginUPS = (tipGame.game.scoring!
-                              .getGameResultCalculated(game.league) ==
+        if (tip.game.scoring != null) {
+          marginUPS = (tip.game.scoring!.getGameResultCalculated(game.league) ==
                           GameResult.a &&
-                      tipGame.tip == GameResult.a) ||
-                  (tipGame.game.scoring!.getGameResultCalculated(game.league) ==
+                      tip.tip == GameResult.a) ||
+                  (tip.game.scoring!.getGameResultCalculated(game.league) ==
                           GameResult.e &&
-                      tipGame.tip == GameResult.e)
+                      tip.tip == GameResult.e)
               ? 1
               : 0;
 
-          if (tipGame.game.league == League.afl) {
+          if (tip.game.league == League.afl) {
             proposedRoundScores.aflMarginUPS += marginUPS;
           } else {
             proposedRoundScores.nrlMarginUPS += marginUPS;
@@ -738,6 +807,7 @@ class ScoresViewModel extends ChangeNotifier {
         lastScore = entry.value;
       }
     }
+    notifyListeners();
   }
 
   @override
