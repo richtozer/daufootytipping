@@ -161,6 +161,18 @@ class Scoring {
           } else {
             return GameResult.c;
           }
+        case League.epl:
+          if (homeScore >= awayScore + League.epl.margin) {
+            return GameResult.a;
+          } else if (homeScore + League.epl.margin <= awayScore) {
+            return GameResult.e;
+          } else if (homeScore > awayScore) {
+            return GameResult.b;
+          } else if (homeScore < awayScore) {
+            return GameResult.d;
+          } else {
+            return GameResult.c;
+          }
       }
     }
     return GameResult.z;
@@ -293,10 +305,65 @@ class Scoring {
       },
     };
 
-    if (gameLeague == League.nrl) {
-      return nrlScoreLookupTable[gameResult]![tip]!;
-    } else {
-      return aflScoreLookupTable[gameResult]![tip]!;
+    final eplScoreLookupTable = {
+      GameResult.a: {
+        GameResult.a: 4,
+        GameResult.b: 2,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: -2,
+        GameResult.z: 0
+      },
+      GameResult.b: {
+        GameResult.a: 1,
+        GameResult.b: 2,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: -2,
+        GameResult.z: 0
+      },
+      GameResult.c: {
+        GameResult.a: 0,
+        GameResult.b: 1,
+        GameResult.c: 15,
+        GameResult.d: 1,
+        GameResult.e: 0,
+        GameResult.z: 0
+      },
+      GameResult.d: {
+        GameResult.a: -2,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 2,
+        GameResult.e: 1,
+        GameResult.z: 0
+      },
+      GameResult.e: {
+        GameResult.a: -2,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 2,
+        GameResult.e: 4,
+        GameResult.z: 0
+      },
+      GameResult.z: {
+        GameResult.a: 0,
+        GameResult.b: 0,
+        GameResult.c: 0,
+        GameResult.d: 0,
+        GameResult.e: 0,
+        GameResult.z: 0
+      },
+    };
+    switch (gameLeague) {
+      case League.nrl:
+        return nrlScoreLookupTable[gameResult]![tip]!;
+      case League.afl:
+        return aflScoreLookupTable[gameResult]![tip]!;
+      case League.epl:
+        return eplScoreLookupTable[gameResult]![tip]!;
+      default:
+        throw Exception('Unsupported league: $gameLeague');
     }
   }
 }
