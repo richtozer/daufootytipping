@@ -283,6 +283,12 @@ class ScoresViewModel extends ChangeNotifier {
         await _initialRoundLoadCompleted.future;
       }
 
+      if (_isScoring) {
+        return 'Scoring already in progress';
+      }
+
+      assert(_allTipperRoundScores.containsKey(tip.tipper));
+
       // find the current round score record for this tipper
       RoundScores? roundScores =
           _allTipperRoundScores[tip.tipper]![dauRound.dAUroundNumber - 1];
