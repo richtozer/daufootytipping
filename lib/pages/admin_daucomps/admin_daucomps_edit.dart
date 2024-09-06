@@ -2,7 +2,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -615,10 +615,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
-      ScoresViewModel scoresViewModel = ScoresViewModel(widget.daucomp!);
+      StatsViewModel scoresViewModel = StatsViewModel(widget.daucomp!);
       return OutlinedButton(
         onPressed: () async {
-          if (scoresViewModel.isScoring) {
+          if (scoresViewModel.isCalculating) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 content: Text('Scoring already in progress')));
@@ -630,8 +630,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               disableBack = true;
             });
             await Future.delayed(const Duration(milliseconds: 100));
-            String syncResult = await scoresViewModel.updateScoring(
-                widget.daucomp!, null, null);
+            String syncResult =
+                await scoresViewModel.updateStats(widget.daucomp!, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -660,7 +660,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             }
           }
         },
-        child: Text(!scoresViewModel.isScoring ? 'Rescore' : 'Scoring...'),
+        child: Text(!scoresViewModel.isCalculating ? 'Rescore' : 'Scoring...'),
       );
     }
   }
