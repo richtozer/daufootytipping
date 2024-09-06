@@ -3,7 +3,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -236,9 +236,8 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                   }
 
                                   // update the scoring for the game's round asynchronously to avoid blocking UI
-                                  di<ScoresViewModel>().updateScoring(
+                                  di<StatsViewModel>().updateStats(
                                       di<DAUCompsViewModel>().selectedDAUComp!,
-                                      null,
                                       widget.dauround);
                                 },
                       style: ElevatedButton.styleFrom(
@@ -367,6 +366,6 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
         int.tryParse(score)!,
         false);
 
-    di<ScoresViewModel>().addLiveScore(widget.tip.game, croudSourcedScore);
+    di<StatsViewModel>().addLiveScore(widget.tip.game, croudSourcedScore);
   }
 }

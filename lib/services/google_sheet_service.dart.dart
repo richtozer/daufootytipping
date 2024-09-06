@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/sheets/v4.dart' hide Spreadsheet;
 import 'package:googleapis_auth/googleapis_auth.dart';
@@ -320,14 +321,22 @@ class LegacyTippingService {
     }
 
     // if gameIndex is -1, then the game is not in the round
-    // throw an error with more context
+    // log a warning with more context
     if (gameIndex == -1) {
-      throw Exception(
-          'Game ${tip.game.dbkey} is not in round ${dauRound.dAUroundNumber}. There are ${dauRound.games.length} games in the round.');
-    }
+      // log an error event in firebase analytics
+      FirebaseAnalytics.instance.logEvent(
+        name: 'game_not_in_round',
+        parameters: {
+          'game_dbkey': tip.game.dbkey,
+          'round_number': dauRound.dAUroundNumber,
+        },
+      );
 
-    defaultRoundTips =
-        defaultRoundTips.replaceRange(gameIndex, gameIndex + 1, tip.tip.name);
+      log('Game ${tip.game.dbkey} is not in round ${dauRound.dAUroundNumber}. There are ${dauRound.games.length} games in the round.');
+    } else {
+      defaultRoundTips =
+          defaultRoundTips.replaceRange(gameIndex, gameIndex + 1, tip.tip.name);
+    }
 
     return defaultRoundTips;
   }

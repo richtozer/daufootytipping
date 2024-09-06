@@ -1,6 +1,6 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
@@ -18,7 +18,7 @@ class StatCompLeaderboard extends StatefulWidget {
 }
 
 class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
-  late ScoresViewModel scoresViewModel;
+  late StatsViewModel scoresViewModel;
   bool isAscending = true;
   int? sortColumnIndex = 1;
 
@@ -36,14 +36,14 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<ScoresViewModel>();
+    scoresViewModel = di<StatsViewModel>();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>.value(
+    return ChangeNotifierProvider<StatsViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
+      child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(
               context,
@@ -57,7 +57,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   Widget buildScaffold(
     BuildContext context,
-    ScoresViewModel scoresViewModelConsumer,
+    StatsViewModel scoresViewModelConsumer,
     String name,
     Color color,
   ) {
@@ -189,8 +189,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     );
   }
 
-  void onTipperTapped(BuildContext context,
-      ScoresViewModel scoresViewModelConsumer, int index) {
+  void onTipperTapped(
+      BuildContext context, StatsViewModel scoresViewModelConsumer, int index) {
     Navigator.push(
       context,
       MaterialPageRoute(

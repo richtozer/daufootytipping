@@ -1,10 +1,10 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
@@ -76,8 +76,8 @@ class TipsTabState extends State<TipsTab> {
       providers: [
         ChangeNotifierProvider<DAUCompsViewModel>.value(
             value: daucompsViewModel),
-        ChangeNotifierProvider<ScoresViewModel?>.value(
-            value: di<ScoresViewModel>()),
+        ChangeNotifierProvider<StatsViewModel?>.value(
+            value: di<StatsViewModel>()),
       ],
       child: Theme(
         data: myTheme,
@@ -128,7 +128,7 @@ class TipsTabState extends State<TipsTab> {
                   .selectedDAUComp!.daurounds[roundIndex];
 
               if (itemIndex == 0) {
-                return Consumer<ScoresViewModel?>(
+                return Consumer<StatsViewModel?>(
                     builder: (context, scoresViewmodelConsumer, client) {
                   return roundLeagueHeaderListTile(
                       League.nrl, 50, 50, dauRound, scoresViewmodelConsumer);
@@ -143,7 +143,7 @@ class TipsTabState extends State<TipsTab> {
                   dauCompsViewModel: daucompsViewmodelConsumer,
                 );
               } else if (itemIndex == 2) {
-                return Consumer<ScoresViewModel?>(
+                return Consumer<StatsViewModel?>(
                     builder: (context, scoresViewmodelConsumer, client) {
                   return roundLeagueHeaderListTile(
                       League.afl, 40, 40, dauRound, scoresViewmodelConsumer);
@@ -210,17 +210,24 @@ class TipsTabState extends State<TipsTab> {
       double logoWidth,
       double logoHeight,
       DAURound dauRound,
-      ScoresViewModel? scoresViewmodelConsumer) {
-    RoundScores? roundScores;
+      StatsViewModel? scoresViewmodelConsumer) {
+    // check for null values
+    RoundStats roundScores = scoresViewmodelConsumer
+                ?.allTipperRoundStats[dauRound.dAUroundNumber - 1]
+            ?[di<TippersViewModel>().selectedTipper] ??
+        RoundStats(
+            roundNumber: 0,
+            aflScore: 0,
+            aflMaxScore: 0,
+            aflMarginTips: 0,
+            aflMarginUPS: 0,
+            nrlScore: 0,
+            nrlMaxScore: 0,
+            nrlMarginTips: 0,
+            nrlMarginUPS: 0,
+            rank: 0,
+            rankChange: 0);
 
-    var selectedTipperScores = scoresViewmodelConsumer
-        ?.allTipperRoundScores[di<TippersViewModel>().selectedTipper];
-
-    if (selectedTipperScores != null) {
-      roundScores = selectedTipperScores[dauRound.dAUroundNumber - 1];
-    } else {
-      roundScores = null; // Or assign a default value if appropriate.
-    }
     return Card(
       color: Colors.black54,
       //shadowColor: League.nrl.colour,

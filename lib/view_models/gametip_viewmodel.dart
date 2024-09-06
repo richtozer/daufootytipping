@@ -7,7 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -147,7 +147,7 @@ class GameTipViewModel extends ChangeNotifier {
       _tip = tip; // update the tip with the new tip
 
       // update the margin counts.
-      await di<ScoresViewModel>().updateMargins(tip, oldTip, _dauRound);
+      await di<StatsViewModel>().updateMargins(tip, oldTip, _dauRound);
 
       // now sync the tip to the legacy google sheet, do it async so that the UI can update
       LegacyTippingService legacyTippingService = di<LegacyTippingService>();

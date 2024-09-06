@@ -1,7 +1,7 @@
 import 'package:data_table_2/data_table_2.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
@@ -21,8 +21,8 @@ class StatRoundLeaderboard extends StatefulWidget {
 }
 
 class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
-  late ScoresViewModel scoresViewModel;
-  Map<Tipper, RoundScores> roundLeaderboard = {};
+  late StatsViewModel scoresViewModel;
+  Map<Tipper, RoundStats> roundLeaderboard = {};
 
   bool isAscending = true;
   int? sortColumnIndex = 0;
@@ -41,24 +41,17 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   void initState() {
     super.initState();
 
-    scoresViewModel = di<ScoresViewModel>();
-
-    getConsolidatedScoresForRoundLeaderboard();
+    scoresViewModel = di<StatsViewModel>();
+    roundLeaderboard =
+        scoresViewModel.allTipperRoundStats[widget.roundNumberToDisplay - 1]!;
     onSort(1, true);
-  }
-
-  void getConsolidatedScoresForRoundLeaderboard() {
-    for (var tipper in scoresViewModel.allTipperRoundScores.keys) {
-      roundLeaderboard[tipper] = scoresViewModel
-          .allTipperRoundScores[tipper]![widget.roundNumberToDisplay - 1]!;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>.value(
+    return ChangeNotifierProvider<StatsViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
+      child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(
             context,
@@ -73,7 +66,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   Widget buildScaffold(
     BuildContext context,
-    ScoresViewModel scoresViewModelConsumer,
+    StatsViewModel scoresViewModelConsumer,
     String name,
     Color color,
   ) {
@@ -119,7 +112,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                     isVerticalScrollBarVisible: true,
                     columns: getColumns(columns),
                     rows: roundLeaderboard.entries
-                        .map((MapEntry<Tipper, RoundScores> entry) {
+                        .map((MapEntry<Tipper, RoundStats> entry) {
                       return DataRow(
                         color: entry.key ==
                                 di<TippersViewModel>().selectedTipper!
