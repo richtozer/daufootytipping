@@ -1,7 +1,7 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
@@ -20,7 +20,7 @@ class StatRoundWinners extends StatefulWidget {
 }
 
 class _StatRoundWinnersState extends State<StatRoundWinners> {
-  late ScoresViewModel scoresViewModel;
+  late StatsViewModel scoresViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
 
@@ -37,7 +37,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<ScoresViewModel>();
+    scoresViewModel = di<StatsViewModel>();
     onSort(0, false);
   }
 
@@ -56,9 +56,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     }
 
     int? lastRoundNumber;
-    return ChangeNotifierProvider<ScoresViewModel>.value(
+    return ChangeNotifierProvider<StatsViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
+      child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           Orientation orientation = MediaQuery.of(context).orientation;
           return Scaffold(

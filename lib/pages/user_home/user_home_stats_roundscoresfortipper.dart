@@ -1,8 +1,8 @@
 import 'package:data_table_2/data_table_2.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
@@ -21,7 +21,7 @@ class StatRoundScoresForTipper extends StatefulWidget {
 }
 
 class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
-  late ScoresViewModel scoresViewModel;
+  late StatsViewModel scoresViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
 
@@ -39,15 +39,15 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     super.initState();
     // is selecteddaucomp is not null then get the scores model
     if (di<DAUCompsViewModel>().selectedDAUComp != null) {
-      scoresViewModel = di<ScoresViewModel>();
+      scoresViewModel = di<StatsViewModel>();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ScoresViewModel>.value(
+    return ChangeNotifierProvider<StatsViewModel>.value(
       value: scoresViewModel,
-      child: Consumer<ScoresViewModel>(
+      child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           var scores = scoresViewModelConsumer
               .getTipperRoundScoresForComp(widget.statsTipper);
@@ -61,7 +61,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   }
 
   Scaffold buildScaffold(
-      BuildContext context, List<RoundScores> scores, bool isLargeScreen) {
+      BuildContext context, List<RoundStats> scores, bool isLargeScreen) {
     Orientation orientation = MediaQuery.of(context).orientation;
 
     return Scaffold(
@@ -111,7 +111,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  DataRow buildDataRow(List<RoundScores> scores, int index) {
+  DataRow buildDataRow(List<RoundStats> scores, int index) {
     var score = scores[index];
     return DataRow(
       cells: [
@@ -162,7 +162,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  void onSort(int columnIndex, bool ascending, List<RoundScores> scores) {
+  void onSort(int columnIndex, bool ascending, List<RoundStats> scores) {
     switch (columnIndex) {
       case 0:
         scores.sort((a, b) => ascending
@@ -207,7 +207,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns, List<RoundScores> scores) =>
+  List<DataColumn> getColumns(List<String> columns, List<RoundStats> scores) =>
       columns
           .map((String column) => DataColumn2(
                 fixedWidth: column == 'Round'

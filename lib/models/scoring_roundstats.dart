@@ -1,4 +1,4 @@
-class RoundScores {
+class RoundStats {
   int roundNumber = 0;
   int aflScore = 0;
   int aflMaxScore = 0;
@@ -12,7 +12,7 @@ class RoundScores {
   int rankChange = 0;
 
 //contructor
-  RoundScores({
+  RoundStats({
     required this.roundNumber,
     required this.aflScore,
     required this.aflMaxScore,
@@ -42,8 +42,8 @@ class RoundScores {
     };
   }
 
-  factory RoundScores.fromJson(Map<String, dynamic> data) {
-    return RoundScores(
+  factory RoundStats.fromJson(Map<String, dynamic> data) {
+    return RoundStats(
       roundNumber: data['roundNumber'] ?? 0,
       aflScore: data['afl_score'] ?? 0,
       aflMaxScore: data['afl_maxScore'] ?? 0,
@@ -73,12 +73,12 @@ class RoundScores {
     ];
   }
 
-  // compare two roundscores using == operator
+  // compare two roundstats using == operator
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    return other is RoundScores &&
+    return other is RoundStats &&
         other.roundNumber == roundNumber &&
         other.aflScore == aflScore &&
         other.aflMaxScore == aflMaxScore &&

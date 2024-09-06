@@ -5,7 +5,7 @@ import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/scoring_roundscores.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
@@ -20,14 +20,14 @@ import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
 // Define constants for Firestore database location
-const scoresPathRoot = '/Scores';
-const roundScoresRoot = 'round_scores';
+const statsPathRoot = '/Stats';
+const roundStatsRoot = 'round_stats';
 const liveScoresRoot = 'live_scores';
 
-class ScoresViewModel extends ChangeNotifier {
-  Map<Tipper, Map<int, RoundScores>> _allTipperRoundScores = {};
-  Map<Tipper, Map<int, RoundScores>> get allTipperRoundScores =>
-      _allTipperRoundScores;
+class StatsViewModel extends ChangeNotifier {
+  Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
+  Map<int, Map<Tipper, RoundStats>> get allTipperRoundStats =>
+      _allTipperRoundStats;
 
   final List<Game> _gamesWithLiveScores = [];
 
@@ -37,8 +37,8 @@ class ScoresViewModel extends ChangeNotifier {
 
   final DAUComp currentDAUComp;
 
-  bool _isScoring = false;
-  bool get isScoring => _isScoring;
+  bool _isCalculating = false;
+  bool get isCalculating => _isCalculating;
   bool _isCompOrWinnerOrRankScoring = false;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
@@ -55,21 +55,21 @@ class ScoresViewModel extends ChangeNotifier {
   Map<int, List<RoundWinnerEntry>> get roundWinners => _roundWinners;
 
   // Constructor
-  ScoresViewModel(this.currentDAUComp) {
-    log('ScoresViewModel_constructor(ALL TIPPERS) for comp: ${currentDAUComp.dbkey}');
+  StatsViewModel(this.currentDAUComp) {
+    log('StatsViewModel(ALL TIPPERS) for comp: ${currentDAUComp.dbkey}');
     _listenToScores();
   }
 
   void _listenToScores() async {
     _allRoundScoresStream = _db
-        .child('$scoresPathRoot/${currentDAUComp.dbkey}/$roundScoresRoot')
+        .child('$statsPathRoot/${currentDAUComp.dbkey}/$roundStatsRoot')
         .onValue
         .listen(_handleEventRoundScores, onError: (error) {
       log('Error listening to round scores: $error');
     });
 
     _liveScoresStream = _db
-        .child('$scoresPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
+        .child('$statsPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
         .onValue
         .listen(_handleEventLiveScores, onError: (error) {
       log('Error listening to live scores: $error');
@@ -79,37 +79,19 @@ class ScoresViewModel extends ChangeNotifier {
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
-        var dbData = event.snapshot.value as Map<dynamic, dynamic>;
-
-        List<Future<MapEntry<Tipper, Map<int, RoundScores>>?>> futureEntries =
-            dbData.entries.map((entry) async {
-          Tipper? tipper = await di<TippersViewModel>().findTipper(entry.key);
-          if (tipper != null) {
-            //entry.value should be a list of RoundScores, if not, log and skip
-            if (entry.value is! List<dynamic>) {
-              log('_handleEventRoundScores() Tipper ${entry.key} has invalid data in round_scores. Skipping.');
-              return null;
-            }
-            var list = entry.value as List<dynamic>;
-            Map<int, RoundScores> scores = {
-              for (int i = 0; i < list.length; i++)
-                if (list[i] != null)
-                  i: RoundScores.fromJson(Map<String, dynamic>.from(list[i]))
-            };
-            return MapEntry(tipper, scores);
-          } else {
-            log('_handleEventRoundScores() Tipper ${entry.key} does not exist in TipperViewModel. Skipping.');
-            return null;
+        var dbData = event.snapshot.value as List<Object?>;
+        // Deserialize the round scores into _allTipperRoundStats
+        for (var roundIndex = 0; roundIndex < dbData.length; roundIndex++) {
+          var roundScoresJson = dbData[roundIndex] as Map<dynamic, dynamic>;
+          Map<Tipper, RoundStats> roundScores = {};
+          for (var entry in roundScoresJson.entries) {
+            var tipper = await di<TippersViewModel>().findTipper(entry.key);
+            var roundStats = RoundStats.fromJson(Map<String, dynamic>.from(
+                entry.value as Map<dynamic, dynamic>));
+            roundScores[tipper!] = roundStats;
           }
-        }).toList();
-
-        List<MapEntry<Tipper, Map<int, RoundScores>>> entries =
-            (await Future.wait(futureEntries))
-                .where((item) => item != null)
-                .cast<MapEntry<Tipper, Map<int, RoundScores>>>()
-                .toList();
-
-        _allTipperRoundScores = Map.fromEntries(entries);
+          _allTipperRoundStats[roundIndex] = roundScores;
+        }
       } else {
         log('Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores');
       }
@@ -119,14 +101,14 @@ class ScoresViewModel extends ChangeNotifier {
       }
 
       //check if updateScoring is in progress, if so, skip the following steps
-      if (_isScoring) {
+      if (_isCalculating) {
         return;
       }
 
       if (_isCompOrWinnerOrRankScoring) {
         return;
       } else {
-        log('ScoresViewModel: _handleEventRoundScores() - Scoring not in progress, updating leaderboard and round winners');
+        log('StatsViewModel: _handleEventRoundScores() - Calculating not in progress, updating leaderboard and round winners');
         _isCompOrWinnerOrRankScoring = true;
       }
 
@@ -139,7 +121,7 @@ class ScoresViewModel extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      log('Error listening to /Scores/round_scores: $e');
+      log('Error listening to /Stats/round_scores: $e');
       rethrow;
     } finally {
       _isCompOrWinnerOrRankScoring = false;
@@ -172,7 +154,7 @@ class ScoresViewModel extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      log('Error listening to /Scores/live_scores: $e');
+      log('Error listening to /Stats/live_scores: $e');
       rethrow;
     } finally {
       if (!_initialLiveScoreLoadCompleter.isCompleted) {
@@ -181,78 +163,53 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> updateScoring(DAUComp daucompToUpdate,
-      Tipper? onlyUpdateThisTipper, DAURound? onlyUpdateThisRound) async {
+  Future<String> updateStats(
+      DAUComp daucompToUpdate, DAURound? onlyUpdateThisRound) async {
     log('updateScoring() called for comp: ${daucompToUpdate.name}');
     var stopwatch = Stopwatch()..start();
     try {
-      if (_isScoring) {
-        return 'Scoring already in progress';
+      if (_isCalculating) {
+        return 'Calcuating already in progress';
       }
-
-      // write a firebase analytic event that scoring is underway
-      FirebaseAnalytics.instance.logEvent(
-          name:
-              'scoring_initiated, tipper param: ${onlyUpdateThisTipper?.name} , dauround param: ${onlyUpdateThisRound?.dAUroundNumber} ',
-          parameters: null);
-
-      _isScoring = true;
 
       if (!_initialRoundLoadCompleted.isCompleted) {
         await _initialRoundLoadCompleted.future;
       }
 
-      TippersViewModel tippersViewModel = di<TippersViewModel>();
+      _isCalculating = true;
 
-      // we need to load tips for all tippers if onlyUpdateThisTipper is null
-      TipsViewModel allTipsViewModel;
-      if (onlyUpdateThisTipper == null) {
-        allTipsViewModel = TipsViewModel(di<TippersViewModel>(),
-            daucompToUpdate, di<DAUCompsViewModel>().gamesViewModel!);
-      } else {
-        // load the existing model via di
-        allTipsViewModel = di<DAUCompsViewModel>().tipperTipsViewModel!;
-      }
+      // write a firebase analytic event that scoring is underway
+      FirebaseAnalytics.instance
+          .logEvent(name: 'scoring_initiated', parameters: {
+        'comp': daucompToUpdate.name,
+        'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
+      });
 
-      List<Tipper> tippersToUpdate = await _getTippersToUpdate(
-          onlyUpdateThisTipper, tippersViewModel, daucompToUpdate);
+      List<Tipper> tippersToUpdate = await _getTippersToUpdate(daucompToUpdate);
 
-      // if we are doing a full scoring sync then use this time to remove any inactive tippers
-      if (onlyUpdateThisTipper == null) {
-        await _removeScoresInactiveTippers(tippersToUpdate, daucompToUpdate);
-      }
+      // remove any scores for tippers that are no longer active
+      await _removeScoresInactiveTippers(tippersToUpdate, daucompToUpdate);
 
       var dauRoundsEdited =
           _getRoundsToUpdate(onlyUpdateThisRound, daucompToUpdate);
 
-      Map<Tipper, Map<int, RoundScores>> changedTippers = {};
+      Map<int, Map<Tipper, RoundStats>> allRoundStats = {};
 
-      for (Tipper tipperToScore in tippersToUpdate) {
-        for (DAURound dauRound in dauRoundsEdited) {
-          RoundScores newScores = await _calculateRoundScoresForTipper(
-              tipperToScore, dauRound, allTipsViewModel);
+      TipsViewModel allTipsViewModel = TipsViewModel(di<TippersViewModel>(),
+          daucompToUpdate, di<DAUCompsViewModel>().gamesViewModel!);
 
-          // Check if the scores are null or different
-          bool shouldUpdate = _allTipperRoundScores[tipperToScore] == null ||
-              _allTipperRoundScores[tipperToScore]![
-                      dauRound.dAUroundNumber - 1] ==
-                  null ||
-              _allTipperRoundScores[tipperToScore]![
-                      dauRound.dAUroundNumber - 1] !=
-                  newScores;
-
-          if (shouldUpdate) {
-            // If scores are null or different, update them
-            changedTippers[tipperToScore] ??= {};
-            changedTippers[tipperToScore]![dauRound.dAUroundNumber - 1] =
-                newScores;
-          }
-          // Otherwise, skip the update
-        }
+      for (DAURound dauRound in dauRoundsEdited) {
+        allRoundStats[dauRound.dAUroundNumber - 1] = await _calculateRoundStats(
+            tippersToUpdate, dauRound, allTipsViewModel);
       }
 
-      if (changedTippers.isNotEmpty) {
-        await _writeRoundScoresToDb(changedTippers, daucompToUpdate);
+      if (onlyUpdateThisRound == null) {
+        // Write the entire list of round scores back to the database in one transaction
+        await _writeAllRoundScoresToDb(allRoundStats, daucompToUpdate);
+      } else {
+        // Only update the specific round (index) in the database
+        await _writeSpecificRoundScoresToDb(allRoundStats, daucompToUpdate,
+            onlyUpdateThisRound.dAUroundNumber - 1);
       }
 
       String res =
@@ -268,9 +225,52 @@ class ScoresViewModel extends ChangeNotifier {
     } finally {
       stopwatch.stop();
       log('updateScoring executed in ${stopwatch.elapsed}');
-      _isScoring = false;
+      _isCalculating = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _writeAllRoundScoresToDb(
+      Map<int, Map<Tipper, RoundStats>> updatedTipperRoundStats,
+      DAUComp dauComp) async {
+    log('Writing all round scores to DB for ${updatedTipperRoundStats.length} rounds');
+
+    // convert updatedTipperRoundStats to a Map<String, dynamic> for writing to the database
+    Map<String, dynamic> updatedTipperRoundStatsJson = {};
+    for (var roundIndex in updatedTipperRoundStats.keys) {
+      updatedTipperRoundStatsJson[roundIndex.toString()] = {};
+      for (var tipper in updatedTipperRoundStats[roundIndex]!.keys) {
+        updatedTipperRoundStatsJson[roundIndex.toString()][tipper.dbkey!] =
+            updatedTipperRoundStats[roundIndex]![tipper]!.toJson();
+      }
+    }
+
+    await _db
+        .child(statsPathRoot)
+        .child(dauComp.dbkey!)
+        .child(roundStatsRoot)
+        .set(updatedTipperRoundStatsJson);
+  }
+
+  Future<void> _writeSpecificRoundScoresToDb(
+      Map<int, Map<Tipper, RoundStats>> updatedTipperRoundStats,
+      DAUComp dauComp,
+      int roundIndex) async {
+    log('Writing specific stats for round $roundIndex');
+
+    // convert updatedTipperRoundStats to a Map<String, dynamic> for writing to the database
+    Map<String, dynamic> updatedTipperRoundStatsJson = {};
+    for (var tipper in updatedTipperRoundStats[roundIndex]!.keys) {
+      updatedTipperRoundStatsJson[tipper.dbkey!] =
+          updatedTipperRoundStats[roundIndex]![tipper]!.toJson();
+    }
+
+    await _db
+        .child(statsPathRoot)
+        .child(dauComp.dbkey!)
+        .child(roundStatsRoot)
+        .child(roundIndex.toString())
+        .set(updatedTipperRoundStatsJson);
   }
 
   // method to update margin counts. Params are the tip to update
@@ -283,9 +283,15 @@ class ScoresViewModel extends ChangeNotifier {
         await _initialRoundLoadCompleted.future;
       }
 
-      // find the current round score record for this tipper
-      RoundScores? roundScores =
-          _allTipperRoundScores[tip.tipper]![dauRound.dAUroundNumber - 1];
+      if (_isCalculating) {
+        return 'Stats calculation already in progress';
+      }
+
+      assert(_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1));
+
+      // find the current round stats record for this tipper
+      RoundStats? roundScores =
+          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tip.tipper];
       // take note of the current afl and nrl margin counts
       int originalAFLMarginCount = roundScores?.aflMarginTips ?? 0;
       int originalNRLMarginCount = roundScores?.nrlMarginTips ?? 0;
@@ -319,11 +325,11 @@ class ScoresViewModel extends ChangeNotifier {
 
       // update the database with the new margin counts
       await _db
-          .child(scoresPathRoot)
+          .child(statsPathRoot)
           .child(currentDAUComp.dbkey!)
-          .child(roundScoresRoot)
-          .child(tip.tipper.dbkey!)
+          .child(roundStatsRoot)
           .child((dauRound.dAUroundNumber - 1).toString())
+          .child(tip.tipper.dbkey!)
           .update({
         'afl_marginTips': originalAFLMarginCount,
         'nrl_marginTips': originalNRLMarginCount,
@@ -342,50 +348,37 @@ class ScoresViewModel extends ChangeNotifier {
     }
   }
 
+  Future<List<Tipper>> _getTippersToUpdate(DAUComp daucompToUpdate) async {
+    TippersViewModel tippersViewModel = di<TippersViewModel>();
+    return await tippersViewModel.getActiveTippers(daucompToUpdate);
+  }
+
   Future<void> _removeScoresInactiveTippers(
       List<Tipper> tippersToUpdate, DAUComp daucompToUpdate) async {
     List<Tipper> tippersToRemove = [];
-    for (var tipper in _allTipperRoundScores.keys) {
+    // if there are no scores in the database, return
+    if (_allTipperRoundStats.isEmpty) {
+      return;
+    }
+
+    // grab all the tippers from the first round
+    for (var tipper in _allTipperRoundStats[0]!.keys) {
       if (!tippersToUpdate.contains(tipper)) {
         tippersToRemove.add(tipper);
       }
     }
 
-    for (var tipper in tippersToRemove) {
-      await _db
-          .child(scoresPathRoot)
-          .child(daucompToUpdate.dbkey!)
-          .child(roundScoresRoot)
-          .child(tipper.dbkey!)
-          .remove();
-      log('Removed scores for inactive tipper ${tipper.name}');
-    }
-  }
-
-  Future<void> _writeRoundScoresToDb(
-      Map<Tipper, Map<int, RoundScores>> updatedTipperRoundScores,
-      DAUComp dauComp) async {
-    log('Writing round scores to DB for ${updatedTipperRoundScores.length} tippers');
-
-    for (var roundScore in updatedTipperRoundScores.entries) {
-      final updateData =
-          (roundScore.value).map((k, v) => MapEntry(k.toString(), v.toJson()));
-
-      await _db
-          .child(scoresPathRoot)
-          .child(dauComp.dbkey!)
-          .child(roundScoresRoot)
-          .child(roundScore.key.dbkey!)
-          .runTransaction((mutableData) {
-        // Apply your updates to mutableData here
-        if (mutableData != null) {
-          mutableData = updateData;
-        } else {
-          return Transaction.abort(); // Abort the transaction if necessary
-        }
-        return Transaction.success(
-            mutableData); // Return the modified data wrapped in Transaction.success
-      });
+    // remove stats from database for inactive tippers for all rounds
+    for (var round in _allTipperRoundStats.keys) {
+      for (var tipper in tippersToRemove) {
+        await _db
+            .child(statsPathRoot)
+            .child(daucompToUpdate.dbkey!)
+            .child(roundStatsRoot)
+            .child(round.toString())
+            .child(tipper.dbkey!)
+            .remove();
+      }
     }
   }
 
@@ -393,31 +386,40 @@ class ScoresViewModel extends ChangeNotifier {
     Map<int, List<RoundWinnerEntry>> roundWinners = {};
     Map<int, int> maxRoundScores = {};
 
-    for (var tipper in _allTipperRoundScores.keys) {
-      for (var round in _allTipperRoundScores[tipper]!.entries) {
-        if (maxRoundScores[round.key] == null) {
-          maxRoundScores[round.key] = 0;
-        }
-        var roundScores = round.value;
-        if (roundScores.aflScore + roundScores.nrlScore >
-            maxRoundScores[round.key]!) {
-          maxRoundScores[round.key] =
-              roundScores.aflScore + roundScores.nrlScore;
+    // Iterate over each round
+    for (var roundEntry in _allTipperRoundStats.entries) {
+      int roundNumber = roundEntry.key;
+      Map<Tipper, RoundStats> tipperStats = roundEntry.value;
+
+      // Find the maximum score for the round
+      for (var tipperEntry in tipperStats.entries) {
+        RoundStats roundScores = tipperEntry.value;
+        int totalScore = roundScores.aflScore + roundScores.nrlScore;
+
+        if (maxRoundScores[roundNumber] == null ||
+            totalScore > maxRoundScores[roundNumber]!) {
+          maxRoundScores[roundNumber] = totalScore;
         }
       }
     }
 
-    for (var tipper in _allTipperRoundScores.keys) {
-      for (var round in _allTipperRoundScores[tipper]!.entries) {
-        var roundScores = round.value;
-        if (roundScores.aflScore + roundScores.nrlScore ==
-                maxRoundScores[round.key]! &&
-            roundScores.nrlMaxScore + roundScores.aflMaxScore > 0) {
-          roundWinners[round.key] ??= [];
-          roundWinners[round.key]!.add(RoundWinnerEntry(
+    // Identify the round winners
+    for (var roundEntry in _allTipperRoundStats.entries) {
+      int roundNumber = roundEntry.key;
+      Map<Tipper, RoundStats> tipperStats = roundEntry.value;
+
+      for (var tipperEntry in tipperStats.entries) {
+        Tipper tipper = tipperEntry.key;
+        RoundStats roundScores = tipperEntry.value;
+        int totalScore = roundScores.aflScore + roundScores.nrlScore;
+
+        if (totalScore == maxRoundScores[roundNumber]! &&
+            (roundScores.nrlMaxScore + roundScores.aflMaxScore > 0)) {
+          roundWinners[roundNumber] ??= [];
+          roundWinners[roundNumber]!.add(RoundWinnerEntry(
             roundNumber: roundScores.roundNumber,
             tipper: tipper,
-            total: roundScores.aflScore + roundScores.nrlScore,
+            total: totalScore,
             nRL: roundScores.nrlScore,
             aFL: roundScores.aflScore,
             aflMargins: roundScores.aflMarginTips,
@@ -440,59 +442,52 @@ class ScoresViewModel extends ChangeNotifier {
   }
 
   void _updateLeaderboardForComp() {
-    var leaderboard = _allTipperRoundScores.entries.map((e) {
-      int totalScore = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.aflScore + roundScores.nrlScore));
+    // Create a map to accumulate scores for each tipper
+    Map<Tipper, LeaderboardEntry> leaderboardMap = {};
 
-      int nrlScore = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.nrlScore));
+    // Iterate over each round
+    for (var roundEntry in _allTipperRoundStats.entries) {
+      Map<Tipper, RoundStats> tipperStats = roundEntry.value;
 
-      int aflScore = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.aflScore));
+      // Iterate over each tipper's stats for the round
+      for (var tipperEntry in tipperStats.entries) {
+        Tipper tipper = tipperEntry.key;
+        RoundStats roundScores = tipperEntry.value;
 
-      int aflMargins = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.aflMarginTips));
+        // Initialize leaderboard entry if not already present
+        if (!leaderboardMap.containsKey(tipper)) {
+          leaderboardMap[tipper] = LeaderboardEntry(
+            rank: 0, // to be replaced later with actual rank calculation
+            tipper: tipper,
+            total: 0,
+            nRL: 0,
+            aFL: 0,
+            numRoundsWon:
+                0, // to be replaced later with actual numRoundsWon calculation
+            aflMargins: 0,
+            aflUPS: 0,
+            nrlMargins: 0,
+            nrlUPS: 0,
+          );
+        }
 
-      int aflMarginUps = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.aflMarginUPS));
+        // Update leaderboard entry with round scores
+        leaderboardMap[tipper]!.total +=
+            roundScores.aflScore + roundScores.nrlScore;
+        leaderboardMap[tipper]!.nRL += roundScores.nrlScore;
+        leaderboardMap[tipper]!.aFL += roundScores.aflScore;
+        leaderboardMap[tipper]!.aflMargins += roundScores.aflMarginTips;
+        leaderboardMap[tipper]!.aflUPS += roundScores.aflMarginUPS;
+        leaderboardMap[tipper]!.nrlMargins += roundScores.nrlMarginTips;
+        leaderboardMap[tipper]!.nrlUPS += roundScores.nrlMarginUPS;
+      }
+    }
 
-      int nrlMargins = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.nrlMarginTips));
-
-      int nrlMarginUps = e.value.values.fold<int>(
-          0,
-          (previousValue, RoundScores roundScores) =>
-              previousValue + (roundScores.nrlMarginUPS));
-
-      return LeaderboardEntry(
-        rank: 0, // to be replaced later with actual rank calculation
-        tipper: e.key,
-        total: totalScore,
-        nRL: nrlScore,
-        aFL: aflScore,
-        numRoundsWon:
-            0, // to be replaced later with actual numRoundsWon calculation
-        aflMargins: aflMargins,
-        aflUPS: aflMarginUps,
-        nrlMargins: nrlMargins,
-        nrlUPS: nrlMarginUps,
-      );
-    }).toList();
-
+    // Convert the map to a list and sort by total score
+    var leaderboard = leaderboardMap.values.toList();
     leaderboard.sort((a, b) => b.total.compareTo(a.total));
 
+    // Assign ranks
     int rank = 1;
     int skip = 1;
     for (int i = 0; i < leaderboard.length; i++) {
@@ -505,6 +500,7 @@ class ScoresViewModel extends ChangeNotifier {
       leaderboard[i].rank = rank;
     }
 
+    // Sort by rank and then by tipper name
     leaderboard.sort((a, b) {
       int rankComparison = a.rank.compareTo(b.rank);
       if (rankComparison == 0) {
@@ -516,11 +512,9 @@ class ScoresViewModel extends ChangeNotifier {
       }
     });
 
-    _leaderboard = leaderboard.toList();
+    _leaderboard = leaderboard;
 
     notifyListeners();
-
-    return;
   }
 
   void sortRoundWinnersByRoundNumber(bool ascending) {
@@ -553,24 +547,19 @@ class ScoresViewModel extends ChangeNotifier {
     _roundWinners = Map.fromEntries(sortedEntries);
   }
 
-  List<RoundScores> getTipperRoundScoresForComp(Tipper tipper) {
+  List<RoundStats> getTipperRoundScoresForComp(Tipper tipper) {
     if (!_initialRoundLoadCompleted.isCompleted) {
       return [];
     }
 
-    if (_allTipperRoundScores.containsKey(tipper)) {
-      int latestRoundNumber = di<DAUCompsViewModel>()
-          .selectedDAUComp!
-          .getHighestRoundNumberWithAllGamesPlayed();
-
-      return _allTipperRoundScores[tipper]!
-          .entries
-          .where((entry) => entry.key <= latestRoundNumber - 1)
-          .map((entry) => entry.value)
-          .toList();
-    } else {
-      return [];
+    List<RoundStats> tipperRoundScores = [];
+    for (var round in _allTipperRoundStats.entries) {
+      if (round.value.containsKey(tipper)) {
+        tipperRoundScores.add(round.value[tipper]!);
+      }
     }
+
+    return tipperRoundScores;
   }
 
   void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) {
@@ -602,7 +591,7 @@ class ScoresViewModel extends ChangeNotifier {
                   .submittedTimeUTC);
     }
 
-    di<ScoresViewModel>()._writeLiveScoreToDb(game);
+    di<StatsViewModel>()._writeLiveScoreToDb(game);
   }
 
   Future<void> _writeLiveScoreToDb(Game game) async {
@@ -617,7 +606,7 @@ class ScoresViewModel extends ChangeNotifier {
       liveScores[game.dbkey] = game.scoring!.toJson();
 
       await _db
-          .child(scoresPathRoot)
+          .child(statsPathRoot)
           .child(currentDAUComp.dbkey!)
           .child(liveScoresRoot)
           .update(liveScores);
@@ -643,7 +632,7 @@ class ScoresViewModel extends ChangeNotifier {
       _gamesWithLiveScores.remove(game);
 
       await _db
-          .child(scoresPathRoot)
+          .child(statsPathRoot)
           .child(currentDAUComp.dbkey!)
           .child(liveScoresRoot)
           .child(game.dbkey)
@@ -654,20 +643,11 @@ class ScoresViewModel extends ChangeNotifier {
     // if we turned the lisnter off, turn it back on
     if (gamesToDelete.isNotEmpty) {
       _liveScoresStream = _db
-          .child('$scoresPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
+          .child('$statsPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
           .onValue
           .listen(_handleEventLiveScores, onError: (error) {
         log('Error listening to live scores: $error');
       });
-    }
-  }
-
-  Future<List<Tipper>> _getTippersToUpdate(Tipper? updateThisTipper,
-      TippersViewModel tippersViewModel, DAUComp daucompToUpdate) async {
-    if (updateThisTipper != null) {
-      return [updateThisTipper];
-    } else {
-      return await tippersViewModel.getActiveTippers(daucompToUpdate);
     }
   }
 
@@ -680,9 +660,9 @@ class ScoresViewModel extends ChangeNotifier {
     return dauRoundsEdited;
   }
 
-  Future<RoundScores> _calculateRoundScoresForTipper(Tipper tipperToScore,
+  Future<RoundStats> _calculateRoundStatsForTipper(Tipper tipperToScore,
       DAURound dauRound, TipsViewModel allTipsViewModel) async {
-    RoundScores proposedRoundScores = RoundScores(
+    RoundStats proposedRoundScores = RoundStats(
       roundNumber: dauRound.dAUroundNumber,
       rank: 0,
       rankChange: 0,
@@ -750,13 +730,26 @@ class ScoresViewModel extends ChangeNotifier {
     return proposedRoundScores;
   }
 
+  Future<Map<Tipper, RoundStats>> _calculateRoundStats(List<Tipper> tippers,
+      DAURound dauRound, TipsViewModel allTipsViewModel) async {
+    Map<Tipper, RoundStats> roundScores = {};
+
+    for (var tipper in tippers) {
+      RoundStats proposedRoundScores = await _calculateRoundStatsForTipper(
+          tipper, dauRound, allTipsViewModel);
+
+      roundScores[tipper] = proposedRoundScores;
+    }
+
+    return roundScores;
+  }
+
   Future<void> _rankTippers() async {
-    if (_allTipperRoundScores.isEmpty) {
+    if (_allTipperRoundStats.isEmpty) {
       return;
     }
 
-    List<Tipper> tippers =
-        await _getTippersToUpdate(null, di<TippersViewModel>(), currentDAUComp);
+    List<Tipper> tippers = await _getTippersToUpdate(currentDAUComp);
 
     // log how many tippers we are ranking
     log('Ranking ${tippers.length} tippers for comp: ${currentDAUComp.dbkey}');
@@ -767,15 +760,15 @@ class ScoresViewModel extends ChangeNotifier {
       List<MapEntry<Tipper, int>> roundScores = [];
 
       for (var tipper in tippers) {
-        if (_allTipperRoundScores[tipper] == null ||
-            _allTipperRoundScores[tipper]![roundIndex] == null) {
-          log('No scores for tipper ${tipper.name} in round $roundIndex');
+        if (_allTipperRoundStats[roundIndex] == null ||
+            _allTipperRoundStats[roundIndex]![tipper] == null) {
+          log('No scores for tipper ${tipper.name} in round ${roundIndex + 1}');
           continue;
         }
         roundScores.add(MapEntry(
             tipper,
-            _allTipperRoundScores[tipper]![roundIndex]!.aflScore +
-                _allTipperRoundScores[tipper]![roundIndex]!.nrlScore));
+            _allTipperRoundStats[roundIndex]![tipper]!.aflScore +
+                _allTipperRoundStats[roundIndex]![tipper]!.nrlScore));
       }
 
       roundScores.sort((a, b) => b.value.compareTo(a.value));
@@ -791,17 +784,18 @@ class ScoresViewModel extends ChangeNotifier {
         } else if (lastScore != null && entry.value == lastScore) {
           sameRankCount++;
         }
-        _allTipperRoundScores[entry.key]![roundIndex]!.rank = rank;
+        _allTipperRoundStats[roundIndex]![entry.key]!.rank = rank;
 
         if (roundIndex > 0) {
-          if (_allTipperRoundScores[entry.key]![roundIndex - 1] == null) {
-            log('No scores for tipper ${entry.key.name} in round ${roundIndex - 1}');
+          if (_allTipperRoundStats[roundIndex - 1] == null ||
+              _allTipperRoundStats[roundIndex - 1]![entry.key] == null) {
+            log('No scores for tipper ${entry.key.name} in round $roundIndex');
             continue;
           }
           int? lastRank =
-              _allTipperRoundScores[entry.key]![roundIndex - 1]!.rank;
+              _allTipperRoundStats[roundIndex - 1]![entry.key]!.rank;
           int? changeInRank = lastRank - rank;
-          _allTipperRoundScores[entry.key]![roundIndex]!.rankChange =
+          _allTipperRoundStats[roundIndex]![entry.key]!.rankChange =
               changeInRank;
         }
         lastScore = entry.value;

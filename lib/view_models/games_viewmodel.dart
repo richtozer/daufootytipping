@@ -9,7 +9,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -177,8 +177,7 @@ class GamesViewModel extends ChangeNotifier {
       // update the round scores then remove the round from the list
       for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
         log('GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}');
-        await di<ScoresViewModel>()
-            .updateScoring(selectedDAUComp, null, dauRound);
+        await di<StatsViewModel>().updateStats(selectedDAUComp, dauRound);
       }
       // clear the list
       _roundsThatNeedScoringUpdate.clear();
@@ -202,6 +201,19 @@ class GamesViewModel extends ChangeNotifier {
     await initialLoadComplete;
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
+
+    // TODO hack - for the 2024 comp exclude games with the following dbkeys:
+    // afl-25-208
+    // afl-25-209
+    // afl-25-210
+    // afl-25-211
+
+    if (selectedDAUComp.dbkey == '-Nk88l-ww9pYF1j_jUq7') {
+      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-208');
+      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-209');
+      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-210');
+      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-211');
+    }
 
     return gamesForRound;
   }
