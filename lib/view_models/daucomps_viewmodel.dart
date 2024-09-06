@@ -7,7 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
-import 'package:daufootytipping/view_models/scoring_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
@@ -44,7 +44,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get isLegacySyncing => _isLegacySyncing;
 
   GamesViewModel? gamesViewModel;
-  ScoresViewModel? tipperScoresViewModel;
+  StatsViewModel? tipperScoresViewModel;
   TipsViewModel? tipperTipsViewModel;
 
   ItemScrollController itemScrollController = ItemScrollController();
@@ -99,8 +99,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     await initialLoadComplete;
-    di.registerLazySingleton<ScoresViewModel>(
-        () => ScoresViewModel(_selectedDAUComp!));
+    di.registerLazySingleton<StatsViewModel>(
+        () => StatsViewModel(_selectedDAUComp!));
 
     gamesViewModel = GamesViewModel(_selectedDAUComp!);
     gamesViewModel!.addListener(_otherViewModelUpdated);
@@ -115,7 +115,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         currentTipper);
     tipperTipsViewModel!.addListener(_otherViewModelUpdated);
 
-    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel = di<StatsViewModel>();
     tipperScoresViewModel!.addListener(_otherViewModelUpdated);
   }
 
@@ -544,7 +544,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     gamesViewModel?.removeListener(_otherViewModelUpdated);
 
-    tipperScoresViewModel = di<ScoresViewModel>();
+    tipperScoresViewModel = di<StatsViewModel>();
     tipperScoresViewModel!.removeListener(_otherViewModelUpdated);
 
     super.dispose();
