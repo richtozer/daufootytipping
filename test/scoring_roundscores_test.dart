@@ -1,10 +1,10 @@
-import 'package:daufootytipping/models/scoring_roundscores.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('RoundScores', () {
     test('toJson should return a valid JSON map', () {
-      final roundScores = RoundScores(
+      final roundScores = RoundStats(
         roundNumber: 1,
         aflScore: 10,
         aflMaxScore: 20,
@@ -50,7 +50,7 @@ void main() {
         'changeInRank': 0,
       };
 
-      final roundScores = RoundScores.fromJson(json);
+      final roundScores = RoundStats.fromJson(json);
 
       expect(roundScores.roundNumber, 1);
       expect(roundScores.aflScore, 10);
@@ -66,7 +66,7 @@ void main() {
     });
 
     test('toCsv should return a valid CSV list', () {
-      final roundScores = RoundScores(
+      final roundScores = RoundStats(
         roundNumber: 1,
         aflScore: 10,
         aflMaxScore: 20,
@@ -87,7 +87,7 @@ void main() {
 
     test('equality operator should compare two RoundScores objects correctly',
         () {
-      final roundScores1 = RoundScores(
+      final roundScores1 = RoundStats(
         roundNumber: 1,
         aflScore: 10,
         aflMaxScore: 20,
@@ -101,7 +101,7 @@ void main() {
         rankChange: 0,
       );
 
-      final roundScores2 = RoundScores(
+      final roundScores2 = RoundStats(
         roundNumber: 1,
         aflScore: 10,
         aflMaxScore: 20,
@@ -115,7 +115,7 @@ void main() {
         rankChange: 0,
       );
 
-      final roundScores3 = RoundScores(
+      final roundScores3 = RoundStats(
         roundNumber: 2,
         aflScore: 20,
         aflMaxScore: 30,
@@ -135,7 +135,7 @@ void main() {
 
     test('hashCode should return the same value for equal RoundScores objects',
         () {
-      final roundScores1 = RoundScores(
+      final roundScores1 = RoundStats(
         roundNumber: 1,
         aflScore: 10,
         aflMaxScore: 20,
@@ -149,7 +149,7 @@ void main() {
         rankChange: 0,
       );
 
-      final roundScores2 = RoundScores(
+      final roundScores2 = RoundStats(
         roundNumber: 1,
         aflScore: 10,
         aflMaxScore: 20,
