@@ -65,7 +65,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         await changeSelectedDAUComp(comp.dbkey!, true);
       }
     }
-    _fixtureUpdateTrigger();
   }
 
   Future<void> changeSelectedDAUComp(
@@ -208,11 +207,17 @@ class DAUCompsViewModel extends ChangeNotifier {
     return timeUntilNewDay.toUtc().difference(DateTime.now().toUtc());
   }
 
-  Future<void> _fixtureUpdateTrigger() async {
+  Future<void> fixtureUpdateTrigger() async {
     await initialLoadComplete;
 
     if (_selectedDAUComp == null) {
       log('_fixtureUpdateTrigger() Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+      return;
+    }
+
+    // if we are at the end of the competition, then don't trigger the fixture update
+    if (_isCompOver(_selectedDAUComp!)) {
+      log('End of competition detected for : ${_selectedDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
       return;
     }
 
@@ -440,7 +445,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _updateDatabaseWithCombinedRounds(
       List<DAURound> combinedRounds, DAUComp daucomp) async {
     log('In _updateDatabaseWithCombinedRounds()');
-    for (var i = 0; i < combinedRounds.length; i++) {
+    for (var i = 0; i < combinedRounds.length - 1; i++) {
       // only update if daurounds is empty or the dates have changed
       if (daucomp.daurounds.isEmpty ||
           daucomp.daurounds[i].roundStartDate !=
@@ -581,6 +586,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     processGames(aflGames, League.afl);
 
     return gamesFuture;
+  }
+
+  // private method to check if the comp is over i.e. all rounds have been completed and scored
+  bool _isCompOver(DAUComp daucomp) {
+    DAURound lastRound = daucomp.daurounds.last;
+    return lastRound.roundState == RoundState.allGamesEnded;
   }
 
   @override
