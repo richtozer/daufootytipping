@@ -106,6 +106,9 @@ class GamesViewModel extends ChangeNotifier {
       DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
       await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
 
+      // now that we know the state of each roumd,  setup the fixture download
+      await dauCompsViewModel.fixtureUpdateTrigger();
+
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
     } catch (e) {
