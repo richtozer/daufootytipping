@@ -40,7 +40,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _isDownloading = false;
   bool get isDownloading => _isDownloading;
 
-  bool _isLegacySyncing = false;
+  final bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
 
   GamesViewModel? gamesViewModel;

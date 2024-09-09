@@ -25,7 +25,7 @@ const roundStatsRoot = 'round_stats';
 const liveScoresRoot = 'live_scores';
 
 class StatsViewModel extends ChangeNotifier {
-  Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
+  final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
   Map<int, Map<Tipper, RoundStats>> get allTipperRoundStats =>
       _allTipperRoundStats;
 
