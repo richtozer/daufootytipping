@@ -1,3 +1,6 @@
+# firebase
+.firebase/
+
 # Security
 *.p8
 
