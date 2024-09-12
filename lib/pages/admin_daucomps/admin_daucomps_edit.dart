@@ -1,9 +1,11 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/fixture.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -14,15 +16,9 @@ class DAUCompsEditPage extends StatefulWidget {
   final DAUComp? daucomp;
 
   late final TextEditingController _daucompNameController;
-  late final TextEditingController _daucompAflJsonURLController;
-  late final TextEditingController _daucompNrlJsonURLController;
 
   DAUCompsEditPage(this.daucomp, {super.key}) {
     _daucompNameController = TextEditingController(text: daucomp?.name);
-    _daucompAflJsonURLController =
-        TextEditingController(text: daucomp?.aflFixtureJsonURL.toString());
-    _daucompNrlJsonURLController =
-        TextEditingController(text: daucomp?.nrlFixtureJsonURL.toString());
   }
 
   @override
@@ -34,41 +30,37 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   bool disableBack = false;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  List<Fixture> fixtures = [];
 
   @override
   void initState() {
     super.initState();
     initTextControllersListeners();
     updateSaveButtonState();
+    if (widget.daucomp != null) {
+      fixtures = List.from(widget.daucomp!.fixtures);
+    }
   }
 
   @override
   void dispose() {
     super.dispose();
     widget._daucompNameController.removeListener(updateSaveButtonState);
-    widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
-    widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
   }
 
   void initTextControllersListeners() {
     widget._daucompNameController.addListener(updateSaveButtonState);
-    widget._daucompAflJsonURLController.addListener(updateSaveButtonState);
-    widget._daucompNrlJsonURLController.addListener(updateSaveButtonState);
   }
 
   void updateSaveButtonState() {
     bool shouldEnableSave;
     if (widget.daucomp == null) {
-      shouldEnableSave = widget._daucompNameController.text.isNotEmpty &&
-          widget._daucompAflJsonURLController.text.isNotEmpty &&
-          widget._daucompNrlJsonURLController.text.isNotEmpty;
+      shouldEnableSave =
+          widget._daucompNameController.text.isNotEmpty && fixtures.isNotEmpty;
     } else {
       shouldEnableSave =
           widget._daucompNameController.text != widget.daucomp!.name ||
-              widget._daucompAflJsonURLController.text !=
-                  widget.daucomp!.aflFixtureJsonURL.toString() ||
-              widget._daucompNrlJsonURLController.text !=
-                  widget.daucomp!.nrlFixtureJsonURL.toString();
+              !listEquals(fixtures, widget.daucomp!.fixtures);
     }
 
     if (disableSaves != !shouldEnableSave) {
@@ -81,21 +73,17 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   Future<void> _saveDAUComp(
       DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
     try {
-      bool aflURLActive =
-          await isUriActive(widget._daucompAflJsonURLController.text);
-      bool nrlURLActive =
-          await isUriActive(widget._daucompNrlJsonURLController.text);
-      log('aflURLActive = $aflURLActive');
-      log('nrlURLActive = $nrlURLActive');
+      bool allURLsActive = await Future.wait(fixtures
+              .map((fixture) => isUriActive(fixture.fixtureJsonURL.toString())))
+          .then((results) => results.every((result) => result));
 
-      if (aflURLActive && nrlURLActive) {
+      log('allURLsActive = $allURLsActive');
+
+      if (allURLsActive) {
         if (widget.daucomp == null) {
           DAUComp newDAUComp = DAUComp(
             name: widget._daucompNameController.text,
-            aflFixtureJsonURL:
-                Uri.parse(widget._daucompAflJsonURLController.text),
-            nrlFixtureJsonURL:
-                Uri.parse(widget._daucompNrlJsonURLController.text),
+            fixtures: fixtures,
             daurounds: [],
           );
 
@@ -117,9 +105,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!, "name",
               widget._daucompNameController.text);
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
-              "aflFixtureJsonURL", widget._daucompAflJsonURLController.text);
-          dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
-              "nrlFixtureJsonURL", widget._daucompNrlJsonURLController.text);
+              "fixtures", fixtures.map((fixture) => fixture.toJson()).toList());
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
 
@@ -140,7 +126,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('One or both of the URL\'s are not active'),
+              content: Text('One or more of the URLs are not active'),
               backgroundColor: Colors.red,
             ),
           );
@@ -344,51 +330,89 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           ],
                         ),
                         const SizedBox(height: 20.0),
-                        const Text('Fixture JSON URLs',
+                        const Text('Fixtures',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 20.0),
-                        const Text('NRL:',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                style: const TextStyle(fontSize: 14),
-                                decoration: const InputDecoration(
-                                  hintText: 'enter URL here',
+                        ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: fixtures.length,
+                          itemBuilder: (context, index) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Fixture ${index + 1}:',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        style: const TextStyle(fontSize: 14),
+                                        decoration: const InputDecoration(
+                                          hintText: 'Enter URL here',
+                                        ),
+                                        initialValue: fixtures[index]
+                                            .fixtureJsonURL
+                                            .toString(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            fixtures[index].fixtureJsonURL =
+                                                Uri.parse(value);
+                                            updateSaveButtonState();
+                                          });
+                                        },
+                                        validator: (String? value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter a fixture link';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    DropdownButton<League>(
+                                      value: fixtures[index].league,
+                                      onChanged: (League? newValue) {
+                                        setState(() {
+                                          fixtures[index].league = newValue!;
+                                          updateSaveButtonState();
+                                        });
+                                      },
+                                      items: League.values
+                                          .map<DropdownMenuItem<League>>(
+                                              (League value) {
+                                        return DropdownMenuItem<League>(
+                                          value: value,
+                                          child: Text(value.name),
+                                        );
+                                      }).toList(),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () {
+                                        setState(() {
+                                          fixtures.removeAt(index);
+                                          updateSaveButtonState();
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                controller: widget._daucompNrlJsonURLController,
-                                validator: (String? value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter a NRL fixture link';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            )
-                          ],
+                                const SizedBox(height: 20.0),
+                              ],
+                            );
+                          },
                         ),
-                        const SizedBox(height: 20.0),
-                        const Text('AFL:',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                style: const TextStyle(fontSize: 14),
-                                decoration: const InputDecoration(
-                                  hintText: 'enter URL here',
-                                ),
-                                controller: widget._daucompAflJsonURLController,
-                                validator: (String? value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter a AFL fixture link';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            )
-                          ],
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              fixtures.add(Fixture(
+                                  fixtureJsonURL: Uri.parse(''),
+                                  league: League.afl));
+                              updateSaveButtonState();
+                            });
+                          },
+                          child: const Text('Add Fixture'),
                         ),
                         const SizedBox(height: 20.0),
                         if (widget.daucomp != null)

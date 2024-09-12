@@ -68,9 +68,6 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
                                 child: ListTile(
                                   dense: true,
                                   isThreeLine: true,
-                                  leading: daucomp.active
-                                      ? const Icon(Icons.ballot)
-                                      : const Icon(Icons.ballot_outlined),
                                   trailing: const Icon(Icons.edit),
                                   title: Text(daucomp.name),
                                   subtitle: daucomp

@@ -1,29 +1,30 @@
 import 'dart:developer';
-
-import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/fixture.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-
-//TODO this code has issues on chome web app - add conditional code
-// to not use fixture services when running on web
 
 class FixtureDownloadService {
   FixtureDownloadService();
 
-  Future<Map<String, List<dynamic>>> fetch(Uri nrlFixtureJsonURL,
-      Uri aflFixtureJsonURL, bool downloadOnSeparateThread) async {
-    Map<String, dynamic> simpleDAUComp = {
-      'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
-      'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
+  Future<Map<String, List<dynamic>>> fetch(
+      List<Fixture> fixtures, bool downloadOnSeparateThread) async {
+    if (fixtures.isEmpty) {
+      throw ArgumentError('The list of fixtures cannot be empty.');
+    }
+
+    // we can only pass simple data types to the background isolate
+    Map<String, dynamic> simpleFixtures = {
+      'fixtureJsonURLs':
+          fixtures.map((f) => f.fixtureJsonURL.toString()).toList()
     };
 
     Map<String, dynamic> result;
 
     if (!downloadOnSeparateThread) {
-      result = await _fetchFixtures(simpleDAUComp);
+      result = await fetchFixtures(simpleFixtures);
       log('Fixture data loaded on MAIN thread.');
     } else {
-      result = await compute(_fetchFixtures, simpleDAUComp);
+      result = await compute(fetchFixtures, simpleFixtures);
       log('Fixture data loaded on BACKGROUND thread.');
     }
 
@@ -31,31 +32,24 @@ class FixtureDownloadService {
       throw Exception(result['error']);
     }
 
-    return {
-      'nrlGames': result['nrlGames'] as List<dynamic>,
-      'aflGames': result['aflGames'] as List<dynamic>,
-    };
+    return result.map((key, value) => MapEntry(key, value as List<dynamic>));
   }
 
-  Future<Map<String, dynamic>> _fetchFixtures(
+  Future<Map<String, dynamic>> fetchFixtures(
       Map<String, dynamic> simpleDAUComp) async {
-    List<dynamic> nrlGames = [];
-    List<dynamic> aflGames = [];
+    Map<String, List<dynamic>> fixtures = {};
     String errorMessage = '';
 
-    try {
-      nrlGames = await FixtureDownloadService._getLeagueFixtureRaw(
-          Uri.parse(simpleDAUComp['nrlFixtureJsonURL']), League.nrl);
-    } catch (e) {
-      errorMessage = 'Error loading NRL fixture data. Exception was: $e';
-    }
-
-    if (errorMessage.isEmpty) {
+    for (String url in simpleDAUComp['fixtureJsonURLs']) {
       try {
-        aflGames = await FixtureDownloadService._getLeagueFixtureRaw(
-            Uri.parse(simpleDAUComp['aflFixtureJsonURL']), League.afl);
+        Uri uri = Uri.parse(url);
+        List<dynamic> games =
+            await FixtureDownloadService.getLeagueFixtureRaw(uri);
+        fixtures[url] = games;
       } catch (e) {
-        errorMessage = 'Error loading AFL fixture data. Exception was: $e';
+        errorMessage =
+            'Error loading fixture data from $url. Exception was: $e';
+        break;
       }
     }
 
@@ -63,59 +57,12 @@ class FixtureDownloadService {
       return {'error': errorMessage};
     }
 
-    return {'nrlGames': nrlGames, 'aflGames': aflGames};
+    return fixtures;
   }
 
-  static Future<List<dynamic>> _getLeagueFixtureRaw(
-      Uri endpoint, League league) async {
+  static Future<List<dynamic>> getLeagueFixtureRaw(Uri endpoint) async {
     final dio = Dio(BaseOptions(
         headers: {'Content-Type': 'application/json; charset=UTF-8'}));
-
-    // if we are debuging code? if so, mock the JSON fixture services network call
-    /*if (!kReleaseMode) {
-      List<Map<String, Object?>> mockdata;
-
-      switch (endpoint.toString()) {
-        case 'https://fixturedownload.com/feed/json/afl-2022':
-          mockdata = mockAfl2022Full;
-          log('Using mockAfl2022Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/nrl-2022':
-          mockdata = mockNrl2022Full;
-          log('Using mockNrl2022Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/afl-2023':
-          mockdata = mockAfl2023Full;
-          //mockdata = mockAfl2023Partial;
-          log('Using mockAfl2023Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/nrl-2023':
-          mockdata = mockNrl2023Full;
-          //mockdata = mockNrl2023Partial;
-          log('Using mockNrl2023Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/afl-2024':
-          mockdata = mockAfl2024Full;
-          log('Using mockAfl2024Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/nrl-2024':
-          mockdata = mockNrl2024Full;
-          log('Using mockNrl2024Full fixture data');
-          break;
-        default:
-          throw Exception('Could not match the endpoint to mock data');
-
-      final dioAdapter = DioAdapter(dio: dio);
-      dioAdapter.onGet(
-        endpoint.toString(),
-        (server) => server.reply(
-          200,
-          mockdata,
-          // simulate real network delay of 1 second before returning data.
-          delay: const Duration(seconds: 1),
-        ),
-      );
-    } */
 
     final response = await dio.get(endpoint.toString());
 
