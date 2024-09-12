@@ -8,7 +8,7 @@ enum RoundState {
   notStarted, // round is in the future
   started, // round is underway
   allGamesEnded, // round has finished and results known
-  noGames, // this is an error state, all rounds should have games
+  noGames, // this is an error state, all DAU combnied rounds should have games
 }
 
 class DAURound implements Comparable<DAURound> {

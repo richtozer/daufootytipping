@@ -257,10 +257,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     FixtureDownloadService fetcher = FixtureDownloadService();
 
     try {
-      Map<String, List<dynamic>> fixtures = await fetcher.fetch(
-          daucompToUpdate.nrlFixtureJsonURL,
-          daucompToUpdate.aflFixtureJsonURL,
-          true);
+      Map<String, List<dynamic>> fixtures =
+          await fetcher.fetch(daucompToUpdate.fixtures, true);
       List<dynamic> nrlGames = fixtures['nrlGames']!;
       List<dynamic> aflGames = fixtures['aflGames']!;
 
@@ -444,10 +442,12 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('Adding new DAUComp record');
       DatabaseReference newCompRecordKey = _db.child(daucompsPath).push();
       updates['$daucompsPath/${newCompRecordKey.key}/name'] = newDAUComp.name;
-      updates['$daucompsPath/${newCompRecordKey.key}/aflFixtureJsonURL'] =
-          newDAUComp.aflFixtureJsonURL.toString();
-      updates['$daucompsPath/${newCompRecordKey.key}/nrlFixtureJsonURL'] =
-          newDAUComp.nrlFixtureJsonURL.toString();
+      // Convert List<Fixture> to json
+      List<String> fixtureJson = newDAUComp.fixtures
+          .map((fixture) => fixture.toJson())
+          .map((fixtureJson) => fixtureJson.toString())
+          .toList();
+      updates['$daucompsPath/${newCompRecordKey.key}/fixtures'] = fixtureJson;
       newDAUComp.dbkey = newCompRecordKey.key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
@@ -478,9 +478,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Map<League, List<Game>> sortGamesIntoLeagues(DAURound combinedRound) {
-    //await initialLoadComplete;
-    //await gamesViewModel!.initialLoadComplete;
-
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
 
