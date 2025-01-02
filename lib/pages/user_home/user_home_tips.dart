@@ -258,17 +258,17 @@ class TipsTabState extends State<TipsTab> {
                     ? Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Score: ${leagueHeader == League.afl ? roundScores?.aflScore : roundScores?.nrlScore} / ${leagueHeader == League.afl ? roundScores?.aflMaxScore : roundScores?.nrlMaxScore}')
+                        'Score: ${leagueHeader == League.afl ? roundScores.aflScore : roundScores.nrlScore} / ${leagueHeader == League.afl ? roundScores.aflMaxScore : roundScores.nrlMaxScore}')
                     : const SizedBox.shrink(),
                 dauRound.roundState != RoundState.notStarted
                     ? Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'UPS/Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginUPS : roundScores?.nrlMarginUPS} / ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips}')
+                        'UPS/Margins: ${leagueHeader == League.afl ? roundScores.aflMarginUPS : roundScores.nrlMarginUPS} / ${leagueHeader == League.afl ? roundScores.aflMarginTips : roundScores.nrlMarginTips}')
                     : Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginTips ?? 0 : roundScores?.nrlMarginTips ?? 0} '),
+                        'Margins: ${leagueHeader == League.afl ? roundScores.aflMarginTips : roundScores.nrlMarginTips} '),
                 dauRound.roundState != RoundState.notStarted
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -277,26 +277,20 @@ class TipsTabState extends State<TipsTab> {
                               style: const TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.bold),
-                              'Rank: ${roundScores?.rank}  '),
-                          roundScores == null
+                              'Rank: ${roundScores.rank}  '),
+                          roundScores.rankChange > 0
                               ? const Icon(
-                                  Icons.question_mark,
-                                  color: Colors.grey,
-                                )
-                              : roundScores.rankChange > 0
+                                  color: Colors.green, Icons.arrow_upward)
+                              : roundScores.rankChange < 0
                                   ? const Icon(
-                                      color: Colors.green, Icons.arrow_upward)
-                                  : roundScores.rankChange < 0
-                                      ? const Icon(
-                                          color: Colors.red,
-                                          Icons.arrow_downward)
-                                      : const Icon(
-                                          color: Colors.green, Icons.sync_alt),
+                                      color: Colors.red, Icons.arrow_downward)
+                                  : const Icon(
+                                      color: Colors.green, Icons.sync_alt),
                           Text(
                               style: const TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.bold),
-                              '${roundScores?.rankChange}'),
+                              '${roundScores.rankChange}'),
                         ],
                       )
                     : const SizedBox.shrink(),
