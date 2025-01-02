@@ -180,15 +180,6 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.logon == logon);
   }
 
-  Future<Tipper?> _findTipperByLegayTipperID(String tipperId) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log('Waiting for initial tipper load to complete, findTipperByLegayTipperID($tipperId)');
-      await _initialLoadCompleter.future;
-      log('tipper load complete, findTipperByName($tipperId)');
-    }
-    return _tippers.firstWhereOrNull((tipper) => tipper.tipperID == tipperId);
-  }
-
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
   Future<Tipper?> findTipper(String tipperDbKey) async {
     if (!_initialLoadCompleter.isCompleted) {

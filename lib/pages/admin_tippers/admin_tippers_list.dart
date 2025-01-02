@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -79,7 +79,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                       dense: true,
                                       isThreeLine: true,
                                       leading: tipper.photoURL != null
-                                          ? avatarPic(tipper.photoURL!)
+                                          ? avatarPic(tipper)
                                           : null,
                                       trailing: tipperActiveInCurrentComp
                                           ? const Icon(Icons.person)
@@ -113,10 +113,11 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             )));
   }
 
-  CircleAvatar avatarPic(String url) {
-    return CircleAvatar(
-      radius: 15,
-      backgroundImage: url != '' ? CachedNetworkImageProvider(url) : null,
+  Widget avatarPic(Tipper tipper) {
+    return Hero(
+      tag: tipper.dbkey!,
+      child: circleAvatarWithFallback(
+          imageUrl: tipper.photoURL, text: tipper.name, radius: 30),
     );
   }
 }

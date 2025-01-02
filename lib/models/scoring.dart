@@ -362,8 +362,6 @@ class Scoring {
         return aflScoreLookupTable[gameResult]![tip]!;
       case League.epl:
         return eplScoreLookupTable[gameResult]![tip]!;
-      default:
-        throw Exception('Unsupported league: $gameLeague');
     }
   }
 }
