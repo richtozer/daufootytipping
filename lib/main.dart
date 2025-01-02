@@ -51,15 +51,12 @@ Future<void> main() async {
           ReCaptchaV3Provider('6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'),
     );
   }
-
   FirebaseDatabase database = FirebaseDatabase.instance;
   if (kDebugMode) {
     database.useDatabaseEmulator('localhost', 8000);
   } else {
     if (!kIsWeb) {
-      //database.setPersistenceEnabled(true);
-    } else {
-      database.setPersistenceEnabled(false);
+      database.setPersistenceEnabled(true);
     }
   }
 

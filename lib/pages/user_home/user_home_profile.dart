@@ -192,7 +192,8 @@ class Profile extends StatelessWidget with WatchItMixin {
                                       Navigator.of(context).pop();
                                       Navigator.of(context).pushReplacement(
                                         MaterialPageRoute(
-                                          builder: (context) => const UserAuthPage(
+                                          builder: (context) =>
+                                              const UserAuthPage(
                                             null,
                                             isUserDeletingAccount: true,
                                           ),
