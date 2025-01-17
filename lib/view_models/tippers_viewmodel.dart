@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
-import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
@@ -98,14 +97,53 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers;
   }
 
-  Future<List<Tipper>> getActiveTippers(DAUComp thisComp) async {
-    await _initialLoadCompleter.future;
-    // filter the _tipper list to only include tippers who have an daucomp in compsParticipatedIn list
-    // that matched the supplied comp
-    return _tippers.where((tipper) => tipper.activeInComp(thisComp)).toList();
-  }
-
   final Map<String, dynamic> updates = {};
+
+  // method to set or update tipper name. Make sure name is unique in the _tippers list, if not, throw an error
+  // Save any changes to the database using updateTipperAttribute
+  Future<void> setTipperName(String tipperDbKey, String newName) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for initial Tipper load to complete, setTipperName()');
+      await _initialLoadCompleter.future;
+      log('tipper load complete, setTipperName()');
+    }
+
+    Tipper? tipperToUpdate = await findTipper(tipperDbKey);
+
+    if (tipperToUpdate == null) {
+      log('TipperToUpdate is null. Skipping update.');
+      return;
+    }
+
+    if (tipperToUpdate.name == newName) {
+      log('Tipper: $tipperDbKey already has name: $newName');
+      return;
+    }
+
+    if (_tippers.any((tipper) =>
+        (tipper.name ?? '').toLowerCase() == newName.toLowerCase())) {
+      throw 'Tipper name $newName already exists';
+    }
+
+    // check for names that look similar to the new name
+    if (_tippers.any((tipper) =>
+        tipper.name != null &&
+        tipper.name!.toLowerCase().contains(newName.toLowerCase()))) {
+      throw 'Tipper name $newName is too similar to an existing name';
+    }
+
+    // check if the new name is a superstring of an existing name
+    if (_tippers.any((tipper) =>
+        tipper.name != null &&
+        newName.toLowerCase().contains(tipper.name!.toLowerCase()))) {
+      throw 'Tipper name $newName is too similar to an existing name';
+    }
+
+    await updateTipperAttribute(tipperDbKey, "name", newName);
+    await saveBatchOfTipperAttributes();
+
+    log('Tipper: $tipperDbKey name updated to: $newName');
+  }
 
   Future<void> updateTipperAttribute(
       String tipperDbKey, String attributeName, dynamic attributeValue) async {
@@ -115,7 +153,7 @@ class TippersViewModel extends ChangeNotifier {
       log('tipper load complete, updateTipperAttribute()');
     }
 
-    //find the Tipper in the local list. it it's there, compare the attribute value and update if different
+    //find the Tipper in the local list. if it's there, compare the attribute value and update if different
     Tipper? tipperToUpdate = await findTipper(tipperDbKey);
 
     if (tipperToUpdate == null) {
@@ -147,6 +185,7 @@ class TippersViewModel extends ChangeNotifier {
       }
       await _db.update(updates);
     } finally {
+      updates.clear();
       _savingTipper = false;
       notifyListeners();
     }
@@ -259,7 +298,6 @@ class TippersViewModel extends ChangeNotifier {
           if (foundTipper.email == null) {
             await updateTipperAttribute(
                 foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);
-            await saveBatchOfTipperAttributes();
           }
 
           await saveBatchOfTipperAttributes();
@@ -278,11 +316,12 @@ class TippersViewModel extends ChangeNotifier {
                 foundTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
             await saveBatchOfTipperAttributes();
           } else {
-            log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}. Try logging in with an email you provided for tipping or contact DAU support.');
+            log('getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}.');
           }
         }
       }
       if (foundTipper != null) {
+        //existing tipper found
         _authenticatedTipper = foundTipper;
         // for now the selected tipper is the same as the authenticated tipper
         // in god mode this can be changed
@@ -299,10 +338,33 @@ class TippersViewModel extends ChangeNotifier {
           await saveBatchOfTipperAttributes();
         }
 
+        //update acctLoggedOnUTC if it has changed
+        if (foundTipper.acctLoggedOnUTC !=
+            authenticatedFirebaseUser.metadata.lastSignInTime) {
+          await updateTipperAttribute(
+              foundTipper.dbkey!,
+              "acctLoggedOnUTC",
+              authenticatedFirebaseUser.metadata.lastSignInTime
+                  ?.toIso8601String());
+          await saveBatchOfTipperAttributes();
+        }
+
+        // update acctCreatedUTC if it has changed
+        if (foundTipper.acctCreatedUTC !=
+            authenticatedFirebaseUser.metadata.creationTime) {
+          await updateTipperAttribute(
+              foundTipper.dbkey!,
+              "acctCreatedUTC",
+              authenticatedFirebaseUser.metadata.creationTime
+                  ?.toIso8601String());
+          await saveBatchOfTipperAttributes();
+        }
+
         if (!kIsWeb) {
           await _registerLinkedTipperForMessaging();
         }
       } else {
+        // no existing tipper found, create a new one
         log('linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
 
         if (_createLinkedTipper == false) {
@@ -314,14 +376,16 @@ class TippersViewModel extends ChangeNotifier {
 
         // create them a tipper record
         Tipper newTipper = Tipper(
-          name: authenticatedFirebaseUser.displayName ??
-              authenticatedFirebaseUser.email!.split('@').first,
+          name:
+              null, // leave name null for now, this will be updated by the user as part of the onboarding process
           email: authenticatedFirebaseUser.email!,
           authuid: authenticatedFirebaseUser.uid,
           photoURL: authenticatedFirebaseUser.photoURL,
           tipperRole: TipperRole.tipper,
           tipperID: 'non-legacy-tipper-${authenticatedFirebaseUser.uid}',
-          compsParticipatedIn: [], // do not assign tippers created this way to any comps
+          compsPaidFor: [], // do not assign new tippers to any paid comps
+          acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
+          acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
         );
 
         await _createNewTipper(newTipper);
@@ -342,8 +406,6 @@ class TippersViewModel extends ChangeNotifier {
       log('linkUserToTipper() Error: $e');
       // rethow the error
       rethrow;
-    } finally {
-      notifyListeners();
     }
   }
 
@@ -443,12 +505,6 @@ class TippersViewModel extends ChangeNotifier {
         .reauthenticateWithProvider(googleProvider);
   }
 
-  @override
-  void dispose() {
-    _tippersStream.cancel(); // stop listening to stream
-    super.dispose();
-  }
-
   Future<Tipper?> isEmailOrLogonAlreadyAssigned(
       String email1, String email2, Tipper? tipper) async {
     await _initialLoadCompleter.future;
@@ -470,5 +526,29 @@ class TippersViewModel extends ChangeNotifier {
           otherTipper.logon == email2);
     }
     return foundTipper;
+  }
+
+  // method to add a new tipper via the UI
+  Future<void> addNewTipper(Tipper newTipper) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('Waiting for initial Tipper load to complete, addNewTipper()');
+      await _initialLoadCompleter.future;
+      log('tipper load complete, addNewTipper()');
+    }
+
+    if (_tippers.any((tipper) => tipper.email == newTipper.email)) {
+      throw 'Tipper with email ${newTipper.email} already exists';
+    }
+
+    await _createNewTipper(newTipper);
+    await saveBatchOfTipperAttributes();
+
+    log('New tipper added: ${newTipper.dbkey}');
+  }
+
+  @override
+  void dispose() {
+    _tippersStream.cancel(); // stop listening to stream
+    super.dispose();
   }
 }

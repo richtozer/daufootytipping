@@ -18,25 +18,30 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   late final ScrollController _scrollController;
 
   @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    // _scrollController.addListener(() {
-    //   // Save the scroll position in your state management solution
-    //   di<TippersViewModel>().tipperListScrollPosition =
-    //       _scrollController.offset;
-    // });
-  }
-
-  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
 
+  late TippersViewModel tipperViewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  Future<void> _addTipper(BuildContext context) async {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TipperAdminEditPage(tipperViewModel, null),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    TippersViewModel tipperViewModel = watchIt<TippersViewModel>();
+    tipperViewModel = watchIt<TippersViewModel>();
     return Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -46,6 +51,12 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             },
           ),
           title: const Text('Admin Tippers'),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            await _addTipper(context);
+          },
+          child: const Icon(Icons.add),
         ),
         body: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -70,8 +81,8 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                 itemBuilder: (context, index) {
                                   var tipper = snapshot.data![index];
 
-                                  bool tipperActiveInCurrentComp = tipper
-                                      .activeInComp(di<DAUCompsViewModel>()
+                                  bool tipperActiveInCurrentComp =
+                                      tipper.paidForComp(di<DAUCompsViewModel>()
                                           .activeDAUComp);
 
                                   return Card(
@@ -84,7 +95,8 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                       trailing: tipperActiveInCurrentComp
                                           ? const Icon(Icons.person)
                                           : const Icon(Icons.person_off),
-                                      title: Text(tipper.name),
+                                      title: Text(tipper.name ??
+                                          ''), // if a new tipper, name may be null until they update it
                                       subtitle: Text(
                                           '${tipper.tipperRole.name}\n${tipper.email}'),
                                       onTap: () async {

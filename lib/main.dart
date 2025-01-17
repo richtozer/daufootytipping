@@ -79,7 +79,7 @@ Future<void> main() async {
 
   //setup some default analytics parameters
   if (!kIsWeb) {
-    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.2.0'});
   }
 
   di.allowReassignment = true;

@@ -1,7 +1,10 @@
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 class StatsTab extends StatelessWidget {
   const StatsTab({super.key});
@@ -9,13 +12,20 @@ class StatsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Orientation orientation = MediaQuery.of(context).orientation;
+
+    bool paidTipper = di<TippersViewModel>()
+        .authenticatedTipper!
+        .paidForComp(di<DAUCompsViewModel>().activeDAUComp);
+
     return Column(
       children: <Widget>[
         orientation == Orientation.portrait
-            ? const HeaderWidget(
-                text: 'S t a t s',
-                leadingIconAvatar:
-                    Hero(tag: 'stats', child: Icon(Icons.auto_graph, size: 40)))
+            ? HeaderWidget(
+                // if they are a paid tipper for the active comp, then display the header as
+                // 'DAU Stats' otherwise just 'Stats'
+                text: paidTipper ? 'DAU Stats' : 'Stats',
+                leadingIconAvatar: const Hero(
+                    tag: 'stats', child: Icon(Icons.auto_graph, size: 40)))
             : const Text('Stats'),
         Card(
           margin: const EdgeInsets.all(4),
