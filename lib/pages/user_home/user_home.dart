@@ -32,12 +32,11 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
-  int _calculateCurrentIndex(
+  int _selectDefaultTabIndex(
       DAUCompsViewModel dauCompsViewModel, TippersViewModel tippersViewModel) {
-    if (dauCompsViewModel.activeDAUComp == null ||
-        !tippersViewModel.selectedTipper!
-            .activeInComp(dauCompsViewModel.activeDAUComp)) {
-      return 2; // Default to profile page if no comp is active or tipper is not active in comp
+    // if their tipper record was just created, then default to the profile tab so they can set their name
+    if (tippersViewModel.authenticatedTipper!.name == null) {
+      return 2;
     }
     return _currentIndex;
   }
@@ -54,11 +53,8 @@ class _HomePageState extends State<HomePage> {
             builder: (context, dauCompsViewModelConsumer, child) {
           return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-            _currentIndex = _calculateCurrentIndex(
+            _currentIndex = _selectDefaultTabIndex(
                 dauCompsViewModelConsumer, tippersViewModelConsumer);
-
-            bool isTipperActiveInComp = tippersViewModelConsumer.selectedTipper!
-                .activeInComp(dauCompsViewModelConsumer.activeDAUComp);
 
             Widget scaffold = Stack(children: [
               ImageFiltered(
@@ -89,17 +85,12 @@ class _HomePageState extends State<HomePage> {
                   height: 60,
                   destinations: [
                     NavigationDestination(
-                      enabled: isTipperActiveInComp,
-                      icon: isTipperActiveInComp
-                          ? const Icon(Icons.sports_rugby)
-                          : const Icon(Icons.sports_rugby_outlined),
+                      icon: const Icon(Icons.sports_rugby_outlined),
                       label: 'T  I  P  S',
                     ),
                     NavigationDestination(
-                      enabled: isTipperActiveInComp,
-                      icon: isTipperActiveInComp
-                          ? const Icon(Icons.auto_graph)
-                          : const Icon(Icons.auto_graph_outlined),
+                      enabled: true,
+                      icon: const Icon(Icons.auto_graph),
                       label: 'S  T  A  T  S',
                     ),
                     const NavigationDestination(
@@ -113,7 +104,8 @@ class _HomePageState extends State<HomePage> {
 
             if (tippersViewModelConsumer.inGodMode) {
               return Banner(
-                message: tippersViewModelConsumer.selectedTipper!.name,
+                message:
+                    tippersViewModelConsumer.selectedTipper!.name ?? 'Unknown',
                 location: BannerLocation.bottomStart,
                 color: Colors.red,
                 child: Banner(

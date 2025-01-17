@@ -52,7 +52,6 @@ class TipsTabState extends State<TipsTab> {
     log('TipsPageBody.build()');
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log('TipsPageBody.build() selectedDAUComp is null');
       return Center(
         child: SizedBox(
           height: 75,
@@ -63,7 +62,7 @@ class TipsTabState extends State<TipsTab> {
             color: Colors.black38,
             child: const Center(
               child: Text(
-                'Nothing to see here. Contact a DAU Admin.',
+                'Nothing to see here. Contact daufootytipping@gmail.com.',
                 style: TextStyle(color: Colors.white70),
               ),
             ),

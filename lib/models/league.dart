@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-enum League { nrl, afl, epl }
+enum League { nrl, afl }
 
 extension LeagueLogo on League {
   String get logo {
@@ -9,8 +9,6 @@ extension LeagueLogo on League {
         return 'assets/teams/nrl.svg';
       case League.afl:
         return 'assets/teams/afl.svg';
-      case League.epl:
-        return 'assets/teams/epl.svg';
     }
   }
 }
@@ -22,8 +20,6 @@ extension LeagueMargin on League {
         return 13;
       case League.afl:
         return 31;
-      case League.epl:
-        return 2;
     }
   }
 }
@@ -35,8 +31,6 @@ extension LeagueColour on League {
         return const Color(0xff04cf5d);
       case League.afl:
         return const Color(0xffe21e31);
-      case League.epl:
-        return const Color(0xff37003c);
     }
   }
 }
