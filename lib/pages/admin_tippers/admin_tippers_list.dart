@@ -16,6 +16,7 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 
 class _TippersAdminPageState extends State<TippersAdminPage> {
   late final ScrollController _scrollController;
+  bool _showPaidCurrent = false;
 
   @override
   void dispose() {
@@ -52,16 +53,30 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
           ),
           title: const Text('Admin Tippers'),
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            await _addTipper(context);
-          },
-          child: const Icon(Icons.add),
-        ),
+        // TODO only supprt editing tippers for now. In theory new tippers can register themselves via the app.
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed: () async {
+        //     await _addTipper(context);
+        //   },
+        //   child: const Icon(Icons.add),
+        // ),
         body: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
+                Row(
+                  children: [
+                    FilterChip(
+                      label: const Text('Paid current'),
+                      selected: _showPaidCurrent,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          _showPaidCurrent = selected;
+                        });
+                      },
+                    ),
+                  ],
+                ),
                 Expanded(
                   child: FutureBuilder<List<Tipper>>(
                     future: tipperViewModel.getAllTippers(),
@@ -72,14 +87,21 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                             color: League.afl
                                 .colour); // Show a loading spinner while waiting
                       } else {
+                        var tippers = snapshot.data!;
+                        if (_showPaidCurrent) {
+                          tippers = tippers
+                              .where((tipper) => tipper.paidForComp(
+                                  di<DAUCompsViewModel>().activeDAUComp))
+                              .toList();
+                        }
                         return Column(
                           children: [
                             Expanded(
                               child: ListView.builder(
                                 //controller: _scrollController,
-                                itemCount: snapshot.data!.length,
+                                itemCount: tippers.length,
                                 itemBuilder: (context, index) {
-                                  var tipper = snapshot.data![index];
+                                  var tipper = tippers[index];
 
                                   bool tipperActiveInCurrentComp =
                                       tipper.paidForComp(di<DAUCompsViewModel>()
@@ -93,10 +115,10 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                           ? avatarPic(tipper)
                                           : null,
                                       trailing: tipperActiveInCurrentComp
-                                          ? const Icon(Icons.person)
-                                          : const Icon(Icons.person_off),
+                                          ? const Icon(Icons.arrow_right)
+                                          : const Icon(null),
                                       title: Text(tipper.name ??
-                                          ''), // if a new tipper, name may be null until they update it
+                                          '[new tipper]'), // if a new tipper, name may be null until they update it
                                       subtitle: Text(
                                           '${tipper.tipperRole.name}\n${tipper.email}'),
                                       onTap: () async {
