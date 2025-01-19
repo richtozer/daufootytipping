@@ -71,10 +71,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   widget.daucomp!.nrlFixtureJsonURL.toString();
     }
 
+    log('shouldEnableSave = $shouldEnableSave');
+
     if (disableSaves != !shouldEnableSave) {
       setState(() {
         disableSaves = !shouldEnableSave;
       });
+      log('state change disableSaves = $disableSaves');
     }
   }
 
@@ -231,10 +234,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   Builder(
                     builder: (BuildContext context) {
                       return IconButton(
-                        color: Colors.white,
+                        color: Colors.green,
                         icon: disableSaves
-                            ? const ImageIcon(null)
-                            : const Icon(Icons.save),
+                            ? const Icon(Icons.save, color: Colors.transparent)
+                            : const Icon(Icons.save, color: Colors.transparent),
                         onPressed: disableSaves
                             ? null
                             : () async {
