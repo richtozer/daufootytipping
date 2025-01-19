@@ -185,8 +185,8 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> updateStats(
-      DAUComp daucompToUpdate, DAURound? onlyUpdateThisRound) async {
+  Future<String> updateStats(DAUComp daucompToUpdate,
+      DAURound? onlyUpdateThisRound, Tipper? onlyUpdateThisTipper) async {
     log('updateScoring() called for comp: ${daucompToUpdate.name}');
     var stopwatch = Stopwatch()..start();
     try {
@@ -205,14 +205,19 @@ class StatsViewModel extends ChangeNotifier {
           .logEvent(name: 'scoring_initiated', parameters: {
         'comp': daucompToUpdate.name,
         'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
+        'tipper': onlyUpdateThisTipper?.name ?? 'all',
       });
 
       TipsViewModel allTipsViewModel = TipsViewModel(di<TippersViewModel>(),
           daucompToUpdate, di<DAUCompsViewModel>().gamesViewModel!);
 
-      // get a list of all tippers
-      List<Tipper> tippersToUpdate =
-          await di<TippersViewModel>().getAllTippers();
+      // set the initial list of tippers to update
+      List<Tipper> tippersToUpdate = [];
+      if (onlyUpdateThisTipper != null) {
+        tippersToUpdate = [onlyUpdateThisTipper];
+      } else {
+        tippersToUpdate = await di<TippersViewModel>().getAllTippers();
+      }
 
       // remove any tippers who did not place any tips this comp
       List<Tipper> tippersToRemove = [];
@@ -223,9 +228,6 @@ class StatsViewModel extends ChangeNotifier {
         }
       }
       tippersToUpdate.removeWhere((tipper) => tippersToRemove.contains(tipper));
-
-      // remove any scores for tippers that are no longer active
-      //await _removeScoresInactiveTippers(tippersToUpdate, daucompToUpdate);
 
       var dauRoundsEdited =
           _getRoundsToUpdate(onlyUpdateThisRound, daucompToUpdate);
@@ -319,6 +321,13 @@ class StatsViewModel extends ChangeNotifier {
 
       if (_isCalculating) {
         return 'Stats calculation already in progress';
+      }
+
+      // if this is the first time this tipper has tipped in this comp
+      // then we need to initialize their stats for this round so we can update the margin counts
+      if (!_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1)) {
+        // do a mini stats calculation for the tipper and round in question
+        updateStats(currentDAUComp, dauRound, tip.tipper);
       }
 
       assert(_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1));
