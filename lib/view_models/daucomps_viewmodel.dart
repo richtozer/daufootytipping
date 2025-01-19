@@ -257,8 +257,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     FixtureDownloadService fetcher = FixtureDownloadService();
 
     try {
-      Map<String, List<dynamic>> fixtures =
-          await fetcher.fetch(daucompToUpdate.fixtures, true);
+      Map<String, List<dynamic>> fixtures = await fetcher.fetch(
+          daucompToUpdate.nrlFixtureJsonURL,
+          daucompToUpdate.aflFixtureJsonURL,
+          true);
       List<dynamic> nrlGames = fixtures['nrlGames']!;
       List<dynamic> aflGames = fixtures['aflGames']!;
 
@@ -275,8 +277,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       List<dynamic> allGames = nrlGames + aflGames;
 
-      await _updateRoundStartEndTimesBasedOnFixture(
-          daucompToUpdate, gamesViewModel!, allGames);
+      await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
 
       String res =
           'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
@@ -305,8 +306,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateRoundStartEndTimesBasedOnFixture(DAUComp daucomp,
-      GamesViewModel gamesViewModel, List<dynamic> rawGames) async {
+  Future<void> _updateRoundStartEndTimesBasedOnFixture(
+      DAUComp daucomp, List<dynamic> rawGames) async {
     await initialLoadComplete;
 
     Map<String, List<Map<dynamic, dynamic>>> groups =
@@ -397,18 +398,26 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _updateDatabaseWithCombinedRounds(
       List<DAURound> combinedRounds, DAUComp daucomp) async {
     log('In _updateDatabaseWithCombinedRounds()');
-    for (var i = 0; i < combinedRounds.length - 1; i++) {
-      // only update if daurounds is empty or the dates have changed
-      if (daucomp.daurounds.isEmpty ||
-          daucomp.daurounds[i].roundStartDate !=
-              combinedRounds[i].roundStartDate ||
-          daucomp.daurounds[i].roundEndDate != combinedRounds[i].roundEndDate) {
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
+    // if combinedRounds.length is not the same as daucomp.daurounds.length then lets clear the existing rounds
+    if (combinedRounds.length != daucomp.daurounds.length &&
+        daucomp.daurounds.isNotEmpty) {
+      log('Fixture changes have changed the number of rounds, clearing existing rounds for ${daucomp.name}');
+      for (var i = 0; i < daucomp.daurounds.length; i++) {
+        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i', null);
       }
+
+      await saveBatchOfCompAttributes();
     }
+
+    for (var i = 0; i < combinedRounds.length; i++) {
+      // update the combinedRounds attribute in the database
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
+          '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
+          '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
+    }
+
+    //TODO - if a fixture change reduces the number of rounds, then we need to remove the excess rounds from the database
 
     await saveBatchOfCompAttributes();
   }
@@ -442,12 +451,10 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('Adding new DAUComp record');
       DatabaseReference newCompRecordKey = _db.child(daucompsPath).push();
       updates['$daucompsPath/${newCompRecordKey.key}/name'] = newDAUComp.name;
-      // Convert List<Fixture> to json
-      List<String> fixtureJson = newDAUComp.fixtures
-          .map((fixture) => fixture.toJson())
-          .map((fixtureJson) => fixtureJson.toString())
-          .toList();
-      updates['$daucompsPath/${newCompRecordKey.key}/fixtures'] = fixtureJson;
+      updates['$daucompsPath/${newCompRecordKey.key}/aflFixtureJsonURL'] =
+          newDAUComp.aflFixtureJsonURL.toString();
+      updates['$daucompsPath/${newCompRecordKey.key}/nrlFixtureJsonURL'] =
+          newDAUComp.nrlFixtureJsonURL.toString();
       newDAUComp.dbkey = newCompRecordKey.key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
@@ -478,6 +485,9 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Map<League, List<Game>> sortGamesIntoLeagues(DAURound combinedRound) {
+    //await initialLoadComplete;
+    //await gamesViewModel!.initialLoadComplete;
+
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
 
@@ -541,6 +551,10 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   // private method to check if the comp is over i.e. all rounds have been completed and scored
   bool _isCompOver(DAUComp daucomp) {
+    // check if there are zero rounds
+    if (daucomp.daurounds.isEmpty) {
+      return false;
+    }
     DAURound lastRound = daucomp.daurounds.last;
     return lastRound.roundState == RoundState.allGamesEnded;
   }

@@ -1,30 +1,38 @@
-import 'package:collection/collection.dart';
+import 'dart:developer';
 import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/fixture.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
 
 class DAUComp implements Comparable<DAUComp> {
   String? dbkey;
   final String name;
-  final List<Fixture> fixtures;
+  final Uri aflFixtureJsonURL;
+  final Uri nrlFixtureJsonURL;
   List<DAURound> daurounds;
+  final bool active;
+
   DateTime? lastFixtureUpdateTimestamp;
 
-  // Constructor
+  //constructor
   DAUComp({
     this.dbkey,
     required this.name,
-    required this.fixtures,
+    required this.aflFixtureJsonURL,
+    required this.nrlFixtureJsonURL,
+    this.active = true,
     required this.daurounds,
     this.lastFixtureUpdateTimestamp,
   });
 
-  // Return the highest round number where roundEndDate is in the past UTC
+  // method to return the highest round number where roundEndDate is the past UTC
+  // it does not require gamesviewmodel to fully load all games
+  // tips page calls this method ahead of gamesviewmodel loading all games
+  // because round end date is actually the start time for the last game,
+  // we will add an arbitrary 9 hours to the round end date to ensure the round is considered past
   int highestRoundNumberInPast() {
     int highestRoundNumber = 1;
 
+    //find the highest round number where roundEndDate + 9 hours is the past UTC
     for (var dauround in daurounds) {
       if (dauround.roundEndDate
           .add(const Duration(hours: 9))
@@ -34,10 +42,12 @@ class DAUComp implements Comparable<DAUComp> {
         }
       }
     }
+
     return highestRoundNumber;
   }
 
-  // Return the highest round number where all games have ended
+  // method to return the highest round number, where DAURound.RoundState is allGamesEnded
+  // this method requires gamesviewmodel to fully load all games
   int getHighestRoundNumberWithAllGamesPlayed() {
     int highestRoundNumber = 1;
 
@@ -51,28 +61,13 @@ class DAUComp implements Comparable<DAUComp> {
     return highestRoundNumber;
   }
 
-  // Factory constructor for creating DAUComp instances from JSON
   factory DAUComp.fromJson(
       Map<String, dynamic> data, String? key, List<DAURound> daurounds) {
     return DAUComp(
       dbkey: key,
       name: data['name'] ?? '',
-      fixtures:
-          data['aflFixtureJsonURL'] != null && data['nrlFixtureJsonURL'] != null
-              ? [
-                  Fixture(
-                    fixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
-                    league: League.afl,
-                  ),
-                  Fixture(
-                    fixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
-                    league: League.nrl,
-                  ),
-                ]
-              : (data['fixtures'] as List<dynamic>)
-                  .map((fixtureData) =>
-                      Fixture.fromJson(fixtureData as Map<String, dynamic>))
-                  .toList(),
+      aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
+      nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
       daurounds: daurounds,
       lastFixtureUpdateTimestamp: data['lastFixtureUpdateTimestamp'] != null
           ? DateTime.parse(data['lastFixtureUpdateTimestamp'])
@@ -80,34 +75,41 @@ class DAUComp implements Comparable<DAUComp> {
     );
   }
 
-  static List<DAUComp> fromJsonList(List<Object?> compDbKeys) {
+  static List<DAUComp> fromJsonList(List compDbKeys) {
+    // find each DAUComp based on the compDbKeys
     List<DAUComp> daucompList = [];
     for (var compDbKey in compDbKeys) {
-      di<DAUCompsViewModel>().findComp(compDbKey as String).then((daucomp) {
-        if (daucomp != null && daucomp.dbkey == compDbKey) {
-          daucompList.add(daucomp);
+      di<DAUCompsViewModel>().findComp(compDbKey).then((daucomp) {
+        if (daucomp == null) {
+          log('DAUComp.fromJsonList2: compDbKey not found: $compDbKey');
+        } else {
+          if (daucomp.dbkey == compDbKey) {
+            daucompList.add(daucomp);
+          }
         }
       });
     }
+
     return daucompList;
   }
 
-  // Serialize to JSON for comparison purposes
   Map<String, dynamic> toJsonForCompare() {
-    List<Map<String, dynamic>> dauroundsJson =
-        daurounds.map((dauround) => dauround.toJsonForCompare()).toList();
-
-    List<Map<String, dynamic>> fixturesJson =
-        fixtures.map((fixture) => fixture.toJson()).toList();
-
+    // Serialize DAURound list separately
+    List<Map<String, dynamic>> dauroundsJson = [];
+    for (var dauround in daurounds) {
+      dauroundsJson.add(dauround.toJsonForCompare());
+    }
     return {
       'name': name,
-      'fixtures': fixturesJson,
+      'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
+      'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
+      'active': active,
       'daurounds': dauroundsJson,
     };
   }
 
   @override
+  // method used to provide default sort for DAUComp(s) in a List[]
   int compareTo(DAUComp other) {
     return name.compareTo(other.name);
   }
@@ -119,11 +121,15 @@ class DAUComp implements Comparable<DAUComp> {
     return other is DAUComp &&
         other.dbkey == dbkey &&
         other.name == name &&
-        const ListEquality().equals(other.fixtures, fixtures);
+        other.aflFixtureJsonURL == aflFixtureJsonURL &&
+        other.nrlFixtureJsonURL == nrlFixtureJsonURL;
   }
 
   @override
   int get hashCode {
-    return dbkey.hashCode ^ name.hashCode ^ fixtures.hashCode;
+    return dbkey.hashCode ^
+        name.hashCode ^
+        aflFixtureJsonURL.hashCode ^
+        nrlFixtureJsonURL.hashCode;
   }
 }
