@@ -266,6 +266,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     isNewTipper
                         ? 'WARNING This page should only be used to add a new tipper when they are unable to use the App of website themselves. Only create an account if an admin is going to tip on their behalf.'
                         : 'Edit the details for the tipper',
+                    style: const TextStyle(color: Colors.red),
                   ),
                   Row(
                     children: [
