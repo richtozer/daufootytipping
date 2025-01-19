@@ -30,7 +30,7 @@ class DAUComp implements Comparable<DAUComp> {
   // because round end date is actually the start time for the last game,
   // we will add an arbitrary 9 hours to the round end date to ensure the round is considered past
   int highestRoundNumberInPast() {
-    int highestRoundNumber = 1;
+    int highestRoundNumber = 0;
 
     //find the highest round number where roundEndDate + 9 hours is the past UTC
     for (var dauround in daurounds) {

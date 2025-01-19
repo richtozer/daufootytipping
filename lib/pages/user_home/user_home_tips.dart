@@ -40,7 +40,6 @@ class TipsTabState extends State<TipsTab> {
     latestRoundNumber =
         daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
     log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
-
     if (daucompsViewModel.selectedDAUComp!.daurounds.isEmpty) {
       latestRoundNumber = 0;
       log('no rounds found. setting initial scroll position to 0');
@@ -94,6 +93,44 @@ class TipsTabState extends State<TipsTab> {
                     4 +
                 1, // 4 items per round plus 1 for the end of competition card
             itemBuilder: (context, index) {
+              // insert a card at the start saying 'New here?' then 'You will find the instructions and scoring on the Profile Tab.'
+              if (index == 0) {
+                return SizedBox(
+                  height: 125,
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    color: Colors.black38,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Spacer(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children:
+                              Icon(Icons.sports_rugby, color: Colors.white70),
+                              Text(
+                                'Start of competition ${daucompsViewmodelConsumer.selectedDAUComp!.name}',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              Icon(Icons.sports_rugby, color: Colors.white70),
+                            ],
+                          ),
+                          Spacer(),
+                          Text(
+                            'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          Spacer(),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
               // Check if this is the last item
               if (index ==
                   daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
@@ -121,8 +158,8 @@ class TipsTabState extends State<TipsTab> {
                 );
               }
 
-              final roundIndex = index ~/ 4;
-              final itemIndex = index % 4;
+              final roundIndex = (index - 1) ~/ 4;
+              final itemIndex = (index - 1) % 4;
               final dauRound = daucompsViewmodelConsumer
                   .selectedDAUComp!.daurounds[roundIndex];
 

@@ -97,12 +97,12 @@ class TeamsViewModel extends ChangeNotifier {
     _savingTeam = true;
     notifyListeners();
 
-    Team? foundTeam = teams
-        .firstWhereOrNull((existingTeam) => existingTeam.dbkey == team.dbkey);
+    Team? foundTeam = teams.firstWhereOrNull((existingTeam) =>
+        existingTeam.dbkey.toLowerCase() == team.dbkey.toLowerCase());
 
     if (foundTeam == null) {
       _addNewTeam(team);
-      log('Team: ${team.dbkey} added to the database');
+      log('Team: ${team.dbkey.toLowerCase()} added to the database');
     }
 
     _savingTeam = false;
@@ -113,14 +113,15 @@ class TeamsViewModel extends ChangeNotifier {
     final postData = team.toJson();
 
     final Map<String, Map> updates = {};
-    updates['$teamsPathRoot/${team.dbkey}'] = postData;
+    updates['$teamsPathRoot/${team.dbkey.toLowerCase()}'] = postData;
 
     await _db.update(updates);
   }
 
   Future<Team?> findTeam(String teamDbKey) async {
     await _initialLoadCompleter.future;
-    return _teams.firstWhereOrNull((team) => team.dbkey == teamDbKey);
+    return _teams.firstWhereOrNull(
+        (team) => team.dbkey.toLowerCase() == teamDbKey.toLowerCase());
   }
 
   @override

@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_help.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
@@ -146,6 +147,18 @@ class Profile extends StatelessWidget with WatchItMixin {
                     : const SizedBox.shrink(),
                 FutureBuilder<Widget>(
                   future: aboutDialog(context),
+                  builder:
+                      (BuildContext context, AsyncSnapshot<Widget> snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      return snapshot.data!;
+                    } else {
+                      return CircularProgressIndicator(
+                          color: League.afl.colour);
+                    }
+                  },
+                ),
+                FutureBuilder<Widget>(
+                  future: help(context),
                   builder:
                       (BuildContext context, AsyncSnapshot<Widget> snapshot) {
                     if (snapshot.connectionState == ConnectionState.done) {
