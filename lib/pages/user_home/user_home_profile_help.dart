@@ -12,7 +12,8 @@ Future<Widget> help(context) async {
 
 Future<void> _launchURL() async {
   const urlString =
-      'https://docs.google.com/document/d/e/2PACX-1vRAHQvWC-CvaeAVa7rPh7YCZAWb5nbzn7oOBt_qbyeXh4HWg96srmig13tz86h0PgOLGP9YnqGElRwk/pub';
+      'https://docs.google.com/document/d/e/2PACX-1vTOEzPdzyfKuDJJoyPz5ge4Z-dlwFQUNBilzguZZloxCqvKNp214Pp_-bxWTFY_MPmit1iZrhUQKpzm/pub';
+
   final url = Uri.parse(urlString);
 
   if (await canLaunchUrl(url)) {

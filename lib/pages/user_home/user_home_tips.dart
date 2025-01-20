@@ -110,7 +110,7 @@ class TipsTabState extends State<TipsTab> {
                           Spacer(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children:
+                            children: [
                               Icon(Icons.sports_rugby, color: Colors.white70),
                               Text(
                                 'Start of competition ${daucompsViewmodelConsumer.selectedDAUComp!.name}',
