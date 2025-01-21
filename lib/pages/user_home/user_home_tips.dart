@@ -40,7 +40,6 @@ class TipsTabState extends State<TipsTab> {
     latestRoundNumber =
         daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
     log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
-
     if (daucompsViewModel.selectedDAUComp!.daurounds.isEmpty) {
       latestRoundNumber = 0;
       log('no rounds found. setting initial scroll position to 0');
@@ -52,7 +51,6 @@ class TipsTabState extends State<TipsTab> {
     log('TipsPageBody.build()');
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log('TipsPageBody.build() selectedDAUComp is null');
       return Center(
         child: SizedBox(
           height: 75,
@@ -63,7 +61,7 @@ class TipsTabState extends State<TipsTab> {
             color: Colors.black38,
             child: const Center(
               child: Text(
-                'Nothing to see here. Contact a DAU Admin.',
+                'Nothing to see here. Contact daufootytipping@gmail.com.',
                 style: TextStyle(color: Colors.white70),
               ),
             ),
@@ -95,6 +93,48 @@ class TipsTabState extends State<TipsTab> {
                     4 +
                 1, // 4 items per round plus 1 for the end of competition card
             itemBuilder: (context, index) {
+              // insert a card at the start saying 'New here?' then 'You will find the instructions and scoring on the Profile Tab.'
+              if (index == 0) {
+                return SizedBox(
+                  height: 200,
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    color: Colors.black38,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Spacer(),
+                          Spacer(),
+                          Spacer(),
+                          Spacer(),
+                          Spacer(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Icon(Icons.sports_rugby, color: Colors.white70),
+                              Text(
+                                'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              Icon(Icons.sports_rugby, color: Colors.white70),
+                            ],
+                          ),
+                          Spacer(),
+                          Text(
+                            'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          Spacer(),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
               // Check if this is the last item
               if (index ==
                   daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
@@ -122,8 +162,8 @@ class TipsTabState extends State<TipsTab> {
                 );
               }
 
-              final roundIndex = index ~/ 4;
-              final itemIndex = index % 4;
+              final roundIndex = (index - 1) ~/ 4;
+              final itemIndex = (index - 1) % 4;
               final dauRound = daucompsViewmodelConsumer
                   .selectedDAUComp!.daurounds[roundIndex];
 
@@ -212,7 +252,7 @@ class TipsTabState extends State<TipsTab> {
       DAURound dauRound,
       StatsViewModel? scoresViewmodelConsumer) {
     // check for null values
-    RoundStats roundScores = scoresViewmodelConsumer
+    RoundStats roundStats = scoresViewmodelConsumer
                 ?.allTipperRoundStats[dauRound.dAUroundNumber - 1]
             ?[di<TippersViewModel>().selectedTipper] ??
         RoundStats(
@@ -258,17 +298,17 @@ class TipsTabState extends State<TipsTab> {
                     ? Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Score: ${leagueHeader == League.afl ? roundScores?.aflScore : roundScores?.nrlScore} / ${leagueHeader == League.afl ? roundScores?.aflMaxScore : roundScores?.nrlMaxScore}')
+                        'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}')
                     : const SizedBox.shrink(),
                 dauRound.roundState != RoundState.notStarted
                     ? Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'UPS/Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginUPS : roundScores?.nrlMarginUPS} / ${leagueHeader == League.afl ? roundScores?.aflMarginTips : roundScores?.nrlMarginTips}')
+                        'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}')
                     : Text(
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Margins: ${leagueHeader == League.afl ? roundScores?.aflMarginTips ?? 0 : roundScores?.nrlMarginTips ?? 0} '),
+                        'Margins: ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips} '),
                 dauRound.roundState != RoundState.notStarted
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -277,26 +317,20 @@ class TipsTabState extends State<TipsTab> {
                               style: const TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.bold),
-                              'Rank: ${roundScores?.rank}  '),
-                          roundScores == null
+                              'Rank: ${roundStats.rank}  '),
+                          roundStats.rankChange > 0
                               ? const Icon(
-                                  Icons.question_mark,
-                                  color: Colors.grey,
-                                )
-                              : roundScores.rankChange > 0
+                                  color: Colors.green, Icons.arrow_upward)
+                              : roundStats.rankChange < 0
                                   ? const Icon(
-                                      color: Colors.green, Icons.arrow_upward)
-                                  : roundScores.rankChange < 0
-                                      ? const Icon(
-                                          color: Colors.red,
-                                          Icons.arrow_downward)
-                                      : const Icon(
-                                          color: Colors.green, Icons.sync_alt),
+                                      color: Colors.red, Icons.arrow_downward)
+                                  : const Icon(
+                                      color: Colors.green, Icons.sync_alt),
                           Text(
                               style: const TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.bold),
-                              '${roundScores?.rankChange}'),
+                              '${roundStats.rankChange}'),
                         ],
                       )
                     : const SizedBox.shrink(),

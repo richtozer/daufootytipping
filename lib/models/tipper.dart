@@ -3,55 +3,63 @@ import 'package:daufootytipping/models/tipperrole.dart';
 
 class Tipper implements Comparable<Tipper> {
   String? dbkey;
-  String authuid;
+  String authuid; // this is the Firebase auth uid
   String?
       email; // this is the email address used for communication - same as legacy sheet email
   String? logon; // this is the email address used for login
-  final String name;
+  String? name;
   final String
       tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
-  //final bool active;  //no longer used. use compsParticipatedIn instead
   final TipperRole tipperRole;
   String? photoURL;
-  List<DAUComp> compsParticipatedIn = [];
+  List<DAUComp> compsPaidFor = [];
+  final DateTime? acctCreatedUTC;
+  final DateTime? acctLoggedOnUTC;
 
   //constructor
-  Tipper(
-      {this.dbkey,
-      required this.compsParticipatedIn,
-      this.photoURL,
-      required this.authuid,
-      required this.email,
-      this.logon,
-      required this.name,
-      required this.tipperID,
-      required this.tipperRole});
+  Tipper({
+    this.dbkey,
+    required this.compsPaidFor,
+    this.photoURL,
+    required this.authuid,
+    required this.email,
+    this.logon,
+    this.name,
+    required this.tipperID,
+    required this.tipperRole,
+    this.acctCreatedUTC,
+    this.acctLoggedOnUTC,
+  });
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
     return Tipper(
       dbkey: key,
-      //deviceTokens: deviceTokensList,
       authuid: data['authuid'],
       email: data['email'],
       logon: data['logon'], // this is the email address used for login
       name: data['name'],
       tipperID: data['tipperID'],
-      //active: data['active'] ?? false,
       tipperRole: TipperRole.values.byName(data['tipperRole']),
       photoURL: data['photoURL'],
-      compsParticipatedIn: data['compsParticipatedIn'] != null
+      compsPaidFor: data['compsParticipatedIn'] != null
           ? DAUComp.fromJsonList(data['compsParticipatedIn'])
           : [],
+      acctCreatedUTC: data['acctCreatedUTC'] != null
+          ? DateTime.parse(data['acctCreatedUTC'])
+          : null,
+      acctLoggedOnUTC: data['acctLoggedOnUTC'] != null
+          ? DateTime.parse(data['acctLoggedOnUTC'])
+          : null,
     );
   }
 
-  bool activeInComp(DAUComp? checkThisComp) {
+  bool paidForComp(DAUComp? checkThisComp) {
     if (checkThisComp == null) {
       return false;
     }
-    return compsParticipatedIn.any((compParticipatedIn) =>
+    return compsPaidFor.any((compParticipatedIn) =>
         compParticipatedIn.dbkey ==
-        checkThisComp.dbkey); //check if the tipper is active in the comp
+        checkThisComp.dbkey); //check if the tipper has paid for this comp
   }
 
   static List<Tipper?> fromJsonList(dynamic json) {
@@ -74,12 +82,11 @@ class Tipper implements Comparable<Tipper> {
       "logon": logon, // this is the email address used for login
       "name": name,
       "tipperID": tipperID,
-      //"active": active,
       "tipperRole": tipperRole.name,
-      //"deviceTokens": deviceTokenList,
       "photoURL": photoURL,
-      "compsParticipatedIn":
-          compsParticipatedIn.map((comp) => comp.dbkey).toList(),
+      "compsParticipatedIn": compsPaidFor.map((comp) => comp.dbkey).toList(),
+      "acctCreatedUTC": acctCreatedUTC?.toString(),
+      "acctLoggedOnUTC": acctLoggedOnUTC?.toString(),
     };
   }
 

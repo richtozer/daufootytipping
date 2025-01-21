@@ -11,7 +11,6 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -27,10 +26,12 @@ class DAUCompsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _daucompsStream;
   String? _activeDAUCompDbKey;
   DAUComp? _activeDAUComp;
-  DAUComp? get activeDAUComp => _activeDAUComp;
+  DAUComp? get activeDAUComp =>
+      _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
 
   DAUComp? _selectedDAUComp;
-  DAUComp? get selectedDAUComp => _selectedDAUComp;
+  DAUComp? get selectedDAUComp =>
+      _selectedDAUComp; // if the user has paid for previous comps, then this is the comp they are currently viewing
 
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
@@ -41,7 +42,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _isDownloading = false;
   bool get isDownloading => _isDownloading;
 
-  bool _isLegacySyncing = false;
+  final bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
 
   GamesViewModel? gamesViewModel;
@@ -207,44 +208,44 @@ class DAUCompsViewModel extends ChangeNotifier {
     return timeUntilNewDay.toUtc().difference(DateTime.now().toUtc());
   }
 
+  // method to setup a potential trigger to periodically update the active comp fixture data
+  // this method will delay until elapsed time has passed
   Future<void> fixtureUpdateTrigger() async {
     await initialLoadComplete;
 
-    if (_selectedDAUComp == null) {
-      log('_fixtureUpdateTrigger() Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+    if (_activeDAUComp == null) {
+      log('_fixtureUpdateTrigger() Active comp is null. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
       return;
     }
 
     // if we are at the end of the competition, then don't trigger the fixture update
-    if (_isCompOver(_selectedDAUComp!)) {
-      log('End of competition detected for : ${_selectedDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
+    if (_isCompOver(_activeDAUComp!)) {
+      log('End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
       return;
     }
 
-    DateTime? lastUpdate = _selectedDAUComp!.lastFixtureUpdateTimestamp ??
-        DateTime.utc(2021, 1, 1);
+    DateTime? lastUpdate =
+        _activeDAUComp!.lastFixtureUpdateTimestamp ?? DateTime.utc(2021, 1, 1);
     Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
 
     log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
     await Future.delayed(timeUntilNewDay);
     log('Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
 
-    if (_selectedDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
-        _selectedDAUComp!.lastFixtureUpdateTimestamp == null) {
-      log('Starting fixture update for comp: ${_selectedDAUComp!.name}');
-      await getNetworkFixtureData(_selectedDAUComp!);
+    // create an analytics event to track the fixture update trigger
+    FirebaseAnalytics.instance
+        .logEvent(name: 'fixture_update_trigger', parameters: {
+      'comp': _activeDAUComp!.name,
+      'tipperHandlingUpdate':
+          di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper'
+    });
 
-      if (_selectedDAUComp!.dbkey == _activeDAUCompDbKey) {
-        // only sync with legacy if this client is running in production mode
-        if (kReleaseMode) {
-          log("starting sync with legacy");
-          await syncTipsWithLegacy(_selectedDAUComp!, null);
-        } else {
-          log("Not syncing with legacy as this is debug build");
-        }
-      }
+    if (_activeDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
+        _activeDAUComp!.lastFixtureUpdateTimestamp == null) {
+      log('Starting fixture update for comp: ${_activeDAUComp!.name}');
+      await getNetworkFixtureData(_activeDAUComp!);
     } else {
-      log('Fixture update has already been triggered for comp: ${_selectedDAUComp!.name}. Skipping');
+      log('Fixture update has already been triggered for active comp: ${_activeDAUComp!.name}. Skipping');
     }
   }
 
@@ -288,8 +289,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       List<dynamic> allGames = nrlGames + aflGames;
 
-      await _updateRoundStartEndTimesBasedOnFixture(
-          daucompToUpdate, gamesViewModel!, allGames);
+      await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
 
       String res =
           'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
@@ -318,43 +318,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String> syncTipsWithLegacy(
-      DAUComp daucompToUpdate, Tipper? onlySyncThisTipper) async {
-    await initialLoadComplete;
-
-    _isLegacySyncing = true;
-    notifyListeners();
-
-    try {
-      LegacyTippingService tippingService =
-          GetIt.instance<LegacyTippingService>();
-      TippersViewModel tippersViewModel = di<TippersViewModel>();
-      TipsViewModel allTipsViewModel =
-          TipsViewModel(tippersViewModel, daucompToUpdate, gamesViewModel!);
-
-      await tippingService.initialized();
-      String res;
-
-      if (onlySyncThisTipper != null) {
-        res = await tippingService.syncAllTipsToLegacy(
-            allTipsViewModel, this, onlySyncThisTipper);
-      } else {
-        res = await tippingService.syncAllTipsToLegacy(
-            allTipsViewModel, this, null);
-      }
-
-      return res;
-    } catch (e) {
-      log('Error syncing tips with legacy: $e');
-      rethrow;
-    } finally {
-      _isLegacySyncing = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _updateRoundStartEndTimesBasedOnFixture(DAUComp daucomp,
-      GamesViewModel gamesViewModel, List<dynamic> rawGames) async {
+  Future<void> _updateRoundStartEndTimesBasedOnFixture(
+      DAUComp daucomp, List<dynamic> rawGames) async {
     await initialLoadComplete;
 
     Map<String, List<Map<dynamic, dynamic>>> groups =
@@ -445,20 +410,30 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _updateDatabaseWithCombinedRounds(
       List<DAURound> combinedRounds, DAUComp daucomp) async {
     log('In _updateDatabaseWithCombinedRounds()');
-    for (var i = 0; i < combinedRounds.length - 1; i++) {
-      // only update if daurounds is empty or the dates have changed
-      if (daucomp.daurounds.isEmpty ||
-          daucomp.daurounds[i].roundStartDate !=
-              combinedRounds[i].roundStartDate ||
-          daucomp.daurounds[i].roundEndDate != combinedRounds[i].roundEndDate) {
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
-      }
+
+    await initialLoadComplete;
+
+    // Update combined rounds in a separate batch
+    for (var i = 0; i < combinedRounds.length; i++) {
+      log('Updating round start date: combinedRounds/$i/roundStartDate');
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
+          '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
+      log('Updating round end date: combinedRounds/$i/roundEndDate');
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
+          '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
     }
 
     await saveBatchOfCompAttributes();
+
+    // if daucomp.daurounds.length is greater than combinedRounds.length then we need to remove the extra rounds
+    // from the database
+    if (daucomp.daurounds.length > combinedRounds.length) {
+      for (var i = combinedRounds.length; i < daucomp.daurounds.length; i++) {
+        log('Removing round: combinedRounds/$i');
+        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i', null);
+      }
+      await saveBatchOfCompAttributes();
+    }
   }
 
   Future<void> linkGameWithRounds(
@@ -590,6 +565,10 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   // private method to check if the comp is over i.e. all rounds have been completed and scored
   bool _isCompOver(DAUComp daucomp) {
+    // check if there are zero rounds
+    if (daucomp.daurounds.isEmpty) {
+      return false;
+    }
     DAURound lastRound = daucomp.daurounds.last;
     return lastRound.roundState == RoundState.allGamesEnded;
   }

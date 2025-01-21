@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -16,17 +16,7 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 
 class _TippersAdminPageState extends State<TippersAdminPage> {
   late final ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    // _scrollController.addListener(() {
-    //   // Save the scroll position in your state management solution
-    //   di<TippersViewModel>().tipperListScrollPosition =
-    //       _scrollController.offset;
-    // });
-  }
+  bool _showPaidCurrent = false;
 
   @override
   void dispose() {
@@ -34,9 +24,25 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     super.dispose();
   }
 
+  late TippersViewModel tipperViewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  // Future<void> _addTipper(BuildContext context) async {
+  //   Navigator.of(context).push(
+  //     MaterialPageRoute(
+  //       builder: (context) => TipperAdminEditPage(tipperViewModel, null),
+  //     ),
+  //   );
+  // }
+
   @override
   Widget build(BuildContext context) {
-    TippersViewModel tipperViewModel = watchIt<TippersViewModel>();
+    tipperViewModel = watchIt<TippersViewModel>();
     return Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -47,39 +53,29 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
           ),
           title: const Text('Admin Tippers'),
         ),
+        // TODO only supprt editing tippers for now. In theory new tippers can register themselves via the app.
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed: () async {
+        //     await _addTipper(context);
+        //   },
+        //   child: const Icon(Icons.add),
+        // ),
         body: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                OutlinedButton(
-                  onPressed: () async {
-                    if (tipperViewModel.isLegacySyncing) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          backgroundColor: Colors.red,
-                          content:
-                              Text('Legacy Tipper sync already in progress')));
-                      return;
-                    }
-                    try {
-                      String res = await tipperViewModel.syncTippers();
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        backgroundColor: Colors.green,
-                        content: Text(res),
-                        duration: const Duration(seconds: 4),
-                      ));
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: Colors.red,
-                          content: Text('An error occurred: $e'),
-                          duration: const Duration(seconds: 4),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(!tipperViewModel.isLegacySyncing
-                      ? 'Sync Legacy Tippers'
-                      : 'Sync processing...'),
+                Row(
+                  children: [
+                    FilterChip(
+                      label: const Text('Paid current'),
+                      selected: _showPaidCurrent,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          _showPaidCurrent = selected;
+                        });
+                      },
+                    ),
+                  ],
                 ),
                 Expanded(
                   child: FutureBuilder<List<Tipper>>(
@@ -91,17 +87,24 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                             color: League.afl
                                 .colour); // Show a loading spinner while waiting
                       } else {
+                        var tippers = snapshot.data!;
+                        if (_showPaidCurrent) {
+                          tippers = tippers
+                              .where((tipper) => tipper.paidForComp(
+                                  di<DAUCompsViewModel>().activeDAUComp))
+                              .toList();
+                        }
                         return Column(
                           children: [
                             Expanded(
                               child: ListView.builder(
                                 //controller: _scrollController,
-                                itemCount: snapshot.data!.length,
+                                itemCount: tippers.length,
                                 itemBuilder: (context, index) {
-                                  var tipper = snapshot.data![index];
+                                  var tipper = tippers[index];
 
-                                  bool tipperActiveInCurrentComp = tipper
-                                      .activeInComp(di<DAUCompsViewModel>()
+                                  bool tipperActiveInCurrentComp =
+                                      tipper.paidForComp(di<DAUCompsViewModel>()
                                           .activeDAUComp);
 
                                   return Card(
@@ -109,12 +112,13 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                       dense: true,
                                       isThreeLine: true,
                                       leading: tipper.photoURL != null
-                                          ? avatarPic(tipper.photoURL!)
+                                          ? avatarPic(tipper)
                                           : null,
                                       trailing: tipperActiveInCurrentComp
-                                          ? const Icon(Icons.person)
-                                          : const Icon(Icons.person_off),
-                                      title: Text(tipper.name),
+                                          ? const Icon(Icons.arrow_right)
+                                          : const Icon(null),
+                                      title: Text(tipper.name ??
+                                          '[new tipper]'), // if a new tipper, name may be null until they update it
                                       subtitle: Text(
                                           '${tipper.tipperRole.name}\n${tipper.email}'),
                                       onTap: () async {
@@ -143,10 +147,11 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             )));
   }
 
-  CircleAvatar avatarPic(String url) {
-    return CircleAvatar(
-      radius: 15,
-      backgroundImage: url != '' ? CachedNetworkImageProvider(url) : null,
+  Widget avatarPic(Tipper tipper) {
+    return Hero(
+      tag: tipper.dbkey!,
+      child: circleAvatarWithFallback(
+          imageUrl: tipper.photoURL, text: tipper.name, radius: 30),
     );
   }
 }

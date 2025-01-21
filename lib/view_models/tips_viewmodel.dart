@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -16,11 +15,11 @@ import 'package:flutter/material.dart';
 const tipsPathRoot = '/AllTips';
 
 class TipsViewModel extends ChangeNotifier {
-  List<Tip?> _tip = [];
+  List<Tip?> _listOfTips = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
 
-  final DAUComp currentDAUComp;
+  final DAUComp selectedDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
 
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
@@ -35,14 +34,14 @@ class TipsViewModel extends ChangeNotifier {
 
   //constructor - this will get all tips from db
   TipsViewModel(
-      this.tipperViewModel, this.currentDAUComp, this._gamesViewModel) {
-    log('TipsViewModel constructor');
+      this.tipperViewModel, this.selectedDAUComp, this._gamesViewModel) {
+    log('TipsViewModel (all tips) constructor');
     _gamesViewModel.addListener(_update);
     _listenToTips();
   }
 
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
-  TipsViewModel.forTipper(this.tipperViewModel, this.currentDAUComp,
+  TipsViewModel.forTipper(this.tipperViewModel, this.selectedDAUComp,
       this._gamesViewModel, this.tipper) {
     log('TipsViewModel.forTipper constructor');
     _listenToTips();
@@ -55,14 +54,14 @@ class TipsViewModel extends ChangeNotifier {
   void _listenToTips() async {
     if (tipper != null) {
       _tipsStream = _db
-          .child('$tipsPathRoot/${currentDAUComp.dbkey}/${tipper!.dbkey}')
+          .child('$tipsPathRoot/${selectedDAUComp.dbkey}/${tipper!.dbkey}')
           .onValue
           .listen((event) {
         _handleEvent(event);
       });
     } else {
       _tipsStream = _db
-          .child('$tipsPathRoot/${currentDAUComp.dbkey}')
+          .child('$tipsPathRoot/${selectedDAUComp.dbkey}')
           .onValue
           .listen((event) {
         _handleEvent(event);
@@ -78,12 +77,12 @@ class TipsViewModel extends ChangeNotifier {
           final allTips =
               _deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
           log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
-          _tip = await _deserializeTips(allTips);
+          _listOfTips = await _deserializeTips(allTips);
         } else {
           log('deserializing tips for tipper ${tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
           log('_handleEvent (Tipper ${tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
-          _tip = await Future.wait(dbData.entries.map((entry) async {
+          _listOfTips = await Future.wait(dbData.entries.map((entry) async {
             Game? game = await _gamesViewModel.findGame(entry.key);
             if (game == null) {
               //log('game not found for tip ${entry.key}');
@@ -145,7 +144,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<Tip?> findTip(Game game, Tipper tipper) async {
     await initialLoadCompleted;
 
-    Tip? foundTip = _tip.firstWhereOrNull(
+    Tip? foundTip = _listOfTips.firstWhereOrNull(
       (tip) =>
           tip?.game.dbkey == game.dbkey && tip?.tipper.dbkey == tipper.dbkey,
     );
@@ -169,29 +168,10 @@ class TipsViewModel extends ChangeNotifier {
     return foundTip;
   }
 
-  Future<List<Tip?>> getTipsForRound(
-      Tipper tipper, DAURound combinedRound, DAUComp daucomp) async {
+  // returns true if the supplied tipper has submitted at least one tip for the comp
+  Future<bool> hasSubmittedTips(Tipper tipper) async {
     await initialLoadCompleted;
-
-    //figure out which key to use for this search. GoogleSheetService does not have
-    //access to dbkey, so we need to use tippedID as the key
-
-    if (tipper.dbkey != null) {
-      return _tip.where((tip) {
-        bool dbKeyCheck = tip?.tipper.dbkey == tipper.dbkey;
-        bool roundNumberCheck = tip?.game.getDAURound(daucomp).dAUroundNumber ==
-            combinedRound.dAUroundNumber;
-
-        return dbKeyCheck && roundNumberCheck;
-      }).toList();
-    } else {
-      return _tip
-          .where((tip) =>
-              tip?.tipper.tipperID == tipper.tipperID &&
-              tip?.game.getDAURound(daucomp).dAUroundNumber ==
-                  combinedRound.dAUroundNumber)
-          .toList();
-    }
+    return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
   }
 
   @override

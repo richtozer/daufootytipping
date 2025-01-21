@@ -238,7 +238,8 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                   // update the scoring for the game's round asynchronously to avoid blocking UI
                                   di<StatsViewModel>().updateStats(
                                       di<DAUCompsViewModel>().selectedDAUComp!,
-                                      widget.dauround);
+                                      widget.dauround,
+                                      null);
                                 },
                       style: ElevatedButton.styleFrom(
                           minimumSize:

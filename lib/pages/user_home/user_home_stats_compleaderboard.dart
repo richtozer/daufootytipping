@@ -48,7 +48,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
           return buildScaffold(
               context,
               scoresViewModelConsumer,
-              di<TippersViewModel>().selectedTipper!.name,
+              di<TippersViewModel>().selectedTipper!.name ?? '',
               Theme.of(context).highlightColor);
         },
       ),
@@ -125,7 +125,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                           child: Text(
                                             softWrap: false,
                                             scoresViewModelConsumer
-                                                .leaderboard[index].tipper.name,
+                                                    .leaderboard[index]
+                                                    .tipper
+                                                    .name ??
+                                                '',
                                             overflow: TextOverflow.fade,
                                           ),
                                         ),
@@ -203,10 +206,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     if (columnIndex == 0) {
       if (ascending) {
         scoresViewModel.leaderboard.sort((a, b) =>
-            a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase()));
+            (a.tipper.name?.toLowerCase() ?? '')
+                .compareTo(b.tipper.name?.toLowerCase() ?? ''));
       } else {
         scoresViewModel.leaderboard.sort((a, b) =>
-            b.tipper.name.toLowerCase().compareTo(a.tipper.name.toLowerCase()));
+            (b.tipper.name?.toLowerCase() ?? '')
+                .compareTo(a.tipper.name?.toLowerCase() ?? ''));
       }
     }
     if (columnIndex == 1) {

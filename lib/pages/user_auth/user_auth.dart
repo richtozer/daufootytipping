@@ -171,16 +171,16 @@ class UserAuthPageState extends State<UserAuthPage> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: action == AuthAction.signIn
                           ? const Text(
-                              'Welcome to DAU Footy Tipping, please sign in!')
+                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.')
                           : const Text(
-                              'Welcome to DAU Footy Tipping, please sign up!'),
+                              'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.'),
                     );
                   },
                   footerBuilder: (context, action) {
                     return const Padding(
                       padding: EdgeInsets.only(top: 16),
                       child: Text(
-                        'By signing in, you ackonwledge you are a paid up member of DAU Footy Tipping.',
+                        'If you are having trouble signing in, please contact Contact daufootytipping@gmail.com',
                         style: TextStyle(color: Colors.grey),
                       ),
                     );
@@ -192,17 +192,20 @@ class UserAuthPageState extends State<UserAuthPage> {
               if (authenticatedFirebaseUser == null) {
                 return const LoginErrorScreen(
                     errorMessage:
-                        'No user context found. Please contact daufootytipping@gmail.com');
+                        'No user context found. Please try signing in again.');
               }
+
               if (authenticatedFirebaseUser.isAnonymous) {
                 return const LoginErrorScreen(
                     errorMessage:
-                        'You have logged in as anonymous. Please contact daufootytipping@gmail.com');
+                        'You have logged in as anonymous. This App does not support anonymous logins.');
               }
               if (authenticatedFirebaseUser.emailVerified == false) {
+                authenticatedFirebaseUser.sendEmailVerification();
+
                 return const LoginErrorScreen(
                     errorMessage:
-                        'Your email is not verified. Please contact daufootytipping@gmail.com');
+                        'Your email is not verified. Please try checking your inbox and junk mail and verify your email first.');
               }
 
               FirebaseAnalytics.instance.logLogin(

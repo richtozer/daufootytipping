@@ -6,7 +6,6 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
-import 'package:daufootytipping/services/google_sheet_service.dart.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -52,20 +51,17 @@ Future<void> main() async {
           ReCaptchaV3Provider('6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'),
     );
   }
-
   FirebaseDatabase database = FirebaseDatabase.instance;
   if (kDebugMode) {
     database.useDatabaseEmulator('localhost', 8000);
   } else {
     if (!kIsWeb) {
-      //database.setPersistenceEnabled(true);
-    } else {
-      database.setPersistenceEnabled(false);
+      database.setPersistenceEnabled(true);
     }
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
-  String configDAUCompDbkey =
+  String activeDAUCompDbkey =
       await remoteConfigService.getConfigCurrentDAUComp();
   String configMinAppVersion =
       await remoteConfigService.getConfigMinAppVersion();
@@ -83,7 +79,7 @@ Future<void> main() async {
 
   //setup some default analytics parameters
   if (!kIsWeb) {
-    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.0.0'});
+    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.2.0'});
   }
 
   di.allowReassignment = true;
@@ -97,11 +93,10 @@ Future<void> main() async {
   di.registerLazySingleton<TippersViewModel>(
       () => TippersViewModel(createLinkedTipper));
 
-  di.registerLazySingleton<LegacyTippingService>(() => LegacyTippingService());
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   di.registerLazySingleton<DAUCompsViewModel>(
-      () => DAUCompsViewModel(configDAUCompDbkey));
+      () => DAUCompsViewModel(activeDAUCompDbkey));
   di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
 
   runApp(MyApp(configMinAppVersion));
