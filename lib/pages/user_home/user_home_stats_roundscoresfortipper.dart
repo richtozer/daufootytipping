@@ -1,7 +1,6 @@
 import 'dart:developer';
 
 import 'package:data_table_2/data_table_2.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
