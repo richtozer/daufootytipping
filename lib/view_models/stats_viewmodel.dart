@@ -100,7 +100,11 @@ class StatsViewModel extends ChangeNotifier {
             var tipper = await di<TippersViewModel>().findTipper(entry.key);
             var roundStats = RoundStats.fromJson(Map<String, dynamic>.from(
                 entry.value as Map<dynamic, dynamic>));
-            roundScores[tipper!] = roundStats;
+            if (tipper != null) {
+              roundScores[tipper] = roundStats;
+            } else {
+              log('Tipper ${entry.key} not found in _handleEventRoundScores');
+            }
           }
           _allTipperRoundStats[roundIndex] = roundScores;
         }

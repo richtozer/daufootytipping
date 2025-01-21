@@ -117,7 +117,7 @@ class TipsTabState extends State<TipsTab> {
                             children: [
                               Icon(Icons.sports_rugby, color: Colors.white70),
                               Text(
-                                'Start of competition ${daucompsViewmodelConsumer.selectedDAUComp!.name}',
+                                'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
                                 style: const TextStyle(color: Colors.white70),
                               ),
                               Icon(Icons.sports_rugby, color: Colors.white70),
