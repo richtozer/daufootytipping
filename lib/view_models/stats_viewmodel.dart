@@ -35,7 +35,7 @@ class StatsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
 
-  final DAUComp currentDAUComp;
+  final DAUComp selectedDAUComp;
 
   bool _isCalculating = false;
   bool get isCalculating => _isCalculating;
@@ -57,8 +57,8 @@ class StatsViewModel extends ChangeNotifier {
   bool _isScoringPaidComp = false;
 
   // Constructor
-  StatsViewModel(this.currentDAUComp) {
-    log('StatsViewModel(ALL TIPPERS) for comp: ${currentDAUComp.dbkey}');
+  StatsViewModel(this.selectedDAUComp) {
+    log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
     _listenToScores();
 
     // segregate tippers based on if they are paid members for the active comp
@@ -68,20 +68,20 @@ class StatsViewModel extends ChangeNotifier {
     if (di<TippersViewModel>().authenticatedTipper != null) {
       _isScoringPaidComp = di<TippersViewModel>()
           .authenticatedTipper!
-          .paidForComp(currentDAUComp);
+          .paidForComp(selectedDAUComp);
     }
   }
 
   void _listenToScores() async {
     _allRoundScoresStream = _db
-        .child('$statsPathRoot/${currentDAUComp.dbkey}/$roundStatsRoot')
+        .child('$statsPathRoot/${selectedDAUComp.dbkey}/$roundStatsRoot')
         .onValue
         .listen(_handleEventRoundScores, onError: (error) {
       log('Error listening to round scores: $error');
     });
 
     _liveScoresStream = _db
-        .child('$statsPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
+        .child('$statsPathRoot/${selectedDAUComp.dbkey}/$liveScoresRoot')
         .onValue
         .listen(_handleEventLiveScores, onError: (error) {
       log('Error listening to live scores: $error');
@@ -331,14 +331,17 @@ class StatsViewModel extends ChangeNotifier {
       // then we need to initialize their stats for this round so we can update the margin counts
       if (!_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1)) {
         // do a mini stats calculation for the tipper and round in question
-        updateStats(currentDAUComp, dauRound, tip.tipper);
+        updateStats(selectedDAUComp, dauRound, tip.tipper);
       }
 
       assert(_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1));
 
       // find the current round stats record for this tipper
-      RoundStats? roundScores =
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tip.tipper];
+      RoundStats? roundScores;
+      var roundStats = _allTipperRoundStats[dauRound.dAUroundNumber - 1];
+      if (roundStats != null) {
+        roundScores = roundStats[tip.tipper];
+      }
       // take note of the current afl and nrl margin counts
       int originalAFLMarginCount = roundScores?.aflMarginTips ?? 0;
       int originalNRLMarginCount = roundScores?.nrlMarginTips ?? 0;
@@ -373,7 +376,7 @@ class StatsViewModel extends ChangeNotifier {
       // update the database with the new margin counts
       await _db
           .child(statsPathRoot)
-          .child(currentDAUComp.dbkey!)
+          .child(selectedDAUComp.dbkey!)
           .child(roundStatsRoot)
           .child((dauRound.dAUroundNumber - 1).toString())
           .child(tip.tipper.dbkey!)
@@ -468,7 +471,8 @@ class StatsViewModel extends ChangeNotifier {
       // Find the maximum score for the round
       for (var tipperEntry in tipperStats.entries) {
         // only include tippers who's paid status matches that of the authenticated tipper
-        if (_isScoringPaidComp != tipperEntry.key.paidForComp(currentDAUComp)) {
+        if (_isScoringPaidComp !=
+            tipperEntry.key.paidForComp(selectedDAUComp)) {
           continue;
         }
 
@@ -491,7 +495,7 @@ class StatsViewModel extends ChangeNotifier {
         Tipper tipper = tipperEntry.key;
 
         // only include tippers who's paid status matches that of the authenticated tipper
-        if (_isScoringPaidComp != tipper.paidForComp(currentDAUComp)) {
+        if (_isScoringPaidComp != tipper.paidForComp(selectedDAUComp)) {
           continue;
         }
         RoundStats roundScores = tipperEntry.value;
@@ -539,7 +543,7 @@ class StatsViewModel extends ChangeNotifier {
         RoundStats roundScores = tipperEntry.value;
 
         // only include tippers who's paid status matches that of the authenticated tipper
-        if (_isScoringPaidComp != tipper.paidForComp(currentDAUComp)) {
+        if (_isScoringPaidComp != tipper.paidForComp(selectedDAUComp)) {
           continue;
         }
 
@@ -695,7 +699,7 @@ class StatsViewModel extends ChangeNotifier {
 
       await _db
           .child(statsPathRoot)
-          .child(currentDAUComp.dbkey!)
+          .child(selectedDAUComp.dbkey!)
           .child(liveScoresRoot)
           .update(liveScores);
       log('Wrote live score to DB for game ${game.dbkey}');
@@ -721,7 +725,7 @@ class StatsViewModel extends ChangeNotifier {
 
       await _db
           .child(statsPathRoot)
-          .child(currentDAUComp.dbkey!)
+          .child(selectedDAUComp.dbkey!)
           .child(liveScoresRoot)
           .child(game.dbkey)
           .remove();
@@ -731,7 +735,7 @@ class StatsViewModel extends ChangeNotifier {
     // if we turned the lisnter off, turn it back on
     if (gamesToDelete.isNotEmpty) {
       _liveScoresStream = _db
-          .child('$statsPathRoot/${currentDAUComp.dbkey}/$liveScoresRoot')
+          .child('$statsPathRoot/${selectedDAUComp.dbkey}/$liveScoresRoot')
           .onValue
           .listen(_handleEventLiveScores, onError: (error) {
         log('Error listening to live scores: $error');
@@ -841,15 +845,15 @@ class StatsViewModel extends ChangeNotifier {
     List<Tipper> tippers = await di<TippersViewModel>().getAllTippers();
 
     // log how many tippers we are ranking
-    log('Ranking ${tippers.length} tippers for comp: ${currentDAUComp.dbkey}');
+    log('Ranking ${tippers.length} tippers for comp: ${selectedDAUComp.dbkey}');
 
     for (var roundIndex = 0;
-        roundIndex < currentDAUComp.daurounds.length;
+        roundIndex < selectedDAUComp.daurounds.length;
         roundIndex++) {
       List<MapEntry<Tipper, int>> roundScores = [];
 
       for (var tipper in tippers) {
-        if (_isScoringPaidComp != tipper.paidForComp(currentDAUComp)) {
+        if (_isScoringPaidComp != tipper.paidForComp(selectedDAUComp)) {
           continue;
         }
         if (_allTipperRoundStats[roundIndex] == null ||
