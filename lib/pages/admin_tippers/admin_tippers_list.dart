@@ -32,13 +32,13 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     _scrollController = ScrollController();
   }
 
-  Future<void> _addTipper(BuildContext context) async {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => TipperAdminEditPage(tipperViewModel, null),
-      ),
-    );
-  }
+  // Future<void> _addTipper(BuildContext context) async {
+  //   Navigator.of(context).push(
+  //     MaterialPageRoute(
+  //       builder: (context) => TipperAdminEditPage(tipperViewModel, null),
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {

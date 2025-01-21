@@ -96,7 +96,7 @@ class TipsTabState extends State<TipsTab> {
               // insert a card at the start saying 'New here?' then 'You will find the instructions and scoring on the Profile Tab.'
               if (index == 0) {
                 return SizedBox(
-                  height: 125,
+                  height: 200,
                   child: Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
@@ -107,6 +107,10 @@ class TipsTabState extends State<TipsTab> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Spacer(),
+                          Spacer(),
+                          Spacer(),
+                          Spacer(),
                           Spacer(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,

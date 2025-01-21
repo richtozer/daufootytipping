@@ -26,10 +26,12 @@ class DAUCompsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _daucompsStream;
   String? _activeDAUCompDbKey;
   DAUComp? _activeDAUComp;
-  DAUComp? get activeDAUComp => _activeDAUComp;
+  DAUComp? get activeDAUComp =>
+      _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
 
   DAUComp? _selectedDAUComp;
-  DAUComp? get selectedDAUComp => _selectedDAUComp;
+  DAUComp? get selectedDAUComp =>
+      _selectedDAUComp; // if the user has paid for previous comps, then this is the comp they are currently viewing
 
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
@@ -206,34 +208,44 @@ class DAUCompsViewModel extends ChangeNotifier {
     return timeUntilNewDay.toUtc().difference(DateTime.now().toUtc());
   }
 
+  // method to setup a potential trigger to periodically update the active comp fixture data
+  // this method will delay until elapsed time has passed
   Future<void> fixtureUpdateTrigger() async {
     await initialLoadComplete;
 
-    if (_selectedDAUComp == null) {
-      log('_fixtureUpdateTrigger() Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+    if (_activeDAUComp == null) {
+      log('_fixtureUpdateTrigger() Active comp is null. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
       return;
     }
 
     // if we are at the end of the competition, then don't trigger the fixture update
-    if (_isCompOver(_selectedDAUComp!)) {
-      log('End of competition detected for : ${_selectedDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
+    if (_isCompOver(_activeDAUComp!)) {
+      log('End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
       return;
     }
 
-    DateTime? lastUpdate = _selectedDAUComp!.lastFixtureUpdateTimestamp ??
-        DateTime.utc(2021, 1, 1);
+    DateTime? lastUpdate =
+        _activeDAUComp!.lastFixtureUpdateTimestamp ?? DateTime.utc(2021, 1, 1);
     Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
 
     log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
     await Future.delayed(timeUntilNewDay);
     log('Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
 
-    if (_selectedDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
-        _selectedDAUComp!.lastFixtureUpdateTimestamp == null) {
-      log('Starting fixture update for comp: ${_selectedDAUComp!.name}');
-      await getNetworkFixtureData(_selectedDAUComp!);
+    // create an analytics event to track the fixture update trigger
+    FirebaseAnalytics.instance
+        .logEvent(name: 'fixture_update_trigger', parameters: {
+      'comp': _activeDAUComp!.name,
+      'tipperHandlingUpdate':
+          di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper'
+    });
+
+    if (_activeDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
+        _activeDAUComp!.lastFixtureUpdateTimestamp == null) {
+      log('Starting fixture update for comp: ${_activeDAUComp!.name}');
+      await getNetworkFixtureData(_activeDAUComp!);
     } else {
-      log('Fixture update has already been triggered for comp: ${_selectedDAUComp!.name}. Skipping');
+      log('Fixture update has already been triggered for active comp: ${_activeDAUComp!.name}. Skipping');
     }
   }
 
@@ -398,28 +410,30 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _updateDatabaseWithCombinedRounds(
       List<DAURound> combinedRounds, DAUComp daucomp) async {
     log('In _updateDatabaseWithCombinedRounds()');
-    // if combinedRounds.length is not the same as daucomp.daurounds.length then lets clear the existing rounds
-    if (combinedRounds.length != daucomp.daurounds.length &&
-        daucomp.daurounds.isNotEmpty) {
-      log('Fixture changes have changed the number of rounds, clearing existing rounds for ${daucomp.name}');
-      for (var i = 0; i < daucomp.daurounds.length; i++) {
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i', null);
-      }
 
-      await saveBatchOfCompAttributes();
-    }
+    await initialLoadComplete;
 
+    // Update combined rounds in a separate batch
     for (var i = 0; i < combinedRounds.length; i++) {
-      // update the combinedRounds attribute in the database
+      log('Updating round start date: combinedRounds/$i/roundStartDate');
       updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
+      log('Updating round end date: combinedRounds/$i/roundEndDate');
       updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
     }
 
-    //TODO - if a fixture change reduces the number of rounds, then we need to remove the excess rounds from the database
-
     await saveBatchOfCompAttributes();
+
+    // if daucomp.daurounds.length is greater than combinedRounds.length then we need to remove the extra rounds
+    // from the database
+    if (daucomp.daurounds.length > combinedRounds.length) {
+      for (var i = combinedRounds.length; i < daucomp.daurounds.length; i++) {
+        log('Removing round: combinedRounds/$i');
+        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i', null);
+      }
+      await saveBatchOfCompAttributes();
+    }
   }
 
   Future<void> linkGameWithRounds(
