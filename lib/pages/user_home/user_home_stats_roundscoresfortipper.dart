@@ -1,4 +1,7 @@
+import 'dart:developer';
+
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -24,6 +27,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   late StatsViewModel scoresViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
+  int highestRoundNumber = 0;
 
   final List<String> columns = [
     'Round',
@@ -41,6 +45,12 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     if (di<DAUCompsViewModel>().selectedDAUComp != null) {
       scoresViewModel = di<StatsViewModel>();
     }
+
+    // get the highest round number will Roundstate.allgamesended
+    // and store that number
+    highestRoundNumber =
+        di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast();
+    log('StatRoundScoresForTipper() highest round number is $highestRoundNumber');
   }
 
   @override
@@ -49,8 +59,12 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
       value: scoresViewModel,
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
-          var scores = scoresViewModelConsumer
+          // get scores for the selected tipper
+          List<RoundStats> scores = scoresViewModelConsumer
               .getTipperRoundScoresForComp(widget.statsTipper);
+          //do not display scores for rounds higher than the highest round number
+          scores.removeWhere(
+              (element) => element.roundNumber > highestRoundNumber + 1);
           scores.sort(
               (a, b) => b.roundNumber.compareTo(a.roundNumber)); // Initial sort
           return buildScaffold(
