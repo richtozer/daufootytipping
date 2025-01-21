@@ -28,14 +28,14 @@ class DAUComp implements Comparable<DAUComp> {
   // it does not require gamesviewmodel to fully load all games
   // tips page calls this method ahead of gamesviewmodel loading all games
   // because round end date is actually the start time for the last game,
-  // we will add an arbitrary 9 hours to the round end date to ensure the round is considered past
+  // we will add an arbitrary 6 hours to the round end date to ensure the round is considered past
   int highestRoundNumberInPast() {
     int highestRoundNumber = 0;
 
     //find the highest round number where roundEndDate + 9 hours is the past UTC
     for (var dauround in daurounds) {
       if (dauround.roundEndDate
-          .add(const Duration(hours: 9))
+          .add(const Duration(hours: 6))
           .isBefore(DateTime.now().toUtc())) {
         if (dauround.dAUroundNumber > highestRoundNumber) {
           highestRoundNumber = dauround.dAUroundNumber;
@@ -43,21 +43,6 @@ class DAUComp implements Comparable<DAUComp> {
       }
     }
 
-    return highestRoundNumber;
-  }
-
-  // method to return the highest round number, where DAURound.RoundState is allGamesEnded
-  // this method requires gamesviewmodel to fully load all games
-  int getHighestRoundNumberWithAllGamesPlayed() {
-    int highestRoundNumber = 1;
-
-    for (var dauround in daurounds) {
-      if (dauround.roundState == RoundState.allGamesEnded) {
-        if (dauround.dAUroundNumber > highestRoundNumber) {
-          highestRoundNumber = dauround.dAUroundNumber;
-        }
-      }
-    }
     return highestRoundNumber;
   }
 

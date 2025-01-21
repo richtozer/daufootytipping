@@ -314,7 +314,7 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   // method to update margin counts. Params are the tip to update
-  Future<String> updateMargins(
+  Future<String> updateMarginsAsResultOfTip(
       Tip tip, Tip? originalTip, DAURound dauRound) async {
     log('updateMargins() called for tip: ${tip.tipper.name}');
 
@@ -397,67 +397,6 @@ class StatsViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // Future<List<Tipper>> _segregateTippersBasedOnPaidStatus(
-  //     DAUComp daucompToUpdate, TipsViewModel allTipsViewModel) async {
-  //   TippersViewModel tippersViewModel = di<TippersViewModel>();
-
-  //   // segregate tippers based on if they are paid members for the active comp
-  //   // if the authenticated tipper is not a paid tipper, then score them with
-  //   // all other non-paid tippers
-  //   // otherwise score them will all other paid members
-
-  //   List<Tipper> paidTippers = [];
-  //   List<Tipper> unpaidTippers = [];
-
-  //   var allTippers = await tippersViewModel.getAllTippers();
-  //   for (var tipper in allTippers) {
-  //     if (_isScoringPaidComp == tipper.paidForComp(daucompToUpdate)) {
-  //       paidTippers.add(tipper);
-  //       log('Stats - Paid tipper ${tipper.name} added');
-  //     } else {
-  //       unpaidTippers.add(tipper);
-  //       log('Stats - Unpaid tipper ${tipper.name} added');
-  //     }
-  //   }
-
-  //   if (_isScoringPaidComp) {
-  //     log('Stats - returning paid tippers');
-  //     return paidTippers;
-  //   } else {
-  //     log('Stats - returning unpaid tippers');
-  //     return unpaidTippers;
-  //   }
-  // }
-
-  // Future<void> _removeScoresInactiveTippers(
-  //     List<Tipper> tippersToUpdate, DAUComp daucompToUpdate) async {
-  //   List<Tipper> tippersToRemove = [];
-  //   // if there are no scores in the database, return
-  //   if (_allTipperRoundStats.isEmpty) {
-  //     return;
-  //   }
-
-  //   // grab all the tippers from the first round
-  //   for (var tipper in _allTipperRoundStats[0]!.keys) {
-  //     if (!tippersToUpdate.contains(tipper)) {
-  //       tippersToRemove.add(tipper);
-  //     }
-  //   }
-
-  //   // remove stats from database for inactive tippers for all rounds
-  //   for (var round in _allTipperRoundStats.keys) {
-  //     for (var tipper in tippersToRemove) {
-  //       await _db
-  //           .child(statsPathRoot)
-  //           .child(daucompToUpdate.dbkey!)
-  //           .child(roundStatsRoot)
-  //           .child(round.toString())
-  //           .child(tipper.dbkey!)
-  //           .remove();
-  //     }
-  //   }
-  // }
 
   void _updateRoundWinners() {
     Map<int, List<RoundWinnerEntry>> roundWinners = {};
@@ -745,11 +684,13 @@ class StatsViewModel extends ChangeNotifier {
 
   List<DAURound> _getRoundsToUpdate(
       DAURound? onlyUpdateThisRound, DAUComp daucompToUpdate) {
-    var dauRoundsEdited = daucompToUpdate.daurounds;
+    // grab all rounds where the round state is allGamesEnded
+    List<DAURound> roundsToUpdate = daucompToUpdate.daurounds;
     if (onlyUpdateThisRound != null) {
-      dauRoundsEdited = [onlyUpdateThisRound];
+      roundsToUpdate = [onlyUpdateThisRound];
     }
-    return dauRoundsEdited;
+    log('Rounds to update: ${roundsToUpdate.length}');
+    return roundsToUpdate;
   }
 
   Future<RoundStats> _calculateRoundStatsForTipper(Tipper tipperToScore,
