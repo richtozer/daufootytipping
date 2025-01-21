@@ -391,37 +391,37 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<List<Tipper>> _segregateTippersBasedOnPaidStatus(
-      DAUComp daucompToUpdate, TipsViewModel allTipsViewModel) async {
-    TippersViewModel tippersViewModel = di<TippersViewModel>();
+  // Future<List<Tipper>> _segregateTippersBasedOnPaidStatus(
+  //     DAUComp daucompToUpdate, TipsViewModel allTipsViewModel) async {
+  //   TippersViewModel tippersViewModel = di<TippersViewModel>();
 
-    // segregate tippers based on if they are paid members for the active comp
-    // if the authenticated tipper is not a paid tipper, then score them with
-    // all other non-paid tippers
-    // otherwise score them will all other paid members
+  //   // segregate tippers based on if they are paid members for the active comp
+  //   // if the authenticated tipper is not a paid tipper, then score them with
+  //   // all other non-paid tippers
+  //   // otherwise score them will all other paid members
 
-    List<Tipper> paidTippers = [];
-    List<Tipper> unpaidTippers = [];
+  //   List<Tipper> paidTippers = [];
+  //   List<Tipper> unpaidTippers = [];
 
-    var allTippers = await tippersViewModel.getAllTippers();
-    for (var tipper in allTippers) {
-      if (_isScoringPaidComp == tipper.paidForComp(daucompToUpdate)) {
-        paidTippers.add(tipper);
-        log('Stats - Paid tipper ${tipper.name} added');
-      } else {
-        unpaidTippers.add(tipper);
-        log('Stats - Unpaid tipper ${tipper.name} added');
-      }
-    }
+  //   var allTippers = await tippersViewModel.getAllTippers();
+  //   for (var tipper in allTippers) {
+  //     if (_isScoringPaidComp == tipper.paidForComp(daucompToUpdate)) {
+  //       paidTippers.add(tipper);
+  //       log('Stats - Paid tipper ${tipper.name} added');
+  //     } else {
+  //       unpaidTippers.add(tipper);
+  //       log('Stats - Unpaid tipper ${tipper.name} added');
+  //     }
+  //   }
 
-    if (_isScoringPaidComp) {
-      log('Stats - returning paid tippers');
-      return paidTippers;
-    } else {
-      log('Stats - returning unpaid tippers');
-      return unpaidTippers;
-    }
-  }
+  //   if (_isScoringPaidComp) {
+  //     log('Stats - returning paid tippers');
+  //     return paidTippers;
+  //   } else {
+  //     log('Stats - returning unpaid tippers');
+  //     return unpaidTippers;
+  //   }
+  // }
 
   // Future<void> _removeScoresInactiveTippers(
   //     List<Tipper> tippersToUpdate, DAUComp daucompToUpdate) async {

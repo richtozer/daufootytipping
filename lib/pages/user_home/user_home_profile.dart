@@ -35,8 +35,9 @@ class Profile extends StatelessWidget with WatchItMixin {
     List<DAUComp> compsForDropdown = [];
     if (authenticatedTipper != null) {
       compsForDropdown.addAll(authenticatedTipper.compsPaidFor);
-      if (!compsForDropdown.contains(di<DAUCompsViewModel>().activeDAUComp)) {
-        compsForDropdown.add(di<DAUCompsViewModel>().activeDAUComp!);
+      DAUComp? activeDAUComp = di<DAUCompsViewModel>().activeDAUComp;
+      if (activeDAUComp != null && !compsForDropdown.contains(activeDAUComp)) {
+        compsForDropdown.add(activeDAUComp);
       }
     }
 

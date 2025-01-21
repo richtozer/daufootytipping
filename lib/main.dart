@@ -61,7 +61,7 @@ Future<void> main() async {
   }
 
   RemoteConfigService remoteConfigService = RemoteConfigService();
-  String configDAUCompDbkey =
+  String activeDAUCompDbkey =
       await remoteConfigService.getConfigCurrentDAUComp();
   String configMinAppVersion =
       await remoteConfigService.getConfigMinAppVersion();
@@ -96,7 +96,7 @@ Future<void> main() async {
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   di.registerLazySingleton<DAUCompsViewModel>(
-      () => DAUCompsViewModel(configDAUCompDbkey));
+      () => DAUCompsViewModel(activeDAUCompDbkey));
   di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
 
   runApp(MyApp(configMinAppVersion));
