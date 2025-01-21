@@ -171,16 +171,16 @@ class UserAuthPageState extends State<UserAuthPage> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: action == AuthAction.signIn
                           ? const Text(
-                              'Welcome to DAU Footy Tipping, please sign in!')
+                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.')
                           : const Text(
-                              'Welcome to DAU Footy Tipping, please sign up!'),
+                              'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.'),
                     );
                   },
                   footerBuilder: (context, action) {
                     return const Padding(
                       padding: EdgeInsets.only(top: 16),
                       child: Text(
-                        'Welcome DAU Footy Tipping. If you are having trouble signing in, please contact Contact daufootytipping@gmail.com',
+                        'If you are having trouble signing in, please contact Contact daufootytipping@gmail.com',
                         style: TextStyle(color: Colors.grey),
                       ),
                     );
