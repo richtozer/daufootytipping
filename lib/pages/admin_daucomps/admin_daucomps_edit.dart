@@ -71,10 +71,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   widget.daucomp!.nrlFixtureJsonURL.toString();
     }
 
+    log('shouldEnableSave = $shouldEnableSave');
+
     if (disableSaves != !shouldEnableSave) {
       setState(() {
         disableSaves = !shouldEnableSave;
       });
+      log('state change disableSaves = $disableSaves');
     }
   }
 
@@ -231,10 +234,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   Builder(
                     builder: (BuildContext context) {
                       return IconButton(
-                        color: Colors.white,
+                        color: Colors.green,
                         icon: disableSaves
-                            ? const ImageIcon(null)
-                            : const Icon(Icons.save, color: Colors.white),
+                            ? const Icon(Icons.save, color: Colors.transparent)
+                            : const Icon(Icons.save, color: Colors.transparent),
                         onPressed: disableSaves
                             ? null
                             : () async {
@@ -272,9 +275,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               buttonFixture(context, dauCompsViewModel),
-                              if (widget.daucomp!.dbkey ==
-                                  dauCompsViewModel.activeDAUComp?.dbkey)
-                                buttonLegacy(context, dauCompsViewModel),
                               buttonScoring(context),
                             ],
                           ),
@@ -614,68 +614,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     }
   }
 
-  Widget buttonLegacy(
-      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
-    if (widget.daucomp == null) {
-      return const SizedBox.shrink();
-    } else {
-      return OutlinedButton(
-        onPressed: () async {
-          if (dauCompsViewModel.isLegacySyncing) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Legacy sync already in progress')));
-            return;
-          }
-
-          if (widget.daucomp?.dbkey != dauCompsViewModel.activeDAUComp!.dbkey) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 15),
-                content: Text(
-                    'You can only sync to legacy if this record is the active comp in remote config')));
-            return;
-          }
-
-          try {
-            setState(() {
-              disableBack = true;
-            });
-
-            String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                widget.daucomp!, null);
-
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text(syncResult),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.red,
-                  content:
-                      Text('An error occurred during the leagcy tip sync: $e'),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } finally {
-            setState(() {
-              disableBack = false;
-            });
-          }
-        },
-        child: Text(!dauCompsViewModel.isLegacySyncing ? 'Sync' : 'Syncing...'),
-      );
-    }
-  }
-
   Widget buttonScoring(BuildContext context) {
     if (widget.daucomp == null) {
       return const SizedBox.shrink();
@@ -696,7 +634,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             });
             await Future.delayed(const Duration(milliseconds: 100));
             String syncResult =
-                await scoresViewModel.updateStats(widget.daucomp!, null);
+                await scoresViewModel.updateStats(widget.daucomp!, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

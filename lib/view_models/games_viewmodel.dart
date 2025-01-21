@@ -106,7 +106,7 @@ class GamesViewModel extends ChangeNotifier {
       DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
       await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
 
-      // now that we know the state of each roumd,  setup the fixture download
+      // now that we know the state of each roumd,  setup the fixture download trigger
       await dauCompsViewModel.fixtureUpdateTrigger();
 
       notifyListeners();
@@ -180,7 +180,7 @@ class GamesViewModel extends ChangeNotifier {
       // update the round scores then remove the round from the list
       for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
         log('GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}');
-        await di<StatsViewModel>().updateStats(selectedDAUComp, dauRound);
+        await di<StatsViewModel>().updateStats(selectedDAUComp, dauRound, null);
       }
       // clear the list
       _roundsThatNeedScoringUpdate.clear();

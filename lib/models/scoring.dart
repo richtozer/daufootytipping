@@ -293,10 +293,11 @@ class Scoring {
       },
     };
 
-    if (gameLeague == League.nrl) {
-      return nrlScoreLookupTable[gameResult]![tip]!;
-    } else {
-      return aflScoreLookupTable[gameResult]![tip]!;
+    switch (gameLeague) {
+      case League.nrl:
+        return nrlScoreLookupTable[gameResult]![tip]!;
+      case League.afl:
+        return aflScoreLookupTable[gameResult]![tip]!;
     }
   }
 }

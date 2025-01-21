@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
@@ -34,6 +35,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
   late bool changesNeedSaving = false;
   late bool disableSaves = true;
+  late bool isNewTipper = false;
   late int changes = 0;
   List<DAUComp> comps = [];
 
@@ -41,8 +43,10 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   void initState() {
     super.initState();
     tipper = widget.tipper;
+    if (tipper == null) {
+      isNewTipper = true;
+    }
     tippersViewModel = widget.tippersViewModel;
-    //active = tipper?.active == null ? true : tipper!.active;
     admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
     _tipperNameController = TextEditingController(text: tipper?.name);
     _tipperEmailController = TextEditingController(text: tipper?.email);
@@ -99,13 +103,77 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       await tippersViewModel.updateTipperAttribute(
           tipper!.dbkey!,
           "compsParticipatedIn",
-          tipper!.compsParticipatedIn.map((comp) => comp.dbkey).toList());
+          tipper!.compsPaidFor.map((comp) => comp.dbkey).toList());
 
       await tippersViewModel.saveBatchOfTipperAttributes();
+
+      // in the stats view model updateLeaderAndRoundAndRank()
+      // this will take into account any tipper paid comp changes
+      await di<StatsViewModel>().updateLeaderAndRoundAndRank();
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
       //}
+    } on Exception {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: const Text('Failed to create a new Tipper record'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  void _newTipper(BuildContext context) async {
+    try {
+      // make sure the email and logon are not assigned to another tipper
+      Tipper? tipperWithDupEmail =
+          await tippersViewModel.isEmailOrLogonAlreadyAssigned(
+              _tipperEmailController.text, _tipperLogonController.text, tipper);
+      if (tipperWithDupEmail != null) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: Text(
+                'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+        // stay on this page
+        return;
+      }
+
+      tipper = Tipper(
+        compsPaidFor: [],
+        name: _tipperNameController.text,
+        email: _tipperEmailController.text,
+        logon: _tipperLogonController.text,
+        tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper,
+        authuid: '',
+        tipperID: 'manually_created',
+      );
+
+      tippersViewModel.addNewTipper(tipper!);
+
+      // navigate to the previous page
+      if (context.mounted) Navigator.of(context).pop(true);
     } on Exception {
       if (context.mounted) {
         showDialog(
@@ -125,61 +193,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           ),
         );
       }
-    }
-  }
-
-  Widget buttonLegacy(
-      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
-    if (di<DAUCompsViewModel>().selectedDAUComp == null) {
-      return const SizedBox.shrink();
-    } else {
-      return OutlinedButton(
-        onPressed: () async {
-          //check if syncing already in progress...
-          if (dauCompsViewModel.isLegacySyncing) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Legacy tip sync already in progress')));
-            return;
-          }
-
-          // ...if not, initiate the sync
-          try {
-            setState(() {
-              disableSaves = true;
-            });
-
-            String syncResult = await dauCompsViewModel.syncTipsWithLegacy(
-                di<DAUCompsViewModel>().selectedDAUComp!, widget.tipper);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text(syncResult),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.red,
-                  content:
-                      Text('An error occurred during the leagcy tip sync: $e'),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } finally {
-            setState(() {
-              disableSaves = false;
-            });
-          }
-        },
-        child: Text(
-            !dauCompsViewModel.isLegacySyncing ? 'Sync Tips' : 'Syncing...'),
-      );
     }
   }
 
@@ -221,8 +234,12 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           });
                           changesNeedSaving = true;
                           CircularProgressIndicator(color: League.afl.colour);
-                          _saveTipper(
-                              context); //save the tipper and pop the page
+                          if (!isNewTipper) {
+                            _saveTipper(context);
+                          } else {
+                            _newTipper(context);
+                          }
+
                           setState(() {
                             changesNeedSaving = false;
                             disableSaves = false;
@@ -233,25 +250,24 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             },
           ),
         ],
-        title: tipper == null
-            ? const Text('New Tipper')
-            : const Text('Edit Tipper'),
+        title:
+            isNewTipper ? const Text('New Tipper') : const Text('Edit Tipper'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                buttonLegacy(context, di<DAUCompsViewModel>()),
-              ],
-            ),
             Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
+                  Text(
+                    isNewTipper
+                        ? 'WARNING This page should only be used to add a new tipper when they are unable to use the App of website themselves. Only create an account if an admin is going to tip on their behalf.'
+                        : 'Edit the details for the tipper',
+                    style: const TextStyle(color: Colors.red),
+                  ),
                   Row(
                     children: [
                       const Text('Name:'),
@@ -422,7 +438,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           },
                         ),
                         // if selectedDAUComp is not null then offer god mode
-                        if (di<DAUCompsViewModel>().selectedDAUComp != null)
+                        if (tipper != null &&
+                            di<DAUCompsViewModel>().selectedDAUComp != null)
                           Row(
                             children: [
                               const Text(' God mode: '),
@@ -432,15 +449,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                     builder: (context, tippersViewModelConsumer,
                                         child) {
                                       // if the tipper being editing was not a participant for the active year then display a msg that god mode is not available
-                                      if (!tipper!.compsParticipatedIn.any(
-                                          (element) =>
-                                              element.dbkey ==
-                                              di<DAUCompsViewModel>()
-                                                  .selectedDAUComp!
-                                                  .dbkey)) {
-                                        return const Text(
-                                            'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for theactive year');
-                                      }
+                                      // if (!tipper!.compsPaidFor.any((element) =>
+                                      //     element.dbkey ==
+                                      //     di<DAUCompsViewModel>()
+                                      //         .selectedDAUComp!
+                                      //         .dbkey)) {
+                                      //   return const Text(
+                                      //       'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\nactive year');
+                                      // }
 
                                       return Switch(
                                         value: (tippersViewModelConsumer
@@ -484,77 +500,77 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             ],
                           ),
                       ]),
-                  // add a row for 'Active Comps', display a list of all DAUComps
-                  // if the tippers is active in the comp, then show a tick
-                  // allow the admin to edit which comps this tipper is active in
-                  // save changes to the tipper's active comps
-                  FutureBuilder<List<DAUComp>>(
-                      future: di<DAUCompsViewModel>().getDAUcomps(),
-                      builder: (BuildContext context,
-                          AsyncSnapshot<List<DAUComp>> snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Center(
-                              child: CircularProgressIndicator(
-                                  color: League.afl.colour));
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Text('No Records');
-                        } else {
-                          comps = snapshot.data!;
-                          // sort the comps by name descending
-                          comps.sort((a, b) => b.name
-                              .toLowerCase()
-                              .compareTo(a.name.toLowerCase()));
-                          return Column(
-                            children: [
-                              const Text(
-                                  'Select the competitions this tipper is active in:'),
-                              DataTable(
-                                sortColumnIndex: 1,
-                                sortAscending: true,
-                                columns: const [
-                                  DataColumn(label: Text('Active')),
-                                  DataColumn(label: Text('Competition Name'))
-                                ],
-                                rows: comps
-                                    .map((comp) => DataRow(
-                                          cells: [
-                                            DataCell(
-                                              Checkbox(
-                                                value:
-                                                    tipper!.activeInComp(comp),
-                                                onChanged: (bool? value) {
-                                                  log('Checkbox changed to $value');
-                                                  setState(() {
-                                                    if (value == true) {
-                                                      widget.tipper!
-                                                          .compsParticipatedIn
-                                                          .add(comp);
-                                                    } else {
-                                                      widget.tipper!
-                                                          .compsParticipatedIn
-                                                          .remove(comp);
-                                                    }
-                                                    changes++; //increment the number of changes
-                                                    if (changes == 0) {
-                                                      disableSaves = true;
-                                                    } else {
-                                                      disableSaves = false;
-                                                    }
-                                                  });
-                                                },
+                  // add a row for 'Paid Comps', display a list of all DAUComps
+                  // if the tipper is a paid up member, then show a tick
+                  // allow the admin to edit which comps this tipper has paid for
+                  if (tipper != null)
+                    FutureBuilder<List<DAUComp>>(
+                        future: di<DAUCompsViewModel>().getDAUcomps(),
+                        builder: (BuildContext context,
+                            AsyncSnapshot<List<DAUComp>> snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
+                                child: CircularProgressIndicator(
+                                    color: League.afl.colour));
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Text('No Records');
+                          } else {
+                            comps = snapshot.data!;
+                            // sort the comps by name descending
+                            comps.sort((a, b) => b.name
+                                .toLowerCase()
+                                .compareTo(a.name.toLowerCase()));
+                            return Column(
+                              children: [
+                                const Text(
+                                    'Select the competitions this tipper has paid for:'),
+                                DataTable(
+                                  sortColumnIndex: 1,
+                                  sortAscending: true,
+                                  columns: const [
+                                    DataColumn(label: Text('Paid')),
+                                    DataColumn(label: Text('Competition Name'))
+                                  ],
+                                  rows: comps
+                                      .map((comp) => DataRow(
+                                            cells: [
+                                              DataCell(
+                                                Checkbox(
+                                                  value:
+                                                      tipper!.paidForComp(comp),
+                                                  onChanged: (bool? value) {
+                                                    log('Checkbox changed to $value');
+                                                    setState(() {
+                                                      if (value == true) {
+                                                        widget.tipper!
+                                                            .compsPaidFor
+                                                            .add(comp);
+                                                      } else {
+                                                        widget.tipper!
+                                                            .compsPaidFor
+                                                            .remove(comp);
+                                                      }
+                                                      changes++; //increment the number of changes
+                                                      if (changes == 0) {
+                                                        disableSaves = true;
+                                                      } else {
+                                                        disableSaves = false;
+                                                      }
+                                                    });
+                                                  },
+                                                ),
                                               ),
-                                            ),
-                                            DataCell(Text(comp.name)),
-                                          ],
-                                        ))
-                                    .toList(),
-                              ),
-                            ],
-                          );
-                        }
-                      })
+                                              DataCell(Text(comp.name)),
+                                            ],
+                                          ))
+                                      .toList(),
+                                ),
+                              ],
+                            );
+                          }
+                        }),
                 ],
               ),
             ),

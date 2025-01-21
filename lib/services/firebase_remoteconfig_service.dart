@@ -38,7 +38,7 @@ class RemoteConfigService {
           await _database.once().timeout(const Duration(seconds: 5));
 
       if (!dbEvent.snapshot.exists) {
-        // Set default values in db from ENV file if needed
+        // New DB? Set default values in db from ENV file if needed
         await _database.set({
           "currentDAUComp": dotenv.env['CURRENT_DAU_COMP'],
           "minAppVersion": dotenv.env['MIN_APP_VERSION'],
