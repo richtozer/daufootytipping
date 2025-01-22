@@ -331,7 +331,11 @@ class StatsViewModel extends ChangeNotifier {
       // then we need to initialize their stats for this round so we can update the margin counts
       if (!_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1)) {
         // do a mini stats calculation for the tipper and round in question
-        updateStats(selectedDAUComp, dauRound, tip.tipper);
+        log('Initializing stats for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}');
+        String res = await updateStats(selectedDAUComp, dauRound, tip.tipper);
+        if (res.contains('Error')) {
+          return res;
+        }
       }
 
       assert(_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1));
@@ -799,7 +803,7 @@ class StatsViewModel extends ChangeNotifier {
         }
         if (_allTipperRoundStats[roundIndex] == null ||
             _allTipperRoundStats[roundIndex]![tipper] == null) {
-          log('No scores for tipper ${tipper.name} in round ${roundIndex + 1}');
+          //log('No scores for tipper ${tipper.name} in round ${roundIndex + 1}');
           continue;
         }
         roundScores.add(MapEntry(
@@ -826,7 +830,7 @@ class StatsViewModel extends ChangeNotifier {
         if (roundIndex > 0) {
           if (_allTipperRoundStats[roundIndex - 1] == null ||
               _allTipperRoundStats[roundIndex - 1]![entry.key] == null) {
-            log('No scores for tipper ${entry.key.name} in round $roundIndex');
+            //log('No scores for tipper ${entry.key.name} in round $roundIndex');
             continue;
           }
           int? lastRank =

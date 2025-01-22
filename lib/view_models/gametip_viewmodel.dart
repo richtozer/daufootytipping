@@ -145,8 +145,9 @@ class GameTipViewModel extends ChangeNotifier {
       _tip = tip; // update the tip with the new tip
 
       // update the margin counts.
-      await di<StatsViewModel>()
+      String res = await di<StatsViewModel>()
           .updateMarginsAsResultOfTip(tip, oldTip, _dauRound);
+      log('updateMarginsAsResultOfTip() returned $res');
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
