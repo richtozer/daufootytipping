@@ -97,8 +97,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           tipper!.dbkey!,
           "tipperRole",
           admin == true
-              ? TipperRole.admin.toString().toString().split('.').last
-              : TipperRole.tipper.toString().toString().split('.').last);
+              ? TipperRole.admin.toString().split('.').last
+              : TipperRole.tipper.toString().split('.').last);
 
       await tippersViewModel.updateTipperAttribute(
           tipper!.dbkey!,

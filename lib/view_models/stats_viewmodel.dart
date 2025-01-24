@@ -219,8 +219,12 @@ class StatsViewModel extends ChangeNotifier {
       List<Tipper> tippersToUpdate = [];
       if (onlyUpdateThisTipper != null) {
         tippersToUpdate = [onlyUpdateThisTipper];
+        log('Only updating stats for tipper ${onlyUpdateThisTipper.name}');
       } else {
-        tippersToUpdate = await di<TippersViewModel>().getAllTippers();
+        List<Tipper> allTippers = await di<TippersViewModel>().getAllTippers();
+        // preserve the oriignal list of tippers, take a copy
+        tippersToUpdate = List.from(allTippers);
+        log('Updating stats for all ${tippersToUpdate.length} tippers');
       }
 
       // remove any tippers who did not place any tips this comp
