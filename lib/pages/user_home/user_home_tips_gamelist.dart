@@ -74,7 +74,6 @@ class _GameListBuilderState extends State<GameListBuilder> {
               }
               return GameListItem(
                 key: ValueKey(game.dbkey),
-                roundGames: leagueGames!,
                 game: game,
                 currentTipper: widget.currentTipper,
                 currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,

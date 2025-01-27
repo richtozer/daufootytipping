@@ -205,20 +205,33 @@ class GamesViewModel extends ChangeNotifier {
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
 
-    // TODO hack - for the 2024 comp exclude games with the following dbkeys:
-    // afl-25-208
-    // afl-25-209
-    // afl-25-210
-    // afl-25-211
-
-    if (selectedDAUComp.dbkey == '-Nk88l-ww9pYF1j_jUq7') {
-      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-208');
-      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-209');
-      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-210');
-      gamesForRound.removeWhere((game) => game.dbkey == 'afl-25-211');
-    }
+    // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
+    removeGamesOutsideRegularComp(gamesForRound);
 
     return gamesForRound;
+  }
+
+  void removeGamesOutsideRegularComp(List<Game> gamesForRound) {
+    // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
+    gamesForRound.removeWhere((game) {
+      bool shouldRemove = false;
+
+      if (game.league == League.afl &&
+          selectedDAUComp.aflRegularCompEndDateUTC != null) {
+        shouldRemove = game.startTimeUTC
+            .isAfter(selectedDAUComp.aflRegularCompEndDateUTC!);
+      } else if (game.league == League.nrl &&
+          selectedDAUComp.nrlRegularCompEndDateUTC != null) {
+        shouldRemove = game.startTimeUTC
+            .isAfter(selectedDAUComp.nrlRegularCompEndDateUTC!);
+      }
+
+      if (shouldRemove) {
+        log('removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, League: ${game.league}, Start Time: ${game.startTimeUTC}');
+      }
+
+      return shouldRemove;
+    });
   }
 
   @override
