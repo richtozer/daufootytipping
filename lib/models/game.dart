@@ -40,7 +40,7 @@ class Game implements Comparable<Game> {
   });
 
   // this getter will return the gamestate based on the current time and the game start time
-  // the possible gamestates are: 'notStarted', 'startingSoon' , 'resultKnown', 'resultNotKnown'
+  // the possible gamestates are: 'notStarted', 'startingSoon' , 'startedResultNotKnown', 'startedResultKnown'
   GameState get gameState {
     final now = DateTime.now().toUtc();
     if (now.isBefore(startTimeUTC)) {

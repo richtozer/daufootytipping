@@ -8,9 +8,8 @@ import 'package:flutter/material.dart';
 
 class TipChoice extends StatefulWidget {
   final GameTipViewModel gameTipsViewModel;
-  final List<Game> roundGames;
 
-  const TipChoice(this.roundGames, this.gameTipsViewModel, {super.key});
+  const TipChoice(this.gameTipsViewModel, {super.key});
 
   @override
   State<TipChoice> createState() => _TipChoiceState();
@@ -121,8 +120,7 @@ class _TipChoiceState extends State<TipChoice> {
                           submittedTimeUTC: DateTime.now().toUtc(),
                         );
                         //add the god mode tip to the realtime firebase database
-                        gameTipsViewModel.addTip(widget.roundGames,
-                            tip); //roundGames is passed to support legacy tipping only
+                        gameTipsViewModel.addTip(tip);
                       },
                       child: const Text('Submit'),
                     ),
@@ -164,8 +162,7 @@ class _TipChoiceState extends State<TipChoice> {
               submittedTimeUTC: DateTime.now().toUtc(),
             );
             //add the tip to the realtime firebase database
-            gameTipsViewModel.addTip(widget.roundGames,
-                tip); //roundGames is passed to support legacy tipping only
+            gameTipsViewModel.addTip(tip);
           }
         } catch (e) {
           String msg = 'Error submitting tip: $e';
