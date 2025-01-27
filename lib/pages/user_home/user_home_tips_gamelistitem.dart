@@ -17,14 +17,12 @@ import 'package:provider/provider.dart';
 class GameListItem extends StatefulWidget {
   const GameListItem(
       {super.key,
-      required this.roundGames,
       required this.game,
       required this.currentTipper,
       required this.currentDAUComp,
       required this.allTipsViewModel,
       required this.dauRound});
 
-  final List<Game> roundGames; // this is to support legacy tipping service only
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
@@ -209,7 +207,6 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameTipCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return TipChoice(widget.roundGames,
-        gameTipsViewModelConsumer); //roundGames is to support legacy tipping service only
+    return TipChoice(gameTipsViewModelConsumer);
   }
 }

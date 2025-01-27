@@ -11,7 +11,11 @@ class DAUComp implements Comparable<DAUComp> {
   List<DAURound> daurounds;
   final bool active;
 
-  DateTime? lastFixtureUpdateTimestamp;
+  DateTime? lastFixtureUpdateTimestampUTC;
+  DateTime?
+      aflRegularCompEndDateUTC; // if provided, do not include games in afl fixture after this date
+  DateTime?
+      nrlRegularCompEndDateUTC; // if provided, do not include games in nrl fixture after this date
 
   //constructor
   DAUComp({
@@ -21,7 +25,9 @@ class DAUComp implements Comparable<DAUComp> {
     required this.nrlFixtureJsonURL,
     this.active = true,
     required this.daurounds,
-    this.lastFixtureUpdateTimestamp,
+    this.lastFixtureUpdateTimestampUTC,
+    this.aflRegularCompEndDateUTC,
+    this.nrlRegularCompEndDateUTC,
   });
 
   // method to return the highest round number where roundEndDate is the past UTC
@@ -54,8 +60,14 @@ class DAUComp implements Comparable<DAUComp> {
       aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
       nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
       daurounds: daurounds,
-      lastFixtureUpdateTimestamp: data['lastFixtureUpdateTimestamp'] != null
+      lastFixtureUpdateTimestampUTC: data['lastFixtureUpdateTimestamp'] != null
           ? DateTime.parse(data['lastFixtureUpdateTimestamp'])
+          : null,
+      aflRegularCompEndDateUTC: data['aflRegularCompEndDateUTC'] != null
+          ? DateTime.parse(data['aflRegularCompEndDateUTC'])
+          : null,
+      nrlRegularCompEndDateUTC: data['nrlRegularCompEndDateUTC'] != null
+          ? DateTime.parse(data['nrlRegularCompEndDateUTC'])
           : null,
     );
   }

@@ -224,8 +224,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       return;
     }
 
-    DateTime? lastUpdate =
-        _activeDAUComp!.lastFixtureUpdateTimestamp ?? DateTime.utc(2021, 1, 1);
+    DateTime? lastUpdate = _activeDAUComp!.lastFixtureUpdateTimestampUTC ??
+        DateTime.utc(2021, 1, 1);
     Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
 
     log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
@@ -240,8 +240,8 @@ class DAUCompsViewModel extends ChangeNotifier {
           di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper'
     });
 
-    if (_activeDAUComp!.lastFixtureUpdateTimestamp == lastUpdate ||
-        _activeDAUComp!.lastFixtureUpdateTimestamp == null) {
+    if (_activeDAUComp!.lastFixtureUpdateTimestampUTC == lastUpdate ||
+        _activeDAUComp!.lastFixtureUpdateTimestampUTC == null) {
       log('Starting fixture update for comp: ${_activeDAUComp!.name}');
       await getNetworkFixtureData(_activeDAUComp!);
     } else {
@@ -297,9 +297,9 @@ class DAUCompsViewModel extends ChangeNotifier {
           name: 'fixture_update',
           parameters: {'comp': daucompToUpdate.name, 'result': res});
 
-      daucompToUpdate.lastFixtureUpdateTimestamp = DateTime.now().toUtc();
+      daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
       updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUpdateTimestamp',
-          daucompToUpdate.lastFixtureUpdateTimestamp!.toIso8601String());
+          daucompToUpdate.lastFixtureUpdateTimestampUTC!.toIso8601String());
       await saveBatchOfCompAttributes();
 
       // if the comp being updated is not the active comp then we need to reset the viewmodels back
@@ -505,8 +505,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
 
-    List<Game> roundGames = combinedRound.games;
-    for (var game in roundGames) {
+    List<Game> allGamesInRound = combinedRound.games;
+    for (var game in allGamesInRound) {
       if (game.league == League.nrl) {
         nrlGames.add(game);
       } else {

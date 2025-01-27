@@ -300,7 +300,7 @@ class StatsViewModel extends ChangeNotifier {
       Map<int, Map<Tipper, RoundStats>> updatedTipperRoundStats,
       DAUComp dauComp,
       int roundIndex) async {
-    log('Writing specific stats for round $roundIndex');
+    log('_writeSpecificRoundScoresToDb() round ${roundIndex + 1}');
 
     // convert updatedTipperRoundStats to a Map<String, dynamic> for writing to the database
     Map<String, dynamic> updatedTipperRoundStatsJson = {};
@@ -318,93 +318,93 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   // method to update margin counts. Params are the tip to update
-  Future<String> updateMarginsAsResultOfTip(
-      Tip tip, Tip? originalTip, DAURound dauRound) async {
-    log('updateMargins() called for tip: ${tip.tipper.name}');
+  // Future<String> updateMarginsAsResultOfTip(
+  //     Tip tip, Tip? originalTip, DAURound dauRound) async {
+  //   log('updateMargins() called for tip: ${tip.tipper.name}');
 
-    try {
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        await _initialRoundLoadCompleted.future;
-      }
+  //   try {
+  //     if (!_initialRoundLoadCompleted.isCompleted) {
+  //       await _initialRoundLoadCompleted.future;
+  //     }
 
-      if (_isCalculating) {
-        return 'Stats calculation already in progress';
-      }
+  //     if (_isCalculating) {
+  //       return 'Stats calculation already in progress';
+  //     }
 
-      // if this is the first time this tipper has tipped in this comp
-      // then we need to initialize their stats for this round so we can update the margin counts
-      if (!_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1)) {
-        // do a mini stats calculation for the tipper and round in question
-        log('Initializing stats for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}');
-        String res = await updateStats(selectedDAUComp, dauRound, tip.tipper);
-        if (res.contains('Error')) {
-          return res;
-        }
-      }
+  //     // if this is the first time this tipper has tipped in this comp
+  //     // then we need to initialize their stats for this round so we can update the margin counts
+  //     if (!_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1)) {
+  //       // do a mini stats calculation for the tipper and round in question
+  //       log('Initializing stats for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}');
+  //       String res = await updateStats(selectedDAUComp, dauRound, tip.tipper);
+  //       if (res.contains('Error')) {
+  //         return res;
+  //       }
+  //     }
 
-      assert(_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1));
+  //     assert(_allTipperRoundStats.containsKey(dauRound.dAUroundNumber - 1));
 
-      // find the current round stats record for this tipper
-      RoundStats? roundScores;
-      var roundStats = _allTipperRoundStats[dauRound.dAUroundNumber - 1];
-      if (roundStats != null) {
-        roundScores = roundStats[tip.tipper];
-      }
-      // take note of the current afl and nrl margin counts
-      int originalAFLMarginCount = roundScores?.aflMarginTips ?? 0;
-      int originalNRLMarginCount = roundScores?.nrlMarginTips ?? 0;
+  //     // find the current round stats record for this tipper
+  //     RoundStats? roundScores;
+  //     var roundStats = _allTipperRoundStats[dauRound.dAUroundNumber - 1];
+  //     if (roundStats != null) {
+  //       roundScores = roundStats[tip.tipper];
+  //     }
+  //     // take note of the current afl and nrl margin counts
+  //     int originalAFLMarginCount = roundScores?.aflMarginTips ?? 0;
+  //     int originalNRLMarginCount = roundScores?.nrlMarginTips ?? 0;
 
-      // if originalTip is null and the tip is a margin tip, then we are incrementing the current margin count
-      // if originalTip is null and the tip is a not margin tip, then do nothing
-      // if originalTip is not null, then if the change is from a margin tip to a not margin tip, we decrement the margin count
-      // if originalTip is not null, then if the change is from a not margin tip to a margin tip, we increment the margin count
+  //     // if originalTip is null and the tip is a margin tip, then we are incrementing the current margin count
+  //     // if originalTip is null and the tip is a not margin tip, then do nothing
+  //     // if originalTip is not null, then if the change is from a margin tip to a not margin tip, we decrement the margin count
+  //     // if originalTip is not null, then if the change is from a not margin tip to a margin tip, we increment the margin count
 
-      if (originalTip == null) {
-        if (tip.tip == GameResult.a || tip.tip == GameResult.e) {
-          tip.game.league == League.afl
-              ? originalAFLMarginCount++
-              : originalNRLMarginCount++;
-        }
-      } else {
-        if ((originalTip.tip == GameResult.a ||
-                originalTip.tip == GameResult.e) &&
-            (tip.tip != GameResult.a && tip.tip != GameResult.e)) {
-          originalTip.game.league == League.afl
-              ? originalAFLMarginCount--
-              : originalNRLMarginCount--;
-        } else if ((originalTip.tip != GameResult.a &&
-                originalTip.tip != GameResult.e) &&
-            (tip.tip == GameResult.a || tip.tip == GameResult.e)) {
-          tip.game.league == League.afl
-              ? originalAFLMarginCount++
-              : originalNRLMarginCount++;
-        }
-      }
+  //     if (originalTip == null) {
+  //       if (tip.tip == GameResult.a || tip.tip == GameResult.e) {
+  //         tip.game.league == League.afl
+  //             ? originalAFLMarginCount++
+  //             : originalNRLMarginCount++;
+  //       }
+  //     } else {
+  //       if ((originalTip.tip == GameResult.a ||
+  //               originalTip.tip == GameResult.e) &&
+  //           (tip.tip != GameResult.a && tip.tip != GameResult.e)) {
+  //         originalTip.game.league == League.afl
+  //             ? originalAFLMarginCount--
+  //             : originalNRLMarginCount--;
+  //       } else if ((originalTip.tip != GameResult.a &&
+  //               originalTip.tip != GameResult.e) &&
+  //           (tip.tip == GameResult.a || tip.tip == GameResult.e)) {
+  //         tip.game.league == League.afl
+  //             ? originalAFLMarginCount++
+  //             : originalNRLMarginCount++;
+  //       }
+  //     }
 
-      // update the database with the new margin counts
-      await _db
-          .child(statsPathRoot)
-          .child(selectedDAUComp.dbkey!)
-          .child(roundStatsRoot)
-          .child((dauRound.dAUroundNumber - 1).toString())
-          .child(tip.tipper.dbkey!)
-          .update({
-        'afl_marginTips': originalAFLMarginCount,
-        'nrl_marginTips': originalNRLMarginCount,
-      });
+  //     // update the database with the new margin counts
+  //     await _db
+  //         .child(statsPathRoot)
+  //         .child(selectedDAUComp.dbkey!)
+  //         .child(roundStatsRoot)
+  //         .child((dauRound.dAUroundNumber - 1).toString())
+  //         .child(tip.tipper.dbkey!)
+  //         .update({
+  //       'afl_marginTips': originalAFLMarginCount,
+  //       'nrl_marginTips': originalNRLMarginCount,
+  //     });
 
-      String res =
-          'Completed updating margins for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}. AFL margins: $originalAFLMarginCount, NRL margins: $originalNRLMarginCount';
-      log(res);
+  //     String res =
+  //         'Completed updating margins for tipper ${tip.tipper.name} in round ${dauRound.dAUroundNumber}. AFL margins: $originalAFLMarginCount, NRL margins: $originalNRLMarginCount';
+  //     log(res);
 
-      return res;
-    } catch (e) {
-      log('Error updating margins: $e');
-      rethrow;
-    } finally {
-      notifyListeners();
-    }
-  }
+  //     return res;
+  //   } catch (e) {
+  //     log('Error updating margins: $e');
+  //     rethrow;
+  //   } finally {
+  //     notifyListeners();
+  //   }
+  // }
 
   void _updateRoundWinners() {
     Map<int, List<RoundWinnerEntry>> roundWinners = {};
@@ -418,6 +418,7 @@ class StatsViewModel extends ChangeNotifier {
       // Find the maximum score for the round
       for (var tipperEntry in tipperStats.entries) {
         // only include tippers who's paid status matches that of the authenticated tipper
+        // for example if the authenticated tipper is a paid member, only include other paid members for stats
         if (_isScoringPaidComp !=
             tipperEntry.key.paidForComp(selectedDAUComp)) {
           continue;
