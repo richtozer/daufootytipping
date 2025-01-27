@@ -16,6 +16,8 @@ class DAUCompsEditPage extends StatefulWidget {
   late final TextEditingController _daucompNameController;
   late final TextEditingController _daucompAflJsonURLController;
   late final TextEditingController _daucompNrlJsonURLController;
+  late final TextEditingController _nrlRegularCompEndDateController;
+  late final TextEditingController _aflRegularCompEndDateController;
 
   DAUCompsEditPage(this.daucomp, {super.key}) {
     _daucompNameController = TextEditingController(text: daucomp?.name);
@@ -23,6 +25,16 @@ class DAUCompsEditPage extends StatefulWidget {
         TextEditingController(text: daucomp?.aflFixtureJsonURL.toString());
     _daucompNrlJsonURLController =
         TextEditingController(text: daucomp?.nrlFixtureJsonURL.toString());
+    _nrlRegularCompEndDateController = TextEditingController(
+        text: daucomp?.nrlRegularCompEndDateUTC != null
+            ? DateFormat('yyyy-MM-dd')
+                .format(daucomp!.nrlRegularCompEndDateUTC!)
+            : '');
+    _aflRegularCompEndDateController = TextEditingController(
+        text: daucomp?.aflRegularCompEndDateUTC != null
+            ? DateFormat('yyyy-MM-dd')
+                .format(daucomp!.aflRegularCompEndDateUTC!)
+            : '');
   }
 
   @override
@@ -48,12 +60,18 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     widget._daucompNameController.removeListener(updateSaveButtonState);
     widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
     widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
+    widget._nrlRegularCompEndDateController
+        .removeListener(updateSaveButtonState);
+    widget._aflRegularCompEndDateController
+        .removeListener(updateSaveButtonState);
   }
 
   void initTextControllersListeners() {
     widget._daucompNameController.addListener(updateSaveButtonState);
     widget._daucompAflJsonURLController.addListener(updateSaveButtonState);
     widget._daucompNrlJsonURLController.addListener(updateSaveButtonState);
+    widget._nrlRegularCompEndDateController.addListener(updateSaveButtonState);
+    widget._aflRegularCompEndDateController.addListener(updateSaveButtonState);
   }
 
   void updateSaveButtonState() {
@@ -69,6 +87,16 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   widget.daucomp!.aflFixtureJsonURL.toString() ||
               widget._daucompNrlJsonURLController.text !=
                   widget.daucomp!.nrlFixtureJsonURL.toString();
+      widget._nrlRegularCompEndDateController.text !=
+              (widget.daucomp!.nrlRegularCompEndDateUTC != null
+                  ? DateFormat('yyyy-MM-dd')
+                      .format(widget.daucomp!.nrlRegularCompEndDateUTC!)
+                  : '') ||
+          widget._aflRegularCompEndDateController.text !=
+              (widget.daucomp!.aflRegularCompEndDateUTC != null
+                  ? DateFormat('yyyy-MM-dd')
+                      .format(widget.daucomp!.aflRegularCompEndDateUTC!)
+                  : '');
     }
 
     log('shouldEnableSave = $shouldEnableSave');
@@ -99,6 +127,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                 Uri.parse(widget._daucompAflJsonURLController.text),
             nrlFixtureJsonURL:
                 Uri.parse(widget._daucompNrlJsonURLController.text),
+            nrlRegularCompEndDateUTC: widget
+                    ._nrlRegularCompEndDateController.text.isNotEmpty
+                ? DateTime.parse(widget._nrlRegularCompEndDateController.text)
+                : null,
+            aflRegularCompEndDateUTC: widget
+                    ._aflRegularCompEndDateController.text.isNotEmpty
+                ? DateTime.parse(widget._aflRegularCompEndDateController.text)
+                : null,
             daurounds: [],
           );
 
@@ -123,6 +159,20 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               "aflFixtureJsonURL", widget._daucompAflJsonURLController.text);
           dauCompsViewModel.updateCompAttribute(widget.daucomp!.dbkey!,
               "nrlFixtureJsonURL", widget._daucompNrlJsonURLController.text);
+          dauCompsViewModel.updateCompAttribute(
+              widget.daucomp!.dbkey!,
+              "nrlRegularCompEndDateUTC",
+              widget._nrlRegularCompEndDateController.text.isNotEmpty
+                  ? DateTime.parse(widget._nrlRegularCompEndDateController.text)
+                      .toIso8601String()
+                  : null);
+          dauCompsViewModel.updateCompAttribute(
+              widget.daucomp!.dbkey!,
+              "aflRegularCompEndDateUTC",
+              widget._aflRegularCompEndDateController.text.isNotEmpty
+                  ? DateTime.parse(widget._aflRegularCompEndDateController.text)
+                      .toIso8601String()
+                  : null);
 
           await dauCompsViewModel.saveBatchOfCompAttributes();
 
@@ -391,6 +441,116 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                 },
                               ),
                             )
+                          ],
+                        ),
+                        const SizedBox(height: 20.0),
+                        const Text('NRL Regular Comp End Date:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller:
+                                    widget._nrlRegularCompEndDateController,
+                                decoration: const InputDecoration(
+                                  hintText: 'not set',
+                                ),
+                                onTap: () async {
+                                  FocusScope.of(context)
+                                      .requestFocus(FocusNode());
+                                  DateTime? date = await showDatePicker(
+                                    context: context,
+                                    initialDate: widget.daucomp
+                                            ?.nrlRegularCompEndDateUTC ??
+                                        DateTime.now(),
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (date != null) {
+                                    widget._nrlRegularCompEndDateController
+                                            .text =
+                                        DateFormat('yyyy-MM-dd').format(date);
+                                    setState(() {
+                                      disableSaves = false;
+                                    });
+                                  }
+                                },
+                                validator: (String? value) {
+                                  if (value != null && value.isNotEmpty) {
+                                    try {
+                                      DateFormat('yyyy-MM-dd').parse(value);
+                                    } catch (e) {
+                                      return 'Invalid date format';
+                                    }
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                widget._nrlRegularCompEndDateController.clear();
+                                setState(() {
+                                  disableSaves = false;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20.0),
+                        const Text('AFL Regular Comp End Date:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller:
+                                    widget._aflRegularCompEndDateController,
+                                decoration: const InputDecoration(
+                                  hintText: 'not set',
+                                ),
+                                onTap: () async {
+                                  FocusScope.of(context)
+                                      .requestFocus(FocusNode());
+                                  DateTime? date = await showDatePicker(
+                                    context: context,
+                                    initialDate: widget.daucomp
+                                            ?.aflRegularCompEndDateUTC ??
+                                        DateTime.now(),
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (date != null) {
+                                    widget._aflRegularCompEndDateController
+                                            .text =
+                                        DateFormat('yyyy-MM-dd').format(date);
+                                    setState(() {
+                                      disableSaves = false;
+                                    });
+                                  }
+                                },
+                                validator: (String? value) {
+                                  if (value != null && value.isNotEmpty) {
+                                    try {
+                                      DateFormat('yyyy-MM-dd').parse(value);
+                                    } catch (e) {
+                                      return 'Invalid date format';
+                                    }
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                widget._aflRegularCompEndDateController.clear();
+                                setState(() {
+                                  disableSaves = false;
+                                });
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: 20.0),

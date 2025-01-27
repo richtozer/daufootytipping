@@ -71,10 +71,10 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
                                   trailing: const Icon(Icons.edit),
                                   title: Text(daucomp.name),
                                   subtitle: daucomp
-                                              .lastFixtureUpdateTimestamp !=
+                                              .lastFixtureUpdateTimestampUTC !=
                                           null
                                       ? Text(
-                                          'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestamp?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}')
+                                          'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestampUTC?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}')
                                       : const Text(''),
                                   onTap: () async {
                                     // Trigger edit functionality

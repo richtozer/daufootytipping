@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -122,16 +123,13 @@ class GameTipViewModel extends ChangeNotifier {
     return _tip;
   }
 
-  void addTip(List<Game> roundGames, Tip tip) async {
+  void addTip(Tip tip) async {
     try {
       assert(_initialLoadCompleter.isCompleted,
           'GameTipsViewModel.addTip() called before initial load completed');
 
       _savingTip = true;
       notifyListeners();
-
-      // remember the tip prior to the update
-      final Tip? oldTip = _tip;
 
       // create a json representation of the tip
       final tipJson = await tip.toJson();
@@ -144,10 +142,9 @@ class GameTipViewModel extends ChangeNotifier {
 
       _tip = tip; // update the tip with the new tip
 
-      // update the margin counts.
-      String res = await di<StatsViewModel>()
-          .updateMarginsAsResultOfTip(tip, oldTip, _dauRound);
-      log('updateMarginsAsResultOfTip() returned $res');
+      // update the margin counts for this tipper and round asynchronously to avoid blocking UI
+      di<StatsViewModel>().updateStats(
+          di<DAUCompsViewModel>().selectedDAUComp!, _dauRound, null);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

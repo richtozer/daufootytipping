@@ -40,9 +40,6 @@ class TippersViewModel extends ChangeNotifier {
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
 
-  final bool _isLegacySyncing = false;
-  bool get isLegacySyncing => _isLegacySyncing;
-
   double _tipperListScrollPosition = 0;
   double get tipperListScrollPosition => _tipperListScrollPosition;
   set tipperListScrollPosition(double value) {
