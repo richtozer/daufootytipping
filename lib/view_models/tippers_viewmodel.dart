@@ -376,6 +376,7 @@ class TippersViewModel extends ChangeNotifier {
           name:
               null, // leave name null for now, this will be updated by the user as part of the onboarding process
           email: authenticatedFirebaseUser.email!,
+          logon: authenticatedFirebaseUser.email!,
           authuid: authenticatedFirebaseUser.uid,
           photoURL: authenticatedFirebaseUser.photoURL,
           tipperRole: TipperRole.tipper,
