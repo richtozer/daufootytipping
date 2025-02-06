@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -15,6 +16,9 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
     String selectedTipper =
         watch(di<TippersViewModel>()).selectedTipper?.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
+    // grab teamViewModel from gamesViewModel
+    final teamsViewModel =
+        watch(di<DAUCompsViewModel>()).gamesViewModel?.teamsViewModel;
     return SizedBox(
       width: 300,
       child: Card(
@@ -61,7 +65,9 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const TeamsListPage(),
+                    builder: (context) => TeamsListPage(
+                      teamsViewModel: teamsViewModel,
+                    ),
                   ),
                 );
               },

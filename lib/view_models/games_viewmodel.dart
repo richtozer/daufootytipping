@@ -27,6 +27,7 @@ class GamesViewModel extends ChangeNotifier {
 
   DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
+  get teamsViewModel => _teamsViewModel;
 
   final List<DAURound> _roundsThatNeedScoringUpdate = [];
 
