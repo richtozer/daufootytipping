@@ -6,6 +6,7 @@ import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart'
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:intl/intl.dart';
 
 class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
   const TippersAdminPage({super.key});
@@ -17,6 +18,7 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 class _TippersAdminPageState extends State<TippersAdminPage> {
   late final ScrollController _scrollController;
   bool _showPaidCurrent = false;
+  int paidCurrentCount = 0;
 
   @override
   void dispose() {
@@ -24,12 +26,24 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     super.dispose();
   }
 
-  late TippersViewModel tipperViewModel;
+  late final TippersViewModel tipperViewModel;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    tipperViewModel = di<TippersViewModel>();
+    _calculatePaidCurrentCount();
+  }
+
+  Future<void> _calculatePaidCurrentCount() async {
+    List<Tipper> tippers = await tipperViewModel.getAllTippers();
+    setState(() {
+      paidCurrentCount = tippers
+          .where((tipper) =>
+              tipper.paidForComp(di<DAUCompsViewModel>().activeDAUComp))
+          .length;
+    });
   }
 
   // Future<void> _addTipper(BuildContext context) async {
@@ -42,7 +56,6 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    tipperViewModel = watchIt<TippersViewModel>();
     return Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -67,7 +80,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                 Row(
                   children: [
                     FilterChip(
-                      label: const Text('Paid current'),
+                      label: Text('Paid current ($paidCurrentCount)'),
                       selected: _showPaidCurrent,
                       onSelected: (bool selected) {
                         setState(() {
@@ -93,6 +106,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                               .where((tipper) => tipper.paidForComp(
                                   di<DAUCompsViewModel>().activeDAUComp))
                               .toList();
+                          paidCurrentCount = tippers.length;
                         }
                         return Column(
                           children: [
@@ -107,6 +121,10 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                       tipper.paidForComp(di<DAUCompsViewModel>()
                                           .activeDAUComp);
 
+                                  // create the ListTile title by concatenating the tipper name and role. if the name is null, use 'new tipper'
+                                  String title =
+                                      '${tipper.name} - ${tipper.tipperRole.name}';
+
                                   return Card(
                                     child: ListTile(
                                       dense: true,
@@ -117,10 +135,12 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                       trailing: tipperActiveInCurrentComp
                                           ? const Icon(Icons.arrow_right)
                                           : const Icon(null),
-                                      title: Text(tipper.name ??
-                                          '[new tipper]'), // if a new tipper, name may be null until they update it
+                                      title: Text(title),
                                       subtitle: Text(
-                                          '${tipper.tipperRole.name}\n${tipper.email}'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        '${formatDateTime(tipper.acctLoggedOnUTC)} - ${tipper.logon}',
+                                      ),
                                       onTap: () async {
                                         // Trigger edit functionality
                                         Navigator.push(
@@ -147,11 +167,18 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             )));
   }
 
+  String formatDateTime(DateTime? dateTime) {
+    if (dateTime == null) {
+      return '?';
+    }
+    return DateFormat('dd MMM yy HH:mm').format(dateTime.toLocal());
+  }
+
   Widget avatarPic(Tipper tipper) {
     return Hero(
       tag: tipper.dbkey!,
       child: circleAvatarWithFallback(
-          imageUrl: tipper.photoURL, text: tipper.name, radius: 30),
+          imageUrl: tipper.photoURL, text: tipper.name, radius: 20),
     );
   }
 }

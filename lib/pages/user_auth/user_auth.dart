@@ -18,11 +18,13 @@ class UserAuthPage extends StatefulWidget {
   final String? configMinAppVersion;
   final bool isUserLoggingOut;
   final bool isUserDeletingAccount;
+  final bool createLinkedTipper;
 
   const UserAuthPage(this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
-      this.isUserDeletingAccount = false});
+      this.isUserDeletingAccount = false,
+      required this.createLinkedTipper});
 
   @override
   UserAuthPageState createState() => UserAuthPageState();
@@ -32,12 +34,10 @@ class UserAuthPageState extends State<UserAuthPage> {
   final String clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
   final PackageInfoService packageInfoService =
       GetIt.instance<PackageInfoService>();
-  //late Future<bool> _linkUserToTipperFuture;
 
   @override
   void initState() {
     super.initState();
-    //_linkUserToTipperFuture = _linkUserToTipper();
   }
 
   Future<bool> isClientVersionOutOfDate() async {
@@ -84,8 +84,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       log('UserAuthPage.build() - user signed out');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-              builder: (BuildContext context) => const MyApp(null)),
+          MaterialPageRoute(builder: (BuildContext context) => const MyApp()),
           (Route<dynamic> route) => false,
         );
       });
@@ -95,8 +94,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       log('UserAuthPage.build() - user deleted account');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-              builder: (BuildContext context) => const MyApp(null)),
+          MaterialPageRoute(builder: (BuildContext context) => const MyApp()),
           (Route<dynamic> route) => false,
         );
       });
@@ -177,12 +175,39 @@ class UserAuthPageState extends State<UserAuthPage> {
                     );
                   },
                   footerBuilder: (context, action) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: Text(
-                        'If you are having trouble signing in, please contact Contact daufootytipping@gmail.com',
-                        style: TextStyle(color: Colors.grey),
-                      ),
+                    return FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: Text(
+                              'Loading...',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        } else if (snapshot.hasError) {
+                          return const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: Text(
+                              'If you are having trouble signing in, please contact daufootytipping@gmail.com\n'
+                              'App Version: Unknown',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        } else {
+                          final packageInfo = snapshot.data!;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(
+                              'If you are having trouble signing in, please contact daufootytipping@gmail.com\n'
+                              'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        }
+                      },
                     );
                   },
                 );
@@ -301,6 +326,7 @@ class LoginErrorScreen extends StatelessWidget {
                       builder: (context) => const UserAuthPage(
                         null,
                         isUserLoggingOut: true,
+                        createLinkedTipper: false,
                       ),
                     ),
                   );

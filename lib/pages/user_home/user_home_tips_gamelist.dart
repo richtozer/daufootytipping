@@ -42,7 +42,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
         return Consumer<DAUCompsViewModel>(
             builder: (context, dauCompsViewModelConsumer, child) {
           allGames =
-              dauCompsViewModelConsumer.sortGamesIntoLeagues(widget.dauRound);
+              dauCompsViewModelConsumer.groupGamesIntoLeagues(widget.dauRound);
           leagueGames = allGames[widget.league];
 
           if (leagueGames!.isEmpty) {
@@ -78,7 +78,6 @@ class _GameListBuilderState extends State<GameListBuilder> {
                 currentTipper: widget.currentTipper,
                 currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
                 allTipsViewModel: widget.tipperTipsViewModel!,
-                dauRound: widget.dauRound,
               );
             },
           );

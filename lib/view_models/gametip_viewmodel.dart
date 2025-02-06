@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -20,11 +20,8 @@ class GameTipViewModel extends ChangeNotifier {
 
   TipsViewModel allTipsViewModel;
   Tipper currentTipper;
-  final String _currentDAUCompDbkey;
+  final DAUComp _currentDAUComp;
   Game game;
-  GameState? _gameState;
-  GameState get gameState => _gameState!;
-  final DAURound _dauRound;
 
   int? _homeTeamScore;
   int? get homeTeamScore => _homeTeamScore;
@@ -48,14 +45,18 @@ class GameTipViewModel extends ChangeNotifier {
   //constructor
   GameTipViewModel(
     this.currentTipper,
-    this._currentDAUCompDbkey,
+    this._currentDAUComp,
     this.game,
     this.allTipsViewModel,
-    this._dauRound,
   ) {
-    _gameState = game.gameState;
     allTipsViewModel.addListener(_tipsUpdated);
-    allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
+    // only monitor gamesViewModel if the comp still has active rounds
+    if (_currentDAUComp.highestRoundNumberInPast() <
+        _currentDAUComp.daurounds.length) {
+      allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
+    } else {
+      log('GameTipsViewModel constructor: ${_currentDAUComp.name} has no active rounds. Not listening to gamesViewModel');
+    }
 
     _findTip();
     _gameStartedTrigger();
@@ -67,7 +68,6 @@ class GameTipViewModel extends ChangeNotifier {
     // if the game has already started, then we don't need to wait , just return
     if ((game.gameState == GameState.startedResultNotKnown ||
         game.gameState == GameState.startedResultKnown)) {
-      notifyListeners();
       return;
     }
 
@@ -80,14 +80,19 @@ class GameTipViewModel extends ChangeNotifier {
     await Future.delayed(timeUntilGameStarts);
 
     // now that the game has started, trigger the UI to update
+    log('GameTipsViewModel._gameStartedTrigger()  Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}.');
     notifyListeners();
   }
 
   void _tipsUpdated() async {
     // we may have new data lets check if we need to update our tip
-    _tip = (await allTipsViewModel.findTip(game, currentTipper));
-    log('GameTipsViewModel._tipsUpdated() called. TEST - DONT Notify listeners');
-    notifyListeners();
+    Tip? newTip = (await allTipsViewModel.findTip(game, currentTipper));
+    // if the tip has changed, then update the tip and notify listeners
+    if (newTip != _tip) {
+      _tip = newTip;
+      log('GameTipsViewModel._tipsUpdated() Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. ');
+      notifyListeners();
+    }
   }
 
   void _gamesViewModelUpdated() async {
@@ -95,7 +100,6 @@ class GameTipViewModel extends ChangeNotifier {
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     log('GameTipsViewModel._gamesViewModelUpdated() called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. Notify listeners');
 
-    _gameState = game.gameState;
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
 
@@ -135,7 +139,7 @@ class GameTipViewModel extends ChangeNotifier {
       final tipJson = await tip.toJson();
 
       final Map<String, Map> updates = {};
-      updates['$tipsPathRoot/$_currentDAUCompDbkey/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
+      updates['$tipsPathRoot/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
       log('new tip submitted: ${updates.toString()}');
@@ -144,7 +148,9 @@ class GameTipViewModel extends ChangeNotifier {
 
       // update the margin counts for this tipper and round asynchronously to avoid blocking UI
       di<StatsViewModel>().updateStats(
-          di<DAUCompsViewModel>().selectedDAUComp!, _dauRound, null);
+          di<DAUCompsViewModel>().selectedDAUComp!,
+          _tip?.game.getDAURound(di<DAUCompsViewModel>().selectedDAUComp!),
+          null);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;
@@ -156,8 +162,8 @@ class GameTipViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    allTipsViewModel.gamesViewModel.removeListener(_gamesViewModelUpdated);
     allTipsViewModel.removeListener(_tipsUpdated);
-    allTipsViewModel.gamesViewModel.removeListener(_tipsUpdated);
     super.dispose();
   }
 }

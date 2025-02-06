@@ -67,6 +67,27 @@ class Tip implements Comparable<Tip> {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is Tip &&
+        other.dbkey == dbkey &&
+        other.game.dbkey == game.dbkey &&
+        other.tipper.dbkey == tipper.dbkey &&
+        other.tip == tip &&
+        other.submittedTimeUTC == submittedTimeUTC;
+  }
+
+  @override
+  int get hashCode {
+    return dbkey.hashCode ^
+        game.dbkey.hashCode ^
+        tipper.dbkey.hashCode ^
+        tip.hashCode ^
+        submittedTimeUTC.hashCode;
+  }
+
+  @override
   // method used to provide default sort for Tips in a List[]
   int compareTo(Tip other) {
     return submittedTimeUTC.compareTo(other.submittedTimeUTC);

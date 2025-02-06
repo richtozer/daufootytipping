@@ -1,4 +1,5 @@
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 
 double gameCardHeight = 128.0;
 double leagueHeaderHeight = 56;
@@ -12,7 +13,7 @@ enum RoundState {
 }
 
 class DAURound implements Comparable<DAURound> {
-  final int dAUroundNumber;
+  final int dAUroundNumber; // 1 based index round number
   List<Game> games = [];
   RoundState roundState = RoundState.notStarted;
   DateTime roundStartDate;
@@ -64,6 +65,11 @@ class DAURound implements Comparable<DAURound> {
   // method returns admin overriden round end data if it exists, otherwise the round end date
   DateTime getRoundEndDate() {
     return adminOverrideRoundEndDate ?? roundEndDate;
+  }
+
+  // method to return games filtered on supplied league
+  List<Game> getGamesForLeague(League league) {
+    return games.where((game) => game.league == league).toList();
   }
 
   @override

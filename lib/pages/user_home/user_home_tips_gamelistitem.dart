@@ -1,6 +1,5 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -15,19 +14,18 @@ import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 class GameListItem extends StatefulWidget {
-  const GameListItem(
-      {super.key,
-      required this.game,
-      required this.currentTipper,
-      required this.currentDAUComp,
-      required this.allTipsViewModel,
-      required this.dauRound});
+  const GameListItem({
+    super.key,
+    required this.game,
+    required this.currentTipper,
+    required this.currentDAUComp,
+    required this.allTipsViewModel,
+  });
 
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
-  final DAURound dauRound;
 
   @override
   State<GameListItem> createState() => _GameListItemState();
@@ -40,12 +38,8 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = GameTipViewModel(
-        widget.currentTipper,
-        widget.currentDAUComp.dbkey!,
-        widget.game,
-        widget.allTipsViewModel,
-        widget.dauRound);
+    gameTipsViewModel = GameTipViewModel(widget.currentTipper,
+        widget.currentDAUComp, widget.game, widget.allTipsViewModel);
   }
 
   @override
@@ -175,15 +169,15 @@ class _GameListItemState extends State<GameListItem> {
     if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
-        gameTipCard(gameTipsViewModel),
+        gameTipCard(gameTipsViewModelConsumer),
         GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel),
       ];
     } else {
       return [
         scoringTileBuilder(
             gameTipsViewModelConsumer), // game is underway or ended - show scoring card
-        gameTipCard(gameTipsViewModel),
-        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel)
+        gameTipCard(gameTipsViewModelConsumer),
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModelConsumer)
       ];
     }
   }
@@ -196,7 +190,6 @@ class _GameListItemState extends State<GameListItem> {
         if (snapshot.hasData) {
           return ScoringTile(
               tip: snapshot.data!,
-              dauround: widget.dauRound,
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
         } else {

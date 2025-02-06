@@ -149,9 +149,11 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                       children: [
                                         avatarPic(
                                             winner.tipper, winner.roundNumber),
-                                        Text(
-                                            softWrap: false,
-                                            winner.tipper.name.toString()),
+                                        Expanded(
+                                          child: Text(
+                                              overflow: TextOverflow.fade,
+                                              winner.tipper.name.toString()),
+                                        ),
                                       ],
                                     ),
                                   ),

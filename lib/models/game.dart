@@ -2,7 +2,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/location_latlong.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:intl/intl.dart';
 
@@ -19,11 +19,11 @@ class Game implements Comparable<Game> {
   Team homeTeam;
   Team awayTeam;
   final String location;
-  LatLng? locationLatLong;
   final DateTime startTimeUTC;
   final int fixtureRoundNumber;
   final int fixtureMatchNumber;
   Scoring? scoring; // this should be null until game kickoff
+  GameStatsEntry? gameStats;
 
   //constructor
   Game({
@@ -32,7 +32,6 @@ class Game implements Comparable<Game> {
     required this.homeTeam,
     required this.awayTeam,
     required this.location,
-    this.locationLatLong,
     required this.startTimeUTC,
     required this.fixtureRoundNumber,
     required this.fixtureMatchNumber,
@@ -58,13 +57,6 @@ class Game implements Comparable<Game> {
     }
   }
 
-  bool isDateInRound(DateTime date, DAURound round) {
-    return ((date.isAfter(round.roundStartDate) ||
-            date.isAtSameMomentAs(round.roundStartDate)) &&
-        (date.isBefore(round.roundEndDate) ||
-            date.isAtSameMomentAs(round.roundEndDate)));
-  }
-
   DAURound getDAURound(DAUComp daucomp) {
     for (var dauRound in daucomp.daurounds) {
       if (isDateInRound(startTimeUTC, dauRound)) {
@@ -76,6 +68,33 @@ class Game implements Comparable<Game> {
 
   bool isGameInRound(DAURound round) {
     return isDateInRound(startTimeUTC, round);
+  }
+
+  bool isDateInRound(DateTime date, DAURound round) {
+    return ((date.isAfter(round.roundStartDate) ||
+            date.isAtSameMomentAs(round.roundStartDate)) &&
+        (date.isBefore(round.roundEndDate) ||
+            date.isAtSameMomentAs(round.roundEndDate)));
+  }
+
+  double getGameResultPercentage(gameResult) {
+    if (scoring == null) {
+      return 0.0;
+    }
+    switch (gameResult) {
+      case GameResult.a:
+        return gameStats!.percentageTippedAwayMargin ?? 0.0;
+      case GameResult.b:
+        return gameStats!.percentageTippedHome ?? 0.0;
+      case GameResult.c:
+        return gameStats!.percentageTippedDraw ?? 0.0;
+      case GameResult.d:
+        return gameStats!.percentageTippedAway ?? 0.0;
+      case GameResult.e:
+        return gameStats!.percentageTippedAwayMargin ?? 0.0;
+      default:
+        return 0.0;
+    }
   }
 
   Map<String, dynamic> toJson() => {

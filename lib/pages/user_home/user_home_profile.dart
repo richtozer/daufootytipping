@@ -22,10 +22,6 @@ class Profile extends StatelessWidget with WatchItMixin {
   @override
   Widget build(BuildContext context) {
     DAUComp? selectedDAUComp = watch(di<DAUCompsViewModel>()).selectedDAUComp;
-    String? selectedDAUCompDbKey;
-    if (selectedDAUComp != null) {
-      selectedDAUCompDbKey = selectedDAUComp.dbkey;
-    }
 
     Tipper? authenticatedTipper = di<TippersViewModel>().authenticatedTipper;
 
@@ -116,20 +112,21 @@ class Profile extends StatelessWidget with WatchItMixin {
                                         Theme.of(context).textTheme.titleMedium,
                                   ),
                                 ),
-                                DropdownButton<String>(
-                                  value: selectedDAUCompDbKey,
+                                DropdownButton<DAUComp>(
+                                  value: selectedDAUComp,
                                   icon: const Icon(Icons.arrow_downward),
-                                  onChanged: (String? newValue) {
-                                    // update the current comp
+                                  onChanged: (DAUComp? newValue) {
+                                    // update the current comp in the view model
+
                                     dauCompsViewModelConsumer
-                                        .changeSelectedDAUComp(
+                                        .changeDisplayedDAUComp(
                                             newValue!, false);
                                   },
                                   items: compsForDropdown
-                                      .map<DropdownMenuItem<String>>(
+                                      .map<DropdownMenuItem<DAUComp>>(
                                           (DAUComp comp) {
-                                    return DropdownMenuItem<String>(
-                                      value: comp.dbkey,
+                                    return DropdownMenuItem<DAUComp>(
+                                      value: comp,
                                       child: Text(comp.name),
                                     );
                                   }).toList(),
@@ -158,29 +155,35 @@ class Profile extends StatelessWidget with WatchItMixin {
                     }
                   },
                 ),
-                FutureBuilder<Widget>(
-                  future: help(context),
-                  builder:
-                      (BuildContext context, AsyncSnapshot<Widget> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.done) {
-                      return snapshot.data!;
-                    } else {
-                      return CircularProgressIndicator(
-                          color: League.afl.colour);
-                    }
-                  },
-                ),
-                FutureBuilder<Widget>(
-                  future: faq(context),
-                  builder:
-                      (BuildContext context, AsyncSnapshot<Widget> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.done) {
-                      return snapshot.data!;
-                    } else {
-                      return CircularProgressIndicator(
-                          color: League.afl.colour);
-                    }
-                  },
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FutureBuilder<Widget>(
+                      future: help(context),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<Widget> snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done) {
+                          return snapshot.data!;
+                        } else {
+                          return CircularProgressIndicator(
+                              color: League.afl.colour);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    FutureBuilder<Widget>(
+                      future: faq(context),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<Widget> snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done) {
+                          return snapshot.data!;
+                        } else {
+                          return CircularProgressIndicator(
+                              color: League.afl.colour);
+                        }
+                      },
+                    ),
+                  ],
                 ),
                 SizedBox(
                   width: 200,
@@ -200,55 +203,68 @@ class Profile extends StatelessWidget with WatchItMixin {
                               builder: (context) => const UserAuthPage(
                                 null,
                                 isUserLoggingOut: true,
+                                createLinkedTipper: false,
                               ),
                             ),
                           );
                         },
                       ),
-                      OutlinedButton(
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.delete),
-                            Text('Delete Account'),
-                          ],
-                        ),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                title: const Text('Confirm Account Deletion'),
-                                content: const Text(
-                                    'Are you sure you want to delete your account? This action cannot be undone. You may be asked to log in again to confirm your identity.'),
-                                actions: [
-                                  TextButton(
-                                    child: const Text('Cancel'),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                  TextButton(
-                                    child: const Text('Delete'),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      Navigator.of(context).pushReplacement(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const UserAuthPage(
-                                            null,
-                                            isUserDeletingAccount: true,
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: 140,
+                        height: 30,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.delete),
+                              Text('Delete Account'),
+                            ],
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Confirm Account Deletion'),
+                                  content: const Text(
+                                      'Are you sure you want to delete your account? This action cannot be undone. You may be asked to log in again to confirm your identity.'),
+                                  actions: [
+                                    TextButton(
+                                      child: const Text('Cancel'),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: const Text('Delete'),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const UserAuthPage(
+                                              null,
+                                              isUserDeletingAccount: true,
+                                              createLinkedTipper: false,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ),
+                      // add some space here
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),

@@ -171,7 +171,7 @@ class Scoring {
     return {
       'homeTeamScore': homeTeamScore,
       'awayTeamScore': awayTeamScore,
-      'croudSourcedScores': croudSourcedScores?.map((x) => x.toJson()).toList(),
+      'croudSourcedScores': croudSourcedScores?.map((x) => x.toJson()).toList()
     };
   }
 
