@@ -3,10 +3,11 @@ import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:watch_it/watch_it.dart';
 
-class TeamsListPage extends StatelessWidget with WatchItMixin {
-  const TeamsListPage({super.key});
+class TeamsListPage extends StatelessWidget {
+  final TeamsViewModel teamsViewModel;
+
+  const TeamsListPage({super.key, required this.teamsViewModel});
 
   Future<void> _editTeam(
       Team team, TeamsViewModel teamsViewModel, BuildContext context) async {
@@ -20,7 +21,6 @@ class TeamsListPage extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(BuildContext context) {
-    TeamsViewModel teamsViewModel = watchIt<TeamsViewModel>();
     return Scaffold(
         appBar: AppBar(
           leading: IconButton(

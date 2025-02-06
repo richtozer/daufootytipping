@@ -27,10 +27,10 @@ class ConfigViewModel extends ChangeNotifier {
     log('ConfigViewModel._initialize()');
 
     try {
-      DatabaseEvent dbEvent =
-          await _database.once().timeout(const Duration(seconds: 5));
+      DataSnapshot dbEvent =
+          await _database.get().timeout(const Duration(seconds: 5));
 
-      if (!dbEvent.snapshot.exists) {
+      if (!dbEvent.exists) {
         // New DB? Set default values in db from ENV file if needed
         await _database.set({
           "currentDAUComp": dotenv.env['CURRENT_DAU_COMP'],
@@ -41,7 +41,7 @@ class ConfigViewModel extends ChangeNotifier {
                   : false,
         });
       } else {
-        _processSnapshot(dbEvent.snapshot);
+        _processSnapshot(dbEvent);
       }
     } on TimeoutException catch (e) {
       log('Cannot connect to database. Operation timed out: $e');
