@@ -9,7 +9,7 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
   List<DAURound> daurounds;
-  final bool active;
+  //final bool active;
 
   DateTime? lastFixtureUpdateTimestampUTC;
   DateTime?
@@ -23,7 +23,7 @@ class DAUComp implements Comparable<DAUComp> {
     required this.name,
     required this.aflFixtureJsonURL,
     required this.nrlFixtureJsonURL,
-    this.active = true,
+    //this.active = true,
     required this.daurounds,
     this.lastFixtureUpdateTimestampUTC,
     this.aflRegularCompEndDateUTC,
@@ -38,7 +38,7 @@ class DAUComp implements Comparable<DAUComp> {
   int highestRoundNumberInPast() {
     int highestRoundNumber = 0;
 
-    //find the highest round number where roundEndDate + 9 hours is the past UTC
+    //find the highest round number where roundEndDate + 6 hours is the past UTC
     for (var dauround in daurounds) {
       if (dauround.roundEndDate
           .add(const Duration(hours: 6))
@@ -100,7 +100,7 @@ class DAUComp implements Comparable<DAUComp> {
       'name': name,
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
-      'active': active,
+      //'active': active,
       'daurounds': dauroundsJson,
     };
   }

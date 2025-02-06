@@ -14,7 +14,7 @@ class StatsTab extends StatelessWidget {
     Orientation orientation = MediaQuery.of(context).orientation;
 
     bool paidTipper = di<TippersViewModel>()
-        .authenticatedTipper!
+        .selectedTipper!
         .paidForComp(di<DAUCompsViewModel>().activeDAUComp);
 
     return Column(

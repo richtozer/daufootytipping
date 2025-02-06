@@ -1,8 +1,10 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_kickoffCountdown.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -87,11 +89,13 @@ class TipsTabState extends State<TipsTab> {
             initialScrollIndex: (latestRoundNumber) * 4,
             initialAlignment:
                 0.15, // peek at the last game in the previous round
-            // Increase itemCount by 1 to account for the final "end of competition" item
-            itemCount: daucompsViewmodelConsumer
-                        .selectedDAUComp!.daurounds.length *
-                    4 +
-                1, // 4 items per round plus 1 for the end of competition card
+            // calculate item count: 4 items per round
+            // plus 1 card for start of competition and plus 1 card for the end of competition card
+            itemCount:
+                (daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
+                        4) +
+                    1 +
+                    1,
             itemBuilder: (context, index) {
               // insert a card at the start saying 'New here?' then 'You will find the instructions and scoring on the Profile Tab.'
               if (index == 0) {
@@ -137,8 +141,9 @@ class TipsTabState extends State<TipsTab> {
               }
               // Check if this is the last item
               if (index ==
-                  daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
-                      4) {
+                  (daucompsViewmodelConsumer.selectedDAUComp!.daurounds.length *
+                          4) +
+                      1) {
                 // Return a widget indicating the end of the competition
                 return SizedBox(
                   height: 75,
@@ -179,7 +184,7 @@ class TipsTabState extends State<TipsTab> {
                   dauRound: dauRound,
                   league: League.nrl,
                   tipperTipsViewModel:
-                      daucompsViewmodelConsumer.tipperTipsViewModel!,
+                      daucompsViewmodelConsumer.selectedTipperTipsViewModel!,
                   dauCompsViewModel: daucompsViewmodelConsumer,
                 );
               } else if (itemIndex == 2) {
@@ -194,7 +199,7 @@ class TipsTabState extends State<TipsTab> {
                   dauRound: dauRound,
                   league: League.afl,
                   tipperTipsViewModel:
-                      daucompsViewmodelConsumer.tipperTipsViewModel,
+                      daucompsViewmodelConsumer.selectedTipperTipsViewModel,
                   dauCompsViewModel: daucompsViewmodelConsumer,
                 );
               }
@@ -268,6 +273,20 @@ class TipsTabState extends State<TipsTab> {
             rank: 0,
             rankChange: 0);
 
+    // Calculate the number of days until the first game starts for this league round
+    List<Game> gamesForLeague = dauRound.getGamesForLeague(leagueHeader);
+    DateTime? firstGameStart;
+    if (gamesForLeague.isNotEmpty) {
+      firstGameStart = gamesForLeague.first.startTimeUTC;
+    }
+
+    // Calculate the number of tips outstanding for this league round
+    int totalGames = dauRound.getGamesForLeague(leagueHeader).length;
+    int tipsSubmitted = daucompsViewModel.selectedTipperTipsViewModel!
+        .numberOfTipsSubmittedForRoundAndLeague(dauRound, leagueHeader);
+
+    int tipsOutstanding = totalGames - tipsSubmitted;
+
     return Card(
       color: Colors.black54,
       //shadowColor: League.nrl.colour,
@@ -275,74 +294,101 @@ class TipsTabState extends State<TipsTab> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.0),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Column(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const Text('Round',
-                    style: TextStyle(
-                        color: Colors.white70, fontWeight: FontWeight.bold)),
-                Text('${dauRound.dAUroundNumber}',
-                    style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 30)),
-              ],
-            ),
-            Column(
-              children: [
-                dauRound.roundState != RoundState.notStarted
-                    ? Text(
+                Column(
+                  children: [
+                    const Text('Round',
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.bold)),
+                    Text('${dauRound.dAUroundNumber}',
                         style: const TextStyle(
-                            color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}')
-                    : const SizedBox.shrink(),
-                dauRound.roundState != RoundState.notStarted
-                    ? Text(
-                        style: const TextStyle(
-                            color: Colors.white70, fontWeight: FontWeight.bold),
-                        'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}')
-                    : Text(
-                        style: const TextStyle(
-                            color: Colors.white70, fontWeight: FontWeight.bold),
-                        'Margins: ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips} '),
-                dauRound.roundState != RoundState.notStarted
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 30)),
+                  ],
+                ),
+                // if the league round has no games then display an empty container, otherwise display the column of stats
+                gamesForLeague.isEmpty
+                    ? const SizedBox.shrink()
+                    : Column(
                         children: [
-                          Text(
-                              style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.bold),
-                              'Rank: ${roundStats.rank}  '),
-                          roundStats.rankChange > 0
-                              ? const Icon(
-                                  color: Colors.green, Icons.arrow_upward)
-                              : roundStats.rankChange < 0
-                                  ? const Icon(
-                                      color: Colors.red, Icons.arrow_downward)
-                                  : const Icon(
-                                      color: Colors.green, Icons.sync_alt),
-                          Text(
-                              style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.bold),
-                              '${roundStats.rankChange}'),
+                          dauRound.roundState != RoundState.notStarted
+                              ? Text(
+                                  style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold),
+                                  'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}')
+                              : const SizedBox.shrink(),
+                          dauRound.roundState != RoundState.notStarted
+                              ? Text(
+                                  style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold),
+                                  'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}')
+                              : Column(
+                                  children: [
+                                    KickoffCountdown(
+                                        kickoffDate: firstGameStart!),
+                                    Text(
+                                      'Tips Outstanding: $tipsOutstanding',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.bold),
+                                        'Your Margins: ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips} '),
+                                  ],
+                                ),
+                          dauRound.roundState != RoundState.notStarted
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.bold),
+                                        'Rank: ${roundStats.rank}  '),
+                                    roundStats.rankChange > 0
+                                        ? const Icon(
+                                            color: Colors.green,
+                                            Icons.arrow_upward)
+                                        : roundStats.rankChange < 0
+                                            ? const Icon(
+                                                color: Colors.red,
+                                                Icons.arrow_downward)
+                                            : const Icon(
+                                                color: Colors.green,
+                                                Icons.sync_alt),
+                                    Text(
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.bold),
+                                        '${roundStats.rankChange}'),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
                         ],
-                      )
-                    : const SizedBox.shrink(),
+                      ),
+                SvgPicture.asset(
+                  leagueHeader.logo,
+                  width: logoWidth,
+                  height: logoHeight,
+                ),
               ],
             ),
-            SvgPicture.asset(
-              leagueHeader.logo,
-              width: logoWidth,
-              height: logoHeight,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

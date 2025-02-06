@@ -77,7 +77,9 @@ class TippersViewModel extends ChangeNotifier {
 
       _tippers =
           tippersList.where((tipper) => tipper != null).cast<Tipper>().toList();
-      _tippers.sort();
+
+      // do a default sort by login date
+      sortTippersByLogin(false);
 
       log('Tipper db Listener: ${_tippers.length} tippers found in database');
     } else {
@@ -87,6 +89,16 @@ class TippersViewModel extends ChangeNotifier {
       _initialLoadCompleter.complete();
     }
     notifyListeners();
+  }
+
+  void sortTippersByLogin(bool ascending) {
+    var sortedEntries = _tippers.toList()
+      ..sort((a, b) =>
+          (ascending ? 1 : -1) *
+          (a.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(
+                  b.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0)));
+    _tippers = sortedEntries;
   }
 
   Future<List<Tipper>> getAllTippers() async {
@@ -255,7 +267,7 @@ class TippersViewModel extends ChangeNotifier {
 
   // method called at logon to find logged in Tipper and link it if required
   // first try finding the tipper based on authuid
-  // if that fails, try finding the tipper based on email
+  // if that fails, try finding the tipper based on logon email
   Future<bool> linkUserToTipper() async {
     Tipper? foundTipper;
     User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
@@ -273,7 +285,7 @@ class TippersViewModel extends ChangeNotifier {
         await updateTipperAttribute(
             foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
 
-        // check if tipper.email is a valid email address, if not make it the sane as logon
+        // check if existing tipper.email is a valid email address, if not make it the sane as logon
         if (!_isValidEmail(foundTipper.email)) {
           await updateTipperAttribute(
               foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);

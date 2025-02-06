@@ -1,12 +1,10 @@
 import 'dart:developer';
-
-import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/teams_viewmodel.dart';
-import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
-import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
+import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -15,6 +13,7 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
+import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -60,13 +59,6 @@ Future<void> main() async {
     }
   }
 
-  RemoteConfigService remoteConfigService = RemoteConfigService();
-  String activeDAUCompDbkey =
-      await remoteConfigService.getConfigCurrentDAUComp();
-  String configMinAppVersion =
-      await remoteConfigService.getConfigMinAppVersion();
-  bool createLinkedTipper = await remoteConfigService.getCreateLinkedTipper();
-
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   if (!kDebugMode) {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -90,21 +82,18 @@ Future<void> main() async {
     di<FirebaseMessagingService>().initializeFirebaseMessaging();
   }
 
-  di.registerLazySingleton<TippersViewModel>(
-      () => TippersViewModel(createLinkedTipper));
-
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
-  di.registerLazySingleton<DAUCompsViewModel>(
-      () => DAUCompsViewModel(activeDAUCompDbkey));
-  di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
-
-  runApp(MyApp(configMinAppVersion));
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ConfigViewModel(),
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
-  final String? configMinAppVersion;
-  const MyApp(this.configMinAppVersion, {super.key});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +114,29 @@ class MyApp extends StatelessWidget {
           return Center(
             child: SizedBox(
               width: width,
-              child: UserAuthPage(configMinAppVersion),
+              child: Consumer<ConfigViewModel>(
+                builder: (context, configViewModel, child) {
+                  if (configViewModel.activeDAUComp == null ||
+                      configViewModel.minAppVersion == null ||
+                      configViewModel.createLinkedTipper == null) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  di.registerLazySingleton<DAUCompsViewModel>(() =>
+                      DAUCompsViewModel(configViewModel.activeDAUComp!, false));
+
+                  di.registerLazySingleton<TippersViewModel>(() =>
+                      TippersViewModel(configViewModel.createLinkedTipper!));
+
+                  return UserAuthPage(
+                    configViewModel.minAppVersion,
+                    isUserLoggingOut: false,
+                    createLinkedTipper: configViewModel.createLinkedTipper!,
+                  );
+                },
+              ),
             ),
           );
         },

@@ -3,7 +3,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
-import 'package:daufootytipping/services/firebase_remoteconfig_service.dart';
+import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -50,31 +50,31 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   void initState() {
     super.initState();
-    initTextControllersListeners();
-    updateSaveButtonState();
+    _initTextControllersListeners();
+    _updateSaveButtonState();
   }
 
   @override
   void dispose() {
     super.dispose();
-    widget._daucompNameController.removeListener(updateSaveButtonState);
-    widget._daucompAflJsonURLController.removeListener(updateSaveButtonState);
-    widget._daucompNrlJsonURLController.removeListener(updateSaveButtonState);
+    widget._daucompNameController.removeListener(_updateSaveButtonState);
+    widget._daucompAflJsonURLController.removeListener(_updateSaveButtonState);
+    widget._daucompNrlJsonURLController.removeListener(_updateSaveButtonState);
     widget._nrlRegularCompEndDateController
-        .removeListener(updateSaveButtonState);
+        .removeListener(_updateSaveButtonState);
     widget._aflRegularCompEndDateController
-        .removeListener(updateSaveButtonState);
+        .removeListener(_updateSaveButtonState);
   }
 
-  void initTextControllersListeners() {
-    widget._daucompNameController.addListener(updateSaveButtonState);
-    widget._daucompAflJsonURLController.addListener(updateSaveButtonState);
-    widget._daucompNrlJsonURLController.addListener(updateSaveButtonState);
-    widget._nrlRegularCompEndDateController.addListener(updateSaveButtonState);
-    widget._aflRegularCompEndDateController.addListener(updateSaveButtonState);
+  void _initTextControllersListeners() {
+    widget._daucompNameController.addListener(_updateSaveButtonState);
+    widget._daucompAflJsonURLController.addListener(_updateSaveButtonState);
+    widget._daucompNrlJsonURLController.addListener(_updateSaveButtonState);
+    widget._nrlRegularCompEndDateController.addListener(_updateSaveButtonState);
+    widget._aflRegularCompEndDateController.addListener(_updateSaveButtonState);
   }
 
-  void updateSaveButtonState() {
+  void _updateSaveButtonState() {
     bool shouldEnableSave;
     if (widget.daucomp == null) {
       shouldEnableSave = widget._daucompNameController.text.isNotEmpty &&
@@ -235,145 +235,139 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-
-    return ChangeNotifierProvider<DAUCompsViewModel>.value(
-        value: dauCompsViewModel,
+    return ChangeNotifierProvider<DAUCompsViewModel>(
+        create: (context) => DAUCompsViewModel(widget.daucomp!.dbkey!,
+            true), // create a new instance just for this edit
         builder: (context, snapshot) {
           return Scaffold(
-              appBar: AppBar(
-                leading: Builder(
-                  builder: (BuildContext context) {
+            appBar: AppBar(
+              leading: Builder(
+                builder: (BuildContext context) {
+                  return IconButton(
+                    icon: disableBack
+                        ? const ImageIcon(null)
+                        : const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      if (!disableBack) {
+                        Navigator.maybePop(context);
+                      } else {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            content: const Text(
+                                'You have unsaved changes. Do you really want to discard them?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .pop(); // Close the dialog
+                                  Navigator.of(context).pop(); // Go back
+                                },
+                                child: const Text('Discard'),
+                              )
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                  );
+                },
+              ),
+              actions: <Widget>[
+                Consumer<DAUCompsViewModel>(
+                  builder: (context, dauCompsViewModel, child) {
                     return IconButton(
-                      icon: disableBack
-                          ? const ImageIcon(null)
-                          : const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        if (!disableBack) {
-                          Navigator.maybePop(context);
-                        } else {
-                          showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              content: const Text(
-                                  'You have unsaved changes. Do you really want to discard them?'),
-                              actions: <Widget>[
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context)
-                                        .pop(); // Close the dialog
-                                    Navigator.of(context).pop(); // Go back
-                                  },
-                                  child: const Text('Discard'),
-                                )
-                              ],
-                            ),
-                          );
-                        }
-                      },
+                      color: Colors.green,
+                      icon: disableSaves
+                          ? const Icon(Icons.save, color: Colors.transparent)
+                          : const Icon(Icons.save, color: Colors.transparent),
+                      onPressed: disableSaves
+                          ? null
+                          : () async {
+                              final isValid = _formKey.currentState!.validate();
+                              if (isValid) {
+                                setState(() {
+                                  disableSaves = true;
+                                });
+
+                                await _saveDAUComp(dauCompsViewModel, context);
+
+                                setState(() {
+                                  disableSaves = true;
+                                });
+                              }
+                            },
                     );
                   },
                 ),
-                actions: <Widget>[
-                  Builder(
-                    builder: (BuildContext context) {
-                      return IconButton(
-                        color: Colors.green,
-                        icon: disableSaves
-                            ? const Icon(Icons.save, color: Colors.transparent)
-                            : const Icon(Icons.save, color: Colors.transparent),
-                        onPressed: disableSaves
-                            ? null
-                            : () async {
-                                final isValid =
-                                    _formKey.currentState!.validate();
-                                if (isValid) {
-                                  setState(() {
-                                    disableSaves = true;
-                                  });
-
-                                  await _saveDAUComp(
-                                      dauCompsViewModel, context);
-
-                                  setState(() {
-                                    disableSaves = true;
-                                  });
-                                }
-                              },
-                      );
-                    },
-                  ),
-                ],
-                title: const Text('Edit DAU Comp'),
-              ),
-              body: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
+              ],
+              title: const Text('Edit DAU Comp'),
+            ),
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Consumer<DAUCompsViewModel>(
+                      builder: (context, consumer, child) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         if (widget.daucomp != null)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              buttonFixture(context, dauCompsViewModel),
-                              buttonScoring(context),
+                              buttonFixture(context, consumer),
+                              buttonScoring(context, consumer),
                             ],
                           ),
                         if (widget.daucomp != null)
                           Row(
                             children: [
                               const Text('Active Comp:'),
-                              Consumer<DAUCompsViewModel>(
-                                  builder: (context, model, child) {
-                                return Switch(
-                                  value: widget.daucomp != null &&
-                                      model.activeDAUComp != null &&
-                                      widget.daucomp!.dbkey ==
-                                          model.activeDAUComp!.dbkey,
-                                  onChanged: (bool value) async {
-                                    if (widget.daucomp == null) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: const Text(
-                                              'You cannot set the active comp for a new record. Save the record first.'),
-                                          backgroundColor: League.afl.colour,
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    if (value) {
-                                      RemoteConfigService remoteConfigService =
-                                          RemoteConfigService();
-                                      remoteConfigService
-                                          .setConfigCurrentDAUComp(
-                                              widget.daucomp!.dbkey!);
-                                      await dauCompsViewModel
-                                          .changeSelectedDAUComp(
-                                              widget.daucomp!.dbkey!, true);
-                                      log('Active comp changed to: ${widget.daucomp!.name}');
-                                    } else {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: const Text(
-                                              'You cannot turn off the active comp. Instead edit another comp to be active.'),
-                                          backgroundColor: League.afl.colour,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                );
-                              }),
+                              Switch(
+                                value: widget.daucomp != null &&
+                                    di<DAUCompsViewModel>().initDAUCompDbKey !=
+                                        null &&
+                                    widget.daucomp!.dbkey ==
+                                        di<DAUCompsViewModel>()
+                                            .initDAUCompDbKey,
+                                onChanged: (bool value) async {
+                                  if (widget.daucomp == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                            'You cannot set the active comp for a new record. Save the record first.'),
+                                        backgroundColor: League.afl.colour,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  if (value) {
+                                    ConfigViewModel remoteConfigService =
+                                        ConfigViewModel();
+                                    remoteConfigService.setConfigCurrentDAUComp(
+                                        widget.daucomp!.dbkey!);
+                                    // await consumer.changeDisplayedDAUComp(
+                                    //     widget.daucomp!, true);
+                                    log('Active comp changed to: ${widget.daucomp!.name}');
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                            'You cannot turn off the active comp. Instead edit another comp to be active.'),
+                                        backgroundColor: League.afl.colour,
+                                      ),
+                                    );
+                                  }
+                                },
+                              )
                             ],
                           ),
                         const Text('Name:',
@@ -608,7 +602,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                   ),
                                 ],
                               ),
-                              for (var round in widget.daucomp!.daurounds)
+                              for (var round
+                                  in consumer.selectedDAUComp?.daurounds ?? [])
                                 if (round.games.isNotEmpty)
                                   TableRow(
                                     children: [
@@ -715,10 +710,12 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             ],
                           ),
                       ],
-                    ),
-                  ),
+                    );
+                  }),
                 ),
-              ));
+              ),
+            ),
+          );
         });
   }
 
@@ -774,11 +771,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     }
   }
 
-  Widget buttonScoring(BuildContext context) {
+  Widget buttonScoring(
+      BuildContext context, DAUCompsViewModel dauCompsViewModel) {
     if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
-      StatsViewModel scoresViewModel = StatsViewModel(widget.daucomp!);
+      StatsViewModel scoresViewModel =
+          StatsViewModel(widget.daucomp!, dauCompsViewModel.gamesViewModel);
       return OutlinedButton(
         onPressed: () async {
           if (scoresViewModel.isCalculating) {

@@ -63,7 +63,7 @@ class _StatRoundGameScoresForTipperState
         return Consumer<DAUCompsViewModel>(
             builder: (context, dauCompsViewModelConsumer, child) {
           games =
-              dauCompsViewModelConsumer.sortGamesIntoLeagues(roundToDisplay);
+              dauCompsViewModelConsumer.groupGamesIntoLeagues(roundToDisplay);
 
           //filter out games that have not started - we do not want to expose tips to other tippers until tipping is closed
           games.forEach((league, gameList) {
@@ -258,18 +258,8 @@ class _StatRoundGameScoresForTipperState
   }
 
   DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
-    DAURound dauRound = di<DAUCompsViewModel>()
-        .selectedDAUComp!
-        .daurounds
-        .firstWhere(
-            (element) => element.dAUroundNumber == widget.roundNumberToDisplay);
-
-    GameTipViewModel gameTipsViewModel = GameTipViewModel(
-        widget.statsTipper,
-        di<DAUCompsViewModel>().selectedDAUComp!.dbkey!,
-        games[index],
-        allTips,
-        dauRound);
+    GameTipViewModel gameTipsViewModel = GameTipViewModel(widget.statsTipper,
+        di<DAUCompsViewModel>().selectedDAUComp!, games[index], allTips);
     return DataRow(
       cells: [
         DataCell(

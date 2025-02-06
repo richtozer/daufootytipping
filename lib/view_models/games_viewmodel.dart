@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/location_latlong.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -31,8 +30,12 @@ class GamesViewModel extends ChangeNotifier {
 
   final List<DAURound> _roundsThatNeedScoringUpdate = [];
 
+  final DAUCompsViewModel _dauCompsViewModel;
+
+  bool _isUpdating = false;
+
   // Constructor
-  GamesViewModel(this.selectedDAUComp) {
+  GamesViewModel(this.selectedDAUComp, this._dauCompsViewModel) {
     _teamsViewModel = TeamsViewModel();
     _listenToGames();
   }
@@ -48,6 +51,11 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
+    if (_isUpdating) {
+      log('GamesViewModel_handleEvent: _isUpdating is true. Returning.');
+      return; // Prevent re-entrant updates
+    }
+    _isUpdating = true;
     try {
       if (event.snapshot.exists) {
         final allGames =
@@ -60,12 +68,6 @@ class GamesViewModel extends ChangeNotifier {
           String league = dbKey.split('-').first;
           dynamic gameAsJSON = entry.value;
 
-          //we need to deserialize the locationlatlng before we can deserialize the game
-          LatLng? locationLatLng;
-          if (gameAsJSON['locationLatLng'] != null) {
-            locationLatLng = LatLng.fromJson(
-                Map<String, dynamic>.from(gameAsJSON['locationLatLng']));
-          }
           //we need to find and deserialize the home and away teams first before we can deserialize the game
           Team? homeTeam = await _teamsViewModel
               .findTeam('$league-${gameAsJSON['HomeTeam']}');
@@ -79,7 +81,6 @@ class GamesViewModel extends ChangeNotifier {
           if (homeTeam != null && awayTeam != null) {
             Game game = Game.fromFixtureJson(dbKey,
                 Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
-            game.locationLatLong = locationLatLng;
             game.scoring = scoring;
 
             return game;
@@ -101,20 +102,29 @@ class GamesViewModel extends ChangeNotifier {
         _initialLoadCompleter.complete();
       }
 
-      // Now that we have all the games from db
-      // call linkGamesWithRounds() to link the games with the rounds
-      DAUCompsViewModel dauCompsViewModel = di<DAUCompsViewModel>();
-      await dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
+      // if daucompsviewmodel adminmode is false then do game linking and any fixture updates
+      if (!_dauCompsViewModel.adminMode) {
+        // Now that we have all the games from db
+        // call linkGamesWithRounds() to link the games with the rounds
+        await _dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
+        // now that we know the state of each roumd, check the state of each round
+        // if any are yet to be played setup the fixture download trigger
+        for (DAURound dauRound in selectedDAUComp.daurounds) {
+          if (dauRound.roundState != RoundState.allGamesEnded) {
+            await _dauCompsViewModel.fixtureUpdateTrigger();
+            break;
+          }
+        }
 
-      // now that we know the state of each roumd,  setup the fixture download trigger
-      await dauCompsViewModel.fixtureUpdateTrigger();
-
-      notifyListeners();
-      log('GamesViewModel_handleEvent: notifyListeners()');
+        notifyListeners();
+        log('GamesViewModel_handleEvent: notifyListeners()');
+      }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
       rethrow;
+    } finally {
+      _isUpdating = false;
     }
   }
 
@@ -162,6 +172,8 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<void> saveBatchOfGameAttributes() async {
+    if (_isUpdating) return; // Prevent re-entrant updates
+    _isUpdating = true;
     try {
       // check if there are any updates to save
       if (updates.isEmpty) {
@@ -185,8 +197,8 @@ class GamesViewModel extends ChangeNotifier {
       // clear the list
       _roundsThatNeedScoringUpdate.clear();
     } finally {
-      notifyListeners();
       log('GamesViewModel_saveBatchOfGameAttributes: notifyListeners()');
+      _isUpdating = false;
     }
   }
 
@@ -202,6 +214,10 @@ class GamesViewModel extends ChangeNotifier {
 
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
     await initialLoadComplete;
+
+    // if (dauRound.dAUroundNumber == 27) {
+    //   log('Round 27 detected. TESTING.');
+    // }
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
 
@@ -227,7 +243,7 @@ class GamesViewModel extends ChangeNotifier {
       }
 
       if (shouldRemove) {
-        log('removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, League: ${game.league}, Start Time: ${game.startTimeUTC}');
+        log('removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, Start Time: ${game.startTimeUTC}');
       }
 
       return shouldRemove;

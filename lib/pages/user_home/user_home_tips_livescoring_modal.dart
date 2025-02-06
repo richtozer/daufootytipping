@@ -1,6 +1,5 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -9,9 +8,8 @@ import 'package:watch_it/watch_it.dart';
 
 class LiveScoringModal extends StatefulWidget {
   final Tip tip;
-  final DAURound dauround;
 
-  const LiveScoringModal(this.tip, this.dauround, {super.key});
+  const LiveScoringModal(this.tip, {super.key});
 
   @override
   State<LiveScoringModal> createState() => _LiveScoringModalState();
@@ -238,7 +236,9 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                   // update the scoring for the game's round asynchronously to avoid blocking UI
                                   di<StatsViewModel>().updateStats(
                                       di<DAUCompsViewModel>().selectedDAUComp!,
-                                      widget.dauround,
+                                      widget.tip.game.getDAURound(
+                                          di<DAUCompsViewModel>()
+                                              .selectedDAUComp!),
                                       null);
                                 },
                       style: ElevatedButton.styleFrom(

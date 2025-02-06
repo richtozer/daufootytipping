@@ -1,6 +1,5 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -15,14 +14,12 @@ class ScoringTile extends StatelessWidget {
   const ScoringTile(
       {super.key,
       required this.tip,
-      required this.dauround,
       required this.gameTipsViewModel,
       required this.selectedDAUComp});
 
   final GameTipViewModel gameTipsViewModel;
   final Tip tip;
   final DAUComp selectedDAUComp;
-  final DAURound dauround;
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +40,11 @@ class ScoringTile extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    gameTipsViewModelConsumer.gameState ==
+                    gameTipsViewModelConsumer.game.gameState ==
                             GameState.startedResultNotKnown
                         ? liveScoring(gameTipsViewModelConsumer.tip!, context)
                         : fixtureScoring(gameTipsViewModelConsumer),
-                    gameTipsViewModelConsumer.gameState ==
+                    gameTipsViewModelConsumer.game.gameState ==
                             GameState.startedResultNotKnown
                         ? Text(
                             'Interim Result: ${gameTipsViewModelConsumer.tip?.getGameResultText()}')
@@ -107,7 +104,7 @@ class ScoringTile extends StatelessWidget {
       onTap: () => showMaterialModalBottomSheet(
           expand: false,
           context: context,
-          builder: (context) => LiveScoringModal(consumerTipGame, dauround)),
+          builder: (context) => LiveScoringModal(consumerTipGame)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

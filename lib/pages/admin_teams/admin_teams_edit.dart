@@ -1,7 +1,6 @@
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 // this class only supports updating Team records. for referencial
 // integrity reasons, we do not allow teams to be deleted
@@ -96,33 +95,28 @@ class _TeamEditPageState extends State<TeamEditPage> {
         actions: <Widget>[
           Builder(
             builder: (BuildContext context) {
-              return ChangeNotifierProvider<TeamsViewModel>(
-                  //TODO this may not be used and can be removed
-                  create: (context) => TeamsViewModel(),
-                  builder: (context, child) {
-                    return IconButton(
-                      icon: disableSaves
-                          ? const Icon(Icons.hourglass_bottom)
-                          : const Icon(Icons.save),
-                      onPressed: disableSaves
-                          ? null
-                          : () async {
-                              // Validate will return true if the form is valid, or false if
-                              // the form is invalid.
-                              final isValid = _formKey.currentState!.validate();
-                              if (isValid) {
-                                setState(() {
-                                  disableSaves = true;
-                                });
-                                disableBackButton = true;
-                                _saveTeam(context, team);
-                                setState(() {
-                                  disableSaves = false;
-                                });
-                              }
-                            },
-                    );
-                  });
+              return IconButton(
+                icon: disableSaves
+                    ? const Icon(Icons.hourglass_bottom)
+                    : const Icon(Icons.save),
+                onPressed: disableSaves
+                    ? null
+                    : () async {
+                        // Validate will return true if the form is valid, or false if
+                        // the form is invalid.
+                        final isValid = _formKey.currentState!.validate();
+                        if (isValid) {
+                          setState(() {
+                            disableSaves = true;
+                          });
+                          disableBackButton = true;
+                          _saveTeam(context, team);
+                          setState(() {
+                            disableSaves = false;
+                          });
+                        }
+                      },
+              );
             },
           ),
         ],

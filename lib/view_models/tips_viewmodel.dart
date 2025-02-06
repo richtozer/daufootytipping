@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -10,6 +12,7 @@ import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 // define  constant for firestore database location
 const tipsPathRoot = '/AllTips';
@@ -25,7 +28,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
 
   Tipper?
-      tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
+      _tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
 
   late final GamesViewModel _gamesViewModel;
   GamesViewModel get gamesViewModel => _gamesViewModel;
@@ -42,8 +45,8 @@ class TipsViewModel extends ChangeNotifier {
 
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
   TipsViewModel.forTipper(this.tipperViewModel, this.selectedDAUComp,
-      this._gamesViewModel, this.tipper) {
-    log('TipsViewModel.forTipper constructor');
+      this._gamesViewModel, this._tipper) {
+    log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
     _listenToTips();
   }
 
@@ -52,9 +55,9 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _listenToTips() async {
-    if (tipper != null) {
+    if (_tipper != null) {
       _tipsStream = _db
-          .child('$tipsPathRoot/${selectedDAUComp.dbkey}/${tipper!.dbkey}')
+          .child('$tipsPathRoot/${selectedDAUComp.dbkey}/${_tipper!.dbkey}')
           .onValue
           .listen((event) {
         _handleEvent(event);
@@ -72,29 +75,29 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
-        if (tipper == null) {
-          log('deserializing tips for all tippers');
+        if (_tipper == null) {
           final allTips =
               _deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
-          log('_handleEvent (All tippers) - number of tippers to deserialize: ${allTips.length}');
+          log('TipsViewModel._handleEvent() All tippers - number of tippers to deserialize: ${allTips.length}');
           _listOfTips = await _deserializeTips(allTips);
         } else {
-          log('deserializing tips for tipper ${tipper!.dbkey}');
+          log('_handleEvent deserializing tips for tipper ${_tipper!.dbkey}');
           Map dbData = event.snapshot.value as Map;
-          log('_handleEvent (Tipper ${tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
-          _listOfTips = await Future.wait(dbData.entries.map((entry) async {
-            Game? game = await _gamesViewModel.findGame(entry.key);
+          log('_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
+          _listOfTips = await Future.wait(dbData.entries.map((tipEntry) async {
+            Game? game = await _gamesViewModel.findGame(tipEntry.key);
             if (game == null) {
-              //log('game not found for tip ${entry.key}');
+              assert(game != null);
+              log('TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}');
             } else {
-              Map entryValue = entry.value as Map;
-              return Tip.fromJson(entryValue, entry.key, tipper!, game);
+              Map entryValue = tipEntry.value as Map;
+              return Tip.fromJson(entryValue, tipEntry.key, _tipper!, game);
             }
             return null;
           }));
         }
       } else {
-        log('No tips found in realtime database');
+        log('TipsViewModel._handleEvent() No tips found in realtime database');
       }
     } finally {
       if (!_initialLoadCompleter.isCompleted) {
@@ -126,7 +129,8 @@ class TipsViewModel extends ChangeNotifier {
         for (var tipEntry in tipperTips.entries) {
           Game? game = await _gamesViewModel.findGame(tipEntry.key);
           if (game == null) {
-            log('game not found for tip ${tipEntry.key}');
+            assert(game != null);
+            log('TipsViewModel._deserializeTips() Game not found for tip ${tipEntry.key}');
           } else {
             //log('game found for tip ${tipEntry.key}'
             Tip tip = Tip.fromJson(tipEntry.value, tipEntry.key, tipper, game);
@@ -172,6 +176,53 @@ class TipsViewModel extends ChangeNotifier {
   Future<bool> hasSubmittedTips(Tipper tipper) async {
     await initialLoadCompleted;
     return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
+  }
+
+  // method to return the number of tips submitted for the supplied round and league
+  int numberOfTipsSubmittedForRoundAndLeague(DAURound round, League league) {
+    return _listOfTips
+        .where((tip) =>
+            tip!.game.getDAURound(selectedDAUComp) == round &&
+            tip.game.league == league)
+        .length;
+  }
+
+  // returns the % of tippers who tipped the supplied game result for the supplied game
+  // use findTip to get the tip for the supplied game and tipper - this allows for default tips to be included in count
+  Future<double> percentageOfTippersTipped(
+      GameResult gameResult, Game game) async {
+    await initialLoadCompleted;
+
+    // throw an exception if the tipper is not null
+    if (_tipper != null) {
+      throw Exception(
+          'percentageOfTippersTipped() should not be called when doing agregates for scoring. _tipper is not null');
+    }
+    // get the paidForComp status for the selected tipper
+    bool isScoringPaidComp = false;
+    if (di<TippersViewModel>().selectedTipper != null) {
+      isScoringPaidComp =
+          di<TippersViewModel>().selectedTipper!.paidForComp(selectedDAUComp);
+    }
+
+    // loop through all tippers and remove those that dont have the same paidForComp status
+    List<Tipper> tippers = _listOfTips
+        .map((tip) => tip!.tipper)
+        .where((tipper) =>
+            tipper.paidForComp(selectedDAUComp) == isScoringPaidComp)
+        .toList();
+
+    // now do the calculation
+    int totalTippers = tippers.length;
+    int totalTippersTipped = 0;
+    // loop through each tipper and call findTip()
+    for (Tipper tipper in tippers) {
+      Tip? tip = await findTip(game, tipper);
+      if (tip?.tip == gameResult) {
+        totalTippersTipped++;
+      }
+    }
+    return totalTippersTipped / totalTippers;
   }
 
   @override
