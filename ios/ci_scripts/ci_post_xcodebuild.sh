@@ -14,6 +14,13 @@ fi
 if [[ -n $CI_APP_STORE_SIGNED_APP_PATH ]]; # checks if there is an AppStore signed archive after running xcodebuild
 then
     BUILD_TAG=${CI_BUILD_NUMBER}
+
+    # Debug: Print the path to the project.pbxproj file
+    echo "Project file path: ../${CI_PRODUCT}.xcodeproj/project.pbxproj"
+    
+    # Debug: Print the content of the project.pbxproj file
+    cat ../${CI_PRODUCT}.xcodeproj/project.pbxproj
+
     VERSION=$(cat ../${CI_PRODUCT}.xcodeproj/project.pbxproj | grep -m1 'MARKETING_VERSION' | cut -d'=' -f2 | tr -d ';' | tr -d ' ')
 
     git tag ${CI_PRODUCT}/Release/$VERSION\($BUILD_TAG\)
