@@ -28,7 +28,7 @@ class ConfigViewModel extends ChangeNotifier {
 
     try {
       DataSnapshot dbEvent =
-          await _database.get().timeout(const Duration(seconds: 5));
+          await _database.get().timeout(const Duration(seconds: 30));
 
       if (!dbEvent.exists) {
         // New DB? Set default values in db from ENV file if needed
