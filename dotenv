@@ -16,6 +16,6 @@ TIPPERS_PATH=/AllTippers
 TOKENS_PATH=/AllTippersTokens
 
 #remote config defaults - these are only used if the database /Appconfig branch is not set up
-CURRENT_DAU_COMP=-Nk88l-ww9pYF1j_jUq7  #TODO this should be updated every year
-MIN_APP_VERSION=1.1.3  #Make sure to set the default/fallback version number of the client to a number that is not forcing them to update unnessarily
+CURRENT_DAU_COMP=-OH0YH_ZF2jFTrk6pWhH  #TODO this should be updated every year
+MIN_APP_VERSION=1.2.4  #Make sure to set the default/fallback version number of the client to a number that is not forcing them to update unnessarily
 CREATELINKEDTIPPER=true
