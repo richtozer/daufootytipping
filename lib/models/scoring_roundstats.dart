@@ -37,8 +37,6 @@ class RoundStats {
       'nrl_maxScore': nrlMaxScore,
       'nrl_marginTips': nrlMarginTips,
       'nrl_marginUPS': nrlMarginUPS,
-      // 'rank': rank,
-      // 'changeInRank': rankChange,
     };
   }
 

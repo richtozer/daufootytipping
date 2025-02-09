@@ -17,12 +17,13 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 
 class _TippersAdminPageState extends State<TippersAdminPage> {
   late final ScrollController _scrollController;
-  bool _showPaidCurrent = false;
-  int paidCurrentCount = 0;
+  late final TextEditingController _searchController;
+  String _searchQuery = '';
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -32,27 +33,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _searchController = TextEditingController();
     tipperViewModel = di<TippersViewModel>();
-    _calculatePaidCurrentCount();
   }
-
-  Future<void> _calculatePaidCurrentCount() async {
-    List<Tipper> tippers = await tipperViewModel.getAllTippers();
-    setState(() {
-      paidCurrentCount = tippers
-          .where((tipper) =>
-              tipper.paidForComp(di<DAUCompsViewModel>().activeDAUComp))
-          .length;
-    });
-  }
-
-  // Future<void> _addTipper(BuildContext context) async {
-  //   Navigator.of(context).push(
-  //     MaterialPageRoute(
-  //       builder: (context) => TipperAdminEditPage(tipperViewModel, null),
-  //     ),
-  //   );
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +49,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
           ),
           title: const Text('Admin Tippers'),
         ),
-        // TODO only supprt editing tippers for now. In theory new tippers can register themselves via the app.
+        // TODO only support editing tippers for now. In theory new tippers can register themselves via the app.
         // floatingActionButton: FloatingActionButton(
         //   onPressed: () async {
         //     await _addTipper(context);
@@ -77,18 +60,40 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    FilterChip(
-                      label: Text('Paid current ($paidCurrentCount)'),
-                      selected: _showPaidCurrent,
-                      onSelected: (bool selected) {
-                        setState(() {
-                          _showPaidCurrent = selected;
-                        });
-                      },
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            labelText: 'Search',
+                            prefixIcon: Icon(Icons.search),
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value.toLowerCase();
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Tooltip(
+                        message:
+                            'Search tipers by name, email, logon, role, or competition name. Use "!" for negative search.\n\nExample searches:'
+                            '\nmad_kiwi - returns all tippers with "mad_kiwi" in their name, logon or email addresses'
+                            '\n@gmail.com - returns all tippers with "@gmail.com" in their name, logon or email adresses'
+                            '\ntipper - returns all tippers with "tipper" role'
+                            '\n!admin - returns all tippers without "admin" role'
+                            '\n2025 - returns all tippers that paid for a comp with "2025" in its name'
+                            '\n!2025 - returns all tippers that did not pay for a comp with "2025" in its name'
+                            '\netc',
+                        child: Icon(Icons.info_outline),
+                      ),
+                    ],
+                  ),
                 ),
                 Expanded(
                   child: FutureBuilder<List<Tipper>>(
@@ -101,15 +106,43 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                 .colour); // Show a loading spinner while waiting
                       } else {
                         var tippers = snapshot.data!;
-                        if (_showPaidCurrent) {
-                          tippers = tippers
-                              .where((tipper) => tipper.paidForComp(
-                                  di<DAUCompsViewModel>().activeDAUComp))
-                              .toList();
-                          paidCurrentCount = tippers.length;
+                        int totalTippers = tippers.length;
+                        if (_searchQuery.isNotEmpty) {
+                          bool isNegativeSearch = _searchQuery.startsWith('!');
+                          String query = isNegativeSearch
+                              ? _searchQuery.substring(1)
+                              : _searchQuery;
+
+                          tippers = tippers.where((tipper) {
+                            bool matches = (tipper
+                                        .name
+                                        ?.toLowerCase()
+                                        .contains(query) ??
+                                    false) ||
+                                (tipper.email?.toLowerCase().contains(query) ??
+                                    false) ||
+                                (tipper.logon?.toLowerCase().contains(query) ??
+                                    false) ||
+                                (tipper.tipperRole.name
+                                        .toLowerCase()
+                                        .contains(query) ??
+                                    false) ||
+                                tipper.compsPaidFor.any((comp) =>
+                                    comp.name.toLowerCase().contains(query));
+                            return isNegativeSearch ? !matches : matches;
+                          }).toList();
                         }
+                        int filteredTippers = tippers.length;
                         return Column(
                           children: [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text(
+                                'Showing $filteredTippers of $totalTippers tippers',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
                             Expanded(
                               child: ListView.builder(
                                 //controller: _scrollController,

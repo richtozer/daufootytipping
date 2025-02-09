@@ -112,6 +112,7 @@ class StatsViewModel extends ChangeNotifier {
           }
           _allTipperRoundStats[roundIndex] = roundScores;
         }
+        log('StatsViewModel._handleEventRoundScores() Loaded round scores for ${_allTipperRoundStats.length} rounds');
       } else {
         log('Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores');
       }
@@ -147,7 +148,7 @@ class StatsViewModel extends ChangeNotifier {
       // Update the round winners
       _updateRoundWinners();
       // rank the tippers
-      await _rankTippers();
+      await _rankTippersPerRound();
 
       notifyListeners();
     } catch (e) {
@@ -266,17 +267,17 @@ class StatsViewModel extends ChangeNotifier {
 
       String res =
           'Completed scoring updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
-      log(res);
+      log('StatsViewModel.updateStats() $res');
 
       _deleteStaleLiveScores();
 
       return res;
     } catch (e) {
-      log('StatsViewModel._writeGameResultPercentageTipped() Error updating scoring: $e');
+      log('StatsViewModel.updateStats() Error updating scoring: $e');
       rethrow;
     } finally {
       stopwatch.stop();
-      log('StatsViewModel._writeGameResultPercentageTipped() updateScoring executed in ${stopwatch.elapsed}');
+      log('StatsViewModel.updateStats() executed in ${stopwatch.elapsed}');
       _isCalculating = false;
       notifyListeners();
     }
@@ -464,10 +465,10 @@ class StatsViewModel extends ChangeNotifier {
 
     // Iterate over each round
     for (var roundEntry in _allTipperRoundStats.entries) {
-      int roundNumber = roundEntry.key;
+      int roundIndex = roundEntry.key;
 
       // skip rounds in stats data that exceed the max round number - these are likely finals rounds
-      if (roundNumber + 1 >
+      if (roundIndex + 1 >
           (di<DAUCompsViewModel>().selectedDAUComp?.daurounds.length ?? 0)) {
         continue;
       }
@@ -782,7 +783,7 @@ class StatsViewModel extends ChangeNotifier {
     return roundScores;
   }
 
-  Future<void> _rankTippers() async {
+  Future<void> _rankTippersPerRound() async {
     if (_allTipperRoundStats.isEmpty) {
       return;
     }
@@ -790,22 +791,30 @@ class StatsViewModel extends ChangeNotifier {
     // get a list of all tippers
     List<Tipper> tippers = await di<TippersViewModel>().getAllTippers();
 
-    // log how many tippers we are ranking
-    log('StatsViewModel._rankTippers Ranking ${tippers.length} tippers for comp: ${selectedDAUComp.dbkey}');
+    // Iterate over each round in stats
+    for (var roundEntry in _allTipperRoundStats.entries) {
+      int roundIndex = roundEntry.key;
 
-    for (var roundIndex = 0;
-        roundIndex < selectedDAUComp.daurounds.length;
-        roundIndex++) {
+      // skip rounds in stats data that exceed the max round number - these are likely finals rounds
+      if (roundIndex + 1 >
+          (di<DAUCompsViewModel>().selectedDAUComp?.daurounds.length ?? 0)) {
+        continue;
+      }
+
       List<MapEntry<Tipper, int>> roundScores = [];
 
-      for (var tipper in tippers) {
+      Map<Tipper, RoundStats> tipperStats = roundEntry.value;
+
+      // Iterate over each tipper's stats for the round
+      for (var tipperEntry in tipperStats.entries) {
+        Tipper tipper = tipperEntry.key;
+
         if (_isSelectedTipperPaidUpMember !=
             tipper.paidForComp(selectedDAUComp)) {
           continue;
         }
         if (_allTipperRoundStats[roundIndex] == null ||
             _allTipperRoundStats[roundIndex]![tipper] == null) {
-          //log('No scores for tipper ${tipper.name} in round ${roundIndex + 1}');
           continue;
         }
         roundScores.add(MapEntry(

@@ -127,7 +127,7 @@ class _HomePageState extends State<HomePage> {
                   message: compYear,
                   textStyle: const TextStyle(color: Colors.black),
                   location: BannerLocation.bottomStart,
-                  color: League.nrl.colour,
+                  color: Colors.orange,
                   child: scaffold);
             } else {
               return scaffold;

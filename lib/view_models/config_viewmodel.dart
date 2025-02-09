@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:firebase_core_platform_interface/firebase_core_platform_interface.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ConfigViewModel extends ChangeNotifier {
-  final DatabaseReference _database =
+  final DatabaseReference _db =
       FirebaseDatabase.instance.ref().child('/AppConfig');
   late StreamSubscription<DatabaseEvent> _configStream;
 
@@ -19,8 +20,9 @@ class ConfigViewModel extends ChangeNotifier {
   bool? get createLinkedTipper => _createLinkedTipper;
 
   ConfigViewModel() {
-    _initialize();
-    _listenToConfigChanges();
+    _initialize().then((_) {
+      _listenToConfigChanges();
+    });
   }
 
   Future<void> _initialize() async {
@@ -28,11 +30,11 @@ class ConfigViewModel extends ChangeNotifier {
 
     try {
       DataSnapshot dbEvent =
-          await _database.get().timeout(const Duration(seconds: 30));
+          await _db.get().timeout(const Duration(seconds: 30));
 
       if (!dbEvent.exists) {
         // New DB? Set default values in db from ENV file if needed
-        await _database.set({
+        await _db.set({
           "currentDAUComp": dotenv.env['CURRENT_DAU_COMP'],
           "minAppVersion": dotenv.env['MIN_APP_VERSION'],
           "createLinkedTipper":
@@ -44,16 +46,23 @@ class ConfigViewModel extends ChangeNotifier {
         _processSnapshot(dbEvent);
       }
     } on TimeoutException catch (e) {
-      log('Cannot connect to database. Operation timed out: $e');
+      log('ConfigViewModel._initialize() Cannot connect to database. Operation timed out: $e');
+      rethrow;
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        log('ConfigViewModel._initialize() Permission denied: ${e.message}');
+      } else {
+        log('ConfigViewModel._initialize() An unexpected Firebase error occurred: ${e.message}');
+      }
       rethrow;
     } catch (e) {
-      log('An unexpected error occurred: $e');
+      log('ConfigViewModel._initialize() An unexpected error occurred: $e');
       rethrow;
     }
   }
 
   void _listenToConfigChanges() {
-    _configStream = _database.onValue.listen((event) {
+    _configStream = _db.onValue.listen((event) {
       if (event.snapshot.exists) {
         _processSnapshot(event.snapshot);
       } else {
@@ -72,15 +81,15 @@ class ConfigViewModel extends ChangeNotifier {
   }
 
   Future<void> setConfigCurrentDAUComp(String value) async {
-    await _database.child('currentDAUComp').set(value);
+    await _db.child('currentDAUComp').set(value);
   }
 
   Future<void> setConfigMinAppVersion(String value) async {
-    await _database.child('minAppVersion').set(value);
+    await _db.child('minAppVersion').set(value);
   }
 
   Future<void> setCreateLinkedTipper(bool value) async {
-    await _database.child('createLinkedTipper').set(value);
+    await _db.child('createLinkedTipper').set(value);
   }
 
   @override
