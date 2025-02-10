@@ -333,6 +333,14 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     await initialLoadComplete;
 
+    // acquire lock
+    bool lockAcquired = await _acquireLock();
+
+    if (!lockAcquired) {
+      log('getNetworkFixtureData() Another instance is already downloading the fixture data. Skipping download.');
+      return 'Another instance is already downloading the fixture data. Skipping download.';
+    }
+
     _isDownloading = true;
     notifyListeners();
 
@@ -343,6 +351,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       rethrow;
     } finally {
       _isDownloading = false;
+      // release lock
+      await _releaseLock();
       notifyListeners();
     }
   }

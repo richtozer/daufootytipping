@@ -145,12 +145,6 @@ class GameTipViewModel extends ChangeNotifier {
       log('new tip submitted: ${updates.toString()}');
 
       _tip = tip; // update the tip with the new tip
-
-      // update the margin counts for this tipper and round asynchronously to avoid blocking UI
-      di<StatsViewModel>().updateStats(
-          di<DAUCompsViewModel>().selectedDAUComp!,
-          _tip?.game.getDAURound(di<DAUCompsViewModel>().selectedDAUComp!),
-          null);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

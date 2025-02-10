@@ -187,6 +187,18 @@ class TipsViewModel extends ChangeNotifier {
         .length;
   }
 
+  // method to return the number of margin tips for the supplied round and league
+  int numberOfMarginTipsSubmittedForRoundAndLeague(
+      DAURound round, League league) {
+    return _listOfTips
+        .where((tip) =>
+            tip!.game.getDAURound(selectedDAUComp) == round &&
+                tip.game.league == league &&
+                tip.tip == GameResult.a ||
+            tip.tip == GameResult.e)
+        .length;
+  }
+
   // returns the % of tippers who tipped the supplied game result for the supplied game
   // use findTip to get the tip for the supplied game and tipper - this allows for default tips to be included in count
   Future<double> percentageOfTippersTipped(
