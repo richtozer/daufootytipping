@@ -193,9 +193,8 @@ class TipsViewModel extends ChangeNotifier {
     return _listOfTips
         .where((tip) =>
             tip!.game.getDAURound(selectedDAUComp) == round &&
-                tip.game.league == league &&
-                tip.tip == GameResult.a ||
-            tip.tip == GameResult.e)
+            tip.game.league == league &&
+            (tip.tip == GameResult.a || tip.tip == GameResult.e))
         .length;
   }
 
