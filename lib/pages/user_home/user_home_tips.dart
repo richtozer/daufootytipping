@@ -287,6 +287,10 @@ class TipsTabState extends State<TipsTab> {
 
     int tipsOutstanding = totalGames - tipsSubmitted;
 
+    // get a current count of margin tips submitted for this league round
+    int marginTipsSubmitted = daucompsViewModel.selectedTipperTipsViewModel!
+        .numberOfMarginTipsSubmittedForRoundAndLeague(dauRound, leagueHeader);
+
     return Card(
       color: Colors.black54,
       //shadowColor: League.nrl.colour,
@@ -347,7 +351,7 @@ class TipsTabState extends State<TipsTab> {
                                         style: const TextStyle(
                                             color: Colors.white70,
                                             fontWeight: FontWeight.bold),
-                                        'Your Margins: ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips} '),
+                                        'Your Margins: $marginTipsSubmitted'),
                                   ],
                                 ),
                           dauRound.roundState != RoundState.notStarted
