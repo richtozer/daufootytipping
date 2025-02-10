@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 enum GameState {
   notStarted, // game start time is in the future
   startingSoon, // game start time is within 14 hours
-  startedResultKnown, // game start time is in the past, but 'official' fixture game score is known
+  startedResultKnown, // game start time is in the past, and 'official' fixture game score is known
   startedResultNotKnown, // game start time is in the past, but 'official' fixture  game score is not known
 }
 

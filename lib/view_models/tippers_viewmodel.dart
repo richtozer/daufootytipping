@@ -47,8 +47,6 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  //
-
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
   final Completer<void> _isUserLinked = Completer<void>();

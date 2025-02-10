@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';

@@ -37,6 +37,49 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     tipperViewModel = di<TippersViewModel>();
   }
 
+  void _showSearchHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Search Help'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(
+                    'Filter tippers by name, email, logon, role, competition name or \'godmode\''
+                    '.'),
+                Text('\nUse "!" for negative search.'),
+                SizedBox(height: 10),
+                Text('Example searches:'),
+                Text(
+                    'mad_kiwi - returns all tippers with "mad_kiwi" in their name, logon or email addresses'),
+                Text(
+                    '@gmail.com - returns all tippers with "@gmail.com" in their name, logon or email addresses'),
+                Text('tipper - returns all tippers with "tipper" role'),
+                Text('!admin - returns all tippers without "admin" role'),
+                Text(
+                    '2025 - returns all tippers that paid for a comp with "2025" in its name'),
+                Text(
+                    '!2025 - returns all tippers that did not pay for a comp with "2025" in its name'),
+                Text('godmode - returns the tipper record in god mode'),
+                Text('etc'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,7 +111,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            labelText: 'Search',
+                            labelText: 'Filter tippers',
                             prefixIcon: Icon(Icons.search),
                             border: OutlineInputBorder(),
                           ),
@@ -78,19 +121,6 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                             });
                           },
                         ),
-                      ),
-                      SizedBox(width: 8),
-                      Tooltip(
-                        message:
-                            'Search tipers by name, email, logon, role, or competition name. Use "!" for negative search.\n\nExample searches:'
-                            '\nmad_kiwi - returns all tippers with "mad_kiwi" in their name, logon or email addresses'
-                            '\n@gmail.com - returns all tippers with "@gmail.com" in their name, logon or email adresses'
-                            '\ntipper - returns all tippers with "tipper" role'
-                            '\n!admin - returns all tippers without "admin" role'
-                            '\n2025 - returns all tippers that paid for a comp with "2025" in its name'
-                            '\n!2025 - returns all tippers that did not pay for a comp with "2025" in its name'
-                            '\netc',
-                        child: Icon(Icons.info_outline),
                       ),
                     ],
                   ),
@@ -113,24 +143,35 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                               ? _searchQuery.substring(1)
                               : _searchQuery;
 
-                          tippers = tippers.where((tipper) {
-                            bool matches = (tipper
-                                        .name
-                                        ?.toLowerCase()
-                                        .contains(query) ??
-                                    false) ||
-                                (tipper.email?.toLowerCase().contains(query) ??
-                                    false) ||
-                                (tipper.logon?.toLowerCase().contains(query) ??
-                                    false) ||
-                                (tipper.tipperRole.name
-                                        .toLowerCase()
-                                        .contains(query) ??
-                                    false) ||
-                                tipper.compsPaidFor.any((comp) =>
-                                    comp.name.toLowerCase().contains(query));
-                            return isNegativeSearch ? !matches : matches;
-                          }).toList();
+                          // Add godmode filter
+                          if (query == 'godmode') {
+                            tippers = tippers.where((tipper) {
+                              return tipperViewModel.inGodMode &&
+                                  tipper.dbkey ==
+                                      tipperViewModel.selectedTipper!.dbkey;
+                            }).toList();
+                          } else {
+                            tippers = tippers.where((tipper) {
+                              bool matches = (tipper.name
+                                          ?.toLowerCase()
+                                          .contains(query) ??
+                                      false) ||
+                                  (tipper.email
+                                          ?.toLowerCase()
+                                          .contains(query) ??
+                                      false) ||
+                                  (tipper.logon
+                                          ?.toLowerCase()
+                                          .contains(query) ??
+                                      false) ||
+                                  (tipper.tipperRole.name
+                                      .toLowerCase()
+                                      .contains(query)) ||
+                                  tipper.compsPaidFor.any((comp) =>
+                                      comp.name.toLowerCase().contains(query));
+                              return isNegativeSearch ? !matches : matches;
+                            }).toList();
+                          }
                         }
                         int filteredTippers = tippers.length;
                         return Column(
@@ -138,9 +179,21 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text(
-                                'Showing $filteredTippers of $totalTippers tippers',
-                                style: TextStyle(fontSize: 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Showing $filteredTippers of $totalTippers tippers',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.info_outline),
+                                    onPressed: () {
+                                      _showSearchHelpDialog(context);
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                             Expanded(

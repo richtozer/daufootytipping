@@ -54,7 +54,7 @@ class TipsViewModel extends ChangeNotifier {
     notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
   }
 
-  void _listenToTips() async {
+  void _listenToTips() {
     if (_tipper != null) {
       _tipsStream = _db
           .child('$tipsPathRoot/${selectedDAUComp.dbkey}/${_tipper!.dbkey}')
