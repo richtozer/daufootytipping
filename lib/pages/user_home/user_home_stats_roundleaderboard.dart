@@ -21,7 +21,7 @@ class StatRoundLeaderboard extends StatefulWidget {
 }
 
 class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
-  late StatsViewModel scoresViewModel;
+  late StatsViewModel statsViewModel;
   Map<Tipper, RoundStats> roundLeaderboard = {};
 
   bool isAscending = true;
@@ -41,16 +41,16 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   void initState() {
     super.initState();
 
-    scoresViewModel = di<StatsViewModel>();
+    statsViewModel = di<StatsViewModel>();
     roundLeaderboard =
-        scoresViewModel.allTipperRoundStats[widget.roundNumberToDisplay - 1]!;
+        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay - 1);
     onSort(1, true);
   }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<StatsViewModel>.value(
-      value: scoresViewModel,
+      value: statsViewModel,
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(
