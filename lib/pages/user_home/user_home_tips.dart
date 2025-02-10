@@ -23,10 +23,8 @@ class TipsTab extends StatefulWidget {
 }
 
 class TipsTabState extends State<TipsTab> {
-  final String? currentDAUCompDbkey =
-      di<DAUCompsViewModel>().selectedDAUComp?.dbkey;
-
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
+
   int latestRoundNumber = 1;
 
   @override
@@ -77,7 +75,7 @@ class TipsTabState extends State<TipsTab> {
         ChangeNotifierProvider<DAUCompsViewModel>.value(
             value: daucompsViewModel),
         ChangeNotifierProvider<StatsViewModel?>.value(
-            value: di<StatsViewModel>()),
+            value: daucompsViewModel.statsViewModel),
       ],
       child: Theme(
         data: myTheme,

@@ -40,8 +40,8 @@ class StatsViewModel extends ChangeNotifier {
 
   final DAUComp selectedDAUComp;
 
-  bool _isCalculating = false;
-  bool get isCalculating => _isCalculating;
+  bool _isUpdateScoringRunning = false;
+  bool get isUpdateScoringRunning => _isUpdateScoringRunning;
   bool _isUpdatingLeaderAndRoundAndRank = false;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
@@ -122,7 +122,7 @@ class StatsViewModel extends ChangeNotifier {
       }
 
       //check if updateScoring is in progress, if so, skip the following steps
-      if (_isCalculating) {
+      if (_isUpdateScoringRunning) {
         return;
       }
 
@@ -137,9 +137,10 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> updateLeaderAndRoundAndRank() async {
     try {
       if (_isUpdatingLeaderAndRoundAndRank) {
+        log('StatsViewModel.updateLeaderAndRoundAndRank() Update already in progress, skipping');
         return;
       } else {
-        log('StatsViewModel.updateLeaderAndRoundAndRank() Calculating not in progress, updating leaderboard and round winners');
+        log('StatsViewModel.updateLeaderAndRoundAndRank() Updating leaderboard and round winners');
         _isUpdatingLeaderAndRoundAndRank = true;
       }
 
@@ -198,7 +199,7 @@ class StatsViewModel extends ChangeNotifier {
     log('StatsViewModel.updateStats() called for comp: ${daucompToUpdate.name}');
     var stopwatch = Stopwatch()..start();
     try {
-      if (_isCalculating) {
+      if (_isUpdateScoringRunning) {
         return 'Calcuating already in progress';
       }
 
@@ -206,7 +207,7 @@ class StatsViewModel extends ChangeNotifier {
         await _initialRoundLoadCompleted.future;
       }
 
-      _isCalculating = true;
+      _isUpdateScoringRunning = true;
 
       // write a firebase analytic event that scoring is underway
       FirebaseAnalytics.instance
@@ -278,7 +279,7 @@ class StatsViewModel extends ChangeNotifier {
     } finally {
       stopwatch.stop();
       log('StatsViewModel.updateStats() executed in ${stopwatch.elapsed}');
-      _isCalculating = false;
+      _isUpdateScoringRunning = false;
     }
   }
 
