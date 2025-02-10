@@ -63,7 +63,7 @@ class TipsTabState extends State<TipsTab> {
             color: Colors.black38,
             child: const Center(
               child: Text(
-                'Nothing to see here. Contact daufootytipping@gmail.com.',
+                'Nothing to see here.\nContact daufootytipping@gmail.com.',
                 style: TextStyle(color: Colors.white70),
               ),
             ),

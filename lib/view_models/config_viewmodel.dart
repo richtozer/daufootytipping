@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:firebase_core_platform_interface/firebase_core_platform_interface.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+const configPathRoot = '/AppConfig';
 
 class ConfigViewModel extends ChangeNotifier {
-  final DatabaseReference _db =
-      FirebaseDatabase.instance.ref().child('/AppConfig');
+  final DatabaseReference _db = FirebaseDatabase.instance.ref(configPathRoot);
   late StreamSubscription<DatabaseEvent> _configStream;
 
   String? _activeDAUComp;
@@ -19,46 +18,11 @@ class ConfigViewModel extends ChangeNotifier {
   bool? _createLinkedTipper;
   bool? get createLinkedTipper => _createLinkedTipper;
 
+  final Completer<void> _initialLoadCompleter = Completer<void>();
+  get initialLoadComplete => _initialLoadCompleter.future;
+
   ConfigViewModel() {
-    _initialize().then((_) {
-      _listenToConfigChanges();
-    });
-  }
-
-  Future<void> _initialize() async {
-    log('ConfigViewModel._initialize()');
-
-    try {
-      DataSnapshot dbEvent =
-          await _db.get().timeout(const Duration(seconds: 30));
-
-      if (!dbEvent.exists) {
-        // New DB? Set default values in db from ENV file if needed
-        await _db.set({
-          "currentDAUComp": dotenv.env['CURRENT_DAU_COMP'],
-          "minAppVersion": dotenv.env['MIN_APP_VERSION'],
-          "createLinkedTipper":
-              dotenv.env['CREATELINKEDTIPPER']!.toLowerCase() == 'true'
-                  ? true
-                  : false,
-        });
-      } else {
-        _processSnapshot(dbEvent);
-      }
-    } on TimeoutException catch (e) {
-      log('ConfigViewModel._initialize() Cannot connect to database. Operation timed out: $e');
-      rethrow;
-    } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') {
-        log('ConfigViewModel._initialize() Permission denied: ${e.message}');
-      } else {
-        log('ConfigViewModel._initialize() An unexpected Firebase error occurred: ${e.message}');
-      }
-      rethrow;
-    } catch (e) {
-      log('ConfigViewModel._initialize() An unexpected error occurred: $e');
-      rethrow;
-    }
+    _listenToConfigChanges();
   }
 
   void _listenToConfigChanges() {
@@ -77,6 +41,10 @@ class ConfigViewModel extends ChangeNotifier {
     _activeDAUComp = snapshot.child('currentDAUComp').value.toString();
     _minAppVersion = snapshot.child('minAppVersion').value.toString();
     _createLinkedTipper = snapshot.child('createLinkedTipper').value as bool;
+
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
+    }
     notifyListeners();
   }
 

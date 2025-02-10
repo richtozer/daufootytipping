@@ -6,7 +6,9 @@
       ".indexOn": ["authuid", "email"]
     },
     "DAUCompsGames": {
-      ".indexOn": "DateUtc"
+      "$compDBKey": {
+        ".indexOn": "DateUtc"
+      }
     }
   }
 }

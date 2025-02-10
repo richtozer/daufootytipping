@@ -71,7 +71,7 @@ Future<void> main() async {
 
   //setup some default analytics parameters
   if (!kIsWeb) {
-    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.2.0'});
+    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.2.5'});
   }
 
   di.allowReassignment = true;
@@ -116,24 +116,29 @@ class MyApp extends StatelessWidget {
               width: width,
               child: Consumer<ConfigViewModel>(
                 builder: (context, configViewModel, child) {
-                  if (configViewModel.activeDAUComp == null ||
-                      configViewModel.minAppVersion == null ||
-                      configViewModel.createLinkedTipper == null) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
+                  return FutureBuilder<void>(
+                    future: configViewModel.initialLoadComplete,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
 
-                  di.registerLazySingleton<DAUCompsViewModel>(() =>
-                      DAUCompsViewModel(configViewModel.activeDAUComp!, false));
+                      di.registerLazySingleton<DAUCompsViewModel>(() =>
+                          DAUCompsViewModel(
+                              configViewModel.activeDAUComp!, false));
 
-                  di.registerLazySingleton<TippersViewModel>(() =>
-                      TippersViewModel(configViewModel.createLinkedTipper!));
+                      di.registerLazySingleton<TippersViewModel>(() =>
+                          TippersViewModel(
+                              configViewModel.createLinkedTipper!));
 
-                  return UserAuthPage(
-                    configViewModel.minAppVersion,
-                    isUserLoggingOut: false,
-                    createLinkedTipper: configViewModel.createLinkedTipper!,
+                      return UserAuthPage(
+                        configViewModel.minAppVersion,
+                        isUserLoggingOut: false,
+                        createLinkedTipper: configViewModel.createLinkedTipper!,
+                      );
+                    },
                   );
                 },
               ),

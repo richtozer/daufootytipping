@@ -148,7 +148,7 @@ class StatsViewModel extends ChangeNotifier {
       // Update the round winners
       _updateRoundWinners();
       // rank the tippers
-      await _rankTippersPerRound();
+      _rankTippersPerRound();
 
       notifyListeners();
     } catch (e) {
@@ -279,7 +279,6 @@ class StatsViewModel extends ChangeNotifier {
       stopwatch.stop();
       log('StatsViewModel.updateStats() executed in ${stopwatch.elapsed}');
       _isCalculating = false;
-      notifyListeners();
     }
   }
 
@@ -456,7 +455,6 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     _roundWinners = roundWinners;
-    notifyListeners();
   }
 
   void _updateLeaderboardForComp() {
@@ -543,8 +541,6 @@ class StatsViewModel extends ChangeNotifier {
     });
 
     _leaderboard = leaderboard;
-
-    notifyListeners();
   }
 
   void sortRoundWinnersByRoundNumber(bool ascending) {
@@ -783,13 +779,10 @@ class StatsViewModel extends ChangeNotifier {
     return roundScores;
   }
 
-  Future<void> _rankTippersPerRound() async {
+  void _rankTippersPerRound() {
     if (_allTipperRoundStats.isEmpty) {
       return;
     }
-
-    // get a list of all tippers
-    List<Tipper> tippers = await di<TippersViewModel>().getAllTippers();
 
     // Iterate over each round in stats
     for (var roundEntry in _allTipperRoundStats.entries) {
@@ -853,7 +846,6 @@ class StatsViewModel extends ChangeNotifier {
         lastScore = entry.value;
       }
     }
-    notifyListeners();
   }
 
   @override

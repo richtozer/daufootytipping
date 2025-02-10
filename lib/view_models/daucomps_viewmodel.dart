@@ -34,7 +34,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp =>
-      _selectedDAUComp; // his is the comp they are currently viewing
+      _selectedDAUComp; // this is the comp that folks are currently viewing
 
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
@@ -256,8 +256,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     return timeUntilNewDay.toUtc().difference(DateTime.now().toUtc());
   }
 
-  // method to setup a potential trigger to periodically update the active comp fixture data
-  // this method will delay until elapsed time has passed
   Future<void> fixtureUpdateTrigger() async {
     await initialLoadComplete;
 
@@ -266,9 +264,15 @@ class DAUCompsViewModel extends ChangeNotifier {
       return;
     }
 
+    // do not use trigger when in admin mode
+    if (_adminMode) {
+      log('fixtureUpdateTrigger() Admin mode detected. No automated trigger setup for ${_activeDAUComp!.name}.');
+      return;
+    }
+
     // if we are at the end of the competition, then don't trigger the fixture update
     if (_isCompOver(_activeDAUComp!)) {
-      log('End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
+      log('_fixtureUpdateTrigger() End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
       return;
     }
 
@@ -276,25 +280,49 @@ class DAUCompsViewModel extends ChangeNotifier {
         DateTime.utc(2021, 1, 1);
     Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
 
-    log('Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
+    log('_fixtureUpdateTrigger() Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
     await Future.delayed(timeUntilNewDay);
-    log('Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
+    log('_fixtureUpdateTrigger() Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
 
-    // create an analytics event to track the fixture update trigger
-    FirebaseAnalytics.instance
-        .logEvent(name: 'fixture_update_trigger', parameters: {
-      'comp': _activeDAUComp!.name,
-      'tipperHandlingUpdate':
-          di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper'
-    });
-
-    if (_activeDAUComp!.lastFixtureUpdateTimestampUTC == lastUpdate ||
-        _activeDAUComp!.lastFixtureUpdateTimestampUTC == null) {
-      log('Starting fixture update for comp: ${_activeDAUComp!.name}');
-      await getNetworkFixtureData(_activeDAUComp!);
-    } else {
-      log('Fixture update has already been triggered for active comp: ${_activeDAUComp!.name}. Skipping');
+    // Try to acquire the lock
+    bool lockAcquired = await _acquireLock();
+    if (!lockAcquired) {
+      log('_fixtureUpdateTrigger() Another instance is already downloading the fixture data. Skipping download.');
+      return;
     }
+
+    try {
+      log('_fixtureUpdateTrigger() Starting fixture update for comp: ${_activeDAUComp!.name}');
+      // create an analytics event to track the fixture update trigger
+      FirebaseAnalytics.instance.logEvent(name: 'fixture_trigger', parameters: {
+        'comp': _activeDAUComp!.name,
+        'tipperHandlingUpdate':
+            di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper'
+      });
+      await getNetworkFixtureData(_activeDAUComp!);
+    } finally {
+      // Release the lock
+      await _releaseLock();
+    }
+  }
+
+  Future<bool> _acquireLock() async {
+    DatabaseReference lockRef =
+        _db.child('$daucompsPath/${_activeDAUComp!.dbkey}/fixtureDownloadLock');
+    DataSnapshot snapshot = await lockRef.get();
+
+    if (snapshot.exists && snapshot.value == true) {
+      return false; // Lock is already held by another instance
+    }
+
+    await lockRef.set(true);
+    return true; // Lock acquired successfully
+  }
+
+  Future<void> _releaseLock() async {
+    DatabaseReference lockRef =
+        _db.child('$daucompsPath/${_activeDAUComp!.dbkey}/fixtureDownloadLock');
+    await lockRef.set(false);
   }
 
   Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
@@ -307,11 +335,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     _isDownloading = true;
     notifyListeners();
-
-    if (daucompToUpdate.dbkey != _activeDAUComp!.dbkey!) {
-      log('getNetworkFixtureData() Changing selected comp to ${daucompToUpdate.name}');
-      await changeDisplayedDAUComp(daucompToUpdate, false);
-    }
 
     try {
       return await _fetchAndProcessFixtureData(daucompToUpdate);
@@ -346,7 +369,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     String res =
         'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
     FirebaseAnalytics.instance.logEvent(
-        name: 'fixture_update',
+        name: 'fixture_download',
         parameters: {'comp': daucompToUpdate.name, 'result': res});
 
     daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
