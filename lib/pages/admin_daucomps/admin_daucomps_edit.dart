@@ -780,7 +780,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           StatsViewModel(widget.daucomp!, dauCompsViewModel.gamesViewModel);
       return OutlinedButton(
         onPressed: () async {
-          if (scoresViewModel.isCalculating) {
+          if (scoresViewModel.isUpdateScoringRunning) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 content: Text('Scoring already in progress')));
@@ -822,7 +822,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             }
           }
         },
-        child: Text(!scoresViewModel.isCalculating ? 'Rescore' : 'Scoring...'),
+        child: Text(
+            !scoresViewModel.isUpdateScoringRunning ? 'Rescore' : 'Scoring...'),
       );
     }
   }
