@@ -283,6 +283,24 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
+  Map<Tipper, RoundStats> getRoundLeaderBoard(int roundIndex) {
+    if (_allTipperRoundStats.isEmpty) {
+      return {};
+    }
+
+    // only include tippers who's paid status matches that of the authenticated tipper
+    Map<Tipper, RoundStats> roundLeaderboard = {};
+    for (var tipperEntry in _allTipperRoundStats[roundIndex]!.entries) {
+      if (_isSelectedTipperPaidUpMember !=
+          tipperEntry.key.paidForComp(selectedDAUComp)) {
+        continue;
+      }
+      roundLeaderboard[tipperEntry.key] = tipperEntry.value;
+    }
+
+    return roundLeaderboard;
+  }
+
   Future<void> _writeGameResultPercentageTipped(List<DAURound> dauRoundsEdited,
       TipsViewModel allTipsViewModel, DAUComp daucompToUpdate) async {
     // write percent each gameresult was tipped for each game
