@@ -51,23 +51,29 @@ class TipsTabState extends State<TipsTab> {
     log('TipsPageBody.build()');
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      return Center(
-        child: SizedBox(
-          height: 75,
-          child: Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            color: Colors.black38,
-            child: const Center(
-              child: Text(
-                'Nothing to see here.\nContact daufootytipping@gmail.com.',
-                style: TextStyle(color: Colors.white70),
+      log('TipsPageBody.build() selectedDAUComp is null. Trying to change to active comp');
+      // try changing to the active comp
+      daucompsViewModel.changeDisplayedDAUComp(
+          daucompsViewModel.activeDAUComp!, false);
+      if (daucompsViewModel.selectedDAUComp == null) {
+        return Center(
+          child: SizedBox(
+            height: 75,
+            child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              color: Colors.black38,
+              child: const Center(
+                child: Text(
+                  'Nothing to see here.\nContact daufootytipping@gmail.com.',
+                  style: TextStyle(color: Colors.white70),
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     return MultiProvider(
