@@ -5,13 +5,10 @@ import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:watch_it/watch_it.dart';
 
 class GameTipViewModel extends ChangeNotifier {
   Tip? _tip;
