@@ -198,7 +198,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Tipper?> _findTipperByUid(String authuid) async {
+  Future<Tipper?> findTipperByUid(String authuid) async {
     if (!_initialLoadCompleter.isCompleted) {
       log('Waiting for initial tipper load to complete, findtipperbyuid($authuid)');
       await _initialLoadCompleter.future;
@@ -273,7 +273,7 @@ class TippersViewModel extends ChangeNotifier {
 
     try {
       // first try finding the tipper based on authuid
-      foundTipper = await _findTipperByUid(authenticatedFirebaseUser.uid);
+      foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
 
       if (foundTipper != null) {
         log('linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
@@ -431,26 +431,9 @@ class TippersViewModel extends ChangeNotifier {
     // wait for the token to be populated
     FirebaseMessagingService? firebaseService = di<FirebaseMessagingService>();
     await firebaseService.initialLoadComplete;
-    String token = firebaseService.fbmToken ?? '';
 
-    if (token.isEmpty) {
-      log('registerLinkedTipperForMessaging() FBM token is empty, skipping registration');
-      return;
-    }
-    String timeNow = DateTime.now().toIso8601String();
-
-    _db
-        .child(tokensPath)
-        .child(_authenticatedTipper!.dbkey!)
-        .update({token: timeNow});
-
-    log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${token.substring(token.length - 5)}');
+    log('registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${firebaseService.fbmToken?.substring(firebaseService.fbmToken!.length - 5)}');
   }
-
-  //this is the callback method when there are changes in the FBM token
-  // Future<void> _updateFbmToken() async {
-  //   await _registerLinkedTipperForMessaging();
-  // }
 
   // method to delete acctount
   void deleteAccount() async {

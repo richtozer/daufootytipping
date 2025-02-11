@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -264,6 +265,12 @@ class DAUCompsViewModel extends ChangeNotifier {
       return;
     }
 
+    // if selected comp is not the active comp then we don't want to trigger the fixture update
+    if (_selectedDAUComp != _activeDAUComp) {
+      log('_fixtureUpdateTrigger() Selected comp ${_selectedDAUComp?.name} is not the active comp. No fixture update will be triggered.');
+      return;
+    }
+
     // do not use trigger when in admin mode
     if (_adminMode) {
       log('fixtureUpdateTrigger() Admin mode detected. No automated trigger setup for ${_activeDAUComp!.name}.');
@@ -284,13 +291,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     await Future.delayed(timeUntilNewDay);
     log('_fixtureUpdateTrigger() Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
 
-    // Try to acquire the lock
-    bool lockAcquired = await _acquireLock();
-    if (!lockAcquired) {
-      log('_fixtureUpdateTrigger() Another instance is already downloading the fixture data. Skipping download.');
-      return;
-    }
-
     try {
       log('_fixtureUpdateTrigger() Starting fixture update for comp: ${_activeDAUComp!.name}');
       // create an analytics event to track the fixture update trigger
@@ -300,10 +300,15 @@ class DAUCompsViewModel extends ChangeNotifier {
             di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper'
       });
       await getNetworkFixtureData(_activeDAUComp!);
-    } finally {
-      // Release the lock
-      await _releaseLock();
     }
+    // ignore: avoid_catches_without_on_clauses
+    catch (e) {
+      log('_fixtureUpdateTrigger() Error fetching fixture data: $e');
+    }
+    // use this daily opportunity to delete stale tokens
+    // this is done after the fixture update is complete
+    await di<FirebaseMessagingService>()
+        .deleteStaleTokens(di<TippersViewModel>());
   }
 
   Future<bool> _acquireLock() async {

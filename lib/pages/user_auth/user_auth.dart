@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -9,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -76,6 +78,14 @@ class UserAuthPageState extends State<UserAuthPage> {
     await FirebaseAuth.instance.signOut();
   }
 
+  void _initializeFirebaseMessagingService() {
+    if (!kIsWeb) {
+      di.registerLazySingleton<FirebaseMessagingService>(
+          () => FirebaseMessagingService());
+      di<FirebaseMessagingService>().initializeFirebaseMessaging();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
@@ -104,6 +114,10 @@ class UserAuthPageState extends State<UserAuthPage> {
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, authSnapshot) {
+          if (authSnapshot.hasData && authSnapshot.data != null) {
+            _initializeFirebaseMessagingService();
+          }
+
           return FutureBuilder<bool>(
             future: isClientVersionOutOfDate(),
             builder: (context, versionSnapshot) {

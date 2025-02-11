@@ -76,12 +76,6 @@ Future<void> main() async {
 
   di.allowReassignment = true;
 
-  if (!kIsWeb) {
-    di.registerLazySingleton<FirebaseMessagingService>(
-        () => FirebaseMessagingService());
-    di<FirebaseMessagingService>().initializeFirebaseMessaging();
-  }
-
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   runApp(
