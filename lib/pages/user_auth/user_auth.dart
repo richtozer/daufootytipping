@@ -12,7 +12,6 @@ import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -21,19 +20,20 @@ class UserAuthPage extends StatefulWidget {
   final bool isUserLoggingOut;
   final bool isUserDeletingAccount;
   final bool createLinkedTipper;
+  final String googleClientId;
 
   const UserAuthPage(this.configMinAppVersion,
       {super.key,
       this.isUserLoggingOut = false,
       this.isUserDeletingAccount = false,
-      required this.createLinkedTipper});
+      required this.createLinkedTipper,
+      required this.googleClientId});
 
   @override
   UserAuthPageState createState() => UserAuthPageState();
 }
 
 class UserAuthPageState extends State<UserAuthPage> {
-  final String clientId = dotenv.env['GOOGLE_CLIENT_ID']!;
   final PackageInfoService packageInfoService =
       GetIt.instance<PackageInfoService>();
 
@@ -164,17 +164,17 @@ class UserAuthPageState extends State<UserAuthPage> {
                 return SignInScreen(
                   providers: [
                     AppleProvider(),
-                    GoogleProvider(clientId: clientId),
+                    GoogleProvider(clientId: widget.googleClientId),
                     EmailAuthProvider(),
                   ],
                   headerBuilder: (context, constraints, shrinkOffset) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.all(20),
                       child: AspectRatio(
                         aspectRatio: 1,
-                        child: Image(
-                          image: AssetImage('assets/icon/AppIcon.png'),
-                        ),
+                        child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15.0),
+                            child: Image.asset('assets/icon/AppIcon.png')),
                       ),
                     );
                   },
@@ -183,7 +183,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: action == AuthAction.signIn
                           ? const Text(
-                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.')
+                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.\n\nOptionally, you can sign in with your email and password.')
                           : const Text(
                               'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.'),
                     );
@@ -205,7 +205,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                           return const Padding(
                             padding: EdgeInsets.only(top: 16),
                             child: Text(
-                              'If you are having trouble signing in, please contact daufootytipping@gmail.com\n'
+                              'If you\'re having trouble signing in, click here: https://interview.coach/tipping\n'
                               'App Version: Unknown',
                               style: TextStyle(color: Colors.grey),
                             ),
@@ -215,7 +215,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                           return Padding(
                             padding: const EdgeInsets.only(top: 16),
                             child: Text(
-                              'If you are having trouble signing in, please contact daufootytipping@gmail.com\n'
+                              'If you\'re having trouble signing in, click here: https://interview.coach/tipping\n'
                               'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
                               style: const TextStyle(color: Colors.grey),
                             ),
@@ -287,8 +287,14 @@ class UserAuthPageState extends State<UserAuthPage> {
 
 class LoginErrorScreen extends StatelessWidget {
   final String errorMessage;
+  final bool displaySignOutButton;
+  final String googleClientId;
 
-  const LoginErrorScreen({super.key, required this.errorMessage});
+  const LoginErrorScreen(
+      {super.key,
+      required this.errorMessage,
+      this.displaySignOutButton = true,
+      this.googleClientId = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -324,29 +330,33 @@ class LoginErrorScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              width: 150,
-              child: OutlinedButton(
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.logout),
-                    Text('Sign Out'),
-                  ],
-                ),
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => const UserAuthPage(
-                        null,
-                        isUserLoggingOut: true,
-                        createLinkedTipper: false,
-                      ),
-                    ),
-                  );
-                },
+            if (displaySignOutButton)
+              SizedBox(
+                width: 150,
+                child: displaySignOutButton
+                    ? OutlinedButton(
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.logout),
+                            Text('Sign Out'),
+                          ],
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const UserAuthPage(
+                                null,
+                                isUserLoggingOut: true,
+                                createLinkedTipper: false,
+                                googleClientId: '',
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Container(),
               ),
-            ),
           ],
         ),
       ),

@@ -79,7 +79,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        heroTag: 'roundscoresfortipper',
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
         onPressed: () {
           Navigator.pop(context);
         },
@@ -94,6 +95,13 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                     text: 'Round scores\n${widget.statsTipper.name}',
                     leadingIconAvatar: avatarPic(widget.statsTipper))
                 : Text('Round scores\n${widget.statsTipper.name}'),
+            orientation == Orientation.portrait
+                ? Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                        'Click a row to see ${widget.statsTipper.name}\'s tips for that round.'),
+                  )
+                : Container(),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),

@@ -16,6 +16,8 @@ void main() {
         nrlMarginUPS: 4,
         rank: 1,
         rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       final json = roundScores.toJson();
@@ -78,6 +80,8 @@ void main() {
         nrlMarginUPS: 4,
         rank: 1,
         rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       final csv = roundScores.toCsv();
@@ -99,6 +103,8 @@ void main() {
         nrlMarginUPS: 4,
         rank: 1,
         rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       final roundScores2 = RoundStats(
@@ -113,6 +119,8 @@ void main() {
         nrlMarginUPS: 4,
         rank: 1,
         rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       final roundScores3 = RoundStats(
@@ -127,6 +135,8 @@ void main() {
         nrlMarginUPS: 8,
         rank: 2,
         rankChange: 1,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       expect(roundScores1 == roundScores2, true);
@@ -147,6 +157,8 @@ void main() {
         nrlMarginUPS: 4,
         rank: 1,
         rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       final roundScores2 = RoundStats(
@@ -161,6 +173,8 @@ void main() {
         nrlMarginUPS: 4,
         rank: 1,
         rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
       );
 
       expect(roundScores1.hashCode == roundScores2.hashCode, true);

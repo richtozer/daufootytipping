@@ -6,10 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io' show Platform;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:watch_it/watch_it.dart';
 
-final String tokensPath = dotenv.env['TOKENS_PATH'] as String;
+final String tokensPath = '/AllTippersTokens';
 
 class FirebaseMessagingService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;

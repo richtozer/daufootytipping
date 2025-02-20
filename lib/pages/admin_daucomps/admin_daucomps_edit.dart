@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -236,7 +237,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<DAUCompsViewModel>(
-      create: (context) => DAUCompsViewModel(widget.daucomp!.dbkey!, true),
+      create: (context) => DAUCompsViewModel(widget.daucomp?.dbkey, true),
       child: Scaffold(
           appBar: AppBar(
             leading: Builder(
@@ -340,7 +341,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                     SnackBar(
                                       content: const Text(
                                           'You cannot set the active comp for a new record. Save the record first.'),
-                                      backgroundColor: League.afl.colour,
+                                      backgroundColor: Colors.orange,
                                     ),
                                   );
                                   return;
@@ -358,7 +359,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                     SnackBar(
                                       content: const Text(
                                           'You cannot turn off the active comp. Instead edit another comp to be active.'),
-                                      backgroundColor: League.afl.colour,
+                                      backgroundColor: Colors.orange,
                                     ),
                                   );
                                 }
@@ -766,11 +767,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     if (widget.daucomp == null) {
       return const SizedBox.shrink();
     } else {
-      StatsViewModel scoresViewModel =
-          StatsViewModel(widget.daucomp!, dauCompsViewModel.gamesViewModel);
+      // create a temporary GamesViewModel to pass to the StatsViewModel
+      GamesViewModel tempGamesViewModel =
+          GamesViewModel(widget.daucomp!, di<DAUCompsViewModel>());
+      StatsViewModel tempStatsViewModel =
+          StatsViewModel(widget.daucomp!, tempGamesViewModel);
       return OutlinedButton(
         onPressed: () async {
-          if (scoresViewModel.isUpdateScoringRunning) {
+          if (tempStatsViewModel.isUpdateScoringRunning) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 backgroundColor: Colors.red,
                 content: Text('Scoring already in progress')));
@@ -782,8 +786,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
               disableBack = true;
             });
             await Future.delayed(const Duration(milliseconds: 100));
-            String syncResult =
-                await scoresViewModel.updateStats(widget.daucomp!, null, null);
+            String syncResult = await tempStatsViewModel.updateStats(
+                widget.daucomp!, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -812,8 +816,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             }
           }
         },
-        child: Text(
-            !scoresViewModel.isUpdateScoringRunning ? 'Rescore' : 'Scoring...'),
+        child: Text(!tempStatsViewModel.isUpdateScoringRunning
+            ? 'Rescore'
+            : 'Scoring...'),
       );
     }
   }

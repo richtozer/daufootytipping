@@ -149,7 +149,7 @@ class _TipChoiceState extends State<TipChoice> {
               gameTipsViewModel.tip!.tip == option) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.orange,
                 content: Text(
                     'Your tip [${gameTipsViewModel.game.league == League.afl ? gameTipsViewModel.tip!.tip.aflTooltip : gameTipsViewModel.tip!.tip.nrlTooltip}] has already been submitted.'),
               ),

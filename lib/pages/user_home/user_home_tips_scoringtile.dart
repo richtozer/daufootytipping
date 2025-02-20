@@ -70,7 +70,7 @@ class ScoringTile extends StatelessWidget {
                                           .showSnackBar(
                                         const SnackBar(
                                           duration: Duration(seconds: 7),
-                                          backgroundColor: Colors.yellow,
+                                          backgroundColor: Colors.orange,
                                           content: Text(
                                               style: TextStyle(
                                                   color: Colors.black),
@@ -128,17 +128,17 @@ class ScoringTile extends StatelessWidget {
       children: [
         Text('${consumerTipGameViewModel.game.scoring!.homeTeamScore}',
             style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
-                ? const TextStyle(
+                ? TextStyle(
                     fontSize: 18,
-                    backgroundColor: Colors.lightGreen,
+                    backgroundColor: Colors.lightGreen[200],
                     fontWeight: FontWeight.w900)
                 : null),
         const Text(textAlign: TextAlign.left, ' v '),
         Text('${consumerTipGameViewModel.game.scoring!.awayTeamScore}',
             style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
-                ? const TextStyle(
+                ? TextStyle(
                     fontSize: 18,
-                    backgroundColor: Colors.lightGreen,
+                    backgroundColor: Colors.lightGreen[200],
                     fontWeight: FontWeight.w900)
                 : null),
       ],

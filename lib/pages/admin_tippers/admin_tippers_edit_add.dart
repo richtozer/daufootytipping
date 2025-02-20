@@ -3,8 +3,8 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_tipper_merge.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
@@ -13,7 +13,7 @@ import 'package:watch_it/watch_it.dart';
 
 class TipperAdminEditPage extends StatefulWidget {
   final TippersViewModel tippersViewModel;
-  final Tipper? tipper;
+  final Tipper tipper;
 
   //constructor
   const TipperAdminEditPage(this.tippersViewModel, this.tipper, {super.key});
@@ -35,7 +35,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
   late bool changesNeedSaving = false;
   late bool disableSaves = true;
-  late bool isNewTipper = false;
   late int changes = 0;
   List<DAUComp> comps = [];
 
@@ -43,9 +42,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   void initState() {
     super.initState();
     tipper = widget.tipper;
-    if (tipper == null) {
-      isNewTipper = true;
-    }
+
     tippersViewModel = widget.tippersViewModel;
     admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
     _tipperNameController = TextEditingController(text: tipper?.name);
@@ -107,10 +104,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
       await tippersViewModel.saveBatchOfTipperAttributes();
 
-      // in the stats view model updateLeaderAndRoundAndRank()
-      // this will take into account any tipper paid comp changes
-      await di<StatsViewModel>().updateLeaderAndRoundAndRank();
-
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
       //}
@@ -119,69 +112,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            content: const Text('Failed to create a new Tipper record'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('OK'),
-              )
-            ],
-          ),
-        );
-      }
-    }
-  }
-
-  void _newTipper(BuildContext context) async {
-    try {
-      // make sure the email and logon are not assigned to another tipper
-      Tipper? tipperWithDupEmail =
-          await tippersViewModel.isEmailOrLogonAlreadyAssigned(
-              _tipperEmailController.text, _tipperLogonController.text, tipper);
-      if (tipperWithDupEmail != null) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            content: Text(
-                'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('OK'),
-              )
-            ],
-          ),
-        );
-        // stay on this page
-        return;
-      }
-
-      tipper = Tipper(
-        compsPaidFor: [],
-        name: _tipperNameController.text,
-        email: _tipperEmailController.text,
-        logon: _tipperLogonController.text,
-        tipperRole: admin == true ? TipperRole.admin : TipperRole.tipper,
-        authuid: '',
-        tipperID: 'manually_created',
-      );
-
-      tippersViewModel.addNewTipper(tipper!);
-
-      // navigate to the previous page
-      if (context.mounted) Navigator.of(context).pop(true);
-    } on Exception {
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            content: tipper != null
-                ? const Text('Failed to update the Tipper record')
-                : const Text('Failed to create a new Tipper record'),
+            content: const Text('Failed to update Tipper record'),
             actions: <Widget>[
               TextButton(
                 onPressed: () {
@@ -234,11 +165,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           });
                           changesNeedSaving = true;
                           CircularProgressIndicator(color: League.afl.colour);
-                          if (!isNewTipper) {
-                            _saveTipper(context);
-                          } else {
-                            _newTipper(context);
-                          }
+
+                          _saveTipper(context);
 
                           setState(() {
                             changesNeedSaving = false;
@@ -250,8 +178,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             },
           ),
         ],
-        title:
-            isNewTipper ? const Text('New Tipper') : const Text('Edit Tipper'),
+        title: const Text('Edit Tipper'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -262,12 +189,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    isNewTipper
-                        ? 'WARNING This page should only be used to add a new tipper when they are unable to use the App of website themselves. Only create an account if an admin is going to tip on their behalf.'
-                        : 'Edit the details for the tipper',
-                    style: const TextStyle(color: Colors.red),
-                  ),
                   Row(
                     children: [
                       const Text('Name:'),
@@ -402,12 +323,12 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     ],
                   ),
                   Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      //mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('DAU Admin:'),
+                        const Text('DAU\nAdmin:'),
                         Switch(
                           value: admin,
-                          activeColor: Colors.yellow,
+                          activeColor: Colors.orange,
                           onChanged: (value) {
                             setState(() {
                               admin = value;
@@ -442,31 +363,35 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             di<DAUCompsViewModel>().selectedDAUComp != null)
                           Row(
                             children: [
-                              const Text(' God mode: '),
+                              const Text('God\nmode: '),
                               ChangeNotifierProvider<TippersViewModel>.value(
                                   value: di<TippersViewModel>(),
                                   child: Consumer<TippersViewModel>(
                                     builder: (context, tippersViewModelConsumer,
                                         child) {
-                                      // if the tipper being editing was not a participant for the active year then display a msg that god mode is not available
-                                      // if (!tipper!.compsPaidFor.any((element) =>
-                                      //     element.dbkey ==
-                                      //     di<DAUCompsViewModel>()
-                                      //         .selectedDAUComp!
-                                      //         .dbkey)) {
-                                      //   return const Text(
-                                      //       'God mode is\nnot available\nfor this tipper.\nThey did not\ntip for the\nactive year');
-                                      // }
-
                                       return Switch(
                                         value: (tippersViewModelConsumer
                                                 .inGodMode &&
                                             tippersViewModelConsumer
                                                     .selectedTipper ==
                                                 tipper),
-                                        activeColor: Colors.yellow,
+                                        activeColor: Colors.red,
                                         onChanged: (value) {
                                           if (value == true) {
+                                            // admins cannot god mode themselves - display snackbar if they try
+                                            if (tippersViewModelConsumer
+                                                    .authenticatedTipper ==
+                                                tipper) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  backgroundColor: Colors.red,
+                                                  content: const Text(
+                                                      'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.'),
+                                                ),
+                                              );
+                                              return;
+                                            }
                                             // if godmode is already turned on for another tipper
                                             // then continue with this change, but display a snackbar
                                             // saying we turned it off for tipper A, and turned it on here for tipper B
@@ -475,12 +400,13 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
                                                 SnackBar(
-                                                  backgroundColor: Colors.green,
+                                                  backgroundColor: Colors.red,
                                                   content: Text(
                                                       'God mode changed from ${tippersViewModelConsumer.selectedTipper!.name} to ${tipper!.name}'),
                                                 ),
                                               );
                                             }
+
                                             tippersViewModelConsumer
                                                 .selectedTipper = tipper;
                                           } else {
@@ -500,6 +426,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             ],
                           ),
                       ]),
+
                   // add a row for 'Paid Comps', display a list of all DAUComps
                   // if the tipper is a paid up member, then show a tick
                   // allow the admin to edit which comps this tipper has paid for
@@ -544,12 +471,12 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                                     log('Checkbox changed to $value');
                                                     setState(() {
                                                       if (value == true) {
-                                                        widget.tipper!
-                                                            .compsPaidFor
+                                                        widget
+                                                            .tipper.compsPaidFor
                                                             .add(comp);
                                                       } else {
-                                                        widget.tipper!
-                                                            .compsPaidFor
+                                                        widget
+                                                            .tipper.compsPaidFor
                                                             .remove(comp);
                                                       }
                                                       changes++; //increment the number of changes
@@ -574,6 +501,21 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                 ],
               ),
             ),
+            Spacer(),
+            ElevatedButton(
+              onPressed: () {
+                // Trigger edit functionality
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AdminTipperMergeEditPage(
+                        widget.tippersViewModel, tipper),
+                  ),
+                );
+              },
+              child: const Text('Merge...'),
+            ),
+            Spacer(),
           ],
         ),
       ),

@@ -18,7 +18,11 @@ class ConfigViewModel extends ChangeNotifier {
   bool? _createLinkedTipper;
   bool? get createLinkedTipper => _createLinkedTipper;
 
+  String? _googleClientId;
+  String? get googleClientId => _googleClientId;
+
   final Completer<void> _initialLoadCompleter = Completer<void>();
+
   get initialLoadComplete => _initialLoadCompleter.future;
 
   ConfigViewModel() {
@@ -32,6 +36,11 @@ class ConfigViewModel extends ChangeNotifier {
       } else {
         log('ConfigViewModel._listenToConfigChanges() No config found in database');
       }
+
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+      notifyListeners();
     }, onError: (error) {
       log('ConfigViewModel._listenToConfigChanges() Error: $error');
     });
@@ -41,11 +50,7 @@ class ConfigViewModel extends ChangeNotifier {
     _activeDAUComp = snapshot.child('currentDAUComp').value.toString();
     _minAppVersion = snapshot.child('minAppVersion').value.toString();
     _createLinkedTipper = snapshot.child('createLinkedTipper').value as bool;
-
-    if (!_initialLoadCompleter.isCompleted) {
-      _initialLoadCompleter.complete();
-    }
-    notifyListeners();
+    _googleClientId = snapshot.child('googleClientId').value.toString();
   }
 
   Future<void> setConfigCurrentDAUComp(String value) async {

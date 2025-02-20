@@ -84,7 +84,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                   },
                   isUpdatingHomeScore ?? false
                       ? ElevatedButton.styleFrom(
-                          backgroundColor: Colors.lightGreen)
+                          backgroundColor: Colors.lightGreen[200])
                       : null,
                 ),
                 const Center(
@@ -106,7 +106,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                     isUpdatingHomeScore ?? true
                         ? null
                         : ElevatedButton.styleFrom(
-                            backgroundColor: Colors.lightGreen)),
+                            backgroundColor: Colors.lightGreen[200])),
               ]),
             ],
           ),
@@ -292,7 +292,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
       padding: const EdgeInsets.all(8.0),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.lightGreen,
+          backgroundColor: Colors.lightGreen[200],
           shape: const RoundedRectangleBorder(
             //borderRadius: BorderRadius.circular(20),
             borderRadius: BorderRadius.zero, //Rectangular border

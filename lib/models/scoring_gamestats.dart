@@ -38,22 +38,22 @@ class GameStatsEntry {
   // method to convert instance into json
   Map<String, dynamic> toJson() {
     return {
-      'percentageTippedHomeMargin': percentageTippedHomeMargin,
-      'percentageTippedHome': percentageTippedHome,
-      'percentageTippedDraw': percentageTippedDraw,
-      'percentageTippedAway': percentageTippedAway,
-      'percentageTippedAwayMargin': percentageTippedAwayMargin,
+      'pctTipA': percentageTippedHomeMargin,
+      'pctTipB': percentageTippedHome,
+      'pctTipC': percentageTippedDraw,
+      'pctTipD': percentageTippedAway,
+      'pctTipE': percentageTippedAwayMargin,
     };
   }
 
   // method to convert json into instance
   factory GameStatsEntry.fromJson(Map<String, dynamic> data) {
     return GameStatsEntry(
-      percentageTippedHomeMargin: data['percentageTippedHomeMargin'],
-      percentageTippedHome: data['percentageTippedHome'],
-      percentageTippedDraw: data['percentageTippedDraw'],
-      percentageTippedAway: data['percentageTippedAway'],
-      percentageTippedAwayMargin: data['percentageTippedAwayMargin'],
+      percentageTippedHomeMargin: data['pctTipA'],
+      percentageTippedHome: data['pctTipB'],
+      percentageTippedDraw: data['pctTipC'],
+      percentageTippedAway: data['pctTipD'],
+      percentageTippedAwayMargin: data['pctTipE'],
     );
   }
 }
