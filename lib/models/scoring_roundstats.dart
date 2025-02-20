@@ -10,6 +10,8 @@ class RoundStats {
   int nrlMarginUPS = 0;
   int rank = 0;
   int rankChange = 0;
+  int nrlTipsOutstanding = 0;
+  int aflTipsOutstanding = 0;
 
 //contructor
   RoundStats({
@@ -24,35 +26,42 @@ class RoundStats {
     required this.nrlMarginUPS,
     required this.rank,
     required this.rankChange,
+    required this.nrlTipsOutstanding,
+    required this.aflTipsOutstanding,
   });
 
   toJson() {
     return {
-      'roundNumber': roundNumber,
-      'afl_score': aflScore,
-      'afl_maxScore': aflMaxScore,
-      'afl_marginTips': aflMarginTips,
-      'afl_marginUPS': aflMarginUPS,
-      'nrl_score': nrlScore,
-      'nrl_maxScore': nrlMaxScore,
-      'nrl_marginTips': nrlMarginTips,
-      'nrl_marginUPS': nrlMarginUPS,
+      // keep the keys short to save $/space in db
+      'nbr': roundNumber,
+      'aS': aflScore,
+      'aMs': aflMaxScore,
+      'aMt': aflMarginTips,
+      'aMu': aflMarginUPS,
+      'nS': nrlScore,
+      'nMs': nrlMaxScore,
+      'nMt': nrlMarginTips,
+      'nMu': nrlMarginUPS,
+      'nTo': nrlTipsOutstanding,
+      'aTo': aflTipsOutstanding,
     };
   }
 
   factory RoundStats.fromJson(Map<String, dynamic> data) {
     return RoundStats(
-      roundNumber: data['roundNumber'] ?? 0,
-      aflScore: data['afl_score'] ?? 0,
-      aflMaxScore: data['afl_maxScore'] ?? 0,
-      aflMarginTips: data['afl_marginTips'] ?? 0,
-      aflMarginUPS: data['afl_marginUPS'] ?? 0,
-      nrlScore: data['nrl_score'] ?? 0,
-      nrlMaxScore: data['nrl_maxScore'] ?? 0,
-      nrlMarginTips: data['nrl_marginTips'] ?? 0,
-      nrlMarginUPS: data['nrl_marginUPS'] ?? 0,
+      roundNumber: data['nbr'] ?? 0,
+      aflScore: data['aS'] ?? 0,
+      aflMaxScore: data['aMs'] ?? 0,
+      aflMarginTips: data['aMt'] ?? 0,
+      aflMarginUPS: data['aMu'] ?? 0,
+      nrlScore: data['nS'] ?? 0,
+      nrlMaxScore: data['nMs'] ?? 0,
+      nrlMarginTips: data['nMt'] ?? 0,
+      nrlMarginUPS: data['nMu'] ?? 0,
       rank: 0,
       rankChange: 0,
+      nrlTipsOutstanding: data['nTo'] ?? 0,
+      aflTipsOutstanding: data['aTo'] ?? 0,
     );
   }
 
@@ -68,6 +77,8 @@ class RoundStats {
       nrlMarginUPS,
       rank,
       rankChange,
+      nrlTipsOutstanding,
+      aflTipsOutstanding,
     ];
   }
 
@@ -85,7 +96,9 @@ class RoundStats {
         other.nrlScore == nrlScore &&
         other.nrlMaxScore == nrlMaxScore &&
         other.nrlMarginTips == nrlMarginTips &&
-        other.nrlMarginUPS == nrlMarginUPS;
+        other.nrlMarginUPS == nrlMarginUPS &&
+        other.nrlTipsOutstanding == nrlTipsOutstanding &&
+        other.aflTipsOutstanding == aflTipsOutstanding;
   }
 
   @override
@@ -98,6 +111,8 @@ class RoundStats {
         nrlScore.hashCode ^
         nrlMaxScore.hashCode ^
         nrlMarginTips.hashCode ^
-        nrlMarginUPS.hashCode;
+        nrlMarginUPS.hashCode ^
+        nrlTipsOutstanding.hashCode ^
+        aflTipsOutstanding.hashCode;
   }
 }

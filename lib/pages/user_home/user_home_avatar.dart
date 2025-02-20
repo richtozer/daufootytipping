@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 
 Widget circleAvatarWithFallback(
     {String? imageUrl,
@@ -30,10 +29,7 @@ Widget circleAvatarWithFallback(
       radius: radius,
       foregroundImage: imageUrl == null || imageUrl == ''
           ? null
-          : !kIsWeb
-              ? CachedNetworkImageProvider(imageUrl)
-              : Image.network(imageUrl)
-                  .image, // TODO workaround for this bug: https://github.com/flutter/flutter/issues/160127
+          : CachedNetworkImageProvider(imageUrl),
       backgroundColor: backgroundColor,
       child: Center(
         child: Text(initials,

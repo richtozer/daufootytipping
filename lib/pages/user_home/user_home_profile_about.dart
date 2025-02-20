@@ -18,8 +18,14 @@ Future<Widget> aboutDialog(context) async {
     onPressed: () {
       showAboutDialog(
         context: context,
-        applicationIcon:
-            Expanded(child: Image.asset('assets/icon/AppIcon.png')),
+        applicationIcon: ClipRRect(
+          borderRadius: BorderRadius.circular(15.0),
+          child: SizedBox(
+            width: 75.0, // Set the width
+            height: 75.0, // Set the height
+            child: Image.asset('assets/icon/AppIcon.png'),
+          ),
+        ),
         applicationName: appName,
         applicationVersion: '$version\nbuild $buildNumber',
         children: aboutBoxChildren,

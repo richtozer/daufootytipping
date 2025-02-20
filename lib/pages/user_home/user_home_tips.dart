@@ -275,7 +275,9 @@ class TipsTabState extends State<TipsTab> {
             nrlMarginTips: 0,
             nrlMarginUPS: 0,
             rank: 0,
-            rankChange: 0);
+            rankChange: 0,
+            nrlTipsOutstanding: 0,
+            aflTipsOutstanding: 0);
 
     // Calculate the number of days until the first game starts for this league round
     List<Game> gamesForLeague = dauRound.getGamesForLeague(leagueHeader);
@@ -284,12 +286,8 @@ class TipsTabState extends State<TipsTab> {
       firstGameStart = gamesForLeague.first.startTimeUTC;
     }
 
-    // Calculate the number of tips outstanding for this league round
-    int totalGames = dauRound.getGamesForLeague(leagueHeader).length;
-    int tipsSubmitted = daucompsViewModel.selectedTipperTipsViewModel!
-        .numberOfTipsSubmittedForRoundAndLeague(dauRound, leagueHeader);
-
-    int tipsOutstanding = totalGames - tipsSubmitted;
+    int tipsOutstanding = daucompsViewModel.selectedTipperTipsViewModel!
+        .numberOfOutstandingTipsForRoundAndLeague(dauRound, leagueHeader);
 
     // get a current count of margin tips submitted for this league round
     int marginTipsSubmitted = daucompsViewModel.selectedTipperTipsViewModel!
@@ -297,7 +295,6 @@ class TipsTabState extends State<TipsTab> {
 
     return Card(
       color: Colors.black54,
-      //shadowColor: League.nrl.colour,
       surfaceTintColor: League.nrl.colour,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.0),

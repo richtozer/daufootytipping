@@ -63,6 +63,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
           Orientation orientation = MediaQuery.of(context).orientation;
           return Scaffold(
             floatingActionButton: FloatingActionButton(
+              backgroundColor: Colors.lightGreen[200],
+              foregroundColor: Colors.white70,
               heroTag: 'roundWinners',
               onPressed: () {
                 Navigator.pop(context);

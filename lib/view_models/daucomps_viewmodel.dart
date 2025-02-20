@@ -22,6 +22,8 @@ const daucompsPath = '/AllDAUComps';
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
+  get daucomps => _daucomps;
+
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
@@ -266,7 +268,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     // if selected comp is not the active comp then we don't want to trigger the fixture update
-    if (_selectedDAUComp != _activeDAUComp) {
+    if (!isSelectedCompActiveComp()) {
       log('_fixtureUpdateTrigger() Selected comp ${_selectedDAUComp?.name} is not the active comp. No fixture update will be triggered.');
       return;
     }
@@ -313,21 +315,30 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<bool> _acquireLock() async {
     DatabaseReference lockRef =
-        _db.child('$daucompsPath/${_activeDAUComp!.dbkey}/fixtureDownloadLock');
+        _db.child('$daucompsPath/${_activeDAUComp!.dbkey}/downloadLock');
     DataSnapshot snapshot = await lockRef.get();
 
-    if (snapshot.exists && snapshot.value == true) {
-      return false; // Lock is already held by another instance
+    if (snapshot.exists) {
+      DateTime? lockTimestamp;
+      if (snapshot.value is String) {
+        lockTimestamp = DateTime.tryParse(snapshot.value as String);
+      } else {
+        lockTimestamp = null;
+      }
+      if (lockTimestamp != null &&
+          DateTime.now().difference(lockTimestamp).inHours < 24) {
+        return false; // Lock is already held by another instance
+      }
     }
 
-    await lockRef.set(true);
+    await lockRef.set(DateTime.now().toIso8601String());
     return true; // Lock acquired successfully
   }
 
   Future<void> _releaseLock() async {
     DatabaseReference lockRef =
-        _db.child('$daucompsPath/${_activeDAUComp!.dbkey}/fixtureDownloadLock');
-    await lockRef.set(false);
+        _db.child('$daucompsPath/${_activeDAUComp!.dbkey}/downloadLock');
+    await lockRef.set(null);
   }
 
   Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {

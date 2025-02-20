@@ -37,6 +37,8 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
           title: const Text('Admin DAU Comps'),
         ),
         floatingActionButton: FloatingActionButton(
+          backgroundColor: Colors.lightGreen[200],
+          foregroundColor: Colors.white70,
           onPressed: () async {
             await _addDAUComp(context);
           },
@@ -68,7 +70,7 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
                                 child: ListTile(
                                   dense: true,
                                   isThreeLine: true,
-                                  trailing: const Icon(Icons.edit),
+                                  trailing: const Icon(Icons.arrow_forward),
                                   title: Text(daucomp.name),
                                   subtitle: daucomp
                                               .lastFixtureUpdateTimestampUTC !=

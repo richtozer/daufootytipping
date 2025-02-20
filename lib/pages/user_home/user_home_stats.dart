@@ -1,5 +1,6 @@
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_currentroundstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -15,9 +16,10 @@ class StatsTab extends StatelessWidget {
 
     bool paidTipper = di<TippersViewModel>()
         .selectedTipper!
-        .paidForComp(di<DAUCompsViewModel>().activeDAUComp);
+        .paidForComp(di<DAUCompsViewModel>().selectedDAUComp);
 
     return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: <Widget>[
         orientation == Orientation.portrait
             ? HeaderWidget(
@@ -49,10 +51,12 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.emoji_events, size: 40),
                       ),
                       SizedBox(
+                          height: 64,
                           width:
                               16), // Add some spacing between the icon and the text
                       Expanded(
-                        child: Text('Comp Leaderboard'),
+                        child: Text(
+                            'Competition Leaderboard\nWhat did others tip?'),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -77,10 +81,43 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.person_3, size: 40),
                       ),
                       SizedBox(
+                          height: 64,
                           width:
                               16), // Add some spacing between the icon and the text
                       Expanded(
-                        child: Text('Round winners & leaderboards'),
+                        child: Text('Round winners\nRound Leaderboards'),
+                      ),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    // Navigate to the round winners
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => CurrentRoundStats(
+                              di<DAUCompsViewModel>()
+                                  .selectedDAUComp!
+                                  .lowestRoundNumberNotEnded())),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Hero(
+                        tag: 'magifyingglass',
+                        child: Icon(Icons.search, size: 40),
+                      ),
+                      SizedBox(
+                          width:
+                              16), // Add some spacing between the icon and the text
+                      Expanded(
+                        child: Text(
+                            'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.lowestRoundNumberNotEnded()}'),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -89,6 +126,9 @@ class StatsTab extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        Container(
+          height: 25,
         ),
       ],
     );

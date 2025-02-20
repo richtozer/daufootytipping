@@ -7,22 +7,16 @@ import 'package:daufootytipping/models/tipper.dart';
 class Tip implements Comparable<Tip> {
   String? dbkey;
   final Game game; //the game being tipped
-  final Tipper tipper; //the tipper
+  Tipper tipper; //the tipper
   final GameResult tip; //their tip
-  final bool legacyTip; //true if the tip came from the legacy google form
-  final DateTime submittedTimeUTC; //the time the tip was submitted -
-  // interesting tidbit, to tell if the tip came from the app or the legacy google form
-  // the time stamp will be suttly different.
-  // for the app the format is:         2023-12-28 02:21:55.932148Z
-  // for the google form the format is: 2024-01-18T04:03:19.095Z
+  final DateTime submittedTimeUTC;
 
   Tip(
       {this.dbkey,
       required this.game,
       required this.tipper,
       required this.tip,
-      required this.submittedTimeUTC,
-      this.legacyTip = false});
+      required this.submittedTimeUTC});
 
   bool isDefaultTip() {
     return (submittedTimeUTC ==
@@ -31,12 +25,12 @@ class Tip implements Comparable<Tip> {
 
   factory Tip.fromJson(Map data, String key, Tipper tipper, Game game) {
     return Tip(
-        dbkey: key,
-        game: game,
-        tipper: tipper,
-        tip: GameResult.values.byName(data['gameResult']),
-        submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']),
-        legacyTip: data['legacyTip'] ?? false);
+      dbkey: key,
+      game: game,
+      tipper: tipper,
+      tip: GameResult.values.byName(data['gameResult']),
+      submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']),
+    );
   }
 
   toJson() {

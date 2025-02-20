@@ -8,8 +8,6 @@ class Tipper implements Comparable<Tipper> {
       email; // this is the email address used for communication - same as legacy sheet email
   String? logon; // this is the email address used for login
   String? name;
-  final String
-      tipperID; // to support the lecacy tipping service, this is the priamry key for the tipper
   final TipperRole tipperRole;
   String? photoURL;
   List<DAUComp> compsPaidFor = [];
@@ -25,7 +23,6 @@ class Tipper implements Comparable<Tipper> {
     required this.email,
     this.logon,
     this.name,
-    required this.tipperID,
     required this.tipperRole,
     this.acctCreatedUTC,
     this.acctLoggedOnUTC,
@@ -38,7 +35,6 @@ class Tipper implements Comparable<Tipper> {
       email: data['email'],
       logon: data['logon'], // this is the email address used for login
       name: data['name'],
-      tipperID: data['tipperID'],
       tipperRole: TipperRole.values.byName(data['tipperRole']),
       photoURL: data['photoURL'],
       compsPaidFor: data['compsParticipatedIn'] != null
@@ -81,13 +77,43 @@ class Tipper implements Comparable<Tipper> {
       "email": email,
       "logon": logon, // this is the email address used for login
       "name": name,
-      "tipperID": tipperID,
       "tipperRole": tipperRole.name,
       "photoURL": photoURL,
       "compsParticipatedIn": compsPaidFor.map((comp) => comp.dbkey).toList(),
       "acctCreatedUTC": acctCreatedUTC?.toString(),
       "acctLoggedOnUTC": acctLoggedOnUTC?.toString(),
     };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is Tipper &&
+        other.dbkey == dbkey &&
+        other.authuid == authuid &&
+        other.email == email &&
+        other.logon == logon &&
+        other.name == name &&
+        other.tipperRole == tipperRole &&
+        other.photoURL == photoURL &&
+        other.compsPaidFor == compsPaidFor &&
+        other.acctCreatedUTC == acctCreatedUTC &&
+        other.acctLoggedOnUTC == acctLoggedOnUTC;
+  }
+
+  @override
+  int get hashCode {
+    return dbkey.hashCode ^
+        authuid.hashCode ^
+        email.hashCode ^
+        logon.hashCode ^
+        name.hashCode ^
+        tipperRole.hashCode ^
+        photoURL.hashCode ^
+        compsPaidFor.hashCode ^
+        acctCreatedUTC.hashCode ^
+        acctLoggedOnUTC.hashCode;
   }
 
   @override

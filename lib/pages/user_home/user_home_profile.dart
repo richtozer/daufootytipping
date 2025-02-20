@@ -52,9 +52,9 @@ class Profile extends StatelessWidget with WatchItMixin {
     return ChangeNotifierProvider<TippersViewModel>.value(
       value: di<TippersViewModel>(),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Consumer<TippersViewModel>(
                   builder: (context, tippersViewModelConsumer, child) {
@@ -70,6 +70,7 @@ class Profile extends StatelessWidget with WatchItMixin {
               }),
               // add a clickable edit icon to the right of the name
               IconButton(
+                padding: const EdgeInsets.fromLTRB(0, 40, 0, 0),
                 icon: const Icon(Icons.edit),
                 onPressed: () {
                   _showEditNameDialog(context, authenticatedTipper!);
@@ -80,6 +81,10 @@ class Profile extends StatelessWidget with WatchItMixin {
           Card(
             child: Column(
               children: [
+                di<TippersViewModel>().authenticatedTipper!.tipperRole ==
+                        TipperRole.admin
+                    ? const Center(child: AdminFunctionsWidget())
+                    : const SizedBox.shrink(),
                 const SizedBox(height: 20),
                 ChangeNotifierProvider<DAUCompsViewModel>.value(
                   value: di<DAUCompsViewModel>(),
@@ -106,7 +111,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                 SizedBox(
                                   width: 300,
                                   child: Text(
-                                    'Tipper in a previous year? Select it below to revisit your tips and scores: ',
+                                    'Tipper in a previous year? Select it below to revisit your tips and stats: ',
                                     textAlign: TextAlign.center,
                                     style:
                                         Theme.of(context).textTheme.titleMedium,
@@ -139,10 +144,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                     },
                   ),
                 ),
-                di<TippersViewModel>().authenticatedTipper!.tipperRole ==
-                        TipperRole.admin
-                    ? const Center(child: AdminFunctionsWidget())
-                    : const SizedBox.shrink(),
                 FutureBuilder<Widget>(
                   future: aboutDialog(context),
                   builder:
@@ -185,91 +186,91 @@ class Profile extends StatelessWidget with WatchItMixin {
                     ),
                   ],
                 ),
-                SizedBox(
-                  width: 200,
-                  child: Column(
-                    children: [
-                      OutlinedButton(
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout),
-                            Text('Sign Out'),
-                          ],
-                        ),
-                        onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const UserAuthPage(
-                                null,
-                                isUserLoggingOut: true,
-                                createLinkedTipper: false,
-                              ),
-                            ),
-                          );
-                        },
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: 140,
-                        height: 30,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete),
+                          Text(
+                            'Delete\nAccount',
+                            textScaler: TextScaler.linear(0.75),
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.delete),
-                              Text('Delete Account'),
-                            ],
-                          ),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: const Text('Confirm Account Deletion'),
-                                  content: const Text(
-                                      'Are you sure you want to delete your account? This action cannot be undone. You may be asked to log in again to confirm your identity.'),
-                                  actions: [
-                                    TextButton(
-                                      child: const Text('Cancel'),
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                    ),
-                                    TextButton(
-                                      child: const Text('Delete'),
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                        Navigator.of(context).pushReplacement(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const UserAuthPage(
-                                              null,
-                                              isUserDeletingAccount: true,
-                                              createLinkedTipper: false,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
+                        ],
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: const Text('Confirm Account Deletion'),
+                              content: const Text(
+                                  'Are you sure you want to delete your account? This action cannot be undone. You may be asked to log in again to confirm your identity.'),
+                              actions: [
+                                TextButton(
+                                  child: const Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                                TextButton(
+                                  child: const Text('Delete'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const UserAuthPage(
+                                          null,
+                                          isUserDeletingAccount: true,
+                                          createLinkedTipper: false,
+                                          googleClientId: '',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             );
                           },
-                        ),
+                        );
+                      },
+                    ),
+                    Container(width: 10),
+                    OutlinedButton(
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.logout),
+                          Text('Sign Out'),
+                        ],
                       ),
-                      // add some space here
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                      onPressed: () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const UserAuthPage(
+                              null,
+                              isUserLoggingOut: true,
+                              createLinkedTipper: false,
+                              googleClientId: '',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
+          ),
+          Container(
+            height: 25,
           ),
         ],
       ),
@@ -290,18 +291,18 @@ class Profile extends StatelessWidget with WatchItMixin {
           builder: (BuildContext context, StateSetter setState) {
             return AlertDialog(
               title: isNewTipper
-                  ? const Text('Create Profile Name')
-                  : const Text('Edit Profile Name'),
+                  ? const Text('Create Tipper Alias')
+                  : const Text('Edit Tipper Alias'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                      'This is your identity to others in the competition. It must be unique.'),
+                      'This is your identity as shown to others in the competition. It must be unique.'),
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(
-                      labelText: 'Name',
-                      hintText: 'Enter a name e.g. nickname',
+                      labelText: 'Alias',
+                      hintText: 'Enter a name e.g. The Oracle',
                     ),
                   ),
                   if (errorMessage != null)
@@ -315,26 +316,34 @@ class Profile extends StatelessWidget with WatchItMixin {
                 ],
               ),
               actions: [
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () {
-                    if (tipper.name == null || tipper.name!.isEmpty) {
-                      // Prevent navigation away without saving a valid name
-                      setState(() {
-                        errorMessage = 'You must enter a valid name.';
-                      });
-                    } else {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
+                if (!isNewTipper)
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () {
+                      if (tipper.name == null || tipper.name!.isEmpty) {
+                        // Prevent navigation away without saving a valid name
+                        setState(() {
+                          errorMessage = 'You must enter a valid tipper alias.';
+                        });
+                      } else {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
                 TextButton(
                   child: const Text('Save'),
                   onPressed: () async {
                     String newName = nameController.text.trim();
                     if (newName.isEmpty) {
                       setState(() {
-                        errorMessage = 'Name cannot be empty.';
+                        errorMessage = 'Alias cannot be empty.';
+                      });
+                      return;
+                    }
+                    if (newName.length < 2) {
+                      setState(() {
+                        errorMessage =
+                            'Alias must be at least 2 characters long.';
                       });
                       return;
                     }

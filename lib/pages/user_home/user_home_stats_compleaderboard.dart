@@ -1,5 +1,6 @@
 import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
@@ -64,7 +65,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     Orientation orientation = MediaQuery.of(context).orientation;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        //heroTag: 'compLeaderboard',
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
         onPressed: () {
           Navigator.pop(context);
         },
@@ -81,6 +83,13 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                       tag: 'trophy',
                       child: Icon(Icons.emoji_events, size: 40),
                     ),
+                  )
+                : Container(),
+            orientation == Orientation.portrait
+                ? Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                        'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast()}. Click a Tipper row below to see the breakdown of their round scores.'),
                   )
                 : Container(), // Return an empty container in landscape mode
             Expanded(
@@ -104,10 +113,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                     isVerticalScrollBarVisible: true,
                     columns: getColumns(columns),
                     rows: List<DataRow>.generate(
-                        scoresViewModelConsumer.leaderboard.length,
+                        scoresViewModelConsumer.compLeaderboard.length,
                         (index) => DataRow(
                               color: scoresViewModelConsumer
-                                          .leaderboard[index].tipper.name ==
+                                          .compLeaderboard[index].tipper.name ==
                                       name
                                   ? WidgetStateProperty.resolveWith(
                                       (states) => color)
@@ -120,12 +129,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                         const Icon(Icons.arrow_forward,
                                             size: 15),
                                         avatarPic(scoresViewModelConsumer
-                                            .leaderboard[index].tipper),
+                                            .compLeaderboard[index].tipper),
                                         Expanded(
                                           child: Text(
                                             softWrap: false,
                                             scoresViewModelConsumer
-                                                    .leaderboard[index]
+                                                    .compLeaderboard[index]
                                                     .tipper
                                                     .name ??
                                                 '',
@@ -138,47 +147,49 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text(scoresViewModelConsumer
-                                        .leaderboard[index].rank
+                                        .compLeaderboard[index].rank
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text(scoresViewModelConsumer
-                                        .leaderboard[index].total
+                                        .compLeaderboard[index].total
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text(scoresViewModelConsumer
-                                        .leaderboard[index].nRL
+                                        .compLeaderboard[index].nRL
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text(scoresViewModelConsumer
-                                        .leaderboard[index].aFL
+                                        .compLeaderboard[index].aFL
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text(scoresViewModelConsumer
-                                        .leaderboard[index].numRoundsWon
+                                        .compLeaderboard[index].numRoundsWon
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text((scoresViewModelConsumer
-                                                .leaderboard[index].aflMargins +
+                                                .compLeaderboard[index]
+                                                .aflMargins +
                                             scoresViewModelConsumer
-                                                .leaderboard[index].nrlMargins)
+                                                .compLeaderboard[index]
+                                                .nrlMargins)
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
                                     Text((scoresViewModelConsumer
-                                                .leaderboard[index].aflUPS +
+                                                .compLeaderboard[index].aflUPS +
                                             scoresViewModelConsumer
-                                                .leaderboard[index].nrlUPS)
+                                                .compLeaderboard[index].nrlUPS)
                                         .toString()),
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
@@ -198,74 +209,80 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       context,
       MaterialPageRoute(
           builder: (context) => StatRoundScoresForTipper(
-              scoresViewModelConsumer.leaderboard[index].tipper)),
+              scoresViewModelConsumer.compLeaderboard[index].tipper)),
     );
   }
 
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) =>
+        scoresViewModel.compLeaderboard.sort((a, b) =>
             (a.tipper.name?.toLowerCase() ?? '')
                 .compareTo(b.tipper.name?.toLowerCase() ?? ''));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) =>
+        scoresViewModel.compLeaderboard.sort((a, b) =>
             (b.tipper.name?.toLowerCase() ?? '')
                 .compareTo(a.tipper.name?.toLowerCase() ?? ''));
       }
     }
     if (columnIndex == 1) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.rank.compareTo(b.rank));
+        scoresViewModel.compLeaderboard
+            .sort((a, b) => a.rank.compareTo(b.rank));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.rank.compareTo(a.rank));
+        scoresViewModel.compLeaderboard
+            .sort((a, b) => b.rank.compareTo(a.rank));
       }
     }
     if (columnIndex == 2) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.total.compareTo(b.total));
+        scoresViewModel.compLeaderboard
+            .sort((a, b) => a.total.compareTo(b.total));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.total.compareTo(a.total));
+        scoresViewModel.compLeaderboard
+            .sort((a, b) => b.total.compareTo(a.total));
       }
     }
     if (columnIndex == 3) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.nRL.compareTo(b.nRL));
+        scoresViewModel.compLeaderboard.sort((a, b) => a.nRL.compareTo(b.nRL));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.nRL.compareTo(a.nRL));
+        scoresViewModel.compLeaderboard.sort((a, b) => b.nRL.compareTo(a.nRL));
       }
     }
     if (columnIndex == 4) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => a.aFL.compareTo(b.aFL));
+        scoresViewModel.compLeaderboard.sort((a, b) => a.aFL.compareTo(b.aFL));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) => b.aFL.compareTo(a.aFL));
+        scoresViewModel.compLeaderboard.sort((a, b) => b.aFL.compareTo(a.aFL));
       }
     }
     if (columnIndex == 5) {
       if (ascending) {
-        scoresViewModel.leaderboard
+        scoresViewModel.compLeaderboard
             .sort((a, b) => a.numRoundsWon.compareTo(b.numRoundsWon));
       } else {
-        scoresViewModel.leaderboard
+        scoresViewModel.compLeaderboard
             .sort((a, b) => b.numRoundsWon.compareTo(a.numRoundsWon));
       }
     }
     if (columnIndex == 6) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort((a, b) => (a.aflMargins + a.nrlMargins)
-            .compareTo(b.aflMargins + b.nrlMargins));
+        scoresViewModel.compLeaderboard.sort((a, b) =>
+            (a.aflMargins + a.nrlMargins)
+                .compareTo(b.aflMargins + b.nrlMargins));
       } else {
-        scoresViewModel.leaderboard.sort((a, b) => (b.aflMargins + b.nrlMargins)
-            .compareTo(a.aflMargins + a.nrlMargins));
+        scoresViewModel.compLeaderboard.sort((a, b) =>
+            (b.aflMargins + b.nrlMargins)
+                .compareTo(a.aflMargins + a.nrlMargins));
       }
     }
     if (columnIndex == 7) {
       if (ascending) {
-        scoresViewModel.leaderboard.sort(
+        scoresViewModel.compLeaderboard.sort(
             (a, b) => (a.aflUPS + a.nrlUPS).compareTo(b.aflUPS + b.nrlUPS));
       } else {
-        scoresViewModel.leaderboard.sort(
+        scoresViewModel.compLeaderboard.sort(
             (a, b) => (b.aflUPS + b.nrlUPS).compareTo(a.aflUPS + a.nrlUPS));
       }
     }

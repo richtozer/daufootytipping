@@ -94,7 +94,8 @@ class _StatRoundGameScoresForTipperState
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        heroTag: 'roundscoresfortipper',
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
         onPressed: () {
           Navigator.pop(context);
         },

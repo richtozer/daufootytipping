@@ -1,9 +1,9 @@
 import 'dart:developer';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
-import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -17,13 +17,10 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
-
-  await dotenv.load(fileName: "./dotenv"); // Loads .env file
 
   if (kIsWeb) {
     bool ready = await GRecaptchaV3.ready(
@@ -79,8 +76,11 @@ Future<void> main() async {
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ConfigViewModel(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SearchQueryProvider()),
+        ChangeNotifierProvider(create: (context) => ConfigViewModel()),
+      ],
       child: MyApp(),
     ),
   );
@@ -119,19 +119,31 @@ class MyApp extends StatelessWidget {
                         );
                       }
 
-                      di.registerLazySingleton<DAUCompsViewModel>(() =>
-                          DAUCompsViewModel(
-                              configViewModel.activeDAUComp!, false));
+                      // if config is null display error
+                      if (configViewModel.activeDAUComp == null) {
+                        // display LoginErrorScreen
+                        return LoginErrorScreen(
+                          errorMessage:
+                              'Unexpected startup error. For support: https://interview.coach/tipping',
+                          displaySignOutButton: false,
+                        );
+                      } else {
+                        di.registerLazySingleton<DAUCompsViewModel>(() =>
+                            DAUCompsViewModel(
+                                configViewModel.activeDAUComp!, false));
 
-                      di.registerLazySingleton<TippersViewModel>(() =>
-                          TippersViewModel(
-                              configViewModel.createLinkedTipper!));
+                        di.registerLazySingleton<TippersViewModel>(() =>
+                            TippersViewModel(
+                                configViewModel.createLinkedTipper!));
 
-                      return UserAuthPage(
-                        configViewModel.minAppVersion,
-                        isUserLoggingOut: false,
-                        createLinkedTipper: configViewModel.createLinkedTipper!,
-                      );
+                        return UserAuthPage(
+                          configViewModel.minAppVersion,
+                          isUserLoggingOut: false,
+                          createLinkedTipper:
+                              configViewModel.createLinkedTipper!,
+                          googleClientId: configViewModel.googleClientId ?? '',
+                        );
+                      }
                     },
                   );
                 },

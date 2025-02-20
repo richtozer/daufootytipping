@@ -52,6 +52,23 @@ class DAUComp implements Comparable<DAUComp> {
     return highestRoundNumber;
   }
 
+  // get lowest round number where RoundState is notStarted or started
+  int lowestRoundNumberNotEnded() {
+    int lowestRoundNumber = daurounds.length;
+
+    // work backwards from highestRoundNumber to find the lowest round number where roundState is notStarted or started
+    for (var i = lowestRoundNumber; i > 0; i--) {
+      if (daurounds[i - 1].roundState == RoundState.notStarted ||
+          daurounds[i - 1].roundState == RoundState.started) {
+        lowestRoundNumber = i;
+      } else {
+        break;
+      }
+    }
+
+    return lowestRoundNumber;
+  }
+
   factory DAUComp.fromJson(
       Map<String, dynamic> data, String? key, List<DAURound> daurounds) {
     return DAUComp(

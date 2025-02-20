@@ -73,7 +73,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     Orientation orientation = MediaQuery.of(context).orientation;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        heroTag: 'roundleaderboard',
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
         onPressed: () {
           Navigator.pop(context);
         },

@@ -74,6 +74,7 @@ class _HomePageState extends State<HomePage> {
                   child: (destinationContent[_currentIndex]),
                 ),
                 bottomNavigationBar: NavigationBar(
+                  indicatorColor: Colors.lightGreen[200],
                   indicatorShape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.0),
                   ),
