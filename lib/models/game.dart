@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:intl/intl.dart';
 
 enum GameState {
@@ -63,7 +64,13 @@ class Game implements Comparable<Game> {
         return dauRound;
       }
     }
-    throw Exception('Error in Game.getDAURound: no DAURound found');
+    // about to throw an exception, add custom keys to crashalytics
+    FirebaseCrashlytics.instance.setCustomKey('dbkey', dbkey);
+    FirebaseCrashlytics.instance.setCustomKey('daucomp', daucomp.name);
+    FirebaseCrashlytics.instance
+        .setCustomKey('rounds', daucomp.daurounds.length);
+
+    throw Exception('Game().getDAURound: Exception - No DAURound found.');
   }
 
   bool isGameInRound(DAURound round) {
