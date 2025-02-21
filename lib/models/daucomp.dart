@@ -95,7 +95,7 @@ class DAUComp implements Comparable<DAUComp> {
     for (var compDbKey in compDbKeys) {
       di<DAUCompsViewModel>().findComp(compDbKey).then((daucomp) {
         if (daucomp == null) {
-          log('DAUComp.fromJsonList2: compDbKey not found: $compDbKey');
+          log('DAUComp.fromJsonList: compDbKey not found: $compDbKey');
         } else {
           if (daucomp.dbkey == compDbKey) {
             daucompList.add(daucomp);
