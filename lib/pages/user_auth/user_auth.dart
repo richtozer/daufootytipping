@@ -205,7 +205,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                           return const Padding(
                             padding: EdgeInsets.only(top: 16),
                             child: Text(
-                              'If you\'re having trouble signing in, click here: https://interview.coach/tipping\n'
+                              'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
                               'App Version: Unknown',
                               style: TextStyle(color: Colors.grey),
                             ),
@@ -215,7 +215,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                           return Padding(
                             padding: const EdgeInsets.only(top: 16),
                             child: Text(
-                              'If you\'re having trouble signing in, click here: https://interview.coach/tipping\n'
+                              'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
                               'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
                               style: const TextStyle(color: Colors.grey),
                             ),

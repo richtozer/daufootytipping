@@ -9,16 +9,15 @@ import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-class TipsTab extends StatefulWidget {
-  const TipsTab({super.key});
+class TipsTabWeb extends StatefulWidget {
+  const TipsTabWeb({super.key});
 
   @override
-  TipsTabState createState() => TipsTabState();
+  TipsTabWebState createState() => TipsTabWebState();
 }
 
-class TipsTabState extends State<TipsTab> {
+class TipsTabWebState extends State<TipsTabWeb> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   int latestRoundNumber = 1;
@@ -83,12 +82,14 @@ class TipsTabState extends State<TipsTab> {
         data: myTheme,
         child: Consumer<DAUCompsViewModel>(
             builder: (context, daucompsViewmodelConsumer, client) {
-          return ScrollablePositionedList.builder(
-            itemScrollController:
-                daucompsViewmodelConsumer.itemScrollController,
-            initialScrollIndex: (latestRoundNumber) * 4,
-            initialAlignment:
-                0.15, // peek at the last game in the previous round
+          return ListView.builder(
+            primary: true,
+            //itemScrollController:
+            //    daucompsViewmodelConsumer.itemScrollController,
+            //initialScrollIndex: (latestRoundNumber) * 4,
+            //initialAlignment:
+            //    0.15, // peek at the last game in the previous round
+
             // calculate item count: 4 items per round
             // plus 1 card for start of competition and plus 1 card for the end of competition card
             itemCount:
@@ -121,7 +122,7 @@ class TipsTabState extends State<TipsTab> {
                             children: [
                               Icon(Icons.sports_rugby, color: Colors.white70),
                               Text(
-                                'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
+                                'WEB Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
                                 style: const TextStyle(color: Colors.white70),
                               ),
                               Icon(Icons.sports_rugby, color: Colors.white70),
