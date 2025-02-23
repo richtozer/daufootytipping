@@ -55,7 +55,6 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_svg: ^2.0.9
-  g_recaptcha_v3: ^1.0.0
   get_it: ^8.0.3
   http: ^1.1.2
   http_mock_adapter: ^0.6.1
@@ -70,6 +69,7 @@ dependencies:
   scrollable_positioned_list: ^0.3.8
   shared_preferences: ^2.2.2
   toggle_switch: ^2.1.0
+  universal_html: ^2.2.4
   url_launcher: ^6.2.1
   watch_it: ^1.4.0
 

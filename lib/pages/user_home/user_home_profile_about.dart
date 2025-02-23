@@ -3,7 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 final List<Widget> aboutBoxChildren = <Widget>[
   const SizedBox(height: 24),
-  const Text('Sponsored by The InterView Coach')
+  const Text('Sponsored by The Interview Coach')
 ];
 
 Future<Widget> aboutDialog(context) async {
