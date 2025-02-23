@@ -1,4 +1,5 @@
 import 'dart:developer';
+
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -12,22 +13,15 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:universal_html/js.dart' as js;
 
 Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
-
-  if (kIsWeb) {
-    bool ready = await GRecaptchaV3.ready(
-        "6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E",
-        showBadge: true);
-    log("Is Recaptcha ready? $ready");
-  }
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -36,23 +30,40 @@ Future<void> main() async {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
       appleProvider: AppleProvider.appAttest,
-      webProvider:
-          ReCaptchaV3Provider('6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
+      webProvider: ReCaptchaEnterpriseProvider(
+          '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
     );
+    log('FirebaseAppCheck activated');
   } else {
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-      appleProvider: AppleProvider.debug,
-      webProvider:
-          ReCaptchaV3Provider('6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'),
-    );
+        androidProvider: AndroidProvider.debug,
+        appleProvider: AppleProvider.debug,
+        // webProvider: ReCaptchaEnterpriseProvider(
+        //     '6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'));
+        webProvider:
+            ReCaptchaEnterpriseProvider(//temporarily use prod key in debug
+                '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'));
+    log('FirebaseAppCheck activated in debug mode');
   }
+
+  if (kIsWeb) {
+    if (kDebugMode) {
+      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = true;
+      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to true');
+    } else {
+      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = false;
+      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to false');
+    }
+  }
+
   FirebaseDatabase database = FirebaseDatabase.instance;
   if (kDebugMode) {
     database.useDatabaseEmulator('localhost', 8000);
+    log('Database emulator started');
   } else {
     if (!kIsWeb) {
       database.setPersistenceEnabled(true);
+      log('Database persistence enabled');
     }
   }
 
