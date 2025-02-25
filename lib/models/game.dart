@@ -25,6 +25,7 @@ class Game implements Comparable<Game> {
   final int fixtureMatchNumber;
   Scoring? scoring; // this should be null until game kickoff
   GameStatsEntry? gameStats;
+  static final double gameCardHeight = 128;
 
   //constructor
   Game({
