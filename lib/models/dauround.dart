@@ -1,10 +1,6 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 
-double gameCardHeight = 128.0;
-double leagueHeaderHeight = 56;
-double emptyLeagueRoundHeight = 75;
-
 enum RoundState {
   notStarted, // round is in the future
   started, // round is underway
@@ -20,6 +16,10 @@ class DAURound implements Comparable<DAURound> {
   DateTime roundEndDate;
   DateTime? adminOverrideRoundStartDate;
   DateTime? adminOverrideRoundEndDate;
+
+  static final double leagueHeaderHeight = 103;
+  static final double leagueHeaderEndedHeight = 104;
+  static final double noGamesCardheight = 75;
 
   // counstructor
   DAURound({

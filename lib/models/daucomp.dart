@@ -1,5 +1,7 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -50,6 +52,39 @@ class DAUComp implements Comparable<DAUComp> {
     }
 
     return highestRoundNumber;
+  }
+
+  // method to calculate the pixel height up to the supplied round number
+  // this is used to scroll the listview to the correct position when the tips page is loaded
+  double pixelHeightUpToRound(int roundNumber) {
+    double totalHeight = 0;
+
+    // add the height of the welcome header if roundNumber is greater than
+    if (roundNumber > 0) totalHeight += 200;
+
+    // add height for each round up to the supplied round number
+    for (var dauround in daurounds) {
+      if (dauround.dAUroundNumber <= roundNumber) {
+        // add the height for 2 headers - use DAURound.getGamesForRound to get the games for each league,
+        // if league has no games, then use emptyLeagueRoundHeight otherwise use leagueHeaderHeight
+        dauround.getGamesForLeague(League.nrl).isEmpty
+            ? totalHeight += DAURound.noGamesCardheight
+            : dauround.roundState == RoundState.allGamesEnded
+                ? totalHeight += DAURound.leagueHeaderEndedHeight
+                : totalHeight += DAURound.leagueHeaderHeight;
+
+        dauround.getGamesForLeague(League.afl).isEmpty
+            ? totalHeight += DAURound.noGamesCardheight
+            : dauround.roundState == RoundState.allGamesEnded
+                ? totalHeight += DAURound.leagueHeaderEndedHeight
+                : totalHeight += DAURound.leagueHeaderHeight;
+
+        // add the height for all games in the round
+        totalHeight += dauround.games.length * Game.gameCardHeight;
+      }
+    }
+
+    return totalHeight;
   }
 
   // get lowest round number where RoundState is notStarted or started
