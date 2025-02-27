@@ -161,7 +161,8 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return CircularProgressIndicator();
+                            return CircularProgressIndicator(
+                                color: Colors.orange);
                           } else if (snapshot.hasError) {
                             return Text('Error: ${snapshot.error}');
                           } else if (snapshot.hasData && snapshot.data! > 0) {

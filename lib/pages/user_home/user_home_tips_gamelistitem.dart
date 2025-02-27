@@ -193,7 +193,7 @@ class _GameListItemState extends State<GameListItem> {
               gameTipsViewModel: gameTipsViewModelConsumer,
               selectedDAUComp: widget.currentDAUComp);
         } else {
-          return CircularProgressIndicator(color: League.afl.colour);
+          return CircularProgressIndicator(color: League.nrl.colour);
         }
       },
     );

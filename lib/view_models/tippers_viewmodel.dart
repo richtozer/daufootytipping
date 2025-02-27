@@ -397,7 +397,7 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> checkEmail(
       Tipper foundTipper, User authenticatedFirebaseUser) async {
-    // if existing email null or invalid? if so, make it the same as logon
+    // if existing email null or invalid? if so, make it the same as logon email from firebase
     if (foundTipper.email == null || !_isValidEmail(foundTipper.email)) {
       await updateTipperAttribute(
           foundTipper.dbkey!, "email", authenticatedFirebaseUser.email);
@@ -621,5 +621,41 @@ class TippersViewModel extends ChangeNotifier {
   void dispose() {
     _tippersStream.cancel(); // stop listening to stream
     super.dispose();
+  }
+
+  Future<void> setTipperEmail(String tipperDbKey, String? newEmail) async {
+    if (!_initialLoadCompleter.isCompleted) {
+      log('TippersViewModel() Waiting for initial Tipper load to complete, setTipperName()');
+      await _initialLoadCompleter.future;
+      log('TippersViewModel() tipper load complete, setTipperName()');
+    }
+
+    Tipper? tipperToUpdate = await findTipper(tipperDbKey);
+
+    if (tipperToUpdate == null) {
+      log('TippersViewModel() TipperToUpdate is null. Skipping update.');
+      return;
+    }
+
+    if (tipperToUpdate.email == newEmail) {
+      log('Tipper: $tipperDbKey already has email: $newEmail');
+      return;
+    }
+
+    if (newEmail == null || newEmail.isEmpty) {
+      throw 'ipper email cannot be empty';
+    }
+
+    if (_tippers.any((tipper) =>
+        (tipper.email ?? '').toLowerCase() == newEmail.toLowerCase())) {
+      throw 'Tipper email $newEmail already exists';
+    }
+
+    await updateTipperAttribute(tipperDbKey, "email", newEmail);
+    await saveBatchOfTipperAttributes();
+
+    notifyListeners();
+
+    log('TippersViewModel() Tipper: $tipperDbKey email updated to: $newEmail');
   }
 }

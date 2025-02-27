@@ -70,7 +70,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
               var game = leagueGames![index];
               if (widget.tipperTipsViewModel == null) {
                 return Center(
-                    child: CircularProgressIndicator(color: League.afl.colour));
+                    child: CircularProgressIndicator(color: League.nrl.colour));
               }
               return GameListItem(
                 key: ValueKey(game.dbkey),

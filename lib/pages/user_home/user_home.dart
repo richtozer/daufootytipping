@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:daufootytipping/pages/user_home/user_home_tipsweb.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips2.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
   List<Widget> content() {
     return [
       //TipsTab(),
-      TipsTabWeb(),
+      TipsTab2(),
       StatsTab(),
       Profile(),
     ];

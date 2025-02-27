@@ -1,6 +1,5 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
@@ -123,7 +122,7 @@ class UserAuthPageState extends State<UserAuthPage> {
             builder: (context, versionSnapshot) {
               if (versionSnapshot.connectionState == ConnectionState.waiting) {
                 return Center(
-                    child: CircularProgressIndicator(color: League.afl.colour));
+                    child: CircularProgressIndicator(color: Colors.orange));
               }
               if (versionSnapshot.data == true) {
                 return const Center(
@@ -256,8 +255,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                 builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
-                        child: CircularProgressIndicator(
-                            color: League.afl.colour));
+                        child: CircularProgressIndicator(color: Colors.orange));
                   } else if (snapshot.hasError) {
                     return LoginErrorScreen(
                         errorMessage:

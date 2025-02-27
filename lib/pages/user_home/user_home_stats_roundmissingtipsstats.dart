@@ -9,17 +9,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-class CurrentRoundStats extends StatefulWidget {
+class RoundMissingTipsStats extends StatefulWidget {
   //constructor
-  const CurrentRoundStats(this.roundNumberToDisplay, {super.key});
+  const RoundMissingTipsStats(this.roundNumberToDisplay, {super.key});
 
   final int roundNumberToDisplay;
 
   @override
-  State<CurrentRoundStats> createState() => _CurrentRoundStatsState();
+  State<RoundMissingTipsStats> createState() => _RoundMissingTipsStatsState();
 }
 
-class _CurrentRoundStatsState extends State<CurrentRoundStats> {
+class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   late StatsViewModel statsViewModel;
   Map<Tipper, RoundStats> roundLeaderboard = {};
 

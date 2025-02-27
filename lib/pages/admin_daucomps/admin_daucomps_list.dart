@@ -55,7 +55,7 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return Center(
                           child: CircularProgressIndicator(
-                              color: League.afl.colour));
+                              color: League.nrl.colour));
                     }
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Text('No Records');

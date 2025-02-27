@@ -1,6 +1,6 @@
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
-import 'package:daufootytipping/pages/user_home/user_home_stats_currentroundstats.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_roundmissingtipsstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -100,7 +100,7 @@ class StatsTab extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => CurrentRoundStats(
+                          builder: (context) => RoundMissingTipsStats(
                               di<DAUCompsViewModel>()
                                   .selectedDAUComp!
                                   .lowestRoundNumberNotEnded())),

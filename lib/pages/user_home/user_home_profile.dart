@@ -9,10 +9,9 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
-import 'package:daufootytipping/pages/user_home/user_home_profile_about.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -54,30 +53,88 @@ class Profile extends StatelessWidget with WatchItMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
-          Row(
-            children: [
-              Consumer<TippersViewModel>(
-                  builder: (context, tippersViewModelConsumer, child) {
-                return HeaderWidget(
-                  // use the authenticatedTipper name and add a space between each letter
-                  text:
-                      (tippersViewModelConsumer.authenticatedTipper!.name ?? '')
-                          .split('')
-                          .join(' '),
-                  leadingIconAvatar:
+          Consumer<TippersViewModel>(
+              builder: (context, tippersViewModelConsumer, child) {
+            return Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child:
                       avatarPic(tippersViewModelConsumer.authenticatedTipper!),
-                );
-              }),
-              // add a clickable edit icon to the right of the name
-              IconButton(
-                padding: const EdgeInsets.fromLTRB(0, 40, 0, 0),
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  _showEditNameDialog(context, authenticatedTipper!);
-                },
-              ),
-            ],
-          ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(5.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                (tippersViewModelConsumer
+                                            .authenticatedTipper!.name ??
+                                        '')
+                                    .split('')
+                                    .join(' '),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            IconButton(
+                              padding: const EdgeInsets.all(0),
+                              iconSize: 20,
+                              icon: const Text('Edit Alias..',
+                                  textAlign: TextAlign.center),
+                              onPressed: () {
+                                _showEditNameDialog(
+                                    context, authenticatedTipper!);
+                              },
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              size: 20,
+                              Icons.login,
+                              color: Colors.black54,
+                            ),
+                            Expanded(
+                              child: Text(
+                                tippersViewModelConsumer
+                                        .authenticatedTipper!.logon ??
+                                    '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            IconButton(
+                              iconSize: 20,
+                              icon: const Text('Sign Out...',
+                                  textAlign: TextAlign.center),
+                              onPressed: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) => const UserAuthPage(
+                                      null,
+                                      isUserLoggingOut: true,
+                                      createLinkedTipper: false,
+                                      googleClientId: '',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
           Card(
             child: Column(
               children: [
@@ -144,18 +201,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                     },
                   ),
                 ),
-                FutureBuilder<Widget>(
-                  future: aboutDialog(context),
-                  builder:
-                      (BuildContext context, AsyncSnapshot<Widget> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.done) {
-                      return snapshot.data!;
-                    } else {
-                      return CircularProgressIndicator(
-                          color: League.afl.colour);
-                    }
-                  },
-                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -209,9 +254,12 @@ class Profile extends StatelessWidget with WatchItMixin {
                           context: context,
                           builder: (BuildContext context) {
                             return AlertDialog(
-                              title: const Text('Confirm Account Deletion'),
+                              title: Text(
+                                'Confirm Account Deletion',
+                                style: TextStyle(color: League.afl.colour),
+                              ),
                               content: const Text(
-                                  'Are you sure you want to delete your account? This action cannot be undone. You may be asked to log in again to confirm your identity.'),
+                                  'Are you sure you want to delete your account? All your tips will be deleted. This action cannot be undone. You may be asked to log in again to confirm your identity.'),
                               actions: [
                                 TextButton(
                                   child: const Text('Cancel'),
@@ -220,7 +268,10 @@ class Profile extends StatelessWidget with WatchItMixin {
                                   },
                                 ),
                                 TextButton(
-                                  child: const Text('Delete'),
+                                  child: Text(
+                                    'Delete',
+                                    style: TextStyle(color: League.afl.colour),
+                                  ),
                                   onPressed: () {
                                     Navigator.of(context).pop();
                                     Navigator.of(context).pushReplacement(
@@ -242,28 +293,43 @@ class Profile extends StatelessWidget with WatchItMixin {
                         );
                       },
                     ),
-                    Container(width: 10),
-                    OutlinedButton(
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.logout),
-                          Text('Sign Out'),
-                        ],
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const UserAuthPage(
-                              null,
-                              isUserLoggingOut: true,
-                              createLinkedTipper: false,
-                              googleClientId: '',
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: Text(
+                              'Loading...',
+                              style: TextStyle(color: Colors.grey),
                             ),
-                          ),
-                        );
+                          );
+                        } else if (snapshot.hasError) {
+                          return const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: Text(
+                              'App Version: Unknown',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        } else {
+                          final packageInfo = snapshot.data!;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(
+                              'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                          );
+                        }
                       },
-                    ),
+                    )
                   ],
                 ),
               ],
@@ -392,4 +458,87 @@ class Profile extends StatelessWidget with WatchItMixin {
       ),
     );
   }
+
+  // void _showEditEmailDialog(BuildContext context, Tipper tipper) {
+  //   final TextEditingController emailController =
+  //       TextEditingController(text: tipper.email);
+  //   String? errorMessage;
+
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false, // Prevent dismissing the dialog without saving
+  //     builder: (BuildContext context) {
+  //       return StatefulBuilder(
+  //         builder: (BuildContext context, StateSetter setState) {
+  //           return AlertDialog(
+  //             title: const Text('Edit Email Address'),
+  //             content: Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               children: [
+  //                 const Text(
+  //                     'This is the address used to receive email notifications from DAU Admins.'),
+  //                 TextField(
+  //                   controller: emailController,
+  //                   decoration: const InputDecoration(
+  //                     labelText: 'Email',
+  //                     hintText: 'Enter your email address',
+  //                   ),
+  //                 ),
+  //                 if (errorMessage != null)
+  //                   Padding(
+  //                     padding: const EdgeInsets.only(top: 8.0),
+  //                     child: Text(
+  //                       errorMessage!,
+  //                       style: const TextStyle(color: Colors.red),
+  //                     ),
+  //                   ),
+  //               ],
+  //             ),
+  //             actions: [
+  //               TextButton(
+  //                 child: const Text('Cancel'),
+  //                 onPressed: () {
+  //                   Navigator.of(context).pop();
+  //                 },
+  //               ),
+  //               TextButton(
+  //                 child: const Text('Save'),
+  //                 onPressed: () async {
+  //                   String newEmail = emailController.text.trim();
+  //                   if (newEmail.isEmpty) {
+  //                     setState(() {
+  //                       errorMessage = 'Email cannot be empty.';
+  //                     });
+  //                     return;
+  //                   }
+  //                   if (!newEmail.contains('@') || !newEmail.contains('.')) {
+  //                     setState(() {
+  //                       errorMessage = 'Email must be valid.';
+  //                     });
+  //                     return;
+  //                   }
+  //                   try {
+  //                     // Update the tipper email in the database
+  //                     await di<TippersViewModel>()
+  //                         .setTipperEmail(tipper.dbkey!, newEmail);
+
+  //                     // update the email on the tipper object
+  //                     tipper.email =
+  //                         newEmail; //TODO Hack -  state changes should go through database first
+
+  //                     Navigator.of(context).pop();
+  //                   } catch (e) {
+  //                     setState(() {
+  //                       errorMessage = 'Error: $e';
+  //                     });
+  //                   }
+  //                 },
+  //               ),
+  //             ],
+  //           );
+  //         },
+  //       );
+  //     },
+  //   );
+  //}
 }
