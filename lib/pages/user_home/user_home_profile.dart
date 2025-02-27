@@ -72,13 +72,13 @@ class Profile extends StatelessWidget with WatchItMixin {
                             Expanded(
                               child: Text(
                                 (tippersViewModelConsumer
-                                            .authenticatedTipper!.name ??
-                                        '')
-                                    .split('')
-                                    .join(' '),
+                                        .authenticatedTipper!.name ??
+                                    ''),
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.bold),
+                                    letterSpacing: 5,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                             IconButton(
@@ -324,7 +324,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                             padding: const EdgeInsets.only(top: 16),
                             child: Text(
                               'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                              style: const TextStyle(fontSize: 15),
+                              style: const TextStyle(fontSize: 10),
                             ),
                           );
                         }

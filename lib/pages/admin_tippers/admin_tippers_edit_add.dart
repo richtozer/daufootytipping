@@ -29,7 +29,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late TextEditingController _tipperLogonController;
 
   final FocusNode _emailFocusNode = FocusNode();
-  late Tipper? tipper;
+  late Tipper tipper;
   late bool admin;
   late TippersViewModel tippersViewModel;
 
@@ -413,7 +413,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                             tippersViewModelConsumer
                                                     .selectedTipper =
                                                 tippersViewModelConsumer
-                                                    .authenticatedTipper;
+                                                    .authenticatedTipper!;
                                           }
                                           // reset the other view models in daucompsviewmodel to reflect
                                           // any changes in the selected tipper
