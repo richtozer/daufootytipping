@@ -35,7 +35,7 @@ Widget circleAvatarWithFallback(
         child: Text(initials,
             style: TextStyle(
               color: Colors.white,
-              fontSize: radius == 30 ? 30 : 15,
+              fontSize: radius == 40 ? 40 : 15,
             )),
       ));
 }
