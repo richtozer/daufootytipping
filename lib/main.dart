@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -128,8 +129,10 @@ class MyApp extends StatelessWidget {
                     future: configViewModel.initialLoadComplete,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
+                        return Center(
+                          child: CircularProgressIndicator(
+                            color: League.afl.colour,
+                          ),
                         );
                       }
 

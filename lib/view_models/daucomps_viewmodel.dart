@@ -70,6 +70,9 @@ class DAUCompsViewModel extends ChangeNotifier {
     _listenToDAUComps();
     await initialLoadComplete;
 
+    //await the TippersViewModel to be initialized
+    await di<TippersViewModel>().initialLoadComplete;
+
     if (_initDAUCompDbKey != null) {
       DAUComp? foundComp = await findComp(_initDAUCompDbKey!);
       if (foundComp != null) {

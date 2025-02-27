@@ -311,7 +311,7 @@ class StatsViewModel extends ChangeNotifier {
     // only include tippers who's paid status matches that of the authenticated tipper
     Map<Tipper, RoundStats> roundLeaderboard = {};
     assert(roundNumber != -1);
-    for (var tipperEntry in _allTipperRoundStats[roundNumber]!.entries) {
+    for (var tipperEntry in _allTipperRoundStats[roundNumber - 1]!.entries) {
       if (_isSelectedTipperPaidUpMember !=
           tipperEntry.key.paidForComp(selectedDAUComp)) {
         continue;

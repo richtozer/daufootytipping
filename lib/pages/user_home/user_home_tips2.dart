@@ -13,14 +13,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-class TipsTabWeb extends StatefulWidget {
-  const TipsTabWeb({super.key});
+class TipsTab2 extends StatefulWidget {
+  const TipsTab2({super.key});
 
   @override
-  TipsTabWebState createState() => TipsTabWebState();
+  TipsTab2State createState() => TipsTab2State();
 }
 
-class TipsTabWebState extends State<TipsTabWeb> {
+class TipsTab2State extends State<TipsTab2> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   int latestRoundNumber = 0;
@@ -299,7 +299,7 @@ class WelcomeHeader extends StatelessWidget {
                 children: [
                   const Icon(Icons.sports_rugby, color: Colors.white70),
                   Text(
-                    'WEB Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
+                    'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
                     style: const TextStyle(color: Colors.white70),
                   ),
                   const Icon(Icons.sports_rugby, color: Colors.white70),

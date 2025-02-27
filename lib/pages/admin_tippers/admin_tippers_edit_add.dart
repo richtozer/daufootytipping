@@ -164,7 +164,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             disableSaves = true;
                           });
                           changesNeedSaving = true;
-                          CircularProgressIndicator(color: League.afl.colour);
+                          CircularProgressIndicator(color: League.nrl.colour);
 
                           _saveTipper(context);
 
@@ -439,7 +439,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                               ConnectionState.waiting) {
                             return Center(
                                 child: CircularProgressIndicator(
-                                    color: League.afl.colour));
+                                    color: League.nrl.colour));
                           }
                           if (!snapshot.hasData || snapshot.data!.isEmpty) {
                             return const Text('No Records');

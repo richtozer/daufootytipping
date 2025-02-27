@@ -43,7 +43,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
     statsViewModel = di<StatsViewModel>();
     roundLeaderboard =
-        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay - 1);
+        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
     onSort(1, true);
   }
 
