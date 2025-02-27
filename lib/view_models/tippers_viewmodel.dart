@@ -120,12 +120,12 @@ class TippersViewModel extends ChangeNotifier {
     }
 
     if (newName == null || newName.isEmpty) {
-      throw 'TippersViewModel() Tipper name cannot be empty';
+      throw 'Tipper name cannot be empty';
     }
 
     if (_tippers.any((tipper) =>
         (tipper.name ?? '').toLowerCase() == newName.toLowerCase())) {
-      throw 'TippersViewModel() Tipper name $newName already exists';
+      throw 'Tipper name $newName already exists. If you were a tipper in previous years, then it may be that you have duplicate profiles. This is likely due to changing logon methods. Please contact DAU Support to resolve this issue.';
     }
 
     await updateTipperAttribute(tipperDbKey, "name", newName);

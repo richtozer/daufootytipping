@@ -81,10 +81,12 @@ class Profile extends StatelessWidget with WatchItMixin {
                                     fontWeight: FontWeight.bold),
                               ),
                             ),
-                            IconButton(
-                              padding: const EdgeInsets.all(0),
-                              iconSize: 20,
-                              icon: const Text('Edit Alias..',
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.all(5),
+                                minimumSize: Size(50, 30),
+                              ),
+                              child: const Text('Edit',
                                   textAlign: TextAlign.center),
                               onPressed: () {
                                 _showEditNameDialog(
@@ -109,9 +111,12 @@ class Profile extends StatelessWidget with WatchItMixin {
                                 style: const TextStyle(fontSize: 16),
                               ),
                             ),
-                            IconButton(
-                              iconSize: 20,
-                              icon: const Text('Sign Out...',
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.all(5),
+                                minimumSize: Size(50, 30),
+                              ),
+                              child: const Text('Sign Out',
                                   textAlign: TextAlign.center),
                               onPressed: () {
                                 Navigator.of(context).pushReplacement(
@@ -454,91 +459,8 @@ class Profile extends StatelessWidget with WatchItMixin {
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,
         text: tipper.name,
-        radius: 30,
+        radius: 40,
       ),
     );
   }
-
-  // void _showEditEmailDialog(BuildContext context, Tipper tipper) {
-  //   final TextEditingController emailController =
-  //       TextEditingController(text: tipper.email);
-  //   String? errorMessage;
-
-  //   showDialog(
-  //     context: context,
-  //     barrierDismissible: false, // Prevent dismissing the dialog without saving
-  //     builder: (BuildContext context) {
-  //       return StatefulBuilder(
-  //         builder: (BuildContext context, StateSetter setState) {
-  //           return AlertDialog(
-  //             title: const Text('Edit Email Address'),
-  //             content: Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               children: [
-  //                 const Text(
-  //                     'This is the address used to receive email notifications from DAU Admins.'),
-  //                 TextField(
-  //                   controller: emailController,
-  //                   decoration: const InputDecoration(
-  //                     labelText: 'Email',
-  //                     hintText: 'Enter your email address',
-  //                   ),
-  //                 ),
-  //                 if (errorMessage != null)
-  //                   Padding(
-  //                     padding: const EdgeInsets.only(top: 8.0),
-  //                     child: Text(
-  //                       errorMessage!,
-  //                       style: const TextStyle(color: Colors.red),
-  //                     ),
-  //                   ),
-  //               ],
-  //             ),
-  //             actions: [
-  //               TextButton(
-  //                 child: const Text('Cancel'),
-  //                 onPressed: () {
-  //                   Navigator.of(context).pop();
-  //                 },
-  //               ),
-  //               TextButton(
-  //                 child: const Text('Save'),
-  //                 onPressed: () async {
-  //                   String newEmail = emailController.text.trim();
-  //                   if (newEmail.isEmpty) {
-  //                     setState(() {
-  //                       errorMessage = 'Email cannot be empty.';
-  //                     });
-  //                     return;
-  //                   }
-  //                   if (!newEmail.contains('@') || !newEmail.contains('.')) {
-  //                     setState(() {
-  //                       errorMessage = 'Email must be valid.';
-  //                     });
-  //                     return;
-  //                   }
-  //                   try {
-  //                     // Update the tipper email in the database
-  //                     await di<TippersViewModel>()
-  //                         .setTipperEmail(tipper.dbkey!, newEmail);
-
-  //                     // update the email on the tipper object
-  //                     tipper.email =
-  //                         newEmail; //TODO Hack -  state changes should go through database first
-
-  //                     Navigator.of(context).pop();
-  //                   } catch (e) {
-  //                     setState(() {
-  //                       errorMessage = 'Error: $e';
-  //                     });
-  //                   }
-  //                 },
-  //               ),
-  //             ],
-  //           );
-  //         },
-  //       );
-  //     },
-  //   );
-  //}
 }
