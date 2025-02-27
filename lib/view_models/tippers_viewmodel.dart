@@ -21,11 +21,11 @@ class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
   List<Tipper> get tippers => _tippers;
 
-  Tipper? _selectedTipper;
-  Tipper? get selectedTipper => _selectedTipper;
+  late Tipper _selectedTipper;
+  Tipper get selectedTipper => _selectedTipper;
 
   // this setter is to support god mode, where the admin can select a tipper to act as
-  set selectedTipper(Tipper? tipper) {
+  set selectedTipper(Tipper tipper) {
     _selectedTipper = tipper;
     notifyListeners();
   }
