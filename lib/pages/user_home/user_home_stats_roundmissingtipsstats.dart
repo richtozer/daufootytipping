@@ -28,7 +28,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
 
   final List<String> columns = [
     'Name',
-    'Total',
+    'Tips\nNeeded',
     'NRL',
     'AFL',
   ];
