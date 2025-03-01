@@ -139,7 +139,7 @@ class _GameListItemState extends State<GameListItem> {
           switch (gameTipsViewModelConsumer.game.gameState) {
             case GameState.startingSoon:
               bannerMessage = "Game today";
-              bannerColor = Colors.deepOrangeAccent;
+              bannerColor = Colors.orange;
               break;
             case GameState.startedResultNotKnown:
               bannerMessage = "Live";

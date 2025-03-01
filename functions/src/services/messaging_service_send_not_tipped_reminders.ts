@@ -2,9 +2,16 @@ import {onSchedule} from "firebase-functions/v2/scheduler";
 import {database} from "firebase-admin";
 import {getMessaging} from "firebase-admin/messaging";
 
+// Schedule: "30 21-8 * 3-9 *"
+// Minute 20 Twenty minutes past the hour
+// Hour 21-23,0-8 Every hour from 21:00 UTC to 8:00 UTC
+// Day of Month * Every day of the month
+// Month 3-9 Only in March to September
+// Day of Week * Every day of the week
+
 export const sendHourlyReminders =
-  onSchedule("every hour", async () => {
-    const isTestingMode = false; // Set to false for production
+  onSchedule("20 21-23,0-8 * 3-9 *", async () => {
+    const isTestingMode = false; // DOES NOT WORK IN TESTING MODE
     const testTipperId = "-NoGNrrChbi0sETPpJNq";
 
     // Format the current date to match the database format:
@@ -69,45 +76,46 @@ export const sendHourlyReminders =
     for (const tipperId in tippersWithTokens) {
       if (Object.prototype.hasOwnProperty.call(tippersWithTokens, tipperId)) {
         const tipper = tippers[tipperId];
-        if (tipper.compsParticipatedIn && tipper.compsParticipatedIn
-          .includes(compDBKey)) {
-          const tokens = tippersWithTokens[tipperId];
-          let gamesNotTipped = 0;
+        // if (tipper.compsParticipatedIn && tipper.compsParticipatedIn
+        // .includes(compDBKey)) {
+        const tipperName = tipper?.name ?? tipperId;
+        const tokens = tippersWithTokens[tipperId];
+        let gamesNotTipped = 0;
 
-          for (const gameKey of gameKeys) {
-            const tipRef = database()
-              .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
-            const tipSnapshot = await tipRef.once("value");
+        for (const gameKey of gameKeys) {
+          const tipRef = database()
+            .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
+          const tipSnapshot = await tipRef.once("value");
 
-            if (!tipSnapshot.exists()) {
-              gamesNotTipped++;
-              const homeTeamLongName = games[gameKey].HomeTeam;
-              const awayTeamLongName = games[gameKey].AwayTeam;
+          if (!tipSnapshot.exists()) {
+            gamesNotTipped++;
+            const homeTeamLongName = games[gameKey].HomeTeam;
+            const awayTeamLongName = games[gameKey].AwayTeam;
 
-              const homeTeam = teams[`${gameKey
-                .substring(0, 3)}-${homeTeamLongName}`]?.name ||
-                homeTeamLongName;
-              const awayTeam = teams[`${gameKey
-                .substring(0, 3)}-${awayTeamLongName}`]?.name ||
-                awayTeamLongName;
-              console
-                .log(`Tipper ${tipperId} no tip: ${homeTeam} v ${awayTeam}.`);
+            const homeTeam = teams[`${gameKey
+              .substring(0, 3)}-${homeTeamLongName}`]?.name ||
+              homeTeamLongName;
+            const awayTeam = teams[`${gameKey
+              .substring(0, 3)}-${awayTeamLongName}`]?.name ||
+              awayTeamLongName;
+            console
+              .log(`Tipper ${tipperName} no tip: ${homeTeam} v ${awayTeam}.`);
 
-              for (const tokenKey in tokens) {
-                if (Object.prototype.hasOwnProperty.call(tokens, tokenKey)) {
-                  reminders.push({
-                    tipperId: tipperId,
-                    token: tokenKey,
-                    homeTeam: homeTeam,
-                    awayTeam: awayTeam,
-                    gameStartTimeUTC: new Date(games[gameKey].DateUtc),
-                    gamesNotTipped: gamesNotTipped,
-                  });
-                }
+            for (const tokenKey in tokens) {
+              if (Object.prototype.hasOwnProperty.call(tokens, tokenKey)) {
+                reminders.push({
+                  tipperId: tipperId,
+                  token: tokenKey,
+                  homeTeam: homeTeam,
+                  awayTeam: awayTeam,
+                  gameStartTimeUTC: new Date(games[gameKey].DateUtc),
+                  gamesNotTipped: gamesNotTipped,
+                });
               }
             }
           }
         }
+        // }
       } else {
         console.log("No tokens found for tipperId: ", tipperId);
       }
@@ -147,14 +155,17 @@ export const sendHourlyReminders =
           console.log("Reminder sent to:", reminder.tipperId);
         } catch (error: unknown) {
           console.error("Error sending reminder to:", reminder.token, error);
-          if (error instanceof Error && error.message
-            .includes("registration-token-not-registered")) {
+          const messagingError = error as { errorInfo?: { code: string } };
+          if (error instanceof Error && messagingError
+            .errorInfo?.code ===
+              "messaging/registration-token-not-registered") {
             console.log("Removing invalid token:", reminder.token);
             await tokensRef
               .child(`/${reminder.tipperId}/${reminder.token}`).remove();
           }
         }
       }
+      console.log("Reminders sent. End of processing.");
     } else {
       console.log("No reminders to send.");
     }
