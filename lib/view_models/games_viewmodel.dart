@@ -106,19 +106,6 @@ class GamesViewModel extends ChangeNotifier {
       // Now that we have all the games from db
       // call linkGamesWithRounds() to link the games with the rounds
       await _dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
-
-      // if daucompsviewmodel adminmode is false then do game linking and any fixture updates
-      if (!_dauCompsViewModel.adminMode) {
-        // now that we know the state of each roumd, check the state of each round
-        // if any are yet to be played setup the fixture download trigger
-        for (DAURound dauRound in selectedDAUComp.daurounds) {
-          if (dauRound.roundState != RoundState.allGamesEnded) {
-            log('GamesViewModel_handleEvent: round ${dauRound.dAUroundNumber} is not complete. Setting fixtureUpdateTrigger');
-            await _dauCompsViewModel.fixtureUpdateTrigger();
-            break;
-          }
-        }
-      }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();

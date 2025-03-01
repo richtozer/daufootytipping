@@ -23,7 +23,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   late StatsViewModel statsViewModel;
   Map<Tipper, RoundStats> roundLeaderboard = {};
 
-  bool isAscending = false;
+  bool isAscending = true;
   int? sortColumnIndex = 1;
 
   final List<String> columns = [

@@ -61,6 +61,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   final bool _adminMode;
   bool get adminMode => _adminMode;
 
+  Timer? _dailyTimer;
+
   DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
     _init();
     log('DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode');
@@ -88,7 +90,37 @@ class DAUCompsViewModel extends ChangeNotifier {
         log('No DAUComps found. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
       }
     }
+
+    // if we are not in admin mode, start the daily timer
+    if (!_adminMode) {
+      startDailyTimer();
+    }
     notifyListeners();
+  }
+
+  void startDailyTimer() {
+    _dailyTimer = Timer.periodic(Duration(hours: 24), (timer) {
+      triggerDailyEvent();
+    });
+
+    // always trigger the daily event when the timer is started
+    triggerDailyEvent();
+  }
+
+  void triggerDailyEvent() {
+    log("DAUCompsViewModel_triggerDailyEvent  Daily event triggered at ${DateTime.now()}");
+    // if the last fixture update was more than 24 hours ago, then trigger the fixture update
+    if (_activeDAUComp != null &&
+        _activeDAUComp!.lastFixtureUpdateTimestampUTC != null &&
+        DateTime.now()
+                .difference(_activeDAUComp!.lastFixtureUpdateTimestampUTC!)
+                .inHours >=
+            24) {
+      log('DAUCompsViewModel_triggerDailyEvent  Triggering fixture update');
+      _fixtureUpdate();
+    } else {
+      log('DAUCompsViewModel_triggerDailyEvent  Last fixture update was less than 24 hours ago. No fixture update triggered.');
+    }
   }
 
   Future<void> changeDisplayedDAUComp(
@@ -256,49 +288,29 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  static Duration _fixtureUpdateTriggerDelay(DateTime lastUpdate) {
-    DateTime nextUpdate = lastUpdate.add(const Duration(days: 1));
-    DateTime timeUntilNewDay = DateTime.utc(
-        nextUpdate.year, nextUpdate.month, nextUpdate.day, 19, 0, 0, 0, 0);
-    return timeUntilNewDay.toUtc().difference(DateTime.now().toUtc());
-  }
-
-  Future<void> fixtureUpdateTrigger() async {
+  Future<void> _fixtureUpdate() async {
     await initialLoadComplete;
+    await gamesViewModel!.initialLoadComplete;
 
     if (_activeDAUComp == null) {
-      log('_fixtureUpdateTrigger() Active comp is null. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
+      log('_fixtureUpdate() Active comp is null. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.');
       return;
     }
 
     // if selected comp is not the active comp then we don't want to trigger the fixture update
     if (!isSelectedCompActiveComp()) {
-      log('_fixtureUpdateTrigger() Selected comp ${_selectedDAUComp?.name} is not the active comp. No fixture update will be triggered.');
-      return;
-    }
-
-    // do not use trigger when in admin mode
-    if (_adminMode) {
-      log('fixtureUpdateTrigger() Admin mode detected. No automated trigger setup for ${_activeDAUComp!.name}.');
+      log('_fixtureUpdate() Selected comp ${_selectedDAUComp?.name} is not the active comp. No fixture update will be triggered.');
       return;
     }
 
     // if we are at the end of the competition, then don't trigger the fixture update
     if (_isCompOver(_activeDAUComp!)) {
-      log('_fixtureUpdateTrigger() End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
+      log('_fixtureUpdate() End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.');
       return;
     }
 
-    DateTime? lastUpdate = _activeDAUComp!.lastFixtureUpdateTimestampUTC ??
-        DateTime.utc(2021, 1, 1);
-    Duration timeUntilNewDay = _fixtureUpdateTriggerDelay(lastUpdate);
-
-    log('_fixtureUpdateTrigger() Waiting for fixture update trigger at ${DateTime.now().toUtc().add(timeUntilNewDay)}');
-    await Future.delayed(timeUntilNewDay);
-    log('_fixtureUpdateTrigger() Fixture update delay has elapsed ${DateTime.now().toUtc()}.');
-
     try {
-      log('_fixtureUpdateTrigger() Starting fixture update for comp: ${_activeDAUComp!.name}');
+      log('_fixtureUpdate() Starting fixture update for comp: ${_activeDAUComp!.name}');
       // create an analytics event to track the fixture update trigger
       FirebaseAnalytics.instance.logEvent(name: 'fixture_trigger', parameters: {
         'comp': _activeDAUComp!.name,
@@ -652,6 +664,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _dailyTimer?.cancel();
     _daucompsStream.cancel();
 
     // remove listeners if not in admin mode
