@@ -91,14 +91,20 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    // if we are not in admin mode, start the daily timer
-    if (!_adminMode) {
-      startDailyTimer();
-    }
+    startDailyTimer();
+
     notifyListeners();
   }
 
   void startDailyTimer() {
+    // if we are on web, then we don't want to start the daily timer
+    if (kIsWeb) {
+      return;
+    }
+    // if we are in admin mode, then we don't want to start the daily timer
+    if (_adminMode) {
+      return;
+    }
     _dailyTimer = Timer.periodic(Duration(hours: 24), (timer) {
       triggerDailyEvent();
     });
