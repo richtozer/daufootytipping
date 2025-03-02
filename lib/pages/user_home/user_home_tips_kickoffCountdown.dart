@@ -12,7 +12,7 @@ class KickoffCountdown extends StatefulWidget {
 
 class KickoffCountdownState extends State<KickoffCountdown> {
   late Timer _timer;
-  late String countdownText;
+  String countdownText = '';
 
   @override
   void initState() {
@@ -28,7 +28,7 @@ class KickoffCountdownState extends State<KickoffCountdown> {
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(const Duration(hours: 1), (timer) {
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       _updateCountdown();
     });
   }
