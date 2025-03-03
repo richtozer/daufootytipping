@@ -34,7 +34,7 @@ class TippersViewModel extends ChangeNotifier {
   Tipper? _authenticatedTipper;
   Tipper? get authenticatedTipper => _authenticatedTipper;
 
-  bool get inGodMode => _selectedTipper!.dbkey != _authenticatedTipper!.dbkey;
+  bool get inGodMode => _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
 
   final _db = FirebaseDatabase.instance.ref();
 
@@ -76,7 +76,7 @@ class TippersViewModel extends ChangeNotifier {
           tippersList.where((tipper) => tipper != null).cast<Tipper>().toList();
 
       // do a default sort by login date
-      sortTippersByLogin(false);
+      _sortTippersByLogin(false);
 
       log('TippersViewModel() Tipper db Listener: ${_tippers.length} tippers found in database');
     } else {
@@ -88,7 +88,7 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void sortTippersByLogin(bool ascending) {
+  void _sortTippersByLogin(bool ascending) {
     var sortedEntries = _tippers.toList()
       ..sort((a, b) =>
           (ascending ? 1 : -1) *
@@ -130,8 +130,6 @@ class TippersViewModel extends ChangeNotifier {
 
     await updateTipperAttribute(tipperDbKey, "name", newName);
     await saveBatchOfTipperAttributes();
-
-    notifyListeners();
 
     log('TippersViewModel() Tipper: $tipperDbKey name updated to: $newName');
   }
@@ -178,8 +176,6 @@ class TippersViewModel extends ChangeNotifier {
     } finally {
       updates.clear();
       _savingTipper = false;
-      // notifyListeners(); we should only be notifiying
-      // listeners when the save is complete. see _handleEvent
     }
   }
 

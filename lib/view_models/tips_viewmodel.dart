@@ -221,18 +221,14 @@ class TipsViewModel extends ChangeNotifier {
     // throw an exception if the tipper is not null
     if (_tipper != null) {
       throw Exception(
-          'percentageOfTippersTipped() should not be called when doing agregates for scoring. _tipper is not null');
+          'percentageOfTippersTipped() should not be called when doing aggregates for scoring. _tipper is not null');
     }
     // get the paidForComp status for the selected tipper
-    bool isScoringPaidComp = false;
-    if (di<TippersViewModel>().selectedTipper != null) {
-      isScoringPaidComp =
-          di<TippersViewModel>().selectedTipper!.paidForComp(selectedDAUComp);
-    }
+    bool isScoringPaidComp =
+        di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
 
-    // loop through all tippers and remove those that dont have the same paidForComp status
-    List<Tipper> tippers = _listOfTips
-        .map((tip) => tip!.tipper)
+    // loop through all tippers and remove those that don't have the same paidForComp status
+    List<Tipper> tippers = tipperViewModel.tippers
         .where((tipper) =>
             tipper.paidForComp(selectedDAUComp) == isScoringPaidComp)
         .toList();
@@ -241,14 +237,16 @@ class TipsViewModel extends ChangeNotifier {
     int totalTippers = tippers.length;
     int totalTippersTipped = 0;
 
-    // loop through each tipper and call findTip()
-    for (Tipper tipper in tippers) {
-      findTip(game, tipper).then((tip) {
-        if (tip?.tip == gameResult) {
-          totalTippersTipped++;
-        }
-      });
-    }
+    // Collect all the futures
+    List<Future<void>> futures = tippers.map((tipper) async {
+      Tip? tip = await findTip(game, tipper);
+      if (tip?.tip == gameResult) {
+        totalTippersTipped++;
+      }
+    }).toList();
+
+    // Wait for all futures to complete
+    await Future.wait(futures);
 
     return totalTippersTipped / totalTippers;
   }

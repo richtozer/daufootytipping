@@ -1,7 +1,7 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_roundLeagueHeaderListTile.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -180,7 +180,7 @@ class TipsTabState extends State<TipsTab> {
                 });
               } else if (itemIndex == 1) {
                 return GameListBuilder(
-                  currentTipper: di<TippersViewModel>().selectedTipper!,
+                  currentTipper: di<TippersViewModel>().selectedTipper,
                   dauRound: dauRound,
                   league: League.nrl,
                   tipperTipsViewModel:
@@ -195,7 +195,7 @@ class TipsTabState extends State<TipsTab> {
                 });
               } else if (itemIndex == 3) {
                 return GameListBuilder(
-                  currentTipper: di<TippersViewModel>().selectedTipper!,
+                  currentTipper: di<TippersViewModel>().selectedTipper,
                   dauRound: dauRound,
                   league: League.afl,
                   tipperTipsViewModel:

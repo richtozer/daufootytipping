@@ -787,7 +787,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             });
             await Future.delayed(const Duration(milliseconds: 100));
             String syncResult = await tempStatsViewModel.updateStats(
-                widget.daucomp!, null, null);
+                widget.daucomp!, null, null, null);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

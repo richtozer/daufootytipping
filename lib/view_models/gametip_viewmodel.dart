@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -145,9 +146,18 @@ class GameTipViewModel extends ChangeNotifier {
 
       _tip = tip; // update the tip with the new tip
 
+      // write a firebase analytic event that a tip was submitted
+      FirebaseAnalytics.instance.logEvent(name: 'tip_submitted', parameters: {
+        'game': tip.game.dbkey,
+        'tipper': tip.tipper.name.toString(),
+        'tip': tipJson.toString(),
+        'submittedBy': currentTipper.name.toString(),
+      });
+
       // do a mini stats update (asyncronously) for this round and tipper to update tips outstanding counts
-      di<StatsViewModel>().updateStats(
-          _currentDAUComp, tip.game.getDAURound(_currentDAUComp), tip.tipper);
+      // also pass in the game, so we do a % tipped calculation
+      di<StatsViewModel>().updateStats(_currentDAUComp,
+          tip.game.getDAURound(_currentDAUComp), tip.tipper, tip.game);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

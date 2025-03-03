@@ -181,7 +181,8 @@ class GamesViewModel extends ChangeNotifier {
       // update the round scores then remove the round from the list
       for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
         log('GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}');
-        await di<StatsViewModel>().updateStats(selectedDAUComp, dauRound, null);
+        await di<StatsViewModel>()
+            .updateStats(selectedDAUComp, dauRound, null, null);
       }
       // clear the list
       _roundsThatNeedScoringUpdate.clear();
