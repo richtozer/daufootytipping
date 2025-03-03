@@ -5,6 +5,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -717,11 +718,21 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     } else {
       return OutlinedButton(
         onPressed: () async {
-          if (dauCompsViewModel.isDownloading) {
+          // if web, use the app to download the fixture
+          if (kIsWeb) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                backgroundColor: League.afl.colour,
-                content: const Text('Fixture download already in progress')));
+              backgroundColor: League.afl.colour,
+              content:
+                  const Text('Fixture download not available in web version'),
+            ));
             return;
+          } else {
+            if (dauCompsViewModel.isDownloading) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  backgroundColor: League.afl.colour,
+                  content: const Text('Fixture download already in progress')));
+              return;
+            }
           }
           try {
             setState(() {
