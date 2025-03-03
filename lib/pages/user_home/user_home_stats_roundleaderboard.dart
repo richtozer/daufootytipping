@@ -92,6 +92,11 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                         child: Icon(Icons.onetwothree, size: 50)),
                   )
                 : Text('Round ${widget.roundNumberToDisplay} Leaderboard'),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                  'This is the round leaderboard. Tap on a row to see the tips for that tipper.'),
+            ),
             Expanded(
               child: Padding(
                   padding: const EdgeInsets.all(5.0),
@@ -116,7 +121,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                         .map((MapEntry<Tipper, RoundStats> entry) {
                       return DataRow(
                         color: entry.key ==
-                                di<TippersViewModel>().selectedTipper!
+                                di<TippersViewModel>().selectedTipper
                             ? WidgetStateProperty.resolveWith(
                                 (states) => Theme.of(context).highlightColor)
                             : WidgetStateProperty.resolveWith(

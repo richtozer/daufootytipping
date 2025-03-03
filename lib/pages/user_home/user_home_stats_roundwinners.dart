@@ -83,6 +83,11 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                               child: Icon(Icons.person, size: 40)),
                         )
                       : const Text('Round Winners'),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                        'This is a list of round winner(s), grouped by round. Tap on a row to see the full round leaderboard.'),
+                  ),
                   Expanded(
                       child: Padding(
                     padding: const EdgeInsets.all(10.0),
@@ -118,7 +123,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
                           return DataRow(
                             color: winner.tipper ==
-                                    di<TippersViewModel>().selectedTipper!
+                                    di<TippersViewModel>().selectedTipper
                                 ? WidgetStateProperty.resolveWith((states) =>
                                     Theme.of(context).highlightColor)
                                 : WidgetStateProperty.resolveWith(
@@ -275,11 +280,29 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
         sortColumnIndex = columnIndex;
       });
     }
+
+    if (columnIndex == 3) {
+      // sort by nrl
+      scoresViewModel.sortRoundWinnersByNRL(ascending);
+      setState(() {
+        isAscending = ascending;
+        sortColumnIndex = columnIndex;
+      });
+    }
+
+    if (columnIndex == 4) {
+      // sort by afl
+      scoresViewModel.sortRoundWinnersByAFL(ascending);
+      setState(() {
+        isAscending = ascending;
+        sortColumnIndex = columnIndex;
+      });
+    }
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
-            fixedWidth: column == 'Winner' ? 150 : 60,
+            fixedWidth: column == 'Winner' ? 150 : 50,
             numeric: column == 'Winner' || column == 'Round' ? false : true,
             label: Text(
               column,

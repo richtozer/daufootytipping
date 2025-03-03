@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:daufootytipping/pages/user_home/user_home_tips2.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -25,8 +25,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> content() {
     return [
-      //TipsTab(),
-      TipsTab2(),
+      TipsTab(),
       StatsTab(),
       Profile(),
     ];
@@ -106,7 +105,7 @@ class _HomePageState extends State<HomePage> {
             if (tippersViewModelConsumer.inGodMode) {
               return Banner(
                 message:
-                    tippersViewModelConsumer.selectedTipper!.name ?? 'Unknown',
+                    tippersViewModelConsumer.selectedTipper.name ?? 'Unknown',
                 location: BannerLocation.bottomStart,
                 color: Colors.red,
                 child: Banner(

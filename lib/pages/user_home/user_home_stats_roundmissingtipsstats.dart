@@ -23,7 +23,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   late StatsViewModel statsViewModel;
   Map<Tipper, RoundStats> roundLeaderboard = {};
 
-  bool isAscending = true;
+  bool isAscending = false; // Default to descending
   int? sortColumnIndex = 1;
 
   final List<String> columns = [
@@ -40,7 +40,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     statsViewModel = di<StatsViewModel>();
     roundLeaderboard =
         statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
-    onSort(1, true);
+    onSort(1, false); // Default to descending
   }
 
   @override
@@ -123,7 +123,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                         .map((MapEntry<Tipper, RoundStats> entry) {
                       return DataRow(
                         color: entry.key ==
-                                di<TippersViewModel>().selectedTipper!
+                                di<TippersViewModel>().selectedTipper
                             ? WidgetStateProperty.resolveWith(
                                 (states) => Theme.of(context).highlightColor)
                             : WidgetStateProperty.resolveWith(
@@ -131,10 +131,6 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                         cells: [
                           DataCell(Row(
                             children: [
-                              const Icon(
-                                Icons.arrow_forward,
-                                size: 15,
-                              ),
                               avatarPic(entry.key, widget.roundNumberToDisplay),
                               Expanded(
                                 child: Text(
@@ -179,9 +175,9 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) =>
-              a.key.name
+              b.key.name
                   ?.toLowerCase()
-                  .compareTo(b.key.name?.toLowerCase() ?? '') ??
+                  .compareTo(a.key.name?.toLowerCase() ?? '') ??
               0);
 
         roundLeaderboard = Map.fromEntries(sortedEntries);

@@ -142,7 +142,8 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                               Positioned.fill(
                                 child: Icon(
                                   Icons.clear,
-                                  color: Colors.red.withOpacity(0.5),
+                                  color:
+                                      Colors.red.withAlpha((0.5 * 255).toInt()),
                                   size: 50,
                                 ),
                               ),
