@@ -139,8 +139,8 @@ class MyApp extends StatelessWidget {
                       // if config is null display error
                       if (configViewModel.activeDAUComp == null) {
                         // display LoginErrorScreen
-                        return LoginErrorScreen(
-                          errorMessage:
+                        return LoginIssueScreen(
+                          message:
                               'Unexpected startup error. For support: https://interview.coach/tipping',
                           displaySignOutButton: false,
                         );

@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
@@ -236,22 +237,24 @@ class UserAuthPageState extends State<UserAuthPage> {
 
               User? authenticatedFirebaseUser = authSnapshot.data;
               if (authenticatedFirebaseUser == null) {
-                return const LoginErrorScreen(
-                    errorMessage:
+                return const LoginIssueScreen(
+                    message:
                         'No user context found. Please try signing in again.');
               }
 
               if (authenticatedFirebaseUser.isAnonymous) {
-                return const LoginErrorScreen(
-                    errorMessage:
+                return LoginIssueScreen(
+                    message:
                         'You have logged in as anonymous. This App does not support anonymous logins.');
               }
               if (authenticatedFirebaseUser.emailVerified == false) {
                 authenticatedFirebaseUser.sendEmailVerification();
 
-                return const LoginErrorScreen(
-                    errorMessage:
-                        'Your email is not verified. Please try checking your inbox or junk/spam and verify your email first. Then try log in again');
+                return LoginIssueScreen(
+                  message:
+                      'You need to verify your email before you can logon. An email has been sent to\n\n${authenticatedFirebaseUser.email}.\n\nCheck you inbox or junk/spam and click the link to verify it. Once done you should be able to logon.',
+                  msgColor: League.nrl.colour,
+                );
               }
 
               FirebaseAnalytics.instance.logLogin(
@@ -265,17 +268,17 @@ class UserAuthPageState extends State<UserAuthPage> {
                     return Center(
                         child: CircularProgressIndicator(color: Colors.orange));
                   } else if (snapshot.hasError) {
-                    return LoginErrorScreen(
-                        errorMessage:
+                    return LoginIssueScreen(
+                        message:
                             'Unexpected error ${snapshot.error}. Contact daufootytipping@gmail.com');
                   } else if (snapshot.data == null) {
-                    return const LoginErrorScreen(
-                        errorMessage:
+                    return const LoginIssueScreen(
+                        message:
                             'Unexpected null from linkUserToTipper. Contact daufootytipping@gmail.com');
                   } else {
                     if (snapshot.data == false) {
-                      return LoginErrorScreen(
-                          errorMessage:
+                      return LoginIssueScreen(
+                          message:
                               'No tipper record found for login: ${authenticatedFirebaseUser.email}.\n\nContact daufootytipping@gmail.com to have your login associated with your existing tipper record.');
                     }
 
@@ -291,16 +294,18 @@ class UserAuthPageState extends State<UserAuthPage> {
   }
 }
 
-class LoginErrorScreen extends StatelessWidget {
-  final String errorMessage;
+class LoginIssueScreen extends StatelessWidget {
+  final String message;
   final bool displaySignOutButton;
   final String googleClientId;
+  final Color msgColor;
 
-  const LoginErrorScreen(
+  const LoginIssueScreen(
       {super.key,
-      required this.errorMessage,
+      required this.message,
       this.displaySignOutButton = true,
-      this.googleClientId = ''});
+      this.googleClientId = '',
+      this.msgColor = Colors.red});
 
   @override
   Widget build(BuildContext context) {
@@ -323,11 +328,11 @@ class LoginErrorScreen extends StatelessWidget {
               width: 300,
               child: Center(
                 child: Card(
-                  color: Colors.red,
+                  color: msgColor,
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Text(
-                      errorMessage,
+                      message,
                       style: const TextStyle(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
