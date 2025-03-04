@@ -511,26 +511,44 @@ class TippersViewModel extends ChangeNotifier {
     log('TippersViewModel().registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${firebaseService.fbmToken?.substring(firebaseService.fbmToken!.length - 5)}');
   }
 
-  // method to delete acctount
-  void deleteAccount() async {
+  // method to delete account
+  Future<String?> deleteAccount() async {
     try {
       await FirebaseAuth.instance.currentUser!.delete();
+      await _deleteTipperRecord();
+      return null; // Success
     } catch (e) {
-      if ((e as FirebaseAuthException).code == 'requires-recent-login') {
+      if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
         // reauthenticate the user
         log('TippersViewModel().deleteAccount() - reauthenticating user');
         final String providerId =
             FirebaseAuth.instance.currentUser!.providerData[0].providerId;
 
-        if (providerId == 'apple.com') {
-          await _reauthenticateWithApple();
-        } else if (providerId == 'google.com') {
-          await _reauthenticateWithGoogle();
-        }
-      }
+        try {
+          if (providerId == 'apple.com') {
+            await _reauthenticateWithApple();
+          } else if (providerId == 'google.com') {
+            await _reauthenticateWithGoogle();
+          }
 
-      await FirebaseAuth.instance.currentUser!.delete();
+          // Retry account deletion after successful reauthentication
+          await FirebaseAuth.instance.currentUser!.delete();
+          await _deleteTipperRecord();
+          return null; // Success
+        } catch (reauthError) {
+          log('TippersViewModel().deleteAccount() - reauthentication failed: $reauthError');
+          return 'Reauthentication failed. Please try again.';
+        }
+      } else {
+        log('TippersViewModel().deleteAccount() - error: $e');
+        return 'Account deletion failed. Please try again.';
+      }
     }
+  }
+
+  Future<void> _deleteTipperRecord() async {
+    await _db.child(tippersPath).child(_authenticatedTipper!.dbkey!).remove();
+    log('TippersViewModel().deleteAccount() - Tipper ${_authenticatedTipper!.name} deleted from database.');
   }
 
   Future<void> _reauthenticateWithApple() async {
@@ -551,7 +569,7 @@ class TippersViewModel extends ChangeNotifier {
           e.code == 'invalid-credential' ||
           e.code == 'invalid-verification-code' ||
           e.code == 'invalid-verification-id') {
-        // Show a Snackbar
+        // Log the error
         log('TippersViewModel()_reauthenticateWithApple() - error: ${e.code}');
       } else {
         rethrow;
@@ -568,8 +586,13 @@ class TippersViewModel extends ChangeNotifier {
     final GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
     // Tries to reauthenticate
-    await FirebaseAuth.instance.currentUser!
-        .reauthenticateWithProvider(googleProvider);
+    try {
+      await FirebaseAuth.instance.currentUser!
+          .reauthenticateWithProvider(googleProvider);
+    } on FirebaseAuthException catch (e) {
+      log('TippersViewModel()_reauthenticateWithGoogle() - error: ${e.code}');
+      rethrow;
+    }
   }
 
   Future<Tipper?> isEmailOrLogonAlreadyAssigned(

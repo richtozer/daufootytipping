@@ -99,13 +99,21 @@ class UserAuthPageState extends State<UserAuthPage> {
       });
     }
     if (widget.isUserDeletingAccount) {
-      di<TippersViewModel>().deleteAccount();
-      log('UserAuthPage.build() - user deleted account');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (BuildContext context) => const MyApp()),
-          (Route<dynamic> route) => false,
-        );
+      di<TippersViewModel>().deleteAccount().then((result) {
+        if (result == null) {
+          log('UserAuthPage.build() - user deleted account');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                  builder: (BuildContext context) => const MyApp()),
+              (Route<dynamic> route) => false,
+            );
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result)),
+          );
+        }
       });
     }
 
@@ -162,8 +170,8 @@ class UserAuthPageState extends State<UserAuthPage> {
               if (!authSnapshot.hasData) {
                 return SignInScreen(
                   providers: [
-                    AppleProvider(),
                     GoogleProvider(clientId: widget.googleClientId),
+                    AppleProvider(),
                     EmailAuthProvider(),
                   ],
                   headerBuilder: (context, constraints, shrinkOffset) {
@@ -243,7 +251,7 @@ class UserAuthPageState extends State<UserAuthPage> {
 
                 return const LoginErrorScreen(
                     errorMessage:
-                        'Your email is not verified. Please try checking your inbox and junk mail and verify your email first.');
+                        'Your email is not verified. Please try checking your inbox or junk/spam and verify your email first. Then try log in again');
               }
 
               FirebaseAnalytics.instance.logLogin(
