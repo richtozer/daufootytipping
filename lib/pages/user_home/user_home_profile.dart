@@ -261,7 +261,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                           TextStyle(color: League.afl.colour),
                                     ),
                                     content: const Text(
-                                        'Are you sure you want to delete your account? All your tips will be deleted. This action cannot be undone. You may be asked to log in again to confirm your identity.'),
+                                        'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediatedly.'),
                                     actions: [
                                       TextButton(
                                         child: const Text('Cancel'),
