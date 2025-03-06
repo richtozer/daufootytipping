@@ -431,7 +431,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         parameters: {'comp': daucompToUpdate.name, 'result': res});
 
     daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
-    updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUpdateTimestamp',
+    updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUTC',
         daucompToUpdate.lastFixtureUpdateTimestampUTC!.toIso8601String());
     await saveBatchOfCompAttributes();
 
