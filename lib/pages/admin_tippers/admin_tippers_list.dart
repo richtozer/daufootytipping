@@ -143,7 +143,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                         tippers = tippers.where((tipper) {
                           return tipperViewModel.inGodMode &&
                               tipper.dbkey ==
-                                  tipperViewModel.selectedTipper!.dbkey;
+                                  tipperViewModel.selectedTipper.dbkey;
                         }).toList();
                       } else {
                         tippers = tippers.where((tipper) {
@@ -206,7 +206,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                   tileColor: tipperViewModel.inGodMode &&
                                           tipper.dbkey ==
                                               tipperViewModel
-                                                  .selectedTipper!.dbkey
+                                                  .selectedTipper.dbkey
                                       ? Colors.red[100]
                                       : null,
                                   dense: true,

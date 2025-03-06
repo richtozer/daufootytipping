@@ -225,10 +225,8 @@ class TipsViewModel extends ChangeNotifier {
     }
     // get the paidForComp status for the selected tipper
     bool isScoringPaidComp = false;
-    if (di<TippersViewModel>().selectedTipper != null) {
-      isScoringPaidComp =
-          di<TippersViewModel>().selectedTipper!.paidForComp(selectedDAUComp);
-    }
+    isScoringPaidComp =
+        di<TippersViewModel>().selectedTipper!.paidForComp(selectedDAUComp);
 
     // loop through all tippers and remove those that dont have the same paidForComp status
     List<Tipper> tippers = _listOfTips

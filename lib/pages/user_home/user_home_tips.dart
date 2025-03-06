@@ -180,7 +180,7 @@ class TipsTabState extends State<TipsTab> {
                 });
               } else if (itemIndex == 1) {
                 return GameListBuilder(
-                  currentTipper: di<TippersViewModel>().selectedTipper!,
+                  currentTipper: di<TippersViewModel>().selectedTipper,
                   dauRound: dauRound,
                   league: League.nrl,
                   tipperTipsViewModel:
@@ -195,7 +195,7 @@ class TipsTabState extends State<TipsTab> {
                 });
               } else if (itemIndex == 3) {
                 return GameListBuilder(
-                  currentTipper: di<TippersViewModel>().selectedTipper!,
+                  currentTipper: di<TippersViewModel>().selectedTipper,
                   dauRound: dauRound,
                   league: League.afl,
                   tipperTipsViewModel:

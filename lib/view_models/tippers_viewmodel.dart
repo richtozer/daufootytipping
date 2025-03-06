@@ -34,7 +34,7 @@ class TippersViewModel extends ChangeNotifier {
   Tipper? _authenticatedTipper;
   Tipper? get authenticatedTipper => _authenticatedTipper;
 
-  bool get inGodMode => _selectedTipper!.dbkey != _authenticatedTipper!.dbkey;
+  bool get inGodMode => _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
 
   final _db = FirebaseDatabase.instance.ref();
 
