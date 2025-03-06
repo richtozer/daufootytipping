@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -14,7 +15,6 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:watch_it/watch_it.dart';
@@ -105,6 +105,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     if (_adminMode) {
       return;
     }
+    // if role of authenticated tipper is not admin, then we don't want to start the daily timer
+    if (di<TippersViewModel>().authenticatedTipper?.tipperRole !=
+        TipperRole.admin) {
+      log('DAUCompsViewModel_startDailyTimer() Authenticated tipper is not an admin. Daily timer will not be started.');
+      return;
+    }
     _dailyTimer = Timer.periodic(Duration(hours: 24), (timer) {
       triggerDailyEvent();
     });
@@ -114,7 +120,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   void triggerDailyEvent() {
-    log("DAUCompsViewModel_triggerDailyEvent  Daily event triggered at ${DateTime.now()}");
+    log("DAUCompsViewModel_triggerDailyEvent()  Daily event triggered at ${DateTime.now()}");
     // if the last fixture update was more than 24 hours ago, then trigger the fixture update
     if (_activeDAUComp != null &&
         _activeDAUComp!.lastFixtureUpdateTimestampUTC != null &&
@@ -122,10 +128,10 @@ class DAUCompsViewModel extends ChangeNotifier {
                 .difference(_activeDAUComp!.lastFixtureUpdateTimestampUTC!)
                 .inHours >=
             24) {
-      log('DAUCompsViewModel_triggerDailyEvent  Triggering fixture update');
+      log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
       _fixtureUpdate();
     } else {
-      log('DAUCompsViewModel_triggerDailyEvent  Last fixture update was less than 24 hours ago. No fixture update triggered.');
+      log('DAUCompsViewModel_triggerDailyEvent()  Last fixture update was less than 24 hours ago. No fixture update triggered.');
     }
   }
 

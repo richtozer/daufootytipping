@@ -463,8 +463,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           cells: [
                                             DataCell(
                                               Checkbox(
-                                                value:
-                                                    tipper!.paidForComp(comp),
+                                                value: tipper.paidForComp(comp),
                                                 onChanged: (bool? value) {
                                                   log('Checkbox changed to $value');
                                                   setState(() {
