@@ -24,6 +24,8 @@ const daucompsPath = '/AllDAUComps';
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   get daucomps => _daucomps;
+  final fixtureUpdateTimerDuration =
+      Duration(hours: 24); // how often we check for fixture updates
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
@@ -111,7 +113,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('DAUCompsViewModel_startDailyTimer() Authenticated tipper is not an admin. Daily timer will not be started.');
       return;
     }
-    _dailyTimer = Timer.periodic(Duration(hours: 24), (timer) {
+    _dailyTimer = Timer.periodic(fixtureUpdateTimerDuration, (timer) {
       triggerDailyEvent();
     });
 
@@ -119,8 +121,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     triggerDailyEvent();
   }
 
-  void triggerDailyEvent() {
+  void triggerDailyEvent() async {
     log("DAUCompsViewModel_triggerDailyEvent()  Daily event triggered at ${DateTime.now()}");
+    // make sure we are using the current database state for this comp
+    _activeDAUComp = await findComp(_activeDAUComp!.dbkey!);
     // if the last fixture update was more than 24 hours ago, then trigger the fixture update
     if (_activeDAUComp != null &&
         _activeDAUComp!.lastFixtureUpdateTimestampUTC != null &&
@@ -131,7 +135,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
       _fixtureUpdate();
     } else {
-      log('DAUCompsViewModel_triggerDailyEvent()  Last fixture update was less than 24 hours ago. No fixture update triggered.');
+      log('DAUCompsViewModel_triggerDailyEvent() Looks like another client did an update in the last ${fixtureUpdateTimerDuration.inHours} hours. Skipping fixture update.');
     }
   }
 
