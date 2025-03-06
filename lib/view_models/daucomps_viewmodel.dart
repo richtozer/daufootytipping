@@ -180,7 +180,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         di<TippersViewModel>(),
         _selectedDAUComp!,
         gamesViewModel!,
-        di<TippersViewModel>().selectedTipper!);
+        di<TippersViewModel>().selectedTipper);
     selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
   }
 
