@@ -123,7 +123,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                         .map((MapEntry<Tipper, RoundStats> entry) {
                       return DataRow(
                         color: entry.key ==
-                                di<TippersViewModel>().selectedTipper!
+                                di<TippersViewModel>().selectedTipper
                             ? WidgetStateProperty.resolveWith(
                                 (states) => Theme.of(context).highlightColor)
                             : WidgetStateProperty.resolveWith(

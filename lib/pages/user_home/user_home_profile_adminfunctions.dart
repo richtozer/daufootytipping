@@ -14,7 +14,7 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
   @override
   Widget build(context) {
     String selectedTipper =
-        watch(di<TippersViewModel>()).selectedTipper?.dbkey ?? '';
+        watch(di<TippersViewModel>()).selectedTipper.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
     // grab teamViewModel from gamesViewModel
     final teamsViewModel =

@@ -49,7 +49,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
           return buildScaffold(
               context,
               scoresViewModelConsumer,
-              di<TippersViewModel>().selectedTipper!.name ?? '',
+              di<TippersViewModel>().selectedTipper.name ?? '',
               Theme.of(context).highlightColor);
         },
       ),

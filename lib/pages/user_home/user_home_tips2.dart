@@ -216,7 +216,7 @@ class TipsTab2State extends State<TipsTab2> {
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       return GameListBuilder(
-        currentTipper: di<TippersViewModel>().selectedTipper!,
+        currentTipper: di<TippersViewModel>().selectedTipper,
         dauRound: dauRound,
         league: league,
         tipperTipsViewModel:

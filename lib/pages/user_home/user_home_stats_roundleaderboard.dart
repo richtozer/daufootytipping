@@ -116,7 +116,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                         .map((MapEntry<Tipper, RoundStats> entry) {
                       return DataRow(
                         color: entry.key ==
-                                di<TippersViewModel>().selectedTipper!
+                                di<TippersViewModel>().selectedTipper
                             ? WidgetStateProperty.resolveWith(
                                 (states) => Theme.of(context).highlightColor)
                             : WidgetStateProperty.resolveWith(
