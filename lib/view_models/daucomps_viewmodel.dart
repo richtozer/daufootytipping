@@ -272,8 +272,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   List<DAURound> _parseRounds(dynamic daucompAsJSON) {
     List<DAURound> daurounds = [];
-    if (daucompAsJSON['combinedRounds'] != null) {
-      List<dynamic> combinedRounds = daucompAsJSON['combinedRounds'];
+    if (daucompAsJSON['combinedRounds2'] != null) {
+      List<dynamic> combinedRounds = daucompAsJSON['combinedRounds2'];
       for (var i = 0; i < combinedRounds.length; i++) {
         daurounds.add(DAURound.fromJson(
             Map<String, dynamic>.from(combinedRounds[i]), i + 1));
@@ -417,12 +417,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     await Future.wait(_processGames(nrlGames, aflGames));
     await gamesViewModel!.saveBatchOfGameAttributes();
 
-    _tagGamesWithLeague(nrlGames, 'nrl');
-    _tagGamesWithLeague(aflGames, 'afl');
+    // hack dont allow the round start and end times to be updated until root cause of cyclone issue found
 
-    List<dynamic> allGames = nrlGames + aflGames;
+    // _tagGamesWithLeague(nrlGames, 'nrl');
+    // _tagGamesWithLeague(aflGames, 'afl');
 
-    await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
+    // List<dynamic> allGames = nrlGames + aflGames;
+
+    //await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
 
     String res =
         'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
@@ -547,10 +549,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     // Update combined rounds in a separate batch
     for (var i = 0; i < combinedRounds.length; i++) {
       log('Updating round start date: combinedRounds/$i/roundStartDate');
-      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds2/$i/roundStartDate',
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
       log('Updating round end date: combinedRounds/$i/roundEndDate');
-      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds2/$i/roundEndDate',
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
     }
 
@@ -561,7 +563,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     if (daucomp.daurounds.length > combinedRounds.length) {
       for (var i = combinedRounds.length; i < daucomp.daurounds.length; i++) {
         log('Removing round: combinedRounds/$i');
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i', null);
+        updateCompAttribute(daucomp.dbkey!, 'combinedRounds2/$i', null);
       }
       await saveBatchOfCompAttributes();
     }
