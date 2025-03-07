@@ -44,10 +44,10 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     tipper = widget.tipper;
 
     tippersViewModel = widget.tippersViewModel;
-    admin = (tipper?.tipperRole == TipperRole.admin) ? true : false;
-    _tipperNameController = TextEditingController(text: tipper?.name);
-    _tipperEmailController = TextEditingController(text: tipper?.email);
-    _tipperLogonController = TextEditingController(text: tipper?.logon);
+    admin = (tipper.tipperRole == TipperRole.admin) ? true : false;
+    _tipperNameController = TextEditingController(text: tipper.name);
+    _tipperEmailController = TextEditingController(text: tipper.email);
+    _tipperLogonController = TextEditingController(text: tipper.logon);
   }
 
   @override
@@ -85,22 +85,22 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       }
 
       await tippersViewModel.updateTipperAttribute(
-          tipper!.dbkey!, "name", _tipperNameController.text);
+          tipper.dbkey!, "name", _tipperNameController.text);
       await tippersViewModel.updateTipperAttribute(
-          tipper!.dbkey!, "email", _tipperEmailController.text);
+          tipper.dbkey!, "email", _tipperEmailController.text);
       await tippersViewModel.updateTipperAttribute(
-          tipper!.dbkey!, "logon", _tipperLogonController.text);
+          tipper.dbkey!, "logon", _tipperLogonController.text);
       await tippersViewModel.updateTipperAttribute(
-          tipper!.dbkey!,
+          tipper.dbkey!,
           "tipperRole",
           admin == true
               ? TipperRole.admin.toString().split('.').last
               : TipperRole.tipper.toString().split('.').last);
 
       await tippersViewModel.updateTipperAttribute(
-          tipper!.dbkey!,
+          tipper.dbkey!,
           "compsParticipatedIn",
-          tipper!.compsPaidFor.map((comp) => comp.dbkey).toList());
+          tipper.compsPaidFor.map((comp) => comp.dbkey).toList());
 
       await tippersViewModel.saveBatchOfTipperAttributes();
 
@@ -210,7 +210,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             return null;
                           },
                           onChanged: (String value) {
-                            if (tipper?.name != value) {
+                            if (tipper.name != value) {
                               //something has changed, maybe allow saves
                               setState(() {
                                 changes++; //increment the number of changes
@@ -254,7 +254,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             return null;
                           },
                           onChanged: (String value) {
-                            if (tipper?.email != value) {
+                            if (tipper.email != value) {
                               //something has changed, maybe allow saves
                               setState(() {
                                 changes++; //increment the number of changes
@@ -297,7 +297,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             return null;
                           },
                           onChanged: (String value) {
-                            if (tipper?.logon != value) {
+                            if (tipper.logon != value) {
                               //something has changed, maybe allow saves
                               setState(() {
                                 changes++; //increment the number of changes
@@ -334,7 +334,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                               admin = value;
                             });
 
-                            if (tipper!.tipperRole.index.isEven
+                            if (tipper.tipperRole.index.isEven
                                 ? false
                                 : true == value) {
                               //something has changed, maybe allow saves
@@ -359,8 +359,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           },
                         ),
                         // if selectedDAUComp is not null then offer god mode
-                        if (tipper != null &&
-                            di<DAUCompsViewModel>().selectedDAUComp != null)
+                        if (di<DAUCompsViewModel>().selectedDAUComp != null)
                           Row(
                             children: [
                               const Text('God\nmode: '),
@@ -402,7 +401,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                                 SnackBar(
                                                   backgroundColor: Colors.red,
                                                   content: Text(
-                                                      'God mode changed from ${tippersViewModelConsumer.selectedTipper!.name} to ${tipper!.name}'),
+                                                      'God mode changed from ${tippersViewModelConsumer.selectedTipper.name} to ${tipper.name}'),
                                                 ),
                                               );
                                             }
@@ -430,74 +429,70 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   // add a row for 'Paid Comps', display a list of all DAUComps
                   // if the tipper is a paid up member, then show a tick
                   // allow the admin to edit which comps this tipper has paid for
-                  if (tipper != null)
-                    FutureBuilder<List<DAUComp>>(
-                        future: di<DAUCompsViewModel>().getDAUcomps(),
-                        builder: (BuildContext context,
-                            AsyncSnapshot<List<DAUComp>> snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return Center(
-                                child: CircularProgressIndicator(
-                                    color: League.nrl.colour));
-                          }
-                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return const Text('No Records');
-                          } else {
-                            comps = snapshot.data!;
-                            // sort the comps by name descending
-                            comps.sort((a, b) => b.name
-                                .toLowerCase()
-                                .compareTo(a.name.toLowerCase()));
-                            return Column(
-                              children: [
-                                const Text(
-                                    'Select the competitions this tipper has paid for:'),
-                                DataTable(
-                                  sortColumnIndex: 1,
-                                  sortAscending: true,
-                                  columns: const [
-                                    DataColumn(label: Text('Paid')),
-                                    DataColumn(label: Text('Competition Name'))
-                                  ],
-                                  rows: comps
-                                      .map((comp) => DataRow(
-                                            cells: [
-                                              DataCell(
-                                                Checkbox(
-                                                  value:
-                                                      tipper!.paidForComp(comp),
-                                                  onChanged: (bool? value) {
-                                                    log('Checkbox changed to $value');
-                                                    setState(() {
-                                                      if (value == true) {
-                                                        widget
-                                                            .tipper.compsPaidFor
-                                                            .add(comp);
-                                                      } else {
-                                                        widget
-                                                            .tipper.compsPaidFor
-                                                            .remove(comp);
-                                                      }
-                                                      changes++; //increment the number of changes
-                                                      if (changes == 0) {
-                                                        disableSaves = true;
-                                                      } else {
-                                                        disableSaves = false;
-                                                      }
-                                                    });
-                                                  },
-                                                ),
+                  FutureBuilder<List<DAUComp>>(
+                      future: di<DAUCompsViewModel>().getDAUcomps(),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<List<DAUComp>> snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(
+                              child: CircularProgressIndicator(
+                                  color: League.nrl.colour));
+                        }
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return const Text('No Records');
+                        } else {
+                          comps = snapshot.data!;
+                          // sort the comps by name descending
+                          comps.sort((a, b) => b.name
+                              .toLowerCase()
+                              .compareTo(a.name.toLowerCase()));
+                          return Column(
+                            children: [
+                              const Text(
+                                  'Select the competitions this tipper has paid for:'),
+                              DataTable(
+                                sortColumnIndex: 1,
+                                sortAscending: true,
+                                columns: const [
+                                  DataColumn(label: Text('Paid')),
+                                  DataColumn(label: Text('Competition Name'))
+                                ],
+                                rows: comps
+                                    .map((comp) => DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Checkbox(
+                                                value: tipper.paidForComp(comp),
+                                                onChanged: (bool? value) {
+                                                  log('Checkbox changed to $value');
+                                                  setState(() {
+                                                    if (value == true) {
+                                                      widget.tipper.compsPaidFor
+                                                          .add(comp);
+                                                    } else {
+                                                      widget.tipper.compsPaidFor
+                                                          .remove(comp);
+                                                    }
+                                                    changes++; //increment the number of changes
+                                                    if (changes == 0) {
+                                                      disableSaves = true;
+                                                    } else {
+                                                      disableSaves = false;
+                                                    }
+                                                  });
+                                                },
                                               ),
-                                              DataCell(Text(comp.name)),
-                                            ],
-                                          ))
-                                      .toList(),
-                                ),
-                              ],
-                            );
-                          }
-                        }),
+                                            ),
+                                            DataCell(Text(comp.name)),
+                                          ],
+                                        ))
+                                    .toList(),
+                              ),
+                            ],
+                          );
+                        }
+                      }),
                 ],
               ),
             ),

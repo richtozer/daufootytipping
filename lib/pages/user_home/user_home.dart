@@ -106,7 +106,7 @@ class _HomePageState extends State<HomePage> {
             if (tippersViewModelConsumer.inGodMode) {
               return Banner(
                 message:
-                    tippersViewModelConsumer.selectedTipper!.name ?? 'Unknown',
+                    tippersViewModelConsumer.selectedTipper.name ?? 'Unknown',
                 location: BannerLocation.bottomStart,
                 color: Colors.red,
                 child: Banner(

@@ -76,8 +76,6 @@ class StatsViewModel extends ChangeNotifier {
     // add a listener for the tipper viewmodel, do a re-calculation of the leaderboards
     // if the tippers change
     di<TippersViewModel>().addListener(updateLeaderAndRoundAndRank);
-
-    assert(di<TippersViewModel>().selectedTipper != null);
   }
 
   Future<void> _listenToScores() async {
@@ -162,8 +160,8 @@ class StatsViewModel extends ChangeNotifier {
       // otherwise score them will all other paid members
 
       _isSelectedTipperPaidUpMember =
-          di<TippersViewModel>().selectedTipper!.paidForComp(selectedDAUComp);
-      log('StatsViewModel._initialize() Tipper ${di<TippersViewModel>().selectedTipper?.name} paid status is $_isSelectedTipperPaidUpMember');
+          di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
+      log('StatsViewModel._initialize() Tipper ${di<TippersViewModel>().selectedTipper.name} paid status is $_isSelectedTipperPaidUpMember');
 
       // update the leaderboard
       _updateLeaderboardForComp();

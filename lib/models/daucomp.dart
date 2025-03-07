@@ -112,8 +112,8 @@ class DAUComp implements Comparable<DAUComp> {
       aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
       nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
       daurounds: daurounds,
-      lastFixtureUpdateTimestampUTC: data['lastFixtureUpdateTimestamp'] != null
-          ? DateTime.parse(data['lastFixtureUpdateTimestamp'])
+      lastFixtureUpdateTimestampUTC: data['lastFixtureUTC'] != null
+          ? DateTime.parse(data['lastFixtureUTC'])
           : null,
       aflRegularCompEndDateUTC: data['aflRegularCompEndDateUTC'] != null
           ? DateTime.parse(data['aflRegularCompEndDateUTC'])
@@ -171,7 +171,10 @@ class DAUComp implements Comparable<DAUComp> {
         other.dbkey == dbkey &&
         other.name == name &&
         other.aflFixtureJsonURL == aflFixtureJsonURL &&
-        other.nrlFixtureJsonURL == nrlFixtureJsonURL;
+        other.nrlFixtureJsonURL == nrlFixtureJsonURL &&
+        other.lastFixtureUpdateTimestampUTC == lastFixtureUpdateTimestampUTC &&
+        other.aflRegularCompEndDateUTC == aflRegularCompEndDateUTC &&
+        other.nrlRegularCompEndDateUTC == nrlRegularCompEndDateUTC;
   }
 
   @override
@@ -179,6 +182,9 @@ class DAUComp implements Comparable<DAUComp> {
     return dbkey.hashCode ^
         name.hashCode ^
         aflFixtureJsonURL.hashCode ^
-        nrlFixtureJsonURL.hashCode;
+        nrlFixtureJsonURL.hashCode ^
+        lastFixtureUpdateTimestampUTC.hashCode ^
+        aflRegularCompEndDateUTC.hashCode ^
+        nrlRegularCompEndDateUTC.hashCode;
   }
 }

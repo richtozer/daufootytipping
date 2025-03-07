@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -14,7 +15,6 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:watch_it/watch_it.dart';
@@ -24,6 +24,8 @@ const daucompsPath = '/AllDAUComps';
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   get daucomps => _daucomps;
+  final fixtureUpdateTimerDuration =
+      Duration(hours: 24); // how often we check for fixture updates
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
@@ -105,7 +107,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     if (_adminMode) {
       return;
     }
-    _dailyTimer = Timer.periodic(Duration(hours: 24), (timer) {
+    // if role of authenticated tipper is not admin, then we don't want to start the daily timer
+    if (di<TippersViewModel>().authenticatedTipper?.tipperRole !=
+        TipperRole.admin) {
+      log('DAUCompsViewModel_startDailyTimer() Authenticated tipper is not an admin. Daily timer will not be started.');
+      return;
+    }
+    _dailyTimer = Timer.periodic(fixtureUpdateTimerDuration, (timer) {
       triggerDailyEvent();
     });
 
@@ -113,8 +121,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     triggerDailyEvent();
   }
 
-  void triggerDailyEvent() {
-    log("DAUCompsViewModel_triggerDailyEvent  Daily event triggered at ${DateTime.now()}");
+  void triggerDailyEvent() async {
+    log("DAUCompsViewModel_triggerDailyEvent()  Daily event triggered at ${DateTime.now()}");
+    // make sure we are using the current database state for this comp
+    _activeDAUComp = await findComp(_activeDAUComp!.dbkey!);
     // if the last fixture update was more than 24 hours ago, then trigger the fixture update
     if (_activeDAUComp != null &&
         _activeDAUComp!.lastFixtureUpdateTimestampUTC != null &&
@@ -122,10 +132,10 @@ class DAUCompsViewModel extends ChangeNotifier {
                 .difference(_activeDAUComp!.lastFixtureUpdateTimestampUTC!)
                 .inHours >=
             24) {
-      log('DAUCompsViewModel_triggerDailyEvent  Triggering fixture update');
+      log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
       _fixtureUpdate();
     } else {
-      log('DAUCompsViewModel_triggerDailyEvent  Last fixture update was less than 24 hours ago. No fixture update triggered.');
+      log('DAUCompsViewModel_triggerDailyEvent() Looks like another client did an update in the last ${fixtureUpdateTimerDuration.inHours} hours. Skipping fixture update.');
     }
   }
 
@@ -180,7 +190,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         di<TippersViewModel>(),
         _selectedDAUComp!,
         gamesViewModel!,
-        di<TippersViewModel>().selectedTipper!);
+        di<TippersViewModel>().selectedTipper);
     selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
   }
 
@@ -262,8 +272,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   List<DAURound> _parseRounds(dynamic daucompAsJSON) {
     List<DAURound> daurounds = [];
-    if (daucompAsJSON['combinedRounds'] != null) {
-      List<dynamic> combinedRounds = daucompAsJSON['combinedRounds'];
+    if (daucompAsJSON['combinedRounds2'] != null) {
+      List<dynamic> combinedRounds = daucompAsJSON['combinedRounds2'];
       for (var i = 0; i < combinedRounds.length; i++) {
         daurounds.add(DAURound.fromJson(
             Map<String, dynamic>.from(combinedRounds[i]), i + 1));
@@ -407,12 +417,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     await Future.wait(_processGames(nrlGames, aflGames));
     await gamesViewModel!.saveBatchOfGameAttributes();
 
-    _tagGamesWithLeague(nrlGames, 'nrl');
-    _tagGamesWithLeague(aflGames, 'afl');
+    // hack dont allow the round start and end times to be updated until root cause of cyclone issue found
 
-    List<dynamic> allGames = nrlGames + aflGames;
+    // _tagGamesWithLeague(nrlGames, 'nrl');
+    // _tagGamesWithLeague(aflGames, 'afl');
 
-    await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
+    // List<dynamic> allGames = nrlGames + aflGames;
+
+    //await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
 
     String res =
         'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
@@ -421,7 +433,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         parameters: {'comp': daucompToUpdate.name, 'result': res});
 
     daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
-    updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUpdateTimestamp',
+    updateCompAttribute(daucompToUpdate.dbkey!, 'lastFixtureUTC',
         daucompToUpdate.lastFixtureUpdateTimestampUTC!.toIso8601String());
     await saveBatchOfCompAttributes();
 
@@ -537,10 +549,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     // Update combined rounds in a separate batch
     for (var i = 0; i < combinedRounds.length; i++) {
       log('Updating round start date: combinedRounds/$i/roundStartDate');
-      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundStartDate',
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds2/$i/roundStartDate',
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundStartDate).toString()}Z');
       log('Updating round end date: combinedRounds/$i/roundEndDate');
-      updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i/roundEndDate',
+      updateCompAttribute(daucomp.dbkey!, 'combinedRounds2/$i/roundEndDate',
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].roundEndDate).toString()}Z');
     }
 
@@ -551,7 +563,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     if (daucomp.daurounds.length > combinedRounds.length) {
       for (var i = combinedRounds.length; i < daucomp.daurounds.length; i++) {
         log('Removing round: combinedRounds/$i');
-        updateCompAttribute(daucomp.dbkey!, 'combinedRounds/$i', null);
+        updateCompAttribute(daucomp.dbkey!, 'combinedRounds2/$i', null);
       }
       await saveBatchOfCompAttributes();
     }
