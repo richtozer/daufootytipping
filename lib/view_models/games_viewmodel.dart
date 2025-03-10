@@ -145,6 +145,11 @@ class GamesViewModel extends ChangeNotifier {
             attributeName == 'AwayTeamScore') {
           // the score has changed, add the round to the list of rounds that need scoring updates
           // avoid adding rounds multiple times
+          // also in the unlikely event we have scores but no rounds defined yet then skip this update
+          if (selectedDAUComp.daurounds.isEmpty) {
+            log('Game: $gameDbKey has scores but there are no rounds defined. Skipping scoring update.');
+            return;
+          }
           if (!_roundsThatNeedScoringUpdate
               .contains(gameToUpdate.getDAURound(selectedDAUComp))) {
             _roundsThatNeedScoringUpdate
