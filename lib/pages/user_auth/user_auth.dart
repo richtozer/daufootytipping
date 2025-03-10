@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
+import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
@@ -143,13 +144,21 @@ class UserAuthPageState extends State<UserAuthPage> {
                         width: 300,
                         child: Center(
                           child: Card(
-                            color: Colors.red,
+                            //color: Colors.white10,
                             child: Padding(
                               padding: EdgeInsets.all(8.0),
-                              child: Text(
-                                "This version of the app is no longer supported, please update the app from the app store.",
-                                style: TextStyle(color: Colors.white),
-                                textAlign: TextAlign.center,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    "This version of the app is no longer supported, please update the app from the app store.",
+                                    //style: TextStyle(color: Colors.white),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.all(10.0),
+                                    child: UpdateAppLink(),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
