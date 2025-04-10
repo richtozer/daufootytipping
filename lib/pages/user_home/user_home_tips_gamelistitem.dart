@@ -66,6 +66,7 @@ class _GameListItemState extends State<GameListItem> {
                         gameTipsViewModelConsumer.game.homeTeam.name,
                         textAlign: TextAlign.left,
                         style: const TextStyle(
+                          overflow: TextOverflow.ellipsis,
                           fontSize: 16.0,
                         ),
                       ),
@@ -95,6 +96,7 @@ class _GameListItemState extends State<GameListItem> {
                       ),
                       Text(
                           style: const TextStyle(
+                            overflow: TextOverflow.ellipsis,
                             fontSize: 16.0,
                           ),
                           textAlign: TextAlign.left,
