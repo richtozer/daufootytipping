@@ -13,8 +13,6 @@ android/, ios/, linux/, macos/, web/, windows/: Platform-specific code and confi
 functions/: Contains Firebase Cloud Functions.
 pubspec.yaml: Defines the project's dependencies and environment settings.
 firebase.json: Firebase configuration file.
-dotenv: Environment variables for the project.
-analysis_options.yaml: Linter rules for Dart code analysis.
 
 View Model dependancy Tree
 ==========================
@@ -22,9 +20,9 @@ View Model dependancy Tree
 DAUCompsViewModel
 ├── GamesViewModel
 │   ├── DAUCompsViewModel
-│   ├── ScoringViewModel
+│   ├── StatsViewModel
 │   └── TeamsViewModel
-├── ScoringViewModel
+├── StatsViewModel
 │   ├── DAUCompsViewModel
 │   ├── TipsViewModel
 │   └── TippersViewModel
@@ -35,8 +33,7 @@ DAUCompsViewModel
 │   ├── FirebaseMessagingService
 │   ├── GoogleSheetService
 │   └── DAUCompsViewModel
-├── FixtureDownloadService
-└── GoogleSheetService
+└── FixtureDownloadService
 
 GameTipsViewModel
 ├── TipsViewModel
@@ -50,17 +47,11 @@ The project relies on several dependencies, which are specified in the pubspec.y
 firebase_core: Core Firebase SDK for Flutter.
 firebase_database: Firebase Realtime Database plugin for Flutter.
 provider: State management library for Flutter.
-flutter_localizations: Provides localizations for Flutter.
 http: A composable, Future-based library for making HTTP requests.
-intl: Provides internationalization and localization facilities.
-Example pubspec.yaml
 
 This is a useful video to get up to speed on how the Firebase Realtime Database is used in this project:
 https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
 
-Legacy integration with Google sheets is based on this example:
-
-https://gist.github.com/CodingDoug/44ad12f4836e79ca9fa11ba5af6955f7
 
 Getting Started
 ===============
@@ -74,6 +65,18 @@ Set up Firebase:
 
 Add your Firebase configuration files (google-services.json for Android and GoogleService-Info.plist for iOS) to the respective platform directories.
 Run the application:
+
+Common Terminal Commands
+========================
+
+Here is a summary of the most common terminal commands used when developing this project:
+
+firebase deploy --only hosting
+flutter build appbundle
+firebase emulators:start
+flutter pub get
+flutter clean
+firebase emulators:start
 
 Contributing
 ============

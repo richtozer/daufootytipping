@@ -105,7 +105,8 @@ class GamesViewModel extends ChangeNotifier {
 
       // Now that we have all the games from db
       // call linkGamesWithRounds() to link the games with the rounds
-      await _dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
+      await _dauCompsViewModel.linkGamesWithRounds(
+          selectedDAUComp.daurounds, this);
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
@@ -209,9 +210,6 @@ class GamesViewModel extends ChangeNotifier {
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
     await initialLoadComplete;
 
-    // if (dauRound.dAUroundNumber == 27) {
-    //   log('Round 27 detected. TESTING.');
-    // }
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
 

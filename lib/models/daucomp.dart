@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -11,7 +12,8 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
   List<DAURound> daurounds;
-  //final bool active;
+  final List<dynamic>? aflBaseline;
+  final List<dynamic>? nrlBaseline;
 
   DateTime? lastFixtureUpdateTimestampUTC;
   DateTime?
@@ -30,19 +32,20 @@ class DAUComp implements Comparable<DAUComp> {
     this.lastFixtureUpdateTimestampUTC,
     this.aflRegularCompEndDateUTC,
     this.nrlRegularCompEndDateUTC,
+    this.aflBaseline,
+    this.nrlBaseline,
   });
 
   // method to return the highest round number where roundEndDate is the past UTC
   // it does not require gamesviewmodel to fully load all games
   // tips page calls this method ahead of gamesviewmodel loading all games
-  // because round end date is actually the start time for the last game,
   // we will add an arbitrary 6 hours to the round end date to ensure the round is considered past
   int highestRoundNumberInPast() {
     int highestRoundNumber = 0;
 
     //find the highest round number where roundEndDate + 6 hours is the past UTC
     for (var dauround in daurounds) {
-      if (dauround.roundEndDate
+      if (dauround.lastGameKickOffUTC
           .add(const Duration(hours: 6))
           .isBefore(DateTime.now().toUtc())) {
         if (dauround.dAUroundNumber > highestRoundNumber) {
@@ -59,7 +62,7 @@ class DAUComp implements Comparable<DAUComp> {
   double pixelHeightUpToRound(int roundNumber) {
     double totalHeight = 0;
 
-    // add the height of the welcome header if roundNumber is greater than
+    // add the height of the welcome header if roundNumber is greater than zero
     if (roundNumber > 0) totalHeight += 200;
 
     // add height for each round up to the supplied round number
@@ -121,6 +124,8 @@ class DAUComp implements Comparable<DAUComp> {
       nrlRegularCompEndDateUTC: data['nrlRegularCompEndDateUTC'] != null
           ? DateTime.parse(data['nrlRegularCompEndDateUTC'])
           : null,
+      aflBaseline: data['aflFixtureBaseline'] ?? [],
+      nrlBaseline: data['nrlFixtureBaseline'] ?? [],
     );
   }
 
@@ -142,21 +147,6 @@ class DAUComp implements Comparable<DAUComp> {
     return daucompList;
   }
 
-  Map<String, dynamic> toJsonForCompare() {
-    // Serialize DAURound list separately
-    List<Map<String, dynamic>> dauroundsJson = [];
-    for (var dauround in daurounds) {
-      dauroundsJson.add(dauround.toJsonForCompare());
-    }
-    return {
-      'name': name,
-      'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
-      'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
-      //'active': active,
-      'daurounds': dauroundsJson,
-    };
-  }
-
   @override
   // method used to provide default sort for DAUComp(s) in a List[]
   int compareTo(DAUComp other) {
@@ -174,7 +164,10 @@ class DAUComp implements Comparable<DAUComp> {
         other.nrlFixtureJsonURL == nrlFixtureJsonURL &&
         other.lastFixtureUpdateTimestampUTC == lastFixtureUpdateTimestampUTC &&
         other.aflRegularCompEndDateUTC == aflRegularCompEndDateUTC &&
-        other.nrlRegularCompEndDateUTC == nrlRegularCompEndDateUTC;
+        other.nrlRegularCompEndDateUTC == nrlRegularCompEndDateUTC &&
+        const DeepCollectionEquality().equals(other.daurounds, daurounds) &&
+        const DeepCollectionEquality().equals(other.nrlBaseline, nrlBaseline) &&
+        const DeepCollectionEquality().equals(other.aflBaseline, aflBaseline);
   }
 
   @override
@@ -185,6 +178,9 @@ class DAUComp implements Comparable<DAUComp> {
         nrlFixtureJsonURL.hashCode ^
         lastFixtureUpdateTimestampUTC.hashCode ^
         aflRegularCompEndDateUTC.hashCode ^
-        nrlRegularCompEndDateUTC.hashCode;
+        nrlRegularCompEndDateUTC.hashCode ^
+        const DeepCollectionEquality().hash(daurounds) ^
+        const DeepCollectionEquality().hash(nrlBaseline) ^
+        const DeepCollectionEquality().hash(aflBaseline);
   }
 }
