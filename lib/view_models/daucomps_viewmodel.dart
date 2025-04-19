@@ -438,8 +438,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('DAUCompsViewModel()_fetchAndProcessFixtureData No existing rounds found. Creating $combinedRoundsPath with round start stop times.');
       await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
     } else {
-      //TODO testing, remove this when done
-      await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
       log('DAUCompsViewModel()_fetchAndProcessFixtureData Existing rounds found. Skipping updating $combinedRoundsPath round start stop time update.');
     }
 
