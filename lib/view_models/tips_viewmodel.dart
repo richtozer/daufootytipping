@@ -224,7 +224,8 @@ class TipsViewModel extends ChangeNotifier {
           'percentageOfTippersTipped() should not be called when doing aggregates for scoring. _tipper is not null');
     }
     // get the paidForComp status for the selected tipper
-    bool isScoringPaidComp =
+    bool isScoringPaidComp = false;
+    isScoringPaidComp =
         di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
 
     // loop through all tippers and remove those that don't have the same paidForComp status

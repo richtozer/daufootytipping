@@ -156,8 +156,8 @@ class GameTipViewModel extends ChangeNotifier {
 
       // do a mini stats update (asyncronously) for this round and tipper to update tips outstanding counts
       // also pass in the game, so we do a % tipped calculation
-      di<StatsViewModel>().updateStats(_currentDAUComp,
-          tip.game.getDAURound(_currentDAUComp), tip.tipper, tip.game);
+      di<StatsViewModel>().updateStats(
+          _currentDAUComp, tip.game.getDAURound(_currentDAUComp), tip.tipper);
     } catch (e) {
       // rethrow exception so that the UI can handle it
       rethrow;

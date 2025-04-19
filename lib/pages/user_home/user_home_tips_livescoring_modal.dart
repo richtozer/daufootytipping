@@ -239,7 +239,6 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                       widget.tip.game.getDAURound(
                                           di<DAUCompsViewModel>()
                                               .selectedDAUComp!),
-                                      null,
                                       null);
                                 },
                       style: ElevatedButton.styleFrom(
