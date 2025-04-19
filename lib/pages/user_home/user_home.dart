@@ -86,16 +86,22 @@ class _HomePageState extends State<HomePage> {
                   destinations: [
                     NavigationDestination(
                       icon: const Icon(Icons.sports_rugby_outlined),
-                      label: 'T  I  P  S',
+                      label: MediaQuery.of(context).size.width > 400
+                          ? 'T  I  P  S'
+                          : 'TIPS',
                     ),
                     NavigationDestination(
                       enabled: true,
                       icon: const Icon(Icons.auto_graph),
-                      label: 'S  T  A  T  S',
+                      label: MediaQuery.of(context).size.width > 400
+                          ? 'S  T  A  T  S'
+                          : 'STATS',
                     ),
-                    const NavigationDestination(
+                    NavigationDestination(
                       icon: Icon(Icons.person),
-                      label: 'P  R  O  F  I  L  E',
+                      label: MediaQuery.of(context).size.width > 400
+                          ? 'P  R  O  F  I  L  E'
+                          : 'PROFILE',
                     ),
                   ],
                 ),
