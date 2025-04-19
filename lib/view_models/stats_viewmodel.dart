@@ -65,7 +65,6 @@ class StatsViewModel extends ChangeNotifier {
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
-    _listenToScores();
     _initialize();
   }
 
@@ -75,7 +74,11 @@ class StatsViewModel extends ChangeNotifier {
 
     // add a listener for the tipper viewmodel, do a re-calculation of the leaderboards
     // if the tippers change
-    di<TippersViewModel>().addListener(updateLeaderAndRoundAndRank);
+    di<TippersViewModel>().initialLoadComplete.then((_) {
+      di<TippersViewModel>().addListener(_updateLeaderAndRoundAndRank);
+    });
+
+    _listenToScores();
   }
 
   Future<void> _listenToScores() async {
@@ -136,7 +139,7 @@ class StatsViewModel extends ChangeNotifier {
         }
 
         // update the leaderboard
-        await updateLeaderAndRoundAndRank();
+        await _updateLeaderAndRoundAndRank();
       } catch (e) {
         log('Error listening to /Stats/round_scores: $e');
         rethrow;
@@ -144,7 +147,7 @@ class StatsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> updateLeaderAndRoundAndRank() async {
+  Future<void> _updateLeaderAndRoundAndRank() async {
     try {
       if (_isUpdatingLeaderAndRoundAndRank) {
         log('StatsViewModel.updateLeaderAndRoundAndRank() Update already in progress, skipping');
@@ -161,7 +164,7 @@ class StatsViewModel extends ChangeNotifier {
 
       _isSelectedTipperPaidUpMember =
           di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
-      log('StatsViewModel._initialize() Tipper ${di<TippersViewModel>().selectedTipper.name} paid status is $_isSelectedTipperPaidUpMember');
+      log('StatsViewModel.updateLeaderAndRoundAndRank() Tipper ${di<TippersViewModel>().selectedTipper.name} paid status is $_isSelectedTipperPaidUpMember');
 
       // update the leaderboard
       _updateLeaderboardForComp();
@@ -212,6 +215,16 @@ class StatsViewModel extends ChangeNotifier {
       }
     }
   }
+
+//  These are the various triggers that can cause an update of the stats for a comp.
+// +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
+// | Trigger                              | Rounds Rescored               | Tippers Rescored        | Description                                                                       |
+// +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
+// | Admin clicks [Rescore] in UI         | All                           | All                     | Full rescore. Updates all rounds for all tippers.                                |
+// | User places a tip                    | Only the round that tip is for| Tipper who placed tip   | Partial rescore. Updates margin counts for that user and that round.             |
+// | Fixture download has new scores      | Only the round with changes   | All                     | Partial rescore. Scoring updates for all tippers for the current round.          |
+// | User enters a live score             | Only the round with changes   | All                     | Partial rescore. Scoring updates for all tippers for the current round.          |
+// +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
 
   Future<String> updateStats(DAUComp daucompToUpdate,
       DAURound? onlyUpdateThisRound, Tipper? onlyUpdateThisTipper) async {
@@ -288,7 +301,7 @@ class StatsViewModel extends ChangeNotifier {
       log('StatsViewModel.updateStats() $res');
 
       //lets use this opportunity delete any stale live scores
-      _deleteStaleLiveScores();
+      await _deleteStaleLiveScores();
 
       return res;
     } catch (e) {
@@ -620,7 +633,7 @@ class StatsViewModel extends ChangeNotifier {
     return tipperRoundScores;
   }
 
-  void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) {
+  void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) async {
     final oldScoring = game.scoring;
 
     final newScoring = oldScoring?.copyWith(
@@ -649,7 +662,7 @@ class StatsViewModel extends ChangeNotifier {
                   .submittedTimeUTC);
     }
 
-    di<StatsViewModel>()._writeLiveScoreToDb(game);
+    await di<StatsViewModel>()._writeLiveScoreToDb(game);
   }
 
   Future<void> _writeLiveScoreToDb(Game game) async {

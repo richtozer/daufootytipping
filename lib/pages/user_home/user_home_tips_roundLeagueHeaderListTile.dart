@@ -2,7 +2,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_kickoffCountdown.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_kickoff_countdown.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -59,7 +59,7 @@ Widget roundLeagueHeaderListTile(
     child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(15.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
