@@ -61,7 +61,7 @@ class Game implements Comparable<Game> {
 
   DAURound getDAURound(DAUComp daucomp) {
     for (var dauRound in daucomp.daurounds) {
-      if (isDateInRound(startTimeUTC, dauRound)) {
+      if (_isDateInRound(startTimeUTC, dauRound)) {
         return dauRound;
       }
     }
@@ -75,14 +75,15 @@ class Game implements Comparable<Game> {
   }
 
   bool isGameInRound(DAURound round) {
-    return isDateInRound(startTimeUTC, round);
+    return _isDateInRound(startTimeUTC, round);
   }
 
-  bool isDateInRound(DateTime date, DAURound round) {
-    return ((date.isAfter(round.roundStartDate) ||
-            date.isAtSameMomentAs(round.roundStartDate)) &&
-        (date.isBefore(round.roundEndDate) ||
-            date.isAtSameMomentAs(round.roundEndDate)));
+  bool _isDateInRound(DateTime date, DAURound round) {
+    final startDate = round.getRoundStartDate();
+    final endDate = round.getRoundEndDate();
+
+    return ((date.isAfter(startDate) || date.isAtSameMomentAs(startDate)) &&
+        (date.isBefore(endDate) || date.isAtSameMomentAs(endDate)));
   }
 
   double getGameResultPercentage(gameResult) {

@@ -3,7 +3,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_roundLeagueHeaderListTile.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_roundleagueheaderlisttile.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
