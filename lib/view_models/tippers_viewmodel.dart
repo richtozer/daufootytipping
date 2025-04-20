@@ -488,7 +488,6 @@ class TippersViewModel extends ChangeNotifier {
   Future<String?> deleteAccount() async {
     try {
       await FirebaseAuth.instance.currentUser!.delete();
-      await _deleteTipperRecord();
       return null; // Success
     } catch (e) {
       if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
@@ -506,7 +505,6 @@ class TippersViewModel extends ChangeNotifier {
 
           // Retry account deletion after successful reauthentication
           await FirebaseAuth.instance.currentUser!.delete();
-          await _deleteTipperRecord();
           return null; // Success
         } catch (reauthError) {
           log('TippersViewModel().deleteAccount() - reauthentication failed: $reauthError');
@@ -517,11 +515,6 @@ class TippersViewModel extends ChangeNotifier {
         return 'Account deletion failed. Please try again.';
       }
     }
-  }
-
-  Future<void> _deleteTipperRecord() async {
-    await _db.child(tippersPath).child(_authenticatedTipper!.dbkey!).remove();
-    log('TippersViewModel().deleteAccount() - Tipper ${_authenticatedTipper!.name} deleted from database.');
   }
 
   Future<void> _reauthenticateWithApple() async {

@@ -349,9 +349,9 @@ class UserAuthPageState extends State<UserAuthPage> {
               if (authenticatedFirebaseUser.emailVerified == false) {
                 authenticatedFirebaseUser.sendEmailVerification();
 
-                return LoginIssueScreen(
+                return const LoginIssueScreen(
                   message:
-                      'You need to verify your email before you can logon. An email has been sent to\n\n${authenticatedFirebaseUser.email}.\n\nCheck you inbox or junk/spam and click the link to verify it. Once done you should be able to logon.',
+                      'Your email is not verified. Please check your inbox or junk/spam and verify your email first. Then try log in again',
                   msgColor: Colors.green,
                 );
               }
