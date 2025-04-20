@@ -13,14 +13,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-class TipsTab extends StatefulWidget {
-  const TipsTab({super.key});
+class TipsTab2 extends StatefulWidget {
+  const TipsTab2({super.key});
 
   @override
   TipsTab2State createState() => TipsTab2State();
 }
 
-class TipsTab2State extends State<TipsTab> {
+class TipsTab2State extends State<TipsTab2> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   int latestRoundNumber = 0;
