@@ -49,7 +49,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
           return buildScaffold(
               context,
               scoresViewModelConsumer,
-              di<TippersViewModel>().selectedTipper.name ?? '',
+              di<TippersViewModel>().selectedTipper.dbkey ?? '',
               Theme.of(context).highlightColor);
         },
       ),
@@ -59,7 +59,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   Widget buildScaffold(
     BuildContext context,
     StatsViewModel scoresViewModelConsumer,
-    String name,
+    String dbkey,
     Color color,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
@@ -89,7 +89,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                        'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast()}. Click a Tipper row below to see the breakdown of their round scores.'),
+                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast()}. Click a Tipper row below to see the breakdown of their round scores.',
+                    ),
                   )
                 : Container(), // Return an empty container in landscape mode
             Expanded(
@@ -116,8 +117,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                         scoresViewModelConsumer.compLeaderboard.length,
                         (index) => DataRow(
                               color: scoresViewModelConsumer
-                                          .compLeaderboard[index].tipper.name ==
-                                      name
+                                          .compLeaderboard[index]
+                                          .tipper
+                                          .dbkey ==
+                                      dbkey
                                   ? WidgetStateProperty.resolveWith(
                                       (states) => color)
                                   : WidgetStateProperty.resolveWith(
@@ -134,10 +137,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                           child: Text(
                                             softWrap: false,
                                             scoresViewModelConsumer
-                                                    .compLeaderboard[index]
-                                                    .tipper
-                                                    .name ??
-                                                '',
+                                                .compLeaderboard[index]
+                                                .tipper
+                                                .name,
                                             overflow: TextOverflow.fade,
                                           ),
                                         ),
@@ -217,12 +219,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     if (columnIndex == 0) {
       if (ascending) {
         scoresViewModel.compLeaderboard.sort((a, b) =>
-            (a.tipper.name?.toLowerCase() ?? '')
-                .compareTo(b.tipper.name?.toLowerCase() ?? ''));
+            (a.tipper.name.toLowerCase())
+                .compareTo(b.tipper.name.toLowerCase()));
       } else {
         scoresViewModel.compLeaderboard.sort((a, b) =>
-            (b.tipper.name?.toLowerCase() ?? '')
-                .compareTo(a.tipper.name?.toLowerCase() ?? ''));
+            (b.tipper.name.toLowerCase())
+                .compareTo(a.tipper.name.toLowerCase()));
       }
     }
     if (columnIndex == 1) {
@@ -296,7 +298,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   List<DataColumn> getColumns(List<String> columns) => columns
       .map((String column) => DataColumn2(
             fixedWidth: column == 'Name'
-                ? 150
+                ? 155
                 : column == '#\nrounds\nwon' || column == 'Margins'
                     ? 75
                     : 55,

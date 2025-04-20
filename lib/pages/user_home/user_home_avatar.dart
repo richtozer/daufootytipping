@@ -18,7 +18,9 @@ Widget circleAvatarWithFallback(
           .join();
     } else {
       // If name is one word, use first 2 chars
-      initials = nameParts[0].substring(0, 2);
+      initials = nameParts[0].length >= 2
+          ? nameParts[0].substring(0, 2)
+          : nameParts[0];
     }
   } else {
     initials = '';

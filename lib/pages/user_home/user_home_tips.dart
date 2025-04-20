@@ -20,6 +20,7 @@ class TipsTab extends StatefulWidget {
 
 class TipsTabState extends State<TipsTab> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
+  late ItemScrollController itemScrollController; //
 
   int latestRoundNumber = 1;
 
@@ -27,6 +28,9 @@ class TipsTabState extends State<TipsTab> {
   void initState() {
     log('TipsPageBody.constructor()');
     super.initState();
+
+    // Initialize the itemScrollController
+    itemScrollController = ItemScrollController();
 
     if (daucompsViewModel.selectedDAUComp == null) {
       log('TipsPageBody.initState() selectedDAUComp is null');
@@ -84,8 +88,7 @@ class TipsTabState extends State<TipsTab> {
         child: Consumer<DAUCompsViewModel>(
             builder: (context, daucompsViewmodelConsumer, client) {
           return ScrollablePositionedList.builder(
-            itemScrollController:
-                daucompsViewmodelConsumer.itemScrollController,
+            itemScrollController: itemScrollController,
             initialScrollIndex: (latestRoundNumber) * 4,
             initialAlignment:
                 0.15, // peek at the last game in the previous round

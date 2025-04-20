@@ -7,7 +7,7 @@ class Tipper implements Comparable<Tipper> {
   String?
       email; // this is the email address used for communication - same as legacy sheet email
   String? logon; // this is the email address used for login
-  String? name;
+  String name;
   final TipperRole tipperRole;
   String? photoURL;
   List<DAUComp> compsPaidFor = [];
@@ -22,7 +22,7 @@ class Tipper implements Comparable<Tipper> {
     required this.authuid,
     required this.email,
     this.logon,
-    this.name,
+    required this.name,
     required this.tipperRole,
     this.acctCreatedUTC,
     this.acctLoggedOnUTC,
@@ -34,7 +34,7 @@ class Tipper implements Comparable<Tipper> {
       authuid: data['authuid'],
       email: data['email'],
       logon: data['logon'], // this is the email address used for login
-      name: data['name'],
+      name: data['name'] ?? '',
       tipperRole: data['tipperRole'] != null
           ? TipperRole.values.byName(data['tipperRole'])
           : TipperRole.tipper,

@@ -69,13 +69,13 @@ class ScoringTile extends StatelessWidget {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
                                         const SnackBar(
-                                          duration: Duration(seconds: 7),
+                                          duration: Duration(seconds: 10),
                                           backgroundColor: Colors.orange,
                                           content: Text(
                                               style: TextStyle(
                                                   color: Colors.black),
-                                              'You were automatically given a default tip of [Away] '
-                                              'for this game. With the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄'),
+                                              'You did not tip this game and were automatically given a default tip of [Away] for this game.\n\n'
+                                              'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄'),
                                         ),
                                       );
                                     },
