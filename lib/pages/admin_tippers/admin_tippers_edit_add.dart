@@ -102,7 +102,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           "compsParticipatedIn",
           tipper.compsPaidFor.map((comp) => comp.dbkey).toList());
 
-      await tippersViewModel.saveBatchOfTipperAttributes();
+      await tippersViewModel.saveBatchOfTipperChangesToDb();
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);

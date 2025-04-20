@@ -123,13 +123,13 @@ class TippersViewModel extends ChangeNotifier {
       throw 'Tipper name cannot be empty';
     }
 
-    if (_tippers.any((tipper) =>
-        (tipper.name ?? '').toLowerCase() == newName.toLowerCase())) {
-      throw 'Tipper name $newName already exists. If you were a tipper in previous years, then it may be that you have duplicate profiles. This is likely due to changing logon methods. Please contact DAU Support to resolve this issue.';
+    if (_tippers.any(
+        (tipper) => (tipper.name).toLowerCase() == newName.toLowerCase())) {
+      throw 'Tipper name $newName already exists.\n\nIf you were a tipper in previous years, then it may be that you have duplicate profiles. This is likely due to changing logon methods.\n\nPlease contact DAU Support to resolve this issue.';
     }
 
     await updateTipperAttribute(tipperDbKey, "name", newName);
-    await saveBatchOfTipperAttributes();
+    await saveBatchOfTipperChangesToDb();
 
     log('TippersViewModel() Tipper: $tipperDbKey name updated to: $newName');
   }
@@ -165,7 +165,7 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> saveBatchOfTipperAttributes() async {
+  Future<void> saveBatchOfTipperChangesToDb() async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
         log('TippersViewModel() Waiting for initial Tipper load to complete, saveBatchOfTipperAttributes()');
@@ -244,151 +244,124 @@ class TippersViewModel extends ChangeNotifier {
     return regex.hasMatch(email);
   }
 
-  // method called at logon to find logged in Tipper and link it if required
-  // first try finding the tipper based on authuid
-  // if that fails, try finding the tipper based on logon email
-  Future<bool> linkUserToTipper() async {
+  Future<Tipper?> findExistingTipper() async {
+    User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
     Tipper? foundTipper;
+
+    try {
+      foundTipper = await _findExistingTipper(authenticatedFirebaseUser);
+      return foundTipper;
+    } catch (e) {
+      log('TippersViewModel().findExistingTipper() Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> updateOrCreateTipper(String? name, Tipper? foundTipper) async {
     User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
     bool userIsLinked = false;
 
     try {
-      // first try finding the tipper based on authuid
-      foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
-
       if (foundTipper != null) {
-        log('TippersViewModel().linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
-
-        // make sure login email is up to date
-        // update the authuid and logon in the database
-        await updateTipperAttribute(
-            foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
-
-        // if existing email null or invalid? if so, make it the same as logon
-        await checkEmail(foundTipper, authenticatedFirebaseUser);
-
-        await saveBatchOfTipperAttributes();
+        await _updateExistingTipper(foundTipper, authenticatedFirebaseUser);
+        userIsLinked = true;
       } else {
-        // if that fails, try finding the tipper based on logon email
-        foundTipper ??=
-            await _findTipperByLogon(authenticatedFirebaseUser.email!);
-
-        if (foundTipper != null) {
-          log('TippersViewModel().linkUserToTipper() Tipper ${foundTipper.name} found using logon: ${authenticatedFirebaseUser.email}. Updating UID in database');
-
-          await updateTipperAttribute(
-              foundTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
-
-          // if existing email null or invalid? if so, make it the same as logon
-          await checkEmail(foundTipper, authenticatedFirebaseUser);
-
-          await saveBatchOfTipperAttributes();
-        } else {
-          // try finding using email address
-          foundTipper =
-              await _findTipperByEmail(authenticatedFirebaseUser.email!);
-
-          if (foundTipper != null) {
-            log('TippersViewModel().linkUserToTipper() Tipper ${foundTipper.name} found using email: ${authenticatedFirebaseUser.email}');
-
-            // update the authuid and logon in the database
-            await updateTipperAttribute(
-                foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
-            await updateTipperAttribute(
-                foundTipper.dbkey!, "authuid", authenticatedFirebaseUser.uid);
-            await saveBatchOfTipperAttributes();
-          } else {
-            log('TippersViewModel().getLoggedInTipper() Existing Tipper record not found for email: ${authenticatedFirebaseUser.email}.');
-          }
-        }
+        userIsLinked =
+            await _createNewTipperIfNeeded(authenticatedFirebaseUser, name!);
       }
-      if (foundTipper != null) {
-        //existing tipper found
-        _authenticatedTipper = foundTipper;
-        // for now the selected tipper is the same as the authenticated tipper
-        // in god mode this can be changed
-        _selectedTipper = foundTipper;
-        userIsLinked = true;
+
+      if (userIsLinked) {
+        _authenticatedTipper = foundTipper ?? _authenticatedTipper;
+        _selectedTipper = foundTipper ?? _authenticatedTipper!;
         if (!_isUserLinked.isCompleted) {
           _isUserLinked.complete();
-        }
 
-        //update photoURL if it has changed
-        if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
-          await updateTipperAttribute(foundTipper.dbkey!, "photoURL",
-              authenticatedFirebaseUser.photoURL);
-          await saveBatchOfTipperAttributes();
-        }
-
-        //update acctLoggedOnUTC if it has changed
-        if (foundTipper.acctLoggedOnUTC !=
-            authenticatedFirebaseUser.metadata.lastSignInTime) {
-          await updateTipperAttribute(
-              foundTipper.dbkey!,
-              "acctLoggedOnUTC",
-              authenticatedFirebaseUser.metadata.lastSignInTime
-                  ?.toIso8601String());
-          await saveBatchOfTipperAttributes();
-        }
-
-        // update acctCreatedUTC if it has changed
-        if (foundTipper.acctCreatedUTC !=
-            authenticatedFirebaseUser.metadata.creationTime) {
-          await updateTipperAttribute(
-              foundTipper.dbkey!,
-              "acctCreatedUTC",
-              authenticatedFirebaseUser.metadata.creationTime
-                  ?.toIso8601String());
-          await saveBatchOfTipperAttributes();
-        }
-
-        if (!kIsWeb) {
-          await _registerLinkedTipperForMessaging();
-        }
-      } else {
-        // no existing tipper found, create a new one
-        log('TippersViewModel().linkUserToTipper() Tipper not found for user ${authenticatedFirebaseUser.email}');
-
-        if (_createLinkedTipper == false) {
-          log('TippersViewModel().linkUserToTipper() createLinkedTipper is false, not creating a new tipper');
-          return false;
-        }
-
-        log('TippersViewModel().linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}');
-
-        // create them a tipper record
-        Tipper newTipper = Tipper(
-          name:
-              null, // leave name null for now, this will be updated by the user as part of the onboarding process
-          email: authenticatedFirebaseUser.email!,
-          logon: authenticatedFirebaseUser.email!,
-          authuid: authenticatedFirebaseUser.uid,
-          photoURL: authenticatedFirebaseUser.photoURL,
-          tipperRole: TipperRole.tipper,
-          compsPaidFor: [], // do not assign new tippers to any paid comps
-          acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
-          acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
-        );
-
-        await _createNewTipper(newTipper);
-
-        await saveBatchOfTipperAttributes();
-        log('TippersViewModel().linkUserToTipper() Tipper ${newTipper.dbkey} created for user ${authenticatedFirebaseUser.email}');
-
-        _authenticatedTipper = newTipper;
-        _selectedTipper = newTipper;
-        userIsLinked = true;
-        if (!_isUserLinked.isCompleted) {
-          _isUserLinked.complete();
+          if (!kIsWeb) {
+            await _registerLinkedTipperForMessaging();
+          }
         }
       }
 
       return userIsLinked;
     } catch (e) {
-      log('TippersViewModel().linkUserToTipper() Error: $e');
-      // rethow the error
+      log('TippersViewModel().updateOrCreateTipper() Error: $e');
       rethrow;
     }
+  }
+
+  Future<Tipper?> _findExistingTipper(User authenticatedFirebaseUser) async {
+    Tipper? foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
+
+    foundTipper ??= await _findTipperByLogon(authenticatedFirebaseUser.email!);
+
+    foundTipper ??= await _findTipperByEmail(authenticatedFirebaseUser.email!);
+
+    return foundTipper;
+  }
+
+  Future<void> _updateExistingTipper(
+      Tipper foundTipper, User authenticatedFirebaseUser) async {
+    log('TippersViewModel().linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}');
+
+    await updateTipperAttribute(
+        foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
+    await checkEmail(foundTipper, authenticatedFirebaseUser);
+    await saveBatchOfTipperChangesToDb();
+
+    await _updateTipperDetails(foundTipper, authenticatedFirebaseUser);
+  }
+
+  Future<void> _updateTipperDetails(
+      Tipper foundTipper, User authenticatedFirebaseUser) async {
+    if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
+      await updateTipperAttribute(
+          foundTipper.dbkey!, "photoURL", authenticatedFirebaseUser.photoURL);
+    }
+
+    if (foundTipper.acctLoggedOnUTC !=
+        authenticatedFirebaseUser.metadata.lastSignInTime) {
+      await updateTipperAttribute(foundTipper.dbkey!, "acctLoggedOnUTC",
+          authenticatedFirebaseUser.metadata.lastSignInTime?.toIso8601String());
+    }
+
+    if (foundTipper.acctCreatedUTC !=
+        authenticatedFirebaseUser.metadata.creationTime) {
+      await updateTipperAttribute(foundTipper.dbkey!, "acctCreatedUTC",
+          authenticatedFirebaseUser.metadata.creationTime?.toIso8601String());
+    }
+
+    await saveBatchOfTipperChangesToDb();
+  }
+
+  Future<bool> _createNewTipperIfNeeded(
+      User authenticatedFirebaseUser, String name) async {
+    if (_createLinkedTipper == false) {
+      log('TippersViewModel().linkUserToTipper() createLinkedTipper is false, not creating a new tipper');
+      return false;
+    }
+
+    log('TippersViewModel().linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}');
+
+    Tipper newTipper = Tipper(
+      name: name,
+      email: authenticatedFirebaseUser.email!,
+      logon: authenticatedFirebaseUser.email!,
+      authuid: authenticatedFirebaseUser.uid,
+      photoURL: authenticatedFirebaseUser.photoURL,
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: [], // do not assign new tippers to any paid comps
+      acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
+      acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
+    );
+
+    // add the new tipper to the database
+    await _createNewTipper(newTipper);
+    await saveBatchOfTipperChangesToDb();
+
+    _authenticatedTipper = newTipper;
+    _selectedTipper = newTipper;
+
+    return true;
   }
 
   Future<void> checkEmail(
@@ -438,7 +411,7 @@ class TippersViewModel extends ChangeNotifier {
         // update the email of the target tipper to the email of the original tipper
         await updateTipperAttribute(
             targetTipper.dbkey!, "logon", originalTipper.logon);
-        await saveBatchOfTipperAttributes();
+        await saveBatchOfTipperChangesToDb();
         log('TippersViewModel() Tipper ${targetTipper.name} logon updated to ${originalTipper.logon}');
       }
 
@@ -449,7 +422,7 @@ class TippersViewModel extends ChangeNotifier {
       // copy over the uid
       await updateTipperAttribute(targetTipper.dbkey!, "authuid",
           originalTipper.authuid); // update the authuid of the target tipper
-      await saveBatchOfTipperAttributes();
+      await saveBatchOfTipperChangesToDb();
       log('TippersViewModel() Tipper ${targetTipper.name} authuid updated to ${originalTipper.authuid}');
     } catch (e) {
       log('TippersViewModel().mergeTippers() Error: $e');
@@ -618,24 +591,6 @@ class TippersViewModel extends ChangeNotifier {
     return foundTipper;
   }
 
-  // method to add a new tipper via the UI
-  Future<void> addNewTipper(Tipper newTipper) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log('TippersViewModel().addNewTipper() Waiting for initial Tipper load to complete.');
-      await _initialLoadCompleter.future;
-      log('TippersViewModel().addNewTipper() tipper load complete');
-    }
-
-    if (_tippers.any((tipper) => tipper.email == newTipper.email)) {
-      throw 'Tipper with email ${newTipper.email} already exists';
-    }
-
-    await _createNewTipper(newTipper);
-    await saveBatchOfTipperAttributes();
-
-    log('TippersViewModel().addNewTipper() New tipper added: ${newTipper.dbkey}');
-  }
-
   @override
   void dispose() {
     _tippersStream.cancel(); // stop listening to stream
@@ -671,7 +626,7 @@ class TippersViewModel extends ChangeNotifier {
     }
 
     await updateTipperAttribute(tipperDbKey, "email", newEmail);
-    await saveBatchOfTipperAttributes();
+    await saveBatchOfTipperChangesToDb();
 
     notifyListeners();
 

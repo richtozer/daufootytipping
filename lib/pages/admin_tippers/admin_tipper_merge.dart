@@ -64,7 +64,7 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
     List<Tipper> targetTippers = widget.tippersViewModel.tippers
         .where((tipper) => tipper.dbkey != widget.sourceTipper?.dbkey)
         .toList()
-      ..sort((a, b) => a.name!.compareTo(b.name!));
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
       appBar: AppBar(
@@ -107,7 +107,7 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                         .map<DropdownMenuItem<Tipper>>((Tipper tipper) {
                       return DropdownMenuItem<Tipper>(
                         value: tipper,
-                        child: Text(tipper.name!),
+                        child: Text(tipper.name),
                       );
                     }).toList(),
                   ),

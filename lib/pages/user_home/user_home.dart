@@ -34,9 +34,6 @@ class _HomePageState extends State<HomePage> {
   int _selectDefaultTabIndex(
       DAUCompsViewModel dauCompsViewModel, TippersViewModel tippersViewModel) {
     // if their tipper record was just created, then default to the profile tab so they can set their name
-    if (tippersViewModel.authenticatedTipper!.name == null) {
-      return 2;
-    }
     return _currentIndex;
   }
 
@@ -110,8 +107,7 @@ class _HomePageState extends State<HomePage> {
 
             if (tippersViewModelConsumer.inGodMode) {
               return Banner(
-                message:
-                    tippersViewModelConsumer.selectedTipper.name ?? 'Unknown',
+                message: tippersViewModelConsumer.selectedTipper.name,
                 location: BannerLocation.bottomStart,
                 color: Colors.red,
                 child: Banner(

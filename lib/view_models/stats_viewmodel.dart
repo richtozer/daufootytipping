@@ -76,9 +76,8 @@ class StatsViewModel extends ChangeNotifier {
 
     // add a listener for the tipper viewmodel, do a re-calculation of the leaderboards
     // if the tippers change
-    di<TippersViewModel>().initialLoadComplete.then((_) {
-      di<TippersViewModel>().addListener(_updateLeaderAndRoundAndRank);
-    });
+
+    di<TippersViewModel>().addListener(_updateLeaderAndRoundAndRank);
 
     _listenToScores();
   }
@@ -155,6 +154,8 @@ class StatsViewModel extends ChangeNotifier {
         log('StatsViewModel.updateLeaderAndRoundAndRank() Update already in progress, skipping');
         return;
       } else {
+        //await user being linked
+        await di<TippersViewModel>().isUserLinked;
         log('StatsViewModel.updateLeaderAndRoundAndRank() Updating leaderboard and round winners');
         _isUpdatingLeaderAndRoundAndRank = true;
       }
@@ -606,8 +607,8 @@ class StatsViewModel extends ChangeNotifier {
     leaderboard.sort((a, b) {
       int rankComparison = a.rank.compareTo(b.rank);
       if (rankComparison == 0) {
-        return (a.tipper.name?.toLowerCase() ?? '')
-            .compareTo(b.tipper.name?.toLowerCase() ?? '');
+        return (a.tipper.name.toLowerCase())
+            .compareTo(b.tipper.name.toLowerCase());
       } else {
         return rankComparison;
       }
@@ -627,12 +628,12 @@ class StatsViewModel extends ChangeNotifier {
   void sortRoundWinnersByWinner(bool ascending) {
     var sortedEntries = _roundWinners.entries.toList()
       ..sort((a, b) => ascending
-          ? (a.value[0].tipper.name ?? '')
+          ? (a.value[0].tipper.name)
               .toLowerCase()
-              .compareTo(b.value[0].tipper.name?.toLowerCase() ?? '')
-          : (b.value[0].tipper.name ?? '')
+              .compareTo(b.value[0].tipper.name.toLowerCase())
+          : (b.value[0].tipper.name)
               .toLowerCase()
-              .compareTo(a.value[0].tipper.name?.toLowerCase() ?? ''));
+              .compareTo(a.value[0].tipper.name.toLowerCase()));
 
     _roundWinners = Map.fromEntries(sortedEntries);
   }

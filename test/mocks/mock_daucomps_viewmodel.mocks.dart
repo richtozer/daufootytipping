@@ -85,7 +85,6 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i3.DAUCompsViewModel {
         returnValueForMissingStub: null,
       );
 
-  @override
   _i2.ItemScrollController get itemScrollController => (super.noSuchMethod(
         Invocation.getter(#itemScrollController),
         returnValue: _FakeItemScrollController_1(
@@ -94,7 +93,6 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i3.DAUCompsViewModel {
         ),
       ) as _i2.ItemScrollController);
 
-  @override
   set itemScrollController(_i2.ItemScrollController? _itemScrollController) =>
       super.noSuchMethod(
         Invocation.setter(#itemScrollController, _itemScrollController),

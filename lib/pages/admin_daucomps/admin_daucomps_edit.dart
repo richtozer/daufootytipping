@@ -177,13 +177,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
           String res =
               await dauCompsViewModel.getNetworkFixtureData(newDAUComp);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: Colors.green,
-              content: Text(res),
-              duration: const Duration(seconds: 4),
-            ),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.green,
+                content: Text(res),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
 
           Navigator.of(context).pop(); // Navigate back to the previous page
         } else {

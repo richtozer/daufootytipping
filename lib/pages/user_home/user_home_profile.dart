@@ -40,9 +40,7 @@ class Profile extends StatelessWidget with WatchItMixin {
     compsForDropdown.sort((a, b) => b.name.compareTo(a.name));
 
     // Automatically show the edit tipper name modal if the tipper does not have a profile name
-    if (authenticatedTipper != null &&
-        (authenticatedTipper.name == null ||
-            authenticatedTipper.name!.isEmpty)) {
+    if (authenticatedTipper != null && (authenticatedTipper.name.isEmpty)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showEditNameDialog(context, authenticatedTipper);
       });
@@ -74,7 +72,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    (profileTipper.name ?? ''),
+                                    (profileTipper.name),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                         letterSpacing: 5,
@@ -353,7 +351,7 @@ class Profile extends StatelessWidget with WatchItMixin {
     final TextEditingController nameController =
         TextEditingController(text: tipper.name);
     String? errorMessage;
-    bool isNewTipper = tipper.name == null || tipper.name!.isEmpty;
+    bool isNewTipper = tipper.name.isEmpty;
 
     showDialog(
       context: context,
@@ -392,7 +390,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                   TextButton(
                     child: const Text('Cancel'),
                     onPressed: () {
-                      if (tipper.name == null || tipper.name!.isEmpty) {
+                      if (tipper.name.isEmpty) {
                         // Prevent navigation away without saving a valid name
                         setState(() {
                           errorMessage = 'You must enter a valid tipper alias.';
@@ -425,8 +423,8 @@ class Profile extends StatelessWidget with WatchItMixin {
                           .setTipperName(tipper.dbkey!, newName);
 
                       // update the name on the tipper object
-                      //tipper.name =
-                      //    newName; //TODO Hack -  state changes should go through database first
+                      tipper.name =
+                          newName; //TODO Hack -  state changes should go through database first
 
                       // if the tipper is new then navigate to the home page,
                       // otherwise just close the dialog

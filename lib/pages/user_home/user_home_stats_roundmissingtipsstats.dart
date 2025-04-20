@@ -135,7 +135,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                               Expanded(
                                 child: Text(
                                   softWrap: false,
-                                  entry.key.name ?? '',
+                                  entry.key.name,
                                   overflow: TextOverflow.fade,
                                 ),
                               ),
@@ -165,20 +165,14 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) =>
-              a.key.name
-                  ?.toLowerCase()
-                  .compareTo(b.key.name?.toLowerCase() ?? '') ??
-              0);
+              a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) =>
-              b.key.name
-                  ?.toLowerCase()
-                  .compareTo(a.key.name?.toLowerCase() ?? '') ??
-              0);
+              b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }

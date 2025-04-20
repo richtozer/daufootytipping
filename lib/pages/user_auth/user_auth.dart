@@ -1,12 +1,14 @@
 import 'dart:developer';
 import 'package:daufootytipping/main.dart';
+import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart' as firebase_ui_auth;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
@@ -65,13 +67,18 @@ class UserAuthPageState extends State<UserAuthPage> {
     return false;
   }
 
-  Future<bool> _linkUserToTipper() async {
+  Future<Tipper?> _linkUserToTipper() async {
     User? authenticatedFirebaseUser = FirebaseAuth.instance.currentUser;
     if (authenticatedFirebaseUser == null) {
-      return false;
+      return null;
     }
     TippersViewModel tippersViewModel = di<TippersViewModel>();
-    return await tippersViewModel.linkUserToTipper();
+    return await tippersViewModel.findExistingTipper();
+  }
+
+  Future<bool> _updateOrCreateTipper(String name, Tipper? tipper) async {
+    TippersViewModel tippersViewModel = di<TippersViewModel>();
+    return await tippersViewModel.updateOrCreateTipper(name, tipper);
   }
 
   void signOut() async {
@@ -84,6 +91,89 @@ class UserAuthPageState extends State<UserAuthPage> {
           () => FirebaseMessagingService());
       di<FirebaseMessagingService>().initializeFirebaseMessaging();
     }
+  }
+
+  void _showEditNameDialog(BuildContext context, Tipper? tipper) {
+    final TextEditingController nameController =
+        TextEditingController(text: tipper?.name);
+    String? errorMessage;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing the dialog without saving
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return AlertDialog(
+              title: const Text('New Tipper Alias'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                      'Welcome to the competition. You need to choose a tipper alias. This is your identity as shown to others in the competition. It must be unique.'),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Alias',
+                      hintText: 'Enter a name e.g. The Oracle',
+                    ),
+                  ),
+                  if (errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Save'),
+                  onPressed: () async {
+                    String newName = nameController.text.trim();
+                    if (newName.isEmpty) {
+                      setState(() {
+                        errorMessage = 'Alias cannot be empty.';
+                      });
+                      return;
+                    }
+                    if (newName.length < 2) {
+                      setState(() {
+                        errorMessage =
+                            'Alias must be at least 2 characters long.';
+                      });
+                      return;
+                    }
+                    try {
+                      // Create and link the new tipper
+                      bool res = await _updateOrCreateTipper(newName, tipper);
+
+                      if (res) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const HomePage(),
+                          ),
+                        );
+                      } else {
+                        setState(() {
+                          errorMessage = 'Failed to create or update tipper.';
+                        });
+                      }
+                    } catch (e) {
+                      setState(() {
+                        errorMessage = 'Error: $e';
+                      });
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -181,7 +271,8 @@ class UserAuthPageState extends State<UserAuthPage> {
                   providers: [
                     GoogleProvider(clientId: widget.googleClientId),
                     AppleProvider(),
-                    EmailAuthProvider(),
+                    //firebase_ui_auth.PhoneAuthProvider(),
+                    firebase_ui_auth.EmailAuthProvider(),
                   ],
                   headerBuilder: (context, constraints, shrinkOffset) {
                     return Padding(
@@ -269,9 +360,10 @@ class UserAuthPageState extends State<UserAuthPage> {
                   loginMethod:
                       authenticatedFirebaseUser.providerData[0].providerId);
 
-              return FutureBuilder<bool>(
+              return FutureBuilder<Tipper?>(
                 future: _linkUserToTipper(),
-                builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
+                builder:
+                    (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
                         child: CircularProgressIndicator(color: Colors.orange));
@@ -280,17 +372,34 @@ class UserAuthPageState extends State<UserAuthPage> {
                         message:
                             'Unexpected error ${snapshot.error}. Contact daufootytipping@gmail.com');
                   } else if (snapshot.data == null) {
-                    return const LoginIssueScreen(
-                        message:
-                            'Unexpected null from linkUserToTipper. Contact daufootytipping@gmail.com');
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _showEditNameDialog(context, null);
+                    });
+                    return Container(); // Return an empty container while waiting for user input
                   } else {
-                    if (snapshot.data == false) {
-                      return LoginIssueScreen(
-                          message:
-                              'No tipper record found for login: ${authenticatedFirebaseUser.email}.\n\nContact daufootytipping@gmail.com to have your login associated with your existing tipper record.');
-                    }
-
-                    return const HomePage();
+                    return FutureBuilder<bool>(
+                      future: _updateOrCreateTipper(
+                          snapshot.data!.name, snapshot.data!),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<bool> updateSnapshot) {
+                        if (updateSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(
+                              child: CircularProgressIndicator(
+                                  color: Colors.orange));
+                        } else if (updateSnapshot.hasError) {
+                          return LoginIssueScreen(
+                              message:
+                                  'Unexpected error ${updateSnapshot.error}. Contact daufootytipping@gmail.com');
+                        } else if (updateSnapshot.data == false) {
+                          return LoginIssueScreen(
+                              message:
+                                  'Failed to create or update tipper. Contact daufootytipping@gmail.com');
+                        } else {
+                          return const HomePage();
+                        }
+                      },
+                    );
                   }
                 },
               );

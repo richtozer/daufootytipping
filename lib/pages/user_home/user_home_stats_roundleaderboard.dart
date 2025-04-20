@@ -139,7 +139,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                                   Expanded(
                                     child: Text(
                                       softWrap: false,
-                                      entry.key.name ?? '',
+                                      entry.key.name,
                                       overflow: TextOverflow.fade,
                                     ),
                                   ),
@@ -177,27 +177,13 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
-      if (ascending) {
-        // Sort by tipper.name
-        var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) =>
-              a.key.name
-                  ?.toLowerCase()
-                  .compareTo(b.key.name?.toLowerCase() ?? '') ??
-              0);
+      // Sort by tipper.name
+      var sortedEntries = roundLeaderboard.entries.toList()
+        ..sort((a, b) => ascending
+            ? a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase())
+            : b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()));
 
-        roundLeaderboard = Map.fromEntries(sortedEntries);
-      } else {
-        // Sort by tipper.name
-        var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) =>
-              a.key.name
-                  ?.toLowerCase()
-                  .compareTo(b.key.name?.toLowerCase() ?? '') ??
-              0);
-
-        roundLeaderboard = Map.fromEntries(sortedEntries);
-      }
+      roundLeaderboard = Map.fromEntries(sortedEntries);
     }
     if (columnIndex == 1 || columnIndex == 2) {
       if (ascending) {
@@ -205,8 +191,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.rank == b.value.rank) {
-              return (a.key.name?.toLowerCase() ?? '')
-                  .compareTo(b.key.name?.toLowerCase() ?? '');
+              return a.key.name
+                  .toLowerCase()
+                  .compareTo(b.key.name.toLowerCase());
             } else {
               return a.value.rank.compareTo(b.value.rank);
             }
@@ -218,8 +205,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.rank == b.value.rank) {
-              return (a.key.name?.toLowerCase() ?? '')
-                  .compareTo(b.key.name?.toLowerCase() ?? '');
+              return b.key.name
+                  .toLowerCase()
+                  .compareTo(a.key.name.toLowerCase());
             } else {
               return b.value.rank.compareTo(a.value.rank);
             }
@@ -235,9 +223,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           ..sort((a, b) {
             if (a.value.nrlScore == b.value.nrlScore) {
               return a.key.name
-                      ?.toLowerCase()
-                      .compareTo(b.key.name?.toLowerCase() ?? '') ??
-                  0;
+                  .toLowerCase()
+                  .compareTo(b.key.name.toLowerCase());
             } else {
               return a.value.nrlScore.compareTo(b.value.nrlScore);
             }
@@ -249,8 +236,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.nrlScore == b.value.nrlScore) {
-              return (a.key.name?.toLowerCase() ?? '')
-                  .compareTo(b.key.name?.toLowerCase() ?? '');
+              return (a.key.name.toLowerCase())
+                  .compareTo(b.key.name.toLowerCase());
             } else {
               return b.value.nrlScore.compareTo(a.value.nrlScore);
             }
@@ -307,10 +294,6 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
-    }
-    if (columnIndex == 7) {
-      if (ascending) {
-      } else {}
     }
 
     setState(() {

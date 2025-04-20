@@ -16,7 +16,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:watch_it/watch_it.dart';
 
 const daucompsPath = '/AllDAUComps';
@@ -59,7 +58,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   StatsViewModel? statsViewModel;
   TipsViewModel? selectedTipperTipsViewModel;
 
-  ItemScrollController itemScrollController = ItemScrollController();
   final Map<String, dynamic> updates = {};
   final bool _adminMode;
   bool get adminMode => _adminMode;
