@@ -142,7 +142,7 @@ class StatsViewModel extends ChangeNotifier {
         // update the leaderboard
         await _updateLeaderAndRoundAndRank();
       } catch (e) {
-        log('Error listening to /Stats/round_scores: $e');
+        log('Error listening to /$statsPathRoot/round_scores: $e');
         rethrow;
       }
     });
@@ -210,7 +210,7 @@ class StatsViewModel extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      log('StatsViewModel._handleEventLiveScores() Error listening to /Stats/live_scores: $e');
+      log('StatsViewModel._handleEventLiveScores() Error listening to /$statsPathRoot/live_scores: $e');
       rethrow;
     } finally {
       if (!_initialLiveScoreLoadCompleter.isCompleted) {
