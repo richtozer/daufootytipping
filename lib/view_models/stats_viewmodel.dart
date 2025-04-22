@@ -251,6 +251,7 @@ class StatsViewModel extends ChangeNotifier {
         'comp': daucompToUpdate.name,
         'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
         'tipper': onlyUpdateThisTipper?.name ?? 'all',
+        'withTransaction': true,
       });
 
       // set the initial list of tippers to update
@@ -450,7 +451,21 @@ class StatsViewModel extends ChangeNotifier {
         .child(statsPathRoot)
         .child(dauComp.dbkey!)
         .child(roundStatsRoot)
-        .update(updatedTipperRoundStatsJson);
+        .runTransaction((currentData) {
+      // Merge the new data with the existing data
+      if (currentData != null) {
+        final existingData = currentData is Map
+            ? Map<String, dynamic>.from(currentData)
+            : <String, dynamic>{};
+        updatedTipperRoundStatsJson.forEach((key, value) {
+          existingData[key] = value;
+        });
+        return Transaction.success(existingData); // Return the merged data
+      } else {
+        return Transaction.success(
+            updatedTipperRoundStatsJson); // Return the new data
+      }
+    });
   }
 
   void _updateRoundWinners() {
