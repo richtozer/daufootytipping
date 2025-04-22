@@ -370,7 +370,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                   } else if (snapshot.hasError) {
                     return LoginIssueScreen(
                         message:
-                            'Unexpected error ${snapshot.error}. Contact daufootytipping@gmail.com');
+                            'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping');
                   } else if (snapshot.data == null) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       _showEditNameDialog(context, null);
@@ -390,11 +390,11 @@ class UserAuthPageState extends State<UserAuthPage> {
                         } else if (updateSnapshot.hasError) {
                           return LoginIssueScreen(
                               message:
-                                  'Unexpected error ${updateSnapshot.error}. Contact daufootytipping@gmail.com');
+                                  'Unexpected error ${updateSnapshot.error}. Contact support: https://interview.coach/tipping');
                         } else if (updateSnapshot.data == false) {
                           return LoginIssueScreen(
                               message:
-                                  'Failed to create or update tipper. Contact daufootytipping@gmail.com');
+                                  'Failed to create or update tipper. Contact support: https://interview.coach/tipping');
                         } else {
                           return const HomePage();
                         }

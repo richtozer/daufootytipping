@@ -141,7 +141,7 @@ class MyApp extends StatelessWidget {
                         // display LoginErrorScreen
                         return LoginIssueScreen(
                           message:
-                              'Unexpected startup error. For support: https://interview.coach/tipping',
+                              'Unexpected startup error. Contact support: https://interview.coach/tipping',
                           displaySignOutButton: false,
                         );
                       } else {

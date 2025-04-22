@@ -154,7 +154,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                 child: SizedBox(
                                   width: 250,
                                   child: Text(
-                                    'There are no active competitions. Contact daufootytipping@gmail.com.',
+                                    'There are no active competitions. Contact support: https://interview.coach/tipping.',
                                     textAlign: TextAlign.center,
                                     style:
                                         Theme.of(context).textTheme.titleMedium,
