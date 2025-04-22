@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
 // Define constants for Firestore database locations
-const statsPathRoot = '/AllStats';
+const statsPathRoot = '/Stats';
 const roundStatsRoot = 'round_stats';
 const liveScoresRoot = 'live_scores';
 const gameStatsRoot = 'game_stats';
