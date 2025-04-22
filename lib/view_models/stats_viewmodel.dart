@@ -101,51 +101,50 @@ class StatsViewModel extends ChangeNotifier {
   Timer? _debounceTimer;
 
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
-    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-      try {
-        if (event.snapshot.exists) {
-          var dbData = event.snapshot.value as List<Object?>;
-          // Deserialize the round scores into _allTipperRoundStats
-          for (var roundIndex = 0; roundIndex < dbData.length; roundIndex++) {
-            var roundScoresJson = dbData[roundIndex] as Map<dynamic, dynamic>;
-            Map<Tipper, RoundStats> roundScores = {};
+    try {
+      if (event.snapshot.exists) {
+        var dbData = event.snapshot.value as List<Object?>;
+        // Deserialize the round scores into _allTipperRoundStats
+        for (var roundIndex = 0; roundIndex < dbData.length; roundIndex++) {
+          var roundScoresJson = dbData[roundIndex] as Map<dynamic, dynamic>;
+          Map<Tipper, RoundStats> roundScores = {};
 
-            // Collect all futures
-            List<Future<void>> futures = [];
-            for (var entry in roundScoresJson.entries) {
-              futures.add(
-                  di<TippersViewModel>().findTipper(entry.key).then((tipper) {
-                var roundStats = RoundStats.fromJson(Map<String, dynamic>.from(
-                    entry.value as Map<dynamic, dynamic>));
-                if (tipper != null) {
-                  roundScores[tipper] = roundStats;
-                } else {
-                  log('Tipper ${entry.key} not found in _handleEventRoundScores');
-                }
-              }));
-            }
-
-            // Wait for all futures to complete
-            await Future.wait(futures);
-            _allTipperRoundStats[roundIndex] = roundScores;
+          // Collect all futures
+          List<Future<void>> futures = [];
+          for (var entry in roundScoresJson.entries) {
+            futures.add(
+                di<TippersViewModel>().findTipper(entry.key).then((tipper) {
+              var roundStats = RoundStats.fromJson(Map<String, dynamic>.from(
+                  entry.value as Map<dynamic, dynamic>));
+              if (tipper != null) {
+                roundScores[tipper] = roundStats;
+              } else {
+                log('Tipper ${entry.key} not found in _handleEventRoundScores');
+              }
+            }));
           }
-          log('StatsViewModel._handleEventRoundScores() Loaded round scores for ${_allTipperRoundStats.length} rounds');
-        } else {
-          log('StatsViewModel._handleEventRoundScores() Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores');
+
+          // Wait for all futures to complete
+          await Future.wait(futures);
+
+          _allTipperRoundStats[roundIndex] = roundScores;
         }
 
-        if (!_initialRoundLoadCompleted.isCompleted) {
-          _initialRoundLoadCompleted.complete();
-        }
-
-        // update the leaderboard
-        await _updateLeaderAndRoundAndRank();
-      } catch (e) {
-        log('Error listening to /$statsPathRoot/round_scores: $e');
-        rethrow;
+        log('StatsViewModel._handleEventRoundScores() Loaded round scores for ${_allTipperRoundStats.length} rounds');
+      } else {
+        log('StatsViewModel._handleEventRoundScores() Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores');
       }
-    });
+
+      if (!_initialRoundLoadCompleted.isCompleted) {
+        _initialRoundLoadCompleted.complete();
+      }
+
+      // update the leaderboard
+      await _updateLeaderAndRoundAndRank();
+    } catch (e) {
+      log('Error listening to /$statsPathRoot/round_scores: $e');
+      rethrow;
+    }
   }
 
   Future<void> _updateLeaderAndRoundAndRank() async {
