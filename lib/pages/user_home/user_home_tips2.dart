@@ -95,7 +95,7 @@ class TipsTab2State extends State<TipsTab2> {
               color: Colors.black38,
               child: Center(
                 child: Text(
-                  'Nothing to see here.\nContact daufootytipping@gmail.com.',
+                  'Nothing to see here.\nContact support: https://interview.coach/tipping.',
                   style: TextStyle(color: Colors.white70),
                 ),
               ),
