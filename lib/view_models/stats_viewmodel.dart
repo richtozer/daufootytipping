@@ -241,7 +241,14 @@ class StatsViewModel extends ChangeNotifier {
       }
 
       if (!_initialRoundLoadCompleted.isCompleted) {
-        await _initialRoundLoadCompleted.future;
+        try {
+          await _initialRoundLoadCompleted.future;
+        } catch (e) {
+          log('StatsViewModel.updateStats() Error waiting for initial round load to complete: $e');
+          // reset the database to a clean state
+          _allTipperRoundStats.clear();
+          _initialRoundLoadCompleted.complete();
+        }
       }
 
       _isUpdateScoringRunning = true;
@@ -797,150 +804,131 @@ class StatsViewModel extends ChangeNotifier {
     return roundsToUpdate;
   }
 
-  _calculateRoundStatsForTipper(Tipper tipperToScore, DAURound dauRound,
-      TipsViewModel allTipsViewModel) async {
-    // wait until we are initialized
-    await _initialRoundLoadCompleted.future;
+  Future<void> _calculateRoundStatsForTipper(Tipper tipperToScore,
+      DAURound dauRound, TipsViewModel allTipsViewModel) async {
+    // Initialize the round stats map if needed
+    _allTipperRoundStats[dauRound.dAUroundNumber - 1] ??= {};
 
-    // initialize any round of tipper Maps as needed
-    if (_allTipperRoundStats[dauRound.dAUroundNumber - 1] == null) {
-      _allTipperRoundStats[dauRound.dAUroundNumber - 1] = {};
-    }
-
-    //reset all stats for the tipper
+    // Reset stats for the tipper
     _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore] =
         RoundStats(
-            roundNumber: dauRound.dAUroundNumber,
-            aflScore: 0,
-            nrlScore: 0,
-            aflMaxScore: 0,
-            nrlMaxScore: 0,
-            aflMarginTips: 0,
-            nrlMarginTips: 0,
-            aflMarginUPS: 0,
-            nrlMarginUPS: 0,
-            aflTipsOutstanding: 0,
-            nrlTipsOutstanding: 0,
-            rank: 0,
-            rankChange: 0);
+      roundNumber: dauRound.dAUroundNumber,
+      aflScore: 0,
+      nrlScore: 0,
+      aflMaxScore: 0,
+      nrlMaxScore: 0,
+      aflMarginTips: 0,
+      nrlMarginTips: 0,
+      aflMarginUPS: 0,
+      nrlMarginUPS: 0,
+      aflTipsOutstanding: 0,
+      nrlTipsOutstanding: 0,
+      rank: 0,
+      rankChange: 0,
+    );
 
-    assert(_allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore] !=
-        null);
+    // Process all games in parallel
+    await Future.wait(dauRound.games.map((game) async {
+      try {
+        Tip? tip = await allTipsViewModel.findTip(game, tipperToScore);
 
-    for (var game in dauRound.games) {
-      Tip? tip = await allTipsViewModel.findTip(game, tipperToScore);
-
-      if (tip == null) {
-        // keep track of tips outstanding
-        if (game.league == League.afl) {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-              .aflTipsOutstanding++;
-        } else {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-              .nrlTipsOutstanding++;
-        }
-        continue;
-      }
-
-      // count margin tips regardless of round state
-
-      int marginTip =
-          (tip.tip == GameResult.a || tip.tip == GameResult.e) ? 1 : 0;
-
-      if (tip.game.league == League.afl) {
-        _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-            .aflMarginTips += marginTip;
-      } else {
-        _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-            .nrlMarginTips += marginTip;
-      }
-
-      if (tip.game.gameState != GameState.notStarted &&
-          tip.game.gameState != GameState.startingSoon) {
-        int score = tip.getTipScoreCalculated();
-        int maxScore = tip.getMaxScoreCalculated();
-
-        if (game.league == League.afl) {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-              ?.aflScore += score;
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-              ?.aflMaxScore += maxScore;
-        } else {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-              ?.nrlScore += score;
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-              ?.nrlMaxScore += maxScore;
-        }
-
-        int marginUPS = 0;
-        if (tip.game.scoring != null) {
-          marginUPS = (tip.game.scoring!.getGameResultCalculated(game.league) ==
-                          GameResult.a &&
-                      tip.tip == GameResult.a) ||
-                  (tip.game.scoring!.getGameResultCalculated(game.league) ==
-                          GameResult.e &&
-                      tip.tip == GameResult.e)
-              ? 1
-              : 0;
-
-          if (tip.game.league == League.afl) {
-            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                ?.aflMarginUPS += marginUPS;
+        if (tip == null) {
+          // Track outstanding tips
+          if (game.league == League.afl) {
+            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+                .aflTipsOutstanding++;
           } else {
-            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                ?.nrlMarginUPS += marginUPS;
+            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+                .nrlTipsOutstanding++;
+          }
+          return;
+        }
+
+        // Update margin tips
+        int marginTip =
+            (tip.tip == GameResult.a || tip.tip == GameResult.e) ? 1 : 0;
+        if (game.league == League.afl) {
+          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+              .aflMarginTips += marginTip;
+        } else {
+          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+              .nrlMarginTips += marginTip;
+        }
+
+        // Update scores if the game has started or ended
+        if (game.gameState != GameState.notStarted &&
+            game.gameState != GameState.startingSoon) {
+          int score = tip.getTipScoreCalculated();
+          int maxScore = tip.getMaxScoreCalculated();
+
+          if (game.league == League.afl) {
+            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+                .aflScore += score;
+            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+                .aflMaxScore += maxScore;
+          } else {
+            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+                .nrlScore += score;
+            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
+                .nrlMaxScore += maxScore;
+          }
+
+          // Update margin UPS
+          if (game.scoring != null) {
+            bool isPerfectScore =
+                (game.scoring!.getGameResultCalculated(game.league) ==
+                            GameResult.a &&
+                        tip.tip == GameResult.a) ||
+                    (game.scoring!.getGameResultCalculated(game.league) ==
+                            GameResult.e &&
+                        tip.tip == GameResult.e);
+
+            if (isPerfectScore) {
+              if (game.league == League.afl) {
+                _allTipperRoundStats[dauRound.dAUroundNumber - 1]![
+                        tipperToScore]!
+                    .aflMarginUPS++;
+              } else {
+                _allTipperRoundStats[dauRound.dAUroundNumber - 1]![
+                        tipperToScore]!
+                    .nrlMarginUPS++;
+              }
+            }
           }
         }
+      } catch (e) {
+        log('Error processing game ${game.dbkey} for tipper ${tipperToScore.name}: $e');
       }
-    }
+    }));
   }
 
   Future<void> _calculateRoundStats(List<Tipper> tippers, DAURound dauRound,
       TipsViewModel allTipsViewModel) async {
-    List<Future<void>> futures = [];
-    for (var tipper in tippers) {
-      futures.add(
-          _calculateRoundStatsForTipper(tipper, dauRound, allTipsViewModel));
-    }
-    await Future.wait(futures);
+    await Future.wait(tippers.map((tipper) =>
+        _calculateRoundStatsForTipper(tipper, dauRound, allTipsViewModel)));
   }
 
   void _rankTippersPerRound() {
-    if (_allTipperRoundStats.isEmpty) {
-      return;
-    }
+    if (_allTipperRoundStats.isEmpty) return;
 
-    // Iterate over each round in stats
     for (var roundEntry in _allTipperRoundStats.entries) {
       int roundIndex = roundEntry.key;
 
-      // skip rounds in stats data that exceed the max round number - these are likely finals rounds
+      // Skip rounds that exceed the max round number
       if (roundIndex + 1 >
           (di<DAUCompsViewModel>().selectedDAUComp?.daurounds.length ?? 0)) {
         continue;
       }
 
-      List<MapEntry<Tipper, int>> roundScores = [];
-
-      Map<Tipper, RoundStats> tipperStats = roundEntry.value;
-
-      // Iterate over each tipper's stats for the round
-      for (var tipperEntry in tipperStats.entries) {
-        Tipper tipper = tipperEntry.key;
-
-        if (_isSelectedTipperPaidUpMember !=
-            tipper.paidForComp(selectedDAUComp)) {
-          continue;
-        }
-        if (_allTipperRoundStats[roundIndex] == null ||
-            _allTipperRoundStats[roundIndex]![tipper] == null) {
-          continue;
-        }
-        roundScores.add(MapEntry(
-            tipper,
-            _allTipperRoundStats[roundIndex]![tipper]!.aflScore +
-                _allTipperRoundStats[roundIndex]![tipper]!.nrlScore));
-      }
+      var roundScores = roundEntry.value.entries
+          .where((entry) =>
+              _isSelectedTipperPaidUpMember ==
+              entry.key.paidForComp(selectedDAUComp))
+          .map((entry) => MapEntry(
+              entry.key,
+              entry.value.aflScore +
+                  entry.value.nrlScore)) // Calculate total score
+          .toList();
 
       roundScores.sort((a, b) => b.value.compareTo(a.value));
 
@@ -948,27 +936,24 @@ class StatsViewModel extends ChangeNotifier {
       int? lastScore;
       int sameRankCount = 0;
 
-      for (var entry in roundScores) {
+      for (var i = 0; i < roundScores.length; i++) {
+        var entry = roundScores[i];
         if (lastScore != null && entry.value != lastScore) {
           rank += sameRankCount + 1;
           sameRankCount = 0;
         } else if (lastScore != null && entry.value == lastScore) {
           sameRankCount++;
         }
-        _allTipperRoundStats[roundIndex]![entry.key]!.rank = rank;
+
+        var tipperStats = _allTipperRoundStats[roundIndex]![entry.key];
+        tipperStats!.rank = rank;
 
         if (roundIndex > 0) {
-          if (_allTipperRoundStats[roundIndex - 1] == null ||
-              _allTipperRoundStats[roundIndex - 1]![entry.key] == null) {
-            //log('No scores for tipper ${entry.key.name} in round $roundIndex');
-            continue;
-          }
-          int? lastRank =
-              _allTipperRoundStats[roundIndex - 1]![entry.key]!.rank;
-          int? changeInRank = lastRank - rank;
-          _allTipperRoundStats[roundIndex]![entry.key]!.rankChange =
-              changeInRank;
+          var lastRoundStats = _allTipperRoundStats[roundIndex - 1]?[entry.key];
+          tipperStats.rankChange =
+              lastRoundStats != null ? lastRoundStats.rank - rank : 0;
         }
+
         lastScore = entry.value;
       }
     }
