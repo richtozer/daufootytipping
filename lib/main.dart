@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
@@ -79,6 +80,12 @@ Future<void> main() async {
       database.setPersistenceEnabled(true);
       log('Database persistence enabled');
     }
+  }
+
+  // use emulator for firestore document collection when in debug mode
+  if (kDebugMode) {
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8081);
+    log('Firestore emulator started');
   }
 
   //setup some default analytics parameters
