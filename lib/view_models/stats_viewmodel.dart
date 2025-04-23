@@ -98,8 +98,6 @@ class StatsViewModel extends ChangeNotifier {
     });
   }
 
-  Timer? _debounceTimer;
-
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
@@ -139,11 +137,15 @@ class StatsViewModel extends ChangeNotifier {
         _initialRoundLoadCompleted.complete();
       }
 
-      // update the leaderboard
+      // Update the leaderboard
       await _updateLeaderAndRoundAndRank();
-    } catch (e) {
+    } catch (e, stackTrace) {
       log('Error listening to /$statsPathRoot/round_scores: $e');
-      rethrow;
+      _allTipperRoundStats.clear(); // Rollback partial updates
+      if (!_initialRoundLoadCompleted.isCompleted) {
+        _initialRoundLoadCompleted.completeError(e, stackTrace);
+      }
+      rethrow; // Re-throw the error
     }
   }
 
@@ -245,13 +247,8 @@ class StatsViewModel extends ChangeNotifier {
       _isUpdateScoringRunning = true;
 
       // write a firebase analytic event that scoring is underway
-      FirebaseAnalytics.instance
-          .logEvent(name: 'scoring_initiated', parameters: {
-        'comp': daucompToUpdate.name,
-        'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
-        'tipper': onlyUpdateThisTipper?.name ?? 'all',
-        'withTransaction': true,
-      });
+      _logEventScoringInitiated(
+          daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
 
       // set the initial list of tippers to update
       List<Tipper> tippersToUpdate = [];
@@ -327,6 +324,23 @@ class StatsViewModel extends ChangeNotifier {
       stopwatch.stop();
       log('StatsViewModel.updateStats() executed in ${stopwatch.elapsed}');
       _isUpdateScoringRunning = false;
+    }
+  }
+
+  void _logEventScoringInitiated(DAUComp daucompToUpdate,
+      DAURound? onlyUpdateThisRound, Tipper? onlyUpdateThisTipper) {
+    try {
+      // write a firebase analytic event that scoring is underway
+      FirebaseAnalytics.instance
+          .logEvent(name: 'scoring_initiated', parameters: {
+        'comp': daucompToUpdate.name,
+        'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
+        'tipper': onlyUpdateThisTipper?.name ?? 'all',
+        'withTransaction': 'true',
+      });
+    } catch (e) {
+      log('_logEventScoringInitiated() Error writing log event that scoring has initiated: $e');
+      return;
     }
   }
 
