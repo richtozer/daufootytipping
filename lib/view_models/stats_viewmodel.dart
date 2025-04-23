@@ -235,7 +235,7 @@ class StatsViewModel extends ChangeNotifier {
 
     try {
       if (_isUpdateScoringRunning) {
-        return 'Calcuating already in progress';
+        return 'updateStats() Calcuating already in progress';
       }
 
       if (!_initialRoundLoadCompleted.isCompleted) {

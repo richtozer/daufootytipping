@@ -159,6 +159,7 @@ class GameTipViewModel extends ChangeNotifier {
       di<StatsViewModel>().updateStats(
           _currentDAUComp, tip.game.getDAURound(_currentDAUComp), tip.tipper);
     } catch (e) {
+      log('GameTipsViewModel.addTip() error: $e');
       // rethrow exception so that the UI can handle it
       rethrow;
     } finally {
