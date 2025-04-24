@@ -821,8 +821,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   }
 
   void _recalculateGameCounts() async {
-    di<DAUCompsViewModel>().linkGamesWithRounds(
-        widget.daucomp!.daurounds, di<DAUCompsViewModel>().gamesViewModel!);
+    di<DAUCompsViewModel>().linkGamesWithRounds(widget.daucomp!.daurounds);
   }
 
   Widget buttonFixture(

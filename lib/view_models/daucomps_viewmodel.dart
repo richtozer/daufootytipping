@@ -222,7 +222,13 @@ class DAUCompsViewModel extends ChangeNotifier {
         _initialLoadCompleter.complete();
       }
 
-      notifyListeners();
+      // call linkGamesWithRounds - just in case the round start/end times have changed
+      // and we need to re-link the games with the rounds
+      if (selectedDAUComp?.daurounds != null) {
+        await linkGamesWithRounds(selectedDAUComp!.daurounds);
+      } else {
+        notifyListeners();
+      }
     } catch (e) {
       log('Error listening to $daucompsPath: $e');
       rethrow;
@@ -267,6 +273,14 @@ class DAUCompsViewModel extends ChangeNotifier {
         if (existingDAUComp != databaseDAUComp) {
           existingDAUCompsMap[key] = databaseDAUComp;
           log('Updated DAUComp from database: $key');
+          // if the active comp is updated, then we need to update the gamesViewModel
+          if (existingDAUComp.dbkey == _activeDAUComp?.dbkey) {
+            _activeDAUComp = databaseDAUComp;
+          }
+          // if the selected comp is updated, then we need to update the gamesViewModel
+          if (existingDAUComp.dbkey == _selectedDAUComp?.dbkey) {
+            _selectedDAUComp = databaseDAUComp;
+          }
         }
       } else {
         existingDAUCompsMap[key] = databaseDAUComp;
@@ -651,8 +665,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> linkGamesWithRounds(
-      List<DAURound> allRounds, GamesViewModel gamesViewModel) async {
+  Future<void> linkGamesWithRounds(List<DAURound> allRounds) async {
     log('In daucompsviewmodel.linkGameWithRounds()');
 
     await initialLoadComplete;
@@ -660,11 +673,11 @@ class DAUCompsViewModel extends ChangeNotifier {
     // Clear the unassigned games list before recalculating
     unassignedGames.clear();
 
-    unassignedGames = List.from(await gamesViewModel.getGames());
+    unassignedGames = List.from(await gamesViewModel!.getGames());
 
     for (var round in allRounds) {
       // Assign games to the round
-      round.games = await gamesViewModel.getGamesForRound(round);
+      round.games = await gamesViewModel!.getGamesForRound(round);
 
       // Initialize the round state
       _initRoundState(round);
@@ -675,7 +688,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
       // in this round, do any nrl games have a kickoff time that is later than the cutoff time
       // if so then remove them from unassigned games
-      // this is to prevent the app from crashing when the user tries to view a round that has not yet started
       if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
         unassignedGames.removeWhere((game) =>
             game.league == League.nrl &&

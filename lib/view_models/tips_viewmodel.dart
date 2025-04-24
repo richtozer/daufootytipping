@@ -186,13 +186,12 @@ class TipsViewModel extends ChangeNotifier {
     return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
   }
 
-  // method to return the number of tips submitted for the supplied round and league
   int _numberOfTipsSubmittedForRoundAndLeague(DAURound round, League league) {
-    return _listOfTips
-        .where((tip) =>
-            tip!.game.getDAURound(selectedDAUComp) == round &&
-            tip.game.league == league)
-        .length;
+    return _listOfTips.where((tip) {
+      // Attempt to get the round for the game, if it fails, return false
+      return tip!.game.getDAURound(selectedDAUComp) == round &&
+          tip.game.league == league;
+    }).length;
   }
 
   // method to return count of outstanding tips for the supplied round and league

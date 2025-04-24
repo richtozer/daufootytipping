@@ -217,20 +217,6 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i3.DAUCompsViewModel {
       ) as List<_i10.DAURound>);
 
   @override
-  _i7.Future<void> linkGamesWithRounds(
-    List<_i10.DAURound> rounds,
-    _i4.GamesViewModel gamesViewModel,
-  ) =>
-      (super.noSuchMethod(
-        Invocation.method(#linkGamesWithRounds, [
-          rounds,
-          gamesViewModel,
-        ]),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
-
-  @override
   _i7.Future<_i8.DAUComp?> findComp(String? compDbKey) => (super.noSuchMethod(
         Invocation.method(#findComp, [compDbKey]),
         returnValue: _i7.Future<_i8.DAUComp?>.value(),
