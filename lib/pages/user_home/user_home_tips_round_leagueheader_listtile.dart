@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
