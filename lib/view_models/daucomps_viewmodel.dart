@@ -578,9 +578,11 @@ class DAUCompsViewModel extends ChangeNotifier {
 
         if (groupStartDate.isBefore(lastEndDate)) {
           // Adjust the end date of the last fixedGameGroup
-          lastEndDate = groupEndDate;
-          fixedGameGroups.last['maxStartTime'] =
-              groupStartDate.subtract(Duration(minutes: 1));
+          lastEndDate = groupEndDate.subtract(Duration(days: 1, minutes: 1));
+          fixedGameGroups.last['maxStartTime'] = groupStartDate.subtract(Duration(
+              days: 1,
+              minutes:
+                  1)); // make this special buffer over 3 hours because later we add a standard 3 hours to the start and end times of each round
           log('Adjusted end date of last group to: ${fixedGameGroups.last['maxStartTime']}');
         } else {
           lastEndDate = groupEndDate;
@@ -629,6 +631,14 @@ class DAUCompsViewModel extends ChangeNotifier {
               games: []));
         }
       }
+    }
+
+    // add a 3 hours buffer to the start and end times of each round - this will cater for minor schedule changes during the year
+    for (var round in combinedRounds) {
+      round.firstGameKickOffUTC =
+          round.firstGameKickOffUTC.subtract(Duration(hours: 3));
+      round.lastGameKickOffUTC =
+          round.lastGameKickOffUTC.add(Duration(hours: 3));
     }
 
     return combinedRounds;
