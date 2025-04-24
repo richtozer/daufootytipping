@@ -44,12 +44,9 @@ class ScoringTile extends StatelessWidget {
                             GameState.startedResultNotKnown
                         ? liveScoring(gameTipsViewModelConsumer.tip!, context)
                         : fixtureScoring(gameTipsViewModelConsumer),
-                    gameTipsViewModelConsumer.game.gameState ==
-                            GameState.startedResultNotKnown
-                        ? Text(
-                            'Interim Result: ${gameTipsViewModelConsumer.tip?.getGameResultText()}')
-                        : Text(
-                            'Result: ${gameTipsViewModelConsumer.tip?.getGameResultText()}'),
+                    Text(
+                      '${gameTipsViewModelConsumer.game.gameState == GameState.startedResultNotKnown ? 'Interim Result:' : 'Result:'} ${gameTipsViewModelConsumer.tip?.getGameResultText()}',
+                    ),
                     Row(
                       children: [
                         !tip.isDefaultTip()
@@ -85,7 +82,7 @@ class ScoringTile extends StatelessWidget {
                               ),
                       ],
                     ),
-                    gameTipsViewModelConsumer.tip?.game.gameState ==
+                    gameTipsViewModelConsumer.game.gameState ==
                             GameState.startedResultNotKnown
                         ? Text(
                             'Interim points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}')
