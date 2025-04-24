@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -17,24 +19,35 @@ Widget roundLeagueHeaderListTile(
     DAURound dauRound,
     DAUCompsViewModel daucompsViewModel,
     StatsViewModel? scoresViewmodelConsumer) {
-  // check for null values
-  RoundStats roundStats =
-      scoresViewmodelConsumer?.allTipperRoundStats[dauRound.dAUroundNumber - 1]
-              ?[di<TippersViewModel>().selectedTipper] ??
-          RoundStats(
-              roundNumber: 0,
-              aflScore: 0,
-              aflMaxScore: 0,
-              aflMarginTips: 0,
-              aflMarginUPS: 0,
-              nrlScore: 0,
-              nrlMaxScore: 0,
-              nrlMarginTips: 0,
-              nrlMarginUPS: 0,
-              rank: 0,
-              rankChange: 0,
-              nrlTipsOutstanding: 0,
-              aflTipsOutstanding: 0);
+  final roundStatsMap =
+      scoresViewmodelConsumer?.allTipperRoundStats[dauRound.dAUroundNumber - 1];
+  final selectedTipper = di<TippersViewModel>().selectedTipper;
+
+  RoundStats? roundStats = roundStatsMap?[selectedTipper];
+
+  // for testing throw an exception if the round stats are null
+  if (roundStats == null) {
+    log('Round stats are null for round ${dauRound.dAUroundNumber} and tipper ${selectedTipper.name}. Round stats map has : ${roundStatsMap?.length} entries');
+    throw Exception(
+        'Round stats are null for round ${dauRound.dAUroundNumber} and tipper ${selectedTipper.name}');
+  }
+
+  // if the round stats are null, then we need to create a new one
+  roundStats ??= RoundStats(
+    roundNumber: dauRound.dAUroundNumber,
+    aflScore: 0,
+    aflMaxScore: 0,
+    nrlScore: 0,
+    nrlMaxScore: 0,
+    aflMarginUPS: 0,
+    aflMarginTips: 0,
+    nrlMarginUPS: 0,
+    nrlMarginTips: 0,
+    rank: 0,
+    rankChange: 0,
+    nrlTipsOutstanding: 0,
+    aflTipsOutstanding: 0,
+  );
 
   // Calculate the number of days until the first game starts for this league round
   List<Game> gamesForLeague = dauRound.getGamesForLeague(leagueHeader);

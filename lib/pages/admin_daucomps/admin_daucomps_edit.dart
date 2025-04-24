@@ -929,7 +929,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           }
         },
         child: Text(
-            dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ?? false
+            !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ?? false)
                 ? 'Rescore'
                 : 'Scoring...'),
       );
