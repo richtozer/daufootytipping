@@ -100,23 +100,11 @@ class Tipper implements Comparable<Tipper> {
         other.tipperRole == tipperRole &&
         other.photoURL == photoURL &&
         other.compsPaidFor == compsPaidFor &&
-        other.acctCreatedUTC == acctCreatedUTC &&
-        other.acctLoggedOnUTC == acctLoggedOnUTC;
+        other.acctCreatedUTC == acctCreatedUTC;
   }
 
   @override
-  int get hashCode {
-    return dbkey.hashCode ^
-        authuid.hashCode ^
-        email.hashCode ^
-        logon.hashCode ^
-        name.hashCode ^
-        tipperRole.hashCode ^
-        photoURL.hashCode ^
-        compsPaidFor.hashCode ^
-        acctCreatedUTC.hashCode ^
-        acctLoggedOnUTC.hashCode;
-  }
+  int get hashCode => authuid.hashCode;
 
   @override
   // method used to sort Tippers in a List

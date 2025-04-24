@@ -178,9 +178,6 @@ class DAUComp implements Comparable<DAUComp> {
         nrlFixtureJsonURL.hashCode ^
         lastFixtureUpdateTimestampUTC.hashCode ^
         aflRegularCompEndDateUTC.hashCode ^
-        nrlRegularCompEndDateUTC.hashCode ^
-        const DeepCollectionEquality().hash(daurounds) ^
-        const DeepCollectionEquality().hash(nrlBaseline) ^
-        const DeepCollectionEquality().hash(aflBaseline);
+        nrlRegularCompEndDateUTC.hashCode;
   }
 }
