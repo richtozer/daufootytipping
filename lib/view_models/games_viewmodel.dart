@@ -105,8 +105,7 @@ class GamesViewModel extends ChangeNotifier {
 
       // Now that we have all the games from db
       // call linkGamesWithRounds() to link the games with the rounds
-      await _dauCompsViewModel.linkGamesWithRounds(
-          selectedDAUComp.daurounds, this);
+      await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
@@ -151,10 +150,10 @@ class GamesViewModel extends ChangeNotifier {
             log('Game: $gameDbKey has scores but there are no rounds defined. Skipping scoring update.');
             return;
           }
-          if (!_roundsThatNeedScoringUpdate
-              .contains(gameToUpdate.getDAURound(selectedDAUComp))) {
+          final round = gameToUpdate.getDAURound(selectedDAUComp);
+          if (round != null && !_roundsThatNeedScoringUpdate.contains(round)) {
             _roundsThatNeedScoringUpdate
-                .add(gameToUpdate.getDAURound(selectedDAUComp));
+                .add(gameToUpdate.getDAURound(selectedDAUComp)!);
           }
         }
       }

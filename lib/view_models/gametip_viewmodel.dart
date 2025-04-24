@@ -180,7 +180,7 @@ class GameTipViewModel extends ChangeNotifier {
     // Extract the year, round, tipperId, gameId, and timestamp
     final year =
         tip.game.startTimeUTC.year; // Assuming the game has a start time
-    final round = tip.game.getDAURound(_currentDAUComp).dAUroundNumber;
+    final round = tip.game.getDAURound(_currentDAUComp)?.dAUroundNumber;
     final tipperId = tip.tipper.dbkey;
     final gameId = tip.game.dbkey;
     final timestamp = DateTime.now()

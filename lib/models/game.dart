@@ -1,10 +1,11 @@
+import 'dart:developer';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:intl/intl.dart';
 
 enum GameState {
@@ -59,19 +60,14 @@ class Game implements Comparable<Game> {
     }
   }
 
-  DAURound getDAURound(DAUComp daucomp) {
+  DAURound? getDAURound(DAUComp daucomp) {
     for (var dauRound in daucomp.daurounds) {
       if (_isDateInRound(startTimeUTC, dauRound)) {
         return dauRound;
       }
     }
-    // about to throw an exception, add custom keys to crashalytics
-    FirebaseCrashlytics.instance.setCustomKey('dbkey', dbkey);
-    FirebaseCrashlytics.instance.setCustomKey('daucomp', daucomp.name);
-    FirebaseCrashlytics.instance
-        .setCustomKey('rounds', daucomp.daurounds.length);
-
-    throw Exception('Game().getDAURound: Exception - No DAURound found.');
+    log('Game.getDAURound: WARNING, no DAURound found for game $dbkey. Check that the game start time is within the round start and end dates.');
+    return null;
   }
 
   bool isGameInRound(DAURound round) {
