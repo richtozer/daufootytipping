@@ -691,7 +691,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
         unassignedGames.removeWhere((game) =>
             game.league == League.nrl &&
-            game.gameState == GameState.notStarted &&
             game.startTimeUTC
                 .isAfter(_selectedDAUComp!.nrlRegularCompEndDateUTC!));
       }
@@ -699,7 +698,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       if (_selectedDAUComp!.aflRegularCompEndDateUTC != null) {
         unassignedGames.removeWhere((game) =>
             game.league == League.afl &&
-            game.gameState == GameState.notStarted &&
             game.startTimeUTC
                 .isAfter(_selectedDAUComp!.aflRegularCompEndDateUTC!));
       }
