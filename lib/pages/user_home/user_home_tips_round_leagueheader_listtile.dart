@@ -25,13 +25,6 @@ Widget roundLeagueHeaderListTile(
 
   RoundStats? roundStats = roundStatsMap?[selectedTipper];
 
-  // for testing throw an exception if the round stats are null
-  if (roundStats == null) {
-    log('Round stats are null for round ${dauRound.dAUroundNumber} and tipper ${selectedTipper.name}. Round stats map has : ${roundStatsMap?.length} entries');
-    throw Exception(
-        'Round stats are null for round ${dauRound.dAUroundNumber} and tipper ${selectedTipper.name}');
-  }
-
   // if the round stats are null, then we need to create a new one
   roundStats ??= RoundStats(
     roundNumber: dauRound.dAUroundNumber,
