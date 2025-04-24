@@ -87,14 +87,14 @@ class StatsViewModel extends ChangeNotifier {
         .child('$statsPathRoot/${selectedDAUComp.dbkey}/$roundStatsRoot')
         .onValue
         .listen(_handleEventRoundScores, onError: (error) {
-      log('Error listening to round scores: $error');
+      log('StatsViewModel() Error listening to round scores: $error');
     });
 
     _liveScoresStream = _db
         .child('$statsPathRoot/${selectedDAUComp.dbkey}/$liveScoresRoot')
         .onValue
         .listen(_handleEventLiveScores, onError: (error) {
-      log('Error listening to live scores: $error');
+      log('StatsViewModel() Error listening to live scores: $error');
     });
   }
 
@@ -117,7 +117,7 @@ class StatsViewModel extends ChangeNotifier {
               if (tipper != null) {
                 roundScores[tipper] = roundStats;
               } else {
-                log('Tipper ${entry.key} not found in _handleEventRoundScores');
+                log('StatsViewModel() Tipper ${entry.key} not found in _handleEventRoundScores');
               }
             }));
           }
@@ -1000,5 +1000,46 @@ class StatsViewModel extends ChangeNotifier {
           : b.value[0].aFL.compareTo(a.value[0].aFL));
 
     _roundWinners = Map.fromEntries(sortedEntries);
+  }
+
+  RoundStats getScoringRoundStats(DAURound dauRound, Tipper selectedTipper) {
+    if (_allTipperRoundStats.isEmpty) {
+      return RoundStats(
+          roundNumber: 0,
+          aflScore: 0,
+          nrlScore: 0,
+          aflMaxScore: 0,
+          nrlMaxScore: 0,
+          aflMarginTips: 0,
+          nrlMarginTips: 0,
+          aflMarginUPS: 0,
+          nrlMarginUPS: 0,
+          aflTipsOutstanding: 0,
+          nrlTipsOutstanding: 0,
+          rank: 0,
+          rankChange: 0);
+    }
+
+    if (_allTipperRoundStats[dauRound.dAUroundNumber - 1] != null &&
+        _allTipperRoundStats[dauRound.dAUroundNumber - 1]![selectedTipper] !=
+            null) {
+      return _allTipperRoundStats[dauRound.dAUroundNumber - 1]![
+          selectedTipper]!;
+    } else {
+      return RoundStats(
+          roundNumber: dauRound.dAUroundNumber,
+          aflScore: 0,
+          nrlScore: 0,
+          aflMaxScore: 0,
+          nrlMaxScore: 0,
+          aflMarginTips: 0,
+          nrlMarginTips: 0,
+          aflMarginUPS: 0,
+          nrlMarginUPS: 0,
+          aflTipsOutstanding: 0,
+          nrlTipsOutstanding: 0,
+          rank: 0,
+          rankChange: 0);
+    }
   }
 }

@@ -17,10 +17,10 @@ class TipsTab extends StatefulWidget {
   const TipsTab({super.key});
 
   @override
-  TipsTab2State createState() => TipsTab2State();
+  TipsTabState createState() => TipsTabState();
 }
 
-class TipsTab2State extends State<TipsTab> {
+class TipsTabState extends State<TipsTab> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   int latestRoundNumber = 0;
@@ -208,11 +208,8 @@ class TipsTab2State extends State<TipsTab> {
       DAURound dauRound, int itemIndex) {
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
-      return Consumer<StatsViewModel?>(
-          builder: (context, scoresViewmodelConsumer, client) {
-        return roundLeagueHeaderListTile(league, 50, 50, dauRound,
-            daucompsViewmodelConsumer, scoresViewmodelConsumer);
-      });
+      return roundLeagueHeaderListTile(league, 50, 50, dauRound,
+          daucompsViewmodelConsumer, di<TippersViewModel>().selectedTipper);
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       return GameListBuilder(
