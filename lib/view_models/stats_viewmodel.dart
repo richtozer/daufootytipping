@@ -149,40 +149,37 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateLeaderAndRoundAndRank() async {
-    try {
-      if (_isUpdatingLeaderAndRoundAndRank) {
-        log('StatsViewModel.updateLeaderAndRoundAndRank() Update already in progress, skipping');
-        return;
-      } else {
-        //await user being linked
-        await di<TippersViewModel>().isUserLinked;
-        log('StatsViewModel.updateLeaderAndRoundAndRank() Updating leaderboard and round winners');
-        _isUpdatingLeaderAndRoundAndRank = true;
-      }
+  Completer<void>? _updateLock;
 
-      // segregate tippers based on if they are paid members for the active comp
-      // if the selected tipper is not a paid tipper, then score them with
-      // all other non-paid tippers
-      // otherwise score them will all other paid members
+  Future<void> _updateLeaderAndRoundAndRank() async {
+    if (_updateLock != null) {
+      log('StatsViewModel()._updateLeaderAndRoundAndRank() Update already in progress, skipping');
+      return;
+    }
+
+    _updateLock = Completer<void>();
+
+    try {
+      await di<TippersViewModel>().isUserLinked;
+
+      log('StatsViewModel()._updateLeaderAndRoundAndRank() Updating leaderboard and round winners');
 
       _isSelectedTipperPaidUpMember =
           di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
-      log('StatsViewModel.updateLeaderAndRoundAndRank() Tipper ${di<TippersViewModel>().selectedTipper.name} paid status is $_isSelectedTipperPaidUpMember');
 
-      // update the leaderboard
+      log('StatsViewModel()._updateLeaderAndRoundAndRank() Tipper ${di<TippersViewModel>().selectedTipper.name} paid status is $_isSelectedTipperPaidUpMember');
+
       _updateLeaderboardForComp();
-      // Update the round winners
       _updateRoundWinners();
-      // rank the tippers
       _rankTippersPerRound();
 
       notifyListeners();
     } catch (e) {
-      log('StatsViewModel.updateLeaderAndRoundAndRank() Error updating leaderboard and round winners: $e');
+      log('Error: $e');
       rethrow;
     } finally {
-      _isUpdatingLeaderAndRoundAndRank = false;
+      _updateLock?.complete();
+      _updateLock = null;
     }
   }
 
@@ -230,104 +227,98 @@ class StatsViewModel extends ChangeNotifier {
 // | User enters a live score             | Only the round with changes   | All                     | Partial rescore. Scoring updates for all tippers for the current round.          |
 // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
 
-  Future<String> updateStats(DAUComp daucompToUpdate,
-      DAURound? onlyUpdateThisRound, Tipper? onlyUpdateThisTipper) async {
-    log('StatsViewModel.updateStats() called for comp: ${daucompToUpdate.name}');
-    var stopwatch = Stopwatch()..start();
+  Future<String>? _updateStatsInProgress;
 
-    try {
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        try {
-          await _initialRoundLoadCompleted.future;
-        } catch (e) {
-          log('StatsViewModel.updateStats() Error waiting for initial round load to complete: $e');
-          // reset the database to a clean state
-          _allTipperRoundStats.clear();
-          _initialRoundLoadCompleted.complete();
+  Future<String> updateStats(
+    DAUComp daucompToUpdate,
+    DAURound? onlyUpdateThisRound,
+    Tipper? onlyUpdateThisTipper,
+  ) {
+    if (_updateStatsInProgress != null) {
+      log('StatsViewModel.updateStats() Update already in progress, skipping');
+      return Future.value('Skipped: Another stats update already in progress.');
+    }
+
+    final completer = Completer<String>();
+    _updateStatsInProgress = completer.future;
+
+    (() async {
+      log('StatsViewModel.updateStats() called for comp: ${daucompToUpdate.name}');
+      var stopwatch = Stopwatch()..start();
+
+      try {
+        if (!_initialRoundLoadCompleted.isCompleted) {
+          try {
+            await _initialRoundLoadCompleted.future;
+          } catch (e) {
+            log('StatsViewModel.updateStats() Error waiting for initial round load: $e');
+            _allTipperRoundStats.clear(); // reset
+          }
         }
-      }
 
-      _isUpdateScoringRunning = true;
+        _isUpdateScoringRunning = true;
 
-      // write a firebase analytic event that scoring is underway
-      _logEventScoringInitiated(
-          daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
+        _logEventScoringInitiated(
+            daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
 
-      // set the initial list of tippers to update
-      List<Tipper> tippersToUpdate = [];
-      if (onlyUpdateThisTipper != null) {
-        tippersToUpdate = [onlyUpdateThisTipper];
-        log('StatsViewModel.updateStats() Only updating stats for tipper ${onlyUpdateThisTipper.name}');
-      } else {
-        List<Tipper> allTippers = di<TippersViewModel>().tippers;
-        // preserve the oriignal list of tippers, take a copy
-        tippersToUpdate = List.from(allTippers);
-        log('StatsViewModel.updateStats() Updating stats for all ${tippersToUpdate.length} tippers');
-      }
+        // Set the tippers to update
+        List<Tipper> tippersToUpdate = onlyUpdateThisTipper != null
+            ? [onlyUpdateThisTipper]
+            : List.from(di<TippersViewModel>().tippers);
 
-      // do we need all tips, load them if not loaded already
-      if (onlyUpdateThisTipper == null) {
-        allTipsViewModel ??= TipsViewModel(
-            di<TippersViewModel>(), daucompToUpdate, gamesViewModel!);
+        log('StatsViewModel.updateStats() Updating stats for ${tippersToUpdate.length} tippers');
 
-        // remove any tippers who did not place any tips this comp
-        List<Tipper> tippersToRemove = [];
-        List<Future<void>> futures = [];
-        for (Tipper tipper in tippersToUpdate) {
-          futures.add(
-              allTipsViewModel!.hasSubmittedTips(tipper).then((hasSubmitted) {
+        // Prep tips
+        if (onlyUpdateThisTipper == null) {
+          allTipsViewModel ??= TipsViewModel(
+              di<TippersViewModel>(), daucompToUpdate, gamesViewModel!);
+
+          List<Tipper> tippersToRemove = [];
+          await Future.wait(tippersToUpdate.map((tipper) async {
+            bool hasSubmitted =
+                await allTipsViewModel!.hasSubmittedTips(tipper);
             if (!hasSubmitted) {
               tippersToRemove.add(tipper);
-              log('StatsViewModel.updateStats() Removing tipper ${tipper.name} from stats update. They did not place any tips this comp.');
+              log('Tipper ${tipper.name} did not submit tips. Removing.');
             }
           }));
+
+          tippersToUpdate
+              .removeWhere((tipper) => tippersToRemove.contains(tipper));
+        } else {
+          allTipsViewModel ??=
+              di<DAUCompsViewModel>().selectedTipperTipsViewModel;
         }
-        await Future.wait(futures);
-        futures.clear();
 
-        log('StatsViewModel.updateStats() Removing ${tippersToRemove.length} tippers from stats update');
+        var dauRoundsEdited =
+            _getRoundsToUpdate(onlyUpdateThisRound, daucompToUpdate);
 
-        tippersToUpdate
-            .removeWhere((tipper) => tippersToRemove.contains(tipper));
-      } else {
-        // use the existing TipsViewModel that only has tips for this tipper
-        allTipsViewModel ??=
-            di<DAUCompsViewModel>().selectedTipperTipsViewModel;
+        for (DAURound dauRound in dauRoundsEdited) {
+          await _calculateRoundStats(
+              tippersToUpdate, dauRound, allTipsViewModel!);
+        }
+
+        await _writeAllRoundScoresToDb(_allTipperRoundStats, daucompToUpdate);
+
+        String res =
+            'Completed updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
+        log('StatsViewModel.updateStats() $res');
+
+        await _deleteStaleLiveScores();
+
+        completer.complete(res);
+      } catch (e) {
+        log('StatsViewModel.updateStats() Error: $e');
+        completer.completeError(e);
+      } finally {
+        _isUpdateScoringRunning = false;
+        _updateStatsInProgress = null;
+        stopwatch.stop();
+        log('StatsViewModel.updateStats() completed in ${stopwatch.elapsed}');
       }
+    })();
 
-      var dauRoundsEdited =
-          _getRoundsToUpdate(onlyUpdateThisRound, daucompToUpdate);
-
-      for (DAURound dauRound in dauRoundsEdited) {
-        await _calculateRoundStats(
-            tippersToUpdate, dauRound, allTipsViewModel!);
-      }
-
-      // Write the entire list of round scores back to the database in one transaction
-      await _writeAllRoundScoresToDb(_allTipperRoundStats, daucompToUpdate);
-
-      String res =
-          'Completed scoring updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
-      log('StatsViewModel.updateStats() $res');
-
-      // if (gameBeingTipped != null && onlyUpdateThisTipper == null) {
-      //   await _updateGameResultPercentageTipped(
-      //       gameBeingTipped, allTipsViewModel!, daucompToUpdate);
-      //   log('StatsViewModel.updateStats() Completed updating % tipped for game ${gameBeingTipped.dbkey}.');
-      // }
-
-      //lets use this opportunity delete any stale live scores
-      await _deleteStaleLiveScores();
-
-      return res;
-    } catch (e) {
-      log('StatsViewModel.updateStats() Error updating scoring: $e');
-      rethrow;
-    } finally {
-      stopwatch.stop();
-      log('StatsViewModel.updateStats() executed in ${stopwatch.elapsed}');
-      _isUpdateScoringRunning = false;
-    }
+    return _updateStatsInProgress!;
   }
 
   void _logEventScoringInitiated(DAUComp daucompToUpdate,
