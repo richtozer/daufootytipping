@@ -63,68 +63,19 @@ Widget roundLeagueHeaderListTile(
                       builder: (context, statsViewModel, child) {
                       RoundStats roundStats = statsViewModel
                           .getScoringRoundStats(dauRound, selectedTipper);
+                      int countStats =
+                          statsViewModel.allTipperRoundStats.length;
 
                       return Column(
                         children: [
-                          dauRound.roundState != RoundState.notStarted
-                              ? Text(
-                                  style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontWeight: FontWeight.bold),
-                                  'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}')
-                              : const SizedBox.shrink(),
-                          dauRound.roundState != RoundState.notStarted
-                              ? Text(
-                                  style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontWeight: FontWeight.bold),
-                                  'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}')
-                              : Column(
-                                  children: [
-                                    KickoffCountdown(
-                                        kickoffDate: firstGameStart!),
-                                    Text(
-                                      'Tips Outstanding: $tipsOutstanding',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.bold),
-                                        'Your Margins: $marginTipsSubmitted'),
-                                  ],
-                                ),
-                          dauRound.roundState != RoundState.notStarted
-                              ? Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.bold),
-                                        'Rank: ${roundStats.rank}  '),
-                                    roundStats.rankChange > 0
-                                        ? const Icon(
-                                            color: Colors.green,
-                                            Icons.arrow_upward)
-                                        : roundStats.rankChange < 0
-                                            ? const Icon(
-                                                color: Colors.red,
-                                                Icons.arrow_downward)
-                                            : const Icon(
-                                                color: Colors.green,
-                                                Icons.sync_alt),
-                                    Text(
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.bold),
-                                        '${roundStats.rankChange}'),
-                                  ],
-                                )
-                              : const SizedBox.shrink(),
+                          Text(
+                            'count stats: $countStats',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          Text('selected tipper: ${selectedTipper.name}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                              )),
                         ],
                       );
                     }),
