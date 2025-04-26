@@ -1,13 +1,18 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:carousel_slider/carousel_controller.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -97,7 +102,8 @@ class GameTipViewModel extends ChangeNotifier {
   void _gamesViewModelUpdated() async {
     // we may have new game data, notify listeners
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
-    log('GameTipsViewModel._gamesViewModelUpdated() called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. Notify listeners');
+    _tip?.game.scoring = game.scoring; //update the tip scoring
+    log('GameTipsViewModel._gamesViewModelUpdated() called for game ${game.dbkey}, ${game.gameState}. Notify listeners');
 
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
@@ -145,15 +151,71 @@ class GameTipViewModel extends ChangeNotifier {
 
       _tip = tip; // update the tip with the new tip
 
+      // write a firebase analytic event that a tip was submitted
+      FirebaseAnalytics.instance.logEvent(name: 'tip_submitted', parameters: {
+        'game': tip.game.dbkey,
+        'tipper': tip.tipper.name.toString(),
+        'tip': tipJson.toString(),
+        'submittedBy': currentTipper.name.toString(),
+      });
+
+      // Log the tip in Firestore
+      _addLogOfTipToFirestore(tip);
+
       // do a mini stats update (asyncronously) for this round and tipper to update tips outstanding counts
+      // also pass in the game, so we do a % tipped calculation
       di<StatsViewModel>().updateStats(
           _currentDAUComp, tip.game.getDAURound(_currentDAUComp), tip.tipper);
     } catch (e) {
+      log('GameTipsViewModel.addTip() error: $e');
       // rethrow exception so that the UI can handle it
       rethrow;
     } finally {
       _savingTip = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _addLogOfTipToFirestore(Tip tip) async {
+    // Extract the year, round, tipperId, gameId, and timestamp
+    final year =
+        tip.game.startTimeUTC.year; // Assuming the game has a start time
+    final round = tip.game.getDAURound(_currentDAUComp)?.dAUroundNumber;
+    final tipperId = tip.tipper.dbkey;
+    final gameId = tip.game.dbkey;
+    final timestamp = DateTime.now()
+        .toUtc()
+        .toIso8601String(); // Use UTC timestamp as a unique key
+
+    // Log the tip in Firestore
+    try {
+      await FirebaseFirestore.instance
+          .collection('tipLogs')
+          .doc(year.toString()) // Year as a document
+          .collection(round.toString()) // Round as a sub-collection
+          .doc(tipperId) // Tipper ID as a document
+          .collection(gameId) // Game ID as a sub-collection
+          .doc(timestamp) // Timestamp as a document
+          .set({
+        'tipperId': tipperId,
+        'tipperName': tip.tipper.name,
+        'gameId': gameId,
+        'gameDetails': {
+          'league': tip.game.league.name,
+          'homeTeam': tip.game.homeTeam.name,
+          'awayTeam': tip.game.awayTeam.name,
+          'startTimeUTC': tip.game.startTimeUTC.toIso8601String(),
+        },
+        'tip': tip.game.league == League.afl
+            ? tip.tip.afl
+            : tip.tip.nrl, // Assuming `tip.tip` contains the actual tip value
+        'tipSubmittedUTC': timestamp,
+        'submittedBy': di<TippersViewModel>().authenticatedTipper?.name
+      });
+
+      log('_addLogOfTipToFirestore() Tip logged in Firestore for tipper: ${tip.tipper.name}, game: ${tip.game.dbkey}, timestamp: $timestamp');
+    } catch (e) {
+      log('Error logging tip in Firestore: $e');
     }
   }
 

@@ -148,10 +148,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                       } else {
                         tippers = tippers.where((tipper) {
                           bool matches = (tipper
-                                      .name
-                                      ?.toLowerCase()
-                                      .contains(query) ??
-                                  false) ||
+                                  .name
+                                  .toLowerCase()
+                                  .contains(query)) ||
                               (tipper.email?.toLowerCase().contains(query) ??
                                   false) ||
                               (tipper.logon?.toLowerCase().contains(query) ??

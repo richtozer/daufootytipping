@@ -4,9 +4,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-//TODO this code has issues on chome web app - add conditional code
-// to not use fixture services when running on web
-
 class FixtureDownloadService {
   FixtureDownloadService();
 

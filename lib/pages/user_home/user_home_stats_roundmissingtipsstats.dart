@@ -23,7 +23,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   late StatsViewModel statsViewModel;
   Map<Tipper, RoundStats> roundLeaderboard = {};
 
-  bool isAscending = true;
+  bool isAscending = false; // Default to descending
   int? sortColumnIndex = 1;
 
   final List<String> columns = [
@@ -40,7 +40,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     statsViewModel = di<StatsViewModel>();
     roundLeaderboard =
         statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
-    onSort(1, true);
+    onSort(1, false); // Default to descending
   }
 
   @override
@@ -131,15 +131,11 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                         cells: [
                           DataCell(Row(
                             children: [
-                              const Icon(
-                                Icons.arrow_forward,
-                                size: 15,
-                              ),
                               avatarPic(entry.key, widget.roundNumberToDisplay),
                               Expanded(
                                 child: Text(
                                   softWrap: false,
-                                  entry.key.name ?? '',
+                                  entry.key.name,
                                   overflow: TextOverflow.fade,
                                 ),
                               ),
@@ -169,20 +165,14 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) =>
-              a.key.name
-                  ?.toLowerCase()
-                  .compareTo(b.key.name?.toLowerCase() ?? '') ??
-              0);
+              a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
         // Sort by tipper.name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) =>
-              a.key.name
-                  ?.toLowerCase()
-                  .compareTo(b.key.name?.toLowerCase() ?? '') ??
-              0);
+              b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }

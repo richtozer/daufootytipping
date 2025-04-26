@@ -124,6 +124,14 @@ class StatsTab extends StatelessWidget {
                   ),
                 ),
               ),
+              // add some help text here
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text(
+                  '* You need to submit at least 1 tip to appear in the stats.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
             ],
           ),
         ),
