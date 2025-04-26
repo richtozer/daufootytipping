@@ -105,7 +105,7 @@ class GamesViewModel extends ChangeNotifier {
 
       // Now that we have all the games from db
       // call linkGamesWithRounds() to link the games with the rounds
-      await _dauCompsViewModel.linkGameWithRounds(selectedDAUComp, this);
+      await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
@@ -145,10 +145,15 @@ class GamesViewModel extends ChangeNotifier {
             attributeName == 'AwayTeamScore') {
           // the score has changed, add the round to the list of rounds that need scoring updates
           // avoid adding rounds multiple times
-          if (!_roundsThatNeedScoringUpdate
-              .contains(gameToUpdate.getDAURound(selectedDAUComp))) {
+          // also in the unlikely event we have scores but no rounds defined yet then skip this update
+          if (selectedDAUComp.daurounds.isEmpty) {
+            log('Game: $gameDbKey has scores but there are no rounds defined. Skipping scoring update.');
+            return;
+          }
+          final round = gameToUpdate.getDAURound(selectedDAUComp);
+          if (round != null && !_roundsThatNeedScoringUpdate.contains(round)) {
             _roundsThatNeedScoringUpdate
-                .add(gameToUpdate.getDAURound(selectedDAUComp));
+                .add(gameToUpdate.getDAURound(selectedDAUComp)!);
           }
         }
       }
@@ -204,9 +209,6 @@ class GamesViewModel extends ChangeNotifier {
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
     await initialLoadComplete;
 
-    // if (dauRound.dAUroundNumber == 27) {
-    //   log('Round 27 detected. TESTING.');
-    // }
     List<Game> gamesForRound =
         _games.where((game) => (game.isGameInRound(dauRound))).toList();
 

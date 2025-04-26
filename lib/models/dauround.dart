@@ -12,10 +12,13 @@ class DAURound implements Comparable<DAURound> {
   final int dAUroundNumber; // 1 based index round number
   List<Game> games = [];
   RoundState roundState = RoundState.notStarted;
-  DateTime roundStartDate;
-  DateTime roundEndDate;
+  DateTime firstGameKickOffUTC;
+  DateTime lastGameKickOffUTC;
   DateTime? adminOverrideRoundStartDate;
   DateTime? adminOverrideRoundEndDate;
+
+  int nrlGameCount = 0;
+  int aflGameCount = 0;
 
   static final double leagueHeaderHeight = 103;
   static final double leagueHeaderEndedHeight = 104;
@@ -24,30 +27,18 @@ class DAURound implements Comparable<DAURound> {
   // counstructor
   DAURound({
     required this.dAUroundNumber,
-    required this.roundStartDate,
-    required this.roundEndDate,
+    required this.firstGameKickOffUTC,
+    required this.lastGameKickOffUTC,
     this.adminOverrideRoundStartDate,
     this.adminOverrideRoundEndDate,
     this.games = const [],
   });
 
-  // method to serialize DAURound to JSON
-  Map<String, dynamic> toJsonForCompare() {
-    return {
-      'dAUroundNumber': dAUroundNumber,
-      'roundStartDate': roundStartDate.toIso8601String(),
-      'roundEndDate': roundEndDate.toIso8601String(),
-      'adminOverrideRoundStartDate':
-          adminOverrideRoundStartDate?.toIso8601String(),
-      'adminOverrideRoundEndDate': adminOverrideRoundEndDate?.toIso8601String(),
-    };
-  }
-
   factory DAURound.fromJson(Map<String, dynamic> data, int roundNumber) {
     return DAURound(
       dAUroundNumber: roundNumber,
-      roundStartDate: DateTime.parse(data['roundStartDate']),
-      roundEndDate: DateTime.parse(data['roundEndDate']),
+      firstGameKickOffUTC: DateTime.parse(data['roundStartDate']),
+      lastGameKickOffUTC: DateTime.parse(data['roundEndDate']),
       adminOverrideRoundStartDate: data['adminOverrideRoundStartDate'] != null
           ? DateTime.parse(data['adminOverrideRoundStartDate'])
           : null,
@@ -59,12 +50,12 @@ class DAURound implements Comparable<DAURound> {
 
   // method returns admin overriden round start data if it exists, otherwise the round start date
   DateTime getRoundStartDate() {
-    return adminOverrideRoundStartDate ?? roundStartDate;
+    return adminOverrideRoundStartDate ?? firstGameKickOffUTC;
   }
 
   // method returns admin overriden round end data if it exists, otherwise the round end date
   DateTime getRoundEndDate() {
-    return adminOverrideRoundEndDate ?? roundEndDate;
+    return adminOverrideRoundEndDate ?? lastGameKickOffUTC;
   }
 
   // method to return games filtered on supplied league
@@ -83,8 +74,8 @@ class DAURound implements Comparable<DAURound> {
     if (identical(this, other)) return true;
     return other is DAURound &&
         other.dAUroundNumber == dAUroundNumber &&
-        other.roundStartDate == roundStartDate &&
-        other.roundEndDate == roundEndDate &&
+        other.firstGameKickOffUTC == firstGameKickOffUTC &&
+        other.lastGameKickOffUTC == lastGameKickOffUTC &&
         other.adminOverrideRoundStartDate == adminOverrideRoundStartDate &&
         other.adminOverrideRoundEndDate == adminOverrideRoundEndDate;
   }
@@ -92,8 +83,8 @@ class DAURound implements Comparable<DAURound> {
   @override
   int get hashCode =>
       dAUroundNumber.hashCode ^
-      roundStartDate.hashCode ^
-      roundEndDate.hashCode ^
+      firstGameKickOffUTC.hashCode ^
+      lastGameKickOffUTC.hashCode ^
       adminOverrideRoundStartDate.hashCode ^
       adminOverrideRoundEndDate.hashCode;
 }

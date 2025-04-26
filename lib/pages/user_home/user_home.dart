@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:daufootytipping/pages/user_home/user_home_tips2.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -25,8 +25,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> content() {
     return [
-      //TipsTab(),
-      TipsTab2(),
+      TipsTab(),
       StatsTab(),
       Profile(),
     ];
@@ -35,9 +34,6 @@ class _HomePageState extends State<HomePage> {
   int _selectDefaultTabIndex(
       DAUCompsViewModel dauCompsViewModel, TippersViewModel tippersViewModel) {
     // if their tipper record was just created, then default to the profile tab so they can set their name
-    if (tippersViewModel.authenticatedTipper!.name == null) {
-      return 2;
-    }
     return _currentIndex;
   }
 
@@ -111,8 +107,7 @@ class _HomePageState extends State<HomePage> {
 
             if (tippersViewModelConsumer.inGodMode) {
               return Banner(
-                message:
-                    tippersViewModelConsumer.selectedTipper.name ?? 'Unknown',
+                message: tippersViewModelConsumer.selectedTipper.name,
                 location: BannerLocation.bottomStart,
                 color: Colors.red,
                 child: Banner(

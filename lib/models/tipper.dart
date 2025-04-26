@@ -7,7 +7,7 @@ class Tipper implements Comparable<Tipper> {
   String?
       email; // this is the email address used for communication - same as legacy sheet email
   String? logon; // this is the email address used for login
-  String? name;
+  String name;
   final TipperRole tipperRole;
   String? photoURL;
   List<DAUComp> compsPaidFor = [];
@@ -22,7 +22,7 @@ class Tipper implements Comparable<Tipper> {
     required this.authuid,
     required this.email,
     this.logon,
-    this.name,
+    required this.name,
     required this.tipperRole,
     this.acctCreatedUTC,
     this.acctLoggedOnUTC,
@@ -34,7 +34,7 @@ class Tipper implements Comparable<Tipper> {
       authuid: data['authuid'],
       email: data['email'],
       logon: data['logon'], // this is the email address used for login
-      name: data['name'],
+      name: data['name'] ?? '',
       tipperRole: data['tipperRole'] != null
           ? TipperRole.values.byName(data['tipperRole'])
           : TipperRole.tipper,
@@ -91,32 +91,14 @@ class Tipper implements Comparable<Tipper> {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    return other is Tipper &&
-        other.dbkey == dbkey &&
-        other.authuid == authuid &&
-        other.email == email &&
-        other.logon == logon &&
-        other.name == name &&
-        other.tipperRole == tipperRole &&
-        other.photoURL == photoURL &&
-        other.compsPaidFor == compsPaidFor &&
-        other.acctCreatedUTC == acctCreatedUTC &&
-        other.acctLoggedOnUTC == acctLoggedOnUTC;
+    return other is Tipper && other.dbkey == dbkey && other.authuid == authuid;
   }
 
   @override
-  int get hashCode {
-    return dbkey.hashCode ^
-        authuid.hashCode ^
-        email.hashCode ^
-        logon.hashCode ^
-        name.hashCode ^
-        tipperRole.hashCode ^
-        photoURL.hashCode ^
-        compsPaidFor.hashCode ^
-        acctCreatedUTC.hashCode ^
-        acctLoggedOnUTC.hashCode;
-  }
+  int get hashCode => Object.hash(
+        dbkey ?? '', // Use an empty string if dbkey is null
+        authuid,
+      );
 
   @override
   // method used to sort Tippers in a List

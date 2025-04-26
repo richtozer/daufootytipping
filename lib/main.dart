@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
@@ -81,6 +82,12 @@ Future<void> main() async {
     }
   }
 
+  // use emulator for firestore document collection when in debug mode
+  if (kDebugMode) {
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8081);
+    log('Firestore emulator started');
+  }
+
   //setup some default analytics parameters
   if (!kIsWeb) {
     FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.2.5'});
@@ -139,9 +146,9 @@ class MyApp extends StatelessWidget {
                       // if config is null display error
                       if (configViewModel.activeDAUComp == null) {
                         // display LoginErrorScreen
-                        return LoginErrorScreen(
-                          errorMessage:
-                              'Unexpected startup error. For support: https://interview.coach/tipping',
+                        return LoginIssueScreen(
+                          message:
+                              'Unexpected startup error. Contact support: https://interview.coach/tipping',
                           displaySignOutButton: false,
                         );
                       } else {

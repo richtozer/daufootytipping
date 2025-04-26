@@ -64,7 +64,7 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
     List<Tipper> targetTippers = widget.tippersViewModel.tippers
         .where((tipper) => tipper.dbkey != widget.sourceTipper?.dbkey)
         .toList()
-      ..sort((a, b) => a.name!.compareTo(b.name!));
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
       appBar: AppBar(
@@ -107,7 +107,7 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                         .map<DropdownMenuItem<Tipper>>((Tipper tipper) {
                       return DropdownMenuItem<Tipper>(
                         value: tipper,
-                        child: Text(tipper.name!),
+                        child: Text(tipper.name),
                       );
                     }).toList(),
                   ),
@@ -142,7 +142,8 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                               Positioned.fill(
                                 child: Icon(
                                   Icons.clear,
-                                  color: Colors.red.withOpacity(0.5),
+                                  color:
+                                      Colors.red.withAlpha((0.5 * 255).toInt()),
                                   size: 50,
                                 ),
                               ),
