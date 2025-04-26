@@ -91,20 +91,14 @@ class Tipper implements Comparable<Tipper> {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    return other is Tipper &&
-        other.dbkey == dbkey &&
-        other.authuid == authuid &&
-        other.email == email &&
-        other.logon == logon &&
-        other.name == name &&
-        other.tipperRole == tipperRole &&
-        other.photoURL == photoURL &&
-        other.compsPaidFor == compsPaidFor &&
-        other.acctCreatedUTC == acctCreatedUTC;
+    return other is Tipper && other.dbkey == dbkey && other.authuid == authuid;
   }
 
   @override
-  int get hashCode => authuid.hashCode;
+  int get hashCode => Object.hash(
+        dbkey ?? '', // Use an empty string if dbkey is null
+        authuid,
+      );
 
   @override
   // method used to sort Tippers in a List
