@@ -154,6 +154,8 @@ class GamesViewModel extends ChangeNotifier {
           if (round != null && !_roundsThatNeedScoringUpdate.contains(round)) {
             _roundsThatNeedScoringUpdate
                 .add(gameToUpdate.getDAURound(selectedDAUComp)!);
+            // also force a gamestats update - in normal processing this should be the initial calcation
+            di<StatsViewModel>().getGamesStatsEntry(gameToUpdate, true);
           }
         }
       }

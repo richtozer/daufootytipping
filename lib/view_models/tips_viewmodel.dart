@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
@@ -213,10 +214,7 @@ class TipsViewModel extends ChangeNotifier {
         .length;
   }
 
-  Future<double> percentageOfTippersTipped(
-      GameResult gameResult, Game game) async {
-    await initialLoadCompleted;
-
+  Future<GameStatsEntry> percentageOfTippersTipped(Game game) async {
     // throw an exception if the tipper is not null
     if (_tipper != null) {
       throw Exception(
@@ -233,22 +231,69 @@ class TipsViewModel extends ChangeNotifier {
             tipper.paidForComp(selectedDAUComp) == isScoringPaidComp)
         .toList();
 
-    // now do the calculation
-    int totalTippers = tippers.length;
-    int totalTippersTipped = 0;
+    double runningAverageScoreTotal = 0.0;
+    int runningAverageScoreCountTips = 0;
+    GameStatsEntry gameStatsEntry = GameStatsEntry(
+      percentageTippedHomeMargin: 0.0,
+      percentageTippedHome: 0.0,
+      percentageTippedDraw: 0.0,
+      percentageTippedAway: 0.0,
+      percentageTippedAwayMargin: 0.0,
+    );
 
-    // Collect all the futures
-    List<Future<void>> futures = tippers.map((tipper) async {
-      Tip? tip = await findTip(game, tipper);
-      if (tip?.tip == gameResult) {
-        totalTippersTipped++;
+    // enumerate each game result and do the calculation
+    for (GameResult gameResult in GameResult.values) {
+      // now do the calculation
+      int totalTippers = tippers.length;
+      int totalTippersTipped = 0;
+
+      // Collect all the futures
+      List<Future<void>> futures = tippers.map((tipper) async {
+        Tip? tip = await findTip(game, tipper);
+        if (tip?.tip == gameResult) {
+          totalTippersTipped++;
+        }
+        // add this tip to the running average
+        runningAverageScoreCountTips++;
+        runningAverageScoreTotal += tip?.getTipScoreCalculated() ?? 0;
+      }).toList();
+
+      // Wait for all futures to complete
+      await Future.wait(futures);
+
+      // switch on the game result and set the correct value
+      switch (gameResult) {
+        case GameResult.a:
+          gameStatsEntry.percentageTippedHomeMargin =
+              totalTippersTipped / totalTippers;
+          break;
+        case GameResult.b:
+          gameStatsEntry.percentageTippedHome =
+              totalTippersTipped / totalTippers;
+          break;
+        case GameResult.c:
+          gameStatsEntry.percentageTippedDraw =
+              totalTippersTipped / totalTippers;
+          break;
+        case GameResult.d:
+          gameStatsEntry.percentageTippedAway =
+              totalTippersTipped / totalTippers;
+          break;
+        case GameResult.e:
+          gameStatsEntry.percentageTippedAwayMargin =
+              totalTippersTipped / totalTippers;
+        case GameResult.z:
+          break;
       }
-    }).toList();
-
-    // Wait for all futures to complete
-    await Future.wait(futures);
-
-    return totalTippersTipped / totalTippers;
+    }
+    // calculate the average score across all tippers for this game
+    if (runningAverageScoreCountTips > 0) {
+      gameStatsEntry.averageScore =
+          runningAverageScoreTotal / runningAverageScoreCountTips;
+    } else {
+      gameStatsEntry.averageScore = 0.0;
+    }
+    return gameStatsEntry;
   }
 
   List<Tip?> getTipsForTipper(Tipper tipper) {

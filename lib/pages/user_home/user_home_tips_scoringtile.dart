@@ -3,12 +3,15 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:watch_it/watch_it.dart';
 
 class ScoringTile extends StatelessWidget {
   const ScoringTile(
@@ -23,6 +26,8 @@ class ScoringTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    di<StatsViewModel>().getGamesStatsEntry(gameTipsViewModel.game, false);
+
     return ChangeNotifierProvider<GameTipViewModel>.value(
         value: gameTipsViewModel,
         child: Consumer<GameTipViewModel>(
@@ -87,7 +92,33 @@ class ScoringTile extends StatelessWidget {
                         ? Text(
                             'Interim points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}')
                         : Text(
-                            'Points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}'),
+                            'Your Points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}'),
+                    Row(
+                      children: [
+                        Text(
+                          'Avg.: ${di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]?.averageScore != null ? (di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]!.averageScore!).toStringAsPrecision(2) : '?'} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}',
+                        ),
+                        const SizedBox(
+                            width:
+                                8), // Add some spacing between the text and the icon
+                        InkWell(
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                duration: Duration(seconds: 5),
+                                content: Text(
+                                  'This is the average score across all tippers for this game.',
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
+                          child: const Icon(Icons.info_outline,
+                              size: 16, color: Colors.black54),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],

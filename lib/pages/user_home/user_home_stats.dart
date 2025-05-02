@@ -1,5 +1,6 @@
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_percent_tipped.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundmissingtipsstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -67,7 +68,7 @@ class StatsTab extends StatelessWidget {
                 margin: const EdgeInsets.all(8.0),
                 child: GestureDetector(
                   onTap: () {
-                    // Navigate to the round winners
+                    // Navigate to missing tips
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -86,6 +87,37 @@ class StatsTab extends StatelessWidget {
                               16), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text('Round winners\nRound Leaderboards'),
+                      ),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
+                ),
+              ),
+
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    // Navigate to the percent tipped
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => StatPercentTipped()),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Hero(
+                        tag: 'percentage',
+                        child: Icon(Icons.percent, size: 40),
+                      ),
+                      SizedBox(
+                          height: 64,
+                          width:
+                              16), // Add some spacing between the icon and the text
+                      Expanded(
+                        child: Text(
+                            'Shows percent breakdown of tips for all tippers per game.'),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -113,6 +145,7 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.search, size: 40),
                       ),
                       SizedBox(
+                          height: 64,
                           width:
                               16), // Add some spacing between the icon and the text
                       Expanded(

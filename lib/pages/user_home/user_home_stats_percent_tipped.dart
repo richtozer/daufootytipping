@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -13,14 +14,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
-class TipsTab extends StatefulWidget {
-  const TipsTab({super.key});
+class StatPercentTipped extends StatefulWidget {
+  const StatPercentTipped({super.key});
 
   @override
-  TipsTabState createState() => TipsTabState();
+  StatPercentTippedState createState() => StatPercentTippedState();
 }
 
-class TipsTabState extends State<TipsTab> {
+class StatPercentTippedState extends State<StatPercentTipped> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   int latestRoundNumber = 0;
@@ -30,17 +31,17 @@ class TipsTabState extends State<TipsTab> {
 
   @override
   void initState() {
-    log('TipsPageBody.constructor()');
+    log('StatPercentTipped.constructor()');
     super.initState();
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log('TipsPageBody.initState() selectedDAUComp is null');
+      log('StatPercentTipped.initState() selectedDAUComp is null');
       return;
     }
 
     latestRoundNumber =
         daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
-    log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
+    log('StatPercentTipped.initState() latestRoundNumber: $latestRoundNumber');
 
     focusNode = FocusNode();
 
@@ -78,10 +79,12 @@ class TipsTabState extends State<TipsTab> {
 
   @override
   Widget build(BuildContext context) {
-    log('TipsPageBody.build()');
+    log('StatPercentTipped.build()');
+
+    Orientation orientation = MediaQuery.of(context).orientation;
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log('TipsPageBody.build() selectedDAUComp is null. Trying to change to active comp');
+      log('StatPercentTipped.build() selectedDAUComp is null. Trying to change to active comp');
       daucompsViewModel.changeDisplayedDAUComp(
           daucompsViewModel.activeDAUComp!, false);
       if (daucompsViewModel.selectedDAUComp == null) {
@@ -120,55 +123,61 @@ class TipsTabState extends State<TipsTab> {
           data: myTheme,
           child: Consumer<DAUCompsViewModel>(
               builder: (context, daucompsViewmodelConsumer, client) {
-            return CustomScrollView(
-              controller: scrollController,
-              restorationId: 'tipsListView',
-              slivers: [
-                SliverVariedExtentList.builder(
-                  itemExtentBuilder: (index, dimensions) {
-                    if (index == 0) {
-                      return WelcomeHeader.height;
-                    } else if (index ==
-                        (daucompsViewmodelConsumer
-                                    .selectedDAUComp!.daurounds.length *
-                                4) +
-                            1) {
-                      return EndFooter.height;
-                    }
-                    final roundIndex = (index - 1) ~/ 4;
-                    final itemIndex = (index - 1) % 4;
-                    return _getItemExtent(
-                        daucompsViewmodelConsumer, roundIndex, itemIndex);
-                  },
-                  itemCount: (daucompsViewmodelConsumer
-                              .selectedDAUComp!.daurounds.length *
-                          4) +
-                      1 +
-                      1,
-                  itemBuilder: (context, index) {
-                    log('building index: $index');
-                    if (index == 0) {
-                      return WelcomeHeader(
-                          daucompsViewmodelConsumer: daucompsViewmodelConsumer);
-                    }
-                    if (index ==
-                        (daucompsViewmodelConsumer
-                                    .selectedDAUComp!.daurounds.length *
-                                4) +
-                            1) {
-                      return const EndFooter();
-                    }
+            return Scaffold(
+              floatingActionButton: FloatingActionButton(
+                backgroundColor: Colors.lightGreen[200],
+                foregroundColor: Colors.white70,
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Icon(Icons.arrow_back),
+              ),
+              body: Column(mainAxisSize: MainAxisSize.min, children: [
+                orientation == Orientation.portrait
+                    ? const HeaderWidget(
+                        text: 'Percentage Tipped',
+                        leadingIconAvatar: Hero(
+                          tag: 'percentage',
+                          child: Icon(Icons.percent, size: 40),
+                        ),
+                      )
+                    : Container(),
+                orientation == Orientation.portrait
+                    ? Padding(
+                        padding: const EdgeInsets.all(5.0),
+                        child: Text(
+                          'The this a breakdown of how people tipped previous games.',
+                        ),
+                      )
+                    : Container(), //
+                Expanded(
+                  child: CustomScrollView(
+                    controller: scrollController,
+                    restorationId: 'statsPercentTippedView',
+                    slivers: [
+                      SliverVariedExtentList.builder(
+                        itemExtentBuilder: (index, dimensions) {
+                          final roundIndex = (index) ~/ 4;
+                          final itemIndex = (index) % 4;
+                          return _getItemExtent(
+                              daucompsViewmodelConsumer, roundIndex, itemIndex);
+                        },
+                        itemCount: (latestRoundNumber * 4),
+                        itemBuilder: (context, index) {
+                          log('StatPercentTipped building index: $index');
+                          final roundIndex = (index) ~/ 4;
+                          final itemIndex = (index) % 4;
+                          final dauRound = daucompsViewmodelConsumer
+                              .selectedDAUComp!.daurounds[roundIndex];
 
-                    final roundIndex = (index - 1) ~/ 4;
-                    final itemIndex = (index - 1) % 4;
-                    final dauRound = daucompsViewmodelConsumer
-                        .selectedDAUComp!.daurounds[roundIndex];
-
-                    return _buildItem(
-                        daucompsViewmodelConsumer, dauRound, itemIndex);
-                  },
+                          return _buildItem(
+                              daucompsViewmodelConsumer, dauRound, itemIndex);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ]),
             );
           }),
         ),
@@ -215,7 +224,7 @@ class TipsTabState extends State<TipsTab> {
           dauRound,
           daucompsViewmodelConsumer,
           di<TippersViewModel>().selectedTipper,
-          false);
+          true);
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       return GameListBuilder(
@@ -225,7 +234,7 @@ class TipsTabState extends State<TipsTab> {
         tipperTipsViewModel:
             daucompsViewmodelConsumer.selectedTipperTipsViewModel!,
         dauCompsViewModel: daucompsViewmodelConsumer,
-        isPercentStatsPage: false,
+        isPercentStatsPage: true,
       );
     }
     return const SizedBox.shrink();
@@ -236,89 +245,5 @@ class TipsTabState extends State<TipsTab> {
     focusNode.dispose();
     scrollController.dispose();
     super.dispose();
-  }
-}
-
-class EndFooter extends StatelessWidget {
-  const EndFooter({super.key});
-
-  static const double height = 75;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        color: Colors.black38,
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Icon(Icons.flag, color: Colors.white70),
-            Text(
-              'End of the competition',
-              style: TextStyle(color: Colors.white70),
-            ),
-            Icon(Icons.flag, color: Colors.white70),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class WelcomeHeader extends StatelessWidget {
-  const WelcomeHeader({
-    required this.daucompsViewmodelConsumer,
-    super.key,
-  });
-
-  final DAUCompsViewModel daucompsViewmodelConsumer;
-
-  static const double height = 200;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        color: Colors.black38,
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Spacer(),
-              const Spacer(),
-              const Spacer(),
-              const Spacer(),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  const Icon(Icons.sports_rugby, color: Colors.white70),
-                  Text(
-                    'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const Icon(Icons.sports_rugby, color: Colors.white70),
-                ],
-              ),
-              const Spacer(),
-              const Text(
-                'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const Spacer(),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
