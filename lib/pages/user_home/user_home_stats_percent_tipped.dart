@@ -11,6 +11,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -51,7 +52,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
             initialScrollOffset);
   }
 
-  void _handleKeyEvent(KeyEvent event) {
+  void _handleKeyEvent(KeyEvent event, BuildContext context) {
     if (event is KeyDownEvent) {
       final double viewportHeight = MediaQuery.of(context).size.height;
 
@@ -111,7 +112,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     return KeyboardListener(
       focusNode: focusNode,
       autofocus: true,
-      onKeyEvent: _handleKeyEvent,
+      onKeyEvent: (event) => _handleKeyEvent(event, context),
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider<DAUCompsViewModel>.value(
@@ -146,8 +147,10 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                     ? Padding(
                         padding: const EdgeInsets.all(5.0),
                         child: Text(
-                          'The this a breakdown of how people tipped previous games.',
-                        ),
+                            'This is a breakdown of how people tipped previous games. Each % represents the number of people who tipped this outcome. Legend: 🟩 = Your tip, 🏆 = Game result.',
+                            style: const TextStyle(
+                              fontSize: 14,
+                            )),
                       )
                     : Container(), //
                 Expanded(

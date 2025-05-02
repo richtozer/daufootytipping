@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
@@ -13,25 +12,37 @@ import 'package:provider/provider.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:watch_it/watch_it.dart';
 
-class ScoringTile extends StatelessWidget {
-  const ScoringTile(
-      {super.key,
-      required this.tip,
-      required this.gameTipsViewModel,
-      required this.selectedDAUComp});
+class ScoringTile extends StatefulWidget {
+  const ScoringTile({
+    super.key,
+    required this.tip,
+    required this.gameTipsViewModel,
+    required this.selectedDAUComp,
+  });
 
   final GameTipViewModel gameTipsViewModel;
   final Tip tip;
   final DAUComp selectedDAUComp;
 
   @override
-  Widget build(BuildContext context) {
-    di<StatsViewModel>().getGamesStatsEntry(gameTipsViewModel.game, false);
+  ScoringTileState createState() => ScoringTileState();
+}
 
+class ScoringTileState extends State<ScoringTile> {
+  @override
+  void initState() {
+    super.initState();
+    // Ensure this runs only once when the widget is created
+    di<StatsViewModel>()
+        .getGamesStatsEntry(widget.gameTipsViewModel.game, false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return ChangeNotifierProvider<GameTipViewModel>.value(
-        value: gameTipsViewModel,
-        child: Consumer<GameTipViewModel>(
-            builder: (context, gameTipsViewModelConsumer, child) {
+      value: widget.gameTipsViewModel,
+      child: Consumer<GameTipViewModel>(
+        builder: (context, gameTipsViewModelConsumer, child) {
           return Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
@@ -54,7 +65,7 @@ class ScoringTile extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        !tip.isDefaultTip()
+                        !widget.tip.isDefaultTip()
                             ? Text(gameTipsViewModelConsumer.tip?.game.league ==
                                     League.nrl
                                 ? 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.nrl}'
@@ -96,26 +107,7 @@ class ScoringTile extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          'Avg.: ${di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]?.averageScore != null ? (di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]!.averageScore!).toStringAsPrecision(2) : '?'} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}',
-                        ),
-                        const SizedBox(
-                            width:
-                                8), // Add some spacing between the text and the icon
-                        InkWell(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                duration: Duration(seconds: 5),
-                                content: Text(
-                                  'This is the average score across all tippers for this game.',
-                                  style: TextStyle(color: Colors.black),
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          },
-                          child: const Icon(Icons.info_outline,
-                              size: 16, color: Colors.black54),
+                          'Avg. all tippers: ${di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]?.averageScore != null ? (di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]!.averageScore!).toStringAsPrecision(2) : '?'} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}',
                         ),
                       ],
                     ),
@@ -124,7 +116,9 @@ class ScoringTile extends StatelessWidget {
               ],
             ),
           );
-        }));
+        },
+      ),
+    );
   }
 
   Widget liveScoring(Tip consumerTipGame, BuildContext context) {
