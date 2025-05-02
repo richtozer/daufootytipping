@@ -299,7 +299,7 @@ class _TipChoiceState extends State<TipChoice> {
         borderRadius: BorderRadius.circular(8.0),
       ),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
-      selectedColor: Colors.lightGreen[300],
+      selectedColor: Colors.lightGreen[500],
       selected:
           gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
     );
