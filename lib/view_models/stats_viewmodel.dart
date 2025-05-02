@@ -42,7 +42,6 @@ class StatsViewModel extends ChangeNotifier {
 
   bool _isUpdateScoringRunning = false;
   bool get isUpdateScoringRunning => _isUpdateScoringRunning;
-  bool _isUpdatingLeaderAndRoundAndRank = false;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
   Future<void> get initialLiveScoreLoadComplete =>
@@ -357,47 +356,39 @@ class StatsViewModel extends ChangeNotifier {
     return roundLeaderboard;
   }
 
-  Future<void> _updateGameResultPercentageTipped(Game gameToCalculateFor,
-      TipsViewModel allTipsViewModel, DAUComp daucompToUpdate) async {
-    GameStatsEntry gameStatsEntry =
-        await _calculateGameStatsEntry(gameToCalculateFor, allTipsViewModel);
-    await _updateGameStatsIfChanged(
-        gameToCalculateFor, gameStatsEntry, daucompToUpdate);
-  }
+  final Map<Game, GameStatsEntry> gamesStatsEntry = {};
 
-  Future<GameStatsEntry> _calculateGameStatsEntry(
-      Game game, TipsViewModel allTipsViewModel) async {
-    GameStatsEntry gameStatsEntry = GameStatsEntry();
-    List<Future<void>> futures = [];
+  void getGamesStatsEntry(Game game, bool forceUpdate) async {
+    log('StatsViewModel.getGamesStatsEntry() START for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+    // get any existing games stats entry from db first
+    gamesStatsEntry[game] = await _getGameStatsEntry(game);
 
-    for (GameResult gameResult in GameResult.values) {
-      futures.add(allTipsViewModel
-          .percentageOfTippersTipped(gameResult, game)
-          .then((percentTipped) {
-        switch (gameResult) {
-          case GameResult.a:
-            gameStatsEntry.percentageTippedHomeMargin = percentTipped;
-            break;
-          case GameResult.b:
-            gameStatsEntry.percentageTippedHome = percentTipped;
-            break;
-          case GameResult.c:
-            gameStatsEntry.percentageTippedDraw = percentTipped;
-            break;
-          case GameResult.d:
-            gameStatsEntry.percentageTippedAway = percentTipped;
-            break;
-          case GameResult.e:
-            gameStatsEntry.percentageTippedAwayMargin = percentTipped;
-            break;
-          case GameResult.z:
-            break;
-        }
-      }));
+    // if its not null and not forcing update then return what we have
+    if (gamesStatsEntry[game]?.averageScore != null && !forceUpdate) {
+      notifyListeners();
+      log('StatsViewModel.getGamesStatsEntry() END (use cache) for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+      return;
     }
 
-    await Future.wait(futures);
-    return gameStatsEntry;
+    // otherwise prep tips model to load all tips to do the calculation
+    allTipsViewModel ??=
+        TipsViewModel(di<TippersViewModel>(), selectedDAUComp, gamesViewModel!);
+
+    // initialise or update the game stats entry
+    await _updateGameResultPercentageTipped(
+        game, allTipsViewModel!, selectedDAUComp);
+
+    notifyListeners();
+    log('StatsViewModel.getGamesStatsEntry() END for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+  }
+
+  Future<void> _updateGameResultPercentageTipped(Game gameToCalculateFor,
+      TipsViewModel allTipsViewModel, DAUComp daucompToUpdate) async {
+    gamesStatsEntry[gameToCalculateFor] =
+        await allTipsViewModel.percentageOfTippersTipped(gameToCalculateFor);
+
+    await _updateGameStatsIfChanged(gameToCalculateFor,
+        gamesStatsEntry[gameToCalculateFor]!, daucompToUpdate);
   }
 
   Future<void> _updateGameStatsIfChanged(
@@ -405,21 +396,44 @@ class StatsViewModel extends ChangeNotifier {
     assert(_isSelectedTipperPaidUpMember != null);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
-    if (gameStatsEntry != game.gameStats) {
-      await _db
-          .child(statsPathRoot)
-          .child(daucompToUpdate.dbkey!)
-          .child(gameStatsRoot)
-          .child(subKey)
-          .child(game.dbkey)
-          .set(gameStatsEntry.toJson());
-      log('StatsViewModel._writeGameResultPercentageTipped() Wrote game stats for game $subKey/${game.dbkey}');
-    } else {
-      log('StatsViewModel._writeGameResultPercentageTipped() No change in game stats for game $subKey/${game.dbkey}');
-    }
+
+    log('Updating game stats for game: ${game.dbkey}');
+    log('Calculated gameStatsEntry: ${gameStatsEntry.toJson()}');
+    log('Existing game.gameStats: ${game.gameStats?.toJson()}');
+
+    // Use a transaction to ensure atomic updates
+    final gameStatsRef = _db
+        .child(statsPathRoot)
+        .child(daucompToUpdate.dbkey!)
+        .child(gameStatsRoot)
+        .child(subKey)
+        .child(game.dbkey);
+
+    await gameStatsRef.runTransaction((currentData) {
+      if (currentData != null) {
+        // Merge the new data with the existing data if needed
+        final existingStats = GameStatsEntry.fromJson(
+            Map<String, dynamic>.from(currentData as Map));
+        if (existingStats == gameStatsEntry) {
+          log('No changes detected in game stats for game: ${game.dbkey}');
+          return Transaction.abort(); // Abort the transaction if no changes
+        }
+      }
+
+      log('Writing updated game stats for game: ${game.dbkey}');
+      return Transaction.success(gameStatsEntry.toJson());
+    }).then((result) {
+      if (result.committed) {
+        log('Game stats successfully written to DB for game: ${game.dbkey}');
+      } else {
+        log('Transaction aborted: No changes made to game stats for game: ${game.dbkey}');
+      }
+    }).catchError((error) {
+      log('Error during transaction for game stats: $error');
+    });
   }
 
-  Future<GameStatsEntry> getGameStatsEntry(Game game) async {
+  Future<GameStatsEntry> _getGameStatsEntry(Game game) async {
     assert(_isSelectedTipperPaidUpMember != null);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';

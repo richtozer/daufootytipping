@@ -20,19 +20,20 @@ class GameListItem extends StatefulWidget {
     required this.currentTipper,
     required this.currentDAUComp,
     required this.allTipsViewModel,
+    required this.isPercentStatsPage,
   });
 
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
+  final bool isPercentStatsPage;
 
   @override
   State<GameListItem> createState() => _GameListItemState();
 }
 
 class _GameListItemState extends State<GameListItem> {
-  Tip? tip;
   late final GameTipViewModel gameTipsViewModel;
 
   @override
@@ -118,7 +119,8 @@ class _GameListItemState extends State<GameListItem> {
                           onPageChanged: (index, reason) {
                             gameTipsViewModelConsumer.currentIndex = index;
                           }),
-                      items: carouselItems(gameTipsViewModelConsumer),
+                      items: carouselItems(
+                          gameTipsViewModelConsumer, widget.isPercentStatsPage),
                       carouselController: gameTipsViewModelConsumer.controller,
                     ),
                   ],
@@ -167,7 +169,13 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  List<Widget> carouselItems(GameTipViewModel gameTipsViewModelConsumer) {
+  List<Widget> carouselItems(
+      GameTipViewModel gameTipsViewModelConsumer, bool isPercentStatsPage) {
+    if (isPercentStatsPage) {
+      return [
+        gameStatsCard(gameTipsViewModelConsumer),
+      ];
+    }
     if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
@@ -202,6 +210,10 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameTipCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return TipChoice(gameTipsViewModelConsumer);
+    return TipChoice(gameTipsViewModelConsumer, false);
+  }
+
+  Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
+    return TipChoice(gameTipsViewModelConsumer, true);
   }
 }

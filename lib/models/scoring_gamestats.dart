@@ -4,6 +4,7 @@ class GameStatsEntry {
   double? percentageTippedDraw = 0.0;
   double? percentageTippedAway = 0.0;
   double? percentageTippedAwayMargin = 0.0;
+  double? averageScore = 0.0;
 
   //constructor
   GameStatsEntry({
@@ -12,6 +13,7 @@ class GameStatsEntry {
     this.percentageTippedDraw,
     this.percentageTippedAway,
     this.percentageTippedAwayMargin,
+    this.averageScore,
   });
 
   @override
@@ -23,7 +25,8 @@ class GameStatsEntry {
         other.percentageTippedHome == percentageTippedHome &&
         other.percentageTippedDraw == percentageTippedDraw &&
         other.percentageTippedAway == percentageTippedAway &&
-        other.percentageTippedAwayMargin == percentageTippedAwayMargin;
+        other.percentageTippedAwayMargin == percentageTippedAwayMargin &&
+        other.averageScore == averageScore;
   }
 
   @override
@@ -32,7 +35,8 @@ class GameStatsEntry {
         percentageTippedHome.hashCode ^
         percentageTippedDraw.hashCode ^
         percentageTippedAway.hashCode ^
-        percentageTippedAwayMargin.hashCode;
+        percentageTippedAwayMargin.hashCode ^
+        averageScore.hashCode;
   }
 
   // method to convert instance into json
@@ -43,17 +47,19 @@ class GameStatsEntry {
       'pctTipC': percentageTippedDraw,
       'pctTipD': percentageTippedAway,
       'pctTipE': percentageTippedAwayMargin,
+      'avgScore': averageScore,
     };
   }
 
   // method to convert json into instance
   factory GameStatsEntry.fromJson(Map<String, dynamic> data) {
     return GameStatsEntry(
-      percentageTippedHomeMargin: data['pctTipA'],
-      percentageTippedHome: data['pctTipB'],
-      percentageTippedDraw: data['pctTipC'],
-      percentageTippedAway: data['pctTipD'],
-      percentageTippedAwayMargin: data['pctTipE'],
+      percentageTippedHomeMargin: (data['pctTipA'] as num?)?.toDouble(),
+      percentageTippedHome: (data['pctTipB'] as num?)?.toDouble(),
+      percentageTippedDraw: (data['pctTipC'] as num?)?.toDouble(),
+      percentageTippedAway: (data['pctTipD'] as num?)?.toDouble(),
+      percentageTippedAwayMargin: (data['pctTipE'] as num?)?.toDouble(),
+      averageScore: (data['avgScore'] as num?)?.toDouble(),
     );
   }
 }
