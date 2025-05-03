@@ -80,7 +80,7 @@ class GamesViewModel extends ChangeNotifier {
               awayTeamScore: gameAsJSON['AwayTeamScore']);
 
           if (homeTeam != null && awayTeam != null) {
-            Game game = Game.fromFixtureJson(dbKey,
+            Game game = Game.fromJson(dbKey,
                 Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
             game.scoring = scoring;
 
