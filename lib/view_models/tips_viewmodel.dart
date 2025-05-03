@@ -265,23 +265,24 @@ class TipsViewModel extends ChangeNotifier {
       switch (gameResult) {
         case GameResult.a:
           gameStatsEntry.percentageTippedHomeMargin =
-              totalTippersTipped / totalTippers;
+              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
           break;
         case GameResult.b:
           gameStatsEntry.percentageTippedHome =
-              totalTippersTipped / totalTippers;
+              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
           break;
         case GameResult.c:
           gameStatsEntry.percentageTippedDraw =
-              totalTippersTipped / totalTippers;
+              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
           break;
         case GameResult.d:
           gameStatsEntry.percentageTippedAway =
-              totalTippersTipped / totalTippers;
+              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
           break;
         case GameResult.e:
           gameStatsEntry.percentageTippedAwayMargin =
-              totalTippersTipped / totalTippers;
+              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
+          break;
         case GameResult.z:
           break;
       }
