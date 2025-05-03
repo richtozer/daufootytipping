@@ -1,15 +1,12 @@
-import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:watch_it/watch_it.dart';
 
 class ScoringTile extends StatefulWidget {
@@ -32,7 +29,6 @@ class ScoringTileState extends State<ScoringTile> {
   @override
   void initState() {
     super.initState();
-    // Ensure this runs only once when the widget is created
     di<StatsViewModel>()
         .getGamesStatsEntry(widget.gameTipsViewModel.game, false);
   }
@@ -43,76 +39,23 @@ class ScoringTileState extends State<ScoringTile> {
       value: widget.gameTipsViewModel,
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
+          final tip = gameTipsViewModelConsumer.tip;
+          final game = gameTipsViewModelConsumer.game;
+          final league = tip?.game.league;
+
           return Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    gameTipsViewModelConsumer.game.gameState ==
-                            GameState.startedResultNotKnown
-                        ? liveScoring(gameTipsViewModelConsumer.tip!, context)
-                        : fixtureScoring(gameTipsViewModelConsumer),
-                    Text(
-                      '${gameTipsViewModelConsumer.game.gameState == GameState.startedResultNotKnown ? 'Interim Result:' : 'Result:'} ${gameTipsViewModelConsumer.tip?.getGameResultText()}',
-                    ),
-                    Row(
-                      children: [
-                        !widget.tip.isDefaultTip()
-                            ? Text(gameTipsViewModelConsumer.tip?.game.league ==
-                                    League.nrl
-                                ? 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.nrl}'
-                                : 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.afl}')
-                            : Row(
-                                children: [
-                                  Text(gameTipsViewModelConsumer
-                                              .tip?.game.league ==
-                                          League.nrl
-                                      ? 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.nrl}'
-                                      : 'Your tip: ${gameTipsViewModelConsumer.tip?.tip.afl}'),
-                                  InkWell(
-                                    onTap: () {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          duration: Duration(seconds: 10),
-                                          backgroundColor: Colors.orange,
-                                          content: Text(
-                                              style: TextStyle(
-                                                  color: Colors.black),
-                                              'You did not tip this game and were automatically given a default tip of [Away] for this game.\n\n'
-                                              'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄'),
-                                        ),
-                                      );
-                                    },
-                                    child: const Icon(Icons.info_outline),
-                                  )
-                                ],
-                              ),
-                      ],
-                    ),
-                    gameTipsViewModelConsumer.game.gameState ==
-                            GameState.startedResultNotKnown
-                        ? Text(
-                            'Interim points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}')
-                        : Text(
-                            'Your Points: ${gameTipsViewModelConsumer.tip?.getTipScoreCalculated()} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}'),
-                    Row(
-                      children: [
-                        Text(
-                          'Avg. all tippers: ${di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]?.averageScore != null ? (di<StatsViewModel>().gamesStatsEntry[gameTipsViewModelConsumer.game]!.averageScore!).toStringAsPrecision(2) : '?'} / ${gameTipsViewModelConsumer.tip?.getMaxScoreCalculated()}',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                _buildResultText(game, tip),
+                _buildTipRow(tip, league),
+                _buildPointsText(game, tip),
+                _buildAverageScoreRow(game, tip),
               ],
             ),
           );
@@ -121,49 +64,147 @@ class ScoringTileState extends State<ScoringTile> {
     );
   }
 
-  Widget liveScoring(Tip consumerTipGame, BuildContext context) {
-    return GestureDetector(
-      onTap: () => showMaterialModalBottomSheet(
-          expand: false,
-          context: context,
-          builder: (context) => LiveScoringModal(consumerTipGame)),
+  Widget _buildResultText(Game game, Tip? tip) {
+    final resultText = tip?.getGameResultText() ?? 'N/A';
+    final isInterimResult = game.gameState == GameState.startedResultNotKnown;
+
+    return Padding(
+      padding: const EdgeInsets.all(2.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.edit),
-          SizedBox(
-            width: 70,
-            child: Tooltip(
-              message: 'Click here to enter live scores',
-              child: Text(
-                  ' ${consumerTipGame.game.scoring?.currentScore(ScoringTeam.home) ?? '0'} v ${consumerTipGame.game.scoring?.currentScore(ScoringTeam.away) ?? '0'} '),
+          if (isInterimResult)
+            Tooltip(
+              message:
+                  'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
+              child: Row(
+                children: [
+                  Text(
+                    '* Result: ',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(resultText),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                Text(
+                  'Result: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(resultText),
+              ],
             ),
-          ),
         ],
       ),
     );
   }
 
-  Row fixtureScoring(GameTipViewModel consumerTipGameViewModel) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text('${consumerTipGameViewModel.game.scoring!.homeTeamScore}',
-            style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
-                ? TextStyle(
-                    fontSize: 18,
-                    backgroundColor: Colors.lightGreen[200],
-                    fontWeight: FontWeight.w900)
-                : null),
-        const Text(textAlign: TextAlign.left, ' v '),
-        Text('${consumerTipGameViewModel.game.scoring!.awayTeamScore}',
-            style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
-                ? TextStyle(
-                    fontSize: 18,
-                    backgroundColor: Colors.lightGreen[200],
-                    fontWeight: FontWeight.w900)
-                : null),
-      ],
+  Widget _buildTipRow(Tip? tip, League? league) {
+    final tipText =
+        league == League.nrl ? '${tip?.tip.nrl}' : '${tip?.tip.afl}';
+    final tipLabel = 'Your tip: ';
+
+    return Padding(
+      padding: const EdgeInsets.all(2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            tipLabel,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          Text(tipText),
+          if (widget.tip.isDefaultTip())
+            InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    duration: Duration(seconds: 10),
+                    backgroundColor: Colors.orange,
+                    content: Text(
+                      style: TextStyle(color: Colors.black),
+                      'You did not tip this game and were automatically given a default tip of [Away] for this game.\n\n'
+                      'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄',
+                    ),
+                  ),
+                );
+              },
+              child: const Icon(Icons.info_outline),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPointsText(Game game, Tip? tip) {
+    final pointsText =
+        '${tip?.getTipScoreCalculated()} / ${tip?.getMaxScoreCalculated()}';
+    final isInterimResult = game.gameState == GameState.startedResultNotKnown;
+
+    return Padding(
+      padding: const EdgeInsets.all(2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (isInterimResult)
+            Tooltip(
+              message:
+                  'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
+              child: Row(
+                children: [
+                  Text(
+                    '* Points: ',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(pointsText),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                Text(
+                  'Your Points: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(pointsText),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAverageScoreRow(Game game, Tip? tip) {
+    final averageScore =
+        di<StatsViewModel>().gamesStatsEntry[game]?.averageScore;
+    final averageText = averageScore != null
+        ? '${averageScore.toStringAsPrecision(2)} / ${tip?.getMaxScoreCalculated()}'
+        : '? / ${tip?.getMaxScoreCalculated()}';
+
+    return Padding(
+      padding: const EdgeInsets.all(2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Tooltip(
+            message:
+                'This is the average score of tips for all tippers for this game. Your aim is to score higher than this to improve your ranking. If the score is not finalised then this is an interim average.',
+            child: Row(
+              children: [
+                Text(
+                  'Average: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(averageText),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
