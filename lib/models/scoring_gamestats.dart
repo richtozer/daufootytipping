@@ -6,15 +6,30 @@ class GameStatsEntry {
   double? percentageTippedAwayMargin = 0.0;
   double? averageScore = 0.0;
 
-  //constructor
+  // Constructor
   GameStatsEntry({
-    this.percentageTippedHomeMargin,
-    this.percentageTippedHome,
-    this.percentageTippedDraw,
-    this.percentageTippedAway,
-    this.percentageTippedAwayMargin,
-    this.averageScore,
-  });
+    double? percentageTippedHomeMargin,
+    double? percentageTippedHome,
+    double? percentageTippedDraw,
+    double? percentageTippedAway,
+    double? percentageTippedAwayMargin,
+    double? averageScore,
+  }) {
+    // Reduce precision to 2 decimal places
+    this.percentageTippedHomeMargin =
+        reducePrecision(percentageTippedHomeMargin);
+    this.percentageTippedHome = reducePrecision(percentageTippedHome);
+    this.percentageTippedDraw = reducePrecision(percentageTippedDraw);
+    this.percentageTippedAway = reducePrecision(percentageTippedAway);
+    this.percentageTippedAwayMargin =
+        reducePrecision(percentageTippedAwayMargin);
+    this.averageScore = reducePrecision(averageScore);
+  }
+
+  // Helper method to reduce precision
+  double? reducePrecision(double? value) {
+    return value != null ? double.parse(value.toStringAsFixed(3)) : null;
+  }
 
   @override
   bool operator ==(Object other) {
@@ -39,7 +54,7 @@ class GameStatsEntry {
         averageScore.hashCode;
   }
 
-  // method to convert instance into json
+  // Method to convert instance into JSON
   Map<String, dynamic> toJson() {
     return {
       'pctTipA': percentageTippedHomeMargin,
@@ -51,7 +66,7 @@ class GameStatsEntry {
     };
   }
 
-  // method to convert json into instance
+  // Method to convert JSON into instance
   factory GameStatsEntry.fromJson(Map<String, dynamic> data) {
     return GameStatsEntry(
       percentageTippedHomeMargin: (data['pctTipA'] as num?)?.toDouble(),
