@@ -289,8 +289,8 @@ class TipsViewModel extends ChangeNotifier {
     }
     // calculate the average score across all tippers for this game
     if (runningAverageScoreCountTips > 0) {
-      gameStatsEntry.averageScore =
-          runningAverageScoreTotal / runningAverageScoreCountTips;
+      gameStatsEntry.averageScore = gameStatsEntry.reducePrecision(
+          runningAverageScoreTotal / runningAverageScoreCountTips);
     } else {
       gameStatsEntry.averageScore = 0.0;
     }
