@@ -138,7 +138,7 @@ class GamesViewModel extends ChangeNotifier {
     if (gameToUpdate != null) {
       dynamic oldValue = gameToUpdate.toJson()[attributeName];
       if (attributeValue != oldValue) {
-        log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
+        log('Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue');
         updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
         if (attributeName == 'HomeTeamScore' ||
