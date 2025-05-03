@@ -434,7 +434,10 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<GameStatsEntry> _getGameStatsEntry(Game game) async {
-    assert(_isSelectedTipperPaidUpMember != null);
+    await di<TippersViewModel>().isUserLinked;
+
+    _isSelectedTipperPaidUpMember =
+        di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
     var snapshot = await _db
