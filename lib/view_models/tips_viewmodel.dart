@@ -48,11 +48,12 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel.forTipper(this.tipperViewModel, this.selectedDAUComp,
       this._gamesViewModel, this._tipper) {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
+    _gamesViewModel.addListener(_update);
     _listenToTips();
   }
 
   void _update() {
-    notifyListeners(); //notify our consumers that the data may have changed to the parent gamesviewmodel.games data
+    notifyListeners(); //notify our consumers that the data may have changed to gamesviewmodel.games data that we have a dependency on
   }
 
   void _listenToTips() {
@@ -78,23 +79,25 @@ class TipsViewModel extends ChangeNotifier {
       if (event.snapshot.exists) {
         if (_tipper == null) {
           final allTips =
-              _deepMapFromObject(event.snapshot.value as Map<Object?, Object?>);
+              Map<String, dynamic>.from(event.snapshot.value as Map);
           log('TipsViewModel._handleEvent() All tippers - Deserialize tip for ${allTips.length} tippers.');
           _listOfTips = await _deserializeTips(allTips);
         } else {
           log('_handleEvent deserializing tips for tipper ${_tipper!.dbkey}');
-          Map dbData = event.snapshot.value as Map;
+          Map<String, dynamic> dbData =
+              Map<String, dynamic>.from(event.snapshot.value as Map);
           log('_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
           _listOfTips = await Future.wait(dbData.entries.map((tipEntry) async {
             Game? game = await _gamesViewModel.findGame(tipEntry.key);
             if (game == null) {
               assert(game != null);
               log('TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}');
+              return null;
             } else {
-              Map entryValue = tipEntry.value as Map;
+              Map<String, dynamic> entryValue =
+                  Map<String, dynamic>.from(tipEntry.value as Map);
               return Tip.fromJson(entryValue, tipEntry.key, _tipper!, game);
             }
-            return null;
           }));
         }
       } else {
@@ -108,25 +111,14 @@ class TipsViewModel extends ChangeNotifier {
     }
   }
 
-  //this method, which allows for recusrsive maps, is no longer nessisary and could be removed
-
-  Map<String, dynamic> _deepMapFromObject(Map<Object?, Object?> map) {
-    return Map<String, dynamic>.from(map.map((key, value) {
-      if (value is Map<Object?, Object?>) {
-        return MapEntry(key.toString(), _deepMapFromObject(value));
-      } else {
-        return MapEntry(key.toString(), value);
-      }
-    }));
-  }
-
   Future<List<Tip>> _deserializeTips(Map<String, dynamic> json) async {
     List<Tip> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
       Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
       if (tipper != null) {
-        Map<String, dynamic> tipperTips = tipperEntry.value;
+        Map<String, dynamic> tipperTips =
+            Map<String, dynamic>.from(tipperEntry.value as Map);
         for (var tipEntry in tipperTips.entries) {
           Game? game = await _gamesViewModel.findGame(tipEntry.key);
           if (game == null) {

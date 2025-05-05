@@ -47,8 +47,9 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> get initialLiveScoreLoadComplete =>
       _initialLiveScoreLoadCompleter.future;
 
-  final Completer<void> _initialRoundLoadCompleted = Completer();
-  Future<void> get initialRoundComplete => _initialRoundLoadCompleted.future;
+  final Completer<void> _initialRoundScoresLoadCompleted = Completer();
+  Future<void> get initialRoundScoresComplete =>
+      _initialRoundScoresLoadCompleted.future;
 
   List<LeaderboardEntry> _compLeaderboard = [];
   List<LeaderboardEntry> get compLeaderboard => _compLeaderboard;
@@ -132,8 +133,8 @@ class StatsViewModel extends ChangeNotifier {
         log('StatsViewModel._handleEventRoundScores() Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores');
       }
 
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        _initialRoundLoadCompleted.complete();
+      if (!_initialRoundScoresLoadCompleted.isCompleted) {
+        _initialRoundScoresLoadCompleted.complete();
       }
 
       // Update the leaderboard
@@ -141,8 +142,8 @@ class StatsViewModel extends ChangeNotifier {
     } catch (e, stackTrace) {
       log('Error listening to /$statsPathRoot/round_scores: $e');
       _allTipperRoundStats.clear(); // Rollback partial updates
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        _initialRoundLoadCompleted.completeError(e, stackTrace);
+      if (!_initialRoundScoresLoadCompleted.isCompleted) {
+        _initialRoundScoresLoadCompleted.completeError(e, stackTrace);
       }
       rethrow; // Re-throw the error
     }
@@ -246,9 +247,9 @@ class StatsViewModel extends ChangeNotifier {
       var stopwatch = Stopwatch()..start();
 
       try {
-        if (!_initialRoundLoadCompleted.isCompleted) {
+        if (!_initialRoundScoresLoadCompleted.isCompleted) {
           try {
-            await _initialRoundLoadCompleted.future;
+            await _initialRoundScoresLoadCompleted.future;
           } catch (e) {
             log('StatsViewModel.updateStats() Error waiting for initial round load: $e');
             _allTipperRoundStats.clear(); // reset
@@ -259,6 +260,9 @@ class StatsViewModel extends ChangeNotifier {
 
         _logEventScoringInitiated(
             daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
+
+        /// make sure we have all tippers
+        await di<TippersViewModel>().initialLoadComplete;
 
         // Set the tippers to update
         List<Tipper> tippersToUpdate = onlyUpdateThisTipper != null
@@ -370,7 +374,7 @@ class StatsViewModel extends ChangeNotifier {
       return;
     }
 
-    // otherwise prep tips model to load all tips to do the calculation
+    // otherwise prep tips model to load all tips to do the calculation - note this is an expensive operation
     allTipsViewModel ??=
         TipsViewModel(di<TippersViewModel>(), selectedDAUComp, gamesViewModel!);
 
@@ -687,7 +691,7 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   List<RoundStats> getTipperRoundScoresForComp(Tipper tipper) {
-    if (!_initialRoundLoadCompleted.isCompleted) {
+    if (!_initialRoundScoresLoadCompleted.isCompleted) {
       return [];
     }
 
@@ -811,7 +815,7 @@ class StatsViewModel extends ChangeNotifier {
   _calculateRoundStatsForTipper(Tipper tipperToScore, DAURound dauRound,
       TipsViewModel allTipsViewModel) async {
     // wait until we are initialized
-    await _initialRoundLoadCompleted.future;
+    await _initialRoundScoresLoadCompleted.future;
 
     // initialize any round of tipper Maps as needed
     if (_allTipperRoundStats[dauRound.dAUroundNumber - 1] == null) {
