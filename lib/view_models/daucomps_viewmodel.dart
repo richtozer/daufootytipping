@@ -226,6 +226,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       // and we need to re-link the games with the rounds
       if (selectedDAUComp?.daurounds != null) {
         await linkGamesWithRounds(selectedDAUComp!.daurounds);
+        log('DAUCompsViewModel_handleEvent() DAUCompsViewModel linked games with rounds');
       } else {
         notifyListeners();
       }
@@ -675,56 +676,72 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
+  bool _isLinkingGames = false;
+
   Future<void> linkGamesWithRounds(List<DAURound> allRounds) async {
-    log('In daucompsviewmodel.linkGameWithRounds()');
+    log('In daucompsviewmodel.linkGamesWithRounds()');
 
-    await initialLoadComplete;
-
-    // Clear the unassigned games list before recalculating
-    unassignedGames.clear();
-
-    unassignedGames = List.from(await gamesViewModel!.getGames());
-
-    for (var round in allRounds) {
-      // Assign games to the round
-      round.games = await gamesViewModel!.getGamesForRound(round);
-
-      // Initialize the round state
-      _initRoundState(round);
-
-      // Remove assigned games from the unassigned games list
-      unassignedGames.removeWhere((game) =>
-          round.games.any((roundGame) => roundGame.dbkey == game.dbkey));
-
-      // in this round, do any nrl games have a kickoff time that is later than the cutoff time
-      // if so then remove them from unassigned games
-      if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
-        unassignedGames.removeWhere((game) =>
-            game.league == League.nrl &&
-            game.startTimeUTC
-                .isAfter(_selectedDAUComp!.nrlRegularCompEndDateUTC!));
-      }
-
-      if (_selectedDAUComp!.aflRegularCompEndDateUTC != null) {
-        unassignedGames.removeWhere((game) =>
-            game.league == League.afl &&
-            game.startTimeUTC
-                .isAfter(_selectedDAUComp!.aflRegularCompEndDateUTC!));
-      }
-
-      // Update AFL and NRL game counts for the round
-      round.nrlGameCount = round.games
-          .where((game) => game.league == League.nrl)
-          .toList()
-          .length;
-      round.aflGameCount = round.games
-          .where((game) => game.league == League.afl)
-          .toList()
-          .length;
+    // Ensure only one instance runs at a time
+    if (_isLinkingGames) {
+      log('linkGamesWithRounds() is already running. Skipping this call.');
+      return;
     }
+    _isLinkingGames = true;
 
-    log('Unassigned games count: ${unassignedGames.length}');
-    notifyListeners();
+    try {
+      await initialLoadComplete;
+
+      // Create a local copy of unassignedGames
+      List<Game> localUnassignedGames =
+          List.from(await gamesViewModel!.getGames());
+
+      for (var round in allRounds) {
+        // Assign games to the round
+        round.games = await gamesViewModel!.getGamesForRound(round);
+
+        // Initialize the round state
+        _initRoundState(round);
+
+        // Remove assigned games from the local unassigned games list
+        localUnassignedGames.removeWhere((game) =>
+            round.games.any((roundGame) => roundGame.dbkey == game.dbkey));
+
+        // Remove games that exceed the cutoff time for NRL and AFL
+        if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
+          localUnassignedGames.removeWhere((game) =>
+              game.league == League.nrl &&
+              game.startTimeUTC
+                  .isAfter(_selectedDAUComp!.nrlRegularCompEndDateUTC!));
+        }
+
+        if (_selectedDAUComp!.aflRegularCompEndDateUTC != null) {
+          localUnassignedGames.removeWhere((game) =>
+              game.league == League.afl &&
+              game.startTimeUTC
+                  .isAfter(_selectedDAUComp!.aflRegularCompEndDateUTC!));
+        }
+
+        // Update AFL and NRL game counts for the round
+        round.nrlGameCount = round.games
+            .where((game) => game.league == League.nrl)
+            .toList()
+            .length;
+        round.aflGameCount = round.games
+            .where((game) => game.league == League.afl)
+            .toList()
+            .length;
+      }
+
+      // Update the shared unassignedGames list after all operations are complete
+      unassignedGames = localUnassignedGames;
+
+      log('Unassigned games count: ${unassignedGames.length}');
+      notifyListeners();
+    } catch (e) {
+      log('Error in linkGamesWithRounds(): $e');
+    } finally {
+      _isLinkingGames = false;
+    }
   }
 
   Future<DAUComp?> findComp(String compDbKey) async {
