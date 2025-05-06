@@ -111,7 +111,7 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i3.DAUCompsViewModel {
           as bool);
 
   @override
-  _i7.Future<void> get initialLoadComplete => (super.noSuchMethod(
+  _i7.Future<void> get initialDAUCompLoadComplete => (super.noSuchMethod(
         Invocation.getter(#initialLoadComplete),
         returnValue: _i7.Future<void>.value(),
       ) as _i7.Future<void>);
