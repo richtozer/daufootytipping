@@ -2,14 +2,19 @@ import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:watch_it/watch_it.dart';
 
 class TipChoice extends StatefulWidget {
-  final GameTipViewModel gameTipsViewModel;
+  final GameTipViewModel gameTipViewModel;
+  final bool isPercentStatsPage;
 
-  const TipChoice(this.gameTipsViewModel, {super.key});
+  const TipChoice(this.gameTipViewModel, this.isPercentStatsPage, {super.key});
 
   @override
   State<TipChoice> createState() => _TipChoiceState();
@@ -21,53 +26,108 @@ class _TipChoiceState extends State<TipChoice> {
   @override
   void initState() {
     super.initState();
-    _precalculateChoiceChips();
+    if (!widget.isPercentStatsPage) {
+      _precalculateChoiceChips();
+    } else {
+      _precalculatePercentStatsChips();
+    }
   }
 
   void _precalculateChoiceChips() {
     for (var result in GameResult.values) {
       _choiceChipCache[result] =
-          generateChoiceChip(result, widget.gameTipsViewModel, context);
+          generateChoiceChip(result, widget.gameTipViewModel, context);
+    }
+  }
+
+  void _precalculatePercentStatsChips() {
+    di<StatsViewModel>()
+        .getGamesStatsEntry(widget.gameTipViewModel.game, false);
+
+    for (var result in GameResult.values) {
+      _choiceChipCache[result] = generatePercentStatsChip(
+          result,
+          widget.gameTipViewModel,
+          di<StatsViewModel>().gamesStatsEntry[widget.gameTipViewModel.game],
+          context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              generateChoiceChip(
-                  GameResult.a, widget.gameTipsViewModel, context),
-              generateChoiceChip(
-                  GameResult.b, widget.gameTipsViewModel, context)
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              generateChoiceChip(
-                  GameResult.c, widget.gameTipsViewModel, context),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              generateChoiceChip(
-                  GameResult.d, widget.gameTipsViewModel, context),
-              generateChoiceChip(
-                  GameResult.e, widget.gameTipsViewModel, context)
-            ],
-          )
-        ],
-      ),
-    );
+    return Consumer<StatsViewModel>(
+        builder: (context, consumerStatsViewModel, child) {
+      return Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                !widget.isPercentStatsPage
+                    ? generateChoiceChip(
+                        GameResult.a, widget.gameTipViewModel, context)
+                    : generatePercentStatsChip(
+                        GameResult.a,
+                        widget.gameTipViewModel,
+                        consumerStatsViewModel
+                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                        context),
+                !widget.isPercentStatsPage
+                    ? generateChoiceChip(
+                        GameResult.b, widget.gameTipViewModel, context)
+                    : generatePercentStatsChip(
+                        GameResult.b,
+                        widget.gameTipViewModel,
+                        consumerStatsViewModel
+                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                        context),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                !widget.isPercentStatsPage
+                    ? generateChoiceChip(
+                        GameResult.c, widget.gameTipViewModel, context)
+                    : generatePercentStatsChip(
+                        GameResult.c,
+                        widget.gameTipViewModel,
+                        consumerStatsViewModel
+                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                        context),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                !widget.isPercentStatsPage
+                    ? generateChoiceChip(
+                        GameResult.d, widget.gameTipViewModel, context)
+                    : generatePercentStatsChip(
+                        GameResult.d,
+                        widget.gameTipViewModel,
+                        consumerStatsViewModel
+                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                        context),
+                !widget.isPercentStatsPage
+                    ? generateChoiceChip(
+                        GameResult.e, widget.gameTipViewModel, context)
+                    : generatePercentStatsChip(
+                        GameResult.e,
+                        widget.gameTipViewModel,
+                        consumerStatsViewModel
+                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                        context),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   ChoiceChip generateChoiceChip(GameResult option,
@@ -175,6 +235,73 @@ class _TipChoiceState extends State<TipChoice> {
           );
         }
       },
+    );
+  }
+
+  ChoiceChip generatePercentStatsChip(
+      GameResult option,
+      GameTipViewModel gameTipsViewModel,
+      GameStatsEntry? gameStatsEntry,
+      BuildContext context) {
+    // Generate label based on GameResult option. Switch on option and display percentage tipped.
+    String buttonText = '?';
+    switch (option) {
+      case GameResult.a:
+        buttonText = gameStatsEntry?.percentageTippedHomeMargin != null
+            ? '${(gameStatsEntry!.percentageTippedHomeMargin! * 100).toStringAsFixed(1)}%'
+            : '?';
+        break;
+      case GameResult.b:
+        buttonText = gameStatsEntry?.percentageTippedHome != null
+            ? '${(gameStatsEntry!.percentageTippedHome! * 100).toStringAsFixed(1)}%'
+            : '?';
+        break;
+      case GameResult.c:
+        buttonText = gameStatsEntry?.percentageTippedDraw != null
+            ? '${(gameStatsEntry!.percentageTippedDraw! * 100).toStringAsFixed(1)}%'
+            : '?';
+        break;
+      case GameResult.d:
+        buttonText = gameStatsEntry?.percentageTippedAway != null
+            ? '${(gameStatsEntry!.percentageTippedAway! * 100).toStringAsFixed(1)}%'
+            : '?';
+        break;
+      case GameResult.e:
+        buttonText = gameStatsEntry?.percentageTippedAwayMargin != null
+            ? '${(gameStatsEntry!.percentageTippedAwayMargin! * 100).toStringAsFixed(1)}%'
+            : '?';
+        break;
+      case GameResult.z:
+        break;
+    }
+
+    return ChoiceChip.elevated(
+      avatar: gameTipsViewModel.game.scoring
+                  ?.getGameResultCalculated(gameTipsViewModel.game.league) ==
+              option
+          ? const Icon(Icons.emoji_events, color: Colors.black)
+          : null,
+      label: gameStatsEntry?.percentageTippedAwayMargin == null
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.0,
+              ),
+            )
+          : Text(buttonText),
+      tooltip: gameTipsViewModel.game.league == League.afl
+          ? option.aflTooltip
+          : option.nrlTooltip,
+      showCheckmark: false,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
+      selectedColor: Colors.lightGreen[500],
+      selected:
+          gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
     );
   }
 }

@@ -115,7 +115,7 @@ class Game implements Comparable<Game> {
         "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
       };
 
-  factory Game.fromFixtureJson(
+  factory Game.fromJson(
       String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
     //use the left 3 chars of the dbkey to determine the league
     final league = League.values.byName(dbkey.substring(0, 3));

@@ -45,8 +45,12 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _savingDAUComp = false;
   bool get savingDAUComp => _savingDAUComp;
 
-  final Completer<void> _initialLoadCompleter = Completer<void>();
-  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
+  final Completer<void> _initialDAUCompLoadCompleter = Completer<void>();
+  Future<void> get initialDAUCompLoadComplete =>
+      _initialDAUCompLoadCompleter.future;
+
+  final Completer<void> _otherViewModels = Completer<void>();
+  Future<void> get otherViewModelsLoadComplete => _otherViewModels.future;
 
   bool _isDownloading = false;
   bool get isDownloading => _isDownloading;
@@ -74,7 +78,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _init() async {
     _listenToDAUComps();
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
 
     if (_initDAUCompDbKey != null) {
       DAUComp? foundComp = await findComp(_initDAUCompDbKey!);
@@ -172,10 +176,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     } else {
       await _initializeAdminViewModels();
     }
+    // mark completed
+    if (!_otherViewModels.isCompleted) {
+      _otherViewModels.complete();
+    }
   }
 
   Future<void> _initializeUserViewModels() async {
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
 
     gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
     gamesViewModel!.addListener(_otherViewModelUpdated);
@@ -218,14 +226,15 @@ class DAUCompsViewModel extends ChangeNotifier {
         _daucomps = [];
       }
 
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
+      if (!_initialDAUCompLoadCompleter.isCompleted) {
+        _initialDAUCompLoadCompleter.complete();
       }
 
       // call linkGamesWithRounds - just in case the round start/end times have changed
       // and we need to re-link the games with the rounds
       if (selectedDAUComp?.daurounds != null) {
         await linkGamesWithRounds(selectedDAUComp!.daurounds);
+        log('DAUCompsViewModel_handleEvent() DAUCompsViewModel linked games with rounds');
       } else {
         notifyListeners();
       }
@@ -326,7 +335,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _fixtureUpdate() async {
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
     await gamesViewModel!.initialLoadComplete;
 
     if (_activeDAUComp == null) {
@@ -400,7 +409,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       return 'Fixture data is already downloading';
     }
 
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
 
     // acquire lock
     bool lockAcquired = await _acquireLock(daucompToUpdate);
@@ -495,7 +504,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _updateRoundStartEndTimesBasedOnFixture(
       DAUComp daucomp, List<dynamic> rawGames) async {
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
 
     // Group games by league and round
     Map<String, List<Map<dynamic, dynamic>>> groups =
@@ -648,7 +657,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       List<DAURound> combinedRounds, DAUComp daucomp) async {
     log('In daucompsviewmodel._updateCombinedRoundsInDatabase()');
 
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
 
     // Update combined rounds in a separate batch
     for (var i = 0; i < combinedRounds.length; i++) {
@@ -675,60 +684,79 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
+  bool _isLinkingGames = false;
+
   Future<void> linkGamesWithRounds(List<DAURound> allRounds) async {
-    log('In daucompsviewmodel.linkGameWithRounds()');
+    log('In daucompsviewmodel.linkGamesWithRounds()');
 
-    await initialLoadComplete;
+    // make sure other view models are loaded
+    await otherViewModelsLoadComplete;
 
-    // Clear the unassigned games list before recalculating
-    unassignedGames.clear();
-
-    unassignedGames = List.from(await gamesViewModel!.getGames());
-
-    for (var round in allRounds) {
-      // Assign games to the round
-      round.games = await gamesViewModel!.getGamesForRound(round);
-
-      // Initialize the round state
-      _initRoundState(round);
-
-      // Remove assigned games from the unassigned games list
-      unassignedGames.removeWhere((game) =>
-          round.games.any((roundGame) => roundGame.dbkey == game.dbkey));
-
-      // in this round, do any nrl games have a kickoff time that is later than the cutoff time
-      // if so then remove them from unassigned games
-      if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
-        unassignedGames.removeWhere((game) =>
-            game.league == League.nrl &&
-            game.startTimeUTC
-                .isAfter(_selectedDAUComp!.nrlRegularCompEndDateUTC!));
-      }
-
-      if (_selectedDAUComp!.aflRegularCompEndDateUTC != null) {
-        unassignedGames.removeWhere((game) =>
-            game.league == League.afl &&
-            game.startTimeUTC
-                .isAfter(_selectedDAUComp!.aflRegularCompEndDateUTC!));
-      }
-
-      // Update AFL and NRL game counts for the round
-      round.nrlGameCount = round.games
-          .where((game) => game.league == League.nrl)
-          .toList()
-          .length;
-      round.aflGameCount = round.games
-          .where((game) => game.league == League.afl)
-          .toList()
-          .length;
+    // Ensure only one instance runs at a time
+    if (_isLinkingGames) {
+      log('linkGamesWithRounds() is already running. Skipping this call.');
+      return;
     }
+    _isLinkingGames = true;
 
-    log('Unassigned games count: ${unassignedGames.length}');
-    notifyListeners();
+    try {
+      await initialDAUCompLoadComplete;
+
+      // Create a local copy of unassignedGames
+      List<Game> localUnassignedGames =
+          List.from(await gamesViewModel!.getGames());
+
+      for (var round in allRounds) {
+        // Assign games to the round
+        round.games = await gamesViewModel!.getGamesForRound(round);
+
+        // Initialize the round state
+        _initRoundState(round);
+
+        // Remove assigned games from the local unassigned games list
+        localUnassignedGames.removeWhere((game) =>
+            round.games.any((roundGame) => roundGame.dbkey == game.dbkey));
+
+        // Remove games that exceed the cutoff time for NRL and AFL
+        if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
+          localUnassignedGames.removeWhere((game) =>
+              game.league == League.nrl &&
+              game.startTimeUTC
+                  .isAfter(_selectedDAUComp!.nrlRegularCompEndDateUTC!));
+        }
+
+        if (_selectedDAUComp!.aflRegularCompEndDateUTC != null) {
+          localUnassignedGames.removeWhere((game) =>
+              game.league == League.afl &&
+              game.startTimeUTC
+                  .isAfter(_selectedDAUComp!.aflRegularCompEndDateUTC!));
+        }
+
+        // Update AFL and NRL game counts for the round
+        round.nrlGameCount = round.games
+            .where((game) => game.league == League.nrl)
+            .toList()
+            .length;
+        round.aflGameCount = round.games
+            .where((game) => game.league == League.afl)
+            .toList()
+            .length;
+      }
+
+      // Update the shared unassignedGames list after all operations are complete
+      unassignedGames = localUnassignedGames;
+
+      log('Unassigned games count: ${unassignedGames.length}');
+      notifyListeners();
+    } catch (e) {
+      log('Error in linkGamesWithRounds(): $e');
+    } finally {
+      _isLinkingGames = false;
+    }
   }
 
   Future<DAUComp?> findComp(String compDbKey) async {
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
     return _daucomps.firstWhereOrNull((daucomp) => daucomp.dbkey == compDbKey);
   }
 
@@ -766,14 +794,14 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('No DAUComp updates to save');
       return;
     }
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
     log('Saving batch of ${updates.length} DAUComp database updates');
     await _db.update(updates);
     _savingDAUComp = false;
   }
 
   Future<List<DAUComp>> getDAUcomps() async {
-    await initialLoadComplete;
+    await initialDAUCompLoadComplete;
     return _daucomps;
   }
 

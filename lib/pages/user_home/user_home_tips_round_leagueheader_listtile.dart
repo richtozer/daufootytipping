@@ -16,7 +16,8 @@ Widget roundLeagueHeaderListTile(
     double logoHeight,
     DAURound dauRound,
     DAUCompsViewModel daucompsViewModel,
-    Tipper selectedTipper) {
+    Tipper selectedTipper,
+    bool isPercentStatsPage) {
   // Calculate the number of days until the first game starts for this league round
   List<Game> gamesForLeague = dauRound.getGamesForLeague(leagueHeader);
   DateTime? firstGameStart;
@@ -32,26 +33,32 @@ Widget roundLeagueHeaderListTile(
       .numberOfMarginTipsSubmittedForRoundAndLeague(dauRound, leagueHeader);
 
   return Card(
-    color: Colors.black54,
-    surfaceTintColor: League.nrl.colour,
+    color: !isPercentStatsPage ? Colors.black54 : Colors.white10,
+    surfaceTintColor:
+        !isPercentStatsPage ? League.nrl.colour : League.nrl.colour,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(8.0),
     ),
     child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(15.0),
+          padding: const EdgeInsets.all(10.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Column(
                 children: [
-                  const Text('Round',
+                  Text('Round',
                       style: TextStyle(
-                          color: Colors.white70, fontWeight: FontWeight.bold)),
+                          color: !isPercentStatsPage
+                              ? Colors.white70
+                              : Colors.black54,
+                          fontWeight: FontWeight.bold)),
                   Text('${dauRound.dAUroundNumber}',
-                      style: const TextStyle(
-                          color: Colors.white70,
+                      style: TextStyle(
+                          color: !isPercentStatsPage
+                              ? Colors.white70
+                              : Colors.black54,
                           fontWeight: FontWeight.bold,
                           fontSize: 30)),
                 ],
@@ -68,15 +75,19 @@ Widget roundLeagueHeaderListTile(
                         children: [
                           dauRound.roundState != RoundState.notStarted
                               ? Text(
-                                  style: const TextStyle(
-                                      color: Colors.white70,
+                                  style: TextStyle(
+                                      color: !isPercentStatsPage
+                                          ? Colors.white70
+                                          : Colors.black54,
                                       fontWeight: FontWeight.bold),
                                   'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}')
                               : const SizedBox.shrink(),
                           dauRound.roundState != RoundState.notStarted
                               ? Text(
-                                  style: const TextStyle(
-                                      color: Colors.white70,
+                                  style: TextStyle(
+                                      color: !isPercentStatsPage
+                                          ? Colors.white70
+                                          : Colors.black54,
                                       fontWeight: FontWeight.bold),
                                   'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}')
                               : Column(
@@ -102,8 +113,10 @@ Widget roundLeagueHeaderListTile(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                        style: const TextStyle(
-                                            color: Colors.white70,
+                                        style: TextStyle(
+                                            color: !isPercentStatsPage
+                                                ? Colors.white70
+                                                : Colors.black54,
                                             fontWeight: FontWeight.bold),
                                         'Rank: ${roundStats.rank}  '),
                                     roundStats.rankChange > 0
@@ -118,8 +131,10 @@ Widget roundLeagueHeaderListTile(
                                                 color: Colors.green,
                                                 Icons.sync_alt),
                                     Text(
-                                        style: const TextStyle(
-                                            color: Colors.white70,
+                                        style: TextStyle(
+                                            color: !isPercentStatsPage
+                                                ? Colors.white70
+                                                : Colors.black54,
                                             fontWeight: FontWeight.bold),
                                         '${roundStats.rankChange}'),
                                   ],

@@ -658,11 +658,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                               ),
                             ],
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              //mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Counts of games grouped by DAU round:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                Flexible(
+                                  child: const Text(
+                                    'Counts of games grouped by DAU round:',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.info_outline),

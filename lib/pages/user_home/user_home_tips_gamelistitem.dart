@@ -1,9 +1,11 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
@@ -11,6 +13,7 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart'
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 
 class GameListItem extends StatefulWidget {
@@ -20,19 +23,20 @@ class GameListItem extends StatefulWidget {
     required this.currentTipper,
     required this.currentDAUComp,
     required this.allTipsViewModel,
+    required this.isPercentStatsPage,
   });
 
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
+  final bool isPercentStatsPage;
 
   @override
   State<GameListItem> createState() => _GameListItemState();
 }
 
 class _GameListItemState extends State<GameListItem> {
-  Tip? tip;
   late final GameTipViewModel gameTipsViewModel;
 
   @override
@@ -55,53 +59,99 @@ class _GameListItemState extends State<GameListItem> {
             color: Colors.white70,
             surfaceTintColor: League.nrl.colour,
             child: Row(children: [
-              Padding(
-                padding: const EdgeInsets.all(0.0),
-                child: SizedBox(
-                  width: 100,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Text(
-                        gameTipsViewModelConsumer.game.homeTeam.name,
-                        textAlign: TextAlign.left,
-                        style: const TextStyle(
-                          overflow: TextOverflow.ellipsis,
-                          fontSize: 16.0,
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+              Tooltip(
+                message: 'Click here to edit scoring for this game',
+                child: GestureDetector(
+                  onTap: () => showMaterialModalBottomSheet(
+                      expand: false,
+                      context: context,
+                      builder: (context) =>
+                          LiveScoringModal(gameTipsViewModelConsumer.tip!)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(0.0),
+                    child: SizedBox(
+                      width: 130,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          SvgPicture.asset(
-                            gameTipsViewModelConsumer.game.homeTeam.logoURI ??
-                                (gameTipsViewModelConsumer.game.league ==
-                                        League.nrl
-                                    ? League.nrl.logo
-                                    : League.afl.logo),
-                            width: 20,
-                            height: 20,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                gameTipsViewModelConsumer.game.homeTeam.name,
+                                textAlign: TextAlign.left,
+                                style: const TextStyle(
+                                  overflow: TextOverflow.ellipsis,
+                                  fontSize: 16.0,
+                                ),
+                              ),
+                              SizedBox(
+                                width: 5,
+                              ),
+                              gameTipsViewModelConsumer.game.gameState ==
+                                      GameState.startedResultNotKnown
+                                  ? liveScoringHome(
+                                      gameTipsViewModelConsumer.game, context)
+                                  : fixtureScoringHome(
+                                      gameTipsViewModelConsumer),
+                            ],
                           ),
-                          const Text(textAlign: TextAlign.left, ' V '),
-                          SvgPicture.asset(
-                            gameTipsViewModelConsumer.game.awayTeam.logoURI ??
-                                (gameTipsViewModelConsumer.game.league ==
-                                        League.nrl
-                                    ? League.nrl.logo
-                                    : League.afl.logo),
-                            width: 20,
-                            height: 20,
+                          gameTipsViewModelConsumer.game.gameState ==
+                                  GameState.startedResultNotKnown
+                              ? liveScoringEdit(context)
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SvgPicture.asset(
+                                      gameTipsViewModelConsumer
+                                              .game.homeTeam.logoURI ??
+                                          (gameTipsViewModelConsumer
+                                                      .game.league ==
+                                                  League.nrl
+                                              ? League.nrl.logo
+                                              : League.afl.logo),
+                                      width: 25,
+                                      height: 25,
+                                    ),
+                                    const Text(
+                                        textAlign: TextAlign.left, ' V '),
+                                    SvgPicture.asset(
+                                      gameTipsViewModelConsumer
+                                              .game.awayTeam.logoURI ??
+                                          (gameTipsViewModelConsumer
+                                                      .game.league ==
+                                                  League.nrl
+                                              ? League.nrl.logo
+                                              : League.afl.logo),
+                                      width: 25,
+                                      height: 25,
+                                    ),
+                                  ],
+                                ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                  style: const TextStyle(
+                                    overflow: TextOverflow.ellipsis,
+                                    fontSize: 16.0,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                  gameTipsViewModelConsumer.game.awayTeam.name),
+                              SizedBox(
+                                width: 5,
+                              ),
+                              gameTipsViewModelConsumer.game.gameState ==
+                                      GameState.startedResultNotKnown
+                                  ? liveScoringAway(
+                                      gameTipsViewModelConsumer.game, context)
+                                  : fixtureScoringAway(
+                                      gameTipsViewModelConsumer),
+                            ],
                           ),
                         ],
                       ),
-                      Text(
-                          style: const TextStyle(
-                            overflow: TextOverflow.ellipsis,
-                            fontSize: 16.0,
-                          ),
-                          textAlign: TextAlign.left,
-                          gameTipsViewModelConsumer.game.awayTeam.name),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -118,7 +168,8 @@ class _GameListItemState extends State<GameListItem> {
                           onPageChanged: (index, reason) {
                             gameTipsViewModelConsumer.currentIndex = index;
                           }),
-                      items: carouselItems(gameTipsViewModelConsumer),
+                      items: carouselItems(
+                          gameTipsViewModelConsumer, widget.isPercentStatsPage),
                       carouselController: gameTipsViewModelConsumer.controller,
                     ),
                   ],
@@ -167,7 +218,13 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  List<Widget> carouselItems(GameTipViewModel gameTipsViewModelConsumer) {
+  List<Widget> carouselItems(
+      GameTipViewModel gameTipsViewModelConsumer, bool isPercentStatsPage) {
+    if (isPercentStatsPage) {
+      return [
+        gameStatsCard(gameTipsViewModelConsumer),
+      ];
+    }
     if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
@@ -202,6 +259,47 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameTipCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return TipChoice(gameTipsViewModelConsumer);
+    return TipChoice(gameTipsViewModelConsumer, false);
   }
+
+  Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
+    return TipChoice(gameTipsViewModelConsumer, true);
+  }
+}
+
+Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
+  return Text(
+      style: const TextStyle(fontWeight: FontWeight.w800),
+      ' ${consumerTipGame.scoring?.currentScore(ScoringTeam.home) ?? '0'}');
+}
+
+Widget liveScoringAway(Game consumerTipGame, BuildContext context) {
+  return Text(
+      style: const TextStyle(fontWeight: FontWeight.w800),
+      '${consumerTipGame.scoring?.currentScore(ScoringTeam.away) ?? '0'} ');
+}
+
+Widget liveScoringEdit(BuildContext context) {
+  return SizedBox(
+    width: 30,
+    child: const Icon(Icons.edit),
+  );
+}
+
+Widget fixtureScoringHome(GameTipViewModel consumerTipGameViewModel) {
+  return Text('${consumerTipGameViewModel.game.scoring!.homeTeamScore ?? ''}',
+      style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
+          ? TextStyle(
+              backgroundColor: Colors.lightGreen[200],
+              fontWeight: FontWeight.w900)
+          : TextStyle(fontWeight: FontWeight.w600));
+}
+
+Widget fixtureScoringAway(GameTipViewModel consumerTipGameViewModel) {
+  return Text('${consumerTipGameViewModel.game.scoring!.awayTeamScore ?? ''}',
+      style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
+          ? TextStyle(
+              backgroundColor: Colors.lightGreen[200],
+              fontWeight: FontWeight.w900)
+          : TextStyle(fontWeight: FontWeight.w600));
 }
