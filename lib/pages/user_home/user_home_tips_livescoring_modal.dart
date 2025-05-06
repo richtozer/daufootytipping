@@ -240,6 +240,9 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                           di<DAUCompsViewModel>()
                                               .selectedDAUComp!),
                                       null);
+                                  // update % tipped
+                                  di<StatsViewModel>().getGamesStatsEntry(
+                                      widget.tip.game, true);
                                 },
                       style: ElevatedButton.styleFrom(
                           minimumSize:

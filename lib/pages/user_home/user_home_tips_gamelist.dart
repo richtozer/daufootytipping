@@ -16,6 +16,7 @@ class GameListBuilder extends StatefulWidget {
     required this.league,
     required this.tipperTipsViewModel,
     required this.dauCompsViewModel,
+    required this.isPercentStatsPage,
   });
 
   final Tipper currentTipper;
@@ -23,14 +24,13 @@ class GameListBuilder extends StatefulWidget {
   final League league;
   final TipsViewModel? tipperTipsViewModel;
   final DAUCompsViewModel dauCompsViewModel;
+  final bool isPercentStatsPage;
 
   @override
   State<GameListBuilder> createState() => _GameListBuilderState();
 }
 
 class _GameListBuilderState extends State<GameListBuilder> {
-  late Game loadingGame;
-
   late List<Game>? leagueGames;
   late Map<League, List<Game>> allGames;
 
@@ -78,6 +78,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
                 currentTipper: widget.currentTipper,
                 currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
                 allTipsViewModel: widget.tipperTipsViewModel!,
+                isPercentStatsPage: widget.isPercentStatsPage,
               );
             },
           );

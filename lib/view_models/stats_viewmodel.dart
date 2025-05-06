@@ -42,14 +42,14 @@ class StatsViewModel extends ChangeNotifier {
 
   bool _isUpdateScoringRunning = false;
   bool get isUpdateScoringRunning => _isUpdateScoringRunning;
-  bool _isUpdatingLeaderAndRoundAndRank = false;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
   Future<void> get initialLiveScoreLoadComplete =>
       _initialLiveScoreLoadCompleter.future;
 
-  final Completer<void> _initialRoundLoadCompleted = Completer();
-  Future<void> get initialRoundComplete => _initialRoundLoadCompleted.future;
+  final Completer<void> _initialRoundScoresLoadCompleted = Completer();
+  Future<void> get initialRoundScoresComplete =>
+      _initialRoundScoresLoadCompleted.future;
 
   List<LeaderboardEntry> _compLeaderboard = [];
   List<LeaderboardEntry> get compLeaderboard => _compLeaderboard;
@@ -133,8 +133,8 @@ class StatsViewModel extends ChangeNotifier {
         log('StatsViewModel._handleEventRoundScores() Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores');
       }
 
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        _initialRoundLoadCompleted.complete();
+      if (!_initialRoundScoresLoadCompleted.isCompleted) {
+        _initialRoundScoresLoadCompleted.complete();
       }
 
       // Update the leaderboard
@@ -142,8 +142,8 @@ class StatsViewModel extends ChangeNotifier {
     } catch (e, stackTrace) {
       log('Error listening to /$statsPathRoot/round_scores: $e');
       _allTipperRoundStats.clear(); // Rollback partial updates
-      if (!_initialRoundLoadCompleted.isCompleted) {
-        _initialRoundLoadCompleted.completeError(e, stackTrace);
+      if (!_initialRoundScoresLoadCompleted.isCompleted) {
+        _initialRoundScoresLoadCompleted.completeError(e, stackTrace);
       }
       rethrow; // Re-throw the error
     }
@@ -247,9 +247,9 @@ class StatsViewModel extends ChangeNotifier {
       var stopwatch = Stopwatch()..start();
 
       try {
-        if (!_initialRoundLoadCompleted.isCompleted) {
+        if (!_initialRoundScoresLoadCompleted.isCompleted) {
           try {
-            await _initialRoundLoadCompleted.future;
+            await _initialRoundScoresLoadCompleted.future;
           } catch (e) {
             log('StatsViewModel.updateStats() Error waiting for initial round load: $e');
             _allTipperRoundStats.clear(); // reset
@@ -260,6 +260,9 @@ class StatsViewModel extends ChangeNotifier {
 
         _logEventScoringInitiated(
             daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
+
+        /// make sure we have all tippers
+        await di<TippersViewModel>().initialLoadComplete;
 
         // Set the tippers to update
         List<Tipper> tippersToUpdate = onlyUpdateThisTipper != null
@@ -357,47 +360,39 @@ class StatsViewModel extends ChangeNotifier {
     return roundLeaderboard;
   }
 
-  Future<void> _updateGameResultPercentageTipped(Game gameToCalculateFor,
-      TipsViewModel allTipsViewModel, DAUComp daucompToUpdate) async {
-    GameStatsEntry gameStatsEntry =
-        await _calculateGameStatsEntry(gameToCalculateFor, allTipsViewModel);
-    await _updateGameStatsIfChanged(
-        gameToCalculateFor, gameStatsEntry, daucompToUpdate);
-  }
+  final Map<Game, GameStatsEntry> gamesStatsEntry = {};
 
-  Future<GameStatsEntry> _calculateGameStatsEntry(
-      Game game, TipsViewModel allTipsViewModel) async {
-    GameStatsEntry gameStatsEntry = GameStatsEntry();
-    List<Future<void>> futures = [];
+  void getGamesStatsEntry(Game game, bool forceUpdate) async {
+    log('StatsViewModel.getGamesStatsEntry() START for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+    // get any existing games stats entry from db first
+    gamesStatsEntry[game] = await _getGameStatsEntry(game);
 
-    for (GameResult gameResult in GameResult.values) {
-      futures.add(allTipsViewModel
-          .percentageOfTippersTipped(gameResult, game)
-          .then((percentTipped) {
-        switch (gameResult) {
-          case GameResult.a:
-            gameStatsEntry.percentageTippedHomeMargin = percentTipped;
-            break;
-          case GameResult.b:
-            gameStatsEntry.percentageTippedHome = percentTipped;
-            break;
-          case GameResult.c:
-            gameStatsEntry.percentageTippedDraw = percentTipped;
-            break;
-          case GameResult.d:
-            gameStatsEntry.percentageTippedAway = percentTipped;
-            break;
-          case GameResult.e:
-            gameStatsEntry.percentageTippedAwayMargin = percentTipped;
-            break;
-          case GameResult.z:
-            break;
-        }
-      }));
+    // if its not null and not forcing update then return what we have
+    if (gamesStatsEntry[game]?.averageScore != null && !forceUpdate) {
+      notifyListeners();
+      log('StatsViewModel.getGamesStatsEntry() END (use cache) for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+      return;
     }
 
-    await Future.wait(futures);
-    return gameStatsEntry;
+    // otherwise prep tips model to load all tips to do the calculation - note this is an expensive operation
+    allTipsViewModel ??=
+        TipsViewModel(di<TippersViewModel>(), selectedDAUComp, gamesViewModel!);
+
+    // initialise or update the game stats entry
+    await _updateGameResultPercentageTipped(
+        game, allTipsViewModel!, selectedDAUComp);
+
+    notifyListeners();
+    log('StatsViewModel.getGamesStatsEntry() END for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+  }
+
+  Future<void> _updateGameResultPercentageTipped(Game gameToCalculateFor,
+      TipsViewModel allTipsViewModel, DAUComp daucompToUpdate) async {
+    gamesStatsEntry[gameToCalculateFor] =
+        await allTipsViewModel.percentageOfTippersTipped(gameToCalculateFor);
+
+    await _updateGameStatsIfChanged(gameToCalculateFor,
+        gamesStatsEntry[gameToCalculateFor]!, daucompToUpdate);
   }
 
   Future<void> _updateGameStatsIfChanged(
@@ -405,22 +400,48 @@ class StatsViewModel extends ChangeNotifier {
     assert(_isSelectedTipperPaidUpMember != null);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
-    if (gameStatsEntry != game.gameStats) {
-      await _db
-          .child(statsPathRoot)
-          .child(daucompToUpdate.dbkey!)
-          .child(gameStatsRoot)
-          .child(subKey)
-          .child(game.dbkey)
-          .set(gameStatsEntry.toJson());
-      log('StatsViewModel._writeGameResultPercentageTipped() Wrote game stats for game $subKey/${game.dbkey}');
-    } else {
-      log('StatsViewModel._writeGameResultPercentageTipped() No change in game stats for game $subKey/${game.dbkey}');
-    }
+
+    log('Updating game stats for game: ${game.dbkey}');
+    log('Calculated gameStatsEntry: ${gameStatsEntry.toJson()}');
+    log('Existing game.gameStats: ${game.gameStats?.toJson()}');
+
+    // Use a transaction to ensure atomic updates
+    final gameStatsRef = _db
+        .child(statsPathRoot)
+        .child(daucompToUpdate.dbkey!)
+        .child(gameStatsRoot)
+        .child(subKey)
+        .child(game.dbkey);
+
+    await gameStatsRef.runTransaction((currentData) {
+      if (currentData != null) {
+        // Merge the new data with the existing data if needed
+        final existingStats = GameStatsEntry.fromJson(
+            Map<String, dynamic>.from(currentData as Map));
+        if (existingStats == gameStatsEntry) {
+          log('No changes detected in game stats for game: ${game.dbkey}');
+          return Transaction.abort(); // Abort the transaction if no changes
+        }
+      }
+
+      log('Writing updated game stats for game: ${game.dbkey}');
+      return Transaction.success(gameStatsEntry.toJson());
+    }).then((result) {
+      if (result.committed) {
+        log('Game stats successfully written to DB for game: ${game.dbkey}');
+      } else {
+        log('Transaction aborted: No changes made to game stats for game: ${game.dbkey}');
+      }
+    }).catchError((error) {
+      log('Error during transaction for game stats: $error');
+    });
   }
 
-  Future<GameStatsEntry> getGameStatsEntry(Game game) async {
-    assert(_isSelectedTipperPaidUpMember != null);
+  Future<GameStatsEntry> _getGameStatsEntry(Game game) async {
+    await di<TippersViewModel>().isUserLinked;
+
+    _isSelectedTipperPaidUpMember =
+        di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
     var snapshot = await _db
@@ -670,7 +691,7 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   List<RoundStats> getTipperRoundScoresForComp(Tipper tipper) {
-    if (!_initialRoundLoadCompleted.isCompleted) {
+    if (!_initialRoundScoresLoadCompleted.isCompleted) {
       return [];
     }
 
@@ -794,7 +815,7 @@ class StatsViewModel extends ChangeNotifier {
   _calculateRoundStatsForTipper(Tipper tipperToScore, DAURound dauRound,
       TipsViewModel allTipsViewModel) async {
     // wait until we are initialized
-    await _initialRoundLoadCompleted.future;
+    await _initialRoundScoresLoadCompleted.future;
 
     // initialize any round of tipper Maps as needed
     if (_allTipperRoundStats[dauRound.dAUroundNumber - 1] == null) {

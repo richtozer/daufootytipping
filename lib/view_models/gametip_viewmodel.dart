@@ -166,6 +166,11 @@ class GameTipViewModel extends ChangeNotifier {
       // also pass in the game, so we do a % tipped calculation
       di<StatsViewModel>().updateStats(
           _currentDAUComp, tip.game.getDAURound(_currentDAUComp), tip.tipper);
+
+      // if we are in god mode, then also do a gamestats update
+      if (di<TippersViewModel>().inGodMode == true) {
+        di<StatsViewModel>().getGamesStatsEntry(game, true);
+      }
     } catch (e) {
       log('GameTipsViewModel.addTip() error: $e');
       // rethrow exception so that the UI can handle it

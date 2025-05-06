@@ -80,7 +80,7 @@ class GamesViewModel extends ChangeNotifier {
               awayTeamScore: gameAsJSON['AwayTeamScore']);
 
           if (homeTeam != null && awayTeam != null) {
-            Game game = Game.fromFixtureJson(dbKey,
+            Game game = Game.fromJson(dbKey,
                 Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
             game.scoring = scoring;
 
@@ -138,7 +138,7 @@ class GamesViewModel extends ChangeNotifier {
     if (gameToUpdate != null) {
       dynamic oldValue = gameToUpdate.toJson()[attributeName];
       if (attributeValue != oldValue) {
-        log('Game: $gameDbKey needs update for attribute $attributeName: $attributeValue');
+        log('Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue');
         updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
         if (attributeName == 'HomeTeamScore' ||
@@ -154,6 +154,8 @@ class GamesViewModel extends ChangeNotifier {
           if (round != null && !_roundsThatNeedScoringUpdate.contains(round)) {
             _roundsThatNeedScoringUpdate
                 .add(gameToUpdate.getDAURound(selectedDAUComp)!);
+            // also force a gamestats update - in normal processing this should be the initial calcation
+            di<StatsViewModel>().getGamesStatsEntry(gameToUpdate, true);
           }
         }
       }

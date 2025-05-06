@@ -4,15 +4,32 @@ class GameStatsEntry {
   double? percentageTippedDraw = 0.0;
   double? percentageTippedAway = 0.0;
   double? percentageTippedAwayMargin = 0.0;
+  double? averageScore = 0.0;
 
-  //constructor
+  // Constructor
   GameStatsEntry({
-    this.percentageTippedHomeMargin,
-    this.percentageTippedHome,
-    this.percentageTippedDraw,
-    this.percentageTippedAway,
-    this.percentageTippedAwayMargin,
-  });
+    double? percentageTippedHomeMargin,
+    double? percentageTippedHome,
+    double? percentageTippedDraw,
+    double? percentageTippedAway,
+    double? percentageTippedAwayMargin,
+    double? averageScore,
+  }) {
+    // Reduce precision to 2 decimal places
+    this.percentageTippedHomeMargin =
+        reducePrecision(percentageTippedHomeMargin);
+    this.percentageTippedHome = reducePrecision(percentageTippedHome);
+    this.percentageTippedDraw = reducePrecision(percentageTippedDraw);
+    this.percentageTippedAway = reducePrecision(percentageTippedAway);
+    this.percentageTippedAwayMargin =
+        reducePrecision(percentageTippedAwayMargin);
+    this.averageScore = reducePrecision(averageScore);
+  }
+
+  // Helper method to reduce precision
+  double? reducePrecision(double? value) {
+    return value != null ? double.parse(value.toStringAsFixed(3)) : null;
+  }
 
   @override
   bool operator ==(Object other) {
@@ -23,7 +40,8 @@ class GameStatsEntry {
         other.percentageTippedHome == percentageTippedHome &&
         other.percentageTippedDraw == percentageTippedDraw &&
         other.percentageTippedAway == percentageTippedAway &&
-        other.percentageTippedAwayMargin == percentageTippedAwayMargin;
+        other.percentageTippedAwayMargin == percentageTippedAwayMargin &&
+        other.averageScore == averageScore;
   }
 
   @override
@@ -32,10 +50,11 @@ class GameStatsEntry {
         percentageTippedHome.hashCode ^
         percentageTippedDraw.hashCode ^
         percentageTippedAway.hashCode ^
-        percentageTippedAwayMargin.hashCode;
+        percentageTippedAwayMargin.hashCode ^
+        averageScore.hashCode;
   }
 
-  // method to convert instance into json
+  // Method to convert instance into JSON
   Map<String, dynamic> toJson() {
     return {
       'pctTipA': percentageTippedHomeMargin,
@@ -43,17 +62,19 @@ class GameStatsEntry {
       'pctTipC': percentageTippedDraw,
       'pctTipD': percentageTippedAway,
       'pctTipE': percentageTippedAwayMargin,
+      'avgScore': averageScore,
     };
   }
 
-  // method to convert json into instance
+  // Method to convert JSON into instance
   factory GameStatsEntry.fromJson(Map<String, dynamic> data) {
     return GameStatsEntry(
-      percentageTippedHomeMargin: data['pctTipA'],
-      percentageTippedHome: data['pctTipB'],
-      percentageTippedDraw: data['pctTipC'],
-      percentageTippedAway: data['pctTipD'],
-      percentageTippedAwayMargin: data['pctTipE'],
+      percentageTippedHomeMargin: (data['pctTipA'] as num?)?.toDouble(),
+      percentageTippedHome: (data['pctTipB'] as num?)?.toDouble(),
+      percentageTippedDraw: (data['pctTipC'] as num?)?.toDouble(),
+      percentageTippedAway: (data['pctTipD'] as num?)?.toDouble(),
+      percentageTippedAwayMargin: (data['pctTipE'] as num?)?.toDouble(),
+      averageScore: (data['avgScore'] as num?)?.toDouble(),
     );
   }
 }
