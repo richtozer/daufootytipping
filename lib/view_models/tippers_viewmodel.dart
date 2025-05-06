@@ -153,7 +153,7 @@ class TippersViewModel extends ChangeNotifier {
     // the Tipper serialisation relies on daucompsviewmodel being ready
     // so we need to wait for it to be ready before we can update the tipper
 
-    await di<DAUCompsViewModel>().initialLoadComplete;
+    await di<DAUCompsViewModel>().initialDAUCompLoadComplete;
 
     dynamic oldValue = tipperToUpdate.toJson()[attributeName];
     if (attributeValue != oldValue) {
