@@ -38,6 +38,14 @@ class GamesViewModel extends ChangeNotifier {
   // Constructor
   GamesViewModel(this.selectedDAUComp, this._dauCompsViewModel) {
     _teamsViewModel = TeamsViewModel();
+    _initialize();
+  }
+
+  // Initialize the view model
+  void _initialize() async {
+    // await teams load to complete
+    await _teamsViewModel.initialLoadComplete;
+    // Listen to the games in the selected DAUComp
     _listenToGames();
   }
 
@@ -51,7 +59,7 @@ class GamesViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> _handleEvent(DatabaseEvent event) async {
+  void _handleEvent(DatabaseEvent event) {
     if (_isUpdating) {
       log('GamesViewModel_handleEvent: _isUpdating is true. Returning.');
       return; // Prevent re-entrant updates
@@ -63,34 +71,32 @@ class GamesViewModel extends ChangeNotifier {
             Map<String, dynamic>.from(event.snapshot.value as dynamic);
 
         // Deserialize the games
-        List<Game> gamesList =
-            await Future.wait(allGames.entries.map((entry) async {
+        List<Game> gamesList = allGames.entries.map((entry) {
           String dbKey = entry.key; // Retrieve the Firebase key
           String league = dbKey.split('-').first;
           dynamic gameAsJSON = entry.value;
 
-          //we need to find and deserialize the home and away teams first before we can deserialize the game
-          Team? homeTeam = await _teamsViewModel
-              .findTeam('$league-${gameAsJSON['HomeTeam']}');
-          Team? awayTeam = await _teamsViewModel
-              .findTeam('$league-${gameAsJSON['AwayTeam']}');
+          // Find and deserialize the home and away teams
+          Team? homeTeam =
+              _teamsViewModel.findTeam('$league-${gameAsJSON['HomeTeam']}');
+          Team? awayTeam =
+              _teamsViewModel.findTeam('$league-${gameAsJSON['AwayTeam']}');
+
+          if (homeTeam == null || awayTeam == null) {
+            throw Exception(
+                'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null');
+          }
 
           Scoring? scoring = Scoring(
               homeTeamScore: gameAsJSON['HomeTeamScore'],
               awayTeamScore: gameAsJSON['AwayTeamScore']);
 
-          if (homeTeam != null && awayTeam != null) {
-            Game game = Game.fromJson(dbKey,
-                Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
-            game.scoring = scoring;
+          Game game = Game.fromJson(
+              dbKey, Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
+          game.scoring = scoring;
 
-            return game;
-          } else {
-            // homeTeam or awayTeam should not be null
-            throw Exception(
-                'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null');
-          }
-        }).toList());
+          return game;
+        }).toList();
 
         _games = gamesList;
         _games.sort();
@@ -103,9 +109,8 @@ class GamesViewModel extends ChangeNotifier {
         _initialLoadCompleter.complete();
       }
 
-      // Now that we have all the games from db
-      // call linkGamesWithRounds() to link the games with the rounds
-      await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
+      // Link games with rounds
+      _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
