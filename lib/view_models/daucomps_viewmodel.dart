@@ -806,9 +806,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Map<League, List<Game>> groupGamesIntoLeagues(DAURound combinedRound) {
-    //await initialLoadComplete;
-    //await gamesViewModel!.initialLoadComplete;
-
     List<Game> nrlGames = [];
     List<Game> aflGames = [];
 

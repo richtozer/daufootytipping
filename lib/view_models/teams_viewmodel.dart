@@ -118,8 +118,12 @@ class TeamsViewModel extends ChangeNotifier {
     await _db.update(updates);
   }
 
-  Future<Team?> findTeam(String teamDbKey) async {
-    await _initialLoadCompleter.future;
+  Team? findTeam(String teamDbKey) {
+    // if the initial load is not complete, throw an exception
+    if (!_initialLoadCompleter.isCompleted) {
+      throw Exception(
+          'TeamsViewModel.findTeam() Initial Teams load not complete');
+    }
     return _teams.firstWhereOrNull(
         (team) => team.dbkey.toLowerCase() == teamDbKey.toLowerCase());
   }

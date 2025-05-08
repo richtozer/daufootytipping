@@ -46,19 +46,47 @@ class _GameListBuilderState extends State<GameListBuilder> {
           leagueGames = allGames[widget.league];
 
           if (leagueGames!.isEmpty) {
-            return SizedBox(
-              height: 75,
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                color: Colors.white70,
-                child: Center(
-                  child: Text(
-                      'No ${widget.league.name.toUpperCase()} games this round'),
-                ),
-              ),
-            );
+            // await the initial game load to complete - gamesViewModel.initialLoadComplete - display a progress indicator until it does
+            if (dauCompsViewModelConsumer.gamesViewModel != null) {
+              return FutureBuilder<void>(
+                future: dauCompsViewModelConsumer
+                    .gamesViewModel!.initialLoadComplete,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                        child: CircularProgressIndicator(
+                            color: League.nrl.colour));
+                  }
+                  return SizedBox(
+                    height: 75,
+                    child: Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      color: Colors.white70,
+                      child: Center(
+                        child: Text(
+                            'No ${widget.league.name.toUpperCase()} games this round'),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+
+            // return SizedBox(
+            //   height: 75,
+            //   child: Card(
+            //     shape: RoundedRectangleBorder(
+            //       borderRadius: BorderRadius.circular(8.0),
+            //     ),
+            //     color: Colors.white70,
+            //     child: Center(
+            //       child: Text(
+            //           'No ${widget.league.name.toUpperCase()} games this round'),
+            //     ),
+            //   ),
+            // );
           }
 
           return ListView.builder(
