@@ -223,7 +223,7 @@ class TipsTabState extends State<TipsTab> {
         dauRound: dauRound,
         league: league,
         tipperTipsViewModel:
-            daucompsViewmodelConsumer.selectedTipperTipsViewModel!,
+            daucompsViewmodelConsumer.selectedTipperTipsViewModel,
         dauCompsViewModel: daucompsViewmodelConsumer,
         isPercentStatsPage: false,
       );

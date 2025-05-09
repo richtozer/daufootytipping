@@ -25,6 +25,14 @@ Widget roundLeagueHeaderListTile(
     firstGameStart = gamesForLeague.first.startTimeUTC;
   }
 
+  // tipsOutstanding = daucompsViewModel.selectedTipperTipsViewModel is null return
+  // a progress indicator
+  if (daucompsViewModel.selectedTipperTipsViewModel == null) {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  }
+
   int tipsOutstanding = daucompsViewModel.selectedTipperTipsViewModel!
       .numberOfOutstandingTipsForRoundAndLeague(dauRound, leagueHeader);
 
@@ -66,8 +74,13 @@ Widget roundLeagueHeaderListTile(
               // if the league round has no games then display an empty container, otherwise display the column of stats
               gamesForLeague.isEmpty
                   ? const SizedBox.shrink()
-                  : Consumer<StatsViewModel>(
+                  : Consumer<StatsViewModel?>(
                       builder: (context, statsViewModel, child) {
+                      if (statsViewModel == null) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
                       RoundStats roundStats = statsViewModel
                           .getScoringRoundStats(dauRound, selectedTipper);
 
