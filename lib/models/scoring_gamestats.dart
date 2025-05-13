@@ -1,10 +1,10 @@
 class GameStatsEntry {
-  double? percentageTippedHomeMargin = 0.0;
-  double? percentageTippedHome = 0.0;
-  double? percentageTippedDraw = 0.0;
-  double? percentageTippedAway = 0.0;
-  double? percentageTippedAwayMargin = 0.0;
-  double? averageScore = 0.0;
+  double? percentageTippedHomeMargin;
+  double? percentageTippedHome;
+  double? percentageTippedDraw;
+  double? percentageTippedAway;
+  double? percentageTippedAwayMargin;
+  double? averageScore;
 
   // Constructor
   GameStatsEntry({

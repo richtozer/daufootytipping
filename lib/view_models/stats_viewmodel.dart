@@ -378,6 +378,9 @@ class StatsViewModel extends ChangeNotifier {
     allTipsViewModel ??=
         TipsViewModel(di<TippersViewModel>(), selectedDAUComp, gamesViewModel!);
 
+    // await for the tips model to load
+    await allTipsViewModel!.initialLoadCompleted;
+
     // initialise or update the game stats entry
     await _updateGameResultPercentageTipped(
         game, allTipsViewModel!, selectedDAUComp);
