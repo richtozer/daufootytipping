@@ -64,7 +64,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                     '!2025 - returns all tippers that did not pay for a comp with "2025" in its name'),
                 Text('godmode - returns the tipper record in god mode'),
                 Text(
-                    'id=abcd - returns the tipper records with abcd is their dbkey'),
+                    'id=abcd - returns the tipper records with abcd in their dbkey'),
                 Text('etc'),
               ],
             ),
