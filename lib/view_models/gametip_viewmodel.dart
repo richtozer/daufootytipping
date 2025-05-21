@@ -41,6 +41,12 @@ class GameTipViewModel extends ChangeNotifier {
   Future<bool> get initialLoadCompleted async =>
       _initialLoadCompleter.isCompleted;
 
+  int historicalTotalTipsOnCombination = 0;
+  int historicalWinsOnCombination = 0;
+  int historicalLossesOnCombination = 0;
+  int historicalDrawsOnCombination = 0;
+  String historicalInsightsString = "";
+
   int currentIndex = 0;
 
   final CarouselSliderController _controller = CarouselSliderController();
@@ -122,6 +128,109 @@ class GameTipViewModel extends ChangeNotifier {
     }
 
     notifyListeners();
+
+    // Fetch historical stats after the main tip is found and initial load is complete
+    if (_initialLoadCompleter.isCompleted) {
+      await _fetchHistoricalTipStats();
+    }
+  }
+
+  Future<void> _fetchHistoricalTipStats() async {
+    log('GameTipViewModel._fetchHistoricalTipStats() called for game ${game.dbkey}, tipper ${currentTipper.name}');
+
+    // Reset stats before recalculating
+    historicalTotalTipsOnCombination = 0;
+    historicalWinsOnCombination = 0;
+    historicalLossesOnCombination = 0;
+    historicalDrawsOnCombination = 0;
+    historicalInsightsString = "";
+
+    // Ensure allTipsViewModel has completed its initial load.
+    // GameTipViewModel's _findTip already awaits allTipsViewModel.initialLoadCompleted
+    // so it should be safe here.
+
+    List<Tip?> tipperPastTips = allTipsViewModel.getTipsForTipper(currentTipper);
+
+    if (tipperPastTips.isEmpty) {
+      log('GameTipViewModel._fetchHistoricalTipStats(): No past tips found for tipper ${currentTipper.name}');
+      historicalInsightsString = "No past tips for this team combination.";
+      notifyListeners();
+      return;
+    }
+
+    for (Tip? pastTip in tipperPastTips) {
+      if (pastTip == null ||
+          pastTip.game == null ||
+          pastTip.game.homeTeam == null ||
+          pastTip.game.awayTeam == null ||
+          game.homeTeam == null || // Should not happen if game is valid
+          game.awayTeam == null) { // Should not happen if game is valid
+        continue;
+      }
+
+      // Exclude current game
+      if (pastTip.game.dbkey == game.dbkey) {
+        continue;
+      }
+
+      bool sameCombination =
+          (pastTip.game.homeTeam.dbkey == game.homeTeam.dbkey &&
+              pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
+          (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
+              pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
+
+      if (sameCombination) {
+        historicalTotalTipsOnCombination++;
+
+        if (pastTip.game.scoring == null) {
+          log('GameTipViewModel._fetchHistoricalTipStats(): Skipping tip ${pastTip.dbkey} due to null scoring info.');
+          continue;
+        }
+
+        GameResult? actualGameResult =
+            pastTip.game.scoring!.getGameResultCalculated(pastTip.game.league);
+
+        if (actualGameResult == null) {
+          log('GameTipViewModel._fetchHistoricalTipStats(): Skipping tip ${pastTip.dbkey} due to null actualGameResult.');
+          continue;
+        }
+
+        bool isActualGameDraw = (pastTip.game.league == League.afl && actualGameResult == GameResult.c) ||
+                                (pastTip.game.league == League.nrl && actualGameResult == GameResult.nrlDraw);
+        
+        bool isTipperPickedDraw = (pastTip.game.league == League.afl && pastTip.tip == GameResult.c) ||
+                                  (pastTip.game.league == League.nrl && pastTip.tip == GameResult.nrlDraw);
+
+        bool isWin = pastTip.tip == actualGameResult;
+
+        if (isWin) {
+          historicalWinsOnCombination++;
+          if (isActualGameDraw && isTipperPickedDraw) { // Tipper correctly predicted a draw
+            historicalDrawsOnCombination++;
+          }
+        } else { // Not a win
+          // It's a loss if it's not a win AND it's not the specific case of (actual draw AND tipper picked draw)
+          // The case (actual draw AND tipper picked draw) is already handled under "isWin"
+          // So, if it's not a "Win" (meaning tip != actualResult), it's a Loss.
+          historicalLossesOnCombination++;
+        }
+      }
+    }
+
+    if (historicalTotalTipsOnCombination == 0) {
+      historicalInsightsString = "No past tips for this team combination.";
+    } else {
+      historicalInsightsString =
+          "Previously on this matchup ($historicalTotalTipsOnCombination games): $historicalWinsOnCombination Wins, $historicalLossesOnCombination Losses, $historicalDrawsOnCombination Draws.";
+    }
+
+    log('GameTipViewModel._fetchHistoricalTipStats() results: $historicalInsightsString');
+    notifyListeners();
+  }
+
+  // Test hook for unit tests
+  Future<void> testHook_fetchHistoricalTipStats() async {
+    await _fetchHistoricalTipStats();
   }
 
   Future<Tip?> gettip() async {
