@@ -7,6 +7,8 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart';
 
 class StatsTab extends StatelessWidget {
   const StatsTab({super.key});
@@ -151,6 +153,58 @@ class StatsTab extends StatelessWidget {
                       Expanded(
                         child: Text(
                             'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.lowestRoundNumberNotEnded()}'),
+                      ),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LeagueLadderPage(
+                          league: League.nrl, // Pass League.nrl
+                          leagueLadder: null, // Pass null for now
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Row(
+                    children: [
+                      Icon(Icons.list_alt, size: 40), // Consider a different icon
+                      SizedBox(height: 64, width: 16),
+                      Expanded(
+                        child: Text('NRL Ladder\nView current standings'),
+                      ),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LeagueLadderPage(
+                          league: League.afl, // Pass League.afl
+                          leagueLadder: null, // Pass null for now
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Row(
+                    children: [
+                      Icon(Icons.leaderboard, size: 40), // Consider a different icon
+                      SizedBox(height: 64, width: 16),
+                      Expanded(
+                        child: Text('AFL Ladder\nView current standings'),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
