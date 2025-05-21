@@ -168,14 +168,14 @@ class StatsTab extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => const LeagueLadderPage(
                           league: League.nrl, // Pass League.nrl
-                          leagueLadder: null, // Pass null for now
                         ),
                       ),
                     );
                   },
                   child: const Row(
                     children: [
-                      Icon(Icons.list_alt, size: 40), // Consider a different icon
+                      Icon(Icons.list_alt,
+                          size: 40), // Consider a different icon
                       SizedBox(height: 64, width: 16),
                       Expanded(
                         child: Text('NRL Ladder\nView current standings'),
@@ -194,14 +194,14 @@ class StatsTab extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => const LeagueLadderPage(
                           league: League.afl, // Pass League.afl
-                          leagueLadder: null, // Pass null for now
                         ),
                       ),
                     );
                   },
                   child: const Row(
                     children: [
-                      Icon(Icons.leaderboard, size: 40), // Consider a different icon
+                      Icon(Icons.leaderboard,
+                          size: 40), // Consider a different icon
                       SizedBox(height: 64, width: 16),
                       Expanded(
                         child: Text('AFL Ladder\nView current standings'),

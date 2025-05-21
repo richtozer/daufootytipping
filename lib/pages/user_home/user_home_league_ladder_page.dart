@@ -1,10 +1,7 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
-import 'package:daufootytipping/models/ladder_team.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
-import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart';
 import 'package:flutter/material.dart';
@@ -14,9 +11,9 @@ class LeagueLadderPage extends StatefulWidget {
   final League league;
 
   const LeagueLadderPage({
-    Key? key,
+    super.key,
     required this.league,
-  }) : super(key: key);
+  });
 
   @override
   State<LeagueLadderPage> createState() => _LeagueLadderPageState();
@@ -44,15 +41,19 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         return;
       }
 
-      final gamesViewModel = di<GamesViewModel>();
-      final teamsViewModel = di<TeamsViewModel>();
-      final ladderService = LadderCalculationService();
+      final gamesViewModel = di<DAUCompsViewModel>().gamesViewModel;
+      await gamesViewModel!.initialLoadComplete;
 
-      await gamesViewModel.initialLoadComplete;
+      final teamsViewModel = gamesViewModel.teamsViewModel;
       await teamsViewModel.initialLoadComplete;
 
+      final ladderService = LadderCalculationService();
+
       List<Game> allGames = await gamesViewModel.getGames();
-      List<Team> leagueTeams = teamsViewModel.groupedTeams[widget.league.name.toLowerCase()]?.cast<Team>() ?? [];
+      List<Team> leagueTeams = teamsViewModel
+              .groupedTeams[widget.league.name.toLowerCase()]
+              ?.cast<Team>() ??
+          [];
 
       final calculatedLadder = ladderService.calculateLadder(
         allGames: allGames,
@@ -89,18 +90,47 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                         columnSpacing: 10.0,
                         horizontalMargin: 8.0,
                         headingRowHeight: 36.0,
-                        dataRowHeight: 30.0,
                         columns: const <DataColumn>[
-                          DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Team', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('P', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('W', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('L', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('D', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('For', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Agst', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('%', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Pts', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('#',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('Team',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('P',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('W',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('L',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('D',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('For',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('Agst',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('%',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('Pts',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: List<DataRow>.generate(
                           _leagueLadder!.teams.length,
@@ -109,14 +139,16 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                             return DataRow(
                               cells: <DataCell>[
                                 DataCell(Text((index + 1).toString())),
-                                DataCell(Text(team.teamName, overflow: TextOverflow.ellipsis)),
+                                DataCell(Text(team.teamName,
+                                    overflow: TextOverflow.ellipsis)),
                                 DataCell(Text(team.played.toString())),
                                 DataCell(Text(team.won.toString())),
                                 DataCell(Text(team.lost.toString())),
                                 DataCell(Text(team.drawn.toString())),
                                 DataCell(Text(team.pointsFor.toString())),
                                 DataCell(Text(team.pointsAgainst.toString())),
-                                DataCell(Text(team.percentage.toStringAsFixed(2))),
+                                DataCell(
+                                    Text(team.percentage.toStringAsFixed(2))),
                                 DataCell(Text(team.points.toString())),
                               ],
                             );

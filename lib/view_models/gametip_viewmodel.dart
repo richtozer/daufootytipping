@@ -149,7 +149,8 @@ class GameTipViewModel extends ChangeNotifier {
     // GameTipViewModel's _findTip already awaits allTipsViewModel.initialLoadCompleted
     // so it should be safe here.
 
-    List<Tip?> tipperPastTips = allTipsViewModel.getTipsForTipper(currentTipper);
+    List<Tip?> tipperPastTips =
+        allTipsViewModel.getTipsForTipper(currentTipper);
 
     if (tipperPastTips.isEmpty) {
       log('GameTipViewModel._fetchHistoricalTipStats(): No past tips found for tipper ${currentTipper.name}');
@@ -159,12 +160,8 @@ class GameTipViewModel extends ChangeNotifier {
     }
 
     for (Tip? pastTip in tipperPastTips) {
-      if (pastTip == null ||
-          pastTip.game == null ||
-          pastTip.game.homeTeam == null ||
-          pastTip.game.awayTeam == null ||
-          game.homeTeam == null || // Should not happen if game is valid
-          game.awayTeam == null) { // Should not happen if game is valid
+      if (pastTip == null) {
+        // Should not happen if game is valid
         continue;
       }
 
@@ -175,9 +172,9 @@ class GameTipViewModel extends ChangeNotifier {
 
       bool sameCombination =
           (pastTip.game.homeTeam.dbkey == game.homeTeam.dbkey &&
-              pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
-          (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
-              pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
+                  pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
+              (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
+                  pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
 
       if (sameCombination) {
         historicalTotalTipsOnCombination++;
@@ -190,25 +187,25 @@ class GameTipViewModel extends ChangeNotifier {
         GameResult? actualGameResult =
             pastTip.game.scoring!.getGameResultCalculated(pastTip.game.league);
 
-        if (actualGameResult == null) {
-          log('GameTipViewModel._fetchHistoricalTipStats(): Skipping tip ${pastTip.dbkey} due to null actualGameResult.');
-          continue;
-        }
+        bool isActualGameDraw = (pastTip.game.league == League.afl &&
+                actualGameResult == GameResult.c) ||
+            (pastTip.game.league == League.nrl &&
+                actualGameResult == GameResult.c);
 
-        bool isActualGameDraw = (pastTip.game.league == League.afl && actualGameResult == GameResult.c) ||
-                                (pastTip.game.league == League.nrl && actualGameResult == GameResult.nrlDraw);
-        
-        bool isTipperPickedDraw = (pastTip.game.league == League.afl && pastTip.tip == GameResult.c) ||
-                                  (pastTip.game.league == League.nrl && pastTip.tip == GameResult.nrlDraw);
+        bool isTipperPickedDraw = (pastTip.game.league == League.afl &&
+                pastTip.tip == GameResult.c) ||
+            (pastTip.game.league == League.nrl && pastTip.tip == GameResult.c);
 
         bool isWin = pastTip.tip == actualGameResult;
 
         if (isWin) {
           historicalWinsOnCombination++;
-          if (isActualGameDraw && isTipperPickedDraw) { // Tipper correctly predicted a draw
+          if (isActualGameDraw && isTipperPickedDraw) {
+            // Tipper correctly predicted a draw
             historicalDrawsOnCombination++;
           }
-        } else { // Not a win
+        } else {
+          // Not a win
           // It's a loss if it's not a win AND it's not the specific case of (actual draw AND tipper picked draw)
           // The case (actual draw AND tipper picked draw) is already handled under "isWin"
           // So, if it's not a "Win" (meaning tip != actualResult), it's a Loss.

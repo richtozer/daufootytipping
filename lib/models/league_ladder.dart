@@ -1,5 +1,5 @@
+import 'package:daufootytipping/models/ladder_team.dart';
 import 'package:daufootytipping/models/league.dart';
-import 'package:flutter_sports_theme/models/ladder_team.dart';
 
 class LeagueLadder {
   League league;
