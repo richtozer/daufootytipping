@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -26,25 +27,20 @@ class LadderCalculationService {
     // Filter games for the specified league and where scores are available
     List<Game> relevantGames = allGames.where((game) {
       return game.league == league &&
-             game.scoring != null &&
-             game.scoring!.homeTeamScore != null &&
-             game.scoring!.awayTeamScore != null;
+          game.scoring != null &&
+          game.scoring!.homeTeamScore != null &&
+          game.scoring!.awayTeamScore != null;
     }).toList();
 
     // Process each relevant game
     for (var game in relevantGames) {
       // Ensure homeTeam and awayTeam are not null before accessing dbkey
-      if (game.homeTeam == null || game.awayTeam == null) {
-        print('Warning: Game ${game.dbkey} has missing homeTeam or awayTeam object.');
-        continue;
-      }
-      
-      LadderTeam? homeLadderTeam = ladderTeamsMap[game.homeTeam!.dbkey];
-      LadderTeam? awayLadderTeam = ladderTeamsMap[game.awayTeam!.dbkey];
+      LadderTeam? homeLadderTeam = ladderTeamsMap[game.homeTeam.dbkey];
+      LadderTeam? awayLadderTeam = ladderTeamsMap[game.awayTeam.dbkey];
 
       if (homeLadderTeam == null || awayLadderTeam == null) {
         // This implies a team played in a game but wasn't in the initial leagueTeams list for that league.
-        print('Warning: Team data not found in ladderTeamsMap for game ${game.dbkey}. Home: ${game.homeTeam?.name}, Away: ${game.awayTeam?.name}');
+        log('Warning: Team data not found in ladderTeamsMap for game ${game.dbkey}. Home: ${game.homeTeam.name}, Away: ${game.awayTeam.name}');
         continue;
       }
 
@@ -59,29 +55,35 @@ class LadderCalculationService {
       awayLadderTeam.pointsAgainst += game.scoring!.homeTeamScore!;
 
       // Determine winner and update stats
-      if (game.scoring!.homeTeamScore! > game.scoring!.awayTeamScore!) { // Home team wins
+      if (game.scoring!.homeTeamScore! > game.scoring!.awayTeamScore!) {
+        // Home team wins
         homeLadderTeam.won++;
         awayLadderTeam.lost++;
         if (league == League.afl) {
           homeLadderTeam.points += 4;
-        } else { // Assuming NRL or other leagues default to 2 points for a win
+        } else {
+          // Assuming NRL or other leagues default to 2 points for a win
           homeLadderTeam.points += 2;
         }
-      } else if (game.scoring!.awayTeamScore! > game.scoring!.homeTeamScore!) { // Away team wins
+      } else if (game.scoring!.awayTeamScore! > game.scoring!.homeTeamScore!) {
+        // Away team wins
         awayLadderTeam.won++;
         homeLadderTeam.lost++;
         if (league == League.afl) {
           awayLadderTeam.points += 4;
-        } else { // Assuming NRL or other leagues default to 2 points for a win
+        } else {
+          // Assuming NRL or other leagues default to 2 points for a win
           awayLadderTeam.points += 2;
         }
-      } else { // Draw
+      } else {
+        // Draw
         homeLadderTeam.drawn++;
         awayLadderTeam.drawn++;
         if (league == League.afl) {
           homeLadderTeam.points += 2;
           awayLadderTeam.points += 2;
-        } else { // Assuming NRL or other leagues default to 1 point for a draw
+        } else {
+          // Assuming NRL or other leagues default to 1 point for a draw
           homeLadderTeam.points += 1;
           awayLadderTeam.points += 1;
         }
@@ -95,7 +97,8 @@ class LadderCalculationService {
 
     // Create and sort the league ladder
     List<LadderTeam> finalLadderTeams = ladderTeamsMap.values.toList();
-    LeagueLadder leagueLadder = LeagueLadder(league: league, teams: finalLadderTeams);
+    LeagueLadder leagueLadder =
+        LeagueLadder(league: league, teams: finalLadderTeams);
     leagueLadder.sortLadder(); // Uses the sortLadder method from LeagueLadder
 
     return leagueLadder;
