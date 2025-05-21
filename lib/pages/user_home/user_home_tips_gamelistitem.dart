@@ -229,7 +229,8 @@ class _GameListItemState extends State<GameListItem> {
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
         gameTipCard(gameTipsViewModelConsumer),
-        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModel),
+        _buildHistoricalInsightsCard(gameTipsViewModelConsumer),
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModelConsumer), // Corrected to pass gameTipsViewModelConsumer
       ];
     } else {
       return [
@@ -264,6 +265,36 @@ class _GameListItemState extends State<GameListItem> {
 
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
     return TipChoice(gameTipsViewModelConsumer, true);
+  }
+
+  Widget _buildHistoricalInsightsCard(GameTipViewModel viewModel) {
+    if (viewModel.historicalTotalTipsOnCombination == 0) {
+      // Return a less verbose message or shrink to fit better if "No past data..." is too long
+      return Card(
+        elevation: 1.0, // Less prominent than other cards
+        margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Padding(
+          padding: EdgeInsets.all(12.0),
+          child: Text(
+            "No past tips by you on this matchup.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
+          ),
+        ),
+      );
+    }
+    return Card(
+      elevation: 2.0,
+      margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      child: Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Text(
+          viewModel.historicalInsightsString,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13.0, color: Colors.black87),
+        ),
+      ),
+    );
   }
 }
 
