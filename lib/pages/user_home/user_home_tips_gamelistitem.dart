@@ -59,9 +59,7 @@ class _GameListItemState extends State<GameListItem> {
       value: gameTipsViewModel,
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
-          // Get the ladder from your view model or pass it in as needed; // Adjust as needed
-
-// Helper to get rank (1-based) for a team dbkey
+          // Helper to get rank (1-based) for a team dbkey
           int? getTeamRank(String dbkey) {
             if (_calculatedLadder == null) return null;
             final idx =
@@ -69,16 +67,16 @@ class _GameListItemState extends State<GameListItem> {
             return (idx == null || idx == -1) ? null : idx + 1;
           }
 
-// For home team label
+          // For home team label
           final homeRank =
               getTeamRank(gameTipsViewModelConsumer.game.homeTeam.dbkey);
-          final homeLabel =
+          final homeOrdinalRankLabel =
               homeRank != null ? LeagueLadder.ordinal(homeRank) : '';
 
-// For away team label
+          // For away team label
           final awayRank =
               getTeamRank(gameTipsViewModelConsumer.game.awayTeam.dbkey);
-          final awayLabel =
+          final awayOrdinalRankLabel =
               awayRank != null ? LeagueLadder.ordinal(awayRank) : '';
 
           Widget gameDetailsCard = Card(
@@ -108,17 +106,6 @@ class _GameListItemState extends State<GameListItem> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      homeLabel,
-                                      style: const TextStyle(
-                                        overflow: TextOverflow.ellipsis,
-                                        fontSize: 12.0,
-                                      ),
-                                      textAlign: TextAlign.left,
-                                    ),
-                                    SizedBox(
-                                      width: 5,
-                                    ),
                                     Text(
                                       gameTipsViewModelConsumer
                                           .game.homeTeam.name,
@@ -177,17 +164,6 @@ class _GameListItemState extends State<GameListItem> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      awayLabel,
-                                      style: const TextStyle(
-                                        overflow: TextOverflow.ellipsis,
-                                        fontSize: 12.0,
-                                      ),
-                                      textAlign: TextAlign.left,
-                                    ),
-                                    SizedBox(
-                                      width: 5,
-                                    ),
-                                    Text(
                                         style: const TextStyle(
                                           overflow: TextOverflow.ellipsis,
                                           fontSize: 16.0,
@@ -223,6 +199,30 @@ class _GameListItemState extends State<GameListItem> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                // do not show rank game result is known
+                                Text(
+                                  gameTipsViewModelConsumer.game.gameState ==
+                                              GameState.notStarted ||
+                                          gameTipsViewModelConsumer
+                                                  .game.gameState ==
+                                              GameState.startingSoon
+                                      ? homeOrdinalRankLabel
+                                      : '',
+                                  style: const TextStyle(
+                                    overflow: TextOverflow.ellipsis,
+                                    fontSize: 12.0,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                                if (gameTipsViewModelConsumer.game.gameState ==
+                                        GameState.notStarted ||
+                                    gameTipsViewModelConsumer.game.gameState ==
+                                        GameState.startingSoon)
+                                  SizedBox(
+                                    width: 5,
+                                  )
+                                else
+                                  Container(),
                                 Text(
                                   gameTipsViewModelConsumer.game.homeTeam.name,
                                   textAlign: TextAlign.left,
@@ -277,6 +277,30 @@ class _GameListItemState extends State<GameListItem> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                // do not show rank game result is known
+                                Text(
+                                  gameTipsViewModelConsumer.game.gameState ==
+                                              GameState.notStarted ||
+                                          gameTipsViewModelConsumer
+                                                  .game.gameState ==
+                                              GameState.startingSoon
+                                      ? awayOrdinalRankLabel
+                                      : '',
+                                  style: const TextStyle(
+                                    overflow: TextOverflow.ellipsis,
+                                    fontSize: 12.0,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                                if (gameTipsViewModelConsumer.game.gameState ==
+                                        GameState.notStarted ||
+                                    gameTipsViewModelConsumer.game.gameState ==
+                                        GameState.startingSoon)
+                                  SizedBox(
+                                    width: 5,
+                                  )
+                                else
+                                  Container(),
                                 Text(
                                     style: const TextStyle(
                                       overflow: TextOverflow.ellipsis,
