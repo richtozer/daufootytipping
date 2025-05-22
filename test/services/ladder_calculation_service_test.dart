@@ -60,7 +60,7 @@ void main() {
         leagueTeams: [teamNrlA, teamNrlB],
         league: League.nrl,
       );
-      expect(ladder.teams.isEmpty, isTrue);
+      expect(ladder?.teams.isEmpty, isTrue);
     });
 
     test('should return an empty ladder if no league teams are provided', () {
@@ -77,7 +77,7 @@ void main() {
         leagueTeams: [],
         league: League.nrl,
       );
-      expect(ladder.teams.isEmpty, isTrue);
+      expect(ladder?.teams.isEmpty, isTrue);
     });
 
     test('should correctly calculate NRL ladder for a single home win', () {
@@ -97,34 +97,34 @@ void main() {
         league: League.nrl,
       );
 
-      expect(ladder.teams.length, 2);
+      expect(ladder?.teams.length, 2);
       final ladderTeamA =
-          ladder.teams.firstWhere((t) => t.teamName == 'NRL Team A');
+          ladder?.teams.firstWhere((t) => t.teamName == 'NRL Team A');
       final ladderTeamB =
-          ladder.teams.firstWhere((t) => t.teamName == 'NRL Team B');
+          ladder?.teams.firstWhere((t) => t.teamName == 'NRL Team B');
 
       // Team A (Winner)
-      expect(ladderTeamA.played, 1);
-      expect(ladderTeamA.won, 1);
-      expect(ladderTeamA.lost, 0);
-      expect(ladderTeamA.drawn, 0);
-      expect(ladderTeamA.pointsFor, 12);
-      expect(ladderTeamA.pointsAgainst, 6);
-      expect(ladderTeamA.points, 2); // NRL: 2 points for a win
-      expect(ladderTeamA.percentage, closeTo(200.0, 0.01));
+      expect(ladderTeamA?.played, 1);
+      expect(ladderTeamA?.won, 1);
+      expect(ladderTeamA?.lost, 0);
+      expect(ladderTeamA?.drawn, 0);
+      expect(ladderTeamA?.pointsFor, 12);
+      expect(ladderTeamA?.pointsAgainst, 6);
+      expect(ladderTeamA?.points, 2); // NRL: 2 points for a win
+      expect(ladderTeamA?.percentage, closeTo(200.0, 0.01));
 
       // Team B (Loser)
-      expect(ladderTeamB.played, 1);
-      expect(ladderTeamB.won, 0);
-      expect(ladderTeamB.lost, 1);
-      expect(ladderTeamB.drawn, 0);
-      expect(ladderTeamB.pointsFor, 6);
-      expect(ladderTeamB.pointsAgainst, 12);
-      expect(ladderTeamB.points, 0);
-      expect(ladderTeamB.percentage, closeTo(50.0, 0.01));
+      expect(ladderTeamB?.played, 1);
+      expect(ladderTeamB?.won, 0);
+      expect(ladderTeamB?.lost, 1);
+      expect(ladderTeamB?.drawn, 0);
+      expect(ladderTeamB?.pointsFor, 6);
+      expect(ladderTeamB?.pointsAgainst, 12);
+      expect(ladderTeamB?.points, 0);
+      expect(ladderTeamB?.percentage, closeTo(50.0, 0.01));
 
       // Check sorting (A should be above B)
-      expect(ladder.teams.first.teamName, 'NRL Team A');
+      expect(ladder?.teams.first.teamName, 'NRL Team A');
     });
 
     test(
@@ -151,45 +151,45 @@ void main() {
         league: League.afl,
       );
 
-      expect(ladder.teams.length, 3);
-      final ltA = ladder.teams.firstWhere((t) => t.teamName == 'AFL Team A');
-      final ltB = ladder.teams.firstWhere((t) => t.teamName == 'AFL Team B');
-      final ltC = ladder.teams.firstWhere((t) => t.teamName == 'AFL Team C');
+      expect(ladder?.teams.length, 3);
+      final ltA = ladder?.teams.firstWhere((t) => t.teamName == 'AFL Team A');
+      final ltB = ladder?.teams.firstWhere((t) => t.teamName == 'AFL Team B');
+      final ltC = ladder?.teams.firstWhere((t) => t.teamName == 'AFL Team C');
 
       // Team B (Won 1)
-      expect(ltB.played, 1);
-      expect(ltB.won, 1);
-      expect(ltB.lost, 0);
-      expect(ltB.drawn, 0);
-      expect(ltB.pointsFor, 90);
-      expect(ltB.pointsAgainst, 60);
-      expect(ltB.points, 4); // AFL: 4 points for a win
-      expect(ltB.percentage, closeTo(150.0, 0.01));
+      expect(ltB?.played, 1);
+      expect(ltB?.won, 1);
+      expect(ltB?.lost, 0);
+      expect(ltB?.drawn, 0);
+      expect(ltB?.pointsFor, 90);
+      expect(ltB?.pointsAgainst, 60);
+      expect(ltB?.points, 4); // AFL: 4 points for a win
+      expect(ltB?.percentage, closeTo(150.0, 0.01));
 
       // Team C (Drew 1)
-      expect(ltC.played, 1);
-      expect(ltC.won, 0);
-      expect(ltC.lost, 0);
-      expect(ltC.drawn, 1);
-      expect(ltC.pointsFor, 70);
-      expect(ltC.pointsAgainst, 70);
-      expect(ltC.points, 2); // AFL: 2 points for a draw
-      expect(ltC.percentage, closeTo(100.0, 0.01));
+      expect(ltC?.played, 1);
+      expect(ltC?.won, 0);
+      expect(ltC?.lost, 0);
+      expect(ltC?.drawn, 1);
+      expect(ltC?.pointsFor, 70);
+      expect(ltC?.pointsAgainst, 70);
+      expect(ltC?.points, 2); // AFL: 2 points for a draw
+      expect(ltC?.percentage, closeTo(100.0, 0.01));
 
       // Team A (Lost 1, Drew 1)
-      expect(ltA.played, 2);
-      expect(ltA.won, 0);
-      expect(ltA.lost, 1);
-      expect(ltA.drawn, 1);
-      expect(ltA.pointsFor, 130);
-      expect(ltA.pointsAgainst, 160); // 60+70 For, 90+70 Against
-      expect(ltA.points, 2); // AFL: 0 for loss, 2 for draw
-      expect(ltA.percentage, closeTo((130 / 160) * 100, 0.01));
+      expect(ltA?.played, 2);
+      expect(ltA?.won, 0);
+      expect(ltA?.lost, 1);
+      expect(ltA?.drawn, 1);
+      expect(ltA?.pointsFor, 130);
+      expect(ltA?.pointsAgainst, 160); // 60+70 For, 90+70 Against
+      expect(ltA?.points, 2); // AFL: 0 for loss, 2 for draw
+      expect(ltA?.percentage, closeTo((130 / 160) * 100, 0.01));
 
       // Check sorting: B (4pts), then C (2pts, 100%), then A (2pts, ~81.25%)
-      expect(ladder.teams[0].teamName, 'AFL Team B');
-      expect(ladder.teams[1].teamName, 'AFL Team C');
-      expect(ladder.teams[2].teamName, 'AFL Team A');
+      expect(ladder?.teams[0].teamName, 'AFL Team B');
+      expect(ladder?.teams[1].teamName, 'AFL Team C');
+      expect(ladder?.teams[2].teamName, 'AFL Team A');
     });
 
     test('should ignore games from other leagues', () {
@@ -206,7 +206,7 @@ void main() {
         leagueTeams: [teamAflA, teamAflB], // AFL teams
         league: League.afl, // Requesting AFL ladder
       );
-      expect(aflLadder.teams.every((team) => team.played == 0), isTrue);
+      expect(aflLadder?.teams.every((team) => team.played == 0), isTrue);
     });
 
     test('should ignore games without scores', () {
@@ -221,7 +221,7 @@ void main() {
         leagueTeams: [teamNrlA, teamNrlB],
         league: League.nrl,
       );
-      expect(ladder.teams.every((team) => team.played == 0), isTrue);
+      expect(ladder?.teams.every((team) => team.played == 0), isTrue);
     });
 
     // Add more tests for percentage edge cases, multiple games, complex sorting scenarios etc.

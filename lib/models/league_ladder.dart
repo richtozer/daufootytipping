@@ -10,6 +10,24 @@ class LeagueLadder {
     required this.teams,
   });
 
+  // static method to generate oridnal number in string format
+  static String ordinal(int number) {
+    if (number < 1) return '';
+    if (number % 100 >= 11 && number % 100 <= 13) {
+      return '${number}th';
+    }
+    switch (number % 10) {
+      case 1:
+        return '${number}st';
+      case 2:
+        return '${number}nd';
+      case 3:
+        return '${number}rd';
+      default:
+        return '${number}th';
+    }
+  }
+
   void sortLadder() {
     teams.sort((a, b) {
       // Primary sort: points (descending)

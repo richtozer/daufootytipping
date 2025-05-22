@@ -6,6 +6,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dar
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart';
@@ -95,7 +96,6 @@ class StatsTab extends StatelessWidget {
                   ),
                 ),
               ),
-
               Card(
                 margin: const EdgeInsets.all(8.0),
                 child: GestureDetector(
@@ -198,10 +198,17 @@ class StatsTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.leaderboard,
-                          size: 40), // Consider a different icon
+                      // Replace the Icon with the AFL SVG logo in black and white
+                      Hero(
+                        tag: 'afl_logo',
+                        child: SvgPicture.asset(
+                          'assets/teams/afl.svg',
+                          width: 30,
+                          height: 40,
+                        ),
+                      ),
                       SizedBox(height: 64, width: 16),
                       Expanded(
                         child: Text('AFL Ladder\nView current standings'),
@@ -209,14 +216,6 @@ class StatsTab extends StatelessWidget {
                       Icon(Icons.arrow_forward),
                     ],
                   ),
-                ),
-              ),
-              // add some help text here
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text(
-                  '* You need to submit at least 1 tip to appear in the stats.',
-                  style: TextStyle(fontSize: 12),
                 ),
               ),
             ],

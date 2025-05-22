@@ -4,7 +4,9 @@ import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
 
 class LeagueLadderPage extends StatefulWidget {
@@ -100,7 +102,11 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(
-                              label: Text('P',
+                              label: Text('Gms',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(
+                              label: Text('Pts',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(
@@ -127,21 +133,51 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                               label: Text('%',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Pts',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: List<DataRow>.generate(
                           _leagueLadder!.teams.length,
                           (index) {
                             final team = _leagueLadder!.teams[index];
+                            final isTop8 = index < 8; // Top 8 teams
+
                             return DataRow(
+                              color: MaterialStateProperty.resolveWith<Color?>(
+                                (Set<MaterialState> states) {
+                                  if (isTop8 && widget.league == League.afl) {
+                                    return League.afl.colour.brighten(
+                                        75); // Highlight color for top 8
+                                  }
+                                  if (isTop8 && widget.league == League.nrl) {
+                                    return League.nrl.colour.brighten(
+                                        75); // Highlight color for top 8
+                                  }
+                                  return null; // Default row color
+                                },
+                              ),
                               cells: <DataCell>[
-                                DataCell(Text((index + 1).toString())),
-                                DataCell(Text(team.teamName,
-                                    overflow: TextOverflow.ellipsis)),
+                                DataCell(Text(LeagueLadder.ordinal(index + 1))),
+                                DataCell(Row(
+                                  children: [
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 6.0),
+                                      child: SvgPicture.asset(
+                                        team.logoURI ??
+                                            'assets/images/default_logo.svg',
+                                        width: 28,
+                                        height: 28,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        team.teamName,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                )),
                                 DataCell(Text(team.played.toString())),
+                                DataCell(Text(team.points.toString())),
                                 DataCell(Text(team.won.toString())),
                                 DataCell(Text(team.lost.toString())),
                                 DataCell(Text(team.drawn.toString())),
@@ -149,7 +185,6 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                 DataCell(Text(team.pointsAgainst.toString())),
                                 DataCell(
                                     Text(team.percentage.toStringAsFixed(2))),
-                                DataCell(Text(team.points.toString())),
                               ],
                             );
                           },

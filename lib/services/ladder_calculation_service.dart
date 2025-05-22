@@ -8,11 +8,29 @@ import 'package:daufootytipping/models/league_ladder.dart';
 class LadderCalculationService {
   // Method to calculate the league ladder
   // It takes a list of all games, a list of all teams in the league, and the specific league
-  LeagueLadder calculateLadder({
+  LeagueLadder? calculateLadder({
     required List<Game> allGames,
     required List<Team> leagueTeams,
     required League league,
   }) {
+    // --- Count completed rounds ---
+    // Group games by round number
+    Map<int, List<Game>> gamesByRound = {};
+    for (var game in allGames.where((g) => g.league == league)) {
+      gamesByRound.putIfAbsent(game.fixtureRoundNumber, () => []).add(game);
+    }
+    // Count rounds where all games have scores
+    int completedRounds = gamesByRound.values
+        .where((games) => games.every((g) =>
+            g.scoring != null &&
+            g.scoring!.homeTeamScore != null &&
+            g.scoring!.awayTeamScore != null))
+        .length;
+
+    // Wait until at least 3 rounds are completed before showing ladder
+    if (completedRounds < 3) {
+      return null;
+    }
     // Initialize LadderTeam objects for each team in the league
     Map<String, LadderTeam> ladderTeamsMap = {};
     for (var team in leagueTeams) {
@@ -20,7 +38,8 @@ class LadderCalculationService {
       // This check might be redundant if leagueTeams is already filtered,
       // but it's a good safeguard.
       if (team.league == league) {
-        ladderTeamsMap[team.dbkey] = LadderTeam(teamName: team.name);
+        ladderTeamsMap[team.dbkey] = LadderTeam(
+            dbkey: team.dbkey, teamName: team.name, logoURI: team.logoURI);
       }
     }
 
@@ -91,15 +110,19 @@ class LadderCalculationService {
     }
 
     // Calculate percentage for each team
-    ladderTeamsMap.values.forEach((ladderTeam) {
+    for (var ladderTeam in ladderTeamsMap.values) {
       ladderTeam.calculatePercentage();
-    });
+    }
 
     // Create and sort the league ladder
     List<LadderTeam> finalLadderTeams = ladderTeamsMap.values.toList();
     LeagueLadder leagueLadder =
         LeagueLadder(league: league, teams: finalLadderTeams);
     leagueLadder.sortLadder(); // Uses the sortLadder method from LeagueLadder
+
+    // remove teams with 0 points, 0 played
+    leagueLadder.teams
+        .removeWhere((team) => team.points == 0 && team.played == 0);
 
     return leagueLadder;
   }

@@ -3,9 +3,13 @@ import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/league_ladder.dart';
+import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
+import 'package:daufootytipping/services/ladder_calculation_service.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
@@ -15,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
+import 'package:watch_it/watch_it.dart';
 
 class GameListItem extends StatefulWidget {
   const GameListItem({
@@ -38,12 +43,14 @@ class GameListItem extends StatefulWidget {
 
 class _GameListItemState extends State<GameListItem> {
   late final GameTipViewModel gameTipsViewModel;
+  LeagueLadder? _calculatedLadder;
 
   @override
   void initState() {
     super.initState();
     gameTipsViewModel = GameTipViewModel(widget.currentTipper,
         widget.currentDAUComp, widget.game, widget.allTipsViewModel);
+    _initLeagueLadder();
   }
 
   @override
@@ -52,6 +59,28 @@ class _GameListItemState extends State<GameListItem> {
       value: gameTipsViewModel,
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
+          // Get the ladder from your view model or pass it in as needed; // Adjust as needed
+
+// Helper to get rank (1-based) for a team dbkey
+          int? getTeamRank(String dbkey) {
+            if (_calculatedLadder == null) return null;
+            final idx =
+                _calculatedLadder?.teams.indexWhere((t) => t.dbkey == dbkey);
+            return (idx == null || idx == -1) ? null : idx + 1;
+          }
+
+// For home team label
+          final homeRank =
+              getTeamRank(gameTipsViewModelConsumer.game.homeTeam.dbkey);
+          final homeLabel =
+              homeRank != null ? LeagueLadder.ordinal(homeRank) : '';
+
+// For away team label
+          final awayRank =
+              getTeamRank(gameTipsViewModelConsumer.game.awayTeam.dbkey);
+          final awayLabel =
+              awayRank != null ? LeagueLadder.ordinal(awayRank) : '';
+
           Widget gameDetailsCard = Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
@@ -77,6 +106,17 @@ class _GameListItemState extends State<GameListItem> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              Text(
+                                homeLabel,
+                                textAlign: TextAlign.left,
+                                style: const TextStyle(
+                                  overflow: TextOverflow.ellipsis,
+                                  fontSize: 12.0,
+                                ),
+                              ),
+                              SizedBox(
+                                width: 5,
+                              ),
                               Text(
                                 gameTipsViewModelConsumer.game.homeTeam.name,
                                 textAlign: TextAlign.left,
@@ -131,6 +171,17 @@ class _GameListItemState extends State<GameListItem> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              Text(
+                                awayLabel,
+                                style: const TextStyle(
+                                  overflow: TextOverflow.ellipsis,
+                                  fontSize: 12.0,
+                                ),
+                                textAlign: TextAlign.left,
+                              ),
+                              SizedBox(
+                                width: 5,
+                              ),
                               Text(
                                   style: const TextStyle(
                                     overflow: TextOverflow.ellipsis,
@@ -230,7 +281,8 @@ class _GameListItemState extends State<GameListItem> {
       return [
         gameTipCard(gameTipsViewModelConsumer),
         _buildHistoricalInsightsCard(gameTipsViewModelConsumer),
-        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModelConsumer), // Corrected to pass gameTipsViewModelConsumer
+        GameInfo(gameTipsViewModelConsumer.game,
+            gameTipsViewModelConsumer), // Corrected to pass gameTipsViewModelConsumer
       ];
     } else {
       return [
@@ -278,7 +330,10 @@ class _GameListItemState extends State<GameListItem> {
           child: Text(
             "No past tips by you on this matchup.",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
+            style: TextStyle(
+                fontSize: 12.0,
+                color: Colors.black54,
+                fontStyle: FontStyle.italic),
           ),
         ),
       );
@@ -294,6 +349,33 @@ class _GameListItemState extends State<GameListItem> {
           style: TextStyle(fontSize: 13.0, color: Colors.black87),
         ),
       ),
+    );
+  }
+
+  void _initLeagueLadder() async {
+    final dauCompsViewModel = di<DAUCompsViewModel>();
+    if (dauCompsViewModel.selectedDAUComp == null) {
+      return;
+    }
+
+    final gamesViewModel = di<DAUCompsViewModel>().gamesViewModel;
+    await gamesViewModel!.initialLoadComplete;
+
+    final teamsViewModel = gamesViewModel.teamsViewModel;
+    await teamsViewModel.initialLoadComplete;
+
+    final ladderService = LadderCalculationService();
+
+    List<Game> allGames = await gamesViewModel.getGames();
+    List<Team> leagueTeams = teamsViewModel
+            .groupedTeams[gameTipsViewModel.game.league.name.toLowerCase()]
+            ?.cast<Team>() ??
+        [];
+
+    _calculatedLadder = ladderService.calculateLadder(
+      allGames: allGames,
+      leagueTeams: leagueTeams,
+      league: gameTipsViewModel.game.league,
     );
   }
 }
