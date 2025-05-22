@@ -63,6 +63,7 @@ class StatsViewModel extends ChangeNotifier {
   bool get isSelectedTipperPaidUpMember => _isSelectedTipperPaidUpMember!;
 
   TipsViewModel? allTipsViewModel;
+  TipsViewModel? selectedTipperTipsViewModel;
 
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
@@ -289,16 +290,23 @@ class StatsViewModel extends ChangeNotifier {
           tippersToUpdate
               .removeWhere((tipper) => tippersToRemove.contains(tipper));
         } else {
-          allTipsViewModel ??=
+          selectedTipperTipsViewModel ??=
               di<DAUCompsViewModel>().selectedTipperTipsViewModel;
+
+          await selectedTipperTipsViewModel!.initialLoadCompleted;
         }
 
         var dauRoundsEdited =
             _getRoundsToUpdate(onlyUpdateThisRound, daucompToUpdate);
 
         for (DAURound dauRound in dauRoundsEdited) {
-          await _calculateRoundStats(
-              tippersToUpdate, dauRound, allTipsViewModel!);
+          if (onlyUpdateThisTipper == null) {
+            await _calculateRoundStats(
+                tippersToUpdate, dauRound, allTipsViewModel!);
+          } else {
+            await _calculateRoundStatsForTipper(
+                onlyUpdateThisTipper, dauRound, selectedTipperTipsViewModel!);
+          }
         }
 
         await _writeAllRoundScoresToDb(_allTipperRoundStats, daucompToUpdate);
