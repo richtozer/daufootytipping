@@ -7,7 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/models/team_game_history_item.dart'; // Added import
+import 'package:daufootytipping/models/team_game_history_item.dart'; 
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
@@ -335,39 +335,121 @@ class GamesViewModel extends ChangeNotifier {
     return historyItems;
   }
 
-  Future<List<Game>> getMatchupHistory(Team teamA, Team teamB, League league) async {
-    await initialLoadComplete;
-
-    // Filter games
-    List<Game> relevantGames = _games.where((game) {
+  List<Game> _filterGamesForMatchup(List<Game> games, Team teamA, Team teamB, League league) {
+    return games.where((game) {
       bool isCorrectLeague = game.league == league;
       bool hasScores = game.scoring != null && game.scoring!.homeTeamScore != null && game.scoring!.awayTeamScore != null;
       bool teamsInvolved = (game.homeTeam.dbkey == teamA.dbkey && game.awayTeam.dbkey == teamB.dbkey) ||
                            (game.homeTeam.dbkey == teamB.dbkey && game.awayTeam.dbkey == teamA.dbkey);
       return isCorrectLeague && hasScores && teamsInvolved;
     }).toList();
+  }
+  
+  Future<List<Game>> _fetchGamesForDAUCompKey(String dauCompDbKey) async {
+    log('GamesViewModel_fetchGamesForDAUCompKey: Fetching games for DAUComp key $dauCompDbKey');
+    
+    // Testability hook: If testGamesByCompKey is set and contains data for this key, return it.
+    if (testGamesByCompKey != null && testGamesByCompKey!.containsKey(dauCompDbKey)) {
+      log('GamesViewModel_fetchGamesForDAUCompKey: Using test data for DAUComp key $dauCompDbKey');
+      final testGames = testGamesByCompKey![dauCompDbKey]!;
+      return Future.value(List<Game>.from(testGames)); // Return a copy
+    }
 
-    // Sort results by gameDate in descending order
+    List<Game> fetchedGames = [];
+    try {
+      await _teamsViewModel.initialLoadComplete; // Ensure teams are ready for deserialization
+
+      final event = await _db.child('$gamesPathRoot/$dauCompDbKey').once();
+      if (event.snapshot.exists) {
+        final allGamesData = Map<String, dynamic>.from(event.snapshot.value as dynamic);
+        
+        fetchedGames = allGamesData.entries.map((entry) {
+          String gameDbKey = entry.key;
+          String leagueName = gameDbKey.split('-').first; 
+          dynamic gameAsJSON = entry.value;
+
+          Team? homeTeam = _teamsViewModel.findTeam('$leagueName-${gameAsJSON['HomeTeam']}');
+          Team? awayTeam = _teamsViewModel.findTeam('$leagueName-${gameAsJSON['AwayTeam']}');
+
+          if (homeTeam == null || awayTeam == null) {
+            log('GamesViewModel_fetchGamesForDAUCompKey: Warning - homeTeam or awayTeam is null for game $gameDbKey in DAUComp $dauCompDbKey. Skipping game.');
+            return null; 
+          }
+
+          Scoring? scoring = Scoring(
+            homeTeamScore: gameAsJSON['HomeTeamScore'],
+            awayTeamScore: gameAsJSON['AwayTeamScore'],
+          );
+
+          Game game = Game.fromJson(gameDbKey, Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
+          game.scoring = scoring;
+          return game;
+        }).whereType<Game>().toList(); 
+
+        log('GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase');
+      } else {
+        log('GamesViewModel_fetchGamesForDAUCompKey: No games found for DAUComp $dauCompDbKey from Firebase');
+      }
+    } catch (e) {
+      log('GamesViewModel_fetchGamesForDAUCompKey: Error fetching games for DAUComp $dauCompDbKey: $e');
+    }
+    return fetchedGames;
+  }
+
+  Future<List<Game>> getCompleteMatchupHistory(Team teamA, Team teamB, League league) async {
+    log('GamesViewModel_getCompleteMatchupHistory: Called for ${teamA.name} vs ${teamB.name}, league ${league.name}');
+    await initialLoadComplete; 
+    await _teamsViewModel.initialLoadComplete; 
+
+    List<Game> allMatchupGames = [];
+    
+    await _dauCompsViewModel.initialDAUCompLoadComplete; 
+    List<DAUComp> allDAUComps = _dauCompsViewModel.daucomps;
+
+    log('GamesViewModel_getCompleteMatchupHistory: Found ${allDAUComps.length} DAUComps to check.');
+
+    for (DAUComp dauComp in allDAUComps) {
+      if (dauComp.dbkey == null) {
+        log('GamesViewModel_getCompleteMatchupHistory: Skipping a DAUComp with null dbkey.');
+        continue;
+      }
+      log('GamesViewModel_getCompleteMatchupHistory: Fetching games for DAUComp ${dauComp.name} (${dauComp.dbkey!})');
+      List<Game> gamesFromThisDAUComp = await _fetchGamesForDAUCompKey(dauComp.dbkey!);
+      List<Game> filteredGames = _filterGamesForMatchup(gamesFromThisDAUComp, teamA, teamB, league);
+      allMatchupGames.addAll(filteredGames);
+      log('GamesViewModel_getCompleteMatchupHistory: Added ${filteredGames.length} games from DAUComp ${dauComp.name}. Total matchups so far: ${allMatchupGames.length}');
+    }
+
+    allMatchupGames.sort((a, b) => b.startTimeUTC.compareTo(a.startTimeUTC));
+    log('GamesViewModel_getCompleteMatchupHistory: Total ${allMatchupGames.length} matchup games found across all DAUComps.');
+    return allMatchupGames;
+  }
+
+  Future<List<Game>> getMatchupHistory(Team teamA, Team teamB, League league) async {
+    await initialLoadComplete;
+
+    List<Game> relevantGames = _filterGamesForMatchup(_games, teamA, teamB, league);
+
     relevantGames.sort((a, b) => b.startTimeUTC.compareTo(a.startTimeUTC));
 
     return relevantGames;
   }
 
   // --- Testability additions ---
-  /// Sets the internal games list for testing purposes.
-  /// Also sorts the games list similar to how _handleEvent would.
   @visibleForTesting
   set testGames(List<Game> games) {
     _games = games;
-    _games.sort(); // Mimic the sort that happens in _handleEvent
+    _games.sort(); 
   }
 
-  /// Completes the initial load completer for testing purposes.
   @visibleForTesting
   void completeInitialLoadForTest() {
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
   }
+
+  @visibleForTesting
+  Map<String, List<Game>>? testGamesByCompKey;
   // --- End Testability additions ---
 }

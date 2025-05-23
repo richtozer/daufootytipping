@@ -189,7 +189,8 @@ void main() {
       final tip5 = _createHistoricalTip(game: histGame5_UserTippedDraw, tipper: mockCurrentTipper, tipResult: GameResult.c, isDefault: false); // Active Draw tip
 
 
-      when(mockGamesViewModel.getMatchupHistory(mockUpcomingHomeTeam, mockUpcomingAwayTeam, League.nrl))
+      // Updated to call getCompleteMatchupHistory
+      when(mockGamesViewModel.getCompleteMatchupHistory(mockUpcomingHomeTeam, mockUpcomingAwayTeam, League.nrl))
           .thenAnswer((_) async => [histGame1, histGame2, histGame3, histGame4, histGame5_UserTippedDraw]);
       
       when(mockTipsViewModel.findTip(histGame1, mockCurrentTipper)).thenAnswer((_) async => tip1);
@@ -244,7 +245,8 @@ void main() {
     });
 
     test('Returns empty list when no historical games are found', () async {
-      when(mockGamesViewModel.getMatchupHistory(mockUpcomingHomeTeam, mockUpcomingAwayTeam, League.nrl))
+      // Updated to call getCompleteMatchupHistory
+      when(mockGamesViewModel.getCompleteMatchupHistory(mockUpcomingHomeTeam, mockUpcomingAwayTeam, League.nrl))
           .thenAnswer((_) async => []);
 
       final result = await gameTipViewModel.getFormattedHistoricalMatchups();
@@ -271,7 +273,8 @@ void main() {
       when((gameNullScores.scoring as MockScoring).awayTeamScore).thenReturn(null); // Explicitly stub awayTeamScore to be null
 
 
-      when(mockGamesViewModel.getMatchupHistory(mockUpcomingHomeTeam, mockUpcomingAwayTeam, League.nrl))
+      // Updated to call getCompleteMatchupHistory
+      when(mockGamesViewModel.getCompleteMatchupHistory(mockUpcomingHomeTeam, mockUpcomingAwayTeam, League.nrl))
           .thenAnswer((_) async => [gameWithScore, gameNoScoringObject, gameNullScores]);
       
       when(mockTipsViewModel.findTip(gameWithScore, mockCurrentTipper)).thenAnswer((_) async => tipForScored);

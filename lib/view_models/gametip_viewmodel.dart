@@ -367,7 +367,7 @@ class GameTipViewModel extends ChangeNotifier {
     await gamesViewModel.initialLoadComplete; // Ensure games are loaded
 
     // 2. Get historical matchups
-    final List<Game> historicalGames = await gamesViewModel.getMatchupHistory(
+    final List<Game> historicalGames = await gamesViewModel.getCompleteMatchupHistory(
       game.homeTeam,
       game.awayTeam,
       game.league,
