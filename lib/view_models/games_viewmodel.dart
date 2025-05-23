@@ -334,4 +334,40 @@ class GamesViewModel extends ChangeNotifier {
 
     return historyItems;
   }
+
+  Future<List<Game>> getMatchupHistory(Team teamA, Team teamB, League league) async {
+    await initialLoadComplete;
+
+    // Filter games
+    List<Game> relevantGames = _games.where((game) {
+      bool isCorrectLeague = game.league == league;
+      bool hasScores = game.scoring != null && game.scoring!.homeTeamScore != null && game.scoring!.awayTeamScore != null;
+      bool teamsInvolved = (game.homeTeam.dbkey == teamA.dbkey && game.awayTeam.dbkey == teamB.dbkey) ||
+                           (game.homeTeam.dbkey == teamB.dbkey && game.awayTeam.dbkey == teamA.dbkey);
+      return isCorrectLeague && hasScores && teamsInvolved;
+    }).toList();
+
+    // Sort results by gameDate in descending order
+    relevantGames.sort((a, b) => b.startTimeUTC.compareTo(a.startTimeUTC));
+
+    return relevantGames;
+  }
+
+  // --- Testability additions ---
+  /// Sets the internal games list for testing purposes.
+  /// Also sorts the games list similar to how _handleEvent would.
+  @visibleForTesting
+  set testGames(List<Game> games) {
+    _games = games;
+    _games.sort(); // Mimic the sort that happens in _handleEvent
+  }
+
+  /// Completes the initial load completer for testing purposes.
+  @visibleForTesting
+  void completeInitialLoadForTest() {
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
+    }
+  }
+  // --- End Testability additions ---
 }

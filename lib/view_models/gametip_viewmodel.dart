@@ -15,7 +15,29 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
+
+// Helper class to structure historical matchup data for the UI
+class HistoricalMatchupUIData {
+  final String year;
+  final String month;
+  final String winningTeamName;
+  final String winType; // "Home" or "Away" or "Draw"
+  final String userTipTeamName;
+  final bool isCurrentYear;
+  final Game pastGame; // Keep a reference to the original game if needed for more details
+
+  HistoricalMatchupUIData({
+    required this.year,
+    required this.month,
+    required this.winningTeamName,
+    required this.winType,
+    required this.userTipTeamName,
+    required this.isCurrentYear,
+    required this.pastGame,
+  });
+}
 
 class GameTipViewModel extends ChangeNotifier {
   Tip? _tip;
@@ -59,10 +81,9 @@ class GameTipViewModel extends ChangeNotifier {
     this.game,
     this.allTipsViewModel,
   ) {
-    allTipsViewModel.addListener(_tipsUpdated);
+    allTipsViewModel.addListener(_tipsUpdated); // Restored listener for tips
     // only monitor gamesViewModel if the comp still has active rounds
-    if (_currentDAUComp.highestRoundNumberInPast() <
-        _currentDAUComp.daurounds.length) {
+    if (_currentDAUComp.highestRoundNumberInPast() < _currentDAUComp.daurounds.length) {
       allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
     } else {
       log('GameTipsViewModel constructor: ${_currentDAUComp.name} has no active rounds. Not listening to gamesViewModel');
@@ -335,5 +356,90 @@ class GameTipViewModel extends ChangeNotifier {
     allTipsViewModel.gamesViewModel.removeListener(_gamesViewModelUpdated);
     allTipsViewModel.removeListener(_tipsUpdated);
     super.dispose();
+  }
+
+  Future<List<HistoricalMatchupUIData>> getFormattedHistoricalMatchups() async {
+    log('GameTipViewModel.getFormattedHistoricalMatchups() called for game ${game.dbkey}');
+    final List<HistoricalMatchupUIData> formattedMatchups = [];
+
+    // 1. Get GamesViewModel
+    final gamesViewModel = allTipsViewModel.gamesViewModel;
+    await gamesViewModel.initialLoadComplete; // Ensure games are loaded
+
+    // 2. Get historical matchups
+    final List<Game> historicalGames = await gamesViewModel.getMatchupHistory(
+      game.homeTeam,
+      game.awayTeam,
+      game.league,
+    );
+
+    log('Found ${historicalGames.length} historical games for ${game.homeTeam.name} vs ${game.awayTeam.name}');
+
+    // 3. For each past game, format the data
+    for (final pastGame in historicalGames) {
+      if (pastGame.scoring == null || pastGame.scoring!.homeTeamScore == null || pastGame.scoring!.awayTeamScore == null) {
+        log('Skipping game ${pastGame.dbkey} due to missing scores.');
+        continue;
+      }
+
+      // a. Get user's tip for the past game
+      final Tip? pastTip = await allTipsViewModel.findTip(pastGame, currentTipper);
+
+      // b. Determine winning team and winType
+      String winningTeamName = '';
+      String winType = ''; // "Home", "Away", "Draw"
+
+      if (pastGame.scoring!.homeTeamScore! > pastGame.scoring!.awayTeamScore!) {
+        winningTeamName = pastGame.homeTeam.name;
+        winType = 'Home';
+      } else if (pastGame.scoring!.awayTeamScore! > pastGame.scoring!.homeTeamScore!) {
+        winningTeamName = pastGame.awayTeam.name;
+        winType = 'Away';
+      } else {
+        winningTeamName = 'Draw'; // Or "Nobody" or handle as per UI needs
+        winType = 'Draw';
+      }
+
+      // c. Determine userTipTeamName
+      String userTipTeamName = '';
+      if (pastTip != null) {
+        bool isDefaultAwayTip = pastTip.isDefaultTip() &&
+                                (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e);
+        
+        if (!pastTip.isDefaultTip() || (pastTip.isDefaultTip() && !isDefaultAwayTip)) {
+           if (pastTip.tip == GameResult.a || pastTip.tip == GameResult.b) {
+            userTipTeamName = pastGame.homeTeam.name;
+          } else if (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e) {
+            userTipTeamName = pastGame.awayTeam.name;
+          } else if (pastTip.tip == GameResult.c) {
+            userTipTeamName = 'Draw'; // User tipped a draw
+          }
+        } else {
+          log('Ignoring default away tip for game ${pastGame.dbkey}');
+        }
+      }
+
+
+      // d. Determine date components
+      final gameDateLocal = pastGame.startTimeUTC.toLocal();
+      final String year = DateFormat('yyyy').format(gameDateLocal);
+      final String month = DateFormat('MMM').format(gameDateLocal);
+      final bool isCurrentYear = gameDateLocal.year == DateTime.now().year;
+
+      formattedMatchups.add(
+        HistoricalMatchupUIData(
+          year: year,
+          month: month,
+          winningTeamName: winningTeamName,
+          winType: winType,
+          userTipTeamName: userTipTeamName,
+          isCurrentYear: isCurrentYear,
+          pastGame: pastGame,
+        ),
+      );
+      log('Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName');
+    }
+    log('Finished formatting ${formattedMatchups.length} historical matchups.');
+    return formattedMatchups;
   }
 }

@@ -433,9 +433,9 @@ class _GameListItemState extends State<GameListItem> {
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       return [
         gameTipCard(gameTipsViewModelConsumer),
-        _buildHistoricalInsightsCard(gameTipsViewModelConsumer),
+        _buildNewHistoricalMatchupsCard(gameTipsViewModelConsumer), // New card
         GameInfo(gameTipsViewModelConsumer.game,
-            gameTipsViewModelConsumer), // Corrected to pass gameTipsViewModelConsumer
+            gameTipsViewModelConsumer), 
       ];
     } else {
       return [
@@ -472,36 +472,81 @@ class _GameListItemState extends State<GameListItem> {
     return TipChoice(gameTipsViewModelConsumer, true);
   }
 
-  Widget _buildHistoricalInsightsCard(GameTipViewModel viewModel) {
-    if (viewModel.historicalTotalTipsOnCombination == 0) {
-      // Return a less verbose message or shrink to fit better if "No past data..." is too long
-      return Card(
-        elevation: 1.0, // Less prominent than other cards
-        margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-        child: Padding(
-          padding: EdgeInsets.all(12.0),
-          child: Text(
-            "No past tips by you on this matchup.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 12.0,
-                color: Colors.black54,
-                fontStyle: FontStyle.italic),
-          ),
-        ),
-      );
-    }
-    return Card(
-      elevation: 2.0,
-      margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-      child: Padding(
-        padding: EdgeInsets.all(12.0),
-        child: Text(
-          viewModel.historicalInsightsString,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13.0, color: Colors.black87),
-        ),
-      ),
+  Widget _buildNewHistoricalMatchupsCard(GameTipViewModel viewModel) {
+    return FutureBuilder<List<HistoricalMatchupUIData>>(
+      future: viewModel.getFormattedHistoricalMatchups(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            elevation: 2.0,
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            child: Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Center(child: CircularProgressIndicator(color: League.nrl.colour)),
+            ),
+          );
+        } else if (snapshot.hasError) {
+          return Card(
+            elevation: 2.0,
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            child: Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Text(
+                "Error loading historical matchups.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.0, color: Colors.red, fontStyle: FontStyle.italic),
+              ),
+            ),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Card(
+            elevation: 1.0,
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            child: Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Text(
+                "No past matchups found for these teams.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
+              ),
+            ),
+          );
+        } else {
+          final matchups = snapshot.data!;
+          return Card(
+            elevation: 2.0,
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            child: Container( // Constrain height for ListView
+              height: 100, // Adjust as needed, or use Expanded if parent allows
+              child: ListView.builder(
+                itemCount: matchups.length,
+                itemBuilder: (context, index) {
+                  final item = matchups[index];
+                  String yearString = item.isCurrentYear ? "" : "${item.year} ";
+                  String monthString = item.month;
+                  String winningTeamString = item.winningTeamName;
+                  // Ensure winType is not empty and provides context.
+                  String winTypeDisplay = item.winType.isNotEmpty && item.winType != "Draw" ? " (${item.winType})" : "";
+                  String tipString = item.userTipTeamName.isNotEmpty ? ". You tipped ${item.userTipTeamName}" : "";
+                  // Handle Draw case for winningTeamString
+                  String resultPrefix = winningTeamString == "Draw" ? "Match was a Draw" : "$winningTeamString won$winTypeDisplay";
+
+                  String displayText = "$yearString$monthString: $resultPrefix$tipString";
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                    child: Text(
+                      displayText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11.5, color: Colors.black87), // Slightly smaller font
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 
