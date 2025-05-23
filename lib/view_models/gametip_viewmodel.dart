@@ -401,23 +401,17 @@ class GameTipViewModel extends ChangeNotifier {
       }
 
       // c. Determine userTipTeamName
-      String userTipTeamName = '';
-      if (pastTip != null) {
-        bool isDefaultAwayTip = pastTip.isDefaultTip() &&
-                                (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e);
-        
-        if (!pastTip.isDefaultTip() || (pastTip.isDefaultTip() && !isDefaultAwayTip)) {
-           if (pastTip.tip == GameResult.a || pastTip.tip == GameResult.b) {
-            userTipTeamName = pastGame.homeTeam.name;
-          } else if (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e) {
-            userTipTeamName = pastGame.awayTeam.name;
-          } else if (pastTip.tip == GameResult.c) {
-            userTipTeamName = 'Draw'; // User tipped a draw
-          }
-        } else {
-          log('Ignoring default away tip for game ${pastGame.dbkey}');
+      String userTipTeamName = ''; // Default to empty
+      if (pastTip != null && !pastTip.isDefaultTip()) { // New stricter condition
+         if (pastTip.tip == GameResult.a || pastTip.tip == GameResult.b) { // Home tip
+          userTipTeamName = pastGame.homeTeam.name;
+        } else if (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e) { // Away tip
+          userTipTeamName = pastGame.awayTeam.name;
+        } else if (pastTip.tip == GameResult.c) { // Draw tip
+          userTipTeamName = 'Draw'; 
         }
       }
+      // If pastTip is null or pastTip.isDefaultTip() is true, userTipTeamName remains empty.
 
 
       // d. Determine date components
