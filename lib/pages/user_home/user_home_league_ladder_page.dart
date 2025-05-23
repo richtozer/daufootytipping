@@ -153,10 +153,14 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           // Step 1: Add HeaderWidget conditionally
           orientation == Orientation.portrait
               ? HeaderWidget(
-                  text: '${widget.league.name.toUpperCase()} Premiership Ladder',
+                  text: '${widget.league.name.toUpperCase()} Premiership Ladder', // This text is correct
                   leadingIconAvatar: Hero(
-                    tag: '${widget.league.name}_ladder_icon', // Dynamic tag
-                    child: const Icon(Icons.leaderboard, size: 40), // Added const
+                    tag: '${widget.league.name.toLowerCase()}_league_logo_hero', // Updated tag
+                    child: SvgPicture.asset( // Updated child to SvgPicture.asset
+                      widget.league == League.nrl ? 'assets/teams/nrl.svg' : 'assets/teams/afl.svg',
+                      width: 35,
+                      height: 35,
+                    ),
                   ),
                 )
               : Container(), // Empty container if not in portrait

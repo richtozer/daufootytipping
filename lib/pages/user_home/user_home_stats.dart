@@ -175,7 +175,7 @@ class StatsTab extends StatelessWidget {
                   child: Row( // Removed const here because Hero is not const
                     children: [
                       Hero( // Added Hero widget
-                        tag: 'nrl_logo', // Added tag
+                        tag: "nrl_league_logo_hero", // Updated tag
                         child: SvgPicture.asset( // Replaced Icon with SvgPicture
                           'assets/teams/nrl.svg',
                           width: 30,
@@ -208,7 +208,7 @@ class StatsTab extends StatelessWidget {
                     children: [
                       // Replace the Icon with the AFL SVG logo in black and white
                       Hero(
-                        tag: 'afl_logo',
+                        tag: "afl_league_logo_hero", // Updated tag
                         child: SvgPicture.asset(
                           'assets/teams/afl.svg',
                           width: 30,
