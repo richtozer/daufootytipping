@@ -21,6 +21,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+import 'dart:developer'; // For log()
 
 class GameListItem extends StatefulWidget {
   const GameListItem({
@@ -44,14 +45,127 @@ class GameListItem extends StatefulWidget {
 
 class _GameListItemState extends State<GameListItem> {
   late final GameTipViewModel gameTipsViewModel;
-  LeagueLadder? _calculatedLadder;
+  // LeagueLadder? _calculatedLadder; // Scoped locally to _fetchAndSetLadderRanks
+
+  // State variables for historical data
+  List<HistoricalMatchupUIData>? _historicalData;
+  bool _isLoadingHistoricalData = false;
+  bool _historicalDataError = false;
+
+  // New state variables for ladder ranks
+  String? _homeOrdinalRankLabel;
+  String? _awayOrdinalRankLabel;
+  bool _isLoadingLadderRank = false; 
 
   @override
   void initState() {
     super.initState();
     gameTipsViewModel = GameTipViewModel(widget.currentTipper,
         widget.currentDAUComp, widget.game, widget.allTipsViewModel);
-    _initLeagueLadder();
+    // DO NOT CALL _initLeagueLadder() / _fetchAndSetLadderRanks() here directly
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _homeOrdinalRankLabel == null && _awayOrdinalRankLabel == null && !_isLoadingLadderRank) {
+        _fetchAndSetLadderRanks();
+      }
+    });
+  }
+
+  Future<void> _fetchHistoricalData() async {
+    if (!mounted) return; 
+    setState(() {
+      _isLoadingHistoricalData = true;
+      _historicalDataError = false;
+    });
+
+    try {
+      final data = await gameTipsViewModel.getFormattedHistoricalMatchups();
+      if (!mounted) return;
+      setState(() {
+        _historicalData = data;
+        _isLoadingHistoricalData = false;
+      });
+    } catch (e) {
+      log('Error fetching historical matchups: $e'); 
+      if (!mounted) return;
+      setState(() {
+        _historicalDataError = true;
+        _isLoadingHistoricalData = false;
+      });
+    }
+  }
+
+  Future<void> _fetchAndSetLadderRanks() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingLadderRank = true;
+    });
+
+    try {
+      final dauCompsViewModel = di<DAUCompsViewModel>();
+      if (dauCompsViewModel.selectedDAUComp == null) {
+        log('Selected DAUComp is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
+        if (!mounted) return;
+        setState(() { _isLoadingLadderRank = false; _homeOrdinalRankLabel = '--'; _awayOrdinalRankLabel = '--'; });
+        return;
+      }
+
+      final gamesViewModel = dauCompsViewModel.gamesViewModel;
+      if (gamesViewModel == null) {
+        log('GamesViewModel is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
+         if (!mounted) return;
+        setState(() { _isLoadingLadderRank = false; _homeOrdinalRankLabel = '--'; _awayOrdinalRankLabel = '--'; });
+        return;
+      }
+      
+      await gamesViewModel.initialLoadComplete;
+
+      final teamsViewModel = gamesViewModel.teamsViewModel;
+      await teamsViewModel.initialLoadComplete;
+
+      final ladderService = LadderCalculationService();
+
+      List<Game> allGames = await gamesViewModel.getGames();
+      List<Team> leagueTeams = teamsViewModel
+              .groupedTeams[gameTipsViewModel.game.league.name.toLowerCase()]
+              ?.cast<Team>() ??
+          [];
+
+      LeagueLadder? calculatedLadder = ladderService.calculateLadder(
+        allGames: allGames,
+        leagueTeams: leagueTeams,
+        league: gameTipsViewModel.game.league,
+      );
+
+      String calculatedHomeLabel = '--';
+      String calculatedAwayLabel = '--';
+
+      if (calculatedLadder != null) {
+        final homeIdx = calculatedLadder.teams.indexWhere((t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey);
+        final homeRank = (homeIdx == -1) ? null : homeIdx + 1;
+        calculatedHomeLabel = homeRank != null ? LeagueLadder.ordinal(homeRank) : '--';
+
+        final awayIdx = calculatedLadder.teams.indexWhere((t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey);
+        final awayRank = (awayIdx == -1) ? null : awayIdx + 1;
+        calculatedAwayLabel = awayRank != null ? LeagueLadder.ordinal(awayRank) : '--';
+      }
+      
+      if (!mounted) return;
+      setState(() {
+        _homeOrdinalRankLabel = calculatedHomeLabel;
+        _awayOrdinalRankLabel = calculatedAwayLabel;
+        _isLoadingLadderRank = false;
+      });
+
+    } catch (e) {
+      log('Error fetching and setting ladder ranks: $e');
+      if (!mounted) return;
+      setState(() {
+        _homeOrdinalRankLabel = 'N/A'; // Error indicator
+        _awayOrdinalRankLabel = 'N/A'; // Error indicator
+        _isLoadingLadderRank = false;
+      });
+    }
   }
 
   @override
@@ -60,25 +174,9 @@ class _GameListItemState extends State<GameListItem> {
       value: gameTipsViewModel,
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
-          // Helper to get rank (1-based) for a team dbkey
-          int? getTeamRank(String dbkey) {
-            if (_calculatedLadder == null) return null;
-            final idx =
-                _calculatedLadder?.teams.indexWhere((t) => t.dbkey == dbkey);
-            return (idx == null || idx == -1) ? null : idx + 1;
-          }
-
-          // For home team label
-          final homeRank =
-              getTeamRank(gameTipsViewModelConsumer.game.homeTeam.dbkey);
-          final homeOrdinalRankLabel =
-              homeRank != null ? LeagueLadder.ordinal(homeRank) : '';
-
-          // For away team label
-          final awayRank =
-              getTeamRank(gameTipsViewModelConsumer.game.awayTeam.dbkey);
-          final awayOrdinalRankLabel =
-              awayRank != null ? LeagueLadder.ordinal(awayRank) : '';
+          // Use new state variables for rank labels
+          final String displayHomeRank = _homeOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+          final String displayAwayRank = _awayOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
 
           // Reference to the game for easier access in onTap
           final Game game = gameTipsViewModelConsumer.game;
@@ -231,7 +329,7 @@ class _GameListItemState extends State<GameListItem> {
                                             gameTipsViewModelConsumer
                                                     .game.gameState ==
                                                 GameState.startingSoon
-                                        ? homeOrdinalRankLabel
+                                        ? displayHomeRank 
                                         : '',
                                     style: const TextStyle(
                                       overflow: TextOverflow.ellipsis,
@@ -314,7 +412,7 @@ class _GameListItemState extends State<GameListItem> {
                                             gameTipsViewModelConsumer
                                                     .game.gameState ==
                                                 GameState.startingSoon
-                                        ? awayOrdinalRankLabel
+                                        ? displayAwayRank
                                         : '',
                                     style: const TextStyle(
                                       overflow: TextOverflow.ellipsis,
@@ -369,6 +467,17 @@ class _GameListItemState extends State<GameListItem> {
                             enableInfiniteScroll: false,
                             onPageChanged: (index, reason) {
                               gameTipsViewModelConsumer.currentIndex = index;
+                              
+                              bool isHistoricalCardEligible = 
+                                  gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
+                                  gameTipsViewModelConsumer.game.gameState == GameState.startingSoon;
+                              int historicalCardIndex = 1; // Assuming it's the second card
+
+                              if (isHistoricalCardEligible && index == historicalCardIndex) {
+                                if (_historicalData == null && !_isLoadingHistoricalData && !_historicalDataError) {
+                                  _fetchHistoricalData();
+                                }
+                              }
                             }),
                         items: carouselItems(gameTipsViewModelConsumer,
                             widget.isPercentStatsPage),
@@ -473,109 +582,66 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget _buildNewHistoricalMatchupsCard(GameTipViewModel viewModel) {
-    return FutureBuilder<List<HistoricalMatchupUIData>>(
-      future: viewModel.getFormattedHistoricalMatchups(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Card(
-            elevation: 2.0,
-            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Center(child: CircularProgressIndicator(color: League.nrl.colour)),
-            ),
-          );
-        } else if (snapshot.hasError) {
-          return Card(
-            elevation: 2.0,
-            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Text(
-                "Error loading historical matchups.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13.0, color: Colors.red, fontStyle: FontStyle.italic),
-              ),
-            ),
-          );
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Card(
-            elevation: 1.0,
-            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Text(
-                "No past matchups found for these teams.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
-              ),
-            ),
-          );
-        } else {
-          final matchups = snapshot.data!;
-          return Card(
-            elevation: 2.0,
-            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Container( // Constrain height for ListView
-              height: 100, // Adjust as needed, or use Expanded if parent allows
-              child: ListView.builder(
-                itemCount: matchups.length,
-                itemBuilder: (context, index) {
-                  final item = matchups[index];
-                  String yearString = item.isCurrentYear ? "" : "${item.year} ";
-                  String monthString = item.month;
-                  String winningTeamString = item.winningTeamName;
-                  // Ensure winType is not empty and provides context.
-                  String winTypeDisplay = item.winType.isNotEmpty && item.winType != "Draw" ? " (${item.winType})" : "";
-                  String tipString = item.userTipTeamName.isNotEmpty ? ". You tipped ${item.userTipTeamName}" : "";
-                  // Handle Draw case for winningTeamString
-                  String resultPrefix = winningTeamString == "Draw" ? "Match was a Draw" : "$winningTeamString won$winTypeDisplay";
+    // viewModel is gameTipsViewModelConsumer from the Consumer
 
-                  String displayText = "$yearString$monthString: $resultPrefix$tipString";
-
-                  return Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                    child: Text(
-                      displayText,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11.5, color: Colors.black87), // Slightly smaller font
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        }
-      },
-    );
-  }
-
-  void _initLeagueLadder() async {
-    final dauCompsViewModel = di<DAUCompsViewModel>();
-    if (dauCompsViewModel.selectedDAUComp == null) {
-      return;
+    if (_isLoadingHistoricalData) {
+      return Card(child: SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: League.nrl.colour))));
     }
+    if (_historicalDataError) {
+      return Card(child: SizedBox(height: 100, child: Center(child: Text("Error loading history."))));
+    }
+    if (_historicalData != null) {
+      if (_historicalData!.isEmpty) {
+        return Card(
+          elevation: 1.0,
+          margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+          child: Padding(
+            padding: EdgeInsets.all(12.0),
+            child: Text(
+              "No past matchups found for these teams.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
+            ),
+          ),
+        );
+      }
+      // Data is available and not empty, display it
+      final matchups = _historicalData!;
+      return Card(
+        elevation: 2.0,
+        margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Container( 
+          height: 100, 
+          child: ListView.builder(
+            itemCount: matchups.length,
+            itemBuilder: (context, index) {
+              final item = matchups[index];
+              String yearString = item.isCurrentYear ? "" : "${item.year} ";
+              String monthString = item.month;
+              String winningTeamString = item.winningTeamName;
+              String winTypeDisplay = item.winType.isNotEmpty && item.winType != "Draw" ? " (${item.winType})" : "";
+              String tipString = item.userTipTeamName.isNotEmpty ? ". You tipped ${item.userTipTeamName}" : "";
+              String resultPrefix = winningTeamString == "Draw" ? "Match was a Draw" : "$winningTeamString won$winTypeDisplay";
+              String displayText = "$yearString$monthString: $resultPrefix$tipString";
 
-    final gamesViewModel = di<DAUCompsViewModel>().gamesViewModel;
-    await gamesViewModel!.initialLoadComplete;
-
-    final teamsViewModel = gamesViewModel.teamsViewModel;
-    await teamsViewModel.initialLoadComplete;
-
-    final ladderService = LadderCalculationService();
-
-    List<Game> allGames = await gamesViewModel.getGames();
-    List<Team> leagueTeams = teamsViewModel
-            .groupedTeams[gameTipsViewModel.game.league.name.toLowerCase()]
-            ?.cast<Team>() ??
-        [];
-
-    _calculatedLadder = ladderService.calculateLadder(
-      allGames: allGames,
-      leagueTeams: leagueTeams,
-      league: gameTipsViewModel.game.league,
-    );
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                child: Text(
+                  displayText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+    // Default initial state (before it's active and loaded or if data is null and no error/loading)
+    return Card(child: SizedBox(height: 100, child: Center(child: Text("Matchup History")))); 
   }
+
+  // _initLeagueLadder is now _fetchAndSetLadderRanks
 }
 
 Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
