@@ -8,6 +8,7 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/pages/user_home/user_home_header.dart'; // Added import
 
 class LeagueLadderPage extends StatefulWidget {
   final League league;
@@ -143,137 +144,174 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.league.name.toUpperCase()} Premiership Ladder'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _leagueLadder == null || _leagueLadder!.teams.isEmpty
-                  ? const Center(child: Text('No ladder data available.'))
-                  : SingleChildScrollView( // Outer, Vertical scroll
-                    child: SingleChildScrollView( // Inner, Horizontal scroll
-                      scrollDirection: Axis.horizontal,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: DataTable(
-                        border: TableBorder.all(width: 1.0, color: Colors.grey.shade300),
-                        columnSpacing: 10.0,
-                        horizontalMargin: 8.0,
-                        headingRowHeight: 36.0,
-                        sortColumnIndex: _sortColumnIndex,
-                        sortAscending: _sortAscending,
-                        columns: <DataColumn>[
-                          DataColumn(
-                              label: const Text('#',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('Team',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('Gms',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('Pts',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('W',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('L',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('D',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('For',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('Agst',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                          DataColumn(
-                              label: const Text('%',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
-                        ],
-                        rows: List<DataRow>.generate(
-                          _leagueLadder!.teams.length,
-                          (index) {
-                            final team = _leagueLadder!.teams[index];
-                            final isTop8 = index < 8; // Top 8 teams
+    Orientation orientation = MediaQuery.of(context).orientation; // Get orientation
 
-                            return DataRow(
-                              color: MaterialStateProperty.resolveWith<Color?>(
-                                (Set<MaterialState> states) {
-                                  if (isTop8 && widget.league == League.afl) {
-                                    return League.afl.colour.brighten(
-                                        75); // Highlight color for top 8
-                                  }
-                                  if (isTop8 && widget.league == League.nrl) {
-                                    return League.nrl.colour.brighten(
-                                        75); // Highlight color for top 8
-                                  }
-                                  return null; // Default row color
-                                },
+    return Scaffold(
+      // appBar: AppBar(...) removed
+      body: Column( // Existing body wrapped in Column
+        children: [
+          // Step 1: Add HeaderWidget conditionally
+          orientation == Orientation.portrait
+              ? HeaderWidget(
+                  text: '${widget.league.name.toUpperCase()} Premiership Ladder',
+                  leadingIconAvatar: Hero(
+                    tag: '${widget.league.name}_ladder_icon', // Dynamic tag
+                    child: const Icon(Icons.leaderboard, size: 40), // Added const
+                  ),
+                )
+              : Container(), // Empty container if not in portrait
+
+          // Add Explanatory Text (conditionally)
+          orientation == Orientation.portrait
+              ? Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    "This is the current ${widget.league.name.toUpperCase()} premiership ladder. Tap column headers to sort.",
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : Container(),
+
+          // The existing body content (DataTable section) wrapped in Expanded
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                  ? Center(child: Text('Error: $_error'))
+                  : _leagueLadder == null || _leagueLadder!.teams.isEmpty
+                      ? const Center(child: Text('No ladder data available.'))
+                      : SingleChildScrollView( // Outer, Vertical scroll
+                          child: SingleChildScrollView( // Inner, Horizontal scroll
+                            scrollDirection: Axis.horizontal,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: DataTable(
+                                border: TableBorder.all(width: 1.0, color: Colors.grey.shade300),
+                                columnSpacing: 10.0,
+                                horizontalMargin: 8.0,
+                                headingRowHeight: 36.0,
+                                sortColumnIndex: _sortColumnIndex,
+                                sortAscending: _sortAscending,
+                                columns: <DataColumn>[
+                                  DataColumn(
+                                      label: const Text('#',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('Team',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('Gms',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('Pts',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('W',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('L',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('D',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('For',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('Agst',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                  DataColumn(
+                                      label: const Text('%',
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
+                                ],
+                                rows: List<DataRow>.generate(
+                                  _leagueLadder!.teams.length,
+                                  (index) {
+                                    final team = _leagueLadder!.teams[index];
+                                    final isTop8 = index < 8; // Top 8 teams
+
+                                    return DataRow(
+                                      color: MaterialStateProperty.resolveWith<Color?>(
+                                        (Set<MaterialState> states) {
+                                          if (isTop8 && widget.league == League.afl) {
+                                            return League.afl.colour.brighten(
+                                                75); // Highlight color for top 8
+                                          }
+                                          if (isTop8 && widget.league == League.nrl) {
+                                            return League.nrl.colour.brighten(
+                                                75); // Highlight color for top 8
+                                          }
+                                          return null; // Default row color
+                                        },
+                                      ),
+                                      cells: <DataCell>[
+                                        DataCell(Text(LeagueLadder.ordinal(index + 1))),
+                                        DataCell(Row(
+                                          children: [
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.only(right: 6.0),
+                                              child: SvgPicture.asset(
+                                                team.logoURI ??
+                                                    'assets/images/default_logo.svg',
+                                                width: 28,
+                                                height: 28,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                team.teamName,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        )),
+                                        DataCell(Text(team.played.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(team.points.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(team.won.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(team.lost.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(team.drawn.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(team.pointsFor.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(team.pointsAgainst.toString(), textAlign: TextAlign.right)),
+                                        DataCell(
+                                            Text(team.percentage.toStringAsFixed(2), textAlign: TextAlign.right)),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ),
-                              cells: <DataCell>[
-                                DataCell(Text(LeagueLadder.ordinal(index + 1))),
-                                DataCell(Row(
-                                  children: [
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(right: 6.0),
-                                      child: SvgPicture.asset(
-                                        team.logoURI ??
-                                            'assets/images/default_logo.svg',
-                                        width: 28,
-                                        height: 28,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        team.teamName,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                )),
-                                DataCell(Text(team.played.toString(), textAlign: TextAlign.right)),
-                                DataCell(Text(team.points.toString(), textAlign: TextAlign.right)),
-                                DataCell(Text(team.won.toString(), textAlign: TextAlign.right)),
-                                DataCell(Text(team.lost.toString(), textAlign: TextAlign.right)),
-                                DataCell(Text(team.drawn.toString(), textAlign: TextAlign.right)),
-                                DataCell(Text(team.pointsFor.toString(), textAlign: TextAlign.right)),
-                                DataCell(Text(team.pointsAgainst.toString(), textAlign: TextAlign.right)),
-                                DataCell(
-                                    Text(team.percentage.toStringAsFixed(2), textAlign: TextAlign.right)),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                            ),
+                          ),
+                        ), // This closes the SingleChildScrollView (outer, vertical scroll)
+          ), // This closes the Expanded widget
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pop(context),
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
+        child: const Icon(Icons.arrow_back),
+      ),
     );
   }
 }
