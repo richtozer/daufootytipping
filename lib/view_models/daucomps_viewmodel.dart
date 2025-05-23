@@ -7,6 +7,8 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
+import 'package:daufootytipping/models/league_ladder.dart'; // Added import
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -69,6 +71,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   Timer? _dailyTimer;
 
   List<Game> unassignedGames = []; // List to store unassigned games
+  final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
 
   DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
     log('DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode');
@@ -872,5 +875,71 @@ class DAUCompsViewModel extends ChangeNotifier {
     gamesViewModel?.removeListener(_otherViewModelUpdated);
 
     super.dispose();
+  }
+
+  // Ladder Caching Methods
+  void clearLeagueLadderCache({League? league}) {
+    if (league != null) {
+      _cachedLadders.remove(league);
+      log('DAUCompsViewModel: Cleared ladder cache for ${league.name}');
+    } else {
+      _cachedLadders.clear();
+      log('DAUCompsViewModel: Cleared all ladder caches');
+    }
+    // notifyListeners(); // Consider if UI needs to react to cache clearing directly
+  }
+
+  Future<LeagueLadder?> getOrCalculateLeagueLadder(League league, {bool forceRecalculate = false}) async {
+    log('DAUCompsViewModel: getOrCalculateLeagueLadder called for ${league.name}, forceRecalculate: $forceRecalculate');
+
+    if (forceRecalculate) {
+      clearLeagueLadderCache(league: league);
+    }
+
+    if (_cachedLadders.containsKey(league)) {
+      log('DAUCompsViewModel: Cache hit for ${league.name} ladder.');
+      return _cachedLadders[league]!;
+    }
+
+    log('DAUCompsViewModel: Cache miss for ${league.name} ladder. Proceeding to calculate.');
+
+    if (selectedDAUComp == null) {
+      log('DAUCompsViewModel: Cannot calculate ladder, selectedDAUComp is null.');
+      return null;
+    }
+
+    // Use the class member gamesViewModel directly, which is initialized with selectedDAUComp
+    if (gamesViewModel == null) { 
+      log('DAUCompsViewModel: Cannot calculate ladder, gamesViewModel is null for DAUComp ${selectedDAUComp?.name}.');
+      return null;
+    }
+    
+    // gamesViewModel.getGames() already awaits initialLoadComplete within itself.
+    // gamesViewModel.teamsViewModel.initialLoadComplete is also handled within gamesViewModel init.
+
+    try {
+      List<Game> allGames = await gamesViewModel!.getGames(); 
+      // Accessing teamsViewModel through the initialized gamesViewModel instance
+      List<Team> leagueTeams = gamesViewModel!.teamsViewModel.groupedTeams[league.name.toLowerCase()]?.cast<Team>() ?? [];
+
+      final LadderCalculationService ladderService = LadderCalculationService();
+      LeagueLadder? calculatedLadder = ladderService.calculateLadder(
+        allGames: allGames,
+        leagueTeams: leagueTeams,
+        league: league,
+      );
+
+      if (calculatedLadder != null) {
+        _cachedLadders[league] = calculatedLadder;
+        log('DAUCompsViewModel: Calculated and cached ladder for ${league.name}. Teams count: ${calculatedLadder.teams.length}');
+      } else {
+        log('DAUCompsViewModel: Ladder calculation returned null for ${league.name}.');
+      }
+      return calculatedLadder;
+
+    } catch (e) {
+      log('DAUCompsViewModel: Error calculating ladder for ${league.name}: $e');
+      return null;
+    }
   }
 }
