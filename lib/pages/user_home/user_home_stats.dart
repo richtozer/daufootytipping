@@ -172,12 +172,18 @@ class StatsTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const Row(
+                  child: Row( // Removed const here because Hero is not const
                     children: [
-                      Icon(Icons.list_alt,
-                          size: 40), // Consider a different icon
-                      SizedBox(height: 64, width: 16),
-                      Expanded(
+                      Hero( // Added Hero widget
+                        tag: 'nrl_logo', // Added tag
+                        child: SvgPicture.asset( // Replaced Icon with SvgPicture
+                          'assets/teams/nrl.svg',
+                          width: 30,
+                          height: 40,
+                        ),
+                      ),
+                      const SizedBox(height: 64, width: 16), // Added const here
+                      const Expanded( // Added const here
                         child: Text('NRL Ladder\nView current standings'),
                       ),
                       Icon(Icons.arrow_forward),

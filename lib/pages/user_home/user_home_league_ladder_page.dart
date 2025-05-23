@@ -25,6 +25,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   LeagueLadder? _leagueLadder;
   bool _isLoading = true;
   String? _error;
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -75,6 +77,70 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     }
   }
 
+  void _onSort(int columnIndex, bool ascending) {
+    if (_leagueLadder == null || _leagueLadder!.teams.isEmpty) return;
+
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+
+      _leagueLadder!.teams.sort((a, b) {
+        int compareResult = 0;
+        switch (columnIndex) {
+          case 0: // '#' - Position (index-based for now)
+            // This case needs special handling as we are sorting based on the original index.
+            // However, DataTable expects a stable sort. If we sort by current index, it's tricky.
+            // Let's assume for now that the initial list is by rank and sorting by '#'
+            // would effectively mean sorting by the 'original' rank.
+            // A better way would be to store original rank if it's not just the index.
+            // For this implementation, sorting by '#' will revert to the order provided by
+            // LadderCalculationService if it pre-sorts, or simply be a no-op if not handled.
+            // Let's make it sort by the list's current index to reflect DataTable's behavior.
+            // This might not be a "true" sort by position if other columns have been sorted.
+            // A more robust solution would involve storing original ranks in LeagueLadderTeam.
+            // For now, we'll sort by points as a proxy for rank, as '#' typically reflects that.
+            compareResult = a.points.compareTo(b.points);
+            if (compareResult == 0) {
+              compareResult = a.percentage.compareTo(b.percentage);
+            }
+            // Since '#' column sorting usually means highest points/percentage first,
+            // and DataColumn sort is ascending by default for the first click,
+            // we might need to invert the logic for this specific column if 'ascending' means 'rank 1, 2, 3...'.
+            // Let's stick to standard comparison and user can click again to invert.
+            break;
+          case 1: // 'Team'
+            compareResult = a.teamName.compareTo(b.teamName);
+            break;
+          case 2: // 'Gms'
+            compareResult = a.played.compareTo(b.played);
+            break;
+          case 3: // 'Pts'
+            compareResult = a.points.compareTo(b.points);
+            break;
+          case 4: // 'W'
+            compareResult = a.won.compareTo(b.won);
+            break;
+          case 5: // 'L'
+            compareResult = a.lost.compareTo(b.lost);
+            break;
+          case 6: // 'D'
+            compareResult = a.drawn.compareTo(b.drawn);
+            break;
+          case 7: // 'For'
+            compareResult = a.pointsFor.compareTo(b.pointsFor);
+            break;
+          case 8: // 'Agst'
+            compareResult = a.pointsAgainst.compareTo(b.pointsAgainst);
+            break;
+          case 9: // '%'
+            compareResult = a.percentage.compareTo(b.percentage);
+            break;
+        }
+        return ascending ? compareResult : -compareResult;
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,52 +153,69 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
               ? Center(child: Text('Error: $_error'))
               : _leagueLadder == null || _leagueLadder!.teams.isEmpty
                   ? const Center(child: Text('No ladder data available.'))
-                  : SingleChildScrollView(
-                      child: DataTable(
+                  : SingleChildScrollView( // Outer, Vertical scroll
+                    child: SingleChildScrollView( // Inner, Horizontal scroll
+                      scrollDirection: Axis.horizontal,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: DataTable(
+                        border: TableBorder.all(width: 1.0, color: Colors.grey.shade300),
                         columnSpacing: 10.0,
                         horizontalMargin: 8.0,
                         headingRowHeight: 36.0,
-                        columns: const <DataColumn>[
+                        sortColumnIndex: _sortColumnIndex,
+                        sortAscending: _sortAscending,
+                        columns: <DataColumn>[
                           DataColumn(
-                              label: Text('#',
+                              label: const Text('#',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('Team',
+                              label: const Text('Team',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('Gms',
+                              label: const Text('Gms',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('Pts',
+                              label: const Text('Pts',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('W',
+                              label: const Text('W',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('L',
+                              label: const Text('L',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('D',
+                              label: const Text('D',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('For',
+                              label: const Text('For',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('Agst',
+                              label: const Text('Agst',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                           DataColumn(
-                              label: Text('%',
+                              label: const Text('%',
                                   style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onSort: _onSort),
                         ],
                         rows: List<DataRow>.generate(
                           _leagueLadder!.teams.length,
@@ -176,15 +259,15 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                     ),
                                   ],
                                 )),
-                                DataCell(Text(team.played.toString())),
-                                DataCell(Text(team.points.toString())),
-                                DataCell(Text(team.won.toString())),
-                                DataCell(Text(team.lost.toString())),
-                                DataCell(Text(team.drawn.toString())),
-                                DataCell(Text(team.pointsFor.toString())),
-                                DataCell(Text(team.pointsAgainst.toString())),
+                                DataCell(Text(team.played.toString(), textAlign: TextAlign.right)),
+                                DataCell(Text(team.points.toString(), textAlign: TextAlign.right)),
+                                DataCell(Text(team.won.toString(), textAlign: TextAlign.right)),
+                                DataCell(Text(team.lost.toString(), textAlign: TextAlign.right)),
+                                DataCell(Text(team.drawn.toString(), textAlign: TextAlign.right)),
+                                DataCell(Text(team.pointsFor.toString(), textAlign: TextAlign.right)),
+                                DataCell(Text(team.pointsAgainst.toString(), textAlign: TextAlign.right)),
                                 DataCell(
-                                    Text(team.percentage.toStringAsFixed(2))),
+                                    Text(team.percentage.toStringAsFixed(2), textAlign: TextAlign.right)),
                               ],
                             );
                           },
