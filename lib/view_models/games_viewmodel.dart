@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/team_game_history_item.dart'; // Added import
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
@@ -252,5 +253,85 @@ class GamesViewModel extends ChangeNotifier {
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
     super.dispose();
+  }
+
+  // Helper method to calculate ladder points for a game
+  int _calculateLadderPoints(Game game, Team targetTeam, League league) {
+    bool isHomeTeam = game.homeTeam.dbkey == targetTeam.dbkey;
+    // Ensure scores are not null before accessing them
+    int targetScore = isHomeTeam ? game.scoring!.homeTeamScore! : game.scoring!.awayTeamScore!;
+    int opponentScore = isHomeTeam ? game.scoring!.awayTeamScore! : game.scoring!.homeTeamScore!;
+
+    if (targetScore > opponentScore) { // Target team won
+      return league == League.afl ? 4 : 2;
+    } else if (targetScore < opponentScore) { // Target team lost
+      return 0;
+    } else { // Draw
+      return league == League.afl ? 2 : 1;
+    }
+  }
+
+  // Helper method to determine the result string (W, L, D)
+  String _determineResult(Game game, Team targetTeam) {
+    bool isHomeTeam = game.homeTeam.dbkey == targetTeam.dbkey;
+    // Ensure scores are not null
+    int targetScore = isHomeTeam ? game.scoring!.homeTeamScore! : game.scoring!.awayTeamScore!;
+    int opponentScore = isHomeTeam ? game.scoring!.awayTeamScore! : game.scoring!.homeTeamScore!;
+
+    if (targetScore > opponentScore) return "W";
+    if (targetScore < opponentScore) return "L";
+    return "D";
+  }
+
+  Future<List<TeamGameHistoryItem>> getTeamGameHistory(Team targetTeam, League league) async {
+    await initialLoadComplete;
+
+    List<TeamGameHistoryItem> historyItems = [];
+
+    // Filter games
+    List<Game> relevantGames = _games.where((game) {
+      bool isTargetTeamInvolved = game.homeTeam.dbkey == targetTeam.dbkey || game.awayTeam.dbkey == targetTeam.dbkey;
+      bool isCorrectLeague = game.league == league;
+      bool hasScores = game.scoring != null && game.scoring!.homeTeamScore != null && game.scoring!.awayTeamScore != null;
+      return isTargetTeamInvolved && isCorrectLeague && hasScores;
+    }).toList();
+
+    // Process filtered games
+    for (Game game in relevantGames) {
+      Team opponentTeam;
+      int teamScore;
+      int opponentScore;
+
+      if (game.homeTeam.dbkey == targetTeam.dbkey) {
+        opponentTeam = game.awayTeam;
+        teamScore = game.scoring!.homeTeamScore!;
+        opponentScore = game.scoring!.awayTeamScore!;
+      } else {
+        opponentTeam = game.homeTeam;
+        teamScore = game.scoring!.awayTeamScore!;
+        opponentScore = game.scoring!.homeTeamScore!;
+      }
+
+      String result = _determineResult(game, targetTeam);
+      int ladderPoints = _calculateLadderPoints(game, targetTeam, league);
+
+      historyItems.add(
+        TeamGameHistoryItem(
+          opponentName: opponentTeam.name,
+          opponentLogoUri: opponentTeam.logoURI,
+          teamScore: teamScore,
+          opponentScore: opponentScore,
+          result: result,
+          ladderPoints: ladderPoints,
+          gameDate: game.startTimeUTC,
+          roundNumber: game.fixtureRoundNumber,
+        ),
+      );
+    }
+
+    // Sort results by gameDate in descending order
+    historyItems.sort((a, b) => b.gameDate.compareTo(a.gameDate));
+
+    return historyItems;
   }
 }

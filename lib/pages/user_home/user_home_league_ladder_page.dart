@@ -9,13 +9,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart'; // Added import
+import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart'; // Added import for TeamGamesHistoryPage
 
 class LeagueLadderPage extends StatefulWidget {
   final League league;
+  final List<String>? teamDbKeysToDisplay; // Added optional parameter
+  final String? customTitle; // Added optional parameter
 
   const LeagueLadderPage({
     super.key,
     required this.league,
+    this.teamDbKeysToDisplay, // Added to constructor
+    this.customTitle, // Added to constructor
   });
 
   @override
@@ -65,6 +70,14 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         leagueTeams: leagueTeams,
         league: widget.league,
       );
+
+      // Filter teams if teamDbKeysToDisplay is provided
+      if (widget.teamDbKeysToDisplay != null && widget.teamDbKeysToDisplay!.isNotEmpty) {
+        calculatedLadder.teams.retainWhere((team) => widget.teamDbKeysToDisplay!.contains(team.dbkey));
+      }
+      
+      // The ladder is already sorted by points by default by LadderCalculationService
+      // If a different initial sort is needed for the comparison view, it could be applied here.
 
       setState(() {
         _leagueLadder = calculatedLadder;
@@ -153,20 +166,24 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           // Step 1: Add HeaderWidget conditionally
           orientation == Orientation.portrait
               ? HeaderWidget(
-                  text: '${widget.league.name.toUpperCase()} Premiership Ladder', // This text is correct
-                  leadingIconAvatar: Hero(
-                    tag: '${widget.league.name.toLowerCase()}_league_logo_hero', // Updated tag
-                    child: SvgPicture.asset( // Updated child to SvgPicture.asset
-                      widget.league == League.nrl ? 'assets/teams/nrl.svg' : 'assets/teams/afl.svg',
-                      width: 35,
-                      height: 35,
-                    ),
-                  ),
+                  leadingIconAvatar: (widget.customTitle != null && widget.customTitle!.isNotEmpty)
+                      ? null // Hide logo if custom title is present
+                      : Hero(
+                          tag: "${widget.league.name.toLowerCase()}_league_logo_hero",
+                          child: SvgPicture.asset(
+                            widget.league == League.nrl ? 'assets/teams/nrl.svg' : 'assets/teams/afl.svg',
+                            width: 35,
+                            height: 35,
+                          ),
+                        ),
+                  text: (widget.customTitle != null && widget.customTitle!.isNotEmpty)
+                      ? widget.customTitle!
+                      : "${widget.league.name.toUpperCase()} Premiership Ladder",
                 )
               : Container(), // Empty container if not in portrait
 
-          // Add Explanatory Text (conditionally)
-          orientation == Orientation.portrait
+          // Add Explanatory Text (conditionally, hide if it's a filtered view)
+          (orientation == Orientation.portrait && (widget.teamDbKeysToDisplay == null || widget.teamDbKeysToDisplay!.isEmpty))
               ? Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Text(
@@ -251,8 +268,28 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                 rows: List<DataRow>.generate(
                                   _leagueLadder!.teams.length,
                                   (index) {
-                                    final team = _leagueLadder!.teams[index];
+                                    final ladderTeam = _leagueLadder!.teams[index]; // This is a LadderTeam object
                                     final isTop8 = index < 8; // Top 8 teams
+
+                                    // Create a Team object for navigation
+                                    final Team teamForHistory = Team(
+                                      dbkey: ladderTeam.dbkey,
+                                      name: ladderTeam.teamName,
+                                      logoURI: ladderTeam.logoURI,
+                                      league: widget.league, // widget.league is the League object of the current ladder page
+                                    );
+
+                                    void navigateToHistory() {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => TeamGamesHistoryPage(
+                                            team: teamForHistory,
+                                            league: widget.league,
+                                          ),
+                                        ),
+                                      );
+                                    }
 
                                     return DataRow(
                                       color: MaterialStateProperty.resolveWith<Color?>(
@@ -269,36 +306,36 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                         },
                                       ),
                                       cells: <DataCell>[
-                                        DataCell(Text(LeagueLadder.ordinal(index + 1))),
-                                        DataCell(Row(
-                                          children: [
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.only(right: 6.0),
-                                              child: SvgPicture.asset(
-                                                team.logoURI ??
-                                                    'assets/images/default_logo.svg',
-                                                width: 28,
-                                                height: 28,
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                team.teamName,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        )),
-                                        DataCell(Text(team.played.toString(), textAlign: TextAlign.right)),
-                                        DataCell(Text(team.points.toString(), textAlign: TextAlign.right)),
-                                        DataCell(Text(team.won.toString(), textAlign: TextAlign.right)),
-                                        DataCell(Text(team.lost.toString(), textAlign: TextAlign.right)),
-                                        DataCell(Text(team.drawn.toString(), textAlign: TextAlign.right)),
-                                        DataCell(Text(team.pointsFor.toString(), textAlign: TextAlign.right)),
-                                        DataCell(Text(team.pointsAgainst.toString(), textAlign: TextAlign.right)),
+                                        DataCell(Text(LeagueLadder.ordinal(index + 1)), onTap: navigateToHistory),
                                         DataCell(
-                                            Text(team.percentage.toStringAsFixed(2), textAlign: TextAlign.right)),
+                                          Row(
+                                            children: [
+                                              Padding(
+                                                padding: const EdgeInsets.only(right: 6.0),
+                                                child: SvgPicture.asset(
+                                                  ladderTeam.logoURI ?? 'assets/images/default_logo.svg',
+                                                  width: 28,
+                                                  height: 28,
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  ladderTeam.teamName,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          onTap: navigateToHistory,
+                                        ),
+                                        DataCell(Text(ladderTeam.played.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.points.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.won.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.lost.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.drawn.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.pointsFor.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.pointsAgainst.toString(), textAlign: TextAlign.right), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.percentage.toStringAsFixed(2), textAlign: TextAlign.right), onTap: navigateToHistory),
                                       ],
                                     );
                                   },
