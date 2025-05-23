@@ -55,7 +55,7 @@ class _GameListItemState extends State<GameListItem> {
   // New state variables for ladder ranks
   String? _homeOrdinalRankLabel;
   String? _awayOrdinalRankLabel;
-  bool _isLoadingLadderRank = false; 
+  bool _isLoadingLadderRank = false;
 
   @override
   void initState() {
@@ -65,14 +65,17 @@ class _GameListItemState extends State<GameListItem> {
     // DO NOT CALL _initLeagueLadder() / _fetchAndSetLadderRanks() here directly
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _homeOrdinalRankLabel == null && _awayOrdinalRankLabel == null && !_isLoadingLadderRank) {
+      if (mounted &&
+          _homeOrdinalRankLabel == null &&
+          _awayOrdinalRankLabel == null &&
+          !_isLoadingLadderRank) {
         _fetchAndSetLadderRanks();
       }
     });
   }
 
   Future<void> _fetchHistoricalData() async {
-    if (!mounted) return; 
+    if (!mounted) return;
     setState(() {
       _isLoadingHistoricalData = true;
       _historicalDataError = false;
@@ -86,7 +89,7 @@ class _GameListItemState extends State<GameListItem> {
         _isLoadingHistoricalData = false;
       });
     } catch (e) {
-      log('Error fetching historical matchups: $e'); 
+      log('Error fetching historical matchups: $e');
       if (!mounted) return;
       setState(() {
         _historicalDataError = true;
@@ -106,18 +109,26 @@ class _GameListItemState extends State<GameListItem> {
       if (dauCompsViewModel.selectedDAUComp == null) {
         log('Selected DAUComp is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
         if (!mounted) return;
-        setState(() { _isLoadingLadderRank = false; _homeOrdinalRankLabel = '--'; _awayOrdinalRankLabel = '--'; });
+        setState(() {
+          _isLoadingLadderRank = false;
+          _homeOrdinalRankLabel = '--';
+          _awayOrdinalRankLabel = '--';
+        });
         return;
       }
 
       final gamesViewModel = dauCompsViewModel.gamesViewModel;
       if (gamesViewModel == null) {
         log('GamesViewModel is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
-         if (!mounted) return;
-        setState(() { _isLoadingLadderRank = false; _homeOrdinalRankLabel = '--'; _awayOrdinalRankLabel = '--'; });
+        if (!mounted) return;
+        setState(() {
+          _isLoadingLadderRank = false;
+          _homeOrdinalRankLabel = '--';
+          _awayOrdinalRankLabel = '--';
+        });
         return;
       }
-      
+
       await gamesViewModel.initialLoadComplete;
 
       final teamsViewModel = gamesViewModel.teamsViewModel;
@@ -141,22 +152,25 @@ class _GameListItemState extends State<GameListItem> {
       String calculatedAwayLabel = '--';
 
       if (calculatedLadder != null) {
-        final homeIdx = calculatedLadder.teams.indexWhere((t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey);
+        final homeIdx = calculatedLadder.teams.indexWhere(
+            (t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey);
         final homeRank = (homeIdx == -1) ? null : homeIdx + 1;
-        calculatedHomeLabel = homeRank != null ? LeagueLadder.ordinal(homeRank) : '--';
+        calculatedHomeLabel =
+            homeRank != null ? LeagueLadder.ordinal(homeRank) : '--';
 
-        final awayIdx = calculatedLadder.teams.indexWhere((t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey);
+        final awayIdx = calculatedLadder.teams.indexWhere(
+            (t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey);
         final awayRank = (awayIdx == -1) ? null : awayIdx + 1;
-        calculatedAwayLabel = awayRank != null ? LeagueLadder.ordinal(awayRank) : '--';
+        calculatedAwayLabel =
+            awayRank != null ? LeagueLadder.ordinal(awayRank) : '--';
       }
-      
+
       if (!mounted) return;
       setState(() {
         _homeOrdinalRankLabel = calculatedHomeLabel;
         _awayOrdinalRankLabel = calculatedAwayLabel;
         _isLoadingLadderRank = false;
       });
-
     } catch (e) {
       log('Error fetching and setting ladder ranks: $e');
       if (!mounted) return;
@@ -175,8 +189,10 @@ class _GameListItemState extends State<GameListItem> {
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
           // Use new state variables for rank labels
-          final String displayHomeRank = _homeOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
-          final String displayAwayRank = _awayOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+          final String displayHomeRank =
+              _homeOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+          final String displayAwayRank =
+              _awayOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
 
           // Reference to the game for easier access in onTap
           final Game game = gameTipsViewModelConsumer.game;
@@ -329,7 +345,7 @@ class _GameListItemState extends State<GameListItem> {
                                             gameTipsViewModelConsumer
                                                     .game.gameState ==
                                                 GameState.startingSoon
-                                        ? displayHomeRank 
+                                        ? displayHomeRank
                                         : '',
                                     style: const TextStyle(
                                       overflow: TextOverflow.ellipsis,
@@ -467,14 +483,21 @@ class _GameListItemState extends State<GameListItem> {
                             enableInfiniteScroll: false,
                             onPageChanged: (index, reason) {
                               gameTipsViewModelConsumer.currentIndex = index;
-                              
-                              bool isHistoricalCardEligible = 
-                                  gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
-                                  gameTipsViewModelConsumer.game.gameState == GameState.startingSoon;
-                              int historicalCardIndex = 1; // Assuming it's the second card
 
-                              if (isHistoricalCardEligible && index == historicalCardIndex) {
-                                if (_historicalData == null && !_isLoadingHistoricalData && !_historicalDataError) {
+                              bool isHistoricalCardEligible =
+                                  gameTipsViewModelConsumer.game.gameState ==
+                                          GameState.notStarted ||
+                                      gameTipsViewModelConsumer
+                                              .game.gameState ==
+                                          GameState.startingSoon;
+                              int historicalCardIndex =
+                                  1; // Assuming it's the second card
+
+                              if (isHistoricalCardEligible &&
+                                  index == historicalCardIndex) {
+                                if (_historicalData == null &&
+                                    !_isLoadingHistoricalData &&
+                                    !_historicalDataError) {
                                   _fetchHistoricalData();
                                 }
                               }
@@ -543,8 +566,7 @@ class _GameListItemState extends State<GameListItem> {
       return [
         gameTipCard(gameTipsViewModelConsumer),
         _buildNewHistoricalMatchupsCard(gameTipsViewModelConsumer), // New card
-        GameInfo(gameTipsViewModelConsumer.game,
-            gameTipsViewModelConsumer), 
+        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModelConsumer),
       ];
     } else {
       return [
@@ -589,8 +611,9 @@ class _GameListItemState extends State<GameListItem> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8.0), // Add some space below heading
-            child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
+            padding: const EdgeInsets.only(
+                bottom: 2.0), // Add some space below heading
+            child: Text('Previous matchups', style: TextStyle(fontSize: 12.0)),
           ),
           CircularProgressIndicator(color: League.nrl.colour),
         ],
@@ -600,10 +623,11 @@ class _GameListItemState extends State<GameListItem> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
+            padding: const EdgeInsets.only(bottom: 2.0),
+            child: Text('Previous matchups', style: TextStyle(fontSize: 12.0)),
           ),
-          Text("Error loading history.", style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic)),
+          Text("Error loading history.",
+              style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic)),
         ],
       );
     } else if (_historicalData != null) {
@@ -613,47 +637,66 @@ class _GameListItemState extends State<GameListItem> {
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
+              child: Text('Previous matchups',
+                  style: TextStyle(
+                    fontSize: 12.0,
+                  )),
             ),
             Text(
               "No past matchups found for these teams.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
+              style: TextStyle(
+                  fontSize: 12.0,
+                  color: Colors.black54,
+                  fontStyle: FontStyle.italic),
             ),
           ],
         );
       } else {
         // Data is available and not empty, display it
         final matchups = _historicalData!;
-        content = SingleChildScrollView( // Make the content scrollable if it overflows
+        content = SingleChildScrollView(
+          // Make the content scrollable if it overflows
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Make DataTable take full width
+            crossAxisAlignment:
+                CrossAxisAlignment.stretch, // Make DataTable take full width
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text('Previous matchups', textAlign: TextAlign.center, style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: Text('Previous matchups',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11.0)),
               ),
               DataTable(
-                columnSpacing: 10, 
+                columnSpacing: 2,
                 horizontalMargin: 8,
-                headingRowHeight: 28, 
-                dataRowHeight: 28, 
-                headingTextStyle: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87),
-                dataTextStyle: TextStyle(fontSize: 10.5, color: Colors.black87),
+                headingRowHeight: 28,
+                headingTextStyle:
+                    TextStyle(fontSize: 11.0, color: Colors.black87),
+                dataTextStyle: TextStyle(fontSize: 10, color: Colors.black87),
                 columns: const <DataColumn>[
                   DataColumn(label: Text('When')),
                   DataColumn(label: Text('Who won')),
                   DataColumn(label: Text('Where')),
                   DataColumn(label: Text('Your Tip')),
                 ],
-                rows: matchups.take(3).map((item) => DataRow( // Take first 3 to fit, or make table scrollable
-                  cells: <DataCell>[
-                    DataCell(Text(item.isCurrentYear ? item.month : "${item.month} ${item.year.substring(2)}")), // Shorten year
-                    DataCell(Text(item.winningTeamName, overflow: TextOverflow.ellipsis)),
-                    DataCell(Text(item.winType)),
-                    DataCell(Text(item.userTipTeamName.isNotEmpty ? item.userTipTeamName : "N/A", overflow: TextOverflow.ellipsis)),
-                  ],
-                )).toList(),
+                rows: matchups
+                    .take(3)
+                    .map((item) => DataRow(
+                          // Take first 3 to fit, or make table scrollable
+                          cells: <DataCell>[
+                            DataCell(Text(item.isCurrentYear
+                                ? item.month
+                                : "${item.month} ${item.year.substring(2)}")), // Shorten year
+                            DataCell(Text(item.winningTeamName,
+                                overflow: TextOverflow.ellipsis)),
+                            DataCell(Text(item.winType)),
+                            DataCell(Text(
+                                item.userTip.isNotEmpty ? item.userTip : "N/A",
+                                overflow: TextOverflow.ellipsis)),
+                          ],
+                        ))
+                    .toList(),
               ),
             ],
           ),
@@ -662,13 +705,18 @@ class _GameListItemState extends State<GameListItem> {
     } else {
       // Default initial state (before it's active and loaded or if data is null and no error/loading)
       content = Column(
-         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
+            child: Text('Previous matchups',
+                style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
           ),
-          Text("View history by swiping.", style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic)),
+          Text("View history by swiping.",
+              style: TextStyle(
+                  fontSize: 12.0,
+                  color: Colors.black54,
+                  fontStyle: FontStyle.italic)),
         ],
       );
     }
@@ -679,7 +727,8 @@ class _GameListItemState extends State<GameListItem> {
       child: Container(
         height: 100, // Overall height constraint for the card's content area
         padding: EdgeInsets.all(4.0), // Padding for the card content
-        alignment: Alignment.center, // Center the content if it's smaller than the container
+        alignment: Alignment
+            .center, // Center the content if it's smaller than the container
         child: content,
       ),
     );

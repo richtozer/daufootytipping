@@ -24,16 +24,17 @@ class HistoricalMatchupUIData {
   final String month;
   final String winningTeamName;
   final String winType; // "Home" or "Away" or "Draw"
-  final String userTipTeamName;
+  final String userTip;
   final bool isCurrentYear;
-  final Game pastGame; // Keep a reference to the original game if needed for more details
+  final Game
+      pastGame; // Keep a reference to the original game if needed for more details
 
   HistoricalMatchupUIData({
     required this.year,
     required this.month,
     required this.winningTeamName,
     required this.winType,
-    required this.userTipTeamName,
+    required this.userTip,
     required this.isCurrentYear,
     required this.pastGame,
   });
@@ -83,7 +84,8 @@ class GameTipViewModel extends ChangeNotifier {
   ) {
     allTipsViewModel.addListener(_tipsUpdated); // Restored listener for tips
     // only monitor gamesViewModel if the comp still has active rounds
-    if (_currentDAUComp.highestRoundNumberInPast() < _currentDAUComp.daurounds.length) {
+    if (_currentDAUComp.highestRoundNumberInPast() <
+        _currentDAUComp.daurounds.length) {
       allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
     } else {
       log('GameTipsViewModel constructor: ${_currentDAUComp.name} has no active rounds. Not listening to gamesViewModel');
@@ -367,7 +369,8 @@ class GameTipViewModel extends ChangeNotifier {
     await gamesViewModel.initialLoadComplete; // Ensure games are loaded
 
     // 2. Get historical matchups
-    final List<Game> historicalGames = await gamesViewModel.getCompleteMatchupHistory(
+    final List<Game> historicalGames =
+        await gamesViewModel.getCompleteMatchupHistory(
       game.homeTeam,
       game.awayTeam,
       game.league,
@@ -377,13 +380,16 @@ class GameTipViewModel extends ChangeNotifier {
 
     // 3. For each past game, format the data
     for (final pastGame in historicalGames) {
-      if (pastGame.scoring == null || pastGame.scoring!.homeTeamScore == null || pastGame.scoring!.awayTeamScore == null) {
+      if (pastGame.scoring == null ||
+          pastGame.scoring!.homeTeamScore == null ||
+          pastGame.scoring!.awayTeamScore == null) {
         log('Skipping game ${pastGame.dbkey} due to missing scores.');
         continue;
       }
 
       // a. Get user's tip for the past game
-      final Tip? pastTip = await allTipsViewModel.findTip(pastGame, currentTipper);
+      final Tip? pastTip =
+          await allTipsViewModel.findTip(pastGame, currentTipper);
 
       // b. Determine winning team and winType
       String winningTeamName = '';
@@ -392,7 +398,8 @@ class GameTipViewModel extends ChangeNotifier {
       if (pastGame.scoring!.homeTeamScore! > pastGame.scoring!.awayTeamScore!) {
         winningTeamName = pastGame.homeTeam.name;
         winType = 'Home';
-      } else if (pastGame.scoring!.awayTeamScore! > pastGame.scoring!.homeTeamScore!) {
+      } else if (pastGame.scoring!.awayTeamScore! >
+          pastGame.scoring!.homeTeamScore!) {
         winningTeamName = pastGame.awayTeam.name;
         winType = 'Away';
       } else {
@@ -401,18 +408,16 @@ class GameTipViewModel extends ChangeNotifier {
       }
 
       // c. Determine userTipTeamName
-      String userTipTeamName = ''; // Default to empty
-      if (pastTip != null && !pastTip.isDefaultTip()) { // New stricter condition
-         if (pastTip.tip == GameResult.a || pastTip.tip == GameResult.b) { // Home tip
-          userTipTeamName = pastGame.homeTeam.name;
-        } else if (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e) { // Away tip
-          userTipTeamName = pastGame.awayTeam.name;
-        } else if (pastTip.tip == GameResult.c) { // Draw tip
-          userTipTeamName = 'Draw'; 
+      String userTip = ''; // Default to empty
+      if (pastTip != null && !pastTip.isDefaultTip()) {
+        if (pastTip.game.league == League.afl) {
+          userTip = pastTip.tip.afl;
+        } else if (pastTip.game.league == League.nrl) {
+          userTip = pastTip.tip.nrl;
         }
       }
-      // If pastTip is null or pastTip.isDefaultTip() is true, userTipTeamName remains empty.
 
+      // If pastTip is null or pastTip.isDefaultTip() is true, userTipTeamName remains empty.
 
       // d. Determine date components
       final gameDateLocal = pastGame.startTimeUTC.toLocal();
@@ -426,12 +431,12 @@ class GameTipViewModel extends ChangeNotifier {
           month: month,
           winningTeamName: winningTeamName,
           winType: winType,
-          userTipTeamName: userTipTeamName,
+          userTip: userTip,
           isCurrentYear: isCurrentYear,
           pastGame: pastGame,
         ),
       );
-      log('Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName');
+      log('Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTip');
     }
     log('Finished formatting ${formattedMatchups.length} historical matchups.');
     return formattedMatchups;
