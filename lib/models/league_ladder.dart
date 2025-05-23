@@ -35,7 +35,20 @@ class LeagueLadder {
         return b.points.compareTo(a.points);
       }
       // Secondary sort: percentage (descending)
-      return b.percentage.compareTo(a.percentage);
+      if (b.percentage.compareTo(a.percentage) != 0) {
+        return b.percentage.compareTo(a.percentage);
+      }
+      // Tertiary sort by pointsFor (descending) - good for SANFL, WAFL, VFL
+      if (b.pointsFor.compareTo(a.pointsFor) != 0) {
+        return b.pointsFor.compareTo(a.pointsFor);
+      }
+      // Finally, sort by team name (ascending) as a tie-breaker
+      return a.teamName.compareTo(b.teamName);
     });
+
+    // Populate originalRank after sorting
+    for (int i = 0; i < teams.length; i++) {
+      teams[i].originalRank = i + 1;
+    }
   }
 }

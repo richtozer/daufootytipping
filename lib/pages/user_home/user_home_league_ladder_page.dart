@@ -330,9 +330,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                       }
 
                                       return DataRow(
-                                        color: WidgetStateProperty.resolveWith<
-                                            Color?>(
-                                          (Set<WidgetState> states) {
+                                        color: MaterialStateProperty
+                                            .resolveWith<Color?>(
+                                          (Set<MaterialState> states) {
                                             if (isTop8 &&
                                                 widget.league == League.afl) {
                                               return League.afl.colour.brighten(
@@ -348,8 +348,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                         ),
                                         cells: <DataCell>[
                                           DataCell(
-                                              Text(LeagueLadder.ordinal(
-                                                  index + 1)),
+                                              Text(ladderTeam.originalRank
+                                                      ?.toString() ??
+                                                  '-'),
                                               onTap: navigateToHistory),
                                           DataCell(
                                             Row(
