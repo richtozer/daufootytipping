@@ -306,7 +306,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                         },
                                       ),
                                       cells: <DataCell>[
-                                        DataCell(Text(LeagueLadder.ordinal(index + 1)), onTap: navigateToHistory),
+                                        DataCell(Text(ladderTeam.originalRank?.toString() ?? '-'), onTap: navigateToHistory),
                                         DataCell(
                                           Row(
                                             children: [

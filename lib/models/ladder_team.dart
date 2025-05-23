@@ -10,6 +10,7 @@ class LadderTeam {
   int pointsAgainst;
   int points;
   double percentage;
+  int? originalRank; // Made non-final
 
   LadderTeam({
     required this.dbkey,
@@ -23,6 +24,7 @@ class LadderTeam {
     this.pointsAgainst = 0,
     this.points = 0,
     this.percentage = 0.0,
+    this.originalRank, // Add to constructor
   });
 
   void calculatePercentage() {
