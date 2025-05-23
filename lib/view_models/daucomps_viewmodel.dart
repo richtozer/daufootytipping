@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
@@ -889,7 +890,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     // notifyListeners(); // Consider if UI needs to react to cache clearing directly
   }
 
-  Future<LeagueLadder?> getOrCalculateLeagueLadder(League league, {bool forceRecalculate = false}) async {
+  Future<LeagueLadder?> getOrCalculateLeagueLadder(League league,
+      {bool forceRecalculate = false}) async {
     log('DAUCompsViewModel: getOrCalculateLeagueLadder called for ${league.name}, forceRecalculate: $forceRecalculate');
 
     if (forceRecalculate) {
@@ -909,18 +911,21 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     // Use the class member gamesViewModel directly, which is initialized with selectedDAUComp
-    if (gamesViewModel == null) { 
+    if (gamesViewModel == null) {
       log('DAUCompsViewModel: Cannot calculate ladder, gamesViewModel is null for DAUComp ${selectedDAUComp?.name}.');
       return null;
     }
-    
+
     // gamesViewModel.getGames() already awaits initialLoadComplete within itself.
     // gamesViewModel.teamsViewModel.initialLoadComplete is also handled within gamesViewModel init.
 
     try {
-      List<Game> allGames = await gamesViewModel!.getGames(); 
+      List<Game> allGames = await gamesViewModel!.getGames();
       // Accessing teamsViewModel through the initialized gamesViewModel instance
-      List<Team> leagueTeams = gamesViewModel!.teamsViewModel.groupedTeams[league.name.toLowerCase()]?.cast<Team>() ?? [];
+      List<Team> leagueTeams = gamesViewModel!
+              .teamsViewModel.groupedTeams[league.name.toLowerCase()]
+              ?.cast<Team>() ??
+          [];
 
       final LadderCalculationService ladderService = LadderCalculationService();
       LeagueLadder? calculatedLadder = ladderService.calculateLadder(
@@ -936,7 +941,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         log('DAUCompsViewModel: Ladder calculation returned null for ${league.name}.');
       }
       return calculatedLadder;
-
     } catch (e) {
       log('DAUCompsViewModel: Error calculating ladder for ${league.name}: $e');
       return null;
