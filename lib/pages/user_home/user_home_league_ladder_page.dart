@@ -170,52 +170,52 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                               label: const Text('#',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('Team',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('Gms',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('Pts',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('W',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('L',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('D',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('For',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('Agst',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                           DataColumn(
                               label: const Text('%',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              onSort: _onSort),
+                              onSort: (int columnIndex, bool ascending) => _onSort(columnIndex, ascending)),
                         ],
                         rows: List<DataRow>.generate(
                           _leagueLadder!.teams.length,
