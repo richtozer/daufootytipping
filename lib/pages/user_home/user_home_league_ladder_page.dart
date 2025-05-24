@@ -198,10 +198,10 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                   (widget.teamDbKeysToDisplay == null ||
                       widget.teamDbKeysToDisplay!.isEmpty))
               ? Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(8.0),
                   child: Text(
-                    "This is the current ${widget.league.name.toUpperCase()} premiership ladder. Tap column headers to sort.",
-                    textAlign: TextAlign.center,
+                    "This is the current ${widget.league.name.toUpperCase()} premiership ladder. Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
+                    textAlign: TextAlign.left,
                   ),
                 )
               : Container(),
