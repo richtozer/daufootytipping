@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Added import
 import 'package:watch_it/watch_it.dart';
 
+import 'user_home_header.dart'; // Import HeaderWidget
+
 class TeamGamesHistoryPage extends StatefulWidget {
   final Team team;
   final League league;
@@ -63,69 +65,96 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.team.name} - Game History'),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pop(context),
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
+        child: const Icon(Icons.arrow_back),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _gameHistory.isEmpty &&
-                      !_isLoading // Check after loading is done
-                  ? const Center(
-                      child: Text('No game history available for this team.'))
-                  : ListView.builder(
-                      itemCount: _gameHistory.length,
-                      itemBuilder: (context, index) {
-                        final item = _gameHistory[index];
-                        Color resultColor = Colors.black;
-                        if (item.result == "W") resultColor = Colors.green;
-                        if (item.result == "L") resultColor = Colors.red;
-                        if (item.result == "D")
-                          resultColor = Colors.grey.shade700;
+      body: Column(
+        children: [
+          HeaderWidget(
+            text: '${widget.team.name} - Game History',
+            leadingIconAvatar: SizedBox(
+              width: 40,
+              height: 40,
+              child: widget.team.logoURI != null &&
+                      widget.team.logoURI!.isNotEmpty
+                  ? SvgPicture.asset(
+                      widget.team.logoURI!,
+                      placeholderBuilder: (context) =>
+                          const Icon(Icons.shield), // Fallback during load
+                    )
+                  : const Icon(Icons.shield), // Fallback if no URI
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text('Error: $_error'))
+                    : _gameHistory.isEmpty &&
+                            !_isLoading // Check after loading is done
+                        ? const Center(
+                            child: Text(
+                                'No game history available for this team.'))
+                        : ListView.builder(
+                            itemCount: _gameHistory.length,
+                            itemBuilder: (context, index) {
+                              final item = _gameHistory[index];
+                              Color resultColor = Colors.black;
+                              if (item.result == "W") resultColor = Colors.green;
+                              if (item.result == "L") resultColor = Colors.red;
+                              if (item.result == "D")
+                                resultColor = Colors.grey.shade700;
 
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 8.0, vertical: 4.0),
-                          child: ListTile(
-                            leading: SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: item.opponentLogoUri != null &&
-                                      item.opponentLogoUri!.isNotEmpty
-                                  ? SvgPicture.asset(
-                                      item.opponentLogoUri!,
-                                      placeholderBuilder: (context) =>
-                                          const Icon(Icons
-                                              .shield), // Fallback during load
-                                      // Consider adding errorBuilder for production apps
-                                      // errorBuilder: (context, error, stackTrace) => Icon(Icons.error_outline, color: Colors.red),
-                                    )
-                                  : const Icon(
-                                      Icons.shield), // Fallback if no URI
-                            ),
-                            title: Text('Vs ${item.opponentName}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    'Round ${item.roundNumber} | ${item.gameDate.toLocal().toString().split(' ')[0]}'),
-                                Text(
-                                  'Score: ${item.teamScore} - ${item.opponentScore} (${item.result})',
-                                  style: TextStyle(
-                                      color: resultColor,
-                                      fontWeight: FontWeight.bold),
+                              return Card(
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 8.0, vertical: 4.0),
+                                child: ListTile(
+                                  leading: SizedBox(
+                                    width: 40,
+                                    height: 40,
+                                    child: item.opponentLogoUri != null &&
+                                            item.opponentLogoUri!.isNotEmpty
+                                        ? SvgPicture.asset(
+                                            item.opponentLogoUri!,
+                                            placeholderBuilder: (context) =>
+                                                const Icon(Icons
+                                                    .shield), // Fallback during load
+                                            // Consider adding errorBuilder for production apps
+                                            // errorBuilder: (context, error, stackTrace) => Icon(Icons.error_outline, color: Colors.red),
+                                          )
+                                        : const Icon(Icons
+                                            .shield), // Fallback if no URI
+                                  ),
+                                  title: Text('Vs ${item.opponentName}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                          'Round ${item.roundNumber} | ${item.gameDate.toLocal().toString().split(' ')[0]}'),
+                                      Text(
+                                        'Score: ${item.teamScore} - ${item.opponentScore} (${item.result})',
+                                        style: TextStyle(
+                                            color: resultColor,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                          'Ladder Points: ${item.ladderPoints}'),
+                                    ],
+                                  ),
+                                  isThreeLine: true,
                                 ),
-                                Text('Ladder Points: ${item.ladderPoints}'),
-                              ],
-                            ),
-                            isThreeLine: true,
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
+          ),
+        ],
+      ),
     );
   }
 }
