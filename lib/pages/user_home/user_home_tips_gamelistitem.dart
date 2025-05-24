@@ -62,7 +62,6 @@ class _GameListItemState extends State<GameListItem> {
     super.initState();
     gameTipsViewModel = GameTipViewModel(widget.currentTipper,
         widget.currentDAUComp, widget.game, widget.allTipsViewModel);
-    // DO NOT CALL _initLeagueLadder() / _fetchAndSetLadderRanks() here directly
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
@@ -70,6 +69,13 @@ class _GameListItemState extends State<GameListItem> {
           _awayOrdinalRankLabel == null &&
           !_isLoadingLadderRank) {
         _fetchAndSetLadderRanks();
+      }
+      // Always fetch historical data after first build
+      if (mounted &&
+          _historicalData == null &&
+          !_isLoadingHistoricalData &&
+          !_historicalDataError) {
+        _fetchHistoricalData();
       }
     });
   }
@@ -476,33 +482,12 @@ class _GameListItemState extends State<GameListItem> {
                     children: [
                       CarouselSlider(
                         options: CarouselOptions(
-                            height: 120,
-                            enlargeFactor: 1.0,
-                            enlargeCenterPage: true,
-                            enlargeStrategy: CenterPageEnlargeStrategy.zoom,
-                            enableInfiniteScroll: false,
-                            onPageChanged: (index, reason) {
-                              gameTipsViewModelConsumer.currentIndex = index;
-
-                              bool isHistoricalCardEligible =
-                                  gameTipsViewModelConsumer.game.gameState ==
-                                          GameState.notStarted ||
-                                      gameTipsViewModelConsumer
-                                              .game.gameState ==
-                                          GameState.startingSoon;
-                              // The first historical card is now effectively at index 2 (0: TipChoice, 1: GameInfo)
-                              // Data fetch should be triggered when the user swipes to the first *potential* historical card.
-                              int historicalDataLoadTriggerIndex = 2;
-
-                              if (isHistoricalCardEligible &&
-                                  index == historicalDataLoadTriggerIndex) {
-                                if (_historicalData == null &&
-                                    !_isLoadingHistoricalData &&
-                                    !_historicalDataError) {
-                                  _fetchHistoricalData();
-                                }
-                              }
-                            }),
+                          height: 120,
+                          enlargeFactor: 1.0,
+                          enlargeCenterPage: true,
+                          enlargeStrategy: CenterPageEnlargeStrategy.zoom,
+                          enableInfiniteScroll: false,
+                        ),
                         items: carouselItems(gameTipsViewModelConsumer,
                             widget.isPercentStatsPage),
                         carouselController:
@@ -563,54 +548,49 @@ class _GameListItemState extends State<GameListItem> {
       ];
     }
 
-    // Base cards for upcoming games (notStarted or startingSoon)
-    if (gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
-        gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
-      List<Widget> cards = [
-        gameTipCard(gameTipsViewModelConsumer), // Tip Choice card
-        GameInfo(gameTipsViewModelConsumer.game,
-            gameTipsViewModelConsumer), // Game Info card
-      ];
+    // Always add the base cards for the game
+    List<Widget> cards = [
+      gameTipCard(gameTipsViewModelConsumer), // Tip Choice card
+      GameInfo(gameTipsViewModelConsumer.game,
+          gameTipsViewModelConsumer), // Game Info card
+    ];
 
-      // Add historical matchup cards or loading/error indicators
-      if (_isLoadingHistoricalData) {
-        cards.add(Card(
-            child: SizedBox(
-                height: 100,
-                child: Center(
-                    child:
-                        CircularProgressIndicator(color: League.nrl.colour)))));
-      } else if (_historicalDataError) {
-        cards.add(Card(
-            child: SizedBox(
-                height: 100,
-                child: Center(child: Text("Error loading history.")))));
-      } else if (_historicalData != null && _historicalData!.isNotEmpty) {
-        final matchupsToShow = _historicalData!.take(3).toList();
-        int totalMatchupsInList = matchupsToShow.length;
-        for (var entry in matchupsToShow.asMap().entries) {
-          int index = entry.key;
-          HistoricalMatchupUIData matchupData = entry.value;
-          cards.add(_buildSingleHistoricalMatchupCard(
-              matchupData, index, totalMatchupsInList));
-        }
-      } else if (_historicalData != null && _historicalData!.isEmpty) {
-        // Optionally, add a card indicating no historical data found if preferred over silence
-        // For now, if data is empty, no extra cards are added after GameInfo.
-        // The old _buildNewHistoricalMatchupsCard handled this with a message.
-        // If a "no data" card is desired here, it can be added.
+    // Add historical matchup cards or loading/error indicators for all game states
+    if (_isLoadingHistoricalData) {
+      cards.add(Card(
+          child: SizedBox(
+              height: 100,
+              child: Center(
+                  child:
+                      CircularProgressIndicator(color: League.nrl.colour)))));
+    } else if (_historicalDataError) {
+      cards.add(Card(
+          child: SizedBox(
+              height: 100,
+              child: Center(child: Text("Error loading history.")))));
+    } else if (_historicalData != null && _historicalData!.isNotEmpty) {
+      final matchupsToShow = _historicalData!.take(3).toList();
+      int totalMatchupsInList = matchupsToShow.length;
+      for (var entry in matchupsToShow.asMap().entries) {
+        int index = entry.key;
+        HistoricalMatchupUIData matchupData = entry.value;
+        cards.add(_buildSingleHistoricalMatchupCard(
+            matchupData, index, totalMatchupsInList));
       }
-      // If _historicalData is null (initial state before onPageChanged triggers fetch), no historical cards are added yet.
-
-      return cards;
-    } else {
-      // For games underway or ended
-      return [
-        scoringTileBuilder(gameTipsViewModelConsumer),
-        gameTipCard(gameTipsViewModelConsumer),
-        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModelConsumer),
-      ];
+    } else if (_historicalData != null && _historicalData!.isEmpty) {
+      // Optionally, add a card indicating no historical data found if preferred over silence
     }
+    // If _historicalData is null (initial state before onPageChanged triggers fetch), no historical cards are added yet.
+
+    // For games underway or ended, add scoring tile at the start
+    if (gameTipsViewModelConsumer.game.gameState ==
+            GameState.startedResultNotKnown ||
+        gameTipsViewModelConsumer.game.gameState ==
+            GameState.startedResultKnown) {
+      cards.insert(0, scoringTileBuilder(gameTipsViewModelConsumer));
+    }
+
+    return cards;
   }
 
   Widget _buildSingleHistoricalMatchupCard(
@@ -624,41 +604,48 @@ class _GameListItemState extends State<GameListItem> {
     }
 
     return Card(
-      elevation: 2.0,
-      margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      elevation: 1.0,
+      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
       child: Padding(
-        padding: EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(6.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize:
-              MainAxisSize.min, // To fit content, but Carousel has fixed height
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              'Previous matchup ${index + 1}/$totalMatchupsInList',
-              style: TextStyle(
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87),
+              'Matchup ${index + 1}/$totalMatchupsInList',
+              style: const TextStyle(
+                fontSize: 12.0,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: 8.0),
+            const SizedBox(height: 2.0),
             Text(
               'Date: ${matchupData.isCurrentYear ? matchupData.month : "${matchupData.month} ${matchupData.year}"}',
-              style: TextStyle(fontSize: 13.0),
+              style: const TextStyle(fontSize: 11.0),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: 4.0),
             Text(
               'Outcome: $outcomeString',
-              style: TextStyle(fontSize: 13.0),
+              style: const TextStyle(fontSize: 11.0),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: 4.0),
             Text(
               'Venue: ${matchupData.location}',
-              style: TextStyle(fontSize: 13.0),
+              style: const TextStyle(fontSize: 11.0),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: 4.0),
             Text(
-              'Your Tip: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
-              style: TextStyle(fontSize: 13.0),
+              'Your Pick: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
+              style: const TextStyle(fontSize: 11.0),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

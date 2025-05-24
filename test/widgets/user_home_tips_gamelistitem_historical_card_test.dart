@@ -234,14 +234,14 @@ void main() {
       expect(find.text('Date: Sep ${now.year - 1}'), findsOneWidget);
       expect(find.text('Outcome: Team Alpha won (Home)'), findsOneWidget);
       expect(find.text('Venue: Stadium A'), findsOneWidget);
-      expect(find.text('Your Tip: Team Alpha'), findsOneWidget);
+      expect(find.text('Your Pick: Team Alpha'), findsOneWidget);
 
       // Card 2 (index 3 in carousel)
       expect(find.text('Previous matchup 2/2'), findsOneWidget);
       expect(find.text('Date: Jul'), findsOneWidget); // Current year
       expect(find.text('Outcome: Match was a Draw'), findsOneWidget);
       expect(find.text('Venue: Stadium B'), findsOneWidget);
-      expect(find.text('Your Tip: N/A'), findsOneWidget);
+      expect(find.text('Your Pick: N/A'), findsOneWidget);
     });
 
     testWidgets(
