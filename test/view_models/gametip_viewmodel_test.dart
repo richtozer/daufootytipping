@@ -42,7 +42,7 @@ void main() {
   late MockTeam mockUpcomingAwayTeam;
 
   // Helper to create a real Game object for historical matchups
-  Game _createHistoricalGame({
+  Game createHistoricalGame({
     required String dbkey,
     required Team homeTeam, // Can be MockTeam
     required Team awayTeam, // Can be MockTeam
@@ -72,7 +72,7 @@ void main() {
   }
 
   // Helper to create a real Tip object
-  Tip _createHistoricalTip({
+  Tip createHistoricalTip({
     required Game game, // Real game instance
     required Tipper tipper, // Can be MockTipper
     required GameResult tipResult,
@@ -90,7 +90,7 @@ void main() {
   }
 
   // Helper to create the "current" game being viewed by the GameTipViewModel
-  Game _createUpcomingGame({
+  Game createUpcomingGame({
     required String dbkey,
     required Team homeTeam,
     required Team awayTeam,
@@ -136,7 +136,7 @@ void main() {
     when(mockUpcomingAwayTeam.dbkey).thenReturn('nrl-upcomingAway');
     when(mockUpcomingAwayTeam.name).thenReturn('Upcoming Away Cowboys');
 
-    mockUpcomingGame = _createUpcomingGame(
+    mockUpcomingGame = createUpcomingGame(
         dbkey: 'upcoming-game-key',
         homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam,
@@ -158,19 +158,19 @@ void main() {
   group('getFormattedHistoricalMatchups', () {
     test('Correctly formats historical games with various tip types', () async {
       final now = DateTime.now();
-      final histGame1 = _createHistoricalGame(
+      final histGame1 = createHistoricalGame(
         dbkey: 'hist-g1', homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam, league: League.nrl,
         startTime: DateTime(now.year - 1, 3, 15), homeScore: 20,
         awayScore: 10, // Home win
       );
-      final tip1 = _createHistoricalTip(
+      final tip1 = createHistoricalTip(
           game: histGame1,
           tipper: mockCurrentTipper,
           tipResult: GameResult.b,
           isDefault: false); // Active Home tip
 
-      final histGame2 = _createHistoricalGame(
+      final histGame2 = createHistoricalGame(
         dbkey: 'hist-g2',
         homeTeam: mockUpcomingAwayTeam,
         awayTeam: mockUpcomingHomeTeam,
@@ -178,13 +178,13 @@ void main() {
         startTime: DateTime(now.year, 7, 20), homeScore: 12,
         awayScore: 18, // Away win (mockUpcomingHomeTeam is Away here)
       );
-      final tip2 = _createHistoricalTip(
+      final tip2 = createHistoricalTip(
           game: histGame2,
           tipper: mockCurrentTipper,
           tipResult: GameResult.d,
           isDefault: true); // Default Away tip
 
-      final histGame3 = _createHistoricalGame(
+      final histGame3 = createHistoricalGame(
         dbkey: 'hist-g3', homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam, league: League.nrl,
         startTime: DateTime(now.year - 2, 11, 5), homeScore: 24,
@@ -192,25 +192,25 @@ void main() {
       );
       // No tip for game 3
 
-      final histGame4 = _createHistoricalGame(
+      final histGame4 = createHistoricalGame(
         dbkey: 'hist-g4', homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam, league: League.nrl,
         startTime: DateTime(now.year, 1, 10), homeScore: 30,
         awayScore: 0, // Home win
       );
-      final tip4 = _createHistoricalTip(
+      final tip4 = createHistoricalTip(
           game: histGame4,
           tipper: mockCurrentTipper,
           tipResult: GameResult.a,
           isDefault: true); // Default Home tip
 
-      final histGame5_UserTippedDraw = _createHistoricalGame(
+      final histGame5_UserTippedDraw = createHistoricalGame(
         dbkey: 'hist-g5', homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam, league: League.nrl,
         startTime: DateTime(now.year - 3, 5, 5), homeScore: 12,
         awayScore: 12, // Actual Draw
       );
-      final tip5 = _createHistoricalTip(
+      final tip5 = createHistoricalTip(
           game: histGame5_UserTippedDraw,
           tipper: mockCurrentTipper,
           tipResult: GameResult.c,
@@ -300,7 +300,7 @@ void main() {
     });
 
     test('Skips games with missing scores', () async {
-      final gameWithScore = _createHistoricalGame(
+      final gameWithScore = createHistoricalGame(
         dbkey: 'hist-scored',
         homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam,
@@ -309,20 +309,20 @@ void main() {
         homeScore: 20,
         awayScore: 10,
       );
-      final tipForScored = _createHistoricalTip(
+      final tipForScored = createHistoricalTip(
           game: gameWithScore,
           tipper: mockCurrentTipper,
           tipResult: GameResult.b,
           isDefault: false);
 
-      final gameNoScoringObject = _createHistoricalGame(
+      final gameNoScoringObject = createHistoricalGame(
         // scoring object is null
         dbkey: 'hist-no-scoring-obj', homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam, league: League.nrl,
         startTime: DateTime(2023, 3,
             10), // homeScore and awayScore not provided to _createHistoricalGame
       );
-      final gameNullScores = _createHistoricalGame(
+      final gameNullScores = createHistoricalGame(
         dbkey: 'hist-null-scores', homeTeam: mockUpcomingHomeTeam,
         awayTeam: mockUpcomingAwayTeam, league: League.nrl,
         startTime: DateTime(2023, 3, 5), homeScore: 10,
