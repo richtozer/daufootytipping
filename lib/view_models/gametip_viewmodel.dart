@@ -249,7 +249,7 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   // Test hook for unit tests
-  Future<void> testHook_fetchHistoricalTipStats() async {
+  Future<void> testHookfetchHistoricalTipStats() async {
     await _fetchHistoricalTipStats();
   }
 

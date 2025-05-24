@@ -353,7 +353,7 @@ class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
       ) as bool);
 
   @override
-  _i14.Future<void> testHook_fetchHistoricalTipStats() => (super.noSuchMethod(
+  _i14.Future<void> testHookfetchHistoricalTipStats() => (super.noSuchMethod(
         Invocation.method(
           #testHook_fetchHistoricalTipStats,
           [],

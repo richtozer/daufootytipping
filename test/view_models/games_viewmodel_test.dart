@@ -23,9 +23,9 @@ class MockDAUComp extends Mock implements DAUComp {
     when(this.dbkey).thenReturn(_dbkey);
     when(this.name).thenReturn(_name);
     when(this.daurounds).thenReturn(_daurounds);
-    when(this.aflRegularCompEndDateUTC)
+    when(aflRegularCompEndDateUTC)
         .thenReturn(null); // Default for other properties
-    when(this.nrlRegularCompEndDateUTC).thenReturn(null);
+    when(nrlRegularCompEndDateUTC).thenReturn(null);
   }
 
   late String _dbkey;
@@ -119,7 +119,7 @@ void main() {
     // They should still pass and are relevant.
 
     test('Basic case: returns filtered and sorted games from _games', () async {
-      final game1_match_older = _createGame(
+      final game1MatchOlder = _createGame(
           dbkey: 'nrl-01-001',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -127,7 +127,7 @@ void main() {
           startTime: DateTime(2023, 1, 1, 12, 0, 0),
           homeScore: 10,
           awayScore: 20);
-      final game2_match_newer = _createGame(
+      final game2MatchNewer = _createGame(
           dbkey: 'nrl-01-002',
           homeTeam: teamNrlB,
           awayTeam: teamNrlA,
@@ -135,7 +135,7 @@ void main() {
           startTime: DateTime(2023, 1, 2, 12, 0, 0),
           homeScore: 30,
           awayScore: 10);
-      final game6_match_newest = _createGame(
+      final game6MatchNewest = _createGame(
           dbkey: 'nrl-01-005',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -145,9 +145,9 @@ void main() {
           awayScore: 5);
 
       gamesViewModel.testGames = [
-        game1_match_older,
-        game2_match_newer,
-        game6_match_newest
+        game1MatchOlder,
+        game2MatchNewer,
+        game6MatchNewest
       ];
       // gamesViewModel.completeInitialLoadForTest(); // Already called in global setUp
 
@@ -155,9 +155,9 @@ void main() {
           teamNrlA, teamNrlB, League.nrl);
 
       expect(result.length, 3);
-      expect(result[0].dbkey, game6_match_newest.dbkey);
-      expect(result[1].dbkey, game2_match_newer.dbkey);
-      expect(result[2].dbkey, game1_match_older.dbkey);
+      expect(result[0].dbkey, game6MatchNewest.dbkey);
+      expect(result[1].dbkey, game2MatchNewer.dbkey);
+      expect(result[2].dbkey, game1MatchOlder.dbkey);
     });
   });
 
@@ -193,7 +193,7 @@ void main() {
           startTime: DateTime(2023, 1, 1),
           homeScore: 10,
           awayScore: 20);
-      final gameC1T2_nonMatch = _createGame(
+      final gamec1t2Nonmatch = _createGame(
           dbkey: 'c1g2',
           homeTeam: teamNrlA,
           awayTeam: teamNrlC,
@@ -210,7 +210,7 @@ void main() {
           startTime: DateTime(2023, 1, 3),
           homeScore: 30,
           awayScore: 10);
-      final gameC2T2_newer = _createGame(
+      final gamec2t2Newer = _createGame(
           dbkey: 'c2g2',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -220,8 +220,8 @@ void main() {
           awayScore: 5);
 
       gamesViewModel.testGamesByCompKey = {
-        'comp1-key': [gameC1T1, gameC1T2_nonMatch],
-        'comp2-key': [gameC2T1, gameC2T2_newer],
+        'comp1-key': [gameC1T1, gamec1t2Nonmatch],
+        'comp2-key': [gameC2T1, gamec2t2Newer],
       };
 
       final result = await gamesViewModel.getCompleteMatchupHistory(
@@ -231,7 +231,7 @@ void main() {
       expect(
           result.map((g) => g.dbkey).toList(),
           containsAllInOrder(
-              [gameC2T2_newer.dbkey, gameC2T1.dbkey, gameC1T1.dbkey]));
+              [gamec2t2Newer.dbkey, gameC2T1.dbkey, gameC1T1.dbkey]));
     });
 
     test('Matchups from Single DAUComp', () async {
@@ -243,7 +243,7 @@ void main() {
           startTime: DateTime(2023, 1, 1),
           homeScore: 10,
           awayScore: 20);
-      final gameC1T2_newer = _createGame(
+      final gamec1t2Newer = _createGame(
           dbkey: 'c1g2',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -253,7 +253,7 @@ void main() {
           awayScore: 20);
 
       gamesViewModel.testGamesByCompKey = {
-        'comp1-key': [gameC1T1, gameC1T2_newer],
+        'comp1-key': [gameC1T1, gamec1t2Newer],
         'comp2-key': [], // Comp2 has no games relevant or otherwise
       };
       when(mockDauCompsViewModel.daucomps).thenReturn([mockComp1, mockComp2]);
@@ -263,7 +263,7 @@ void main() {
 
       expect(result.length, 2);
       expect(result.map((g) => g.dbkey).toList(),
-          containsAllInOrder([gameC1T2_newer.dbkey, gameC1T1.dbkey]));
+          containsAllInOrder([gamec1t2Newer.dbkey, gameC1T1.dbkey]));
     });
 
     test('No Matchups Found across DAUComps', () async {
@@ -321,7 +321,7 @@ void main() {
         'Games with Identical Timestamps Across DAUComps are sorted (stability relies on List.sort)',
         () async {
       final sameTime = DateTime(2023, 1, 10);
-      final gameC1_match1 = _createGame(
+      final gamec1Match1 = _createGame(
           dbkey: 'c1g_m1',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -333,7 +333,7 @@ void main() {
       // To make sorting predictable for identical timestamps if primary sort key is same,
       // Dart's List.sort is stable. So original order from concatenation is preserved for equal elements.
       // Let's ensure they have different content to distinguish.
-      final gameC2_match2_sameTime = _createGame(
+      final gamec2Match2Sametime = _createGame(
           dbkey: 'c2g_m2',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -342,7 +342,7 @@ void main() {
           matchNumber: 2,
           homeScore: 5,
           awayScore: 5); // Different content
-      final gameC1_later = _createGame(
+      final gamec1Later = _createGame(
           dbkey: 'c1g_later',
           homeTeam: teamNrlA,
           awayTeam: teamNrlB,
@@ -352,8 +352,8 @@ void main() {
           awayScore: 1);
 
       gamesViewModel.testGamesByCompKey = {
-        'comp1-key': [gameC1_match1, gameC1_later],
-        'comp2-key': [gameC2_match2_sameTime],
+        'comp1-key': [gamec1Match1, gamec1Later],
+        'comp2-key': [gamec2Match2Sametime],
       };
       // Order of DAUComps in the list matters for how games are initially aggregated before final sort
       when(mockDauCompsViewModel.daucomps).thenReturn([mockComp1, mockComp2]);
@@ -362,7 +362,7 @@ void main() {
           teamNrlA, teamNrlB, League.nrl);
 
       expect(result.length, 3);
-      expect(result[0].dbkey, gameC1_later.dbkey,
+      expect(result[0].dbkey, gamec1Later.dbkey,
           reason: "Latest game should be first");
       // For gameC1_match1 and gameC2_match2_sameTime, both have sameTime.
       // Their relative order in `allMatchupGames` before sort() depends on DAUComp iteration order
@@ -370,8 +370,8 @@ void main() {
       // If comp1 is processed first, gameC1_match1 is added. Then gameC2_match2_sameTime.
       // Since the sort `b.startTimeUTC.compareTo(a.startTimeUTC)` will yield 0 for them,
       // their relative order [gameC1_match1, gameC2_match2_sameTime] should be preserved by stable sort.
-      expect(result[1].dbkey, gameC1_match1.dbkey);
-      expect(result[2].dbkey, gameC2_match2_sameTime.dbkey);
+      expect(result[1].dbkey, gamec1Match1.dbkey);
+      expect(result[2].dbkey, gamec2Match2Sametime.dbkey);
     });
   });
 }
