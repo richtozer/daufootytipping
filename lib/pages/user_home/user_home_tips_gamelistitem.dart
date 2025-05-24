@@ -55,7 +55,7 @@ class _GameListItemState extends State<GameListItem> {
   // New state variables for ladder ranks
   String? _homeOrdinalRankLabel;
   String? _awayOrdinalRankLabel;
-  bool _isLoadingLadderRank = false; 
+  bool _isLoadingLadderRank = false;
 
   @override
   void initState() {
@@ -65,14 +65,17 @@ class _GameListItemState extends State<GameListItem> {
     // DO NOT CALL _initLeagueLadder() / _fetchAndSetLadderRanks() here directly
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _homeOrdinalRankLabel == null && _awayOrdinalRankLabel == null && !_isLoadingLadderRank) {
+      if (mounted &&
+          _homeOrdinalRankLabel == null &&
+          _awayOrdinalRankLabel == null &&
+          !_isLoadingLadderRank) {
         _fetchAndSetLadderRanks();
       }
     });
   }
 
   Future<void> _fetchHistoricalData() async {
-    if (!mounted) return; 
+    if (!mounted) return;
     setState(() {
       _isLoadingHistoricalData = true;
       _historicalDataError = false;
@@ -86,7 +89,7 @@ class _GameListItemState extends State<GameListItem> {
         _isLoadingHistoricalData = false;
       });
     } catch (e) {
-      log('Error fetching historical matchups: $e'); 
+      log('Error fetching historical matchups: $e');
       if (!mounted) return;
       setState(() {
         _historicalDataError = true;
@@ -106,18 +109,26 @@ class _GameListItemState extends State<GameListItem> {
       if (dauCompsViewModel.selectedDAUComp == null) {
         log('Selected DAUComp is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
         if (!mounted) return;
-        setState(() { _isLoadingLadderRank = false; _homeOrdinalRankLabel = '--'; _awayOrdinalRankLabel = '--'; });
+        setState(() {
+          _isLoadingLadderRank = false;
+          _homeOrdinalRankLabel = '--';
+          _awayOrdinalRankLabel = '--';
+        });
         return;
       }
 
       final gamesViewModel = dauCompsViewModel.gamesViewModel;
       if (gamesViewModel == null) {
         log('GamesViewModel is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
-         if (!mounted) return;
-        setState(() { _isLoadingLadderRank = false; _homeOrdinalRankLabel = '--'; _awayOrdinalRankLabel = '--'; });
+        if (!mounted) return;
+        setState(() {
+          _isLoadingLadderRank = false;
+          _homeOrdinalRankLabel = '--';
+          _awayOrdinalRankLabel = '--';
+        });
         return;
       }
-      
+
       await gamesViewModel.initialLoadComplete;
 
       final teamsViewModel = gamesViewModel.teamsViewModel;
@@ -141,22 +152,25 @@ class _GameListItemState extends State<GameListItem> {
       String calculatedAwayLabel = '--';
 
       if (calculatedLadder != null) {
-        final homeIdx = calculatedLadder.teams.indexWhere((t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey);
+        final homeIdx = calculatedLadder.teams.indexWhere(
+            (t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey);
         final homeRank = (homeIdx == -1) ? null : homeIdx + 1;
-        calculatedHomeLabel = homeRank != null ? LeagueLadder.ordinal(homeRank) : '--';
+        calculatedHomeLabel =
+            homeRank != null ? LeagueLadder.ordinal(homeRank) : '--';
 
-        final awayIdx = calculatedLadder.teams.indexWhere((t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey);
+        final awayIdx = calculatedLadder.teams.indexWhere(
+            (t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey);
         final awayRank = (awayIdx == -1) ? null : awayIdx + 1;
-        calculatedAwayLabel = awayRank != null ? LeagueLadder.ordinal(awayRank) : '--';
+        calculatedAwayLabel =
+            awayRank != null ? LeagueLadder.ordinal(awayRank) : '--';
       }
-      
+
       if (!mounted) return;
       setState(() {
         _homeOrdinalRankLabel = calculatedHomeLabel;
         _awayOrdinalRankLabel = calculatedAwayLabel;
         _isLoadingLadderRank = false;
       });
-
     } catch (e) {
       log('Error fetching and setting ladder ranks: $e');
       if (!mounted) return;
@@ -175,8 +189,10 @@ class _GameListItemState extends State<GameListItem> {
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
           // Use new state variables for rank labels
-          final String displayHomeRank = _homeOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
-          final String displayAwayRank = _awayOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+          final String displayHomeRank =
+              _homeOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+          final String displayAwayRank =
+              _awayOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
 
           // Reference to the game for easier access in onTap
           final Game game = gameTipsViewModelConsumer.game;
@@ -329,7 +345,7 @@ class _GameListItemState extends State<GameListItem> {
                                             gameTipsViewModelConsumer
                                                     .game.gameState ==
                                                 GameState.startingSoon
-                                        ? displayHomeRank 
+                                        ? displayHomeRank
                                         : '',
                                     style: const TextStyle(
                                       overflow: TextOverflow.ellipsis,
@@ -467,16 +483,22 @@ class _GameListItemState extends State<GameListItem> {
                             enableInfiniteScroll: false,
                             onPageChanged: (index, reason) {
                               gameTipsViewModelConsumer.currentIndex = index;
-                              
-                              bool isHistoricalCardEligible = 
-                                  gameTipsViewModelConsumer.game.gameState == GameState.notStarted ||
-                                  gameTipsViewModelConsumer.game.gameState == GameState.startingSoon;
+
+                              bool isHistoricalCardEligible =
+                                  gameTipsViewModelConsumer.game.gameState ==
+                                          GameState.notStarted ||
+                                      gameTipsViewModelConsumer
+                                              .game.gameState ==
+                                          GameState.startingSoon;
                               // The first historical card is now effectively at index 2 (0: TipChoice, 1: GameInfo)
                               // Data fetch should be triggered when the user swipes to the first *potential* historical card.
-                              int historicalDataLoadTriggerIndex = 2; 
+                              int historicalDataLoadTriggerIndex = 2;
 
-                              if (isHistoricalCardEligible && index == historicalDataLoadTriggerIndex) {
-                                if (_historicalData == null && !_isLoadingHistoricalData && !_historicalDataError) {
+                              if (isHistoricalCardEligible &&
+                                  index == historicalDataLoadTriggerIndex) {
+                                if (_historicalData == null &&
+                                    !_isLoadingHistoricalData &&
+                                    !_historicalDataError) {
                                   _fetchHistoricalData();
                                 }
                               }
@@ -546,21 +568,31 @@ class _GameListItemState extends State<GameListItem> {
         gameTipsViewModelConsumer.game.gameState == GameState.startingSoon) {
       List<Widget> cards = [
         gameTipCard(gameTipsViewModelConsumer), // Tip Choice card
-        GameInfo(gameTipsViewModelConsumer.game, gameTipsViewModelConsumer), // Game Info card
+        GameInfo(gameTipsViewModelConsumer.game,
+            gameTipsViewModelConsumer), // Game Info card
       ];
 
       // Add historical matchup cards or loading/error indicators
       if (_isLoadingHistoricalData) {
-        cards.add(Card(child: SizedBox(height:100, child: Center(child: CircularProgressIndicator(color: League.nrl.colour)))));
+        cards.add(Card(
+            child: SizedBox(
+                height: 100,
+                child: Center(
+                    child:
+                        CircularProgressIndicator(color: League.nrl.colour)))));
       } else if (_historicalDataError) {
-        cards.add(Card(child: SizedBox(height:100, child: Center(child: Text("Error loading history.")))));
+        cards.add(Card(
+            child: SizedBox(
+                height: 100,
+                child: Center(child: Text("Error loading history.")))));
       } else if (_historicalData != null && _historicalData!.isNotEmpty) {
         final matchupsToShow = _historicalData!.take(3).toList();
         int totalMatchupsInList = matchupsToShow.length;
         for (var entry in matchupsToShow.asMap().entries) {
           int index = entry.key;
           HistoricalMatchupUIData matchupData = entry.value;
-          cards.add(_buildSingleHistoricalMatchupCard(matchupData, index, totalMatchupsInList)); 
+          cards.add(_buildSingleHistoricalMatchupCard(
+              matchupData, index, totalMatchupsInList));
         }
       } else if (_historicalData != null && _historicalData!.isEmpty) {
         // Optionally, add a card indicating no historical data found if preferred over silence
@@ -581,12 +613,14 @@ class _GameListItemState extends State<GameListItem> {
     }
   }
 
-  Widget _buildSingleHistoricalMatchupCard(HistoricalMatchupUIData matchupData, int index, int totalMatchupsInList) {
+  Widget _buildSingleHistoricalMatchupCard(
+      HistoricalMatchupUIData matchupData, int index, int totalMatchupsInList) {
     String outcomeString;
     if (matchupData.winningTeamName == "Draw") {
       outcomeString = "Match was a Draw";
     } else {
-      outcomeString = "${matchupData.winningTeamName} won (${matchupData.winType})";
+      outcomeString =
+          "${matchupData.winningTeamName} won (${matchupData.winType})";
     }
 
     return Card(
@@ -596,11 +630,15 @@ class _GameListItemState extends State<GameListItem> {
         padding: EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // To fit content, but Carousel has fixed height
+          mainAxisSize:
+              MainAxisSize.min, // To fit content, but Carousel has fixed height
           children: <Widget>[
             Text(
-              'Previous matchup ${index + 1}/${totalMatchupsInList}',
-              style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold, color: Colors.black87),
+              'Previous matchup ${index + 1}/$totalMatchupsInList',
+              style: TextStyle(
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
             ),
             SizedBox(height: 8.0),
             Text(
