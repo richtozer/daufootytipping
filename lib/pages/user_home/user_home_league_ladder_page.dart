@@ -354,9 +354,17 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                         ),
                                         cells: <DataCell>[
                                           DataCell(
-                                              Text(ladderTeam.originalRank
-                                                      ?.toString() ??
-                                                  '-'),
+                                              Row(
+                                                children: [
+                                                  // add a arrow icon to indicate navigation to another page
+                                                  Icon(Icons.arrow_forward,
+                                                      size: 16,
+                                                      color: Colors.grey),
+                                                  Text(ladderTeam.originalRank
+                                                          ?.toString() ??
+                                                      '-'),
+                                                ],
+                                              ),
                                               onTap: navigateToHistory),
                                           DataCell(
                                             Row(

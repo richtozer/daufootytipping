@@ -329,7 +329,7 @@ class _GameListItemState extends State<GameListItem> {
                                     game.awayTeam.dbkey
                                   ],
                                   customTitle:
-                                      "League Leaderboard comparison", // Updated title
+                                      "League Leaderboard comparison.", // Updated title
                                 ),
                               ),
                             );
