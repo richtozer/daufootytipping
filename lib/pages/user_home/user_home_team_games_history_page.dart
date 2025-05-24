@@ -2,7 +2,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Added import
 import 'package:watch_it/watch_it.dart';
@@ -78,14 +77,14 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
             leadingIconAvatar: SizedBox(
               width: 40,
               height: 40,
-              child: widget.team.logoURI != null &&
-                      widget.team.logoURI!.isNotEmpty
-                  ? SvgPicture.asset(
-                      widget.team.logoURI!,
-                      placeholderBuilder: (context) =>
-                          const Icon(Icons.shield), // Fallback during load
-                    )
-                  : const Icon(Icons.shield), // Fallback if no URI
+              child:
+                  widget.team.logoURI != null && widget.team.logoURI!.isNotEmpty
+                      ? SvgPicture.asset(
+                          widget.team.logoURI!,
+                          placeholderBuilder: (context) =>
+                              const Icon(Icons.shield), // Fallback during load
+                        )
+                      : const Icon(Icons.shield), // Fallback if no URI
             ),
           ),
           Expanded(
@@ -103,10 +102,15 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                             itemBuilder: (context, index) {
                               final item = _gameHistory[index];
                               Color resultColor = Colors.black;
-                              if (item.result == "W") resultColor = Colors.green;
-                              if (item.result == "L") resultColor = Colors.red;
-                              if (item.result == "D")
+                              if (item.result == "Won") {
+                                resultColor = Colors.green;
+                              }
+                              if (item.result == "Lost") {
+                                resultColor = Colors.red;
+                              }
+                              if (item.result == "Draw") {
                                 resultColor = Colors.grey.shade700;
+                              }
 
                               return Card(
                                 margin: const EdgeInsets.symmetric(
@@ -125,8 +129,8 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                                             // Consider adding errorBuilder for production apps
                                             // errorBuilder: (context, error, stackTrace) => Icon(Icons.error_outline, color: Colors.red),
                                           )
-                                        : const Icon(Icons
-                                            .shield), // Fallback if no URI
+                                        : const Icon(
+                                            Icons.shield), // Fallback if no URI
                                   ),
                                   title: Text('Vs ${item.opponentName}',
                                       style: const TextStyle(
