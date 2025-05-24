@@ -1,12 +1,16 @@
 import 'dart:async';
-import 'package:carousel_slider/carousel_slider.dart';
+
+import 'package:carousel_slider/carousel_controller.dart';
+import 'package:carousel_slider/carousel_options.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart'; // To find GameInfo card
+import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart'; // To find TipChoice card
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
@@ -21,11 +25,11 @@ import 'package:provider/provider.dart';
 
 @GenerateMocks([
   GameTipViewModel,
-  Game,
-  Tipper,
-  DAUComp,
-  TipsViewModel,
-  Team,
+  Game, 
+  Tipper, 
+  DAUComp, 
+  TipsViewModel, 
+  Team, 
   DAUCompsViewModel,
   GamesViewModel,
   TeamsViewModel,
@@ -55,13 +59,11 @@ void main() {
     mockTeamsViewModelForDI = MockTeamsViewModel();
 
     getIt.registerSingleton<DAUCompsViewModel>(mockDAUCompsViewModelForDI);
-    when(mockDAUCompsViewModelForDI.gamesViewModel)
-        .thenReturn(mockGamesViewModelForDI);
-    when(mockGamesViewModelForDI.teamsViewModel)
-        .thenReturn(mockTeamsViewModelForDI);
-
+    when(mockDAUCompsViewModelForDI.gamesViewModel).thenReturn(mockGamesViewModelForDI);
+    when(mockGamesViewModelForDI.teamsViewModel).thenReturn(mockTeamsViewModelForDI);
+    
     when(mockGamesViewModelForDI.initialLoadComplete).thenAnswer((_) async {});
-    when(mockGamesViewModelForDI.getGames()).thenAnswer((_) async => []);
+    when(mockGamesViewModelForDI.getGames()).thenAnswer((_) async => []); 
     when(mockTeamsViewModelForDI.initialLoadComplete).thenAnswer((_) async {});
     when(mockTeamsViewModelForDI.groupedTeams).thenReturn({});
   });
@@ -70,35 +72,33 @@ void main() {
     mockGameTipViewModel = MockGameTipViewModel();
     mockGameForListItem = MockGame();
     mockTipper = MockTipper();
-    mockDAUCompForListItem = MockDAUComp();
+    mockDAUCompForListItem = MockDAUComp(); 
     mockTipsViewModel = MockTipsViewModel();
     mockHomeTeam = MockTeam();
     mockAwayTeam = MockTeam();
     realCarouselController = CarouselController();
 
-    when(mockDAUCompsViewModelForDI.selectedDAUComp)
-        .thenReturn(mockDAUCompForListItem);
-    when(mockDAUCompForListItem.daurounds).thenReturn([]);
+    when(mockDAUCompsViewModelForDI.selectedDAUComp).thenReturn(mockDAUCompForListItem);
+    when(mockDAUCompForListItem.daurounds).thenReturn([]); 
     when(mockDAUCompForListItem.highestRoundNumberInPast()).thenReturn(0);
 
     when(mockGameForListItem.homeTeam).thenReturn(mockHomeTeam);
     when(mockGameForListItem.awayTeam).thenReturn(mockAwayTeam);
     when(mockHomeTeam.dbkey).thenReturn('home-key');
+    when(mockAwayTeam.dbkey).thenReturn('away-key'); 
     when(mockHomeTeam.name).thenReturn('Home Team');
     when(mockAwayTeam.name).thenReturn('Away Team');
     when(mockGameForListItem.league).thenReturn(League.nrl);
-    when(mockGameForListItem.gameState).thenReturn(GameState.notStarted);
-    when(mockGameForListItem.startTimeUTC)
-        .thenReturn(DateTime.now().add(const Duration(days: 1)));
+    when(mockGameForListItem.gameState).thenReturn(GameState.notStarted); 
+    when(mockGameForListItem.startTimeUTC).thenReturn(DateTime.now().add(const Duration(days: 1)));
 
-    when(mockGameTipViewModel.game).thenReturn(mockGameForListItem);
+    when(mockGameTipViewModel.game).thenReturn(mockGameForListItem); 
     when(mockGameTipViewModel.controller).thenReturn(realCarouselController);
-    when(mockGameTipViewModel.currentIndex).thenReturn(0);
-    when(mockGameTipViewModel.tip).thenReturn(null);
+    when(mockGameTipViewModel.currentIndex).thenReturn(0); 
+    when(mockGameTipViewModel.tip).thenReturn(null); 
     when(mockGameTipViewModel.currentTipper).thenReturn(mockTipper);
-
-    when(mockGameTipViewModel.getFormattedHistoricalMatchups())
-        .thenAnswer((_) async => []);
+    
+    when(mockGameTipViewModel.getFormattedHistoricalMatchups()).thenAnswer((_) async => []);
   });
 
   Future<void> pumpGameListItem(WidgetTester tester) async {
@@ -119,325 +119,198 @@ void main() {
       ),
     );
   }
-
-  // Simulates the carousel being on the historical card's page, triggering its content build.
-  // This is a simplified way to ensure the card content is built for testing.
-  Future<void> pumpHistoricalCardContent(WidgetTester tester) async {
-    // In GameListItem, the historical card is at index 1 in the carouselItems list
-    // when game state is notStarted or startingSoon.
-    // We need to ensure the GameListItem builds with the historical card visible.
-    // The onPageChanged logic now triggers the fetch.
-    // For testing the card's content *after* fetch, we can simulate the fetch completion.
-
-    // Simulate conditions as if the card is active and data is being loaded / has loaded
-    final carousel = find.byType(CarouselSlider);
-    if (tester.any(carousel)) {
-      final CarouselOptions options =
-          tester.widget<CarouselSlider>(carousel).options;
-      options.onPageChanged?.call(1, CarouselPageChangedReason.manual);
-      when(mockGameTipViewModel.currentIndex)
-          .thenReturn(1); // Reflect the change
-    }
-    await tester.pumpAndSettle(); // Allow state changes and futures to resolve
+  
+  // Helper to simulate page change and trigger data load
+  Future<void> triggerHistoricalDataLoad(WidgetTester tester) async {
+      final carousel = find.byType(CarouselSlider);
+      if (tester.any(carousel)) {
+        final CarouselOptions options = tester.widget<CarouselSlider>(carousel).options;
+        options.onPageChanged?.call(2, CarouselPageChangedReason.manual); // New trigger index is 2
+        when(mockGameTipViewModel.currentIndex).thenReturn(2); 
+      }
+      await tester.pump(); // Let the state update for loading
   }
 
-  group('Historical Matchups Card Display (with DataTable)', () {
-    testWidgets(
-        'Initial State: shows heading and placeholder, getFormattedHistoricalMatchups not called',
-        (WidgetTester tester) async {
-      await pumpGameListItem(tester);
-      await tester.pump();
 
-      expect(find.text('Previous matchups'), findsOneWidget);
-      expect(find.text("View history by swiping."), findsOneWidget);
+  group('GameListItem Carousel: Historical Matchup Cards', () {
+    testWidgets('Initial State: shows TipChoice and GameInfo, no historical cards, getFormattedHistoricalMatchups not called', (WidgetTester tester) async {
+      await pumpGameListItem(tester);
+      await tester.pump(); 
+
+      expect(find.byType(TipChoice), findsOneWidget);
+      expect(find.byType(GameInfo), findsOneWidget);
+      // Verify no historical cards by checking for their specific content or titles
+      expect(find.textContaining('Previous matchup'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text("Error loading history."), findsNothing);
       verifyNever(mockGameTipViewModel.getFormattedHistoricalMatchups());
-      expect(find.byType(DataTable), findsNothing);
     });
 
-    testWidgets(
-        'Loading State: shows heading and loading indicator, getFormattedHistoricalMatchups called',
-        (WidgetTester tester) async {
-      Completer<List<HistoricalMatchupUIData>> historicalDataCompleter =
-          Completer();
-      when(mockGameTipViewModel.getFormattedHistoricalMatchups())
-          .thenAnswer((_) {
+    testWidgets('Lazy Loading Trigger: shows loading card at index 2, getFormattedHistoricalMatchups called', (WidgetTester tester) async {
+      Completer<List<HistoricalMatchupUIData>> historicalDataCompleter = Completer();
+      when(mockGameTipViewModel.getFormattedHistoricalMatchups()).thenAnswer((_) {
         return historicalDataCompleter.future;
       });
 
       await pumpGameListItem(tester);
-      await tester.pump();
+      await tester.pump(); 
 
-      final carousel = find.byType(CarouselSlider);
-      expect(carousel, findsOneWidget);
-      final CarouselOptions options =
-          tester.widget<CarouselSlider>(carousel).options;
-
-      options.onPageChanged?.call(1, CarouselPageChangedReason.manual);
-      when(mockGameTipViewModel.currentIndex).thenReturn(1);
-
-      await tester.pump(); // Rebuild for loading state
+      await triggerHistoricalDataLoad(tester);
 
       verify(mockGameTipViewModel.getFormattedHistoricalMatchups()).called(1);
-      expect(find.text('Previous matchups'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.byType(DataTable), findsNothing);
-
-      historicalDataCompleter.complete([]);
-      await tester.pumpAndSettle();
+      
+      // After triggering load, the carousel items should now include the loading card.
+      // We expect TipChoice, GameInfo, then Loading Card.
+      final carouselItems = tester.widget<CarouselSlider>(find.byType(CarouselSlider)).items;
+      expect(carouselItems.length, 3); // TipChoice, GameInfo, Loading Card
+      expect(carouselItems[0].runtimeType, TipChoice);
+      expect(carouselItems[1].runtimeType, GameInfo);
+      // The loading card is a Card with a CircularProgressIndicator
+      expect(find.descendant(of: find.byWidget(carouselItems[2]), matching: find.byType(CircularProgressIndicator)), findsOneWidget);
+      
+      historicalDataCompleter.complete([]); 
+      await tester.pumpAndSettle(); 
     });
 
-    testWidgets('Empty State: shows heading and "No past matchups" message',
-        (WidgetTester tester) async {
-      when(mockGameTipViewModel.getFormattedHistoricalMatchups())
-          .thenAnswer((_) async => []);
-
-      await pumpGameListItem(tester);
-      await pumpHistoricalCardContent(
-          tester); // Ensure card is "active" and future resolves
-
-      expect(find.text('Previous matchups'), findsOneWidget);
-      expect(
-          find.text("No past matchups found for these teams."), findsOneWidget);
-      expect(find.byType(DataTable), findsNothing);
-    });
-
-    testWidgets('Error State: shows heading and error message',
-        (WidgetTester tester) async {
-      when(mockGameTipViewModel.getFormattedHistoricalMatchups())
-          .thenAnswer((_) => Future.error('Fetch error'));
-
-      await pumpGameListItem(tester);
-      await pumpHistoricalCardContent(tester);
-
-      expect(find.text('Previous matchups'), findsOneWidget);
-      expect(find.text("Error loading history."), findsOneWidget);
-      expect(find.byType(DataTable), findsNothing);
-    });
-
-    testWidgets(
-        'Data Display: Shows DataTable with correct headers and cell content (max 3 rows)',
-        (WidgetTester tester) async {
+    testWidgets('Data Display: Renders individual historical matchup cards after load', (WidgetTester tester) async {
       final now = DateTime.now();
-      final mockPastGame = MockGame();
+      final mockPastGame = MockGame(); 
       when(mockPastGame.dbkey).thenReturn('mock-past-game');
+      when(mockPastGame.location).thenReturn('Mock Stadium');
+
 
       final data = [
-        HistoricalMatchupUIData(
-            year: (now.year - 1).toString(),
-            month: "Sep",
-            winningTeamName: "Team Alpha",
-            winType: "Home",
-            userTip: "Team Alpha",
-            isCurrentYear: false,
-            pastGame: mockPastGame),
-        HistoricalMatchupUIData(
-            year: now.year.toString(),
-            month: "Jul",
-            winningTeamName: "Draw",
-            winType: "Draw",
-            userTip: "",
-            isCurrentYear: true,
-            pastGame: mockPastGame),
-        HistoricalMatchupUIData(
-            year: (now.year - 2).toString(),
-            month: "May",
-            winningTeamName: "Team Beta",
-            winType: "Away",
-            userTip: "Team Beta",
-            isCurrentYear: false,
-            pastGame: mockPastGame),
-        HistoricalMatchupUIData(
-            year: (now.year - 3).toString(),
-            month: "Apr",
-            winningTeamName: "Team Gamma",
-            winType: "Home",
-            userTip: "N/A",
-            isCurrentYear: false,
-            pastGame: mockPastGame), // Should not be shown
+        HistoricalMatchupUIData(year: (now.year - 1).toString(), month: "Sep", winningTeamName: "Team Alpha", winType: "Home", userTipTeamName: "Team Alpha", isCurrentYear: false, pastGame: mockPastGame, location: "Stadium A"),
+        HistoricalMatchupUIData(year: now.year.toString(), month: "Jul", winningTeamName: "Draw", winType: "Draw", userTipTeamName: "", isCurrentYear: true, pastGame: mockPastGame, location: "Stadium B"),
       ];
-      when(mockGameTipViewModel.getFormattedHistoricalMatchups())
-          .thenAnswer((_) async => data);
+      when(mockGameTipViewModel.getFormattedHistoricalMatchups()).thenAnswer((_) async => data);
 
       await pumpGameListItem(tester);
-      await pumpHistoricalCardContent(tester);
+      await triggerHistoricalDataLoad(tester);
+      await tester.pumpAndSettle(); // Settle FutureBuilder/state changes
 
-      expect(find.text('Previous matchups'), findsOneWidget);
-      expect(find.byType(DataTable), findsOneWidget);
+      final carouselItems = tester.widget<CarouselSlider>(find.byType(CarouselSlider)).items;
+      expect(carouselItems.length, 4); // TipChoice, GameInfo, HistCard1, HistCard2
+      expect(carouselItems[0].runtimeType, TipChoice);
+      expect(carouselItems[1].runtimeType, GameInfo);
 
-      // Verify Column Headers
-      expect(find.widgetWithText(DataColumn, 'When'), findsOneWidget);
-      expect(find.widgetWithText(DataColumn, 'Who won'), findsOneWidget);
-      expect(find.widgetWithText(DataColumn, 'Where'), findsOneWidget);
-      expect(find.widgetWithText(DataColumn, 'Your Tip'), findsOneWidget);
+      // Card 1 (index 2 in carousel)
+      expect(find.text('Previous matchup 1/2'), findsOneWidget);
+      expect(find.text('Date: Sep ${now.year - 1}'), findsOneWidget);
+      expect(find.text('Outcome: Team Alpha won (Home)'), findsOneWidget);
+      expect(find.text('Venue: Stadium A'), findsOneWidget);
+      expect(find.text('Your Tip: Team Alpha'), findsOneWidget);
 
-      // Verify Row and Cell Content (max 3 rows due to .take(3))
-      final dataTable = tester.widget<DataTable>(find.byType(DataTable));
-      expect(dataTable.rows.length, 3);
+      // Card 2 (index 3 in carousel)
+      expect(find.text('Previous matchup 2/2'), findsOneWidget);
+      expect(find.text('Date: Jul'), findsOneWidget); // Current year
+      expect(find.text('Outcome: Match was a Draw'), findsOneWidget);
+      expect(find.text('Venue: Stadium B'), findsOneWidget);
+      expect(find.text('Your Tip: N/A'), findsOneWidget);
+    });
+    
+    testWidgets('Data Display: Renders max 3 historical cards if more data available', (WidgetTester tester) async {
+      final now = DateTime.now();
+      final mockPastGame = MockGame(); 
+      when(mockPastGame.dbkey).thenReturn('mock-past-game');
+      when(mockPastGame.location).thenReturn('Mock Stadium');
 
-      // Row 1
-      expect(find.text("Sep ${(now.year - 1).toString().substring(2)}"),
-          findsOneWidget); // Year shortened
-      expect(find.text("Team Alpha"), findsOneWidget); // Who won
-      expect(
-          find.text("Home"),
-          findsNWidgets(
-              2)); // Where (could be in other rows too if data is same)
-      // Your Tip for Row 1 is also "Team Alpha"
+      final data = [
+        HistoricalMatchupUIData(year: "2023", month: "Jan", winningTeamName: "Team 1", winType: "Home", userTipTeamName: "Team 1", isCurrentYear: false, pastGame: mockPastGame, location: "Venue1"),
+        HistoricalMatchupUIData(year: "2022", month: "Feb", winningTeamName: "Team 2", winType: "Away", userTipTeamName: "N/A", isCurrentYear: false, pastGame: mockPastGame, location: "Venue2"),
+        HistoricalMatchupUIData(year: "2021", month: "Mar", winningTeamName: "Draw", winType: "Draw", userTipTeamName: "Draw", isCurrentYear: false, pastGame: mockPastGame, location: "Venue3"),
+        HistoricalMatchupUIData(year: "2020", month: "Apr", winningTeamName: "Team 4", winType: "Home", userTipTeamName: "Team 4", isCurrentYear: false, pastGame: mockPastGame, location: "Venue4"),
+      ];
+      when(mockGameTipViewModel.getFormattedHistoricalMatchups()).thenAnswer((_) async => data);
 
-      // Row 2
-      expect(
-          find.text("Jul"), findsOneWidget); // Current year, no year displayed
-      expect(find.text("Draw"),
-          findsNWidgets(2)); // Who won (could be in other rows)
-      // Where for Row 2 is also "Draw"
-      expect(
-          find.text("N/A"), findsNWidgets(2)); // Your Tip (empty becomes N/A)
+      await pumpGameListItem(tester);
+      await triggerHistoricalDataLoad(tester);
+      await tester.pumpAndSettle();
 
-      // Row 3
-      expect(find.text("May ${(now.year - 2).toString().substring(2)}"),
-          findsOneWidget); // Year shortened
-      expect(find.text("Team Beta"), findsNWidgets(2)); // Who won
-      // Where for Row 3 is "Away"
-      // Your Tip for Row 3 is also "Team Beta"
+      final carouselItems = tester.widget<CarouselSlider>(find.byType(CarouselSlider)).items;
+      expect(carouselItems.length, 5); // TipChoice, GameInfo, HistCard1, HistCard2, HistCard3
 
-      // More specific cell checks:
-      // Row 1
-      final row1 = dataTable.rows[0];
-      final row1Cells = row1.cells;
-      expect(((row1Cells[0].child as Text).data),
-          "Sep ${(now.year - 1).toString().substring(2)}");
-      expect(((row1Cells[1].child as Text).data), "Team Alpha");
-      expect(((row1Cells[2].child as Text).data), "Home");
-      expect(((row1Cells[3].child as Text).data), "Team Alpha");
+      expect(find.text('Previous matchup 1/3'), findsOneWidget);
+      expect(find.text('Previous matchup 2/3'), findsOneWidget);
+      expect(find.text('Previous matchup 3/3'), findsOneWidget);
+      expect(find.text('Previous matchup 4/4'), findsNothing); // 4th card not rendered
+      expect(find.text('Date: Apr 2020'), findsNothing); 
+    });
 
-      // Row 2
-      final row2 = dataTable.rows[1];
-      final row2Cells = row2.cells;
-      expect(((row2Cells[0].child as Text).data), "Jul");
-      expect(((row2Cells[1].child as Text).data), "Draw");
-      expect(((row2Cells[2].child as Text).data), "Draw");
-      expect(((row2Cells[3].child as Text).data), "N/A");
 
-      // Row 3
-      final row3 = dataTable.rows[2];
-      final row3Cells = row3.cells;
-      expect(((row3Cells[0].child as Text).data),
-          "May ${(now.year - 2).toString().substring(2)}");
-      expect(((row3Cells[1].child as Text).data), "Team Beta");
-      expect(((row3Cells[2].child as Text).data), "Away");
-      expect(((row3Cells[3].child as Text).data), "Team Beta");
+    testWidgets('Empty Historical Data: Shows TipChoice and GameInfo, no historical cards', (WidgetTester tester) async {
+      when(mockGameTipViewModel.getFormattedHistoricalMatchups()).thenAnswer((_) async => []);
+      
+      await pumpGameListItem(tester);
+      await triggerHistoricalDataLoad(tester);
+      await tester.pumpAndSettle();
 
-      // Ensure the 4th data item is NOT displayed
-      expect(find.text("Apr ${(now.year - 3).toString().substring(2)}"),
-          findsNothing);
-      expect(find.text("Team Gamma"), findsNothing);
+      final carouselItems = tester.widget<CarouselSlider>(find.byType(CarouselSlider)).items;
+      expect(carouselItems.length, 2); // Only TipChoice and GameInfo
+      expect(find.byType(TipChoice), findsOneWidget);
+      expect(find.byType(GameInfo), findsOneWidget);
+      expect(find.textContaining('Previous matchup'), findsNothing);
+    });
+
+    testWidgets('Error State for Historical Data: Shows TipChoice, GameInfo, and error card', (WidgetTester tester) async {
+      when(mockGameTipViewModel.getFormattedHistoricalMatchups()).thenAnswer((_) => Future.error('Fetch error'));
+
+      await pumpGameListItem(tester);
+      await triggerHistoricalDataLoad(tester);
+      await tester.pumpAndSettle();
+
+      final carouselItems = tester.widget<CarouselSlider>(find.byType(CarouselSlider)).items;
+      expect(carouselItems.length, 3); // TipChoice, GameInfo, Error Card
+      expect(carouselItems[0].runtimeType, TipChoice);
+      expect(carouselItems[1].runtimeType, GameInfo);
+      expect(find.descendant(of: find.byWidget(carouselItems[2]), matching: find.text("Error loading history.")), findsOneWidget);
     });
   });
 
-  // Ladder Rank tests remain unchanged by this subtask
+  // Ladder Rank tests can remain as they test a different aspect and are not directly affected by carousel item changes for historical data
   group('Ladder Rank Deferred Calculation', () {
-    testWidgets('Initial State: shows placeholder "--" for ranks',
-        (WidgetTester tester) async {
+    testWidgets('Initial State: shows placeholder "--" for ranks', (WidgetTester tester) async {
       final gamesCompleter = Completer<List<Game>>();
-      when(mockGamesViewModelForDI.getGames())
-          .thenAnswer((_) => gamesCompleter.future);
-      when(mockDAUCompsViewModelForDI.selectedDAUComp)
-          .thenReturn(mockDAUCompForListItem);
+      when(mockGamesViewModelForDI.getGames()).thenAnswer((_) => gamesCompleter.future);
+      when(mockDAUCompsViewModelForDI.selectedDAUComp).thenReturn(mockDAUCompForListItem);
 
       await pumpGameListItem(tester);
-      await tester.pump();
-
-      expect(
-          find.byWidgetPredicate((widget) =>
-              widget is Row &&
-              widget.children.any((child) =>
-                  child is Text &&
-                  (child.data?.contains('-- Home Team') ?? false))),
-          findsOneWidget);
-      expect(
-          find.byWidgetPredicate((widget) =>
-              widget is Row &&
-              widget.children.any((child) =>
-                  child is Text &&
-                  (child.data?.contains('-- Away Team') ?? false))),
-          findsOneWidget);
-
+      await tester.pump(); 
+      
+      expect(find.widgetWithText(Row, contains('-- Home Team')), findsOneWidget);
+      expect(find.widgetWithText(Row, contains('-- Away Team')), findsOneWidget);
+      
       gamesCompleter.complete([]);
       await tester.pumpAndSettle();
     });
 
-    testWidgets('Ranks Displayed After Post-Frame Callback and Load',
-        (WidgetTester tester) async {
-      final homeTeamWithRank =
-          Team(dbkey: 'home-key', name: 'Home Team', league: League.nrl);
-      final awayTeamWithRank =
-          Team(dbkey: 'away-key', name: 'Away Team', league: League.nrl);
-      // final calculatedLadder = LeagueLadder(league: League.nrl, teams: [ // Not used directly, but informs stubbing
-      //   LadderItem(teamName: 'Home Team', dbkey: 'home-key', played: 1, won: 1, points: 2, percentage: 200),
-      //   LadderItem(teamName: 'Away Team', dbkey: 'away-key', played: 1, won: 0, points: 0, percentage: 50),
-      // ]);
+    testWidgets('Ranks Displayed After Post-Frame Callback and Load', (WidgetTester tester) async {
+      final homeTeamWithRank = Team(dbkey: 'home-key', name: 'Home Team', league: League.nrl); 
+      final awayTeamWithRank = Team(dbkey: 'away-key', name: 'Away Team', league: League.nrl);
       Map<String, List<Team>> groupedTeams = {
         'nrl': [homeTeamWithRank, awayTeamWithRank]
       };
       when(mockTeamsViewModelForDI.groupedTeams).thenReturn(groupedTeams);
-      final gameForLadder = Game(
-          dbkey: 'g1',
-          homeTeam: homeTeamWithRank,
-          awayTeam: awayTeamWithRank,
-          league: League.nrl,
-          startTimeUTC: DateTime.now(),
-          location: 'stadium',
-          fixtureMatchNumber: 1,
-          fixtureRoundNumber: 1,
-          scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10));
-      when(mockGamesViewModelForDI.getGames())
-          .thenAnswer((_) async => [gameForLadder]);
-      when(mockDAUCompsViewModelForDI.selectedDAUComp)
-          .thenReturn(mockDAUCompForListItem);
+      final gameForLadder = Game(dbkey: 'g1', homeTeam: homeTeamWithRank, awayTeam: awayTeamWithRank, league: League.nrl, startTimeUTC: DateTime.now(), location: 'stadium', fixtureMatchNumber: 1, fixtureRoundNumber: 1, scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10));
+      when(mockGamesViewModelForDI.getGames()).thenAnswer((_) async => [gameForLadder]);
+      when(mockDAUCompsViewModelForDI.selectedDAUComp).thenReturn(mockDAUCompForListItem);
 
       await pumpGameListItem(tester);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(); 
 
-      expect(
-          find.byWidgetPredicate((widget) =>
-              widget is Row &&
-              widget.children.any((child) =>
-                  child is Text &&
-                  (child.data?.contains('1st Home Team') ?? false))),
-          findsOneWidget);
-      expect(
-          find.byWidgetPredicate((widget) =>
-              widget is Row &&
-              widget.children.any((child) =>
-                  child is Text &&
-                  (child.data?.contains('2nd Away Team') ?? false))),
-          findsOneWidget);
+      expect(find.widgetWithText(Row, contains('1st Home Team')), findsOneWidget);
+      expect(find.widgetWithText(Row, contains('2nd Away Team')), findsOneWidget);
     });
 
-    testWidgets('Error State for Ranks shows "N/A"',
-        (WidgetTester tester) async {
-      when(mockGamesViewModelForDI.getGames())
-          .thenThrow(Exception('Ladder fetch failed'));
-      when(mockDAUCompsViewModelForDI.selectedDAUComp)
-          .thenReturn(mockDAUCompForListItem);
+    testWidgets('Error State for Ranks shows "N/A"', (WidgetTester tester) async {
+      when(mockGamesViewModelForDI.getGames()).thenThrow(Exception('Ladder fetch failed'));
+      when(mockDAUCompsViewModelForDI.selectedDAUComp).thenReturn(mockDAUCompForListItem);
 
       await pumpGameListItem(tester);
       await tester.pumpAndSettle();
 
-      expect(
-          find.byWidgetPredicate((widget) =>
-              widget is Row &&
-              widget.children.any((child) =>
-                  child is Text &&
-                  (child.data?.contains('N/A Home Team') ?? false))),
-          findsOneWidget);
-      expect(
-          find.byWidgetPredicate((widget) =>
-              widget is Row &&
-              widget.children.any((child) =>
-                  child is Text &&
-                  (child.data?.contains('N/A Away Team') ?? false))),
-          findsOneWidget);
+      expect(find.widgetWithText(Row, contains('N/A Home Team')), findsOneWidget);
+      expect(find.widgetWithText(Row, contains('N/A Away Team')), findsOneWidget);
     });
   });
 }
