@@ -560,8 +560,7 @@ class _GameListItemState extends State<GameListItem> {
         for (var entry in matchupsToShow.asMap().entries) {
           int index = entry.key;
           HistoricalMatchupUIData matchupData = entry.value;
-          // TODO: Implement _buildSingleHistoricalMatchupCard in the next step
-          cards.add(_buildSingleHistoricalMatchupCard(matchupData, index, totalMatchupsInList, gameTipsViewModelConsumer.game.league)); 
+          cards.add(_buildSingleHistoricalMatchupCard(matchupData, index, totalMatchupsInList)); 
         }
       } else if (_historicalData != null && _historicalData!.isEmpty) {
         // Optionally, add a card indicating no historical data found if preferred over silence
@@ -654,111 +653,8 @@ class _GameListItemState extends State<GameListItem> {
     return TipChoice(gameTipsViewModelConsumer, true);
   }
 
-  Widget _buildNewHistoricalMatchupsCard(GameTipViewModel viewModel) {
-    Widget content;
-
-    if (_isLoadingHistoricalData) {
-      content = Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0), // Add some space below heading
-            child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
-          ),
-          CircularProgressIndicator(color: League.nrl.colour),
-        ],
-      );
-    } else if (_historicalDataError) {
-      content = Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
-          ),
-          Text("Error loading history.", style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic)),
-        ],
-      );
-    } else if (_historicalData != null) {
-      if (_historicalData!.isEmpty) {
-        content = Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
-            ),
-            Text(
-              "No past matchups found for these teams.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic),
-            ),
-          ],
-        );
-      } else {
-        // Data is available and not empty, display it
-        final matchups = _historicalData!;
-        content = SingleChildScrollView( // Make the content scrollable if it overflows
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Make DataTable take full width
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text('Previous matchups', textAlign: TextAlign.center, style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
-              ),
-              DataTable(
-                columnSpacing: 10, 
-                horizontalMargin: 8,
-                headingRowHeight: 28, 
-                dataRowHeight: 28, 
-                headingTextStyle: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87),
-                dataTextStyle: TextStyle(fontSize: 10.5, color: Colors.black87),
-                columns: const <DataColumn>[
-                  DataColumn(label: Text('When')),
-                  DataColumn(label: Text('Who won')),
-                  DataColumn(label: Text('Where')),
-                  DataColumn(label: Text('Your Tip')),
-                ],
-                rows: matchups.take(3).map((item) => DataRow( // Take first 3 to fit, or make table scrollable
-                  cells: <DataCell>[
-                    DataCell(Text(item.isCurrentYear ? item.month : "${item.month} ${item.year.substring(2)}")), // Shorten year
-                    DataCell(Text(item.winningTeamName, overflow: TextOverflow.ellipsis)),
-                    DataCell(Text(item.winType)),
-                    DataCell(Text(item.userTipTeamName.isNotEmpty ? item.userTipTeamName : "N/A", overflow: TextOverflow.ellipsis)),
-                  ],
-                )).toList(),
-              ),
-            ],
-          ),
-        );
-      }
-    } else {
-      // Default initial state (before it's active and loaded or if data is null and no error/loading)
-      content = Column(
-         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text('Previous matchups', style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.bold)),
-          ),
-          Text("View history by swiping.", style: TextStyle(fontSize: 12.0, color: Colors.black54, fontStyle: FontStyle.italic)),
-        ],
-      );
-    }
-
-    return Card(
-      elevation: 2.0, // Or 1.0 for empty/initial states if preferred
-      margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-      child: Container(
-        height: 100, // Overall height constraint for the card's content area
-        padding: EdgeInsets.all(4.0), // Padding for the card content
-        alignment: Alignment.center, // Center the content if it's smaller than the container
-        child: content,
-      ),
-    );
-  }
-
   // _initLeagueLadder is now _fetchAndSetLadderRanks
+  // _buildNewHistoricalMatchupsCard has been removed.
 }
 
 Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
