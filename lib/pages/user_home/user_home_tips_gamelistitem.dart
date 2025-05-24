@@ -239,7 +239,7 @@ class _GameListItemState extends State<GameListItem> {
                               builder: (context) => LiveScoringModal(
                                   gameTipsViewModelConsumer.tip!)),
                           child: Padding(
-                            padding: const EdgeInsets.all(0.0),
+                            padding: EdgeInsets.zero, // const EdgeInsets.all(0.0) to EdgeInsets.zero
                             child: SizedBox(
                               width: 130,
                               child: Column(
@@ -257,7 +257,7 @@ class _GameListItemState extends State<GameListItem> {
                                           fontSize: 16.0,
                                         ),
                                       ),
-                                      SizedBox(
+                                      const SizedBox( // Added const
                                         width: 5,
                                       ),
                                       gameTipsViewModelConsumer
@@ -315,7 +315,7 @@ class _GameListItemState extends State<GameListItem> {
                                           textAlign: TextAlign.left,
                                           gameTipsViewModelConsumer
                                               .game.awayTeam.name),
-                                      SizedBox(
+                                      const SizedBox( // Added const
                                         width: 5,
                                       ),
                                       gameTipsViewModelConsumer
@@ -335,7 +335,7 @@ class _GameListItemState extends State<GameListItem> {
                         ),
                       )
                     : Padding(
-                        padding: const EdgeInsets.all(0.0),
+                        padding: EdgeInsets.zero, // const EdgeInsets.all(0.0) to EdgeInsets.zero
                         child: SizedBox(
                           width: 130,
                           child: Column(
@@ -365,11 +365,11 @@ class _GameListItemState extends State<GameListItem> {
                                       gameTipsViewModelConsumer
                                               .game.gameState ==
                                           GameState.startingSoon)
-                                    SizedBox(
+                                    const SizedBox( // Added const
                                       width: 5,
                                     )
                                   else
-                                    Container(),
+                                    const SizedBox.shrink(), // Container() to const SizedBox.shrink()
                                   Text(
                                     gameTipsViewModelConsumer
                                         .game.homeTeam.name,
@@ -379,7 +379,7 @@ class _GameListItemState extends State<GameListItem> {
                                       fontSize: 16.0,
                                     ),
                                   ),
-                                  SizedBox(
+                                  const SizedBox( // Added const
                                     width: 5,
                                   ),
                                   gameTipsViewModelConsumer.game.gameState ==
@@ -448,11 +448,11 @@ class _GameListItemState extends State<GameListItem> {
                                       gameTipsViewModelConsumer
                                               .game.gameState ==
                                           GameState.startingSoon)
-                                    SizedBox(
+                                    const SizedBox( // Added const
                                       width: 5,
                                     )
                                   else
-                                    Container(),
+                                    const SizedBox.shrink(), // Container() to const SizedBox.shrink()
                                   Text(
                                       style: const TextStyle(
                                         overflow: TextOverflow.ellipsis,
@@ -461,7 +461,7 @@ class _GameListItemState extends State<GameListItem> {
                                       textAlign: TextAlign.left,
                                       gameTipsViewModelConsumer
                                           .game.awayTeam.name),
-                                  SizedBox(
+                                  const SizedBox( // Added const
                                     width: 5,
                                   ),
                                   gameTipsViewModelConsumer.game.gameState ==
@@ -564,10 +564,10 @@ class _GameListItemState extends State<GameListItem> {
                   child:
                       CircularProgressIndicator(color: League.nrl.colour)))));
     } else if (_historicalDataError) {
-      cards.add(Card(
-          child: SizedBox(
+      cards.add(const Card( // Added const
+          child: SizedBox( // Added const
               height: 100,
-              child: Center(child: Text("Error loading history.")))));
+              child: Center(child: Text("Error loading history."))))); // Text can be const
     } else if (_historicalData != null && _historicalData!.isNotEmpty) {
       final matchupsToShow = _historicalData!.take(3).toList();
       int totalMatchupsInList = matchupsToShow.length;
@@ -617,12 +617,14 @@ class _GameListItemState extends State<GameListItem> {
               style: const TextStyle(
                 fontSize: 12.0,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                fontSize: 12.0,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87, // Colors.black87 is const
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2.0),
+            const SizedBox(height: 2.0), // Already const
             Text(
               'Date: ${matchupData.isCurrentYear ? matchupData.month : "${matchupData.month} ${matchupData.year}"}',
               style: const TextStyle(fontSize: 11.0),
@@ -695,26 +697,26 @@ Widget liveScoringAway(Game consumerTipGame, BuildContext context) {
 }
 
 Widget liveScoringEdit(BuildContext context) {
-  return SizedBox(
+  return const SizedBox( // Added const to SizedBox
     width: 30,
-    child: const Icon(Icons.edit),
+    child: Icon(Icons.edit), // Icon was already const
   );
 }
 
 Widget fixtureScoringHome(GameTipViewModel consumerTipGameViewModel) {
   return Text('${consumerTipGameViewModel.game.scoring!.homeTeamScore ?? ''}',
       style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
-          ? TextStyle(
-              backgroundColor: Colors.lightGreen[200],
+          ? const TextStyle( // Added const
+              backgroundColor: Color(0xFFA5D6A7), // Colors.lightGreen[200] to const Color
               fontWeight: FontWeight.w900)
-          : TextStyle(fontWeight: FontWeight.w600));
+          : const TextStyle(fontWeight: FontWeight.w600)); // Added const
 }
 
 Widget fixtureScoringAway(GameTipViewModel consumerTipGameViewModel) {
   return Text('${consumerTipGameViewModel.game.scoring!.awayTeamScore ?? ''}',
       style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
-          ? TextStyle(
-              backgroundColor: Colors.lightGreen[200],
+          ? const TextStyle( // Added const
+              backgroundColor: Color(0xFFA5D6A7), // Colors.lightGreen[200] to const Color
               fontWeight: FontWeight.w900)
-          : TextStyle(fontWeight: FontWeight.w600));
+          : const TextStyle(fontWeight: FontWeight.w600)); // Added const
 }

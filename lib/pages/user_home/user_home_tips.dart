@@ -146,7 +146,6 @@ class TipsTabState extends State<TipsTab> {
                       1 +
                       1,
                   itemBuilder: (context, index) {
-                    log('building index: $index');
                     if (index == 0) {
                       return WelcomeHeader(
                           daucompsViewmodelConsumer: daucompsViewmodelConsumer);

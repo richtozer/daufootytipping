@@ -31,43 +31,77 @@ class GameListBuilder extends StatefulWidget {
 }
 
 class _GameListBuilderState extends State<GameListBuilder> {
-  late List<Game>? leagueGames;
-  late Map<League, List<Game>> allGames;
+  late List<Game> leagueGames;
+  Future<void>? _initialLoadCompleteFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateLeagueGames();
+    _initialLoadCompleteFuture =
+        widget.dauCompsViewModel.gamesViewModel?.initialLoadComplete;
+  }
+
+  @override
+  void didUpdateWidget(GameListBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.dauRound != oldWidget.dauRound ||
+        widget.league != oldWidget.league ||
+        widget.dauCompsViewModel != oldWidget.dauCompsViewModel) {
+      _updateLeagueGames();
+    }
+
+    if (widget.dauCompsViewModel.gamesViewModel !=
+        oldWidget.dauCompsViewModel.gamesViewModel) {
+      _initialLoadCompleteFuture =
+          widget.dauCompsViewModel.gamesViewModel?.initialLoadComplete;
+    }
+  }
+
+  void _updateLeagueGames() {
+    // Access gamesViewModel safely, potentially from the widget's dauCompsViewModel if needed for grouping
+    // This assumes groupGamesIntoLeagues doesn't rely on the Consumer's latest version but the one passed in the widget.
+    // If groupGamesIntoLeagues itself depends on reactive state within dauCompsViewModel that isn't just gamesViewModel,
+    // then the Consumer might still be needed higher up, or groupGamesIntoLeagues needs to be callable with specific data.
+    final allGames =
+        widget.dauCompsViewModel.groupGamesIntoLeagues(widget.dauRound);
+    leagueGames = allGames[widget.league] ?? [];
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<DAUCompsViewModel>.value(
-      value: widget.dauCompsViewModel,
-      builder: (context, snapshot) {
-        return Consumer<DAUCompsViewModel>(
-            builder: (context, dauCompsViewModelConsumer, child) {
-          allGames =
-              dauCompsViewModelConsumer.groupGamesIntoLeagues(widget.dauRound);
-          leagueGames = allGames[widget.league];
+    // No need to wrap with ChangeNotifierProvider.value if it's already provided by an ancestor
+    // and dauCompsViewModel is passed via widget.
+    // However, if GameListBuilder is meant to react to changes in dauCompsViewModel
+    // that are NOT captured by didUpdateWidget (e.g. deeper changes not reflected in equality),
+    // then Consumer is still useful. Assuming didUpdateWidget handles necessary updates for now.
 
-          if (leagueGames!.isEmpty) {
-            // await the initial game load to complete - gamesViewModel.initialLoadComplete - display a progress indicator until it does
-            if (dauCompsViewModelConsumer.gamesViewModel != null) {
-              return FutureBuilder<void>(
-                future: dauCompsViewModelConsumer
-                    .gamesViewModel!.initialLoadComplete,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                        child: CircularProgressIndicator(
-                            color: League.nrl.colour));
-                  }
-                  return SizedBox(
-                    height: 75,
-                    child: Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      color: Colors.white70,
-                      child: Center(
-                        child: Text(
-                            'No ${widget.league.name.toUpperCase()} games this round'),
-                      ),
+    // The Consumer is still useful to react to changes in gamesViewModel for the FutureBuilder condition.
+    return Consumer<DAUCompsViewModel>(
+        builder: (context, dauCompsViewModelConsumer, child) {
+      // leagueGames is now managed by initState and didUpdateWidget
+
+      if (leagueGames.isEmpty) {
+        // Use the state variable _initialLoadCompleteFuture
+        if (dauCompsViewModelConsumer.gamesViewModel != null) {
+          return FutureBuilder<void>(
+            future: _initialLoadCompleteFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                    child: CircularProgressIndicator(color: League.nrl.colour));
+              }
+              return SizedBox(
+                height: 75,
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  color: Colors.white70,
+                  child: Center(
+                    child: Text(
+                        'No ${widget.league.name.toUpperCase()} games this round'),
+                  ),
                     ),
                   );
                 },
@@ -84,9 +118,9 @@ class _GameListBuilderState extends State<GameListBuilder> {
             padding: const EdgeInsets.all(0),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: leagueGames!.length,
+            itemCount: leagueGames.length,
             itemBuilder: (context, index) {
-              var game = leagueGames![index];
+              var game = leagueGames[index];
               if (widget.tipperTipsViewModel == null) {
                 return Center(
                     child: CircularProgressIndicator(color: League.nrl.colour));
