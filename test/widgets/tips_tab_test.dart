@@ -74,20 +74,24 @@ void main() {
         league: League.nrl,
         homeTeam: nrlHomeTeam,
         awayTeam: nrlAwayTeam,
+        location: 'NRL Venue', // Renamed from venue
         startTimeUTC: DateTime.now().add(const Duration(days: 1)),
-        gameState: GameState.notStarted,
-        roundNumber: 1,
-        venue: 'NRL Venue');
+        fixtureRoundNumber: 1, // Renamed from roundNumber
+        fixtureMatchNumber: 1 // Added required parameter
+        // gameState parameter removed
+        );
 
     testAflGame = Game(
         dbkey: 'aflg1',
         league: League.afl,
         homeTeam: aflHomeTeam,
         awayTeam: aflAwayTeam,
+        location: 'AFL Venue', // Renamed from venue
         startTimeUTC: DateTime.now().add(const Duration(days: 1)),
-        gameState: GameState.notStarted,
-        roundNumber: 1,
-        venue: 'AFL Venue');
+        fixtureRoundNumber: 1, // Renamed from roundNumber
+        fixtureMatchNumber: 1 // Added required parameter
+        // gameState parameter removed
+        );
     
     // Initialize DAURound with actual games lists
     testDauRound = DAURound(
@@ -95,10 +99,9 @@ void main() {
         firstGameKickOffUTC: DateTime.now(),
         lastGameKickOffUTC: DateTime.now().add(const Duration(days: 2)),
         games: [testNrlGame, testAflGame]
-        // roundState is initialized to notStarted by default in DAURound if not set through other means post-construction
+        // roundState is initialized to notStarted by default in DAURound.
+        // The explicit assignments below were redundant.
     );
-    testDauRound.games = [testNrlGame, testAflGame]; 
-    testDauRound.roundState = RoundState.notStarted; // Or another appropriate state for testing
     // No need to mock getGamesForLeague if we initialize DAURound with game lists directly.
     // DAURound's constructor or a method should handle setting these up internally.
     // If DAURound.getGamesForLeague is what GameListBuilder uses, ensure it works with this setup.
@@ -113,9 +116,28 @@ void main() {
         daurounds: [testDauRound]
     );
 
-    testTipper = Tipper(dbkey: 'tipper1', name: 'Test Tipper', email: 'test@tipper.com');
-    nrlTip = Tip(dbkey: 'tip_nrl1', gameDbkey: testNrlGame.dbkey, tipperDbkey: testTipper.dbkey, tipTeamDbkey: nrlHomeTeam.dbkey, tipMargin: 10, isCorrect: false, points: 0);
-    aflTip = Tip(dbkey: 'tip_afl1', gameDbkey: testAflGame.dbkey, tipperDbkey: testTipper.dbkey, tipTeamDbkey: aflHomeTeam.dbkey, tipMargin: 5, isCorrect: false, points: 0);
+    testTipper = Tipper(
+        dbkey: 'tipper1',
+        name: 'Test Tipper',
+        email: 'test@tipper.com',
+        authuid: 'testauthuid123', // Added
+        compsPaidFor: [], // Added, assuming empty list is fine for these tests
+        tipperRole: TipperRole.tipper // Added
+        );
+    nrlTip = Tip(
+        dbkey: 'tip_nrl1',
+        game: testNrlGame, // Changed from gameDbkey
+        tipper: testTipper, // Changed from tipperDbkey
+        tip: GameResult.b, // Changed from tipTeamDbkey, tipMargin etc. Used GameResult.b as an example
+        submittedTimeUTC: DateTime.now().toUtc() // Added required parameter
+        );
+    aflTip = Tip(
+        dbkey: 'tip_afl1',
+        game: testAflGame, // Changed from gameDbkey
+        tipper: testTipper, // Changed from tipperDbkey
+        tip: GameResult.a, // Changed from tipTeamDbkey, tipMargin etc. Used GameResult.a as an example
+        submittedTimeUTC: DateTime.now().toUtc() // Added required parameter
+        );
 
     // Stubbing for ViewModels
     when(mockDauCompsViewModel.selectedDAUComp).thenReturn(testDauComp);
