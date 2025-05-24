@@ -617,9 +617,7 @@ class _GameListItemState extends State<GameListItem> {
               style: const TextStyle(
                 fontSize: 12.0,
                 fontWeight: FontWeight.bold,
-                fontSize: 12.0,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87, // Colors.black87 is const
+                color: Colors.black87,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

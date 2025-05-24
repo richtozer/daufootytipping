@@ -64,10 +64,10 @@ void main() {
     // StatsViewModel is also part of DAUCompsViewModel or provided via it
 
     // Initialize test data
-    nrlHomeTeam = Team(dbkey: 'nrlh1', name: 'NRL Home', shortName: 'NRH', logoURI: 'path/nrl_home.svg', league: League.nrl);
-    nrlAwayTeam = Team(dbkey: 'nrla1', name: 'NRL Away', shortName: 'NRA', logoURI: 'path/nrl_away.svg', league: League.nrl);
-    aflHomeTeam = Team(dbkey: 'aflh1', name: 'AFL Home', shortName: 'AFH', logoURI: 'path/afl_home.svg', league: League.afl);
-    aflAwayTeam = Team(dbkey: 'afla1', name: 'AFL Away', shortName: 'AFA', logoURI: 'path/afl_away.svg', league: League.afl);
+    nrlHomeTeam = Team(dbkey: 'nrlh1', name: 'NRL Home', logoURI: 'path/nrl_home.svg', league: League.nrl);
+    nrlAwayTeam = Team(dbkey: 'nrla1', name: 'NRL Away', logoURI: 'path/nrl_away.svg', league: League.nrl);
+    aflHomeTeam = Team(dbkey: 'aflh1', name: 'AFL Home', logoURI: 'path/afl_home.svg', league: League.afl);
+    aflAwayTeam = Team(dbkey: 'afla1', name: 'AFL Away', logoURI: 'path/afl_away.svg', league: League.afl);
 
     testNrlGame = Game(
         dbkey: 'nrlg1',
@@ -91,16 +91,14 @@ void main() {
     
     // Initialize DAURound with actual games lists
     testDauRound = DAURound(
-        dbkey: 'r1',
-        roundNumber: 1,
-        name: 'Round 1',
-        compDbKey: 'comp1',
-        nrlGames: [testNrlGame], // Pass the actual list
-        aflGames: [testAflGame], // Pass the actual list
-        roundStartDate: DateTime.now(),
-        roundEndDate: DateTime.now().add(const Duration(days: 2)),
-        roundState: RoundState.open
+        dAUroundNumber: 1, // Assuming dAUroundNumber is required
+        firstGameKickOffUTC: DateTime.now(),
+        lastGameKickOffUTC: DateTime.now().add(const Duration(days: 2)),
+        games: [testNrlGame, testAflGame]
+        // roundState is initialized to notStarted by default in DAURound if not set through other means post-construction
     );
+    testDauRound.games = [testNrlGame, testAflGame]; 
+    testDauRound.roundState = RoundState.notStarted; // Or another appropriate state for testing
     // No need to mock getGamesForLeague if we initialize DAURound with game lists directly.
     // DAURound's constructor or a method should handle setting these up internally.
     // If DAURound.getGamesForLeague is what GameListBuilder uses, ensure it works with this setup.
@@ -110,10 +108,9 @@ void main() {
     testDauComp = DAUComp(
         dbkey: 'comp1',
         name: 'Test Competition',
-        daurounds: [testDauRound],
-        season: DateTime.now().year.toString(),
-        isCurrent: true,
-        leagueOrder: [League.nrl, League.afl]
+        aflFixtureJsonURL: Uri.parse('http://example.com/afl.json'), // Add dummy URL
+        nrlFixtureJsonURL: Uri.parse('http://example.com/nrl.json'), // Add dummy URL
+        daurounds: [testDauRound]
     );
 
     testTipper = Tipper(dbkey: 'tipper1', name: 'Test Tipper', email: 'test@tipper.com');

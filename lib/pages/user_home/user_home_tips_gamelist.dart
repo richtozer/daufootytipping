@@ -101,11 +101,11 @@ class _GameListBuilderState extends State<GameListBuilder> {
                   child: Center(
                     child: Text(
                         'No ${widget.league.name.toUpperCase()} games this round'),
-                  ),
-                    ),
-                  );
-                },
-              );
+                    ), // Center
+                  ), // Card
+                ); // SizedBox
+              },
+            );
             } else
             // If the gamesViewModel is null, display a progress indicator
             {
@@ -135,8 +135,7 @@ class _GameListBuilderState extends State<GameListBuilder> {
               );
             },
           );
-        });
-      },
-    );
-  }
+        }); // Consumer
+    // No '},' was here, so the structure is already correct regarding this point.
+  } // build
 }
