@@ -2,9 +2,11 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -22,10 +24,21 @@ import 'package:watch_it/watch_it.dart';
 // We extend Mockito's Mock class to get 'when' and other functionalities,
 // but we won't use build_runner to generate specific mock classes.
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
+
 class MockTippersViewModel extends Mock implements TippersViewModel {}
-class MockTipsViewModel extends Mock implements TipsViewModel {}
+
+class MockTipsViewModel extends Mock implements TipsViewModel {
+  Future<Tip?> getTip(Game game) => super.noSuchMethod(
+        Invocation.method(#getTip, [game]),
+        returnValue: Future<Tip?>.value(null),
+        returnValueForMissingStub: Future<Tip?>.value(null),
+      );
+}
+
 class MockGamesViewModel extends Mock implements GamesViewModel {}
+
 class MockTeamsViewModel extends Mock implements TeamsViewModel {}
+
 class MockStatsViewModel extends Mock implements StatsViewModel {}
 
 // For models, we'll typically use real instances with test data,
@@ -64,10 +77,26 @@ void main() {
     // StatsViewModel is also part of DAUCompsViewModel or provided via it
 
     // Initialize test data
-    nrlHomeTeam = Team(dbkey: 'nrlh1', name: 'NRL Home', logoURI: 'path/nrl_home.svg', league: League.nrl);
-    nrlAwayTeam = Team(dbkey: 'nrla1', name: 'NRL Away', logoURI: 'path/nrl_away.svg', league: League.nrl);
-    aflHomeTeam = Team(dbkey: 'aflh1', name: 'AFL Home', logoURI: 'path/afl_home.svg', league: League.afl);
-    aflAwayTeam = Team(dbkey: 'afla1', name: 'AFL Away', logoURI: 'path/afl_away.svg', league: League.afl);
+    nrlHomeTeam = Team(
+        dbkey: 'nrlh1',
+        name: 'NRL Home',
+        logoURI: 'path/nrl_home.svg',
+        league: League.nrl);
+    nrlAwayTeam = Team(
+        dbkey: 'nrla1',
+        name: 'NRL Away',
+        logoURI: 'path/nrl_away.svg',
+        league: League.nrl);
+    aflHomeTeam = Team(
+        dbkey: 'aflh1',
+        name: 'AFL Home',
+        logoURI: 'path/afl_home.svg',
+        league: League.afl);
+    aflAwayTeam = Team(
+        dbkey: 'afla1',
+        name: 'AFL Away',
+        logoURI: 'path/afl_away.svg',
+        league: League.afl);
 
     testNrlGame = Game(
         dbkey: 'nrlg1',
@@ -92,7 +121,7 @@ void main() {
         fixtureMatchNumber: 1 // Added required parameter
         // gameState parameter removed
         );
-    
+
     // Initialize DAURound with actual games lists
     testDauRound = DAURound(
         dAUroundNumber: 1, // Assuming dAUroundNumber is required
@@ -101,20 +130,20 @@ void main() {
         games: [testNrlGame, testAflGame]
         // roundState is initialized to notStarted by default in DAURound.
         // The explicit assignments below were redundant.
-    );
+        );
     // No need to mock getGamesForLeague if we initialize DAURound with game lists directly.
     // DAURound's constructor or a method should handle setting these up internally.
     // If DAURound.getGamesForLeague is what GameListBuilder uses, ensure it works with this setup.
     // For this example, assume GameListBuilder gets games from dauCompsViewModel.groupGamesIntoLeagues
 
-
     testDauComp = DAUComp(
         dbkey: 'comp1',
         name: 'Test Competition',
-        aflFixtureJsonURL: Uri.parse('http://example.com/afl.json'), // Add dummy URL
-        nrlFixtureJsonURL: Uri.parse('http://example.com/nrl.json'), // Add dummy URL
-        daurounds: [testDauRound]
-    );
+        aflFixtureJsonURL:
+            Uri.parse('http://example.com/afl.json'), // Add dummy URL
+        nrlFixtureJsonURL:
+            Uri.parse('http://example.com/nrl.json'), // Add dummy URL
+        daurounds: [testDauRound]);
 
     testTipper = Tipper(
         dbkey: 'tipper1',
@@ -128,14 +157,16 @@ void main() {
         dbkey: 'tip_nrl1',
         game: testNrlGame, // Changed from gameDbkey
         tipper: testTipper, // Changed from tipperDbkey
-        tip: GameResult.b, // Changed from tipTeamDbkey, tipMargin etc. Used GameResult.b as an example
+        tip: GameResult
+            .b, // Changed from tipTeamDbkey, tipMargin etc. Used GameResult.b as an example
         submittedTimeUTC: DateTime.now().toUtc() // Added required parameter
         );
     aflTip = Tip(
         dbkey: 'tip_afl1',
         game: testAflGame, // Changed from gameDbkey
         tipper: testTipper, // Changed from tipperDbkey
-        tip: GameResult.a, // Changed from tipTeamDbkey, tipMargin etc. Used GameResult.a as an example
+        tip: GameResult
+            .a, // Changed from tipTeamDbkey, tipMargin etc. Used GameResult.a as an example
         submittedTimeUTC: DateTime.now().toUtc() // Added required parameter
         );
 
@@ -145,24 +176,27 @@ void main() {
     when(mockDauCompsViewModel.gamesViewModel).thenReturn(mockGamesViewModel);
     when(mockGamesViewModel.teamsViewModel).thenReturn(mockTeamsViewModel);
     when(mockDauCompsViewModel.statsViewModel).thenReturn(mockStatsViewModel);
-    
+
     // This is crucial for GameListBuilder
-    when(mockDauCompsViewModel.groupGamesIntoLeagues(testDauRound))
-        .thenReturn({League.nrl: [testNrlGame], League.afl: [testAflGame]});
-    
+    when(mockDauCompsViewModel.groupGamesIntoLeagues(testDauRound)).thenReturn({
+      League.nrl: [testNrlGame],
+      League.afl: [testAflGame]
+    });
+
     when(mockGamesViewModel.initialLoadComplete).thenAnswer((_) async {});
     when(mockTeamsViewModel.initialLoadComplete).thenAnswer((_) async {});
 
     when(mockTippersViewModel.selectedTipper).thenReturn(testTipper);
-    when(mockDauCompsViewModel.selectedTipperTipsViewModel).thenReturn(mockTipsViewModel);
-    
+    when(mockDauCompsViewModel.selectedTipperTipsViewModel)
+        .thenReturn(mockTipsViewModel);
+
     when(mockTipsViewModel.getTip(testNrlGame)).thenAnswer((_) async => nrlTip);
     when(mockTipsViewModel.getTip(testAflGame)).thenAnswer((_) async => aflTip);
 
     // Default stub for pixelHeightUpToRound and highestRoundNumberInPast
-    when(mockDauCompsViewModel.selectedDAUComp?.pixelHeightUpToRound(any)).thenReturn(100.0);
-    when(mockDauCompsViewModel.selectedDAUComp?.highestRoundNumberInPast()).thenReturn(0);
-    
+    // These methods are called on the real testDauComp, so no need to stub via mock.
+    // If you need to override their behavior, consider subclassing or using a mock for DAUComp.
+
     // Stubbing for DAUComp methods if accessed directly on the object from selectedDAUComp
     // This is safer as the selectedDAUComp is a real object.
     // For example, if TipsTab's initState calls these on the real testDauComp:
@@ -180,7 +214,8 @@ void main() {
     di.reset(dispose: true); // Clears all registered singletons
   });
 
-  testWidgets('TipsTab builds correctly and finds child widgets', (WidgetTester tester) async {
+  testWidgets('TipsTab builds correctly and finds child widgets',
+      (WidgetTester tester) async {
     // Act
     await tester.pumpWidget(
       MaterialApp(
@@ -195,17 +230,20 @@ void main() {
     expect(find.byType(CustomScrollView), findsOneWidget);
     expect(find.byType(SliverVariedExtentList), findsOneWidget);
 
-    await tester.pumpAndSettle(); // Allow GameListBuilder and its children to build
+    await tester
+        .pumpAndSettle(); // Allow GameListBuilder and its children to build
 
     // For 1 DAURound, we expect 2 GameListBuilders (one for NRL, one for AFL)
     expect(find.byType(GameListBuilder), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('TipsTab shows "Nothing to see here" when selectedDAUComp is null initially', (WidgetTester tester) async {
+  testWidgets(
+      'TipsTab shows "Nothing to see here" when selectedDAUComp is null initially',
+      (WidgetTester tester) async {
     // Arrange: Override selectedDAUComp to be null
     when(mockDauCompsViewModel.selectedDAUComp).thenReturn(null);
-    when(mockDauCompsViewModel.activeDAUComp).thenReturn(null); 
+    when(mockDauCompsViewModel.activeDAUComp).thenReturn(null);
 
     // Act
     await tester.pumpWidget(
@@ -218,7 +256,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Assert
-    expect(find.text('Nothing to see here.\nContact support: https://interview.coach/tipping.'), findsOneWidget);
+    expect(
+        find.text(
+            'Nothing to see here.\nContact support: https://interview.coach/tipping.'),
+        findsOneWidget);
     expect(find.byType(CustomScrollView), findsNothing);
     expect(tester.takeException(), isNull);
   });
