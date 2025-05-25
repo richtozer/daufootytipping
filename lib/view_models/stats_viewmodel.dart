@@ -237,6 +237,8 @@ class StatsViewModel extends ChangeNotifier {
   ) {
     if (_updateStatsInProgress != null) {
       log('StatsViewModel.updateStats() Update already in progress, skipping');
+      _logEventScoringInitiated('scoring_skipped', daucompToUpdate,
+          onlyUpdateThisRound, onlyUpdateThisTipper);
       return Future.value('Skipped: Another stats update already in progress.');
     }
 
@@ -259,8 +261,8 @@ class StatsViewModel extends ChangeNotifier {
 
         _isUpdateScoringRunning = true;
 
-        _logEventScoringInitiated(
-            daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
+        _logEventScoringInitiated('scoring_initiated', daucompToUpdate,
+            onlyUpdateThisRound, onlyUpdateThisTipper);
 
         /// make sure we have all tippers
         await di<TippersViewModel>().initialLoadComplete;
@@ -322,6 +324,8 @@ class StatsViewModel extends ChangeNotifier {
         log('StatsViewModel.updateStats() Error: $e');
         completer.completeError(e);
       } finally {
+        _logEventScoringInitiated('scoring_completed', daucompToUpdate,
+            onlyUpdateThisRound, onlyUpdateThisTipper);
         _isUpdateScoringRunning = false;
         _updateStatsInProgress = null;
         stopwatch.stop();
@@ -332,12 +336,11 @@ class StatsViewModel extends ChangeNotifier {
     return _updateStatsInProgress!;
   }
 
-  void _logEventScoringInitiated(DAUComp daucompToUpdate,
+  void _logEventScoringInitiated(String msg, DAUComp daucompToUpdate,
       DAURound? onlyUpdateThisRound, Tipper? onlyUpdateThisTipper) {
     try {
       // write a firebase analytic event that scoring is underway
-      FirebaseAnalytics.instance
-          .logEvent(name: 'scoring_initiated', parameters: {
+      FirebaseAnalytics.instance.logEvent(name: msg, parameters: {
         'comp': daucompToUpdate.name,
         'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
         'tipper': onlyUpdateThisTipper?.name ?? 'all',
