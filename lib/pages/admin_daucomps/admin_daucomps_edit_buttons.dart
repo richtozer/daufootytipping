@@ -11,11 +11,11 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
   final Function(VoidCallback fn) setStateCallback;
 
   const AdminDaucompsEditFixtureButton({
-    Key? key,
+    super.key,
     required this.dauCompsViewModel,
     required this.daucomp,
     required this.setStateCallback,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +47,7 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
               // This will correctly modify `disableBack` in the parent state.
               // Placeholder comment below should be replaced by actual code if it were different.
               /* disableBack = true; */ // This line is conceptual.
-                                      // The actual code passed is `() { /* parent's */ disableBack = true; }`
+              // The actual code passed is `() { /* parent's */ disableBack = true; }`
             });
             // The above conceptual line will be written as the lambda for the parent.
             // The actual call from button: setStateCallback(theLambda);
@@ -171,7 +171,6 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
               // The function `() { disableBack = true }` is created and passed.
             });
 
-
             String result =
                 await dauCompsViewModel.getNetworkFixtureData(daucomp!);
             if (context.mounted) {
@@ -195,7 +194,7 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
               );
             }
           } finally {
-            setStateCallback(() { /* disableBack = false; in parent's scope */ });
+            setStateCallback(() {/* disableBack = false; in parent's scope */});
           }
         },
         child: Text(
@@ -211,11 +210,11 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
   final Function(VoidCallback fn) setStateCallback;
 
   const AdminDaucompsEditScoringButton({
-    Key? key,
+    super.key,
     required this.dauCompsViewModel,
     required this.daucomp,
     required this.setStateCallback,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -233,7 +232,7 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
           }
 
           try {
-            setStateCallback(() { /* disableBack = true; in parent's scope */ });
+            setStateCallback(() {/* disableBack = true; in parent's scope */});
             await Future.delayed(const Duration(milliseconds: 100));
             String syncResult = await dauCompsViewModel.statsViewModel
                     ?.updateStats(daucomp!, null, null) ??
@@ -259,9 +258,11 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
               );
             }
           } finally {
-             if (context.mounted) { 
-                setStateCallback(() { /* disableBack = false; in parent's scope */ });
-             }
+            if (context.mounted) {
+              setStateCallback(() {
+                /* disableBack = false; in parent's scope */
+              });
+            }
           }
         },
         child: Text(
