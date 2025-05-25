@@ -50,6 +50,8 @@ class DAUCompsEditPage extends StatefulWidget {
 class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   bool disableSaves = true;
   bool disableBack = false;
+  bool _localActiveCompState = false; 
+  // Initial value, will be correctly set in initState
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -58,9 +60,17 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   void initState() {
     super.initState();
+    // Correct initialization of _localActiveCompState
+    if (widget.daucomp != null) {
+      final globalDauCompsVM = di<DAUCompsViewModel>(); // Assuming DAUCompsViewModel is registered with WatchIt
+      _localActiveCompState = globalDauCompsVM.initDAUCompDbKey != null &&
+                             widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+    } else {
+      _localActiveCompState = false; // New comps are not active by default
+    }
+  
     _initTextControllersListeners();
-    // _initializeRoundControllers(); // Removed
-    _updateSaveButtonState();
+    _updateSaveButtonState(); // Call after _localActiveCompState is set
   }
 
   @override
@@ -92,30 +102,47 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   void _updateSaveButtonState() {
     bool shouldEnableSave;
+    bool originalActiveStatus = false;
+    if (widget.daucomp != null) {
+      final globalDauCompsVM = di<DAUCompsViewModel>();
+      originalActiveStatus = globalDauCompsVM.initDAUCompDbKey != null &&
+                             widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+    }
+
     if (widget.daucomp == null) {
       shouldEnableSave = widget._daucompNameController.text.isNotEmpty &&
           widget._daucompAflJsonURLController.text.isNotEmpty &&
           widget._daucompNrlJsonURLController.text.isNotEmpty;
+      // For new comps, also consider if _localActiveCompState is true (if we allow setting new comp as active immediately)
+      // Based on current logic, new comp is only set active on save, so _localActiveCompState change might not enable save alone.
+      // However, if other fields are filled, and user toggles active, it should be saveable.
+      // The original logic didn't factor in _localActiveCompState for new comps for enabling save.
+      // Let's assume any interaction makes it saveable if basic fields are there.
+      // The original logic for new comp save was only based on text fields.
+      // Adding `|| _localActiveCompState` might be too aggressive if other fields are empty.
+      // The current `onFormInteracted` in AdminDaucompsEditForm handles `disableSaves = false;`
+      // which then calls this. So, we just need to ensure the condition includes active state change.
     } else {
       shouldEnableSave =
-          widget._daucompNameController.text != widget.daucomp!.name ||
+          (widget._daucompNameController.text != widget.daucomp!.name ||
               widget._daucompAflJsonURLController.text !=
                   widget.daucomp!.aflFixtureJsonURL.toString() ||
               widget._daucompNrlJsonURLController.text !=
-                  widget.daucomp!.nrlFixtureJsonURL.toString();
-      widget._nrlRegularCompEndDateController.text !=
-              (widget.daucomp!.nrlRegularCompEndDateUTC != null
-                  ? DateFormat('yyyy-MM-dd')
-                      .format(widget.daucomp!.nrlRegularCompEndDateUTC!)
-                  : '') ||
-          widget._aflRegularCompEndDateController.text !=
-              (widget.daucomp!.aflRegularCompEndDateUTC != null
-                  ? DateFormat('yyyy-MM-dd')
-                      .format(widget.daucomp!.aflRegularCompEndDateUTC!)
-                  : '');
+                  widget.daucomp!.nrlFixtureJsonURL.toString() ||
+            widget._nrlRegularCompEndDateController.text !=
+                (widget.daucomp!.nrlRegularCompEndDateUTC != null
+                    ? DateFormat('yyyy-MM-dd')
+                        .format(widget.daucomp!.nrlRegularCompEndDateUTC!)
+                    : '') ||
+            widget._aflRegularCompEndDateController.text !=
+                (widget.daucomp!.aflRegularCompEndDateUTC != null
+                    ? DateFormat('yyyy-MM-dd')
+                        .format(widget.daucomp!.aflRegularCompEndDateUTC!)
+                    : '')) ||
+            (_localActiveCompState != originalActiveStatus); // Added this condition
     }
 
-    log('shouldEnableSave = $shouldEnableSave');
+    log('shouldEnableSave = $shouldEnableSave, _localActiveCompState = $_localActiveCompState, originalActiveStatus = $originalActiveStatus');
 
     if (disableSaves != !shouldEnableSave) {
       setState(() {
@@ -149,6 +176,31 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
       if (!mounted) return; // Check if the widget is still in the tree
 
       if (result['success'] == true) {
+        String? targetCompDbKey = widget.daucomp?.dbkey;
+        if (widget.daucomp == null && result['newCompData'] != null) {
+          targetCompDbKey = (result['newCompData'] as DAUComp?)?.dbkey;
+        }
+
+        if (targetCompDbKey != null) {
+          bool persistedActiveStatus = false;
+          final globalDauCompsVM = di<DAUCompsViewModel>();
+          if (globalDauCompsVM.initDAUCompDbKey != null) {
+             persistedActiveStatus = targetCompDbKey == globalDauCompsVM.initDAUCompDbKey;
+          }
+          
+          // If locally marked active AND it's different from its persisted state OR it's a new comp being marked active
+          if (_localActiveCompState && (_localActiveCompState != persistedActiveStatus || widget.daucomp == null)) {
+            ConfigViewModel remoteConfigService = ConfigViewModel();
+            await remoteConfigService.setConfigCurrentDAUComp(targetCompDbKey);
+            log('Active comp set to: $targetCompDbKey via main save button');
+            // Optionally refresh DAUCompsViewModel's activeDAUComp if necessary,
+            // though changing initDAUCompDbKey in ConfigViewModel usually triggers wider app refresh.
+            // dauCompsViewModel.changeDisplayedDAUComp(await dauCompsViewModel.findComp(targetCompDbKey), true); // Example
+          }
+          // No action needed if _localActiveCompState is false, as per plan (cannot deactivate this way).
+        }
+        
+        if (!mounted) return; // Re-check mounted state after async operations
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.green,
@@ -156,12 +208,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             duration: const Duration(seconds: 4),
           ),
         );
-        // Optionally, if new comp data is returned and needs to be used immediately by UI:
-        // if (widget.daucomp == null && result['newCompData'] != null) {
-        //   // Potentially update state or trigger a refresh if staying on page
-        // }
         Navigator.of(context).pop();
       } else {
+        if (!mounted) return; // Re-check mounted state
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'An error occurred'),
@@ -307,8 +356,38 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       aflRegularCompEndDateController: widget._aflRegularCompEndDateController,
                       dauCompsViewModel: dauCompsViewModeconsumer,
                       onFormInteracted: () {
+                        // This existing callback is fine for text field interactions.
+                        // Active status changes are handled by onActiveStatusChangedLocally.
+                        // We still want to enable save if other form fields change.
                         setState(() {
-                          disableSaves = false;
+                           disableSaves = false;
+                        });
+                         _updateSaveButtonState(); // Ensure save button state considers all changes
+                      },
+                      isLocallyMarkedActive: _localActiveCompState,
+                      onActiveStatusChangedLocally: (bool newValue) {
+                        setState(() {
+                          final globalDauCompsVM = di<DAUCompsViewModel>();
+                          bool isCurrentGlobalActive = widget.daucomp != null &&
+                                                     globalDauCompsVM.initDAUCompDbKey != null &&
+                                                     widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+                      
+                          if (!newValue && isCurrentGlobalActive) {
+                            // Tried to toggle off the currently globally active comp
+                            // Do not change _localActiveCompState, it remains true (or rather, it's not set to false).
+                            // The UI switch will revert because _localActiveCompState isn't updated to false.
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('You cannot turn off the active comp. Instead, edit another comp to be active.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            // To ensure the Switch widget visually reverts if the parent state wasn't actually changed to 'false':
+                            // We don't set _localActiveCompState = false, so the existing _localActiveCompState (true) will be passed back in next build.
+                          } else {
+                            _localActiveCompState = newValue;
+                            _updateSaveButtonState(); 
+                          }
                         });
                       },
                     ),

@@ -16,6 +16,8 @@ class AdminDaucompsEditForm extends StatelessWidget {
   final TextEditingController aflRegularCompEndDateController;
   final DAUCompsViewModel dauCompsViewModel; // This is the dauCompsViewModeconsumer from parent
   final VoidCallback onFormInteracted;
+  final bool isLocallyMarkedActive; // New
+  final Function(bool newValue) onActiveStatusChangedLocally; // New
 
   const AdminDaucompsEditForm({
     Key? key,
@@ -28,6 +30,8 @@ class AdminDaucompsEditForm extends StatelessWidget {
     required this.aflRegularCompEndDateController,
     required this.dauCompsViewModel,
     required this.onFormInteracted,
+    required this.isLocallyMarkedActive, // New
+    required this.onActiveStatusChangedLocally, // New
   }) : super(key: key);
 
   @override
@@ -44,37 +48,9 @@ class AdminDaucompsEditForm extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.bold)),
               if (daucomp != null)
                 Switch(
-                  value: daucomp != null &&
-                      di<DAUCompsViewModel>().initDAUCompDbKey != null &&
-                      daucomp!.dbkey ==
-                          di<DAUCompsViewModel>().initDAUCompDbKey,
-                  onChanged: (bool value) async {
-                    if (daucomp == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text(
-                              'You cannot set the active comp for a new record. Save the record first.'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-                    if (value) {
-                      ConfigViewModel remoteConfigService = ConfigViewModel();
-                      remoteConfigService.setConfigCurrentDAUComp(daucomp!.dbkey!);
-                      log('Active comp changed to: ${daucomp!.name}');
-                      // The parent will need to refresh its own state if the switch causes visual changes there
-                      // For now, this switch directly interacts with view models.
-                      // If this interaction should trigger a rebuild in the parent, onFormInteracted or a more specific callback might be needed.
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text(
-                              'You cannot turn off the active comp. Instead edit another comp to be active.'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                    }
+                  value: isLocallyMarkedActive,
+                  onChanged: (bool value) {
+                    onActiveStatusChangedLocally(value);
                   },
                 ),
               if (daucomp != null) const SizedBox(width: 10),
