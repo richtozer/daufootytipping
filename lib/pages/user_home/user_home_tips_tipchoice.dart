@@ -55,8 +55,13 @@ class _TipChoiceState extends State<TipChoice> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<StatsViewModel>(
+    return Consumer<StatsViewModel?>(
         builder: (context, consumerStatsViewModel, child) {
+      if (consumerStatsViewModel == null) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      }
       return Card(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),

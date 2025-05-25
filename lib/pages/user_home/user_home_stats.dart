@@ -6,7 +6,10 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dar
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart';
 
 class StatsTab extends StatelessWidget {
   const StatsTab({super.key});
@@ -93,7 +96,6 @@ class StatsTab extends StatelessWidget {
                   ),
                 ),
               ),
-
               Card(
                 margin: const EdgeInsets.all(8.0),
                 child: GestureDetector(
@@ -157,12 +159,69 @@ class StatsTab extends StatelessWidget {
                   ),
                 ),
               ),
-              // add some help text here
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text(
-                  '* You need to submit at least 1 tip to appear in the stats.',
-                  style: TextStyle(fontSize: 12),
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LeagueLadderPage(
+                          league: League.nrl, // Pass League.nrl
+                        ),
+                      ),
+                    );
+                  },
+                  child: Row( // Removed const here because Hero is not const
+                    children: [
+                      Hero( // Added Hero widget
+                        tag: "nrl_league_logo_hero", // Updated tag
+                        child: SvgPicture.asset( // Replaced Icon with SvgPicture
+                          'assets/teams/nrl.svg',
+                          width: 30,
+                          height: 40,
+                        ),
+                      ),
+                      const SizedBox(height: 64, width: 16), // Added const here
+                      const Expanded( // Added const here
+                        child: Text('NRL Ladder\nView current standings'),
+                      ),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LeagueLadderPage(
+                          league: League.afl, // Pass League.afl
+                        ),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      // Replace the Icon with the AFL SVG logo in black and white
+                      Hero(
+                        tag: "afl_league_logo_hero", // Updated tag
+                        child: SvgPicture.asset(
+                          'assets/teams/afl.svg',
+                          width: 30,
+                          height: 40,
+                        ),
+                      ),
+                      SizedBox(height: 64, width: 16),
+                      Expanded(
+                        child: Text('AFL Ladder\nView current standings'),
+                      ),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -31,12 +31,6 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
-  int _selectDefaultTabIndex(
-      DAUCompsViewModel dauCompsViewModel, TippersViewModel tippersViewModel) {
-    // if their tipper record was just created, then default to the profile tab so they can set their name
-    return _currentIndex;
-  }
-
   @override
   Widget build(BuildContext context) {
     List<Widget> destinationContent = content();
@@ -49,9 +43,6 @@ class _HomePageState extends State<HomePage> {
             builder: (context, dauCompsViewModelConsumer, child) {
           return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-            _currentIndex = _selectDefaultTabIndex(
-                dauCompsViewModelConsumer, tippersViewModelConsumer);
-
             Widget scaffold = Stack(children: [
               ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),

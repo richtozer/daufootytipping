@@ -72,21 +72,12 @@ class _GameListBuilderState extends State<GameListBuilder> {
                   );
                 },
               );
+            } else
+            // If the gamesViewModel is null, display a progress indicator
+            {
+              return Center(
+                  child: CircularProgressIndicator(color: League.nrl.colour));
             }
-
-            // return SizedBox(
-            //   height: 75,
-            //   child: Card(
-            //     shape: RoundedRectangleBorder(
-            //       borderRadius: BorderRadius.circular(8.0),
-            //     ),
-            //     color: Colors.white70,
-            //     child: Center(
-            //       child: Text(
-            //           'No ${widget.league.name.toUpperCase()} games this round'),
-            //     ),
-            //   ),
-            // );
           }
 
           return ListView.builder(

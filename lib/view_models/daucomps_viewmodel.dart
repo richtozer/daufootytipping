@@ -5,8 +5,11 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
+import 'package:daufootytipping/models/league_ladder.dart'; // Added import
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -17,6 +20,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:http/http.dart' as http; // Added for _isUriActive
 
 const daucompsPath = '/AllDAUComps';
 const combinedRoundsPath = 'combinedRounds2';
@@ -69,6 +73,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   Timer? _dailyTimer;
 
   List<Game> unassignedGames = []; // List to store unassigned games
+  final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
 
   DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
     log('DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode');
@@ -872,5 +877,181 @@ class DAUCompsViewModel extends ChangeNotifier {
     gamesViewModel?.removeListener(_otherViewModelUpdated);
 
     super.dispose();
+  }
+
+  // Ladder Caching Methods
+  void clearLeagueLadderCache({League? league}) {
+    if (league != null) {
+      _cachedLadders.remove(league);
+      log('DAUCompsViewModel: Cleared ladder cache for ${league.name}');
+    } else {
+      _cachedLadders.clear();
+      log('DAUCompsViewModel: Cleared all ladder caches');
+    }
+    // notifyListeners(); // Consider if UI needs to react to cache clearing directly
+  }
+
+  Future<LeagueLadder?> getOrCalculateLeagueLadder(League league,
+      {bool forceRecalculate = false}) async {
+    log('DAUCompsViewModel: getOrCalculateLeagueLadder called for ${league.name}, forceRecalculate: $forceRecalculate');
+
+    if (forceRecalculate) {
+      clearLeagueLadderCache(league: league);
+    }
+
+    if (_cachedLadders.containsKey(league)) {
+      log('DAUCompsViewModel: Cache hit for ${league.name} ladder.');
+      return _cachedLadders[league]!;
+    }
+
+    log('DAUCompsViewModel: Cache miss for ${league.name} ladder. Proceeding to calculate.');
+
+    if (selectedDAUComp == null) {
+      log('DAUCompsViewModel: Cannot calculate ladder, selectedDAUComp is null.');
+      return null;
+    }
+
+    // Use the class member gamesViewModel directly, which is initialized with selectedDAUComp
+    if (gamesViewModel == null) {
+      log('DAUCompsViewModel: Cannot calculate ladder, gamesViewModel is null for DAUComp ${selectedDAUComp?.name}.');
+      return null;
+    }
+
+    // gamesViewModel.getGames() already awaits initialLoadComplete within itself.
+    // gamesViewModel.teamsViewModel.initialLoadComplete is also handled within gamesViewModel init.
+
+    try {
+      List<Game> allGames = await gamesViewModel!.getGames();
+      // Accessing teamsViewModel through the initialized gamesViewModel instance
+      List<Team> leagueTeams = gamesViewModel!
+              .teamsViewModel.groupedTeams[league.name.toLowerCase()]
+              ?.cast<Team>() ??
+          [];
+
+      final LadderCalculationService ladderService = LadderCalculationService();
+      LeagueLadder? calculatedLadder = ladderService.calculateLadder(
+        allGames: allGames,
+        leagueTeams: leagueTeams,
+        league: league,
+      );
+
+      if (calculatedLadder != null) {
+        _cachedLadders[league] = calculatedLadder;
+        log('DAUCompsViewModel: Calculated and cached ladder for ${league.name}. Teams count: ${calculatedLadder.teams.length}');
+      } else {
+        log('DAUCompsViewModel: Ladder calculation returned null for ${league.name}.');
+      }
+      return calculatedLadder;
+    } catch (e) {
+      log('DAUCompsViewModel: Error calculating ladder for ${league.name}: $e');
+      return null;
+    }
+  }
+
+  // Added for Step 1 of refactoring
+  Future<bool> _isUriActive(String uri) async {
+    try {
+      final response = await http.get(Uri.parse(uri));
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        log('Error checking URL: $uri, status code: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      log('Exception checking URL: $uri, error: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> processAndSaveDauComp({
+    required String name,
+    required String aflFixtureJsonURL,
+    required String nrlFixtureJsonURL,
+    required String? nrlRegularCompEndDateString,
+    required String? aflRegularCompEndDateString,
+    required DAUComp? existingComp,
+    required List<DAURound> currentRounds, // New parameter
+  }) async {
+    try {
+      bool aflURLActive = await _isUriActive(aflFixtureJsonURL);
+      bool nrlURLActive = await _isUriActive(nrlFixtureJsonURL);
+      log('aflURLActive = $aflURLActive');
+      log('nrlURLActive = $nrlURLActive');
+
+      if (aflURLActive && nrlURLActive) {
+        if (existingComp == null) { // New comp
+          DAUComp newDAUComp = DAUComp(
+            name: name,
+            aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
+            nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
+            nrlRegularCompEndDateUTC: nrlRegularCompEndDateString != null && nrlRegularCompEndDateString.isNotEmpty
+                ? DateTime.parse(nrlRegularCompEndDateString)
+                : null,
+            aflRegularCompEndDateUTC: aflRegularCompEndDateString != null && aflRegularCompEndDateString.isNotEmpty
+                ? DateTime.parse(aflRegularCompEndDateString)
+                : null,
+            daurounds: [], // Initial empty rounds
+          );
+
+          await this.newDAUComp(newDAUComp); // 'this.' to clarify it's the VM method
+          await saveBatchOfCompAttributes();
+          
+          // Initialize GamesViewModel for the new comp
+          // Ensure 'this' is passed if DAUCompsViewModel instance is needed by GamesViewModel constructor
+          gamesViewModel = GamesViewModel(newDAUComp, this); 
+          await gamesViewModel?.initialLoadComplete;
+
+          String fixtureMessage = await getNetworkFixtureData(newDAUComp);
+          return {'success': true, 'message': fixtureMessage, 'newCompData': newDAUComp};
+        } else { // Existing comp
+          updateCompAttribute(existingComp.dbkey!, "name", name);
+          updateCompAttribute(existingComp.dbkey!, "aflFixtureJsonURL", aflFixtureJsonURL);
+          updateCompAttribute(existingComp.dbkey!, "nrlFixtureJsonURL", nrlFixtureJsonURL);
+          updateCompAttribute(
+              existingComp.dbkey!,
+              "nrlRegularCompEndDateUTC",
+              nrlRegularCompEndDateString != null && nrlRegularCompEndDateString.isNotEmpty
+                  ? DateTime.parse(nrlRegularCompEndDateString).toIso8601String()
+                  : null);
+          updateCompAttribute(
+              existingComp.dbkey!,
+              "aflRegularCompEndDateUTC",
+              aflRegularCompEndDateString != null && aflRegularCompEndDateString.isNotEmpty
+                  ? DateTime.parse(aflRegularCompEndDateString).toIso8601String()
+                  : null);
+
+          // If activeDAUComp is not null and its dbkey matches existingComp's dbkey,
+          // then iterate over activeDAUComp.daurounds. Otherwise, use existingComp.daurounds.
+          // This is to ensure that we are saving the latest version of the rounds data if it was modified in memory.
+          // However, the existingComp passed from the UI _should_ be the one from the ViewModel's perspective (activeDAUComp or selectedDAUComp).
+          // For safety, let's use the rounds from the `existingComp` parameter as it's what the UI is working with.
+          // Changed to iterate over currentRounds as per the subtask instruction
+          for (DAURound round in currentRounds) {
+            if (round.adminOverrideRoundStartDate != null) {
+              updateRoundAttribute(
+                  existingComp.dbkey!,
+                  round.dAUroundNumber,
+                  "adminOverrideRoundStartDate",
+                  round.adminOverrideRoundStartDate!.toUtc().toIso8601String());
+            }
+            if (round.adminOverrideRoundEndDate != null) {
+              updateRoundAttribute(
+                  existingComp.dbkey!,
+                  round.dAUroundNumber,
+                  "adminOverrideRoundEndDate",
+                  round.adminOverrideRoundEndDate!.toUtc().toIso8601String());
+            }
+          }
+          await saveBatchOfCompAttributes();
+          return {'success': true, 'message': 'DAUComp record saved', 'newCompData': null};
+        }
+      } else {
+        return {'success': false, 'message': 'One or both of the URL\'s are not active', 'newCompData': null};
+      }
+    } catch (e) {
+      log('Error in processAndSaveDauComp: $e');
+      return {'success': false, 'message': 'Failed to save DAUComp: ${e.toString()}', 'newCompData': null};
+    }
   }
 }

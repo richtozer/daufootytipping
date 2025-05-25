@@ -63,6 +63,8 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                 Text(
                     '!2025 - returns all tippers that did not pay for a comp with "2025" in its name'),
                 Text('godmode - returns the tipper record in god mode'),
+                Text(
+                    'id=abcd - returns the tipper records with abcd in their dbkey'),
                 Text('etc'),
               ],
             ),
@@ -147,6 +149,15 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                         }).toList();
                       } else {
                         tippers = tippers.where((tipper) {
+                          // Check for id= prefix for dbkey search
+                          if (query.startsWith('id=')) {
+                            final idQuery = query.substring(3).toLowerCase();
+                            return (tipper.dbkey
+                                    ?.toLowerCase()
+                                    .contains(idQuery) ??
+                                false);
+                          }
+
                           bool matches = (tipper
                                   .name
                                   .toLowerCase()
