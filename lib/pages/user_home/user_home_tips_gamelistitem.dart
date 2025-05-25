@@ -223,13 +223,15 @@ class _GameListItemState extends State<GameListItem> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      gameTipsViewModelConsumer
-                                          .game.homeTeam.name,
-                                      textAlign: TextAlign.left,
-                                      style: const TextStyle(
-                                        overflow: TextOverflow.ellipsis,
-                                        fontSize: 16.0,
+                                    Flexible(
+                                      child: Text(
+                                        gameTipsViewModelConsumer
+                                            .game.homeTeam.name,
+                                        textAlign: TextAlign.left,
+                                        style: const TextStyle(
+                                          fontSize: 16.0,
+                                        ),
+                                        softWrap: true,
                                       ),
                                     ),
                                     SizedBox(
@@ -280,14 +282,16 @@ class _GameListItemState extends State<GameListItem> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                        style: const TextStyle(
-                                          overflow: TextOverflow.ellipsis,
-                                          fontSize: 16.0,
-                                        ),
-                                        textAlign: TextAlign.left,
-                                        gameTipsViewModelConsumer
-                                            .game.awayTeam.name),
+                                    Flexible(
+                                      child: Text(
+                                          style: const TextStyle(
+                                            fontSize: 16.0,
+                                          ),
+                                          textAlign: TextAlign.left,
+                                          gameTipsViewModelConsumer
+                                              .game.awayTeam.name,
+                                          softWrap: true),
+                                    ),
                                     SizedBox(
                                       width: 5,
                                     ),
@@ -343,10 +347,10 @@ class _GameListItemState extends State<GameListItem> {
                                         ? displayHomeRank
                                         : '',
                                     style: const TextStyle(
-                                      overflow: TextOverflow.ellipsis,
                                       fontSize: 12.0,
                                     ),
                                     textAlign: TextAlign.left,
+                                    softWrap: true,
                                   ),
                                   if (gameTipsViewModelConsumer
                                               .game.gameState ==
@@ -359,13 +363,15 @@ class _GameListItemState extends State<GameListItem> {
                                     )
                                   else
                                     Container(),
-                                  Text(
-                                    gameTipsViewModelConsumer
-                                        .game.homeTeam.name,
-                                    textAlign: TextAlign.left,
-                                    style: const TextStyle(
-                                      overflow: TextOverflow.ellipsis,
-                                      fontSize: 16.0,
+                                  Flexible(
+                                    child: Text(
+                                      gameTipsViewModelConsumer
+                                          .game.homeTeam.name,
+                                      textAlign: TextAlign.left,
+                                      style: const TextStyle(
+                                        fontSize: 16.0,
+                                      ),
+                                      softWrap: true,
                                     ),
                                   ),
                                   SizedBox(
@@ -426,10 +432,10 @@ class _GameListItemState extends State<GameListItem> {
                                         ? displayAwayRank
                                         : '',
                                     style: const TextStyle(
-                                      overflow: TextOverflow.ellipsis,
                                       fontSize: 12.0,
                                     ),
                                     textAlign: TextAlign.left,
+                                    softWrap: true,
                                   ),
                                   if (gameTipsViewModelConsumer
                                               .game.gameState ==
@@ -442,14 +448,16 @@ class _GameListItemState extends State<GameListItem> {
                                     )
                                   else
                                     Container(),
-                                  Text(
-                                      style: const TextStyle(
-                                        overflow: TextOverflow.ellipsis,
-                                        fontSize: 16.0,
-                                      ),
-                                      textAlign: TextAlign.left,
-                                      gameTipsViewModelConsumer
-                                          .game.awayTeam.name),
+                                  Flexible(
+                                    child: Text(
+                                        style: const TextStyle(
+                                          fontSize: 16.0,
+                                        ),
+                                        textAlign: TextAlign.left,
+                                        gameTipsViewModelConsumer
+                                            .game.awayTeam.name,
+                                        softWrap: true),
+                                  ),
                                   SizedBox(
                                     width: 5,
                                   ),
@@ -616,33 +624,28 @@ class _GameListItemState extends State<GameListItem> {
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
             const SizedBox(height: 2.0),
             Text(
               'Date: ${matchupData.isCurrentYear ? matchupData.month : "${matchupData.month} ${matchupData.year}"}',
               style: const TextStyle(fontSize: 11.0),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
             Text(
               'Outcome: $outcomeString',
               style: const TextStyle(fontSize: 11.0),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
             Text(
               'Venue: ${matchupData.location}',
               style: const TextStyle(fontSize: 11.0),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
             Text(
               'Your Pick: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
               style: const TextStyle(fontSize: 11.0),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
           ],
         ),

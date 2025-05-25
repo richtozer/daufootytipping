@@ -68,7 +68,8 @@ Widget roundLeagueHeaderListTile(
                               ? Colors.white70
                               : Colors.black54,
                           fontWeight: FontWeight.bold,
-                          fontSize: 30)),
+                          fontSize: 30),
+                      softWrap: true),
                 ],
               ),
               // if the league round has no games then display an empty container, otherwise display the column of stats
@@ -93,7 +94,8 @@ Widget roundLeagueHeaderListTile(
                                           ? Colors.white70
                                           : Colors.black54,
                                       fontWeight: FontWeight.bold),
-                                  'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}')
+                                  'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}',
+                                  softWrap: true)
                               : const SizedBox.shrink(),
                           dauRound.roundState != RoundState.notStarted
                               ? Text(
@@ -102,7 +104,8 @@ Widget roundLeagueHeaderListTile(
                                           ? Colors.white70
                                           : Colors.black54,
                                       fontWeight: FontWeight.bold),
-                                  'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}')
+                                  'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}',
+                                  softWrap: true)
                               : Column(
                                   children: [
                                     KickoffCountdown(
@@ -113,12 +116,14 @@ Widget roundLeagueHeaderListTile(
                                         color: Colors.white70,
                                         fontWeight: FontWeight.bold,
                                       ),
+                                      softWrap: true,
                                     ),
                                     Text(
                                         style: const TextStyle(
                                             color: Colors.white70,
                                             fontWeight: FontWeight.bold),
-                                        'Your Margins: $marginTipsSubmitted'),
+                                        'Your Margins: $marginTipsSubmitted',
+                                        softWrap: true),
                                   ],
                                 ),
                           dauRound.roundState != RoundState.notStarted
@@ -131,7 +136,8 @@ Widget roundLeagueHeaderListTile(
                                                 ? Colors.white70
                                                 : Colors.black54,
                                             fontWeight: FontWeight.bold),
-                                        'Rank: ${roundStats.rank}  '),
+                                        'Rank: ${roundStats.rank}  ',
+                                        softWrap: true),
                                     roundStats.rankChange > 0
                                         ? const Icon(
                                             color: Colors.green,
