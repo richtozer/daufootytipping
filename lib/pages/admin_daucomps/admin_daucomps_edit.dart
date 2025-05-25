@@ -143,6 +143,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         nrlRegularCompEndDateString: nrlEndDate.isNotEmpty ? nrlEndDate : null,
         aflRegularCompEndDateString: aflEndDate.isNotEmpty ? aflEndDate : null,
         existingComp: widget.daucomp,
+        currentRounds: dauCompsViewModel.selectedDAUComp?.daurounds ?? [], // Added this line
       );
 
       if (!mounted) return; // Check if the widget is still in the tree
@@ -373,9 +374,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   }
 
   void _recalculateGameCounts() async {
-    // Ensure widget.daucomp and its daurounds are not null before proceeding
-    if (widget.daucomp != null && widget.daucomp!.daurounds.isNotEmpty) {
-      di<DAUCompsViewModel>().linkGamesWithRounds(widget.daucomp!.daurounds);
+    // Use the ViewModel's current selectedDAUComp for the most up-to-date rounds
+    final dauCompsViewModel = di<DAUCompsViewModel>(); 
+    if (dauCompsViewModel.selectedDAUComp != null && 
+        dauCompsViewModel.selectedDAUComp!.daurounds.isNotEmpty) {
+      dauCompsViewModel.linkGamesWithRounds(dauCompsViewModel.selectedDAUComp!.daurounds);
     }
   }
 

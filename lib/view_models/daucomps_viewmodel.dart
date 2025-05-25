@@ -971,6 +971,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     required String? nrlRegularCompEndDateString,
     required String? aflRegularCompEndDateString,
     required DAUComp? existingComp,
+    required List<DAURound> currentRounds, // New parameter
   }) async {
     try {
       bool aflURLActive = await _isUriActive(aflFixtureJsonURL);
@@ -1025,7 +1026,8 @@ class DAUCompsViewModel extends ChangeNotifier {
           // This is to ensure that we are saving the latest version of the rounds data if it was modified in memory.
           // However, the existingComp passed from the UI _should_ be the one from the ViewModel's perspective (activeDAUComp or selectedDAUComp).
           // For safety, let's use the rounds from the `existingComp` parameter as it's what the UI is working with.
-          for (DAURound round in existingComp.daurounds) {
+          // Changed to iterate over currentRounds as per the subtask instruction
+          for (DAURound round in currentRounds) {
             if (round.adminOverrideRoundStartDate != null) {
               updateRoundAttribute(
                   existingComp.dbkey!,
