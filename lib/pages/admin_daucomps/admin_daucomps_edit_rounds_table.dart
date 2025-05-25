@@ -9,17 +9,17 @@ class AdminDaucompsEditRoundsTable extends StatefulWidget {
       onRoundDateChanged;
 
   const AdminDaucompsEditRoundsTable({
-    Key? key,
+    super.key,
     required this.rounds,
     required this.onRoundDateChanged,
-  }) : super(key: key);
+  });
 
   @override
-  _AdminDaucompsEditRoundsTableState createState() =>
-      _AdminDaucompsEditRoundsTableState();
+  AdminDaucompsEditRoundsTableState createState() =>
+      AdminDaucompsEditRoundsTableState();
 }
 
-class _AdminDaucompsEditRoundsTableState
+class AdminDaucompsEditRoundsTableState
     extends State<AdminDaucompsEditRoundsTable> {
   final Map<int, TextEditingController> _startDateControllers = {};
   final Map<int, TextEditingController> _endDateControllers = {};
@@ -38,14 +38,20 @@ class _AdminDaucompsEditRoundsTableState
       needsReinitialization = true;
     } else {
       for (int i = 0; i < widget.rounds.length; i++) {
-        if (widget.rounds[i].dAUroundNumber != oldWidget.rounds[i].dAUroundNumber ||
-            widget.rounds[i].getRoundStartDate().toLocal() != oldWidget.rounds[i].getRoundStartDate().toLocal() ||
-            widget.rounds[i].getRoundEndDate().toLocal() != oldWidget.rounds[i].getRoundEndDate().toLocal() ||
-            widget.rounds[i].firstGameKickOffUTC.toLocal() != oldWidget.rounds[i].firstGameKickOffUTC.toLocal() ||
-            widget.rounds[i].lastGameKickOffUTC.toLocal() != oldWidget.rounds[i].lastGameKickOffUTC.toLocal() ||
-            (widget.rounds[i].adminOverrideRoundStartDate != oldWidget.rounds[i].adminOverrideRoundStartDate) ||
-            (widget.rounds[i].adminOverrideRoundEndDate != oldWidget.rounds[i].adminOverrideRoundEndDate)
-            ) {
+        if (widget.rounds[i].dAUroundNumber !=
+                oldWidget.rounds[i].dAUroundNumber ||
+            widget.rounds[i].getRoundStartDate().toLocal() !=
+                oldWidget.rounds[i].getRoundStartDate().toLocal() ||
+            widget.rounds[i].getRoundEndDate().toLocal() !=
+                oldWidget.rounds[i].getRoundEndDate().toLocal() ||
+            widget.rounds[i].firstGameKickOffUTC.toLocal() !=
+                oldWidget.rounds[i].firstGameKickOffUTC.toLocal() ||
+            widget.rounds[i].lastGameKickOffUTC.toLocal() !=
+                oldWidget.rounds[i].lastGameKickOffUTC.toLocal() ||
+            (widget.rounds[i].adminOverrideRoundStartDate !=
+                oldWidget.rounds[i].adminOverrideRoundStartDate) ||
+            (widget.rounds[i].adminOverrideRoundEndDate !=
+                oldWidget.rounds[i].adminOverrideRoundEndDate)) {
           needsReinitialization = true;
           break;
         }
@@ -117,13 +123,11 @@ class _AdminDaucompsEditRoundsTableState
             ),
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,
-              child:
-                  Text('NRL', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('NRL', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,
-              child:
-                  Text('AFL', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('AFL', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -145,10 +149,9 @@ class _AdminDaucompsEditRoundsTableState
                     isBold: round.adminOverrideRoundStartDate != null,
                     onDateTimeChanged: (selectedDateTime) {
                       widget.onRoundDateChanged(round, selectedDateTime, true);
-                       // Update controller text after parent handles state change
-                      _startDateControllers[round.dAUroundNumber]!.text = 
+                      // Update controller text after parent handles state change
+                      _startDateControllers[round.dAUroundNumber]!.text =
                           '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
-
                     },
                   ),
                 ),
@@ -162,7 +165,7 @@ class _AdminDaucompsEditRoundsTableState
                     isBold: round.adminOverrideRoundEndDate != null,
                     onDateTimeChanged: (selectedDateTime) {
                       widget.onRoundDateChanged(round, selectedDateTime, false);
-                       _endDateControllers[round.dAUroundNumber]!.text = 
+                      _endDateControllers[round.dAUroundNumber]!.text =
                           '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
                     },
                   ),

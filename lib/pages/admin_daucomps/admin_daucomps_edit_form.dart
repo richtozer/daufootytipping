@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'dart:developer'; // for log
 
 class AdminDaucompsEditForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
@@ -14,13 +11,14 @@ class AdminDaucompsEditForm extends StatelessWidget {
   final TextEditingController daucompNrlJsonURLController;
   final TextEditingController nrlRegularCompEndDateController;
   final TextEditingController aflRegularCompEndDateController;
-  final DAUCompsViewModel dauCompsViewModel; // This is the dauCompsViewModeconsumer from parent
+  final DAUCompsViewModel
+      dauCompsViewModel; // This is the dauCompsViewModeconsumer from parent
   final VoidCallback onFormInteracted;
   final bool isLocallyMarkedActive; // New
   final Function(bool newValue) onActiveStatusChangedLocally; // New
 
   const AdminDaucompsEditForm({
-    Key? key,
+    super.key,
     required this.formKey,
     required this.daucomp,
     required this.daucompNameController,
@@ -32,7 +30,7 @@ class AdminDaucompsEditForm extends StatelessWidget {
     required this.onFormInteracted,
     required this.isLocallyMarkedActive, // New
     required this.onActiveStatusChangedLocally, // New
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +52,8 @@ class AdminDaucompsEditForm extends StatelessWidget {
                   },
                 ),
               if (daucomp != null) const SizedBox(width: 10),
-              const Text('Name: ', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Name: ',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               Expanded(
                 child: TextFormField(
                   controller: daucompNameController,
@@ -72,7 +71,8 @@ class AdminDaucompsEditForm extends StatelessWidget {
               )
             ],
           ),
-          const Text('NRL json URL:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('NRL json URL:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           Row(
             children: [
               Expanded(
@@ -93,7 +93,8 @@ class AdminDaucompsEditForm extends StatelessWidget {
               )
             ],
           ),
-          const Text('AFL json URL:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('AFL json URL:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           Row(
             children: [
               Expanded(
@@ -129,12 +130,14 @@ class AdminDaucompsEditForm extends StatelessWidget {
                     FocusScope.of(context).requestFocus(FocusNode());
                     DateTime? date = await showDatePicker(
                       context: context,
-                      initialDate: daucomp?.nrlRegularCompEndDateUTC ?? DateTime.now(),
+                      initialDate:
+                          daucomp?.nrlRegularCompEndDateUTC ?? DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
                     );
                     if (date != null) {
-                      nrlRegularCompEndDateController.text = DateFormat('yyyy-MM-dd').format(date);
+                      nrlRegularCompEndDateController.text =
+                          DateFormat('yyyy-MM-dd').format(date);
                       onFormInteracted();
                     }
                   },
@@ -174,12 +177,14 @@ class AdminDaucompsEditForm extends StatelessWidget {
                     FocusScope.of(context).requestFocus(FocusNode());
                     DateTime? date = await showDatePicker(
                       context: context,
-                      initialDate: daucomp?.aflRegularCompEndDateUTC ?? DateTime.now(),
+                      initialDate:
+                          daucomp?.aflRegularCompEndDateUTC ?? DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
                     );
                     if (date != null) {
-                      aflRegularCompEndDateController.text = DateFormat('yyyy-MM-dd').format(date);
+                      aflRegularCompEndDateController.text =
+                          DateFormat('yyyy-MM-dd').format(date);
                       onFormInteracted();
                     }
                   },

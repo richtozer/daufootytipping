@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:daufootytipping/models/game.dart'; // Assuming Game model path
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 
 class AdminDaucompsEditWarning extends StatelessWidget {
   final DAUCompsViewModel viewModel;
 
-  const AdminDaucompsEditWarning({Key? key, required this.viewModel})
-      : super(key: key);
+  const AdminDaucompsEditWarning({super.key, required this.viewModel});
 
   @override
   Widget build(BuildContext context) {
