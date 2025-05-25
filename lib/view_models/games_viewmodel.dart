@@ -365,8 +365,14 @@ class GamesViewModel extends ChangeNotifier {
     }).toList();
   }
 
+  final Map<String, List<Game>> _gamesByDAUCompKeyCache = {};
+
   Future<List<Game>> _fetchGamesForDAUCompKey(String dauCompDbKey) async {
     log('GamesViewModel_fetchGamesForDAUCompKey: Fetching games for DAUComp key $dauCompDbKey');
+
+    if (_gamesByDAUCompKeyCache.containsKey(dauCompDbKey)) {
+      return _gamesByDAUCompKeyCache[dauCompDbKey]!;
+    }
 
     // Testability hook: If testGamesByCompKey is set and contains data for this key, return it.
     if (testGamesByCompKey != null &&
@@ -422,12 +428,14 @@ class GamesViewModel extends ChangeNotifier {
     } catch (e) {
       log('GamesViewModel_fetchGamesForDAUCompKey: Error fetching games for DAUComp $dauCompDbKey: $e');
     }
+    _gamesByDAUCompKeyCache[dauCompDbKey] = fetchedGames;
     return fetchedGames;
   }
 
   Future<List<Game>> getCompleteMatchupHistory(
       Team teamA, Team teamB, League league) async {
     log('GamesViewModel_getCompleteMatchupHistory: Called for ${teamA.name} vs ${teamB.name}, league ${league.name}');
+
     await initialLoadComplete;
     await _teamsViewModel.initialLoadComplete;
 

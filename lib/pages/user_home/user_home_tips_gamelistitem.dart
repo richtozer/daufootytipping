@@ -478,11 +478,11 @@ class _GameListItemState extends State<GameListItem> {
                         enlargeStrategy: CenterPageEnlargeStrategy.zoom,
                         enableInfiniteScroll: false,
                         onPageChanged: (index, reason) {
-                          // Assuming historical cards start at index 2
+                          // Start pulling historical data after the first item
                           if (_historicalData == null &&
                               !_isLoadingHistoricalData &&
                               !_historicalDataError &&
-                              index >= 2) {
+                              index >= 1) {
                             _fetchHistoricalData();
                           }
                         },
