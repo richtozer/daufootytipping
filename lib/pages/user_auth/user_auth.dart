@@ -50,6 +50,12 @@ class UserAuthPageState extends State<UserAuthPage> {
     }
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
+    //use this opportunity to setup default analytics parameter for version
+    if (!kIsWeb) {
+      FirebaseAnalytics.instance
+          .setDefaultEventParameters({'version': packageInfo.version});
+    }
+
     List<String> currentVersionParts = packageInfo.version.split('.');
     List<String> newVersionParts = widget.configMinAppVersion!.split('.');
 
