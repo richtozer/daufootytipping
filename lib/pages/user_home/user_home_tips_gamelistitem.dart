@@ -70,13 +70,6 @@ class _GameListItemState extends State<GameListItem> {
           !_isLoadingLadderRank) {
         _fetchAndSetLadderRanks();
       }
-      // Always fetch historical data after first build
-      if (mounted &&
-          _historicalData == null &&
-          !_isLoadingHistoricalData &&
-          !_historicalDataError) {
-        _fetchHistoricalData();
-      }
     });
   }
 
@@ -484,6 +477,15 @@ class _GameListItemState extends State<GameListItem> {
                         enlargeCenterPage: true,
                         enlargeStrategy: CenterPageEnlargeStrategy.zoom,
                         enableInfiniteScroll: false,
+                        onPageChanged: (index, reason) {
+                          // Assuming historical cards start at index 2
+                          if (_historicalData == null &&
+                              !_isLoadingHistoricalData &&
+                              !_historicalDataError &&
+                              index >= 2) {
+                            _fetchHistoricalData();
+                          }
+                        },
                       ),
                       items: carouselItems(
                           gameTipsViewModelConsumer, widget.isPercentStatsPage),
