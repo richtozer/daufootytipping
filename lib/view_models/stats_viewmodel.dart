@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io'; // Add this import for IOException, SocketException
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
@@ -474,6 +475,7 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
+  // In _writeAllRoundScoresToDb, wrap the database operation in try-catch and handle network errors
   Future<void> _writeAllRoundScoresToDb(
       Map<int, Map<Tipper, RoundStats>> updatedTipperRoundStats,
       DAUComp dauComp) async {
@@ -489,25 +491,59 @@ class StatsViewModel extends ChangeNotifier {
       }
     }
 
-    await _db
-        .child(statsPathRoot)
-        .child(dauComp.dbkey!)
-        .child(roundStatsRoot)
-        .runTransaction((currentData) {
-      // Merge the new data with the existing data
-      if (currentData != null) {
-        final existingData = currentData is Map
-            ? Map<String, dynamic>.from(currentData)
-            : <String, dynamic>{};
-        updatedTipperRoundStatsJson.forEach((key, value) {
-          existingData[key] = value;
+    int retryCount = 0;
+    const int maxRetries = 3;
+    const Duration initialDelay = Duration(seconds: 2);
+
+    while (true) {
+      try {
+        await _db
+            .child(statsPathRoot)
+            .child(dauComp.dbkey!)
+            .child(roundStatsRoot)
+            .runTransaction((currentData) {
+          // Merge the new data with the existing data
+          if (currentData != null) {
+            final existingData = currentData is Map
+                ? Map<String, dynamic>.from(currentData)
+                : <String, dynamic>{};
+            updatedTipperRoundStatsJson.forEach((key, value) {
+              existingData[key] = value;
+            });
+            return Transaction.success(existingData); // Return the merged data
+          } else {
+            return Transaction.success(
+                updatedTipperRoundStatsJson); // Return the new data
+          }
         });
-        return Transaction.success(existingData); // Return the merged data
-      } else {
-        return Transaction.success(
-            updatedTipperRoundStatsJson); // Return the new data
+        break; // Success, exit the loop
+      } on SocketException catch (e) {
+        log('Network error (SocketException) while writing round scores: $e');
+        if (retryCount < maxRetries) {
+          retryCount++;
+          final delay = initialDelay * retryCount;
+          log('Retrying in ${delay.inSeconds} seconds... (attempt $retryCount/$maxRetries)');
+          await Future.delayed(delay);
+          continue;
+        } else {
+          rethrow;
+        }
+      } on IOException catch (e) {
+        log('Network error (IOException) while writing round scores: $e');
+        if (retryCount < maxRetries) {
+          retryCount++;
+          final delay = initialDelay * retryCount;
+          log('Retrying in ${delay.inSeconds} seconds... (attempt $retryCount/$maxRetries)');
+          await Future.delayed(delay);
+          continue;
+        } else {
+          rethrow;
+        }
+      } catch (e) {
+        log('Unexpected error while writing round scores: $e');
+        rethrow;
       }
-    });
+    }
   }
 
   void _updateRoundWinners() {

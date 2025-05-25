@@ -88,11 +88,6 @@ Future<void> main() async {
     log('Firestore emulator started');
   }
 
-  //setup some default analytics parameters
-  if (!kIsWeb) {
-    FirebaseAnalytics.instance.setDefaultEventParameters({'version': '1.2.5'});
-  }
-
   di.allowReassignment = true;
 
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
