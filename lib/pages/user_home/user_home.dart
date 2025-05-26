@@ -43,6 +43,11 @@ class _HomePageState extends State<HomePage> {
             builder: (context, dauCompsViewModelConsumer, child) {
           return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
+            if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
+                _currentIndex == 0) {
+              _currentIndex = 1;
+            }
+
             Widget scaffold = Stack(children: [
               ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
@@ -74,6 +79,8 @@ class _HomePageState extends State<HomePage> {
                   destinations: [
                     NavigationDestination(
                       icon: const Icon(Icons.sports_rugby_outlined),
+                      enabled:
+                          !tippersViewModelConsumer.selectedTipper.isAnonymous,
                       label: MediaQuery.of(context).size.width > 400
                           ? 'T  I  P  S'
                           : 'TIPS',
@@ -87,6 +94,8 @@ class _HomePageState extends State<HomePage> {
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.person),
+                      enabled:
+                          !tippersViewModelConsumer.selectedTipper.isAnonymous,
                       label: MediaQuery.of(context).size.width > 400
                           ? 'P  R  O  F  I  L  E'
                           : 'PROFILE',
