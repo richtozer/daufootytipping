@@ -82,7 +82,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     return await tippersViewModel.findExistingTipper();
   }
 
-  Future<bool> _updateOrCreateTipper(String name, Tipper? tipper) async {
+  Future<bool> _updateOrCreateTipper(String? name, Tipper? tipper) async {
     TippersViewModel tippersViewModel = di<TippersViewModel>();
     return await tippersViewModel.updateOrCreateTipper(name, tipper);
   }
@@ -303,34 +303,43 @@ class UserAuthPageState extends State<UserAuthPage> {
                     );
                   },
                   footerBuilder: (context, action) {
-                    return Column( // Wrapped in Column
+                    return Column(
+                      // Wrapped in Column
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: TextButton(
-                            onPressed: () async {
-                              try {
-                                await FirebaseAuth.instance.signInAnonymously();
-                                log("Signed in anonymously via text link");
-                              } catch (e) {
-                                log("Error signing in anonymously via text link: $e");
-                                if (mounted) { // Ensure widget is still in tree
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Anonymous sign-in failed: ${e.toString()}")),
-                                  );
+                        if (kIsWeb) //TODO hack - s
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: TextButton(
+                              onPressed: () async {
+                                try {
+                                  await FirebaseAuth.instance
+                                      .signInAnonymously();
+                                  log("Signed in anonymously via text link");
+                                } catch (e) {
+                                  log("Error signing in anonymously via text link: $e");
+                                  if (mounted) {
+                                    // Ensure widget is still in tree
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              "Anonymous sign-in failed: ${e.toString()}")),
+                                    );
+                                  }
                                 }
-                              }
-                            },
-                            child: Text(
-                              'Click here to view Stats',
-                              style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                color: Theme.of(context).colorScheme.primary, // Or a specific blue
+                              },
+                              child: Text(
+                                'Click here to view Stats',
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary, // Or a specific blue
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        FutureBuilder<PackageInfo>( // Original footer content
+                        FutureBuilder<PackageInfo>(
+                          // Original footer content
                           future: PackageInfo.fromPlatform(),
                           builder: (context, snapshot) {
                             if (snapshot.connectionState ==
@@ -377,12 +386,9 @@ class UserAuthPageState extends State<UserAuthPage> {
                         'No user context found. Please try signing in again.');
               }
 
-              // if (authenticatedFirebaseUser.isAnonymous) {
-              //   return LoginIssueScreen(
-              //       message:
-              //           'You have logged in as anonymous. This App does not support anonymous logins.');
-              // } // Commented out as per requirement
-              if (authenticatedFirebaseUser.emailVerified == false && !authenticatedFirebaseUser.isAnonymous) { // Also check for non-anonymous user
+              if (authenticatedFirebaseUser.emailVerified == false &&
+                  !authenticatedFirebaseUser.isAnonymous) {
+                // Also check for non-anonymous user
                 authenticatedFirebaseUser.sendEmailVerification();
 
                 return const LoginIssueScreen(
@@ -393,8 +399,9 @@ class UserAuthPageState extends State<UserAuthPage> {
               }
 
               FirebaseAnalytics.instance.logLogin(
-                  loginMethod:
-                      authenticatedFirebaseUser.providerData[0].providerId);
+                  loginMethod: authenticatedFirebaseUser.providerData.isNotEmpty
+                      ? authenticatedFirebaseUser.providerData[0].providerId
+                      : 'unknown');
 
               return FutureBuilder<Tipper?>(
                 future: _linkUserToTipper(),
@@ -407,24 +414,35 @@ class UserAuthPageState extends State<UserAuthPage> {
                     return LoginIssueScreen(
                         message:
                             'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping');
-                  } else if (snapshot.data == null) { // This means no existing Tipper record
+                  } else if (snapshot.data == null) {
+                    // This means no existing Tipper record
                     if (authenticatedFirebaseUser.isAnonymous) {
                       // For new anonymous users, bypass edit name dialog
                       return FutureBuilder<bool>(
-                        future: _updateOrCreateTipper(null, null), // Pass null to let ViewModel handle name
-                        builder: (BuildContext context, AsyncSnapshot<bool> updateSnapshot) {
-                          if (updateSnapshot.connectionState == ConnectionState.waiting) {
-                            return Center(child: CircularProgressIndicator(color: Colors.orange));
+                        future: _updateOrCreateTipper(null,
+                            null), // Pass null to let ViewModel handle name
+                        builder: (BuildContext context,
+                            AsyncSnapshot<bool> updateSnapshot) {
+                          if (updateSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
+                                child: CircularProgressIndicator(
+                                    color: Colors.orange));
                           } else if (updateSnapshot.hasError) {
-                            return LoginIssueScreen(message: 'Error creating anonymous user: ${updateSnapshot.error}. Contact support.');
+                            return LoginIssueScreen(
+                                message:
+                                    'Error creating anonymous user: ${updateSnapshot.error}. Contact support.');
                           } else if (updateSnapshot.data == false) {
-                            return LoginIssueScreen(message: 'Failed to create anonymous user. Contact support.');
+                            return LoginIssueScreen(
+                                message:
+                                    'Failed to create anonymous user. Contact support.');
                           } else {
                             // Successfully created anonymous user, navigate to home
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                               Navigator.of(context).pushReplacement(
-                                 MaterialPageRoute(builder: (context) => const HomePage()),
-                               );
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                    builder: (context) => const HomePage()),
+                              );
                             });
                             return Container(); // Show loading or empty container while navigating
                           }
@@ -437,7 +455,8 @@ class UserAuthPageState extends State<UserAuthPage> {
                       });
                       return Container(); // Return an empty container while waiting for user input
                     }
-                  } else { // Existing tipper found
+                  } else {
+                    // Existing tipper found
                     return FutureBuilder<bool>(
                       future: _updateOrCreateTipper(
                           snapshot.data!.name, snapshot.data!),

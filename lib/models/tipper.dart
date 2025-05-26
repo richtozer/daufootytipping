@@ -55,6 +55,10 @@ class Tipper implements Comparable<Tipper> {
   }
 
   bool paidForComp(DAUComp? checkThisComp) {
+    //TODO masive , if thus tipper is anonymous, then say they paid for all comps
+    if (isAnonymous) {
+      return true; // anonymous tippers are assumed to have paid for all comps
+    }
     if (checkThisComp == null) {
       return false;
     }

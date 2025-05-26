@@ -290,6 +290,11 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<Tipper?> _findExistingTipper(User authenticatedFirebaseUser) async {
+    //TODO hack, if anonymous user, then dont try to find by email or logon
+    if (authenticatedFirebaseUser.isAnonymous) {
+      log('TippersViewModel().linkUserToTipper() User is anonymous, not looking for existing tipper by email or logon');
+      return null; // Anonymous users won't have an existing Tipper
+    }
     Tipper? foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
 
     foundTipper ??= await _findTipperByLogon(authenticatedFirebaseUser.email!);
@@ -346,14 +351,17 @@ class TippersViewModel extends ChangeNotifier {
 
     Tipper newTipper = Tipper(
       name: authenticatedFirebaseUser.isAnonymous
-          ? authenticatedFirebaseUser.uid.substring(0, 5) // Use UID for anonymous name
+          ? authenticatedFirebaseUser.uid
+              .substring(0, 5) // Use UID for anonymous name
           : name!, // For non-anonymous, name is expected to be non-null (comes from dialog)
       email: authenticatedFirebaseUser.isAnonymous
           ? null // Anonymous users don't have an email
-          : authenticatedFirebaseUser.email, // Non-anonymous users have an email
+          : authenticatedFirebaseUser
+              .email, // Non-anonymous users have an email
       logon: authenticatedFirebaseUser.isAnonymous
           ? null // Anonymous users don't have a logon email
-          : authenticatedFirebaseUser.email, // Non-anonymous users use their email for logon
+          : authenticatedFirebaseUser
+              .email, // Non-anonymous users use their email for logon
       authuid: authenticatedFirebaseUser.uid,
       photoURL: authenticatedFirebaseUser.photoURL,
       tipperRole: TipperRole.tipper,
