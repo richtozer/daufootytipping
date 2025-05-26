@@ -279,7 +279,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     AppleProvider(),
                     //firebase_ui_auth.PhoneAuthProvider(),
                     firebase_ui_auth.EmailAuthProvider(),
-                    firebase_ui_auth.AnonymousAuthProvider(), // Add this line
+                    // firebase_ui_auth.AnonymousAuthProvider(), // Removed this line
                   ],
                   headerBuilder: (context, constraints, shrinkOffset) {
                     return Padding(
@@ -303,39 +303,68 @@ class UserAuthPageState extends State<UserAuthPage> {
                     );
                   },
                   footerBuilder: (context, action) {
-                    return FutureBuilder<PackageInfo>(
-                      future: PackageInfo.fromPlatform(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.only(top: 16),
+                    return Column( // Wrapped in Column
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: TextButton(
+                            onPressed: () async {
+                              try {
+                                await FirebaseAuth.instance.signInAnonymously();
+                                log("Signed in anonymously via text link");
+                              } catch (e) {
+                                log("Error signing in anonymously via text link: $e");
+                                if (mounted) { // Ensure widget is still in tree
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Anonymous sign-in failed: ${e.toString()}")),
+                                  );
+                                }
+                              }
+                            },
                             child: Text(
-                              'Loading...',
-                              style: TextStyle(color: Colors.grey),
+                              'Click here to view Stats',
+                              style: TextStyle(
+                                decoration: TextDecoration.underline,
+                                color: Theme.of(context).colorScheme.primary, // Or a specific blue
+                              ),
                             ),
-                          );
-                        } else if (snapshot.hasError) {
-                          return const Padding(
-                            padding: EdgeInsets.only(top: 16),
-                            child: Text(
-                              'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
-                              'App Version: Unknown',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          );
-                        } else {
-                          final packageInfo = snapshot.data!;
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
-                              'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          );
-                        }
-                      },
+                          ),
+                        ),
+                        FutureBuilder<PackageInfo>( // Original footer content
+                          future: PackageInfo.fromPlatform(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 16),
+                                child: Text(
+                                  'Loading...',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            } else if (snapshot.hasError) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 16),
+                                child: Text(
+                                  'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
+                                  'App Version: Unknown',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            } else {
+                              final packageInfo = snapshot.data!;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Text(
+                                  'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
+                                  'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     );
                   },
                 );
