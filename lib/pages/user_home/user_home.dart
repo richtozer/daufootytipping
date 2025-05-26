@@ -94,6 +94,8 @@ class _HomePageState extends State<HomePage> {
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.person),
+                      enabled:
+                          !tippersViewModelConsumer.selectedTipper.isAnonymous,
                       label: MediaQuery.of(context).size.width > 400
                           ? 'P  R  O  F  I  L  E'
                           : 'PROFILE',

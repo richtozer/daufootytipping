@@ -320,6 +320,11 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> _updateTipperDetails(
       Tipper foundTipper, User authenticatedFirebaseUser) async {
+    // TODO skip of anonymous user
+    if (authenticatedFirebaseUser.isAnonymous) {
+      log('TippersViewModel().linkUserToTipper() User is anonymous, not updating photoURL or timestamps');
+      return;
+    }
     if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
       await updateTipperAttribute(
           foundTipper.dbkey!, "photoURL", authenticatedFirebaseUser.photoURL);
@@ -372,8 +377,13 @@ class TippersViewModel extends ChangeNotifier {
     );
 
     // add the new tipper to the database
-    await _createNewTipper(newTipper);
-    await saveBatchOfTipperChangesToDb();
+    // only if not anonymous user // TODO this is a hack, need to fix this
+    if (!authenticatedFirebaseUser.isAnonymous) {
+      log('TippersViewModel().linkUserToTipper() User is anonymous, not creating a new tipper');
+
+      await _createNewTipper(newTipper);
+      await saveBatchOfTipperChangesToDb();
+    }
 
     _authenticatedTipper = newTipper;
     _selectedTipper = newTipper;
