@@ -87,9 +87,12 @@ class Profile extends StatelessWidget with WatchItMixin {
                                   ),
                                   child: const Text('Edit',
                                       textAlign: TextAlign.center),
-                                  onPressed: () {
-                                    _showEditNameDialog(context, profileTipper);
-                                  },
+                                  onPressed: profileTipper.isAnonymous
+                                      ? null
+                                      : () {
+                                          _showEditNameDialog(
+                                              context, profileTipper);
+                                        },
                                 ),
                               ],
                             ),

@@ -306,6 +306,8 @@ class TippersViewModel extends ChangeNotifier {
     await updateTipperAttribute(
         foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
     await checkEmail(foundTipper, authenticatedFirebaseUser);
+    // Ensure existing users are not marked as anonymous
+    await updateTipperAttribute(foundTipper.dbkey!, "isAnonymous", false);
     await saveBatchOfTipperChangesToDb();
 
     await _updateTipperDetails(foundTipper, authenticatedFirebaseUser);
@@ -342,17 +344,34 @@ class TippersViewModel extends ChangeNotifier {
 
     log('TippersViewModel().linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}');
 
-    Tipper newTipper = Tipper(
-      name: name,
-      email: authenticatedFirebaseUser.email!,
-      logon: authenticatedFirebaseUser.email!,
-      authuid: authenticatedFirebaseUser.uid,
-      photoURL: authenticatedFirebaseUser.photoURL,
-      tipperRole: TipperRole.tipper,
-      compsPaidFor: [], // do not assign new tippers to any paid comps
-      acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
-      acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
-    );
+    Tipper newTipper;
+    if (authenticatedFirebaseUser.isAnonymous) {
+      newTipper = Tipper(
+        name: authenticatedFirebaseUser.uid.substring(0, 5),
+        email: authenticatedFirebaseUser.email, // Anonymous users might not have an email
+        logon: authenticatedFirebaseUser.email, // Anonymous users might not have an email
+        authuid: authenticatedFirebaseUser.uid,
+        photoURL: authenticatedFirebaseUser.photoURL,
+        tipperRole: TipperRole.tipper,
+        compsPaidFor: [], // do not assign new tippers to any paid comps
+        acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
+        acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
+        isAnonymous: true,
+      );
+    } else {
+      newTipper = Tipper(
+        name: name,
+        email: authenticatedFirebaseUser.email!,
+        logon: authenticatedFirebaseUser.email!,
+        authuid: authenticatedFirebaseUser.uid,
+        photoURL: authenticatedFirebaseUser.photoURL,
+        tipperRole: TipperRole.tipper,
+        compsPaidFor: [], // do not assign new tippers to any paid comps
+        acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
+        acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
+        isAnonymous: false,
+      );
+    }
 
     // add the new tipper to the database
     await _createNewTipper(newTipper);

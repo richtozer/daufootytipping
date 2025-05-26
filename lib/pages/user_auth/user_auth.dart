@@ -279,6 +279,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     AppleProvider(),
                     //firebase_ui_auth.PhoneAuthProvider(),
                     firebase_ui_auth.EmailAuthProvider(),
+                    firebase_ui_auth.AnonymousAuthProvider(), // Add this line
                   ],
                   headerBuilder: (context, constraints, shrinkOffset) {
                     return Padding(
@@ -347,12 +348,12 @@ class UserAuthPageState extends State<UserAuthPage> {
                         'No user context found. Please try signing in again.');
               }
 
-              if (authenticatedFirebaseUser.isAnonymous) {
-                return LoginIssueScreen(
-                    message:
-                        'You have logged in as anonymous. This App does not support anonymous logins.');
-              }
-              if (authenticatedFirebaseUser.emailVerified == false) {
+              // if (authenticatedFirebaseUser.isAnonymous) {
+              //   return LoginIssueScreen(
+              //       message:
+              //           'You have logged in as anonymous. This App does not support anonymous logins.');
+              // } // Commented out as per requirement
+              if (authenticatedFirebaseUser.emailVerified == false && !authenticatedFirebaseUser.isAnonymous) { // Also check for non-anonymous user
                 authenticatedFirebaseUser.sendEmailVerification();
 
                 return const LoginIssueScreen(
@@ -377,12 +378,37 @@ class UserAuthPageState extends State<UserAuthPage> {
                     return LoginIssueScreen(
                         message:
                             'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping');
-                  } else if (snapshot.data == null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _showEditNameDialog(context, null);
-                    });
-                    return Container(); // Return an empty container while waiting for user input
-                  } else {
+                  } else if (snapshot.data == null) { // This means no existing Tipper record
+                    if (authenticatedFirebaseUser.isAnonymous) {
+                      // For new anonymous users, bypass edit name dialog
+                      return FutureBuilder<bool>(
+                        future: _updateOrCreateTipper(null, null), // Pass null to let ViewModel handle name
+                        builder: (BuildContext context, AsyncSnapshot<bool> updateSnapshot) {
+                          if (updateSnapshot.connectionState == ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator(color: Colors.orange));
+                          } else if (updateSnapshot.hasError) {
+                            return LoginIssueScreen(message: 'Error creating anonymous user: ${updateSnapshot.error}. Contact support.');
+                          } else if (updateSnapshot.data == false) {
+                            return LoginIssueScreen(message: 'Failed to create anonymous user. Contact support.');
+                          } else {
+                            // Successfully created anonymous user, navigate to home
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                               Navigator.of(context).pushReplacement(
+                                 MaterialPageRoute(builder: (context) => const HomePage()),
+                               );
+                            });
+                            return Container(); // Show loading or empty container while navigating
+                          }
+                        },
+                      );
+                    } else {
+                      // For new non-anonymous users, show edit name dialog as before
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _showEditNameDialog(context, null);
+                      });
+                      return Container(); // Return an empty container while waiting for user input
+                    }
+                  } else { // Existing tipper found
                     return FutureBuilder<bool>(
                       future: _updateOrCreateTipper(
                           snapshot.data!.name, snapshot.data!),

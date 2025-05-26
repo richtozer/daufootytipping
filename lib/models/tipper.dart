@@ -13,6 +13,7 @@ class Tipper implements Comparable<Tipper> {
   List<DAUComp> compsPaidFor = [];
   final DateTime? acctCreatedUTC;
   final DateTime? acctLoggedOnUTC;
+  final bool isAnonymous;
 
   //constructor
   Tipper({
@@ -26,6 +27,7 @@ class Tipper implements Comparable<Tipper> {
     required this.tipperRole,
     this.acctCreatedUTC,
     this.acctLoggedOnUTC,
+    this.isAnonymous = false,
   });
 
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
@@ -48,6 +50,7 @@ class Tipper implements Comparable<Tipper> {
       acctLoggedOnUTC: data['acctLoggedOnUTC'] != null
           ? DateTime.parse(data['acctLoggedOnUTC'])
           : null,
+      isAnonymous: data['isAnonymous'] ?? false,
     );
   }
 
@@ -84,6 +87,7 @@ class Tipper implements Comparable<Tipper> {
       "compsParticipatedIn": compsPaidFor.map((comp) => comp.dbkey).toList(),
       "acctCreatedUTC": acctCreatedUTC?.toString(),
       "acctLoggedOnUTC": acctLoggedOnUTC?.toString(),
+      "isAnonymous": isAnonymous,
     };
   }
 
