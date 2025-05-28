@@ -44,10 +44,18 @@ class TipsTabState extends State<TipsTab> {
 
     focusNode = FocusNode();
 
-    scrollController = ScrollController(
-        initialScrollOffset: daucompsViewModel.selectedDAUComp!
-                .pixelHeightUpToRound(latestRoundNumber) +
-            initialScrollOffset);
+    final initialOffset = daucompsViewModel.selectedDAUComp!
+            .pixelHeightUpToRound(latestRoundNumber) +
+        initialScrollOffset;
+
+    scrollController = ScrollController();
+
+    // Wait until the first frame is rendered, then jump to the offset
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.jumpTo(initialOffset);
+      }
+    });
   }
 
   void _handleKeyEvent(KeyEvent event) {
