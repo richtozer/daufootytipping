@@ -267,7 +267,7 @@ class TippersViewModel extends ChangeNotifier {
         userIsLinked = true;
       } else {
         userIsLinked =
-            await _createNewTipperIfNeeded(authenticatedFirebaseUser, name!);
+            await _createNewTipperIfNeeded(authenticatedFirebaseUser, name);
       }
 
       if (userIsLinked) {
@@ -290,6 +290,11 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<Tipper?> _findExistingTipper(User authenticatedFirebaseUser) async {
+    //TODO hack, if anonymous user, then dont try to find by email or logon
+    if (authenticatedFirebaseUser.isAnonymous) {
+      log('TippersViewModel().linkUserToTipper() User is anonymous, not looking for existing tipper by email or logon');
+      return null; // Anonymous users won't have an existing Tipper
+    }
     Tipper? foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
 
     foundTipper ??= await _findTipperByLogon(authenticatedFirebaseUser.email!);
@@ -306,6 +311,8 @@ class TippersViewModel extends ChangeNotifier {
     await updateTipperAttribute(
         foundTipper.dbkey!, "logon", authenticatedFirebaseUser.email);
     await checkEmail(foundTipper, authenticatedFirebaseUser);
+    // Ensure existing users are not marked as anonymous
+    await updateTipperAttribute(foundTipper.dbkey!, "isAnonymous", false);
     await saveBatchOfTipperChangesToDb();
 
     await _updateTipperDetails(foundTipper, authenticatedFirebaseUser);
@@ -313,6 +320,11 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> _updateTipperDetails(
       Tipper foundTipper, User authenticatedFirebaseUser) async {
+    // TODO skip of anonymous user
+    if (authenticatedFirebaseUser.isAnonymous) {
+      log('TippersViewModel().linkUserToTipper() User is anonymous, not updating photoURL or timestamps');
+      return;
+    }
     if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
       await updateTipperAttribute(
           foundTipper.dbkey!, "photoURL", authenticatedFirebaseUser.photoURL);
@@ -334,7 +346,7 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<bool> _createNewTipperIfNeeded(
-      User authenticatedFirebaseUser, String name) async {
+      User authenticatedFirebaseUser, String? name) async {
     if (_createLinkedTipper == false) {
       log('TippersViewModel().linkUserToTipper() createLinkedTipper is false, not creating a new tipper');
       return false;
@@ -343,20 +355,35 @@ class TippersViewModel extends ChangeNotifier {
     log('TippersViewModel().linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}');
 
     Tipper newTipper = Tipper(
-      name: name,
-      email: authenticatedFirebaseUser.email!,
-      logon: authenticatedFirebaseUser.email!,
+      name: authenticatedFirebaseUser.isAnonymous
+          ? authenticatedFirebaseUser.uid
+              .substring(0, 5) // Use UID for anonymous name
+          : name!, // For non-anonymous, name is expected to be non-null (comes from dialog)
+      email: authenticatedFirebaseUser.isAnonymous
+          ? null // Anonymous users don't have an email
+          : authenticatedFirebaseUser
+              .email, // Non-anonymous users have an email
+      logon: authenticatedFirebaseUser.isAnonymous
+          ? null // Anonymous users don't have a logon email
+          : authenticatedFirebaseUser
+              .email, // Non-anonymous users use their email for logon
       authuid: authenticatedFirebaseUser.uid,
       photoURL: authenticatedFirebaseUser.photoURL,
       tipperRole: TipperRole.tipper,
-      compsPaidFor: [], // do not assign new tippers to any paid comps
+      isAnonymous: authenticatedFirebaseUser.isAnonymous, // Set this flag
+      compsPaidFor: [],
       acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
       acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
     );
 
     // add the new tipper to the database
-    await _createNewTipper(newTipper);
-    await saveBatchOfTipperChangesToDb();
+    // only if not anonymous user // TODO this is a hack, need to fix this
+    if (!authenticatedFirebaseUser.isAnonymous) {
+      log('TippersViewModel().linkUserToTipper() User is anonymous, not creating a new tipper');
+
+      await _createNewTipper(newTipper);
+      await saveBatchOfTipperChangesToDb();
+    }
 
     _authenticatedTipper = newTipper;
     _selectedTipper = newTipper;

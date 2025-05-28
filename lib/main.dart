@@ -8,7 +8,6 @@ import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
