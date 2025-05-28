@@ -17,7 +17,7 @@ import 'package:watch_it/watch_it.dart';
 
 const gamesPathRoot = '/DAUCompsGames';
 
-class GamesViewModel extends ChangeNotifier {
+class GamesViewModel extends ChangeNotifier with WidgetsBindingObserver {
   // Properties
   List<Game> _games = [];
   final _db = FirebaseDatabase.instance.ref();
@@ -46,8 +46,16 @@ class GamesViewModel extends ChangeNotifier {
   void _initialize() async {
     // await teams load to complete
     await _teamsViewModel.initialLoadComplete;
+    WidgetsBinding.instance.addObserver(this);
     // Listen to the games in the selected DAUComp
     _listenToGames();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _listenToGames(); // Re-subscribe on resume
+    }
   }
 
   // Database listeners
@@ -247,12 +255,6 @@ class GamesViewModel extends ChangeNotifier {
 
       return shouldRemove;
     });
-  }
-
-  @override
-  void dispose() {
-    _gamesStream.cancel(); // stop listening to stream
-    super.dispose();
   }
 
   // Helper method to calculate ladder points for a game
@@ -475,6 +477,13 @@ class GamesViewModel extends ChangeNotifier {
     relevantGames.sort((a, b) => b.startTimeUTC.compareTo(a.startTimeUTC));
 
     return relevantGames;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _gamesStream.cancel(); // stop listening to stream
+    super.dispose();
   }
 
   // --- Testability additions ---
