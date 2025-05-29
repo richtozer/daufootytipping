@@ -65,21 +65,23 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           await tippersViewModel.isEmailOrLogonAlreadyAssigned(
               _tipperEmailController.text, _tipperLogonController.text, tipper);
       if (tipperWithDupEmail != null) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            content: Text(
-                'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('OK'),
-              )
-            ],
-          ),
-        );
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              content: Text(
+                  'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('OK'),
+                )
+              ],
+            ),
+          );
+        }
         // stay on this page
         return;
       }

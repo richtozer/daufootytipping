@@ -204,43 +204,46 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           // No action needed if _localActiveCompState is false, as per plan (cannot deactivate this way).
         }
 
-        if (!mounted) return; // Re-check mounted state after async operations
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green,
-            content: Text(result['message'] ?? 'Operation successful'),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        Navigator.of(context).pop();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.green,
+              content: Text(result['message'] ?? 'Operation successful'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
       } else {
-        if (!mounted) return; // Re-check mounted state
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'An error occurred'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'An error occurred'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } on Exception catch (e) {
       // Catching specific Exception type
       log("Exception in _saveDAUComp UI layer: $e");
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          content: const Text(
-              'Failed to update the DAU Comp record'), // Generic message
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            )
-          ],
-        ),
-      );
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: const Text(
+                'Failed to update the DAU Comp record'), // Generic message
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              )
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -264,7 +267,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       await di<DAUCompsViewModel>().changeDisplayedDAUComp(
                           di<DAUCompsViewModel>().activeDAUComp!, false);
 
-                      Navigator.maybePop(context);
+                      if (context.mounted) {
+                        Navigator.maybePop(context);
+                      }
                     } else {
                       showDialog(
                         context: context,
