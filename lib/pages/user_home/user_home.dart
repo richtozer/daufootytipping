@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage> {
               builder: (context, tippersViewModelConsumer, child) {
             if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
                 _currentIndex == 0) {
-              _currentIndex = 1;
+              _currentIndex = 2;
             }
 
             Widget scaffold = Stack(children: [
@@ -94,8 +94,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.person),
-                      enabled:
-                          !tippersViewModelConsumer.selectedTipper.isAnonymous,
                       label: MediaQuery.of(context).size.width > 400
                           ? 'P  R  O  F  I  L  E'
                           : 'PROFILE',
