@@ -152,7 +152,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                         hintText: 'Team name',
                       ),
                       onFieldSubmitted: (_) {
-                        // TODO move focus to next field?
+                        FocusScope.of(context).nextFocus();
                       },
                       validator: (String? value) {
                         if (value == null || value.isEmpty) {
@@ -187,7 +187,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                         hintText: 'Logo',
                       ),
                       onFieldSubmitted: (_) {
-                        // TODO move focus to next field?
+                        FocusScope.of(context).nextFocus();
                       },
                       validator: (String? value) {
                         if (value == null || value.isEmpty) {

@@ -28,7 +28,7 @@ const roundStatsRoot = 'round_stats';
 const liveScoresRoot = 'live_scores';
 const gameStatsRoot = 'game_stats';
 
-class StatsViewModel extends ChangeNotifier {
+class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
   Map<int, Map<Tipper, RoundStats>> get allTipperRoundStats =>
       _allTipperRoundStats;
@@ -69,7 +69,15 @@ class StatsViewModel extends ChangeNotifier {
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
+    WidgetsBinding.instance.addObserver(this);
     _initialize();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _listenToScores(); // Re-subscribe on resume
+    }
   }
 
   void _initialize() async {
@@ -1043,6 +1051,7 @@ class StatsViewModel extends ChangeNotifier {
   void dispose() {
     _allRoundScoresStream.cancel();
     _liveScoresStream.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 

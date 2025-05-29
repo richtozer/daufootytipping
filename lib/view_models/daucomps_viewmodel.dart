@@ -18,6 +18,7 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:http/http.dart' as http; // Added for _isUriActive
@@ -25,7 +26,7 @@ import 'package:http/http.dart' as http; // Added for _isUriActive
 const daucompsPath = '/AllDAUComps';
 const combinedRoundsPath = 'combinedRounds2';
 
-class DAUCompsViewModel extends ChangeNotifier {
+class DAUCompsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   List<DAUComp> _daucomps = [];
   get daucomps => _daucomps;
   final fixtureUpdateTimerDuration =
@@ -77,6 +78,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
     log('DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode');
+    WidgetsBinding.instance.addObserver(this);
 
     _init();
   }
@@ -106,6 +108,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     _startDailyTimer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _listenToDAUComps(); // Re-subscribe on resume
+    }
   }
 
   void _startDailyTimer() {
@@ -869,6 +878,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     _dailyTimer?.cancel();
     _daucompsStream.cancel();
 
+    WidgetsBinding.instance.removeObserver(this);
+
     // remove listeners if not in admin mode
     if (!_adminMode) {
       statsViewModel?.removeListener(_otherViewModelUpdated);
@@ -980,45 +991,60 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('nrlURLActive = $nrlURLActive');
 
       if (aflURLActive && nrlURLActive) {
-        if (existingComp == null) { // New comp
+        if (existingComp == null) {
+          // New comp
           DAUComp newDAUComp = DAUComp(
             name: name,
             aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
             nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
-            nrlRegularCompEndDateUTC: nrlRegularCompEndDateString != null && nrlRegularCompEndDateString.isNotEmpty
+            nrlRegularCompEndDateUTC: nrlRegularCompEndDateString != null &&
+                    nrlRegularCompEndDateString.isNotEmpty
                 ? DateTime.parse(nrlRegularCompEndDateString)
                 : null,
-            aflRegularCompEndDateUTC: aflRegularCompEndDateString != null && aflRegularCompEndDateString.isNotEmpty
+            aflRegularCompEndDateUTC: aflRegularCompEndDateString != null &&
+                    aflRegularCompEndDateString.isNotEmpty
                 ? DateTime.parse(aflRegularCompEndDateString)
                 : null,
             daurounds: [], // Initial empty rounds
           );
 
-          await this.newDAUComp(newDAUComp); // 'this.' to clarify it's the VM method
+          await this
+              .newDAUComp(newDAUComp); // 'this.' to clarify it's the VM method
           await saveBatchOfCompAttributes();
-          
+
           // Initialize GamesViewModel for the new comp
           // Ensure 'this' is passed if DAUCompsViewModel instance is needed by GamesViewModel constructor
-          gamesViewModel = GamesViewModel(newDAUComp, this); 
+          gamesViewModel = GamesViewModel(newDAUComp, this);
           await gamesViewModel?.initialLoadComplete;
 
           String fixtureMessage = await getNetworkFixtureData(newDAUComp);
-          return {'success': true, 'message': fixtureMessage, 'newCompData': newDAUComp};
-        } else { // Existing comp
+          return {
+            'success': true,
+            'message': fixtureMessage,
+            'newCompData': newDAUComp
+          };
+        } else {
+          // Existing comp
           updateCompAttribute(existingComp.dbkey!, "name", name);
-          updateCompAttribute(existingComp.dbkey!, "aflFixtureJsonURL", aflFixtureJsonURL);
-          updateCompAttribute(existingComp.dbkey!, "nrlFixtureJsonURL", nrlFixtureJsonURL);
+          updateCompAttribute(
+              existingComp.dbkey!, "aflFixtureJsonURL", aflFixtureJsonURL);
+          updateCompAttribute(
+              existingComp.dbkey!, "nrlFixtureJsonURL", nrlFixtureJsonURL);
           updateCompAttribute(
               existingComp.dbkey!,
               "nrlRegularCompEndDateUTC",
-              nrlRegularCompEndDateString != null && nrlRegularCompEndDateString.isNotEmpty
-                  ? DateTime.parse(nrlRegularCompEndDateString).toIso8601String()
+              nrlRegularCompEndDateString != null &&
+                      nrlRegularCompEndDateString.isNotEmpty
+                  ? DateTime.parse(nrlRegularCompEndDateString)
+                      .toIso8601String()
                   : null);
           updateCompAttribute(
               existingComp.dbkey!,
               "aflRegularCompEndDateUTC",
-              aflRegularCompEndDateString != null && aflRegularCompEndDateString.isNotEmpty
-                  ? DateTime.parse(aflRegularCompEndDateString).toIso8601String()
+              aflRegularCompEndDateString != null &&
+                      aflRegularCompEndDateString.isNotEmpty
+                  ? DateTime.parse(aflRegularCompEndDateString)
+                      .toIso8601String()
                   : null);
 
           // If activeDAUComp is not null and its dbkey matches existingComp's dbkey,
@@ -1044,14 +1070,26 @@ class DAUCompsViewModel extends ChangeNotifier {
             }
           }
           await saveBatchOfCompAttributes();
-          return {'success': true, 'message': 'DAUComp record saved', 'newCompData': null};
+          return {
+            'success': true,
+            'message': 'DAUComp record saved',
+            'newCompData': null
+          };
         }
       } else {
-        return {'success': false, 'message': 'One or both of the URL\'s are not active', 'newCompData': null};
+        return {
+          'success': false,
+          'message': 'One or both of the URL\'s are not active',
+          'newCompData': null
+        };
       }
     } catch (e) {
       log('Error in processAndSaveDauComp: $e');
-      return {'success': false, 'message': 'Failed to save DAUComp: ${e.toString()}', 'newCompData': null};
+      return {
+        'success': false,
+        'message': 'Failed to save DAUComp: ${e.toString()}',
+        'newCompData': null
+      };
     }
   }
 }

@@ -157,11 +157,13 @@ class UserAuthPageState extends State<UserAuthPage> {
                       bool res = await _updateOrCreateTipper(newName, tipper);
 
                       if (res) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const HomePage(),
-                          ),
-                        );
+                        if (context.mounted) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const HomePage(),
+                            ),
+                          );
+                        }
                       } else {
                         setState(() {
                           errorMessage = 'Failed to create or update tipper.';
@@ -207,9 +209,11 @@ class UserAuthPageState extends State<UserAuthPage> {
             );
           });
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result)),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(result)),
+            );
+          }
         }
       });
     }
@@ -306,7 +310,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     return Column(
                       // Wrapped in Column
                       children: [
-                        if (kIsWeb) //TODO hack - s
+                        if (kIsWeb) //TODO hack - remove
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
                             child: TextButton(
@@ -317,7 +321,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                                   log("Signed in anonymously via text link");
                                 } catch (e) {
                                   log("Error signing in anonymously via text link: $e");
-                                  if (mounted) {
+                                  if (context.mounted) {
                                     // Ensure widget is still in tree
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
