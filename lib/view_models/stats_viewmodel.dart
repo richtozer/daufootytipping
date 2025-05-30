@@ -770,7 +770,8 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
     return tipperRoundScores;
   }
 
-  void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) async {
+  Future<void> _addLiveScore(
+      Game game, CrowdSourcedScore croudSourcedScore) async {
     final oldScoring = game.scoring;
 
     final newScoring = oldScoring?.copyWith(
@@ -800,6 +801,55 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     await di<StatsViewModel>()._writeLiveScoreToDb(game);
+  }
+
+  Future<void> submitLiveScores({
+    required Tip tip,
+    required String homeScore,
+    required String awayScore,
+    required String originalHomeScore,
+    required String originalAwayScore,
+    required DAUComp selectedDAUComp,
+  }) async {
+    // Update home score if changed
+    if (homeScore != originalHomeScore) {
+      await _liveScoreUpdated(
+          homeScore, ScoringTeam.home, selectedDAUComp, tip);
+      if (awayScore == '0') {
+        await _liveScoreUpdated(
+            awayScore, ScoringTeam.away, selectedDAUComp, tip);
+      }
+    }
+    // Update away score if changed
+    if (awayScore != originalAwayScore) {
+      await _liveScoreUpdated(
+          awayScore, ScoringTeam.away, selectedDAUComp, tip);
+      if (homeScore == '0') {
+        await _liveScoreUpdated(
+            homeScore, ScoringTeam.home, selectedDAUComp, tip);
+      }
+    }
+
+    // Update stats for the round and % tipped
+    await updateStats(
+      selectedDAUComp,
+      tip.game.getDAURound(selectedDAUComp),
+      null,
+    );
+    getGamesStatsEntry(tip.game, true);
+  }
+
+  // You may need to update _liveScoreUpdated to accept the Tip as a parameter.
+  Future<void> _liveScoreUpdated(dynamic score, ScoringTeam scoreTeam,
+      DAUComp selectedDAUComp, Tip tip) async {
+    CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
+        DateTime.now().toUtc(),
+        scoreTeam,
+        tip.tipper.dbkey!,
+        int.tryParse(score)!,
+        false);
+
+    await _addLiveScore(tip.game, croudSourcedScore);
   }
 
   Future<void> _writeLiveScoreToDb(Game game) async {

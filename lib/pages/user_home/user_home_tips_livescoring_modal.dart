@@ -1,5 +1,4 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
-import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -190,60 +189,21 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
-                      onPressed:
-                          // if the scores have not changed then disable Submit button
-                          (homeScore == originalHomeScore &&
-                                  awayScore == originalAwayScore)
-                              ? null
-                              : () {
-                                  // close the modal
-                                  Navigator.pop(context);
-                                  // if home score changed then update the home score
-                                  if (homeScore != originalHomeScore) {
-                                    _liveScoreUpdated(
-                                        homeScore,
-                                        ScoringTeam.home,
-                                        di<DAUCompsViewModel>()
-                                            .selectedDAUComp!);
-
-                                    if (awayScore == '0') {
-                                      // In this case we need to write a default score of 0 so that the interim result is not 'No Result'
-                                      _liveScoreUpdated(
-                                          awayScore,
-                                          ScoringTeam.away,
-                                          di<DAUCompsViewModel>()
-                                              .selectedDAUComp!);
-                                    }
-                                  }
-                                  // if away score changed then update the away score
-                                  if (awayScore != originalAwayScore) {
-                                    _liveScoreUpdated(
-                                        awayScore,
-                                        ScoringTeam.away,
-                                        di<DAUCompsViewModel>()
-                                            .selectedDAUComp!);
-
-                                    if (homeScore == '0') {
-                                      // In this case we need to write a default score of 0 so that the interim result is not 'No Result'
-                                      _liveScoreUpdated(
-                                          homeScore,
-                                          ScoringTeam.home,
-                                          di<DAUCompsViewModel>()
-                                              .selectedDAUComp!);
-                                    }
-                                  }
-
-                                  // update the scoring for the game's round asynchronously to avoid blocking UI
-                                  di<StatsViewModel>().updateStats(
-                                      di<DAUCompsViewModel>().selectedDAUComp!,
-                                      widget.tip.game.getDAURound(
-                                          di<DAUCompsViewModel>()
-                                              .selectedDAUComp!),
-                                      null);
-                                  // update % tipped
-                                  di<StatsViewModel>().getGamesStatsEntry(
-                                      widget.tip.game, true);
-                                },
+                      onPressed: (homeScore == originalHomeScore &&
+                              awayScore == originalAwayScore)
+                          ? null
+                          : () async {
+                              Navigator.pop(context);
+                              di<StatsViewModel>().submitLiveScores(
+                                tip: widget.tip,
+                                homeScore: homeScore,
+                                awayScore: awayScore,
+                                originalHomeScore: originalHomeScore,
+                                originalAwayScore: originalAwayScore,
+                                selectedDAUComp:
+                                    di<DAUCompsViewModel>().selectedDAUComp!,
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                           minimumSize:
                               const Size(100, 36), // Set a smaller size
@@ -358,18 +318,5 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
       var suffix = score.substring(position, score.length);
       return prefix + suffix;
     }
-  }
-
-  void _liveScoreUpdated(
-      dynamic score, ScoringTeam scoreTeam, DAUComp selectedDAUComp) {
-    // prepare the crowd sourced score
-    CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
-        DateTime.now().toUtc(),
-        scoreTeam,
-        widget.tip.tipper.dbkey!,
-        int.tryParse(score)!,
-        false);
-
-    di<StatsViewModel>().addLiveScore(widget.tip.game, croudSourcedScore);
   }
 }
