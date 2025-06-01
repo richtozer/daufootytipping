@@ -25,7 +25,7 @@ import 'package:watch_it/watch_it.dart';
 // Define constants for Firestore database locations
 const statsPathRoot = '/Stats';
 const roundStatsRoot = 'round_stats2';
-const liveScoresRoot = 'live_scores';
+const liveScoresRoot = 'live_scores2';
 const gameStatsRoot = 'game_stats2';
 
 class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
