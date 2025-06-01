@@ -154,6 +154,17 @@ class _TipChoiceState extends State<TipChoice> {
       selected:
           gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
       onSelected: (bool selected) {
+        // ADD THIS CHECK:
+        if (widget.gameTipViewModel.currentTipper.isAnonymous) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.orange, // Or another appropriate color
+              content: Text('Read-only mode: Tipping is disabled for anonymous users.'),
+            ),
+          );
+          return; // Prevent further processing
+        }
+
         try {
           if (gameTipsViewModel.allTipsViewModel.tipperViewModel.inGodMode) {
             // show a modal dialog box to confirm they are tipping in god mode.

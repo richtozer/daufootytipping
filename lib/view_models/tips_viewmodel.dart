@@ -18,7 +18,7 @@ import 'package:watch_it/watch_it.dart';
 // define  constant for firestore database location
 const tipsPathRoot = '/AllTips';
 
-class TipsViewModel extends ChangeNotifier {
+class TipsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   List<Tip?> _listOfTips = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
@@ -40,6 +40,7 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel(
       this.tipperViewModel, this.selectedDAUComp, this._gamesViewModel) {
     log('TipsViewModel (all tips) constructor');
+    WidgetsBinding.instance.addObserver(this);
     _gamesViewModel.addListener(_update);
     _listenToTips();
   }
@@ -50,6 +51,13 @@ class TipsViewModel extends ChangeNotifier {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
     _gamesViewModel.addListener(_update);
     _listenToTips();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _listenToTips(); // Re-subscribe on resume
+    }
   }
 
   void _update() {
@@ -304,6 +312,7 @@ class TipsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tipsStream.cancel(); // stop listening to stream
     _gamesViewModel.removeListener(_update);
     super.dispose();

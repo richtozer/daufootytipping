@@ -207,15 +207,19 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                               widget.sourceTipper!, targetTipper!, true, true,
                               trialMode: false);
                           // show progress of the merge
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  'Merging logon and tips of ${widget.sourceTipper!.name} into ${targetTipper!.name}'),
-                            ),
-                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Merging logon and tips of ${widget.sourceTipper!.name} into ${targetTipper!.name}'),
+                              ),
+                            );
+                          }
                           // navigate back 2 pages to the tippers list
-                          Navigator.pop(context);
-                          Navigator.pop(context);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            Navigator.pop(context);
+                          }
                         }
                       } else {
                         // Show an error message if tippers are not selected

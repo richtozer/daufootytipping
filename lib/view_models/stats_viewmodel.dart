@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io'; // Add this import for IOException, SocketException
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
@@ -23,11 +24,11 @@ import 'package:watch_it/watch_it.dart';
 
 // Define constants for Firestore database locations
 const statsPathRoot = '/Stats';
-const roundStatsRoot = 'round_stats';
-const liveScoresRoot = 'live_scores';
-const gameStatsRoot = 'game_stats';
+const roundStatsRoot = 'round_stats2';
+const liveScoresRoot = 'live_scores2';
+const gameStatsRoot = 'game_stats2';
 
-class StatsViewModel extends ChangeNotifier {
+class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
   Map<int, Map<Tipper, RoundStats>> get allTipperRoundStats =>
       _allTipperRoundStats;
@@ -68,7 +69,15 @@ class StatsViewModel extends ChangeNotifier {
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
+    WidgetsBinding.instance.addObserver(this);
     _initialize();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _listenToScores(); // Re-subscribe on resume
+    }
   }
 
   void _initialize() async {
@@ -237,6 +246,8 @@ class StatsViewModel extends ChangeNotifier {
   ) {
     if (_updateStatsInProgress != null) {
       log('StatsViewModel.updateStats() Update already in progress, skipping');
+      _logEventScoringInitiated('scoring_skipped', daucompToUpdate,
+          onlyUpdateThisRound, onlyUpdateThisTipper);
       return Future.value('Skipped: Another stats update already in progress.');
     }
 
@@ -259,8 +270,8 @@ class StatsViewModel extends ChangeNotifier {
 
         _isUpdateScoringRunning = true;
 
-        _logEventScoringInitiated(
-            daucompToUpdate, onlyUpdateThisRound, onlyUpdateThisTipper);
+        _logEventScoringInitiated('scoring_initiated', daucompToUpdate,
+            onlyUpdateThisRound, onlyUpdateThisTipper);
 
         /// make sure we have all tippers
         await di<TippersViewModel>().initialLoadComplete;
@@ -322,6 +333,8 @@ class StatsViewModel extends ChangeNotifier {
         log('StatsViewModel.updateStats() Error: $e');
         completer.completeError(e);
       } finally {
+        _logEventScoringInitiated('scoring_completed', daucompToUpdate,
+            onlyUpdateThisRound, onlyUpdateThisTipper);
         _isUpdateScoringRunning = false;
         _updateStatsInProgress = null;
         stopwatch.stop();
@@ -332,12 +345,11 @@ class StatsViewModel extends ChangeNotifier {
     return _updateStatsInProgress!;
   }
 
-  void _logEventScoringInitiated(DAUComp daucompToUpdate,
+  void _logEventScoringInitiated(String msg, DAUComp daucompToUpdate,
       DAURound? onlyUpdateThisRound, Tipper? onlyUpdateThisTipper) {
     try {
       // write a firebase analytic event that scoring is underway
-      FirebaseAnalytics.instance
-          .logEvent(name: 'scoring_initiated', parameters: {
+      FirebaseAnalytics.instance.logEvent(name: msg, parameters: {
         'comp': daucompToUpdate.name,
         'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
         'tipper': onlyUpdateThisTipper?.name ?? 'all',
@@ -471,6 +483,7 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
+  // In _writeAllRoundScoresToDb, wrap the database operation in try-catch and handle network errors
   Future<void> _writeAllRoundScoresToDb(
       Map<int, Map<Tipper, RoundStats>> updatedTipperRoundStats,
       DAUComp dauComp) async {
@@ -486,25 +499,59 @@ class StatsViewModel extends ChangeNotifier {
       }
     }
 
-    await _db
-        .child(statsPathRoot)
-        .child(dauComp.dbkey!)
-        .child(roundStatsRoot)
-        .runTransaction((currentData) {
-      // Merge the new data with the existing data
-      if (currentData != null) {
-        final existingData = currentData is Map
-            ? Map<String, dynamic>.from(currentData)
-            : <String, dynamic>{};
-        updatedTipperRoundStatsJson.forEach((key, value) {
-          existingData[key] = value;
+    int retryCount = 0;
+    const int maxRetries = 3;
+    const Duration initialDelay = Duration(seconds: 2);
+
+    while (true) {
+      try {
+        await _db
+            .child(statsPathRoot)
+            .child(dauComp.dbkey!)
+            .child(roundStatsRoot)
+            .runTransaction((currentData) {
+          // Merge the new data with the existing data
+          if (currentData != null) {
+            final existingData = currentData is Map
+                ? Map<String, dynamic>.from(currentData)
+                : <String, dynamic>{};
+            updatedTipperRoundStatsJson.forEach((key, value) {
+              existingData[key] = value;
+            });
+            return Transaction.success(existingData); // Return the merged data
+          } else {
+            return Transaction.success(
+                updatedTipperRoundStatsJson); // Return the new data
+          }
         });
-        return Transaction.success(existingData); // Return the merged data
-      } else {
-        return Transaction.success(
-            updatedTipperRoundStatsJson); // Return the new data
+        break; // Success, exit the loop
+      } on SocketException catch (e) {
+        log('Network error (SocketException) while writing round scores: $e');
+        if (retryCount < maxRetries) {
+          retryCount++;
+          final delay = initialDelay * retryCount;
+          log('Retrying in ${delay.inSeconds} seconds... (attempt $retryCount/$maxRetries)');
+          await Future.delayed(delay);
+          continue;
+        } else {
+          rethrow;
+        }
+      } on IOException catch (e) {
+        log('Network error (IOException) while writing round scores: $e');
+        if (retryCount < maxRetries) {
+          retryCount++;
+          final delay = initialDelay * retryCount;
+          log('Retrying in ${delay.inSeconds} seconds... (attempt $retryCount/$maxRetries)');
+          await Future.delayed(delay);
+          continue;
+        } else {
+          rethrow;
+        }
+      } catch (e) {
+        log('Unexpected error while writing round scores: $e');
+        rethrow;
       }
-    });
+    }
   }
 
   void _updateRoundWinners() {
@@ -723,7 +770,8 @@ class StatsViewModel extends ChangeNotifier {
     return tipperRoundScores;
   }
 
-  void addLiveScore(Game game, CrowdSourcedScore croudSourcedScore) async {
+  Future<void> _addLiveScore(
+      Game game, CrowdSourcedScore croudSourcedScore) async {
     final oldScoring = game.scoring;
 
     final newScoring = oldScoring?.copyWith(
@@ -753,6 +801,55 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     await di<StatsViewModel>()._writeLiveScoreToDb(game);
+  }
+
+  Future<void> submitLiveScores({
+    required Tip tip,
+    required String homeScore,
+    required String awayScore,
+    required String originalHomeScore,
+    required String originalAwayScore,
+    required DAUComp selectedDAUComp,
+  }) async {
+    // Update home score if changed
+    if (homeScore != originalHomeScore) {
+      await _liveScoreUpdated(
+          homeScore, ScoringTeam.home, selectedDAUComp, tip);
+      if (awayScore == '0') {
+        await _liveScoreUpdated(
+            awayScore, ScoringTeam.away, selectedDAUComp, tip);
+      }
+    }
+    // Update away score if changed
+    if (awayScore != originalAwayScore) {
+      await _liveScoreUpdated(
+          awayScore, ScoringTeam.away, selectedDAUComp, tip);
+      if (homeScore == '0') {
+        await _liveScoreUpdated(
+            homeScore, ScoringTeam.home, selectedDAUComp, tip);
+      }
+    }
+
+    // Update stats for the round and % tipped
+    await updateStats(
+      selectedDAUComp,
+      tip.game.getDAURound(selectedDAUComp),
+      null,
+    );
+    getGamesStatsEntry(tip.game, true);
+  }
+
+  // You may need to update _liveScoreUpdated to accept the Tip as a parameter.
+  Future<void> _liveScoreUpdated(dynamic score, ScoringTeam scoreTeam,
+      DAUComp selectedDAUComp, Tip tip) async {
+    CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
+        DateTime.now().toUtc(),
+        scoreTeam,
+        tip.tipper.dbkey!,
+        int.tryParse(score)!,
+        false);
+
+    await _addLiveScore(tip.game, croudSourcedScore);
   }
 
   Future<void> _writeLiveScoreToDb(Game game) async {
@@ -1004,6 +1101,7 @@ class StatsViewModel extends ChangeNotifier {
   void dispose() {
     _allRoundScoresStream.cancel();
     _liveScoresStream.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 

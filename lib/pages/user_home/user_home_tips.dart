@@ -44,10 +44,18 @@ class TipsTabState extends State<TipsTab> {
 
     focusNode = FocusNode();
 
-    scrollController = ScrollController(
-        initialScrollOffset: daucompsViewModel.selectedDAUComp!
-                .pixelHeightUpToRound(latestRoundNumber) +
-            initialScrollOffset);
+    final initialOffset = daucompsViewModel.selectedDAUComp!
+            .pixelHeightUpToRound(latestRoundNumber) +
+        initialScrollOffset;
+
+    scrollController = ScrollController();
+
+    // Wait until the first frame is rendered, then jump to the offset
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.jumpTo(initialOffset);
+      }
+    });
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -305,6 +313,7 @@ class WelcomeHeader extends StatelessWidget {
                   Text(
                     'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
                     style: const TextStyle(color: Colors.white70),
+                    softWrap: true,
                   ),
                   const Icon(Icons.sports_rugby, color: Colors.white70),
                 ],
@@ -313,6 +322,7 @@ class WelcomeHeader extends StatelessWidget {
               const Text(
                 'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
                 style: TextStyle(color: Colors.white70),
+                softWrap: true,
               ),
               const Spacer(),
             ],

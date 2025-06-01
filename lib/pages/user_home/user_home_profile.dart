@@ -85,11 +85,14 @@ class Profile extends StatelessWidget with WatchItMixin {
                                     padding: const EdgeInsets.all(5),
                                     minimumSize: Size(50, 30),
                                   ),
+                                  onPressed: profileTipper.isAnonymous
+                                      ? null
+                                      : () {
+                                          _showEditNameDialog(
+                                              context, profileTipper);
+                                        },
                                   child: const Text('Edit',
                                       textAlign: TextAlign.center),
-                                  onPressed: () {
-                                    _showEditNameDialog(context, profileTipper);
-                                  },
                                 ),
                               ],
                             ),
@@ -429,13 +432,17 @@ class Profile extends StatelessWidget with WatchItMixin {
                       // if the tipper is new then navigate to the home page,
                       // otherwise just close the dialog
                       if (isNewTipper) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const HomePage(),
-                          ),
-                        );
+                        if (context.mounted) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const HomePage(),
+                            ),
+                          );
+                        }
                       } else {
-                        Navigator.of(context).pop();
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
                       }
                     } catch (e) {
                       setState(() {

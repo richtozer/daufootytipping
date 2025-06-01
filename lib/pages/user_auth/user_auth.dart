@@ -50,6 +50,12 @@ class UserAuthPageState extends State<UserAuthPage> {
     }
     PackageInfo packageInfo = await packageInfoService.packageInfo;
 
+    //use this opportunity to setup default analytics parameter for version
+    if (!kIsWeb) {
+      FirebaseAnalytics.instance
+          .setDefaultEventParameters({'version': packageInfo.version});
+    }
+
     List<String> currentVersionParts = packageInfo.version.split('.');
     List<String> newVersionParts = widget.configMinAppVersion!.split('.');
 
@@ -76,7 +82,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     return await tippersViewModel.findExistingTipper();
   }
 
-  Future<bool> _updateOrCreateTipper(String name, Tipper? tipper) async {
+  Future<bool> _updateOrCreateTipper(String? name, Tipper? tipper) async {
     TippersViewModel tippersViewModel = di<TippersViewModel>();
     return await tippersViewModel.updateOrCreateTipper(name, tipper);
   }
@@ -151,11 +157,13 @@ class UserAuthPageState extends State<UserAuthPage> {
                       bool res = await _updateOrCreateTipper(newName, tipper);
 
                       if (res) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const HomePage(),
-                          ),
-                        );
+                        if (context.mounted) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const HomePage(),
+                            ),
+                          );
+                        }
                       } else {
                         setState(() {
                           errorMessage = 'Failed to create or update tipper.';
@@ -201,9 +209,11 @@ class UserAuthPageState extends State<UserAuthPage> {
             );
           });
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result)),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(result)),
+            );
+          }
         }
       });
     }
@@ -273,6 +283,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     AppleProvider(),
                     //firebase_ui_auth.PhoneAuthProvider(),
                     firebase_ui_auth.EmailAuthProvider(),
+                    // firebase_ui_auth.AnonymousAuthProvider(), // Removed this line
                   ],
                   headerBuilder: (context, constraints, shrinkOffset) {
                     return Padding(
@@ -296,39 +307,77 @@ class UserAuthPageState extends State<UserAuthPage> {
                     );
                   },
                   footerBuilder: (context, action) {
-                    return FutureBuilder<PackageInfo>(
-                      future: PackageInfo.fromPlatform(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.only(top: 16),
-                            child: Text(
-                              'Loading...',
-                              style: TextStyle(color: Colors.grey),
+                    return Column(
+                      // Wrapped in Column
+                      children: [
+                        if (kIsWeb) //TODO hack - remove
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: TextButton(
+                              onPressed: () async {
+                                try {
+                                  await FirebaseAuth.instance
+                                      .signInAnonymously();
+                                  log("Signed in anonymously via text link");
+                                } catch (e) {
+                                  log("Error signing in anonymously via text link: $e");
+                                  if (context.mounted) {
+                                    // Ensure widget is still in tree
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              "Anonymous sign-in failed: ${e.toString()}")),
+                                    );
+                                  }
+                                }
+                              },
+                              child: Text(
+                                'Click here to view Stats',
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary, // Or a specific blue
+                                ),
+                              ),
                             ),
-                          );
-                        } else if (snapshot.hasError) {
-                          return const Padding(
-                            padding: EdgeInsets.only(top: 16),
-                            child: Text(
-                              'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
-                              'App Version: Unknown',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          );
-                        } else {
-                          final packageInfo = snapshot.data!;
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
-                              'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          );
-                        }
-                      },
+                          ),
+                        FutureBuilder<PackageInfo>(
+                          // Original footer content
+                          future: PackageInfo.fromPlatform(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 16),
+                                child: Text(
+                                  'Loading...',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            } else if (snapshot.hasError) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 16),
+                                child: Text(
+                                  'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
+                                  'App Version: Unknown',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            } else {
+                              final packageInfo = snapshot.data!;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Text(
+                                  'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
+                                  'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     );
                   },
                 );
@@ -341,12 +390,9 @@ class UserAuthPageState extends State<UserAuthPage> {
                         'No user context found. Please try signing in again.');
               }
 
-              if (authenticatedFirebaseUser.isAnonymous) {
-                return LoginIssueScreen(
-                    message:
-                        'You have logged in as anonymous. This App does not support anonymous logins.');
-              }
-              if (authenticatedFirebaseUser.emailVerified == false) {
+              if (authenticatedFirebaseUser.emailVerified == false &&
+                  !authenticatedFirebaseUser.isAnonymous) {
+                // Also check for non-anonymous user
                 authenticatedFirebaseUser.sendEmailVerification();
 
                 return const LoginIssueScreen(
@@ -357,8 +403,9 @@ class UserAuthPageState extends State<UserAuthPage> {
               }
 
               FirebaseAnalytics.instance.logLogin(
-                  loginMethod:
-                      authenticatedFirebaseUser.providerData[0].providerId);
+                  loginMethod: authenticatedFirebaseUser.providerData.isNotEmpty
+                      ? authenticatedFirebaseUser.providerData[0].providerId
+                      : 'unknown');
 
               return FutureBuilder<Tipper?>(
                 future: _linkUserToTipper(),
@@ -372,11 +419,48 @@ class UserAuthPageState extends State<UserAuthPage> {
                         message:
                             'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping');
                   } else if (snapshot.data == null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _showEditNameDialog(context, null);
-                    });
-                    return Container(); // Return an empty container while waiting for user input
+                    // This means no existing Tipper record
+                    if (authenticatedFirebaseUser.isAnonymous) {
+                      // For new anonymous users, bypass edit name dialog
+                      return FutureBuilder<bool>(
+                        future: _updateOrCreateTipper(null,
+                            null), // Pass null to let ViewModel handle name
+                        builder: (BuildContext context,
+                            AsyncSnapshot<bool> updateSnapshot) {
+                          if (updateSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
+                                child: CircularProgressIndicator(
+                                    color: Colors.orange));
+                          } else if (updateSnapshot.hasError) {
+                            return LoginIssueScreen(
+                                message:
+                                    'Error creating anonymous user: ${updateSnapshot.error}. Contact support.');
+                          } else if (updateSnapshot.data == false) {
+                            return LoginIssueScreen(
+                                message:
+                                    'Failed to create anonymous user. Contact support.');
+                          } else {
+                            // Successfully created anonymous user, navigate to home
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                    builder: (context) => const HomePage()),
+                              );
+                            });
+                            return Container(); // Show loading or empty container while navigating
+                          }
+                        },
+                      );
+                    } else {
+                      // For new non-anonymous users, show edit name dialog as before
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _showEditNameDialog(context, null);
+                      });
+                      return Container(); // Return an empty container while waiting for user input
+                    }
                   } else {
+                    // Existing tipper found
                     return FutureBuilder<bool>(
                       future: _updateOrCreateTipper(
                           snapshot.data!.name, snapshot.data!),
