@@ -7,9 +7,7 @@ set -e
 cd $CI_PRIMARY_REPOSITORY_PATH # change working directory to the root of your cloned repo.
 
 # Install Flutter using git.
-git clone https://github.com/flutter/flutter.git -b stable $HOME/flutter
-cd $HOME/flutter
-git checkout f73bfc4522dd0bc87bbcdb4bb3088082755c5e87
+git clone https://github.com/flutter/flutter.git --branch stable
 cd $CI_PRIMARY_REPOSITORY_PATH
 export PATH="$PATH:$HOME/flutter/bin"
 
