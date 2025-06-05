@@ -14,14 +14,16 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/services/app_lifecycle_observer.dart';
 
 // define  constant for firestore database location
 const tipsPathRoot = '/AllTips';
 
-class TipsViewModel extends ChangeNotifier with WidgetsBindingObserver {
+class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _tipsStream;
+  StreamSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   final DAUComp selectedDAUComp;
   final Completer<void> _initialLoadCompleter = Completer();
@@ -40,7 +42,11 @@ class TipsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   TipsViewModel(
       this.tipperViewModel, this.selectedDAUComp, this._gamesViewModel) {
     log('TipsViewModel (all tips) constructor');
-    WidgetsBinding.instance.addObserver(this);
+    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+      if (state == AppLifecycleState.resumed) {
+        _listenToTips(); // Re-subscribe on resume
+      }
+    });
     _gamesViewModel.addListener(_update);
     _listenToTips();
   }
@@ -49,15 +55,13 @@ class TipsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   TipsViewModel.forTipper(this.tipperViewModel, this.selectedDAUComp,
       this._gamesViewModel, this._tipper) {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
+    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+      if (state == AppLifecycleState.resumed) {
+        _listenToTips(); // Re-subscribe on resume
+      }
+    });
     _gamesViewModel.addListener(_update);
     _listenToTips();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _listenToTips(); // Re-subscribe on resume
-    }
   }
 
   void _update() {
@@ -312,7 +316,7 @@ class TipsViewModel extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _lifecycleSubscription?.cancel();
     _tipsStream.cancel(); // stop listening to stream
     _gamesViewModel.removeListener(_update);
     super.dispose();

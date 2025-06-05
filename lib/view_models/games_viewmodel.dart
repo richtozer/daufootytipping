@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
+import 'package:daufootytipping/services/app_lifecycle_observer.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
@@ -17,11 +18,12 @@ import 'package:watch_it/watch_it.dart';
 
 const gamesPathRoot = '/DAUCompsGames';
 
-class GamesViewModel extends ChangeNotifier with WidgetsBindingObserver {
+class GamesViewModel extends ChangeNotifier {
   // Properties
   List<Game> _games = [];
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
+  StreamSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -46,16 +48,13 @@ class GamesViewModel extends ChangeNotifier with WidgetsBindingObserver {
   void _initialize() async {
     // await teams load to complete
     await _teamsViewModel.initialLoadComplete;
-    WidgetsBinding.instance.addObserver(this);
     // Listen to the games in the selected DAUComp
+    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+      if (state == AppLifecycleState.resumed) {
+        _listenToGames(); // Re-subscribe on resume
+      }
+    });
     _listenToGames();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _listenToGames(); // Re-subscribe on resume
-    }
   }
 
   // Database listeners
@@ -481,7 +480,7 @@ class GamesViewModel extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _lifecycleSubscription?.cancel();
     _gamesStream.cancel(); // stop listening to stream
     super.dispose();
   }
