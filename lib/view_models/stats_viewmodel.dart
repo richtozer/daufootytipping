@@ -830,13 +830,15 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
 
-    // Update stats for the round and % tipped
-    await updateStats(
-      selectedDAUComp,
-      tip.game.getDAURound(selectedDAUComp),
-      null,
+    unawaited(
+      updateStats(
+        selectedDAUComp,
+        tip.game.getDAURound(selectedDAUComp),
+        null,
+      ).then((_) {
+        getGamesStatsEntry(tip.game, true);
+      }),
     );
-    getGamesStatsEntry(tip.game, true);
   }
 
   // You may need to update _liveScoreUpdated to accept the Tip as a parameter.
