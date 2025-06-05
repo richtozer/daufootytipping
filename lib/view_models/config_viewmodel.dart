@@ -27,6 +27,17 @@ class ConfigViewModel extends ChangeNotifier {
 
   ConfigViewModel() {
     _listenToConfigChanges();
+    // Add a timeout for initial load
+    _initialLoadCompleter.future
+        .timeout(const Duration(seconds: 10))
+        .catchError((_) {
+      // If timeout occurs and not completed, complete with error
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.completeError(
+            'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.');
+        notifyListeners();
+      }
+    });
   }
 
   void _listenToConfigChanges() {
@@ -43,6 +54,10 @@ class ConfigViewModel extends ChangeNotifier {
       notifyListeners();
     }, onError: (error) {
       log('ConfigViewModel._listenToConfigChanges() Error: $error');
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.completeError(error);
+        notifyListeners();
+      }
     });
   }
 
