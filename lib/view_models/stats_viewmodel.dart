@@ -17,6 +17,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:daufootytipping/services/app_lifecycle_observer.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +29,7 @@ const roundStatsRoot = 'round_stats';
 const liveScoresRoot = 'live_scores';
 const gameStatsRoot = 'game_stats';
 
-class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
+class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
   Map<int, Map<Tipper, RoundStats>> get allTipperRoundStats =>
       _allTipperRoundStats;
@@ -38,6 +39,7 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
+  StreamSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   final DAUComp selectedDAUComp;
 
@@ -69,15 +71,12 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
-    WidgetsBinding.instance.addObserver(this);
+    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+      if (state == AppLifecycleState.resumed) {
+        _listenToScores(); // Re-subscribe on resume
+      }
+    });
     _initialize();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _listenToScores(); // Re-subscribe on resume
-    }
   }
 
   void _initialize() async {
@@ -830,13 +829,15 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
 
-    // Update stats for the round and % tipped
-    await updateStats(
-      selectedDAUComp,
-      tip.game.getDAURound(selectedDAUComp),
-      null,
+    unawaited(
+      updateStats(
+        selectedDAUComp,
+        tip.game.getDAURound(selectedDAUComp),
+        null,
+      ).then((_) {
+        getGamesStatsEntry(tip.game, true);
+      }),
     );
-    getGamesStatsEntry(tip.game, true);
   }
 
   // You may need to update _liveScoreUpdated to accept the Tip as a parameter.
@@ -1101,7 +1102,7 @@ class StatsViewModel extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     _allRoundScoresStream.cancel();
     _liveScoresStream.cancel();
-    WidgetsBinding.instance.removeObserver(this);
+    _lifecycleSubscription?.cancel();
     super.dispose();
   }
 
