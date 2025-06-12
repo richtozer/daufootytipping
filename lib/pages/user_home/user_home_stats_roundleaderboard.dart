@@ -42,8 +42,12 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     super.initState();
 
     statsViewModel = di<StatsViewModel>();
+    _loadLeaderboard();
+  }
+
+  Future<void> _loadLeaderboard() async {
     roundLeaderboard =
-        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
+        await statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
     onSort(1, true);
   }
 
