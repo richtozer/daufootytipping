@@ -242,14 +242,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         _initialDAUCompLoadCompleter.complete();
       }
 
-      // call linkGamesWithRounds - just in case the round start/end times have changed
-      // and we need to re-link the games with the rounds
-      if (selectedDAUComp?.daurounds != null) {
-        await linkGamesWithRounds(selectedDAUComp!.daurounds);
-        log('DAUCompsViewModel_handleEvent() DAUCompsViewModel linked games with rounds');
-      } else {
-        notifyListeners();
-      }
+      notifyListeners();
     } catch (e) {
       log('Error listening to $daucompsPath: $e');
       rethrow;

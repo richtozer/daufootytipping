@@ -38,8 +38,12 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     super.initState();
 
     statsViewModel = di<StatsViewModel>();
+    _loadLeaderboard();
+  }
+
+  Future<void> _loadLeaderboard() async {
     roundLeaderboard =
-        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
+        await statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
     onSort(1, false); // Default to descending
   }
 
