@@ -231,6 +231,7 @@ class _GameListItemState extends State<GameListItem> {
                                         style: const TextStyle(
                                           fontSize: 16.0,
                                         ),
+                                        overflow: TextOverflow.ellipsis,
                                         softWrap: true,
                                       ),
                                     ),
@@ -290,6 +291,7 @@ class _GameListItemState extends State<GameListItem> {
                                           textAlign: TextAlign.left,
                                           gameTipsViewModelConsumer
                                               .game.awayTeam.name,
+                                          overflow: TextOverflow.ellipsis,
                                           softWrap: true),
                                     ),
                                     SizedBox(
@@ -371,6 +373,7 @@ class _GameListItemState extends State<GameListItem> {
                                       style: const TextStyle(
                                         fontSize: 16.0,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                       softWrap: true,
                                     ),
                                   ),
@@ -456,6 +459,7 @@ class _GameListItemState extends State<GameListItem> {
                                         textAlign: TextAlign.left,
                                         gameTipsViewModelConsumer
                                             .game.awayTeam.name,
+                                        overflow: TextOverflow.ellipsis,
                                         softWrap: true),
                                   ),
                                   SizedBox(
