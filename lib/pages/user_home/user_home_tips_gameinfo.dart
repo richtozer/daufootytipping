@@ -27,36 +27,30 @@ class GameInfo extends StatelessWidget {
               if (gameTipsViewModel.tip != null &&
                   gameTipsViewModel.tip!.isDefaultTip() == false)
                 Text(
-                  style: const TextStyle(fontSize: 12),
-                  'You tipped: ${DateFormat('EEE dd MMM hh:mm a').format(gameTipsViewModel.tip!.submittedTimeUTC.toLocal())}',
+                  style: Theme.of(context).textTheme.labelSmall,
+                  'Tipped:${DateFormat('dd/MM hh:mm a').format(gameTipsViewModel.tip!.submittedTimeUTC.toLocal())}',
                 ),
-              // display a line separator here
-              const Divider(
-                height: 5,
-              ),
               if (gameTipsViewModel.tip != null &&
                   gameTipsViewModel.tip!.isDefaultTip() == true)
-                const Text(
-                  style: TextStyle(fontSize: 12),
+                Text(
+                  style: Theme.of(context).textTheme.labelSmall,
                   'Default tip of [Away] given',
                 ),
-              game.gameState == GameState.startedResultKnown
-                  ? Text(
-                      style: const TextStyle(fontSize: 12),
-                      DateFormat('EEE dd MMM yyyy')
-                          .format(game.startTimeUTC.toLocal()))
-                  : Text(
-                      style: const TextStyle(fontSize: 12),
-                      'Kickoff: ${DateFormat('EEE dd MMM hh:mm a').format(game.startTimeUTC.toLocal())}'),
+
+              Text(
+                style: Theme.of(context).textTheme.labelSmall,
+                'Kickoff:${DateFormat('dd MMM hh:mm a').format(game.startTimeUTC.toLocal())}',
+              ),
+
               Flexible(
                 child: Text(
                   gameTipsViewModel.game.location,
-                  style: const TextStyle(fontSize: 12),
+                  style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
 
               Text(
-                style: const TextStyle(fontSize: 12),
+                style: Theme.of(context).textTheme.labelSmall,
                 'Fixture: round ${gameTipsViewModel.game.fixtureRoundNumber}, match ${gameTipsViewModel.game.fixtureMatchNumber}',
               ),
             ],

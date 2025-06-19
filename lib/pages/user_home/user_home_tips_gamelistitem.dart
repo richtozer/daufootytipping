@@ -228,9 +228,9 @@ class _GameListItemState extends State<GameListItem> {
                                         gameTipsViewModelConsumer
                                             .game.homeTeam.name,
                                         textAlign: TextAlign.left,
-                                        style: const TextStyle(
-                                          fontSize: 16.0,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge,
                                         overflow: TextOverflow.ellipsis,
                                         softWrap: true,
                                       ),
@@ -285,9 +285,9 @@ class _GameListItemState extends State<GameListItem> {
                                   children: [
                                     Flexible(
                                       child: Text(
-                                          style: const TextStyle(
-                                            fontSize: 16.0,
-                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge,
                                           textAlign: TextAlign.left,
                                           gameTipsViewModelConsumer
                                               .game.awayTeam.name,
@@ -339,7 +339,7 @@ class _GameListItemState extends State<GameListItem> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // do not show rank game result is known
+                                  // do not show rank if game result is known
                                   Text(
                                     gameTipsViewModelConsumer.game.gameState ==
                                                 GameState.notStarted ||
@@ -348,9 +348,9 @@ class _GameListItemState extends State<GameListItem> {
                                                 GameState.startingSoon
                                         ? displayHomeRank
                                         : '',
-                                    style: const TextStyle(
-                                      fontSize: 12.0,
-                                    ),
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall,
+                                    textScaler: TextScaler.linear(0.9),
                                     textAlign: TextAlign.left,
                                     softWrap: true,
                                   ),
@@ -370,9 +370,9 @@ class _GameListItemState extends State<GameListItem> {
                                       gameTipsViewModelConsumer
                                           .game.homeTeam.name,
                                       textAlign: TextAlign.left,
-                                      style: const TextStyle(
-                                        fontSize: 16.0,
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelLarge,
                                       overflow: TextOverflow.ellipsis,
                                       softWrap: true,
                                     ),
@@ -434,9 +434,9 @@ class _GameListItemState extends State<GameListItem> {
                                                 GameState.startingSoon
                                         ? displayAwayRank
                                         : '',
-                                    style: const TextStyle(
-                                      fontSize: 12.0,
-                                    ),
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall,
+                                    textScaler: TextScaler.linear(0.9),
                                     textAlign: TextAlign.left,
                                     softWrap: true,
                                   ),
@@ -453,12 +453,12 @@ class _GameListItemState extends State<GameListItem> {
                                     Container(),
                                   Flexible(
                                     child: Text(
-                                        style: const TextStyle(
-                                          fontSize: 16.0,
-                                        ),
-                                        textAlign: TextAlign.left,
                                         gameTipsViewModelConsumer
                                             .game.awayTeam.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge,
+                                        textAlign: TextAlign.left,
                                         overflow: TextOverflow.ellipsis,
                                         softWrap: true),
                                   ),
