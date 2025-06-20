@@ -42,7 +42,8 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel(
       this.tipperViewModel, this.selectedDAUComp, this._gamesViewModel) {
     log('TipsViewModel (all tips) constructor');
-    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+    _lifecycleSubscription =
+        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
       if (state == AppLifecycleState.resumed) {
         _listenToTips(); // Re-subscribe on resume
       }
@@ -55,7 +56,8 @@ class TipsViewModel extends ChangeNotifier {
   TipsViewModel.forTipper(this.tipperViewModel, this.selectedDAUComp,
       this._gamesViewModel, this._tipper) {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
-    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+    _lifecycleSubscription =
+        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
       if (state == AppLifecycleState.resumed) {
         _listenToTips(); // Re-subscribe on resume
       }
@@ -307,8 +309,8 @@ class TipsViewModel extends ChangeNotifier {
         .toList();
   }
 
-  updateTip(Tip tip) {
-    _db
+  Future<void> updateTip(Tip tip) async {
+    await _db
         .child(
             '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}')
         .update(tip.toJson());
@@ -322,9 +324,9 @@ class TipsViewModel extends ChangeNotifier {
     super.dispose();
   }
 
-  deleteAllTipsForTipper(Tipper originalTipper) {
+  Future<void> deleteAllTipsForTipper(Tipper originalTipper) async {
     try {
-      _db
+      await _db
           .child(
               '$tipsPathRoot/${selectedDAUComp.dbkey}/${originalTipper.dbkey}')
           .remove();

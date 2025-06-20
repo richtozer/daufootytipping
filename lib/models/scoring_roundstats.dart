@@ -30,7 +30,7 @@ class RoundStats {
     required this.aflTipsOutstanding,
   });
 
-  toJson() {
+  Map<String, int> toJson() {
     return {
       // keep the keys short to save $/space in db
       'nbr': roundNumber,
@@ -65,7 +65,7 @@ class RoundStats {
     );
   }
 
-  toCsv() {
+  List<int> toCsv() {
     return [
       aflScore,
       aflMaxScore,

@@ -95,7 +95,8 @@ void main() {
         .thenReturn(DateTime.now().add(const Duration(days: 1)));
 
     when(mockGameTipViewModel.game).thenReturn(mockGameForListItem);
-    when(mockGameTipViewModel.controller).thenReturn(realCarouselController);
+    when(mockGameTipViewModel.controller)
+        .thenReturn(realCarouselController as CarouselSliderController);
     when(mockGameTipViewModel.currentIndex).thenReturn(0);
     when(mockGameTipViewModel.tip).thenReturn(null);
     when(mockGameTipViewModel.currentTipper).thenReturn(mockTipper);

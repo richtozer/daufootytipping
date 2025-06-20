@@ -29,7 +29,7 @@ const combinedRoundsPath = 'combinedRounds2';
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
-  get daucomps => _daucomps;
+  List<DAUComp> get daucomps => _daucomps;
   final fixtureUpdateTimerDuration =
       Duration(hours: 24); // how often we check for fixture updates
 
@@ -80,7 +80,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
     log('DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode');
-    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+    _lifecycleSubscription =
+        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
       if (state == AppLifecycleState.resumed) {
         _listenToDAUComps(); // Re-subscribe on resume
       }

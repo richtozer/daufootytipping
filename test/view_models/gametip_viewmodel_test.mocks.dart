@@ -1096,10 +1096,15 @@ class MockTipsViewModel extends _i1.Mock implements _i21.TipsViewModel {
       ) as List<_i14.Tip?>);
 
   @override
-  dynamic updateTip(_i14.Tip? tip) => super.noSuchMethod(Invocation.method(
-        #updateTip,
-        [tip],
-      ));
+  @override
+  Future<void> updateTip(_i14.Tip tip) => (super.noSuchMethod(
+        Invocation.method(
+          #updateTip,
+          [tip],
+        ),
+        returnValue: Future<void>.value(),
+        returnValueForMissingStub: Future<void>.value(),
+      ) as Future<void>);
 
   @override
   void dispose() => super.noSuchMethod(
@@ -1111,11 +1116,16 @@ class MockTipsViewModel extends _i1.Mock implements _i21.TipsViewModel {
       );
 
   @override
-  dynamic deleteAllTipsForTipper(_i3.Tipper? originalTipper) =>
-      super.noSuchMethod(Invocation.method(
-        #deleteAllTipsForTipper,
-        [originalTipper],
-      ));
+  @override
+  Future<void> deleteAllTipsForTipper(_i3.Tipper originalTipper) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #deleteAllTipsForTipper,
+          [originalTipper],
+        ),
+        returnValue: Future<void>.value(),
+        returnValueForMissingStub: Future<void>.value(),
+      ) as Future<void>);
 
   @override
   void addListener(_i20.VoidCallback? listener) => super.noSuchMethod(

@@ -23,7 +23,7 @@ class Team implements Comparable<Team> {
       logoURI: data['logoURI'] == null ? null : data['logoURI'] as String,
     );
   }
-  toJson() {
+  Map<String, String?> toJson() {
     return {
       'name': name,
       'logoURI': logoURI,

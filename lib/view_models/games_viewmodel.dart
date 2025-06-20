@@ -30,7 +30,7 @@ class GamesViewModel extends ChangeNotifier {
 
   DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
-  get teamsViewModel => _teamsViewModel;
+  TeamsViewModel get teamsViewModel => _teamsViewModel;
 
   final List<DAURound> _roundsThatNeedScoringUpdate = [];
 
@@ -49,7 +49,8 @@ class GamesViewModel extends ChangeNotifier {
     // await teams load to complete
     await _teamsViewModel.initialLoadComplete;
     // Listen to the games in the selected DAUComp
-    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+    _lifecycleSubscription =
+        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
       if (state == AppLifecycleState.resumed) {
         _listenToGames(); // Re-subscribe on resume
       }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-Future<Widget> faq(context) async {
+Future<Widget> faq(BuildContext context) async {
   return OutlinedButton(
     child: const Text('FAQ ...'),
     onPressed: () {

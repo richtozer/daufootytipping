@@ -66,7 +66,7 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => TeamsListPage(
-                      teamsViewModel: teamsViewModel,
+                      teamsViewModel: teamsViewModel!,
                     ),
                   ),
                 );
