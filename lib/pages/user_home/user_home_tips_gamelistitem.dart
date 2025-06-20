@@ -1,5 +1,4 @@
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -217,96 +216,20 @@ class _GameListItemState extends State<GameListItem> {
                           padding: const EdgeInsets.all(0.0),
                           child: SizedBox(
                             width: 130,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        gameTipsViewModelConsumer
-                                            .game.homeTeam.name,
-                                        textAlign: TextAlign.left,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelLarge,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: true,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: 5,
-                                    ),
-                                    gameTipsViewModelConsumer.game.gameState ==
-                                            GameState.startedResultNotKnown
-                                        ? liveScoringHome(
-                                            gameTipsViewModelConsumer.game,
-                                            context)
-                                        : fixtureScoringHome(
-                                            gameTipsViewModelConsumer),
-                                  ],
-                                ),
-                                gameTipsViewModelConsumer.game.gameState ==
-                                        GameState.startedResultNotKnown
-                                    ? liveScoringEdit(context)
-                                    : Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          SvgPicture.asset(
-                                            gameTipsViewModelConsumer
-                                                    .game.homeTeam.logoURI ??
-                                                (gameTipsViewModelConsumer
-                                                            .game.league ==
-                                                        League.nrl
-                                                    ? League.nrl.logo
-                                                    : League.afl.logo),
-                                            width: 25,
-                                            height: 25,
-                                          ),
-                                          const Text(
-                                              textAlign: TextAlign.left, ' V '),
-                                          SvgPicture.asset(
-                                            gameTipsViewModelConsumer
-                                                    .game.awayTeam.logoURI ??
-                                                (gameTipsViewModelConsumer
-                                                            .game.league ==
-                                                        League.nrl
-                                                    ? League.nrl.logo
-                                                    : League.afl.logo),
-                                            width: 25,
-                                            height: 25,
-                                          ),
-                                        ],
-                                      ),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelLarge,
-                                          textAlign: TextAlign.left,
-                                          gameTipsViewModelConsumer
-                                              .game.awayTeam.name,
-                                          overflow: TextOverflow.ellipsis,
-                                          softWrap: true),
-                                    ),
-                                    SizedBox(
-                                      width: 5,
-                                    ),
-                                    gameTipsViewModelConsumer.game.gameState ==
-                                            GameState.startedResultNotKnown
-                                        ? liveScoringAway(
-                                            gameTipsViewModelConsumer.game,
-                                            context)
-                                        : fixtureScoringAway(
-                                            gameTipsViewModelConsumer),
-                                  ],
-                                ),
-                              ],
+                            child: _TeamVersusDisplay(
+                              gameTipsViewModelConsumer:
+                                  gameTipsViewModelConsumer,
+                              displayHomeRank: '', // No rank in this branch
+                              displayAwayRank: '', // No rank in this branch
+                              homeTeamScoreWidget: liveScoringHome(
+                                  gameTipsViewModelConsumer.game, context),
+                              awayTeamScoreWidget: liveScoringAway(
+                                  gameTipsViewModelConsumer.game, context),
+                              middleRowWidget: liveScoringEdit(context),
+                              teamNameTextStyle:
+                                  Theme.of(context).textTheme.labelLarge!,
+                              rankTextStyle:
+                                  Theme.of(context).textTheme.labelSmall!,
                             ),
                           ),
                         ),
@@ -333,148 +256,45 @@ class _GameListItemState extends State<GameListItem> {
                               ),
                             );
                           },
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // do not show rank if game result is known
-                                  Text(
-                                    gameTipsViewModelConsumer.game.gameState ==
-                                                GameState.notStarted ||
-                                            gameTipsViewModelConsumer
-                                                    .game.gameState ==
-                                                GameState.startingSoon
-                                        ? displayHomeRank
-                                        : '',
-                                    style:
-                                        Theme.of(context).textTheme.labelSmall,
-                                    textScaler: TextScaler.linear(0.9),
-                                    textAlign: TextAlign.left,
-                                    softWrap: true,
-                                  ),
-                                  if (gameTipsViewModelConsumer
-                                              .game.gameState ==
-                                          GameState.notStarted ||
-                                      gameTipsViewModelConsumer
-                                              .game.gameState ==
-                                          GameState.startingSoon)
-                                    SizedBox(
-                                      width: 5,
-                                    )
-                                  else
-                                    Container(),
-                                  Flexible(
-                                    child: Text(
-                                      gameTipsViewModelConsumer
-                                          .game.homeTeam.name,
-                                      textAlign: TextAlign.left,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: true,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 5,
-                                  ),
-                                  gameTipsViewModelConsumer.game.gameState ==
-                                          GameState.startedResultNotKnown
-                                      ? liveScoringHome(
-                                          gameTipsViewModelConsumer.game,
-                                          context)
-                                      : fixtureScoringHome(
-                                          gameTipsViewModelConsumer),
-                                ],
-                              ),
-                              gameTipsViewModelConsumer.game.gameState ==
-                                      GameState.startedResultNotKnown
-                                  ? liveScoringEdit(context)
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        SvgPicture.asset(
-                                          gameTipsViewModelConsumer
-                                                  .game.homeTeam.logoURI ??
-                                              (gameTipsViewModelConsumer
-                                                          .game.league ==
-                                                      League.nrl
-                                                  ? League.nrl.logo
-                                                  : League.afl.logo),
-                                          width: 25,
-                                          height: 25,
-                                        ),
-                                        const Text(
-                                            textAlign: TextAlign.left, ' V '),
-                                        SvgPicture.asset(
-                                          gameTipsViewModelConsumer
-                                                  .game.awayTeam.logoURI ??
-                                              (gameTipsViewModelConsumer
-                                                          .game.league ==
-                                                      League.nrl
-                                                  ? League.nrl.logo
-                                                  : League.afl.logo),
-                                          width: 25,
-                                          height: 25,
-                                        ),
-                                      ],
-                                    ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // do not show rank game result is known
-                                  Text(
-                                    gameTipsViewModelConsumer.game.gameState ==
-                                                GameState.notStarted ||
-                                            gameTipsViewModelConsumer
-                                                    .game.gameState ==
-                                                GameState.startingSoon
-                                        ? displayAwayRank
-                                        : '',
-                                    style:
-                                        Theme.of(context).textTheme.labelSmall,
-                                    textScaler: TextScaler.linear(0.9),
-                                    textAlign: TextAlign.left,
-                                    softWrap: true,
-                                  ),
-                                  if (gameTipsViewModelConsumer
-                                              .game.gameState ==
-                                          GameState.notStarted ||
-                                      gameTipsViewModelConsumer
-                                              .game.gameState ==
-                                          GameState.startingSoon)
-                                    SizedBox(
-                                      width: 5,
-                                    )
-                                  else
-                                    Container(),
-                                  Flexible(
-                                    child: Text(
-                                        gameTipsViewModelConsumer
-                                            .game.awayTeam.name,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelLarge,
-                                        textAlign: TextAlign.left,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: true),
-                                  ),
-                                  SizedBox(
-                                    width: 5,
-                                  ),
-                                  gameTipsViewModelConsumer.game.gameState ==
-                                          GameState.startedResultNotKnown
-                                      ? liveScoringAway(
-                                          gameTipsViewModelConsumer.game,
-                                          context)
-                                      : fixtureScoringAway(
-                                          gameTipsViewModelConsumer),
-                                ],
-                              ),
-                            ],
+                          child: _TeamVersusDisplay(
+                            gameTipsViewModelConsumer: gameTipsViewModelConsumer,
+                            displayHomeRank: displayHomeRank,
+                            displayAwayRank: displayAwayRank,
+                            homeTeamScoreWidget:
+                                fixtureScoringHome(gameTipsViewModelConsumer),
+                            awayTeamScoreWidget:
+                                fixtureScoringAway(gameTipsViewModelConsumer),
+                            middleRowWidget: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SvgPicture.asset(
+                                  gameTipsViewModelConsumer
+                                          .game.homeTeam.logoURI ??
+                                      (gameTipsViewModelConsumer.game.league ==
+                                              League.nrl
+                                          ? League.nrl.logo
+                                          : League.afl.logo),
+                                  width: 25,
+                                  height: 25,
+                                ),
+                                const Text(
+                                    textAlign: TextAlign.left, ' V '),
+                                SvgPicture.asset(
+                                  gameTipsViewModelConsumer
+                                          .game.awayTeam.logoURI ??
+                                      (gameTipsViewModelConsumer.game.league ==
+                                              League.nrl
+                                          ? League.nrl.logo
+                                          : League.afl.logo),
+                                  width: 25,
+                                  height: 25,
+                                ),
+                              ],
+                            ),
+                            teamNameTextStyle:
+                                Theme.of(context).textTheme.labelLarge!,
+                            rankTextStyle:
+                                Theme.of(context).textTheme.labelSmall!,
                           ),
                         ),
                       ),
@@ -684,6 +504,104 @@ class _GameListItemState extends State<GameListItem> {
 
   // _initLeagueLadder is now _fetchAndSetLadderRanks
   // _buildNewHistoricalMatchupsCard has been removed.
+}
+
+class _TeamDisplayRow extends StatelessWidget {
+  const _TeamDisplayRow({
+    required this.teamName,
+    this.teamRank,
+    required this.scoreWidget,
+    required this.gameState,
+    required this.textStyle,
+    required this.rankTextStyle,
+  });
+
+  final String teamName;
+  final String? teamRank;
+  final Widget scoreWidget;
+  final GameState gameState;
+  final TextStyle textStyle;
+  final TextStyle rankTextStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (teamRank != null &&
+            (gameState == GameState.notStarted ||
+                gameState == GameState.startingSoon)) ...[
+          Text(
+            teamRank!,
+            style: rankTextStyle,
+            textScaler: const TextScaler.linear(0.9),
+            textAlign: TextAlign.left,
+            softWrap: true,
+          ),
+          const SizedBox(width: 5),
+        ],
+        Flexible(
+          child: Text(
+            teamName,
+            style: textStyle,
+            textAlign: TextAlign.left,
+            overflow: TextOverflow.ellipsis,
+            softWrap: true,
+          ),
+        ),
+        const SizedBox(width: 5),
+        scoreWidget,
+      ],
+    );
+  }
+}
+
+class _TeamVersusDisplay extends StatelessWidget {
+  const _TeamVersusDisplay({
+    required this.gameTipsViewModelConsumer,
+    required this.displayHomeRank,
+    required this.displayAwayRank,
+    required this.homeTeamScoreWidget,
+    required this.awayTeamScoreWidget,
+    required this.middleRowWidget,
+    required this.teamNameTextStyle,
+    required this.rankTextStyle,
+  });
+
+  final GameTipViewModel gameTipsViewModelConsumer;
+  final String displayHomeRank;
+  final String displayAwayRank;
+  final Widget homeTeamScoreWidget;
+  final Widget awayTeamScoreWidget;
+  final Widget middleRowWidget;
+  final TextStyle teamNameTextStyle;
+  final TextStyle rankTextStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        _TeamDisplayRow(
+          teamName: gameTipsViewModelConsumer.game.homeTeam.name,
+          teamRank: displayHomeRank,
+          scoreWidget: homeTeamScoreWidget,
+          gameState: gameTipsViewModelConsumer.game.gameState,
+          textStyle: teamNameTextStyle,
+          rankTextStyle: rankTextStyle,
+        ),
+        middleRowWidget,
+        _TeamDisplayRow(
+          teamName: gameTipsViewModelConsumer.game.awayTeam.name,
+          teamRank: displayAwayRank,
+          scoreWidget: awayTeamScoreWidget,
+          gameState: gameTipsViewModelConsumer.game.gameState,
+          textStyle: teamNameTextStyle,
+          rankTextStyle: rankTextStyle,
+        ),
+      ],
+    );
+  }
 }
 
 Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
