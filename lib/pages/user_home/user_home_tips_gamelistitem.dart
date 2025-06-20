@@ -1,4 +1,5 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -228,7 +229,7 @@ class _GameListItemState extends State<GameListItem> {
                                   gameTipsViewModelConsumer.game, context),
                               middleRowWidget: liveScoringEdit(context),
                               teamNameTextStyle:
-                                  Theme.of(context).textTheme.labelLarge!,
+                                  Theme.of(context).textTheme.titleMedium!,
                               rankTextStyle:
                                   Theme.of(context).textTheme.labelSmall!,
                             ),
@@ -258,7 +259,8 @@ class _GameListItemState extends State<GameListItem> {
                             );
                           },
                           child: _TeamVersusDisplay(
-                            gameTipsViewModelConsumer: gameTipsViewModelConsumer,
+                            gameTipsViewModelConsumer:
+                                gameTipsViewModelConsumer,
                             displayHomeRank: displayHomeRank,
                             displayAwayRank: displayAwayRank,
                             homeTeamScoreWidget:
@@ -278,8 +280,7 @@ class _GameListItemState extends State<GameListItem> {
                                   width: 25,
                                   height: 25,
                                 ),
-                                const Text(
-                                    textAlign: TextAlign.left, ' V '),
+                                const Text(textAlign: TextAlign.left, ' V '),
                                 SvgPicture.asset(
                                   gameTipsViewModelConsumer
                                           .game.awayTeam.logoURI ??
@@ -293,7 +294,7 @@ class _GameListItemState extends State<GameListItem> {
                               ],
                             ),
                             teamNameTextStyle:
-                                Theme.of(context).textTheme.labelLarge!,
+                                Theme.of(context).textTheme.titleMedium!,
                             rankTextStyle:
                                 Theme.of(context).textTheme.labelSmall!,
                           ),
