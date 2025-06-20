@@ -75,7 +75,7 @@ class GameTipViewModel extends ChangeNotifier {
   int currentIndex = 0;
 
   final CarouselSliderController _controller = CarouselSliderController();
-  get controller => _controller;
+  CarouselSliderController get controller => _controller;
 
   //constructor
   GameTipViewModel(
@@ -272,7 +272,7 @@ class GameTipViewModel extends ChangeNotifier {
       notifyListeners();
 
       // create a json representation of the tip
-      final tipJson = await tip.toJson();
+      final tipJson = tip.toJson();
 
       final Map<String, Map> updates = {};
       updates['$tipsPathRoot/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =

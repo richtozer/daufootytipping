@@ -82,7 +82,7 @@ class Game implements Comparable<Game> {
         (date.isBefore(endDate) || date.isAtSameMomentAs(endDate)));
   }
 
-  double getGameResultPercentage(gameResult) {
+  double getGameResultPercentage(GameResult gameResult) {
     if (scoring == null) {
       return 0.0;
     }

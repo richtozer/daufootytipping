@@ -6,7 +6,7 @@ final List<Widget> aboutBoxChildren = <Widget>[
   const Text('Sponsored by The Interview Coach')
 ];
 
-Future<Widget> aboutDialog(context) async {
+Future<Widget> aboutDialog(BuildContext context) async {
   PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
   String appName = packageInfo.appName;

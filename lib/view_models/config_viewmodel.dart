@@ -23,7 +23,7 @@ class ConfigViewModel extends ChangeNotifier {
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
-  get initialLoadComplete => _initialLoadCompleter.future;
+  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   ConfigViewModel() {
     _listenToConfigChanges();

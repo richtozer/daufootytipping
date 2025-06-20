@@ -71,7 +71,8 @@ class StatsViewModel extends ChangeNotifier {
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
-    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+    _lifecycleSubscription =
+        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
       if (state == AppLifecycleState.resumed) {
         _listenToScores(); // Re-subscribe on resume
       }
@@ -921,8 +922,8 @@ class StatsViewModel extends ChangeNotifier {
     return roundsToUpdate;
   }
 
-  _calculateRoundStatsForTipper(Tipper tipperToScore, DAURound dauRound,
-      TipsViewModel allTipsViewModel) async {
+  Future<void> _calculateRoundStatsForTipper(Tipper tipperToScore,
+      DAURound dauRound, TipsViewModel allTipsViewModel) async {
     // wait until we are initialized
     await _initialRoundScoresLoadCompleted.future;
 

@@ -47,10 +47,10 @@ class TippersViewModel extends ChangeNotifier {
   bool get savingTipper => _savingTipper;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
-  get initialLoadComplete => _initialLoadCompleter.future;
+  Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   final Completer<void> _isUserLinked = Completer<void>();
-  get isUserLinked => _isUserLinked.future;
+  Future<void> get isUserLinked => _isUserLinked.future;
 
   final bool _createLinkedTipper;
 
@@ -59,7 +59,8 @@ class TippersViewModel extends ChangeNotifier {
   //constructor
   TippersViewModel(this._createLinkedTipper) {
     log('TippersViewModel() constructor called');
-    _lifecycleSubscription = di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
+    _lifecycleSubscription =
+        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
       if (state == AppLifecycleState.resumed) {
         _listenToTippers(); // Re-subscribe on resume
       }

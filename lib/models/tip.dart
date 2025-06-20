@@ -33,7 +33,7 @@ class Tip implements Comparable<Tip> {
     );
   }
 
-  toJson() {
+  Map<String, String> toJson() {
     return {
       'gameResult': tip.name,
       'submittedTimeUTC': submittedTimeUTC.toString(),

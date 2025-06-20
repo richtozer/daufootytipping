@@ -41,9 +41,9 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     _loadLeaderboard();
   }
 
-  Future<void> _loadLeaderboard() async {
+  void _loadLeaderboard() {
     roundLeaderboard =
-        await statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
+        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
     onSort(1, false); // Default to descending
   }
 
