@@ -7,7 +7,6 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
-import 'package:daufootytipping/services/app_lifecycle_observer.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
@@ -35,7 +34,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
-  StreamSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   final String?
       _initDAUCompDbKey; // this is the comp to init with. typically the active comp, but can be any comp when in admin mode
@@ -80,12 +78,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
     log('DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode');
-    _lifecycleSubscription =
-        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
-      if (state == AppLifecycleState.resumed) {
-        _listenToDAUComps(); // Re-subscribe on resume
-      }
-    });
     _init();
   }
 
@@ -869,7 +861,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   void dispose() {
     _dailyTimer?.cancel();
     _daucompsStream.cancel();
-    _lifecycleSubscription?.cancel();
 
     // remove listeners if not in admin mode
     if (!_adminMode) {

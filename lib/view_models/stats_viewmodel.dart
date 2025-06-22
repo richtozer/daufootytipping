@@ -17,7 +17,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:daufootytipping/services/app_lifecycle_observer.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +38,6 @@ class StatsViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
-  StreamSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   final DAUComp selectedDAUComp;
 
@@ -71,12 +69,6 @@ class StatsViewModel extends ChangeNotifier {
   // Constructor
   StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
-    _lifecycleSubscription =
-        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
-      if (state == AppLifecycleState.resumed) {
-        _listenToScores(); // Re-subscribe on resume
-      }
-    });
     _initialize();
   }
 
@@ -1103,7 +1095,6 @@ class StatsViewModel extends ChangeNotifier {
   void dispose() {
     _allRoundScoresStream.cancel();
     _liveScoresStream.cancel();
-    _lifecycleSubscription?.cancel();
     super.dispose();
   }
 

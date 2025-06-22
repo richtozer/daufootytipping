@@ -10,10 +10,8 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:daufootytipping/services/app_lifecycle_observer.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:watch_it/watch_it.dart';
 
 // define  constant for firestore database locations
@@ -41,7 +39,6 @@ class TippersViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
-  StreamSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
@@ -59,12 +56,6 @@ class TippersViewModel extends ChangeNotifier {
   //constructor
   TippersViewModel(this._createLinkedTipper) {
     log('TippersViewModel() constructor called');
-    _lifecycleSubscription =
-        di<AppLifecycleObserver>().lifecycleStateStream.listen((state) {
-      if (state == AppLifecycleState.resumed) {
-        _listenToTippers(); // Re-subscribe on resume
-      }
-    });
     _listenToTippers();
   }
 
@@ -623,7 +614,6 @@ class TippersViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _tippersStream.cancel(); // stop listening to stream
-    _lifecycleSubscription?.cancel();
     super.dispose();
   }
 
