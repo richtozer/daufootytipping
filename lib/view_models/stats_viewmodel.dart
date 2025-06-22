@@ -21,6 +21,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:synchronized/synchronized.dart';
 
 // Define constants for Firestore database locations
 const statsPathRoot = '/Stats';
@@ -795,6 +796,8 @@ class StatsViewModel extends ChangeNotifier {
     await di<StatsViewModel>()._writeLiveScoreToDb(game);
   }
 
+  final Lock _submitLock = Lock();
+
   Future<void> submitLiveScores({
     required Tip tip,
     required String homeScore,
@@ -803,34 +806,36 @@ class StatsViewModel extends ChangeNotifier {
     required String originalAwayScore,
     required DAUComp selectedDAUComp,
   }) async {
-    // Update home score if changed
-    if (homeScore != originalHomeScore) {
-      await _liveScoreUpdated(
-          homeScore, ScoringTeam.home, selectedDAUComp, tip);
-      if (awayScore == '0') {
-        await _liveScoreUpdated(
-            awayScore, ScoringTeam.away, selectedDAUComp, tip);
-      }
-    }
-    // Update away score if changed
-    if (awayScore != originalAwayScore) {
-      await _liveScoreUpdated(
-          awayScore, ScoringTeam.away, selectedDAUComp, tip);
-      if (homeScore == '0') {
+    await _submitLock.synchronized(() async {
+      // Update home score if changed
+      if (homeScore != originalHomeScore) {
         await _liveScoreUpdated(
             homeScore, ScoringTeam.home, selectedDAUComp, tip);
+        if (awayScore == '0') {
+          await _liveScoreUpdated(
+              awayScore, ScoringTeam.away, selectedDAUComp, tip);
+        }
       }
-    }
+      // Update away score if changed
+      if (awayScore != originalAwayScore) {
+        await _liveScoreUpdated(
+            awayScore, ScoringTeam.away, selectedDAUComp, tip);
+        if (homeScore == '0') {
+          await _liveScoreUpdated(
+              homeScore, ScoringTeam.home, selectedDAUComp, tip);
+        }
+      }
 
-    unawaited(
-      updateStats(
-        selectedDAUComp,
-        tip.game.getDAURound(selectedDAUComp),
-        null,
-      ).then((_) {
-        getGamesStatsEntry(tip.game, true);
-      }),
-    );
+      unawaited(
+        updateStats(
+          selectedDAUComp,
+          tip.game.getDAURound(selectedDAUComp),
+          null,
+        ).then((_) {
+          getGamesStatsEntry(tip.game, true);
+        }),
+      );
+    });
   }
 
   // You may need to update _liveScoreUpdated to accept the Tip as a parameter.
