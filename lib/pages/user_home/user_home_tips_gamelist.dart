@@ -37,72 +37,70 @@ class _GameListBuilderState extends State<GameListBuilder> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
-      value: widget.dauCompsViewModel,
-      builder: (context, snapshot) {
-        return Consumer<DAUCompsViewModel>(
-            builder: (context, dauCompsViewModelConsumer, child) {
-          allGames =
-              dauCompsViewModelConsumer.groupGamesIntoLeagues(widget.dauRound);
-          leagueGames = allGames[widget.league];
+        value: Provider.of<DAUCompsViewModel>(context, listen: false),
+        child: Consumer<DAUCompsViewModel>(
+          builder: (context, dauCompsViewModelConsumer, _) {
+            // Defensive: If gamesViewModel is null, show loading
+            if (dauCompsViewModelConsumer.gamesViewModel == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (leagueGames!.isEmpty) {
-            // await the initial game load to complete - gamesViewModel.initialLoadComplete - display a progress indicator until it does
-            if (dauCompsViewModelConsumer.gamesViewModel != null) {
-              return FutureBuilder<void>(
+            // Use FutureBuilder to wait for initialLoadComplete
+            return FutureBuilder<void>(
                 future: dauCompsViewModelConsumer
                     .gamesViewModel!.initialLoadComplete,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                        child: CircularProgressIndicator(
-                            color: League.nrl.colour));
+                    return const Center(child: CircularProgressIndicator());
                   }
-                  return SizedBox(
-                    height: 75,
-                    child: Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      color: Colors.white70,
-                      child: Center(
-                        child: Text(
-                            'No ${widget.league.name.toUpperCase()} games this round'),
-                      ),
-                    ),
-                  );
-                },
-              );
-            } else
-            // If the gamesViewModel is null, display a progress indicator
-            {
-              return Center(
-                  child: CircularProgressIndicator(color: League.nrl.colour));
-            }
-          }
+                  // Now it's safe to group games
+                  final allGames = dauCompsViewModelConsumer
+                      .groupGamesIntoLeagues(widget.dauRound);
+                  final leagueGames = allGames[widget.league];
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(0),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: leagueGames!.length,
-            itemBuilder: (context, index) {
-              var game = leagueGames![index];
-              if (widget.tipperTipsViewModel == null) {
-                return Center(
-                    child: CircularProgressIndicator(color: League.nrl.colour));
-              }
-              return GameListItem(
-                key: ValueKey(game.dbkey),
-                game: game,
-                currentTipper: widget.currentTipper,
-                currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
-                allTipsViewModel: widget.tipperTipsViewModel!,
-                isPercentStatsPage: widget.isPercentStatsPage,
-              );
-            },
-          );
-        });
-      },
-    );
+                  if (leagueGames == null || leagueGames.isEmpty) {
+                    return SizedBox(
+                      height: 75,
+                      child: Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        color: Colors.white70,
+                        child: Center(
+                          child: Text(
+                            'No ${widget.league.name.toUpperCase()} games this round',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(0),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: leagueGames!.length,
+                    itemBuilder: (context, index) {
+                      var game = leagueGames![index];
+                      if (widget.tipperTipsViewModel == null) {
+                        return Center(
+                            child: CircularProgressIndicator(
+                                color: League.nrl.colour));
+                      }
+                      return GameListItem(
+                        key: ValueKey(game.dbkey),
+                        game: game,
+                        currentTipper: widget.currentTipper,
+                        currentDAUComp:
+                            widget.dauCompsViewModel.selectedDAUComp!,
+                        allTipsViewModel: widget.tipperTipsViewModel!,
+                        isPercentStatsPage: widget.isPercentStatsPage,
+                      );
+                    },
+                  );
+                });
+          },
+        ));
   }
 }
