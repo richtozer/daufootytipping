@@ -80,9 +80,9 @@ class _GameListBuilderState extends State<GameListBuilder> {
                     padding: const EdgeInsets.all(0),
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: leagueGames!.length,
+                    itemCount: leagueGames.length,
                     itemBuilder: (context, index) {
-                      var game = leagueGames![index];
+                      var game = leagueGames[index];
                       if (widget.tipperTipsViewModel == null) {
                         return Center(
                             child: CircularProgressIndicator(
