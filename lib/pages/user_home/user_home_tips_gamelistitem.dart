@@ -580,22 +580,25 @@ class _TeamVersusDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool showExtra = shouldShowTextTeamInfo(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.homeTeam.name,
-          teamRank: displayHomeRank,
-          scoreWidget: homeTeamScoreWidget,
+          teamRank: showExtra ? displayHomeRank : null,
+          scoreWidget:
+              showExtra ? homeTeamScoreWidget : const SizedBox.shrink(),
           gameState: gameTipsViewModelConsumer.game.gameState,
           textStyle: teamNameTextStyle,
           rankTextStyle: rankTextStyle,
         ),
-        middleRowWidget,
+        if (showExtra) middleRowWidget,
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.awayTeam.name,
-          teamRank: displayAwayRank,
-          scoreWidget: awayTeamScoreWidget,
+          teamRank: showExtra ? displayAwayRank : null,
+          scoreWidget:
+              showExtra ? awayTeamScoreWidget : const SizedBox.shrink(),
           gameState: gameTipsViewModelConsumer.game.gameState,
           textStyle: teamNameTextStyle,
           rankTextStyle: rankTextStyle,
@@ -603,6 +606,13 @@ class _TeamVersusDisplay extends StatelessWidget {
       ],
     );
   }
+}
+
+bool shouldShowTextTeamInfo(BuildContext context) {
+  final width = MediaQuery.of(context).size.width;
+  final textScaler = MediaQuery.of(context).textScaler;
+  // Hide if width is less than 340 or text scale is large
+  return width > 340 && (textScaler.scale(1.0) < 1.3);
 }
 
 Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
