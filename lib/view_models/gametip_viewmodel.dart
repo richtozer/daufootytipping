@@ -161,8 +161,6 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   Future<void> _fetchHistoricalTipStats() async {
-    log('GameTipViewModel._fetchHistoricalTipStats() called for game ${game.dbkey}, tipper ${currentTipper.name}');
-
     // Reset stats before recalculating
     historicalTotalTipsOnCombination = 0;
     historicalWinsOnCombination = 0;
@@ -178,7 +176,6 @@ class GameTipViewModel extends ChangeNotifier {
         allTipsViewModel.getTipsForTipper(currentTipper);
 
     if (tipperPastTips.isEmpty) {
-      log('GameTipViewModel._fetchHistoricalTipStats(): No past tips found for tipper ${currentTipper.name}');
       historicalInsightsString = "No past tips for this team combination.";
       notifyListeners();
       return;
@@ -205,7 +202,6 @@ class GameTipViewModel extends ChangeNotifier {
         historicalTotalTipsOnCombination++;
 
         if (pastTip.game.scoring == null) {
-          log('GameTipViewModel._fetchHistoricalTipStats(): Skipping tip ${pastTip.dbkey} due to null scoring info.');
           continue;
         }
 
@@ -245,8 +241,6 @@ class GameTipViewModel extends ChangeNotifier {
       historicalInsightsString =
           "Previously on this matchup ($historicalTotalTipsOnCombination games): $historicalWinsOnCombination Wins, $historicalLossesOnCombination Losses, $historicalDrawsOnCombination Draws.";
     }
-
-    log('GameTipViewModel._fetchHistoricalTipStats() results: $historicalInsightsString');
     notifyListeners();
   }
 
