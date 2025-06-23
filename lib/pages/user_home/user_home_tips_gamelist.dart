@@ -47,8 +47,11 @@ class _GameListBuilderState extends State<GameListBuilder> {
 
             // Use FutureBuilder to wait for initialLoadComplete
             return FutureBuilder<void>(
-                future: dauCompsViewModelConsumer
-                    .gamesViewModel!.initialLoadComplete,
+                future: Future.wait([
+                  dauCompsViewModelConsumer.gamesViewModel!.initialLoadComplete,
+                  dauCompsViewModelConsumer
+                      .roundsLinkedComplete, // Await this new completer
+                ]),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());

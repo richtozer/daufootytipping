@@ -53,6 +53,10 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> get initialDAUCompLoadComplete =>
       _initialDAUCompLoadCompleter.future;
 
+  // New Completer to signal when rounds are fully linked with games
+  Completer<void> _roundsLinkedCompleter = Completer<void>();
+  Future<void> get roundsLinkedComplete => _roundsLinkedCompleter.future;
+
   final Completer<void> _otherViewModels = Completer<void>();
   Future<void> get otherViewModelsLoadComplete => _otherViewModels.future;
 
@@ -156,6 +160,9 @@ class DAUCompsViewModel extends ChangeNotifier {
       _activeDAUComp = _selectedDAUComp;
     }
 
+    // Reset the roundsLinkedCompleter when the displayed DAUComp changes
+    _roundsLinkedCompleter = Completer<void>(); // Reinitialize
+    log('DAUCompsViewModel: _roundsLinkedCompleter reset for new DAUComp.');
     await _initializeAndResetViewModels(_adminMode);
     notifyListeners();
   }
@@ -163,6 +170,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> selectedTipperChanged() async {
     await _initializeAndResetViewModels(false);
     notifyListeners();
+    // Reset the roundsLinkedCompleter when the selected tipper changes (as this might affect the displayed comp)
+    _roundsLinkedCompleter = Completer<void>(); // Reinitialize
   }
 
   bool isSelectedCompActiveComp() {
@@ -744,6 +753,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       unassignedGames = localUnassignedGames;
 
       log('Unassigned games count: ${unassignedGames.length}');
+
+      // Signal that rounds are linked
+      if (!_roundsLinkedCompleter.isCompleted) {
+        _roundsLinkedCompleter.complete();
+      }
       notifyListeners();
     } catch (e) {
       log('Error in linkGamesWithRounds(): $e');
