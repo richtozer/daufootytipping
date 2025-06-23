@@ -60,7 +60,7 @@ class GamesViewModel extends ChangeNotifier {
     });
   }
 
-  void _handleEvent(DatabaseEvent event) {
+  void _handleEvent(DatabaseEvent event) async {
     if (_isUpdating) {
       log('GamesViewModel_handleEvent: _isUpdating is true. Returning.');
       return; // Prevent re-entrant updates
@@ -111,7 +111,7 @@ class GamesViewModel extends ChangeNotifier {
       }
 
       // Link games with rounds
-      _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
+      await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
