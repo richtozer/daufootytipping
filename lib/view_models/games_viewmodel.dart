@@ -23,7 +23,7 @@ class GamesViewModel extends ChangeNotifier {
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _gamesStream;
 
-  final Completer<void> _initialLoadCompleter = Completer<void>();
+  Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
   DAUComp selectedDAUComp;
@@ -44,8 +44,15 @@ class GamesViewModel extends ChangeNotifier {
 
   // Initialize the view model
   void _initialize() async {
+    log('GamesViewModel_initialize: Initializing GamesViewModel for DAUComp ${selectedDAUComp.name}');
+    // Reset the completer for each initialization
+    if (_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter = Completer<void>();
+      log('GamesViewModel_initialize: Reset _initialLoadCompleter');
+    }
     // await teams load to complete
     await _teamsViewModel.initialLoadComplete;
+    log('GamesViewModel_initialize: Teams load complete.');
     // Listen to the games in the selected DAUComp
     _listenToGames();
   }
@@ -101,13 +108,15 @@ class GamesViewModel extends ChangeNotifier {
 
         _games = gamesList;
         _games.sort();
-        log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
+        log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}. _initialLoadCompleter.isCompleted: ${_initialLoadCompleter.isCompleted}');
       } else {
-        log('No games found for DAUComp ${selectedDAUComp.name}');
+        _games.clear(); // Ensure games list is empty if no data
+        log('GamesViewModel_handleEvent: No games found for DAUComp ${selectedDAUComp.name}. _games is now empty. _initialLoadCompleter.isCompleted: ${_initialLoadCompleter.isCompleted}');
       }
 
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.complete();
+        log('GamesViewModel_handleEvent: _initialLoadCompleter completed.');
       }
 
       // Link games with rounds

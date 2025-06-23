@@ -50,26 +50,44 @@ class _GameListBuilderState extends State<GameListBuilder> {
                 future: dauCompsViewModelConsumer
                     .gamesViewModel!.initialLoadComplete,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting || dauCompsViewModelConsumer.gamesViewModel == null) {
+                    // Show loading indicator if still waiting for initial load or if gamesViewModel is unexpectedly null
                     return const Center(child: CircularProgressIndicator());
                   }
+
+                  // Ensure gamesViewModel is not null after waiting, though FutureBuilder should handle this.
+                  // This is an extra defensive check.
+                  if (dauCompsViewModelConsumer.gamesViewModel == null) {
+                     return const Center(
+                        child: Text(
+                          'Error: Game data is unavailable. Please try again later.',
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                  }
+
                   // Now it's safe to group games
-                  final allGames = dauCompsViewModelConsumer
-                      .groupGamesIntoLeagues(widget.dauRound);
+                  // Ensure gamesViewModel is ready (though covered by FutureBuilder)
+                  // then group games using the method from dauCompsViewModelConsumer
+                  final allGames = dauCompsViewModelConsumer.groupGamesIntoLeagues(widget.dauRound);
                   final leagueGames = allGames[widget.league];
 
                   if (leagueGames == null || leagueGames.isEmpty) {
                     return SizedBox(
-                      height: 75,
+                      height: 100, // Increased height for better visibility
                       child: Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8.0),
                         ),
-                        color: Colors.white70,
+                        color: Colors.grey[200], // Slightly different color for empty state
                         child: Center(
-                          child: Text(
-                            'No ${widget.league.name.toUpperCase()} games this round',
-                            style: Theme.of(context).textTheme.bodyLarge,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'No ${widget.league.name.toUpperCase()} games scheduled for this round, or data is still loading.',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black54),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
                       ),
