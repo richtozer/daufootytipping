@@ -320,6 +320,9 @@ class GameTipViewModel extends ChangeNotifier {
         .toUtc()
         .toIso8601String(); // Use UTC timestamp as a unique key
 
+    final PackageInfoService packageInfoService = di<PackageInfoService>();
+    final packageInfo = await packageInfoService.packageInfo;
+
     // Log the tip in Firestore
     try {
       await FirebaseFirestore.instance
@@ -345,12 +348,10 @@ class GameTipViewModel extends ChangeNotifier {
         'tipSubmittedUTC': timestamp,
         'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
         'appDetails': {
-          'version': (await di<PackageInfoService>().packageInfo).version,
-          'buildNumber':
-              (await di<PackageInfoService>().packageInfo).buildNumber,
-          'installTimeUTC': (await di<PackageInfoService>().packageInfo)
-              .installTime
-              ?.toIso8601String(),
+          'vversion': packageInfo.version,
+          'buildNumber': packageInfo.buildNumber,
+          'installTime': packageInfo.installTime?.toIso8601String(),
+          'lastUpdateTime': packageInfo.updateTime?.toIso8601String(),
         },
         'platform': {
           'os': UniversalPlatform.operatingSystem,
