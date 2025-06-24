@@ -696,6 +696,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       return;
     }
     _isLinkingGames = true;
+    notifyListeners();
 
     try {
       await initialDAUCompLoadComplete;
