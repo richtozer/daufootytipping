@@ -376,14 +376,14 @@ class StatsViewModel extends ChangeNotifier {
   final Map<Game, GameStatsEntry> gamesStatsEntry = {};
 
   void getGamesStatsEntry(Game game, bool forceUpdate) async {
-    log('StatsViewModel.getGamesStatsEntry() START for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+    //log('StatsViewModel.getGamesStatsEntry() START for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
     // get any existing games stats entry from db first
     gamesStatsEntry[game] = await _getGameStatsEntry(game);
 
     // if its not null and not forcing update then return what we have
     if (gamesStatsEntry[game]?.averageScore != null && !forceUpdate) {
       notifyListeners();
-      log('StatsViewModel.getGamesStatsEntry() END (use cache) for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+      //log('StatsViewModel.getGamesStatsEntry() END (use cache) for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
       return;
     }
 
@@ -399,7 +399,7 @@ class StatsViewModel extends ChangeNotifier {
         game, allTipsViewModel!, selectedDAUComp);
 
     notifyListeners();
-    log('StatsViewModel.getGamesStatsEntry() END for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+    //log('StatsViewModel.getGamesStatsEntry() END for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
   }
 
   Future<void> _updateGameResultPercentageTipped(Game gameToCalculateFor,
