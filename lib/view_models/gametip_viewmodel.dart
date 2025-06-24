@@ -9,6 +9,7 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -344,9 +345,12 @@ class GameTipViewModel extends ChangeNotifier {
         'tipSubmittedUTC': timestamp,
         'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
         'appDetails': {
-          'version': di<PackageInfo>().version,
-          'buildNumber': di<PackageInfo>().buildNumber,
-          'installTimeUTC': di<PackageInfo>().installTime?.toIso8601String(),
+          'version': (await di<PackageInfoService>().packageInfo).version,
+          'buildNumber':
+              (await di<PackageInfoService>().packageInfo).buildNumber,
+          'installTimeUTC': (await di<PackageInfoService>().packageInfo)
+              .installTime
+              ?.toIso8601String(),
         },
         'platform': {
           'os': UniversalPlatform.operatingSystem,
