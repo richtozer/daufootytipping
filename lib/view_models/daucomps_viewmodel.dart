@@ -744,11 +744,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       unassignedGames = localUnassignedGames;
 
       log('Unassigned games count: ${unassignedGames.length}');
-      notifyListeners();
     } catch (e) {
       log('Error in linkGamesWithRounds(): $e');
     } finally {
       _isLinkingGames = false;
+      notifyListeners();
     }
   }
 
