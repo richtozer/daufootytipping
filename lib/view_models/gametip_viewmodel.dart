@@ -16,7 +16,9 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:universal_platform/universal_platform.dart';
 
 // Helper class to structure historical matchup data for the UI
 class HistoricalMatchupUIData {
@@ -340,7 +342,15 @@ class GameTipViewModel extends ChangeNotifier {
             ? tip.tip.afl
             : tip.tip.nrl, // Assuming `tip.tip` contains the actual tip value
         'tipSubmittedUTC': timestamp,
-        'submittedBy': di<TippersViewModel>().authenticatedTipper?.name
+        'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
+        'appDetails': {
+          'version': di<PackageInfo>().version,
+          'buildNumber': di<PackageInfo>().buildNumber,
+          'installTimeUTC': di<PackageInfo>().installTime?.toIso8601String(),
+        },
+        'platform': {
+          'os': UniversalPlatform.operatingSystem,
+        }
       });
 
       log('_addLogOfTipToFirestore() Tip logged in Firestore for tipper: ${tip.tipper.name}, game: ${tip.game.dbkey}, timestamp: $timestamp');

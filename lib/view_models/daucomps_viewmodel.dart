@@ -699,8 +699,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await initialDAUCompLoadComplete;
-
       // Create a local copy of unassignedGames
       List<Game> localUnassignedGames =
           List.from(await gamesViewModel!.getGames());

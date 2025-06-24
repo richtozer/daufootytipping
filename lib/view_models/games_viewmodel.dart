@@ -46,6 +46,8 @@ class GamesViewModel extends ChangeNotifier {
   void _initialize() async {
     // await teams load to complete
     await _teamsViewModel.initialLoadComplete;
+    // await dauComps load to complete
+    await _dauCompsViewModel.initialDAUCompLoadComplete;
     // Listen to the games in the selected DAUComp
     _listenToGames();
   }
@@ -435,7 +437,7 @@ class GamesViewModel extends ChangeNotifier {
 
     List<Game> allMatchupGames = [];
 
-    await _dauCompsViewModel.initialDAUCompLoadComplete;
+    //await _dauCompsViewModel.initialDAUCompLoadComplete;
     List<DAUComp> allDAUComps = _dauCompsViewModel.daucomps;
 
     log('GamesViewModel_getCompleteMatchupHistory: Found ${allDAUComps.length} DAUComps to check.');
