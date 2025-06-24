@@ -8,6 +8,8 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+// ...existing imports...
+
 class GameListBuilder extends StatefulWidget {
   const GameListBuilder({
     super.key,
@@ -43,60 +45,54 @@ class _GameListBuilderState extends State<GameListBuilder> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Use FutureBuilder to wait for initialLoadComplete
-        return FutureBuilder<void>(
-            future:
-                dauCompsViewModelConsumer.gamesViewModel!.initialLoadComplete,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              // Now it's safe to group games
-              final allGames = dauCompsViewModelConsumer
-                  .groupGamesIntoLeagues(widget.dauRound);
-              final leagueGames = allGames[widget.league];
+        if (dauCompsViewModelConsumer.isLinkingGames) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-              if (leagueGames == null || leagueGames.isEmpty) {
-                return SizedBox(
-                  height: 75,
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    color: Colors.white70,
-                    child: Center(
-                      child: Text(
-                        'No ${widget.league.name.toUpperCase()} games this round',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                  ),
-                );
-              }
+        // Now it's safe to group games
+        final allGames =
+            dauCompsViewModelConsumer.groupGamesIntoLeagues(widget.dauRound);
+        final leagueGames = allGames[widget.league];
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(0),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: leagueGames.length,
-                itemBuilder: (context, index) {
-                  var game = leagueGames[index];
-                  if (widget.tipperTipsViewModel == null) {
-                    return Center(
-                        child: CircularProgressIndicator(
-                            color: League.nrl.colour));
-                  }
-                  return GameListItem(
-                    key: ValueKey(game.dbkey),
-                    game: game,
-                    currentTipper: widget.currentTipper,
-                    currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
-                    allTipsViewModel: widget.tipperTipsViewModel!,
-                    isPercentStatsPage: widget.isPercentStatsPage,
-                  );
-                },
-              );
-            });
+        if (leagueGames == null || leagueGames.isEmpty) {
+          return SizedBox(
+            height: 75,
+            child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              color: Colors.white70,
+              child: Center(
+                child: Text(
+                  'No ${widget.league.name.toUpperCase()} games this round',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(0),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: leagueGames.length,
+          itemBuilder: (context, index) {
+            var game = leagueGames[index];
+            if (widget.tipperTipsViewModel == null) {
+              return Center(
+                  child: CircularProgressIndicator(color: League.nrl.colour));
+            }
+            return GameListItem(
+              key: ValueKey(game.dbkey),
+              game: game,
+              currentTipper: widget.currentTipper,
+              currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
+              allTipsViewModel: widget.tipperTipsViewModel!,
+              isPercentStatsPage: widget.isPercentStatsPage,
+            );
+          },
+        );
       },
     );
   }

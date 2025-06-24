@@ -682,6 +682,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   bool _isLinkingGames = false;
+  bool get isLinkingGames => _isLinkingGames;
 
   Future<void> linkGamesWithRounds(List<DAURound> allRounds) async {
     log('In daucompsviewmodel.linkGamesWithRounds()');

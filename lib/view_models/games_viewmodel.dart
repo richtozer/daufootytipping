@@ -99,8 +99,8 @@ class GamesViewModel extends ChangeNotifier {
           return game;
         }).toList();
 
+        gamesList.sort();
         _games = gamesList;
-        _games.sort();
         log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
