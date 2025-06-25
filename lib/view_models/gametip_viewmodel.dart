@@ -17,7 +17,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:universal_platform/universal_platform.dart';
 
