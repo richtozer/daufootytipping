@@ -286,6 +286,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           // if the selected comp is updated, then we need to update the gamesViewModel
           if (existingDAUComp.dbkey == _selectedDAUComp?.dbkey) {
             _selectedDAUComp = databaseDAUComp;
+            linkGamesWithRounds(_selectedDAUComp!.daurounds);
           }
         }
       } else {
