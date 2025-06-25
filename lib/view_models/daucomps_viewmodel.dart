@@ -808,7 +808,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     List<Game> allGamesInRound = combinedRound.games;
     for (var game in allGamesInRound) {
-      log('groupGamesIntoLeagues: Processing game ${game.dbkey}, league: ${game.league}');
       if (game.league == League.nrl) {
         nrlGames.add(game);
       } else {
