@@ -224,7 +224,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     try {
       log('DAUCompsViewModel_handleEvent()');
       if (event.snapshot.exists) {
-        _processSnapshot(event.snapshot);
+        await _processSnapshot(event.snapshot);
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
@@ -241,7 +241,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  void _processSnapshot(DataSnapshot snapshot) {
+  Future<void> _processSnapshot(DataSnapshot snapshot) async {
     final databaseDAUComps =
         Map<String, dynamic>.from(snapshot.value as dynamic);
     Map<String, DAUComp> existingDAUCompsMap = {
@@ -286,7 +286,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           // if the selected comp is updated, then we need to update the gamesViewModel
           if (existingDAUComp.dbkey == _selectedDAUComp?.dbkey) {
             _selectedDAUComp = databaseDAUComp;
-            linkGamesWithRounds(_selectedDAUComp!.daurounds);
+            await linkGamesWithRounds(_selectedDAUComp!.daurounds);
           }
         }
       } else {
