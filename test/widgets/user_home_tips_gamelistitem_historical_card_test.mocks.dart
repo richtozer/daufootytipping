@@ -3,32 +3,33 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i14;
-import 'dart:ui' as _i16;
+import 'dart:async' as _i16;
+import 'dart:ui' as _i18;
 
-import 'package:daufootytipping/models/daucomp.dart' as _i6;
-import 'package:daufootytipping/models/dauround.dart' as _i19;
+import 'package:carousel_slider/carousel_controller.dart' as _i5;
+import 'package:daufootytipping/models/daucomp.dart' as _i7;
+import 'package:daufootytipping/models/dauround.dart' as _i21;
 import 'package:daufootytipping/models/game.dart' as _i4;
-import 'package:daufootytipping/models/league.dart' as _i17;
-import 'package:daufootytipping/models/league_ladder.dart' as _i23;
-import 'package:daufootytipping/models/scoring.dart' as _i18;
-import 'package:daufootytipping/models/scoring_gamestats.dart' as _i9;
-import 'package:daufootytipping/models/team.dart' as _i5;
-import 'package:daufootytipping/models/team_game_history_item.dart' as _i24;
-import 'package:daufootytipping/models/tip.dart' as _i15;
+import 'package:daufootytipping/models/league.dart' as _i19;
+import 'package:daufootytipping/models/league_ladder.dart' as _i25;
+import 'package:daufootytipping/models/scoring.dart' as _i20;
+import 'package:daufootytipping/models/scoring_gamestats.dart' as _i10;
+import 'package:daufootytipping/models/team.dart' as _i6;
+import 'package:daufootytipping/models/team_game_history_item.dart' as _i26;
+import 'package:daufootytipping/models/tip.dart' as _i17;
 import 'package:daufootytipping/models/tipper.dart' as _i3;
-import 'package:daufootytipping/models/tipperrole.dart' as _i20;
-import 'package:daufootytipping/view_models/daucomps_viewmodel.dart' as _i21;
-import 'package:daufootytipping/view_models/games_viewmodel.dart' as _i8;
-import 'package:daufootytipping/view_models/gametip_viewmodel.dart' as _i12;
-import 'package:daufootytipping/view_models/stats_viewmodel.dart' as _i22;
-import 'package:daufootytipping/view_models/teams_viewmodel.dart' as _i25;
-import 'package:daufootytipping/view_models/tippers_viewmodel.dart' as _i7;
+import 'package:daufootytipping/models/tipperrole.dart' as _i22;
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart' as _i23;
+import 'package:daufootytipping/view_models/games_viewmodel.dart' as _i9;
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart' as _i14;
+import 'package:daufootytipping/view_models/stats_viewmodel.dart' as _i24;
+import 'package:daufootytipping/view_models/teams_viewmodel.dart' as _i13;
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart' as _i8;
 import 'package:daufootytipping/view_models/tips_viewmodel.dart' as _i2;
-import 'package:flutter/material.dart' as _i11;
-import 'package:flutter_svg/flutter_svg.dart' as _i10;
+import 'package:flutter/material.dart' as _i12;
+import 'package:flutter_svg/flutter_svg.dart' as _i11;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i13;
+import 'package:mockito/src/dummies.dart' as _i15;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -74,8 +75,9 @@ class _FakeGame_2 extends _i1.SmartFake implements _i4.Game {
         );
 }
 
-class _FakeTeam_3 extends _i1.SmartFake implements _i5.Team {
-  _FakeTeam_3(
+class _FakeCarouselSliderController_3 extends _i1.SmartFake
+    implements _i5.CarouselSliderController {
+  _FakeCarouselSliderController_3(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -84,8 +86,8 @@ class _FakeTeam_3 extends _i1.SmartFake implements _i5.Team {
         );
 }
 
-class _FakeDateTime_4 extends _i1.SmartFake implements DateTime {
-  _FakeDateTime_4(
+class _FakeTeam_4 extends _i1.SmartFake implements _i6.Team {
+  _FakeTeam_4(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -94,8 +96,8 @@ class _FakeDateTime_4 extends _i1.SmartFake implements DateTime {
         );
 }
 
-class _FakeUri_5 extends _i1.SmartFake implements Uri {
-  _FakeUri_5(
+class _FakeDateTime_5 extends _i1.SmartFake implements DateTime {
+  _FakeDateTime_5(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -104,8 +106,8 @@ class _FakeUri_5 extends _i1.SmartFake implements Uri {
         );
 }
 
-class _FakeDAUComp_6 extends _i1.SmartFake implements _i6.DAUComp {
-  _FakeDAUComp_6(
+class _FakeUri_6 extends _i1.SmartFake implements Uri {
+  _FakeUri_6(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -114,9 +116,8 @@ class _FakeDAUComp_6 extends _i1.SmartFake implements _i6.DAUComp {
         );
 }
 
-class _FakeTippersViewModel_7 extends _i1.SmartFake
-    implements _i7.TippersViewModel {
-  _FakeTippersViewModel_7(
+class _FakeDAUComp_7 extends _i1.SmartFake implements _i7.DAUComp {
+  _FakeDAUComp_7(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -125,9 +126,9 @@ class _FakeTippersViewModel_7 extends _i1.SmartFake
         );
 }
 
-class _FakeGamesViewModel_8 extends _i1.SmartFake
-    implements _i8.GamesViewModel {
-  _FakeGamesViewModel_8(
+class _FakeTippersViewModel_8 extends _i1.SmartFake
+    implements _i8.TippersViewModel {
+  _FakeTippersViewModel_8(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -136,9 +137,9 @@ class _FakeGamesViewModel_8 extends _i1.SmartFake
         );
 }
 
-class _FakeGameStatsEntry_9 extends _i1.SmartFake
-    implements _i9.GameStatsEntry {
-  _FakeGameStatsEntry_9(
+class _FakeGamesViewModel_9 extends _i1.SmartFake
+    implements _i9.GamesViewModel {
+  _FakeGamesViewModel_9(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -147,8 +148,19 @@ class _FakeGameStatsEntry_9 extends _i1.SmartFake
         );
 }
 
-class _FakeSvgPicture_10 extends _i1.SmartFake implements _i10.SvgPicture {
-  _FakeSvgPicture_10(
+class _FakeGameStatsEntry_10 extends _i1.SmartFake
+    implements _i10.GameStatsEntry {
+  _FakeGameStatsEntry_10(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeSvgPicture_11 extends _i1.SmartFake implements _i11.SvgPicture {
+  _FakeSvgPicture_11(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -158,12 +170,23 @@ class _FakeSvgPicture_10 extends _i1.SmartFake implements _i10.SvgPicture {
 
   @override
   String toString(
-          {_i11.DiagnosticLevel? minLevel = _i11.DiagnosticLevel.info}) =>
+          {_i12.DiagnosticLevel? minLevel = _i12.DiagnosticLevel.info}) =>
       super.toString();
 }
 
-class _FakeDuration_11 extends _i1.SmartFake implements Duration {
-  _FakeDuration_11(
+class _FakeDuration_12 extends _i1.SmartFake implements Duration {
+  _FakeDuration_12(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeTeamsViewModel_13 extends _i1.SmartFake
+    implements _i13.TeamsViewModel {
+  _FakeTeamsViewModel_13(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -175,7 +198,7 @@ class _FakeDuration_11 extends _i1.SmartFake implements Duration {
 /// A class which mocks [GameTipViewModel].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
+class MockGameTipViewModel extends _i1.Mock implements _i14.GameTipViewModel {
   MockGameTipViewModel() {
     _i1.throwOnMissingStub(this);
   }
@@ -234,7 +257,7 @@ class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
   @override
   String get historicalInsightsString => (super.noSuchMethod(
         Invocation.getter(#historicalInsightsString),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#historicalInsightsString),
         ),
@@ -253,10 +276,19 @@ class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
       ) as bool);
 
   @override
-  _i14.Future<bool> get initialLoadCompleted => (super.noSuchMethod(
+  _i16.Future<bool> get initialLoadCompleted => (super.noSuchMethod(
         Invocation.getter(#initialLoadCompleted),
-        returnValue: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i16.Future<bool>.value(false),
+      ) as _i16.Future<bool>);
+
+  @override
+  _i5.CarouselSliderController get controller => (super.noSuchMethod(
+        Invocation.getter(#controller),
+        returnValue: _FakeCarouselSliderController_3(
+          this,
+          Invocation.getter(#controller),
+        ),
+      ) as _i5.CarouselSliderController);
 
   @override
   set allTipsViewModel(_i2.TipsViewModel? _allTipsViewModel) =>
@@ -353,26 +385,26 @@ class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
       ) as bool);
 
   @override
-  _i14.Future<void> testHookFetchHistoricalTipStats() => (super.noSuchMethod(
+  _i16.Future<void> testHookFetchHistoricalTipStats() => (super.noSuchMethod(
         Invocation.method(
           #testHookFetchHistoricalTipStats,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<_i15.Tip?> gettip() => (super.noSuchMethod(
+  _i16.Future<_i17.Tip?> gettip() => (super.noSuchMethod(
         Invocation.method(
           #gettip,
           [],
         ),
-        returnValue: _i14.Future<_i15.Tip?>.value(),
-      ) as _i14.Future<_i15.Tip?>);
+        returnValue: _i16.Future<_i17.Tip?>.value(),
+      ) as _i16.Future<_i17.Tip?>);
 
   @override
-  void addTip(_i15.Tip? tip) => super.noSuchMethod(
+  void addTip(_i17.Tip? tip) => super.noSuchMethod(
         Invocation.method(
           #addTip,
           [tip],
@@ -390,18 +422,18 @@ class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
       );
 
   @override
-  _i14.Future<List<_i12.HistoricalMatchupUIData>>
+  _i16.Future<List<_i14.HistoricalMatchupUIData>>
       getFormattedHistoricalMatchups() => (super.noSuchMethod(
             Invocation.method(
               #getFormattedHistoricalMatchups,
               [],
             ),
-            returnValue: _i14.Future<List<_i12.HistoricalMatchupUIData>>.value(
-                <_i12.HistoricalMatchupUIData>[]),
-          ) as _i14.Future<List<_i12.HistoricalMatchupUIData>>);
+            returnValue: _i16.Future<List<_i14.HistoricalMatchupUIData>>.value(
+                <_i14.HistoricalMatchupUIData>[]),
+          ) as _i16.Future<List<_i14.HistoricalMatchupUIData>>);
 
   @override
-  void addListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void addListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #addListener,
           [listener],
@@ -410,7 +442,7 @@ class MockGameTipViewModel extends _i1.Mock implements _i12.GameTipViewModel {
       );
 
   @override
-  void removeListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #removeListener,
           [listener],
@@ -439,40 +471,40 @@ class MockGame extends _i1.Mock implements _i4.Game {
   @override
   String get dbkey => (super.noSuchMethod(
         Invocation.getter(#dbkey),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#dbkey),
         ),
       ) as String);
 
   @override
-  _i17.League get league => (super.noSuchMethod(
+  _i19.League get league => (super.noSuchMethod(
         Invocation.getter(#league),
-        returnValue: _i17.League.nrl,
-      ) as _i17.League);
+        returnValue: _i19.League.nrl,
+      ) as _i19.League);
 
   @override
-  _i5.Team get homeTeam => (super.noSuchMethod(
+  _i6.Team get homeTeam => (super.noSuchMethod(
         Invocation.getter(#homeTeam),
-        returnValue: _FakeTeam_3(
+        returnValue: _FakeTeam_4(
           this,
           Invocation.getter(#homeTeam),
         ),
-      ) as _i5.Team);
+      ) as _i6.Team);
 
   @override
-  _i5.Team get awayTeam => (super.noSuchMethod(
+  _i6.Team get awayTeam => (super.noSuchMethod(
         Invocation.getter(#awayTeam),
-        returnValue: _FakeTeam_3(
+        returnValue: _FakeTeam_4(
           this,
           Invocation.getter(#awayTeam),
         ),
-      ) as _i5.Team);
+      ) as _i6.Team);
 
   @override
   String get location => (super.noSuchMethod(
         Invocation.getter(#location),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#location),
         ),
@@ -481,7 +513,7 @@ class MockGame extends _i1.Mock implements _i4.Game {
   @override
   DateTime get startTimeUTC => (super.noSuchMethod(
         Invocation.getter(#startTimeUTC),
-        returnValue: _FakeDateTime_4(
+        returnValue: _FakeDateTime_5(
           this,
           Invocation.getter(#startTimeUTC),
         ),
@@ -506,7 +538,7 @@ class MockGame extends _i1.Mock implements _i4.Game {
       ) as _i4.GameState);
 
   @override
-  set homeTeam(_i5.Team? _homeTeam) => super.noSuchMethod(
+  set homeTeam(_i6.Team? _homeTeam) => super.noSuchMethod(
         Invocation.setter(
           #homeTeam,
           _homeTeam,
@@ -515,7 +547,7 @@ class MockGame extends _i1.Mock implements _i4.Game {
       );
 
   @override
-  set awayTeam(_i5.Team? _awayTeam) => super.noSuchMethod(
+  set awayTeam(_i6.Team? _awayTeam) => super.noSuchMethod(
         Invocation.setter(
           #awayTeam,
           _awayTeam,
@@ -524,7 +556,7 @@ class MockGame extends _i1.Mock implements _i4.Game {
       );
 
   @override
-  set scoring(_i18.Scoring? _scoring) => super.noSuchMethod(
+  set scoring(_i20.Scoring? _scoring) => super.noSuchMethod(
         Invocation.setter(
           #scoring,
           _scoring,
@@ -533,7 +565,7 @@ class MockGame extends _i1.Mock implements _i4.Game {
       );
 
   @override
-  set gameStats(_i9.GameStatsEntry? _gameStats) => super.noSuchMethod(
+  set gameStats(_i10.GameStatsEntry? _gameStats) => super.noSuchMethod(
         Invocation.setter(
           #gameStats,
           _gameStats,
@@ -542,14 +574,14 @@ class MockGame extends _i1.Mock implements _i4.Game {
       );
 
   @override
-  _i19.DAURound? getDAURound(_i6.DAUComp? daucomp) =>
+  _i21.DAURound? getDAURound(_i7.DAUComp? daucomp) =>
       (super.noSuchMethod(Invocation.method(
         #getDAURound,
         [daucomp],
-      )) as _i19.DAURound?);
+      )) as _i21.DAURound?);
 
   @override
-  bool isGameInRound(_i19.DAURound? round) => (super.noSuchMethod(
+  bool isGameInRound(_i21.DAURound? round) => (super.noSuchMethod(
         Invocation.method(
           #isGameInRound,
           [round],
@@ -558,7 +590,8 @@ class MockGame extends _i1.Mock implements _i4.Game {
       ) as bool);
 
   @override
-  double getGameResultPercentage(dynamic gameResult) => (super.noSuchMethod(
+  double getGameResultPercentage(_i20.GameResult? gameResult) =>
+      (super.noSuchMethod(
         Invocation.method(
           #getGameResultPercentage,
           [gameResult],
@@ -596,7 +629,7 @@ class MockTipper extends _i1.Mock implements _i3.Tipper {
   @override
   String get authuid => (super.noSuchMethod(
         Invocation.getter(#authuid),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#authuid),
         ),
@@ -605,23 +638,29 @@ class MockTipper extends _i1.Mock implements _i3.Tipper {
   @override
   String get name => (super.noSuchMethod(
         Invocation.getter(#name),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#name),
         ),
       ) as String);
 
   @override
-  _i20.TipperRole get tipperRole => (super.noSuchMethod(
+  _i22.TipperRole get tipperRole => (super.noSuchMethod(
         Invocation.getter(#tipperRole),
-        returnValue: _i20.TipperRole.admin,
-      ) as _i20.TipperRole);
+        returnValue: _i22.TipperRole.admin,
+      ) as _i22.TipperRole);
 
   @override
-  List<_i6.DAUComp> get compsPaidFor => (super.noSuchMethod(
+  List<_i7.DAUComp> get compsPaidFor => (super.noSuchMethod(
         Invocation.getter(#compsPaidFor),
-        returnValue: <_i6.DAUComp>[],
-      ) as List<_i6.DAUComp>);
+        returnValue: <_i7.DAUComp>[],
+      ) as List<_i7.DAUComp>);
+
+  @override
+  bool get isAnonymous => (super.noSuchMethod(
+        Invocation.getter(#isAnonymous),
+        returnValue: false,
+      ) as bool);
 
   @override
   set dbkey(String? _dbkey) => super.noSuchMethod(
@@ -678,7 +717,7 @@ class MockTipper extends _i1.Mock implements _i3.Tipper {
       );
 
   @override
-  set compsPaidFor(List<_i6.DAUComp>? _compsPaidFor) => super.noSuchMethod(
+  set compsPaidFor(List<_i7.DAUComp>? _compsPaidFor) => super.noSuchMethod(
         Invocation.setter(
           #compsPaidFor,
           _compsPaidFor,
@@ -687,7 +726,7 @@ class MockTipper extends _i1.Mock implements _i3.Tipper {
       );
 
   @override
-  bool paidForComp(_i6.DAUComp? checkThisComp) => (super.noSuchMethod(
+  bool paidForComp(_i7.DAUComp? checkThisComp) => (super.noSuchMethod(
         Invocation.method(
           #paidForComp,
           [checkThisComp],
@@ -717,7 +756,7 @@ class MockTipper extends _i1.Mock implements _i3.Tipper {
 /// A class which mocks [DAUComp].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDAUComp extends _i1.Mock implements _i6.DAUComp {
+class MockDAUComp extends _i1.Mock implements _i7.DAUComp {
   MockDAUComp() {
     _i1.throwOnMissingStub(this);
   }
@@ -725,7 +764,7 @@ class MockDAUComp extends _i1.Mock implements _i6.DAUComp {
   @override
   String get name => (super.noSuchMethod(
         Invocation.getter(#name),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#name),
         ),
@@ -734,7 +773,7 @@ class MockDAUComp extends _i1.Mock implements _i6.DAUComp {
   @override
   Uri get aflFixtureJsonURL => (super.noSuchMethod(
         Invocation.getter(#aflFixtureJsonURL),
-        returnValue: _FakeUri_5(
+        returnValue: _FakeUri_6(
           this,
           Invocation.getter(#aflFixtureJsonURL),
         ),
@@ -743,17 +782,17 @@ class MockDAUComp extends _i1.Mock implements _i6.DAUComp {
   @override
   Uri get nrlFixtureJsonURL => (super.noSuchMethod(
         Invocation.getter(#nrlFixtureJsonURL),
-        returnValue: _FakeUri_5(
+        returnValue: _FakeUri_6(
           this,
           Invocation.getter(#nrlFixtureJsonURL),
         ),
       ) as Uri);
 
   @override
-  List<_i19.DAURound> get daurounds => (super.noSuchMethod(
+  List<_i21.DAURound> get daurounds => (super.noSuchMethod(
         Invocation.getter(#daurounds),
-        returnValue: <_i19.DAURound>[],
-      ) as List<_i19.DAURound>);
+        returnValue: <_i21.DAURound>[],
+      ) as List<_i21.DAURound>);
 
   @override
   set dbkey(String? _dbkey) => super.noSuchMethod(
@@ -765,7 +804,7 @@ class MockDAUComp extends _i1.Mock implements _i6.DAUComp {
       );
 
   @override
-  set daurounds(List<_i19.DAURound>? _daurounds) => super.noSuchMethod(
+  set daurounds(List<_i21.DAURound>? _daurounds) => super.noSuchMethod(
         Invocation.setter(
           #daurounds,
           _daurounds,
@@ -831,7 +870,7 @@ class MockDAUComp extends _i1.Mock implements _i6.DAUComp {
       ) as int);
 
   @override
-  int compareTo(_i6.DAUComp? other) => (super.noSuchMethod(
+  int compareTo(_i7.DAUComp? other) => (super.noSuchMethod(
         Invocation.method(
           #compareTo,
           [other],
@@ -849,40 +888,40 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
   }
 
   @override
-  _i6.DAUComp get selectedDAUComp => (super.noSuchMethod(
+  _i7.DAUComp get selectedDAUComp => (super.noSuchMethod(
         Invocation.getter(#selectedDAUComp),
-        returnValue: _FakeDAUComp_6(
+        returnValue: _FakeDAUComp_7(
           this,
           Invocation.getter(#selectedDAUComp),
         ),
-      ) as _i6.DAUComp);
+      ) as _i7.DAUComp);
 
   @override
-  _i7.TippersViewModel get tipperViewModel => (super.noSuchMethod(
+  _i8.TippersViewModel get tipperViewModel => (super.noSuchMethod(
         Invocation.getter(#tipperViewModel),
-        returnValue: _FakeTippersViewModel_7(
+        returnValue: _FakeTippersViewModel_8(
           this,
           Invocation.getter(#tipperViewModel),
         ),
-      ) as _i7.TippersViewModel);
+      ) as _i8.TippersViewModel);
 
   @override
-  _i14.Future<void> get initialLoadCompleted => (super.noSuchMethod(
+  _i16.Future<void> get initialLoadCompleted => (super.noSuchMethod(
         Invocation.getter(#initialLoadCompleted),
-        returnValue: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i8.GamesViewModel get gamesViewModel => (super.noSuchMethod(
+  _i9.GamesViewModel get gamesViewModel => (super.noSuchMethod(
         Invocation.getter(#gamesViewModel),
-        returnValue: _FakeGamesViewModel_8(
+        returnValue: _FakeGamesViewModel_9(
           this,
           Invocation.getter(#gamesViewModel),
         ),
-      ) as _i8.GamesViewModel);
+      ) as _i9.GamesViewModel);
 
   @override
-  set tipperViewModel(_i7.TippersViewModel? _tipperViewModel) =>
+  set tipperViewModel(_i8.TippersViewModel? _tipperViewModel) =>
       super.noSuchMethod(
         Invocation.setter(
           #tipperViewModel,
@@ -898,7 +937,7 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
       ) as bool);
 
   @override
-  _i14.Future<_i15.Tip?> findTip(
+  _i16.Future<_i17.Tip?> findTip(
     _i4.Game? game,
     _i3.Tipper? tipper,
   ) =>
@@ -910,32 +949,32 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
             tipper,
           ],
         ),
-        returnValue: _i14.Future<_i15.Tip?>.value(),
-      ) as _i14.Future<_i15.Tip?>);
+        returnValue: _i16.Future<_i17.Tip?>.value(),
+      ) as _i16.Future<_i17.Tip?>);
 
   @override
-  _i14.Future<void> deleteTip(_i15.Tip? tip) => (super.noSuchMethod(
+  _i16.Future<void> deleteTip(_i17.Tip? tip) => (super.noSuchMethod(
         Invocation.method(
           #deleteTip,
           [tip],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<bool> hasSubmittedTips(_i3.Tipper? tipper) => (super.noSuchMethod(
+  _i16.Future<bool> hasSubmittedTips(_i3.Tipper? tipper) => (super.noSuchMethod(
         Invocation.method(
           #hasSubmittedTips,
           [tipper],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i16.Future<bool>.value(false),
+      ) as _i16.Future<bool>);
 
   @override
   int numberOfOutstandingTipsForRoundAndLeague(
-    _i19.DAURound? round,
-    _i17.League? league,
+    _i21.DAURound? round,
+    _i19.League? league,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -950,8 +989,8 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
 
   @override
   int numberOfMarginTipsSubmittedForRoundAndLeague(
-    _i19.DAURound? round,
-    _i17.League? league,
+    _i21.DAURound? round,
+    _i19.League? league,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -965,41 +1004,40 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
       ) as int);
 
   @override
-  _i14.Future<_i9.GameStatsEntry> percentageOfTippersTipped(_i4.Game? game) =>
+  _i16.Future<_i10.GameStatsEntry> percentageOfTippersTipped(_i4.Game? game) =>
       (super.noSuchMethod(
         Invocation.method(
           #percentageOfTippersTipped,
           [game],
         ),
         returnValue:
-            _i14.Future<_i9.GameStatsEntry>.value(_FakeGameStatsEntry_9(
+            _i16.Future<_i10.GameStatsEntry>.value(_FakeGameStatsEntry_10(
           this,
           Invocation.method(
             #percentageOfTippersTipped,
             [game],
           ),
         )),
-      ) as _i14.Future<_i9.GameStatsEntry>);
+      ) as _i16.Future<_i10.GameStatsEntry>);
 
   @override
-  List<_i15.Tip?> getTipsForTipper(_i3.Tipper? tipper) => (super.noSuchMethod(
+  List<_i17.Tip?> getTipsForTipper(_i3.Tipper? tipper) => (super.noSuchMethod(
         Invocation.method(
           #getTipsForTipper,
           [tipper],
         ),
-        returnValue: <_i15.Tip?>[],
-      ) as List<_i15.Tip?>);
+        returnValue: <_i17.Tip?>[],
+      ) as List<_i17.Tip?>);
 
   @override
-  @override
-  _i14.Future<void> updateTip(_i15.Tip tip) => (super.noSuchMethod(
+  _i16.Future<void> updateTip(_i17.Tip? tip) => (super.noSuchMethod(
         Invocation.method(
           #updateTip,
           [tip],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
   void dispose() => super.noSuchMethod(
@@ -1011,19 +1049,18 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
       );
 
   @override
-  @override
-  _i14.Future<void> deleteAllTipsForTipper(_i3.Tipper originalTipper) =>
+  _i16.Future<void> deleteAllTipsForTipper(_i3.Tipper? originalTipper) =>
       (super.noSuchMethod(
         Invocation.method(
           #deleteAllTipsForTipper,
           [originalTipper],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  void addListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void addListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #addListener,
           [listener],
@@ -1032,7 +1069,7 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
       );
 
   @override
-  void removeListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #removeListener,
           [listener],
@@ -1053,7 +1090,7 @@ class MockTipsViewModel extends _i1.Mock implements _i2.TipsViewModel {
 /// A class which mocks [Team].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockTeam extends _i1.Mock implements _i5.Team {
+class MockTeam extends _i1.Mock implements _i6.Team {
   MockTeam() {
     _i1.throwOnMissingStub(this);
   }
@@ -1061,7 +1098,7 @@ class MockTeam extends _i1.Mock implements _i5.Team {
   @override
   String get dbkey => (super.noSuchMethod(
         Invocation.getter(#dbkey),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#dbkey),
         ),
@@ -1070,17 +1107,17 @@ class MockTeam extends _i1.Mock implements _i5.Team {
   @override
   String get name => (super.noSuchMethod(
         Invocation.getter(#name),
-        returnValue: _i13.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#name),
         ),
       ) as String);
 
   @override
-  _i17.League get league => (super.noSuchMethod(
+  _i19.League get league => (super.noSuchMethod(
         Invocation.getter(#league),
-        returnValue: _i17.League.nrl,
-      ) as _i17.League);
+        returnValue: _i19.League.nrl,
+      ) as _i19.League);
 
   @override
   set dbkey(String? _dbkey) => super.noSuchMethod(
@@ -1101,37 +1138,46 @@ class MockTeam extends _i1.Mock implements _i5.Team {
       );
 
   @override
-  _i10.SvgPicture getHomeTeamLogo(_i4.Game? game) => (super.noSuchMethod(
+  Map<String, String?> toJson() => (super.noSuchMethod(
+        Invocation.method(
+          #toJson,
+          [],
+        ),
+        returnValue: <String, String?>{},
+      ) as Map<String, String?>);
+
+  @override
+  _i11.SvgPicture getHomeTeamLogo(_i4.Game? game) => (super.noSuchMethod(
         Invocation.method(
           #getHomeTeamLogo,
           [game],
         ),
-        returnValue: _FakeSvgPicture_10(
+        returnValue: _FakeSvgPicture_11(
           this,
           Invocation.method(
             #getHomeTeamLogo,
             [game],
           ),
         ),
-      ) as _i10.SvgPicture);
+      ) as _i11.SvgPicture);
 
   @override
-  _i10.SvgPicture getAwayTeamLogo(_i4.Game? game) => (super.noSuchMethod(
+  _i11.SvgPicture getAwayTeamLogo(_i4.Game? game) => (super.noSuchMethod(
         Invocation.method(
           #getAwayTeamLogo,
           [game],
         ),
-        returnValue: _FakeSvgPicture_10(
+        returnValue: _FakeSvgPicture_11(
           this,
           Invocation.method(
             #getAwayTeamLogo,
             [game],
           ),
         ),
-      ) as _i10.SvgPicture);
+      ) as _i11.SvgPicture);
 
   @override
-  int compareTo(_i5.Team? other) => (super.noSuchMethod(
+  int compareTo(_i6.Team? other) => (super.noSuchMethod(
         Invocation.method(
           #compareTo,
           [other],
@@ -1143,7 +1189,7 @@ class MockTeam extends _i1.Mock implements _i5.Team {
 /// A class which mocks [DAUCompsViewModel].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
+class MockDAUCompsViewModel extends _i1.Mock implements _i23.DAUCompsViewModel {
   MockDAUCompsViewModel() {
     _i1.throwOnMissingStub(this);
   }
@@ -1151,7 +1197,7 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
   @override
   Duration get fixtureUpdateTimerDuration => (super.noSuchMethod(
         Invocation.getter(#fixtureUpdateTimerDuration),
-        returnValue: _FakeDuration_11(
+        returnValue: _FakeDuration_12(
           this,
           Invocation.getter(#fixtureUpdateTimerDuration),
         ),
@@ -1170,22 +1216,28 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       ) as List<_i4.Game>);
 
   @override
+  List<_i7.DAUComp> get daucomps => (super.noSuchMethod(
+        Invocation.getter(#daucomps),
+        returnValue: <_i7.DAUComp>[],
+      ) as List<_i7.DAUComp>);
+
+  @override
   bool get savingDAUComp => (super.noSuchMethod(
         Invocation.getter(#savingDAUComp),
         returnValue: false,
       ) as bool);
 
   @override
-  _i14.Future<void> get initialDAUCompLoadComplete => (super.noSuchMethod(
+  _i16.Future<void> get initialDAUCompLoadComplete => (super.noSuchMethod(
         Invocation.getter(#initialDAUCompLoadComplete),
-        returnValue: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<void> get otherViewModelsLoadComplete => (super.noSuchMethod(
+  _i16.Future<void> get otherViewModelsLoadComplete => (super.noSuchMethod(
         Invocation.getter(#otherViewModelsLoadComplete),
-        returnValue: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
   bool get isDownloading => (super.noSuchMethod(
@@ -1206,7 +1258,13 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       ) as bool);
 
   @override
-  set gamesViewModel(_i8.GamesViewModel? _gamesViewModel) => super.noSuchMethod(
+  bool get isLinkingGames => (super.noSuchMethod(
+        Invocation.getter(#isLinkingGames),
+        returnValue: false,
+      ) as bool);
+
+  @override
+  set gamesViewModel(_i9.GamesViewModel? _gamesViewModel) => super.noSuchMethod(
         Invocation.setter(
           #gamesViewModel,
           _gamesViewModel,
@@ -1215,7 +1273,7 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       );
 
   @override
-  set statsViewModel(_i22.StatsViewModel? _statsViewModel) =>
+  set statsViewModel(_i24.StatsViewModel? _statsViewModel) =>
       super.noSuchMethod(
         Invocation.setter(
           #statsViewModel,
@@ -1260,8 +1318,8 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       );
 
   @override
-  _i14.Future<void> changeDisplayedDAUComp(
-    _i6.DAUComp? changeToDAUComp,
+  _i16.Future<void> changeDisplayedDAUComp(
+    _i7.DAUComp? changeToDAUComp,
     bool? changingActiveComp,
   ) =>
       (super.noSuchMethod(
@@ -1272,19 +1330,19 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
             changingActiveComp,
           ],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<void> selectedTipperChanged() => (super.noSuchMethod(
+  _i16.Future<void> selectedTipperChanged() => (super.noSuchMethod(
         Invocation.method(
           #selectedTipperChanged,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
   bool isSelectedCompActiveComp() => (super.noSuchMethod(
@@ -1296,40 +1354,40 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       ) as bool);
 
   @override
-  _i14.Future<String> getNetworkFixtureData(_i6.DAUComp? daucompToUpdate) =>
+  _i16.Future<String> getNetworkFixtureData(_i7.DAUComp? daucompToUpdate) =>
       (super.noSuchMethod(
         Invocation.method(
           #getNetworkFixtureData,
           [daucompToUpdate],
         ),
-        returnValue: _i14.Future<String>.value(_i13.dummyValue<String>(
+        returnValue: _i16.Future<String>.value(_i15.dummyValue<String>(
           this,
           Invocation.method(
             #getNetworkFixtureData,
             [daucompToUpdate],
           ),
         )),
-      ) as _i14.Future<String>);
+      ) as _i16.Future<String>);
 
   @override
-  _i14.Future<void> linkGamesWithRounds(List<_i19.DAURound>? allRounds) =>
+  _i16.Future<void> linkGamesWithRounds(List<_i21.DAURound>? allRounds) =>
       (super.noSuchMethod(
         Invocation.method(
           #linkGamesWithRounds,
           [allRounds],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<_i6.DAUComp?> findComp(String? compDbKey) => (super.noSuchMethod(
+  _i16.Future<_i7.DAUComp?> findComp(String? compDbKey) => (super.noSuchMethod(
         Invocation.method(
           #findComp,
           [compDbKey],
         ),
-        returnValue: _i14.Future<_i6.DAUComp?>.value(),
-      ) as _i14.Future<_i6.DAUComp?>);
+        returnValue: _i16.Future<_i7.DAUComp?>.value(),
+      ) as _i16.Future<_i7.DAUComp?>);
 
   @override
   void updateRoundAttribute(
@@ -1370,44 +1428,44 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       );
 
   @override
-  _i14.Future<void> newDAUComp(_i6.DAUComp? newDAUComp) => (super.noSuchMethod(
+  _i16.Future<void> newDAUComp(_i7.DAUComp? newDAUComp) => (super.noSuchMethod(
         Invocation.method(
           #newDAUComp,
           [newDAUComp],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<void> saveBatchOfCompAttributes() => (super.noSuchMethod(
+  _i16.Future<void> saveBatchOfCompAttributes() => (super.noSuchMethod(
         Invocation.method(
           #saveBatchOfCompAttributes,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<List<_i6.DAUComp>> getDAUcomps() => (super.noSuchMethod(
+  _i16.Future<List<_i7.DAUComp>> getDAUcomps() => (super.noSuchMethod(
         Invocation.method(
           #getDAUcomps,
           [],
         ),
-        returnValue: _i14.Future<List<_i6.DAUComp>>.value(<_i6.DAUComp>[]),
-      ) as _i14.Future<List<_i6.DAUComp>>);
+        returnValue: _i16.Future<List<_i7.DAUComp>>.value(<_i7.DAUComp>[]),
+      ) as _i16.Future<List<_i7.DAUComp>>);
 
   @override
-  Map<_i17.League, List<_i4.Game>> groupGamesIntoLeagues(
-          _i19.DAURound? combinedRound) =>
+  Map<_i19.League, List<_i4.Game>> groupGamesIntoLeagues(
+          _i21.DAURound? combinedRound) =>
       (super.noSuchMethod(
         Invocation.method(
           #groupGamesIntoLeagues,
           [combinedRound],
         ),
-        returnValue: <_i17.League, List<_i4.Game>>{},
-      ) as Map<_i17.League, List<_i4.Game>>);
+        returnValue: <_i19.League, List<_i4.Game>>{},
+      ) as Map<_i19.League, List<_i4.Game>>);
 
   @override
   void dispose() => super.noSuchMethod(
@@ -1419,7 +1477,7 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       );
 
   @override
-  void clearLeagueLadderCache({_i17.League? league}) => super.noSuchMethod(
+  void clearLeagueLadderCache({_i19.League? league}) => super.noSuchMethod(
         Invocation.method(
           #clearLeagueLadderCache,
           [],
@@ -1429,8 +1487,8 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       );
 
   @override
-  _i14.Future<_i23.LeagueLadder?> getOrCalculateLeagueLadder(
-    _i17.League? league, {
+  _i16.Future<_i25.LeagueLadder?> getOrCalculateLeagueLadder(
+    _i19.League? league, {
     bool? forceRecalculate = false,
   }) =>
       (super.noSuchMethod(
@@ -1439,11 +1497,39 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
           [league],
           {#forceRecalculate: forceRecalculate},
         ),
-        returnValue: _i14.Future<_i23.LeagueLadder?>.value(),
-      ) as _i14.Future<_i23.LeagueLadder?>);
+        returnValue: _i16.Future<_i25.LeagueLadder?>.value(),
+      ) as _i16.Future<_i25.LeagueLadder?>);
 
   @override
-  void addListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  _i16.Future<Map<String, dynamic>> processAndSaveDauComp({
+    required String? name,
+    required String? aflFixtureJsonURL,
+    required String? nrlFixtureJsonURL,
+    required String? nrlRegularCompEndDateString,
+    required String? aflRegularCompEndDateString,
+    required _i7.DAUComp? existingComp,
+    required List<_i21.DAURound>? currentRounds,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #processAndSaveDauComp,
+          [],
+          {
+            #name: name,
+            #aflFixtureJsonURL: aflFixtureJsonURL,
+            #nrlFixtureJsonURL: nrlFixtureJsonURL,
+            #nrlRegularCompEndDateString: nrlRegularCompEndDateString,
+            #aflRegularCompEndDateString: aflRegularCompEndDateString,
+            #existingComp: existingComp,
+            #currentRounds: currentRounds,
+          },
+        ),
+        returnValue:
+            _i16.Future<Map<String, dynamic>>.value(<String, dynamic>{}),
+      ) as _i16.Future<Map<String, dynamic>>);
+
+  @override
+  void addListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #addListener,
           [listener],
@@ -1452,7 +1538,7 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
       );
 
   @override
-  void removeListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #removeListener,
           [listener],
@@ -1473,19 +1559,19 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i21.DAUCompsViewModel {
 /// A class which mocks [GamesViewModel].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
+class MockGamesViewModel extends _i1.Mock implements _i9.GamesViewModel {
   MockGamesViewModel() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i6.DAUComp get selectedDAUComp => (super.noSuchMethod(
+  _i7.DAUComp get selectedDAUComp => (super.noSuchMethod(
         Invocation.getter(#selectedDAUComp),
-        returnValue: _FakeDAUComp_6(
+        returnValue: _FakeDAUComp_7(
           this,
           Invocation.getter(#selectedDAUComp),
         ),
-      ) as _i6.DAUComp);
+      ) as _i7.DAUComp);
 
   @override
   Map<String, dynamic> get updates => (super.noSuchMethod(
@@ -1494,13 +1580,22 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
       ) as Map<String, dynamic>);
 
   @override
-  _i14.Future<void> get initialLoadComplete => (super.noSuchMethod(
+  _i16.Future<void> get initialLoadComplete => (super.noSuchMethod(
         Invocation.getter(#initialLoadComplete),
-        returnValue: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  set selectedDAUComp(_i6.DAUComp? _selectedDAUComp) => super.noSuchMethod(
+  _i13.TeamsViewModel get teamsViewModel => (super.noSuchMethod(
+        Invocation.getter(#teamsViewModel),
+        returnValue: _FakeTeamsViewModel_13(
+          this,
+          Invocation.getter(#teamsViewModel),
+        ),
+      ) as _i13.TeamsViewModel);
+
+  @override
+  set selectedDAUComp(_i7.DAUComp? _selectedDAUComp) => super.noSuchMethod(
         Invocation.setter(
           #selectedDAUComp,
           _selectedDAUComp,
@@ -1534,7 +1629,7 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
       ) as bool);
 
   @override
-  _i14.Future<void> updateGameAttribute(
+  _i16.Future<void> updateGameAttribute(
     String? gameDbKey,
     String? attributeName,
     dynamic attributeValue,
@@ -1550,47 +1645,47 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
             league,
           ],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<void> saveBatchOfGameAttributes() => (super.noSuchMethod(
+  _i16.Future<void> saveBatchOfGameAttributes() => (super.noSuchMethod(
         Invocation.method(
           #saveBatchOfGameAttributes,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<List<_i4.Game>> getGames() => (super.noSuchMethod(
+  _i16.Future<List<_i4.Game>> getGames() => (super.noSuchMethod(
         Invocation.method(
           #getGames,
           [],
         ),
-        returnValue: _i14.Future<List<_i4.Game>>.value(<_i4.Game>[]),
-      ) as _i14.Future<List<_i4.Game>>);
+        returnValue: _i16.Future<List<_i4.Game>>.value(<_i4.Game>[]),
+      ) as _i16.Future<List<_i4.Game>>);
 
   @override
-  _i14.Future<_i4.Game?> findGame(String? gameDbKey) => (super.noSuchMethod(
+  _i16.Future<_i4.Game?> findGame(String? gameDbKey) => (super.noSuchMethod(
         Invocation.method(
           #findGame,
           [gameDbKey],
         ),
-        returnValue: _i14.Future<_i4.Game?>.value(),
-      ) as _i14.Future<_i4.Game?>);
+        returnValue: _i16.Future<_i4.Game?>.value(),
+      ) as _i16.Future<_i4.Game?>);
 
   @override
-  _i14.Future<List<_i4.Game>> getGamesForRound(_i19.DAURound? dauRound) =>
+  _i16.Future<List<_i4.Game>> getGamesForRound(_i21.DAURound? dauRound) =>
       (super.noSuchMethod(
         Invocation.method(
           #getGamesForRound,
           [dauRound],
         ),
-        returnValue: _i14.Future<List<_i4.Game>>.value(<_i4.Game>[]),
-      ) as _i14.Future<List<_i4.Game>>);
+        returnValue: _i16.Future<List<_i4.Game>>.value(<_i4.Game>[]),
+      ) as _i16.Future<List<_i4.Game>>);
 
   @override
   void removeGamesOutsideRegularComp(List<_i4.Game>? gamesForRound) =>
@@ -1603,18 +1698,9 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
       );
 
   @override
-  void dispose() => super.noSuchMethod(
-        Invocation.method(
-          #dispose,
-          [],
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
-  _i14.Future<List<_i24.TeamGameHistoryItem>> getTeamGameHistory(
-    _i5.Team? targetTeam,
-    _i17.League? league,
+  _i16.Future<List<_i26.TeamGameHistoryItem>> getTeamGameHistory(
+    _i6.Team? targetTeam,
+    _i19.League? league,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -1624,15 +1710,15 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
             league,
           ],
         ),
-        returnValue: _i14.Future<List<_i24.TeamGameHistoryItem>>.value(
-            <_i24.TeamGameHistoryItem>[]),
-      ) as _i14.Future<List<_i24.TeamGameHistoryItem>>);
+        returnValue: _i16.Future<List<_i26.TeamGameHistoryItem>>.value(
+            <_i26.TeamGameHistoryItem>[]),
+      ) as _i16.Future<List<_i26.TeamGameHistoryItem>>);
 
   @override
-  _i14.Future<List<_i4.Game>> getCompleteMatchupHistory(
-    _i5.Team? teamA,
-    _i5.Team? teamB,
-    _i17.League? league,
+  _i16.Future<List<_i4.Game>> getCompleteMatchupHistory(
+    _i6.Team? teamA,
+    _i6.Team? teamB,
+    _i19.League? league,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -1643,14 +1729,14 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
             league,
           ],
         ),
-        returnValue: _i14.Future<List<_i4.Game>>.value(<_i4.Game>[]),
-      ) as _i14.Future<List<_i4.Game>>);
+        returnValue: _i16.Future<List<_i4.Game>>.value(<_i4.Game>[]),
+      ) as _i16.Future<List<_i4.Game>>);
 
   @override
-  _i14.Future<List<_i4.Game>> getMatchupHistory(
-    _i5.Team? teamA,
-    _i5.Team? teamB,
-    _i17.League? league,
+  _i16.Future<List<_i4.Game>> getMatchupHistory(
+    _i6.Team? teamA,
+    _i6.Team? teamB,
+    _i19.League? league,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -1661,8 +1747,17 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
             league,
           ],
         ),
-        returnValue: _i14.Future<List<_i4.Game>>.value(<_i4.Game>[]),
-      ) as _i14.Future<List<_i4.Game>>);
+        returnValue: _i16.Future<List<_i4.Game>>.value(<_i4.Game>[]),
+      ) as _i16.Future<List<_i4.Game>>);
+
+  @override
+  void dispose() => super.noSuchMethod(
+        Invocation.method(
+          #dispose,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
 
   @override
   void completeInitialLoadForTest() => super.noSuchMethod(
@@ -1674,7 +1769,7 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
       );
 
   @override
-  void addListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void addListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #addListener,
           [listener],
@@ -1683,7 +1778,7 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
       );
 
   @override
-  void removeListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #removeListener,
           [listener],
@@ -1704,7 +1799,7 @@ class MockGamesViewModel extends _i1.Mock implements _i8.GamesViewModel {
 /// A class which mocks [TeamsViewModel].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockTeamsViewModel extends _i1.Mock implements _i25.TeamsViewModel {
+class MockTeamsViewModel extends _i1.Mock implements _i13.TeamsViewModel {
   MockTeamsViewModel() {
     _i1.throwOnMissingStub(this);
   }
@@ -1716,10 +1811,10 @@ class MockTeamsViewModel extends _i1.Mock implements _i25.TeamsViewModel {
       ) as bool);
 
   @override
-  List<_i5.Team> get teams => (super.noSuchMethod(
+  List<_i6.Team> get teams => (super.noSuchMethod(
         Invocation.getter(#teams),
-        returnValue: <_i5.Team>[],
-      ) as List<_i5.Team>);
+        returnValue: <_i6.Team>[],
+      ) as List<_i6.Team>);
 
   @override
   Map<dynamic, dynamic> get groupedTeams => (super.noSuchMethod(
@@ -1728,10 +1823,10 @@ class MockTeamsViewModel extends _i1.Mock implements _i25.TeamsViewModel {
       ) as Map<dynamic, dynamic>);
 
   @override
-  _i14.Future<void> get initialLoadComplete => (super.noSuchMethod(
+  _i16.Future<void> get initialLoadComplete => (super.noSuchMethod(
         Invocation.getter(#initialLoadComplete),
-        returnValue: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
   bool get hasListeners => (super.noSuchMethod(
@@ -1740,31 +1835,31 @@ class MockTeamsViewModel extends _i1.Mock implements _i25.TeamsViewModel {
       ) as bool);
 
   @override
-  _i14.Future<void> editTeam(_i5.Team? updatedTeam) => (super.noSuchMethod(
+  _i16.Future<void> editTeam(_i6.Team? updatedTeam) => (super.noSuchMethod(
         Invocation.method(
           #editTeam,
           [updatedTeam],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i14.Future<void> addTeam(_i5.Team? team) => (super.noSuchMethod(
+  _i16.Future<void> addTeam(_i6.Team? team) => (super.noSuchMethod(
         Invocation.method(
           #addTeam,
           [team],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i16.Future<void>.value(),
+        returnValueForMissingStub: _i16.Future<void>.value(),
+      ) as _i16.Future<void>);
 
   @override
-  _i5.Team? findTeam(String? teamDbKey) =>
+  _i6.Team? findTeam(String? teamDbKey) =>
       (super.noSuchMethod(Invocation.method(
         #findTeam,
         [teamDbKey],
-      )) as _i5.Team?);
+      )) as _i6.Team?);
 
   @override
   void dispose() => super.noSuchMethod(
@@ -1776,7 +1871,7 @@ class MockTeamsViewModel extends _i1.Mock implements _i25.TeamsViewModel {
       );
 
   @override
-  void addListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void addListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #addListener,
           [listener],
@@ -1785,7 +1880,7 @@ class MockTeamsViewModel extends _i1.Mock implements _i25.TeamsViewModel {
       );
 
   @override
-  void removeListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i18.VoidCallback? listener) => super.noSuchMethod(
         Invocation.method(
           #removeListener,
           [listener],

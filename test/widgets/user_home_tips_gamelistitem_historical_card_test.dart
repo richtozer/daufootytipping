@@ -57,13 +57,18 @@ void main() {
     mockTeamsViewModelForDI = MockTeamsViewModel();
 
     getIt.registerSingleton<DAUCompsViewModel>(mockDAUCompsViewModelForDI);
+    
+    // Setup DAUCompsViewModel mocks
     when(mockDAUCompsViewModelForDI.gamesViewModel)
         .thenReturn(mockGamesViewModelForDI);
+    
+    // Setup GamesViewModel mocks with proper getter stubbing
     when(mockGamesViewModelForDI.teamsViewModel)
         .thenReturn(mockTeamsViewModelForDI);
-
     when(mockGamesViewModelForDI.initialLoadComplete).thenAnswer((_) async {});
     when(mockGamesViewModelForDI.getGames()).thenAnswer((_) async => []);
+    
+    // Setup TeamsViewModel mocks
     when(mockTeamsViewModelForDI.initialLoadComplete).thenAnswer((_) async {});
     when(mockTeamsViewModelForDI.groupedTeams).thenReturn({});
   });

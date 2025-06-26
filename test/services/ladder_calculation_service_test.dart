@@ -54,16 +54,16 @@ void main() {
       service = LadderCalculationService();
     });
 
-    test('should return an empty ladder if no games are provided', () {
+    test('should return null if no games are provided', () {
       final ladder = service.calculateLadder(
         allGames: [],
         leagueTeams: [teamNrlA, teamNrlB],
         league: League.nrl,
       );
-      expect(ladder?.teams.isEmpty, isTrue);
+      expect(ladder, isNull);
     });
 
-    test('should return an empty ladder if no league teams are provided', () {
+    test('should return null if no league teams are provided', () {
       final game1 = _createGame(
           dbkey: 'nrl-1-1',
           homeTeam: teamNrlA,
@@ -77,22 +77,46 @@ void main() {
         leagueTeams: [],
         league: League.nrl,
       );
-      expect(ladder?.teams.isEmpty, isTrue);
+      expect(ladder, isNull);
     });
 
-    test('should correctly calculate NRL ladder for a single home win', () {
+    test('should correctly calculate NRL ladder for multiple rounds', () {
+      // Create games across 3 rounds to satisfy the minimum requirement
       final game1 = _createGame(
         dbkey: 'nrl-1-1',
         homeTeam: teamNrlA,
         awayTeam: teamNrlB,
         league: League.nrl,
-        startTime: DateTime.now().subtract(const Duration(days: 1)),
+        startTime: DateTime.now().subtract(const Duration(days: 3)),
         homeScore: 12,
         awayScore: 6,
+        roundNumber: 1,
+      );
+
+      final game2 = _createGame(
+        dbkey: 'nrl-2-1',
+        homeTeam: teamNrlB,
+        awayTeam: teamNrlA,
+        league: League.nrl,
+        startTime: DateTime.now().subtract(const Duration(days: 2)),
+        homeScore: 8,
+        awayScore: 14,
+        roundNumber: 2,
+      );
+
+      final game3 = _createGame(
+        dbkey: 'nrl-3-1',
+        homeTeam: teamNrlA,
+        awayTeam: teamNrlB,
+        league: League.nrl,
+        startTime: DateTime.now().subtract(const Duration(days: 1)),
+        homeScore: 10,
+        awayScore: 10,
+        roundNumber: 3,
       );
 
       final ladder = service.calculateLadder(
-        allGames: [game1],
+        allGames: [game1, game2, game3],
         leagueTeams: [teamNrlA, teamNrlB],
         league: League.nrl,
       );
@@ -103,50 +127,69 @@ void main() {
       final ladderTeamB =
           ladder?.teams.firstWhere((t) => t.teamName == 'NRL Team B');
 
-      // Team A (Winner)
-      expect(ladderTeamA?.played, 1);
-      expect(ladderTeamA?.won, 1);
+      // Team A (Won 2, Drew 1)
+      expect(ladderTeamA?.played, 3);
+      expect(ladderTeamA?.won, 2);
       expect(ladderTeamA?.lost, 0);
-      expect(ladderTeamA?.drawn, 0);
-      expect(ladderTeamA?.pointsFor, 12);
-      expect(ladderTeamA?.pointsAgainst, 6);
-      expect(ladderTeamA?.points, 2); // NRL: 2 points for a win
-      expect(ladderTeamA?.percentage, closeTo(200.0, 0.01));
+      expect(ladderTeamA?.drawn, 1);
+      expect(ladderTeamA?.pointsFor, 36); // 12 + 14 + 10
+      expect(ladderTeamA?.pointsAgainst, 24); // 6 + 8 + 10
+      expect(ladderTeamA?.points, 5); // NRL: 2 + 2 + 1 = 5 points
+      expect(ladderTeamA?.percentage, closeTo(150.0, 0.01));
 
-      // Team B (Loser)
-      expect(ladderTeamB?.played, 1);
+      // Team B (Lost 2, Drew 1)
+      expect(ladderTeamB?.played, 3);
       expect(ladderTeamB?.won, 0);
-      expect(ladderTeamB?.lost, 1);
-      expect(ladderTeamB?.drawn, 0);
-      expect(ladderTeamB?.pointsFor, 6);
-      expect(ladderTeamB?.pointsAgainst, 12);
-      expect(ladderTeamB?.points, 0);
-      expect(ladderTeamB?.percentage, closeTo(50.0, 0.01));
+      expect(ladderTeamB?.lost, 2);
+      expect(ladderTeamB?.drawn, 1);
+      expect(ladderTeamB?.pointsFor, 24); // 6 + 8 + 10
+      expect(ladderTeamB?.pointsAgainst, 36); // 12 + 14 + 10
+      expect(ladderTeamB?.points, 1); // NRL: 0 + 0 + 1 = 1 point
+      expect(ladderTeamB?.percentage, closeTo(66.67, 0.1));
 
       // Check sorting (A should be above B)
       expect(ladder?.teams.first.teamName, 'NRL Team A');
     });
 
     test(
-        'should correctly calculate AFL ladder for a single away win and a draw',
+        'should correctly calculate AFL ladder for multiple rounds with wins and draws',
         () {
+      // Round 1 games
       final game1 = _createGame(
-        // Away win for teamAflB
         dbkey: 'afl-1-1', homeTeam: teamAflA, awayTeam: teamAflB,
         league: League.afl,
-        startTime: DateTime.now().subtract(const Duration(days: 2)),
+        startTime: DateTime.now().subtract(const Duration(days: 4)),
         homeScore: 60, awayScore: 90,
+        roundNumber: 1,
       );
       final game2 = _createGame(
-        // Draw between teamAflA and teamAflC
         dbkey: 'afl-1-2', homeTeam: teamAflA, awayTeam: teamAflC,
         league: League.afl,
-        startTime: DateTime.now().subtract(const Duration(days: 1)),
+        startTime: DateTime.now().subtract(const Duration(days: 3)),
         homeScore: 70, awayScore: 70,
+        roundNumber: 1,
+      );
+
+      // Round 2 games
+      final game3 = _createGame(
+        dbkey: 'afl-2-1', homeTeam: teamAflB, awayTeam: teamAflC,
+        league: League.afl,
+        startTime: DateTime.now().subtract(const Duration(days: 2)),
+        homeScore: 85, awayScore: 75,
+        roundNumber: 2,
+      );
+
+      // Round 3 games
+      final game4 = _createGame(
+        dbkey: 'afl-3-1', homeTeam: teamAflC, awayTeam: teamAflA,
+        league: League.afl,
+        startTime: DateTime.now().subtract(const Duration(days: 1)),
+        homeScore: 80, awayScore: 65,
+        roundNumber: 3,
       );
 
       final ladder = service.calculateLadder(
-        allGames: [game1, game2],
+        allGames: [game1, game2, game3, game4],
         leagueTeams: [teamAflA, teamAflB, teamAflC],
         league: League.afl,
       );
@@ -156,43 +199,43 @@ void main() {
       final ltB = ladder?.teams.firstWhere((t) => t.teamName == 'AFL Team B');
       final ltC = ladder?.teams.firstWhere((t) => t.teamName == 'AFL Team C');
 
-      // Team B (Won 1)
-      expect(ltB?.played, 1);
-      expect(ltB?.won, 1);
+      // Team B (Won 2)
+      expect(ltB?.played, 2);
+      expect(ltB?.won, 2);
       expect(ltB?.lost, 0);
       expect(ltB?.drawn, 0);
-      expect(ltB?.pointsFor, 90);
-      expect(ltB?.pointsAgainst, 60);
-      expect(ltB?.points, 4); // AFL: 4 points for a win
-      expect(ltB?.percentage, closeTo(150.0, 0.01));
+      expect(ltB?.pointsFor, 175); // 90 + 85
+      expect(ltB?.pointsAgainst, 135); // 60 + 75
+      expect(ltB?.points, 8); // AFL: 4 + 4 = 8 points
+      expect(ltB?.percentage, closeTo((175 / 135) * 100, 0.1));
 
-      // Team C (Drew 1)
-      expect(ltC?.played, 1);
-      expect(ltC?.won, 0);
-      expect(ltC?.lost, 0);
+      // Team C (Won 1, Lost 1, Drew 1)
+      expect(ltC?.played, 3);
+      expect(ltC?.won, 1);
+      expect(ltC?.lost, 1);
       expect(ltC?.drawn, 1);
-      expect(ltC?.pointsFor, 70);
-      expect(ltC?.pointsAgainst, 70);
-      expect(ltC?.points, 2); // AFL: 2 points for a draw
-      expect(ltC?.percentage, closeTo(100.0, 0.01));
+      expect(ltC?.pointsFor, 225); // 70 + 75 + 80
+      expect(ltC?.pointsAgainst, 220); // 70 + 85 + 65
+      expect(ltC?.points, 6); // AFL: 2 + 0 + 4 = 6 points
+      expect(ltC?.percentage, closeTo((225 / 220) * 100, 0.1));
 
-      // Team A (Lost 1, Drew 1)
-      expect(ltA?.played, 2);
+      // Team A (Lost 2, Drew 1)
+      expect(ltA?.played, 3);
       expect(ltA?.won, 0);
-      expect(ltA?.lost, 1);
+      expect(ltA?.lost, 2);
       expect(ltA?.drawn, 1);
-      expect(ltA?.pointsFor, 130);
-      expect(ltA?.pointsAgainst, 160); // 60+70 For, 90+70 Against
-      expect(ltA?.points, 2); // AFL: 0 for loss, 2 for draw
-      expect(ltA?.percentage, closeTo((130 / 160) * 100, 0.01));
+      expect(ltA?.pointsFor, 195); // 60 + 70 + 65
+      expect(ltA?.pointsAgainst, 240); // 90 + 70 + 80
+      expect(ltA?.points, 2); // AFL: 0 + 2 + 0 = 2 points
+      expect(ltA?.percentage, closeTo((195 / 240) * 100, 0.1));
 
-      // Check sorting: B (4pts), then C (2pts, 100%), then A (2pts, ~81.25%)
+      // Check sorting: B (8pts), then C (6pts), then A (2pts)
       expect(ladder?.teams[0].teamName, 'AFL Team B');
       expect(ladder?.teams[1].teamName, 'AFL Team C');
       expect(ladder?.teams[2].teamName, 'AFL Team A');
     });
 
-    test('should ignore games from other leagues', () {
+    test('should return null when requesting ladder for different league', () {
       final nrlGame = _createGame(
           dbkey: 'nrl-1-1',
           homeTeam: teamNrlA,
@@ -206,10 +249,10 @@ void main() {
         leagueTeams: [teamAflA, teamAflB], // AFL teams
         league: League.afl, // Requesting AFL ladder
       );
-      expect(aflLadder?.teams.every((team) => team.played == 0), isTrue);
+      expect(aflLadder, isNull); // No completed AFL rounds, so null
     });
 
-    test('should ignore games without scores', () {
+    test('should return null when games have no scores', () {
       final gameNoScore = _createGame(
         dbkey: 'nrl-1-1', homeTeam: teamNrlA, awayTeam: teamNrlB,
         league: League.nrl,
@@ -221,7 +264,7 @@ void main() {
         leagueTeams: [teamNrlA, teamNrlB],
         league: League.nrl,
       );
-      expect(ladder?.teams.every((team) => team.played == 0), isTrue);
+      expect(ladder, isNull); // No completed rounds with scores, so null
     });
 
     // Add more tests for percentage edge cases, multiple games, complex sorting scenarios etc.
