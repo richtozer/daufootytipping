@@ -15,9 +15,9 @@ if [[ -n $CI_APP_STORE_SIGNED_APP_PATH ]]; # checks if there is an AppStore sign
 then
     BUILD_TAG=${CI_BUILD_NUMBER}
 
-    VERSION=$(cat ../${CI_PRODUCT}.xcodeproj/project.pbxproj | grep -m1 'MARKETING_VERSION' | cut -d'=' -f2 | tr -d ';' | tr -d ' ')
+    VERSION=$(grep 'version:' ../../pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
 
-    git tag ${CI_PRODUCT}$VERSION-\($BUILD_TAG\)
+    git tag ${CI_PRODUCT:-"ios-"}$VERSION-\($BUILD_TAG\)
 
     git push --tags https://${GIT_AUTH}@github.com/richtozer/daufootytipping.git
 fi
