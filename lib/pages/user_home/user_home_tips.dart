@@ -169,11 +169,9 @@ class TipsTabState extends State<TipsTab> {
 
                     final roundIndex = (index - 1) ~/ 4;
                     final itemIndex = (index - 1) % 4;
-                    final dauRound = daucompsViewmodelConsumer
-                        .selectedDAUComp!.daurounds[roundIndex];
 
                     return _buildItem(
-                        daucompsViewmodelConsumer, dauRound, itemIndex);
+                        daucompsViewmodelConsumer, roundIndex, itemIndex);
                   },
                 ),
               ],
@@ -213,7 +211,9 @@ class TipsTabState extends State<TipsTab> {
   }
 
   Widget _buildItem(DAUCompsViewModel daucompsViewmodelConsumer,
-      DAURound dauRound, int itemIndex) {
+      int roundIndex, int itemIndex) {
+    final dauRound = daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
+    
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
       return roundLeagueHeaderListTile(
@@ -228,7 +228,7 @@ class TipsTabState extends State<TipsTab> {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       return GameListBuilder(
         currentTipper: di<TippersViewModel>().selectedTipper,
-        dauRound: dauRound,
+        roundIndex: roundIndex,
         league: league,
         tipperTipsViewModel:
             daucompsViewmodelConsumer.selectedTipperTipsViewModel,

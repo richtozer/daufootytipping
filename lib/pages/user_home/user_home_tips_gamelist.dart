@@ -1,4 +1,3 @@
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -14,7 +13,7 @@ class GameListBuilder extends StatefulWidget {
   const GameListBuilder({
     super.key,
     required this.currentTipper,
-    required this.dauRound,
+    required this.roundIndex,
     required this.league,
     required this.tipperTipsViewModel,
     required this.dauCompsViewModel,
@@ -22,7 +21,7 @@ class GameListBuilder extends StatefulWidget {
   });
 
   final Tipper currentTipper;
-  final DAURound dauRound;
+  final int roundIndex;
   final League league;
   final TipsViewModel? tipperTipsViewModel;
   final DAUCompsViewModel dauCompsViewModel;
@@ -49,26 +48,43 @@ class _GameListBuilderState extends State<GameListBuilder> {
           return const Center(child: CircularProgressIndicator());
         }
 
+        // Get fresh round data from the view model
+        final dauRound = dauCompsViewModelConsumer
+            .selectedDAUComp!.daurounds[widget.roundIndex];
+
         // Now it's safe to group games
         final allGames =
-            dauCompsViewModelConsumer.groupGamesIntoLeagues(widget.dauRound);
+            dauCompsViewModelConsumer.groupGamesIntoLeagues(dauRound);
         final leagueGames = allGames[widget.league];
 
         if (leagueGames == null || leagueGames.isEmpty) {
-          return SizedBox(
-            height: 75,
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              color: Colors.white70,
-              child: Center(
-                child: Text(
-                  'No ${widget.league.name.toUpperCase()} games this round',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-            ),
+          // Check if games are still loading before showing "No games" message
+          return FutureBuilder<void>(
+            future:
+                dauCompsViewModelConsumer.gamesViewModel!.initialLoadComplete,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                // Games are still loading, show spinner
+                return const Center(child: CircularProgressIndicator());
+              } else {
+                // Games are loaded but this round/league truly has no games
+                return SizedBox(
+                  height: 75,
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    color: Colors.white70,
+                    child: Center(
+                      child: Text(
+                        'No ${widget.league.name.toUpperCase()} games this round',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
+                  ),
+                );
+              }
+            },
           );
         }
 
