@@ -17,7 +17,7 @@ then
 
     VERSION=$(grep 'version:' ../../pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
 
-    git tag ${CI_PRODUCT:-"ios-"}-$VERSION-\($BUILD_TAG\)
+    git tag ${CI_PRODUCT:-"ios-"}-$VERSION+$BUILD_TAG
 
     git push --tags https://${GIT_AUTH}@github.com/richtozer/daufootytipping.git
 fi
