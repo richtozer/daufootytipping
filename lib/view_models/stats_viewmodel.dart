@@ -811,19 +811,11 @@ class StatsViewModel extends ChangeNotifier {
       if (homeScore != originalHomeScore) {
         await _liveScoreUpdated(
             homeScore, ScoringTeam.home, selectedDAUComp, tip);
-        if (awayScore == '0') {
-          await _liveScoreUpdated(
-              awayScore, ScoringTeam.away, selectedDAUComp, tip);
-        }
       }
       // Update away score if changed
       if (awayScore != originalAwayScore) {
         await _liveScoreUpdated(
             awayScore, ScoringTeam.away, selectedDAUComp, tip);
-        if (homeScore == '0') {
-          await _liveScoreUpdated(
-              homeScore, ScoringTeam.home, selectedDAUComp, tip);
-        }
       }
 
       unawaited(
