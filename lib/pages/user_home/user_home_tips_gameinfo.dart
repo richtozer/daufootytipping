@@ -16,44 +16,54 @@ class GameInfo extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // if the tipper has tipped, or they can been given a defaul tip
-              // then display the tip submitted time in their local time
-              // if they have yet to tip, then display nothing
-              if (gameTipsViewModel.tip != null &&
-                  gameTipsViewModel.tip!.isDefaultTip() == false)
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // if the tipper has tipped, or they can been given a defaul tip
+                // then display the tip submitted time in their local time
+                // if they have yet to tip, then display nothing
+                if (gameTipsViewModel.tip != null &&
+                    gameTipsViewModel.tip!.isDefaultTip() == false)
+                  Text(
+                    style: Theme.of(context).textTheme.labelSmall,
+                    'Tipped:${DateFormat('dd/MM hh:mm a').format(gameTipsViewModel.tip!.submittedTimeUTC.toLocal())}',
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                if (gameTipsViewModel.tip != null &&
+                    gameTipsViewModel.tip!.isDefaultTip() == true)
+                  Text(
+                    style: Theme.of(context).textTheme.labelSmall,
+                    'Default tip of [Away] given',
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+
                 Text(
                   style: Theme.of(context).textTheme.labelSmall,
-                  'Tipped:${DateFormat('dd/MM hh:mm a').format(gameTipsViewModel.tip!.submittedTimeUTC.toLocal())}',
+                  'Kickoff:${DateFormat('dd MMM hh:mm a').format(game.startTimeUTC.toLocal())}',
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
-              if (gameTipsViewModel.tip != null &&
-                  gameTipsViewModel.tip!.isDefaultTip() == true)
+
                 Text(
-                  style: Theme.of(context).textTheme.labelSmall,
-                  'Default tip of [Away] given',
-                ),
-
-              Text(
-                style: Theme.of(context).textTheme.labelSmall,
-                'Kickoff:${DateFormat('dd MMM hh:mm a').format(game.startTimeUTC.toLocal())}',
-              ),
-
-              Flexible(
-                child: Text(
                   gameTipsViewModel.game.location,
                   style: Theme.of(context).textTheme.labelSmall,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
-              ),
 
-              Text(
-                style: Theme.of(context).textTheme.labelSmall,
-                'Fixture: round ${gameTipsViewModel.game.fixtureRoundNumber}, match ${gameTipsViewModel.game.fixtureMatchNumber}',
-              ),
-            ],
+                Text(
+                  style: Theme.of(context).textTheme.labelSmall,
+                  'Fixture: round ${gameTipsViewModel.game.fixtureRoundNumber}, match ${gameTipsViewModel.game.fixtureMatchNumber}',
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ],
       ),

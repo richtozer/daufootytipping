@@ -73,30 +73,45 @@ class ScoringTileState extends State<ScoringTile> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (isInterimResult)
-            Tooltip(
-              message:
-                  'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
-              child: Row(
-                children: [
-                  Text(
-                    '* Result: ',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+          Flexible(
+            child: isInterimResult
+                ? Tooltip(
+                    message:
+                        'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '* Result: ',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Flexible(
+                          child: Text(
+                            resultText,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Result: ',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Flexible(
+                        child: Text(
+                          resultText,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(resultText),
-                ],
-              ),
-            )
-          else
-            Row(
-              children: [
-                Text(
-                  'Result: ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                Text(resultText),
-              ],
-            ),
+          ),
         ],
       ),
     );
@@ -112,28 +127,41 @@ class ScoringTileState extends State<ScoringTile> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            tipLabel,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          Text(tipText),
-          if (widget.tip.isDefaultTip())
-            InkWell(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    duration: Duration(seconds: 10),
-                    backgroundColor: Colors.orange,
-                    content: Text(
-                      style: TextStyle(color: Colors.black),
-                      'You did not tip this game and were automatically given a default tip of [Away] for this game.\n\n'
-                      'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄',
-                    ),
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tipLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Flexible(
+                  child: Text(
+                    tipText,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                );
-              },
-              child: const Icon(Icons.info_outline),
+                ),
+                if (widget.tip.isDefaultTip())
+                  InkWell(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          duration: Duration(seconds: 10),
+                          backgroundColor: Colors.orange,
+                          content: Text(
+                            style: TextStyle(color: Colors.black),
+                            'You did not tip this game and were automatically given a default tip of [Away] for this game.\n\n'
+                            'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄',
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.info_outline),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -149,30 +177,45 @@ class ScoringTileState extends State<ScoringTile> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (isInterimResult)
-            Tooltip(
-              message:
-                  'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
-              child: Row(
-                children: [
-                  Text(
-                    '* Points: ',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+          Flexible(
+            child: isInterimResult
+                ? Tooltip(
+                    message:
+                        'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '* Points: ',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Flexible(
+                          child: Text(
+                            pointsText,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Your Points: ',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Flexible(
+                        child: Text(
+                          pointsText,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(pointsText),
-                ],
-              ),
-            )
-          else
-            Row(
-              children: [
-                Text(
-                  'Your Points: ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                Text(pointsText),
-              ],
-            ),
+          ),
         ],
       ),
     );
@@ -190,17 +233,26 @@ class ScoringTileState extends State<ScoringTile> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Tooltip(
-            message:
-                'This is the average score of tips for all tippers for this game. Your aim is to score higher than this to improve your ranking. If the score is not finalised then this is an interim average.',
-            child: Row(
-              children: [
-                Text(
-                  'Average: ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                Text(averageText),
-              ],
+          Flexible(
+            child: Tooltip(
+              message:
+                  'This is the average score of tips for all tippers for this game. Your aim is to score higher than this to improve your ranking. If the score is not finalised then this is an interim average.',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Average: ',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Flexible(
+                    child: Text(
+                      averageText,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

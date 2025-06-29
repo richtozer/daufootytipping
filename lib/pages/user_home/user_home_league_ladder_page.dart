@@ -339,15 +339,28 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                         color: WidgetStateProperty.resolveWith<
                                             Color?>(
                                           (Set<WidgetState> states) {
-                                            if (isTop8 &&
-                                                widget.league == League.afl) {
-                                              return League.afl.colour.brighten(
-                                                  75); // Highlight color for top 8
-                                            }
-                                            if (isTop8 &&
-                                                widget.league == League.nrl) {
-                                              return League.nrl.colour.brighten(
-                                                  75); // Highlight color for top 8
+                                            if (isTop8) {
+                                              // Check if we're in dark mode
+                                              final bool isDarkMode =
+                                                  Theme.of(context)
+                                                          .brightness ==
+                                                      Brightness.dark;
+
+                                              if (widget.league == League.afl) {
+                                                return isDarkMode
+                                                    ? League.afl.colour
+                                                        .darken(10)
+                                                    // Dark mode: darker, more transparent
+                                                    : League.afl.colour.brighten(
+                                                        20); // Light mode: brighter
+                                              }
+                                              if (widget.league == League.nrl) {
+                                                return isDarkMode
+                                                    ? League.nrl.colour.darken(
+                                                        10) // Dark mode: darker, more transparent
+                                                    : League.nrl.colour.brighten(
+                                                        20); // Light mode: brighter
+                                              }
                                             }
                                             return null; // Default row color
                                           },

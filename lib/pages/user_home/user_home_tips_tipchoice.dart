@@ -69,65 +69,76 @@ class _TipChoiceState extends State<TipChoice> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.a, widget.gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.a,
-                        widget.gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
-                        context),
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.b, widget.gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.b,
-                        widget.gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
-                        context),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  !widget.isPercentStatsPage
+                      ? generateChoiceChip(
+                          GameResult.a, widget.gameTipViewModel, context)
+                      : generatePercentStatsChip(
+                          GameResult.a,
+                          widget.gameTipViewModel,
+                          consumerStatsViewModel
+                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                          context),
+                  const SizedBox(width: 8),
+                  !widget.isPercentStatsPage
+                      ? generateChoiceChip(
+                          GameResult.b, widget.gameTipViewModel, context)
+                      : generatePercentStatsChip(
+                          GameResult.b,
+                          widget.gameTipViewModel,
+                          consumerStatsViewModel
+                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                          context),
+                ],
+              ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.c, widget.gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.c,
-                        widget.gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
-                        context),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  !widget.isPercentStatsPage
+                      ? generateChoiceChip(
+                          GameResult.c, widget.gameTipViewModel, context)
+                      : generatePercentStatsChip(
+                          GameResult.c,
+                          widget.gameTipViewModel,
+                          consumerStatsViewModel
+                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                          context),
+                ],
+              ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.d, widget.gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.d,
-                        widget.gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
-                        context),
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.e, widget.gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.e,
-                        widget.gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
-                        context),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  !widget.isPercentStatsPage
+                      ? generateChoiceChip(
+                          GameResult.d, widget.gameTipViewModel, context)
+                      : generatePercentStatsChip(
+                          GameResult.d,
+                          widget.gameTipViewModel,
+                          consumerStatsViewModel
+                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                          context),
+                  const SizedBox(width: 8),
+                  !widget.isPercentStatsPage
+                      ? generateChoiceChip(
+                          GameResult.e, widget.gameTipViewModel, context)
+                      : generatePercentStatsChip(
+                          GameResult.e,
+                          widget.gameTipViewModel,
+                          consumerStatsViewModel
+                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                          context),
+                ],
+              ),
             ),
           ],
         ),

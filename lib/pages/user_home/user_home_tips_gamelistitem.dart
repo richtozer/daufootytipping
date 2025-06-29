@@ -438,41 +438,48 @@ class _GameListItemState extends State<GameListItem> {
       margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
       child: Padding(
         padding: const EdgeInsets.all(6.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              'Matchup ${index + 1}/$totalMatchupsInList',
-              style: const TextStyle(
-                fontSize: 12.0,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'Matchup ${index + 1}/$totalMatchupsInList',
+                style: const TextStyle(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
               ),
-              softWrap: true,
-            ),
-            const SizedBox(height: 2.0),
-            Text(
-              'Date: ${matchupData.isCurrentYear ? matchupData.month : "${matchupData.month} ${matchupData.year}"}',
-              style: const TextStyle(fontSize: 11.0),
-              softWrap: true,
-            ),
-            Text(
-              'Outcome: $outcomeString',
-              style: const TextStyle(fontSize: 11.0),
-              softWrap: true,
-            ),
-            Text(
-              'Venue: ${matchupData.location}',
-              style: const TextStyle(fontSize: 11.0),
-              softWrap: true,
-            ),
-            Text(
-              'Your Pick: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
-              style: const TextStyle(fontSize: 11.0),
-              softWrap: true,
-            ),
-          ],
+              const SizedBox(height: 2.0),
+              Text(
+                'Date: ${matchupData.isCurrentYear ? matchupData.month : "${matchupData.month} ${matchupData.year}"}',
+                style: const TextStyle(fontSize: 11.0),
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                'Outcome: $outcomeString',
+                style: const TextStyle(fontSize: 11.0),
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                'Venue: ${matchupData.location}',
+                style: const TextStyle(fontSize: 11.0),
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                'Your Pick: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
+                style: const TextStyle(fontSize: 11.0),
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
