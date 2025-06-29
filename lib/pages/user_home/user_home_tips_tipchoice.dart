@@ -67,33 +67,37 @@ class _TipChoiceState extends State<TipChoice> {
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  !widget.isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.a, widget.gameTipViewModel, context)
-                      : generatePercentStatsChip(
-                          GameResult.a,
-                          widget.gameTipViewModel,
-                          consumerStatsViewModel
-                              .gamesStatsEntry[widget.gameTipViewModel.game],
-                          context),
-                  const SizedBox(width: 8),
-                  !widget.isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.b, widget.gameTipViewModel, context)
-                      : generatePercentStatsChip(
-                          GameResult.b,
-                          widget.gameTipViewModel,
-                          consumerStatsViewModel
-                              .gamesStatsEntry[widget.gameTipViewModel.game],
-                          context),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    !widget.isPercentStatsPage
+                        ? generateChoiceChip(
+                            GameResult.a, widget.gameTipViewModel, context)
+                        : generatePercentStatsChip(
+                            GameResult.a,
+                            widget.gameTipViewModel,
+                            consumerStatsViewModel
+                                .gamesStatsEntry[widget.gameTipViewModel.game],
+                            context),
+                    const SizedBox(width: 8),
+                    !widget.isPercentStatsPage
+                        ? generateChoiceChip(
+                            GameResult.b, widget.gameTipViewModel, context)
+                        : generatePercentStatsChip(
+                            GameResult.b,
+                            widget.gameTipViewModel,
+                            consumerStatsViewModel
+                                .gamesStatsEntry[widget.gameTipViewModel.game],
+                            context),
+                  ],
+                ),
               ),
             ),
             SingleChildScrollView(
@@ -170,7 +174,8 @@ class _TipChoiceState extends State<TipChoice> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               backgroundColor: Colors.orange, // Or another appropriate color
-              content: Text('Read-only mode: Tipping is disabled for anonymous users.'),
+              content: Text(
+                  'Read-only mode: Tipping is disabled for anonymous users.'),
             ),
           );
           return; // Prevent further processing

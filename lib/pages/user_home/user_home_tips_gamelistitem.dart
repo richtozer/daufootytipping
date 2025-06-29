@@ -444,11 +444,10 @@ class _GameListItemState extends State<GameListItem> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
-                'Matchup ${index + 1}/$totalMatchupsInList',
+                'Prev. matchup ${index + 1}/$totalMatchupsInList',
                 style: const TextStyle(
                   fontSize: 12.0,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
                 softWrap: true,
                 overflow: TextOverflow.ellipsis,
@@ -473,7 +472,7 @@ class _GameListItemState extends State<GameListItem> {
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'Your Pick: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
+                'Your tip: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
                 style: const TextStyle(fontSize: 11.0),
                 softWrap: true,
                 overflow: TextOverflow.ellipsis,
