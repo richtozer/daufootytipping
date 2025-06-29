@@ -75,11 +75,11 @@ Future<void> main() async {
     database.useDatabaseEmulator('localhost', 8000);
     log('Database emulator started');
   } else {
-    // if (!kIsWeb) {
-    //   database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
-    //   database.setPersistenceEnabled(true);
-    //   log('Database persistence enabled');
-    // }
+    if (!kIsWeb) {
+      //database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
+      database.setPersistenceEnabled(false);
+      log('Database persistence disbaled');
+    }
   }
 
   // use emulator for firestore document collection when in debug mode
