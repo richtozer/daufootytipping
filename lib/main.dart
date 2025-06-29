@@ -76,9 +76,9 @@ Future<void> main() async {
     log('Database emulator started');
   } else {
     if (!kIsWeb) {
-      //database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
-      database.setPersistenceEnabled(false);
-      log('Database persistence disbaled');
+      database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
+      database.setPersistenceEnabled(true);
+      log('Database persistence enabled');
     }
   }
 
