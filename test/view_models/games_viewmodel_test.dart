@@ -1,5 +1,5 @@
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
+
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -12,45 +12,10 @@ import 'package:mockito/mockito.dart';
 // For this manual approach, direct mocking is used.
 
 // Manual Mock for DAUComp if not using build_runner for full mock generation
-class MockDAUComp extends Mock implements DAUComp {
-  // Explicitly define a default constructor
-  MockDAUComp({String? dbkey, String? name, List<DAURound>? daurounds}) {
-    _dbkey = dbkey ?? 'default-comp-dbkey';
-    _name = name ?? 'Default Mock DAUComp';
-    _daurounds = daurounds ?? [];
-
-    // Stub the getters to return these private fields
-    when(this.dbkey).thenReturn(_dbkey);
-    when(this.name).thenReturn(_name);
-    when(this.daurounds).thenReturn(_daurounds);
-    when(aflRegularCompEndDateUTC)
-        .thenReturn(null); // Default for other properties
-    when(nrlRegularCompEndDateUTC).thenReturn(null);
-  }
-
-  late String _dbkey;
-  late String _name;
-  late List<DAURound> _daurounds;
-
-  // Override getters that might be called
-  @override
-  String get dbkey => _dbkey;
-  @override
-  String get name => _name;
-  @override
-  List<DAURound> get daurounds => _daurounds;
-  // Add other properties if they are accessed and need specific values
-}
+class MockDAUComp extends Mock implements DAUComp {}
 
 // Manual Mock for DAUCompsViewModel
-class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {
-  MockDAUCompsViewModel() {
-    // Provide a default completed future for initialDAUCompLoadComplete
-    when(initialDAUCompLoadComplete).thenAnswer((_) async {});
-    // Default to an empty list of dauComps
-    when(daucomps).thenReturn([]);
-  }
-}
+class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
 // Helper function to create a Team
 Team _createTeam(String dbkey, String name, League league) {
@@ -97,11 +62,18 @@ void main() {
   final teamNrlC = _createTeam('nrl-teamC', 'NRL Team C', League.nrl);
 
   setUp(() {
-    mockCurrentDauComp =
-        MockDAUComp(dbkey: 'current-comp', name: 'Current Comp');
+    mockCurrentDauComp = MockDAUComp();
     mockDauCompsViewModel = MockDAUCompsViewModel();
 
+    // Set up mock behavior
+    when(mockCurrentDauComp.dbkey).thenReturn('current-comp');
+    when(mockCurrentDauComp.name).thenReturn('Current Comp');
+    when(mockCurrentDauComp.daurounds).thenReturn([]);
+    when(mockCurrentDauComp.aflRegularCompEndDateUTC).thenReturn(null);
+    when(mockCurrentDauComp.nrlRegularCompEndDateUTC).thenReturn(null);
+
     when(mockDauCompsViewModel.selectedDAUComp).thenReturn(mockCurrentDauComp);
+    when(mockDauCompsViewModel.daucomps).thenReturn([]);
     // Ensure initialDAUCompLoadComplete is always a completed future for the mock
     when(mockDauCompsViewModel.initialDAUCompLoadComplete)
         .thenAnswer((_) async {});
@@ -169,8 +141,22 @@ void main() {
       // Reset testGamesByCompKey for each test in this group
       gamesViewModel.testGamesByCompKey = {};
 
-      mockComp1 = MockDAUComp(dbkey: 'comp1-key', name: 'Competition 1');
-      mockComp2 = MockDAUComp(dbkey: 'comp2-key', name: 'Competition 2');
+      mockComp1 = MockDAUComp();
+      mockComp2 = MockDAUComp();
+
+      // Set up mock behavior for comp1
+      when(mockComp1.dbkey).thenReturn('comp1-key');
+      when(mockComp1.name).thenReturn('Competition 1');
+      when(mockComp1.daurounds).thenReturn([]);
+      when(mockComp1.aflRegularCompEndDateUTC).thenReturn(null);
+      when(mockComp1.nrlRegularCompEndDateUTC).thenReturn(null);
+
+      // Set up mock behavior for comp2
+      when(mockComp2.dbkey).thenReturn('comp2-key');
+      when(mockComp2.name).thenReturn('Competition 2');
+      when(mockComp2.daurounds).thenReturn([]);
+      when(mockComp2.aflRegularCompEndDateUTC).thenReturn(null);
+      when(mockComp2.nrlRegularCompEndDateUTC).thenReturn(null);
 
       // Ensure DAUCompsViewModel is stubbed correctly for these tests
       when(mockDauCompsViewModel.initialDAUCompLoadComplete)

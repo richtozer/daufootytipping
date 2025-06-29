@@ -23,33 +23,33 @@ void main() {
       final json = roundScores.toJson();
 
       expect(json, {
-        'roundNumber': 1,
-        'afl_score': 10,
-        'afl_maxScore': 20,
-        'afl_marginTips': 5,
-        'afl_marginUPS': 3,
-        'nrl_score': 15,
-        'nrl_maxScore': 25,
-        'nrl_marginTips': 7,
-        'nrl_marginUPS': 4,
-        'rank': 1,
-        'changeInRank': 0,
+        'nbr': 1,
+        'aS': 10,
+        'aMs': 20,
+        'aMt': 5,
+        'aMu': 3,
+        'nS': 15,
+        'nMs': 25,
+        'nMt': 7,
+        'nMu': 4,
+        'nTo': 0,
+        'aTo': 0,
       });
     });
 
     test('fromJson should create a valid RoundScores object', () {
       final json = {
-        'roundNumber': 1,
-        'afl_score': 10,
-        'afl_maxScore': 20,
-        'afl_marginTips': 5,
-        'afl_marginUPS': 3,
-        'nrl_score': 15,
-        'nrl_maxScore': 25,
-        'nrl_marginTips': 7,
-        'nrl_marginUPS': 4,
-        'rank': 1,
-        'changeInRank': 0,
+        'nbr': 1,
+        'aS': 10,
+        'aMs': 20,
+        'aMt': 5,
+        'aMu': 3,
+        'nS': 15,
+        'nMs': 25,
+        'nMt': 7,
+        'nMu': 4,
+        'nTo': 0,
+        'aTo': 0,
       };
 
       final roundScores = RoundStats.fromJson(json);
@@ -63,8 +63,10 @@ void main() {
       expect(roundScores.nrlMaxScore, 25);
       expect(roundScores.nrlMarginTips, 7);
       expect(roundScores.nrlMarginUPS, 4);
-      expect(roundScores.rank, 1);
+      expect(roundScores.rank, 0); // fromJson sets these to 0
       expect(roundScores.rankChange, 0);
+      expect(roundScores.nrlTipsOutstanding, 0);
+      expect(roundScores.aflTipsOutstanding, 0);
     });
 
     test('toCsv should return a valid CSV list', () {
@@ -86,7 +88,7 @@ void main() {
 
       final csv = roundScores.toCsv();
 
-      expect(csv, [10, 20, 5, 3, 15, 25, 7, 4, 1, 0]);
+      expect(csv, [10, 20, 5, 3, 15, 25, 7, 4, 1, 0, 0, 0]);
     });
 
     test('equality operator should compare two RoundScores objects correctly',
