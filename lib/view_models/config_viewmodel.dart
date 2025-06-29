@@ -54,11 +54,37 @@ class ConfigViewModel extends ChangeNotifier {
       notifyListeners();
     }, onError: (error) {
       log('ConfigViewModel._listenToConfigChanges() Error: $error');
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.completeError(error);
-        notifyListeners();
+      
+      // For network disconnection errors, attempt reconnection after delay
+      if (error.toString().contains('network disconnect') || 
+          error.toString().contains('U3.e')) {
+        log('Network disconnection detected, attempting reconnection in 5 seconds');
+        Timer(const Duration(seconds: 5), () {
+          if (!_initialLoadCompleter.isCompleted) {
+            _reconnectDatabase();
+          }
+        });
+      } else {
+        // For other errors, complete with error immediately
+        if (!_initialLoadCompleter.isCompleted) {
+          _initialLoadCompleter.completeError(error);
+          notifyListeners();
+        }
       }
     });
+  }
+
+  void _reconnectDatabase() {
+    try {
+      _configStream.cancel();
+      _listenToConfigChanges();
+    } catch (e) {
+      log('Failed to reconnect database: $e');
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.completeError(e);
+        notifyListeners();
+      }
+    }
   }
 
   void _processSnapshot(DataSnapshot snapshot) {
