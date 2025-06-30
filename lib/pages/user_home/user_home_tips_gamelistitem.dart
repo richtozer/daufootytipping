@@ -213,90 +213,83 @@ class _GameListItemState extends State<GameListItem> {
                             context: context,
                             builder: (context) => LiveScoringModal(
                                 gameTipsViewModelConsumer.tip!)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(0.0),
-                          child: SizedBox(
-                            width: 130,
-                            child: _TeamVersusDisplay(
-                              gameTipsViewModelConsumer:
-                                  gameTipsViewModelConsumer,
-                              displayHomeRank: '', // No rank in this branch
-                              displayAwayRank: '', // No rank in this branch
-                              homeTeamScoreWidget: liveScoringHome(
-                                  gameTipsViewModelConsumer.game, context),
-                              awayTeamScoreWidget: liveScoringAway(
-                                  gameTipsViewModelConsumer.game, context),
-                              middleRowWidget: liveScoringEdit(context),
-                              teamNameTextStyle:
-                                  Theme.of(context).textTheme.titleMedium!,
-                              rankTextStyle:
-                                  Theme.of(context).textTheme.labelSmall!,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.all(0.0),
-                      child: SizedBox(
-                        width: 130,
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => LeagueLadderPage(
-                                  league: game.league,
-                                  teamDbKeysToDisplay: [
-                                    game.homeTeam.dbkey,
-                                    game.awayTeam.dbkey
-                                  ],
-                                  customTitle:
-                                      "League Leaderboard comparison.", // Updated title
-                                ),
-                              ),
-                            );
-                          },
+                        child: SizedBox(
+                          width: Game.teamVteamWidth,
                           child: _TeamVersusDisplay(
                             gameTipsViewModelConsumer:
                                 gameTipsViewModelConsumer,
-                            displayHomeRank: displayHomeRank,
-                            displayAwayRank: displayAwayRank,
-                            homeTeamScoreWidget:
-                                fixtureScoringHome(gameTipsViewModelConsumer),
-                            awayTeamScoreWidget:
-                                fixtureScoringAway(gameTipsViewModelConsumer),
-                            middleRowWidget: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SvgPicture.asset(
-                                  gameTipsViewModelConsumer
-                                          .game.homeTeam.logoURI ??
-                                      (gameTipsViewModelConsumer.game.league ==
-                                              League.nrl
-                                          ? League.nrl.logo
-                                          : League.afl.logo),
-                                  width: 25,
-                                  height: 25,
-                                ),
-                                const Text(textAlign: TextAlign.left, ' V '),
-                                SvgPicture.asset(
-                                  gameTipsViewModelConsumer
-                                          .game.awayTeam.logoURI ??
-                                      (gameTipsViewModelConsumer.game.league ==
-                                              League.nrl
-                                          ? League.nrl.logo
-                                          : League.afl.logo),
-                                  width: 25,
-                                  height: 25,
-                                ),
-                              ],
-                            ),
+                            displayHomeRank: '', // No rank in this branch
+                            displayAwayRank: '', // No rank in this branch
+                            homeTeamScoreWidget: liveScoringHome(
+                                gameTipsViewModelConsumer.game, context),
+                            awayTeamScoreWidget: liveScoringAway(
+                                gameTipsViewModelConsumer.game, context),
+                            middleRowWidget: liveScoringEdit(context),
                             teamNameTextStyle:
                                 Theme.of(context).textTheme.titleMedium!,
                             rankTextStyle:
                                 Theme.of(context).textTheme.labelSmall!,
                           ),
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      width: Game.teamVteamWidth,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => LeagueLadderPage(
+                                league: game.league,
+                                teamDbKeysToDisplay: [
+                                  game.homeTeam.dbkey,
+                                  game.awayTeam.dbkey
+                                ],
+                                customTitle:
+                                    "League Leaderboard comparison.", // Updated title
+                              ),
+                            ),
+                          );
+                        },
+                        child: _TeamVersusDisplay(
+                          gameTipsViewModelConsumer: gameTipsViewModelConsumer,
+                          displayHomeRank: displayHomeRank,
+                          displayAwayRank: displayAwayRank,
+                          homeTeamScoreWidget:
+                              fixtureScoringHome(gameTipsViewModelConsumer),
+                          awayTeamScoreWidget:
+                              fixtureScoringAway(gameTipsViewModelConsumer),
+                          middleRowWidget: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(
+                                gameTipsViewModelConsumer
+                                        .game.homeTeam.logoURI ??
+                                    (gameTipsViewModelConsumer.game.league ==
+                                            League.nrl
+                                        ? League.nrl.logo
+                                        : League.afl.logo),
+                                width: 25,
+                                height: 25,
+                              ),
+                              const Text(textAlign: TextAlign.left, ' V '),
+                              SvgPicture.asset(
+                                gameTipsViewModelConsumer
+                                        .game.awayTeam.logoURI ??
+                                    (gameTipsViewModelConsumer.game.league ==
+                                            League.nrl
+                                        ? League.nrl.logo
+                                        : League.afl.logo),
+                                width: 25,
+                                height: 25,
+                              ),
+                            ],
+                          ),
+                          teamNameTextStyle:
+                              Theme.of(context).textTheme.titleMedium!,
+                          rankTextStyle:
+                              Theme.of(context).textTheme.labelSmall!,
                         ),
                       ),
                     ),
@@ -305,7 +298,7 @@ class _GameListItemState extends State<GameListItem> {
                   children: [
                     CarouselSlider(
                       options: CarouselOptions(
-                        height: 120,
+                        height: Game.gameCardHeight - 8,
                         enlargeFactor: 1.0,
                         enlargeCenterPage: true,
                         enlargeStrategy: CenterPageEnlargeStrategy.zoom,
@@ -552,8 +545,8 @@ class _TeamDisplayRow extends StatelessWidget {
             teamName,
             style: textStyle,
             textAlign: TextAlign.left,
-            overflow: TextOverflow.ellipsis,
-            softWrap: true,
+            overflow: TextOverflow.fade,
+            softWrap: false,
           ),
         ),
         const SizedBox(width: 5),

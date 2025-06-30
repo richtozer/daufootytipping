@@ -27,7 +27,7 @@ class Game implements Comparable<Game> {
   Scoring? scoring; // this should be null until game kickoff
   GameStatsEntry? gameStats;
   static final double gameCardHeight = 128;
-
+  static final double teamVteamWidth = 135;
   //constructor
   Game({
     required this.dbkey,

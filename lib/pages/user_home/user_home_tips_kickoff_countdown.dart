@@ -49,6 +49,7 @@ class KickoffCountdownState extends State<KickoffCountdown> {
   @override
   Widget build(BuildContext context) {
     return Text(countdownText,
+        softWrap: false,
         style: TextStyle(
             color:
                 countdownText.contains('days') ? Colors.white70 : Colors.orange,

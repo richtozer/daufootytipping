@@ -62,17 +62,16 @@ class _TipChoiceState extends State<TipChoice> {
           child: CircularProgressIndicator(),
         );
       }
-      return Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Padding(
+      return Expanded(
+        child: Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
                 padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -99,10 +98,7 @@ class _TipChoiceState extends State<TipChoice> {
                   ],
                 ),
               ),
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   !widget.isPercentStatsPage
@@ -116,10 +112,7 @@ class _TipChoiceState extends State<TipChoice> {
                           context),
                 ],
               ),
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   !widget.isPercentStatsPage
@@ -143,8 +136,8 @@ class _TipChoiceState extends State<TipChoice> {
                           context),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     });
