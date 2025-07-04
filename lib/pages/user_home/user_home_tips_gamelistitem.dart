@@ -31,6 +31,7 @@ class GameListItem extends StatefulWidget {
     required this.currentDAUComp,
     required this.allTipsViewModel,
     required this.isPercentStatsPage,
+    this.gameTipViewModel, // Optional for testing
   });
 
   final Game game;
@@ -38,6 +39,7 @@ class GameListItem extends StatefulWidget {
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
   final bool isPercentStatsPage;
+  final GameTipViewModel? gameTipViewModel; // Optional for testing
 
   @override
   State<GameListItem> createState() => _GameListItemState();
@@ -60,7 +62,7 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = GameTipViewModel(widget.currentTipper,
+    gameTipsViewModel = widget.gameTipViewModel ?? GameTipViewModel(widget.currentTipper,
         widget.currentDAUComp, widget.game, widget.allTipsViewModel);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

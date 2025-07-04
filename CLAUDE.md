@@ -1,150 +1,236 @@
-# DAU Footy Tipping App - Claude Code Assistant Guide
+# Development Partnership
 
-## Project Overview
-DAU Footy Tipping is a Flutter application designed to manage and display footy tipping competitions, supporting AFL and NRL leagues. The app includes user authentication, game tipping, scoring, league management, and comprehensive statistics tracking.
+We're building production-quality Flutter/Dart code together. Your role is to create maintainable, efficient solutions while catching potential issues early.
 
-## Project Structure
+When you seem stuck or overly complex, I'll redirect you - my guidance helps you stay on track.
+
+## 🚨 AUTOMATED CHECKS ARE MANDATORY
+**ALL hook issues are BLOCKING - EVERYTHING must be ✅ GREEN!**  
+No errors. No formatting issues. No linting problems. Zero tolerance.  
+These are not suggestions. Fix ALL issues before continuing.
+
+## CRITICAL WORKFLOW - ALWAYS FOLLOW THIS!
+
+### Research → Plan → Implement
+**NEVER JUMP STRAIGHT TO CODING!** Always follow this sequence:
+1. **Research**: Explore the codebase, understand existing patterns
+2. **Plan**: Create a detailed implementation plan and verify it with me  
+3. **Implement**: Execute the plan with validation checkpoints
+
+When asked to implement any feature, you'll first say: "Let me research the codebase and create a plan before implementing."
+
+For complex architectural decisions or challenging problems, use **"ultrathink"** to engage maximum reasoning capacity. Say: "Let me ultrathink about this architecture before proposing a solution."
+
+### USE MULTIPLE AGENTS!
+*Leverage subagents aggressively* for better results:
+
+* Spawn agents to explore different parts of the codebase in parallel
+* Use one agent to write tests while another implements features
+* Delegate research tasks: "I'll have an agent investigate the widget tree while I analyze the state management"
+* For complex refactors: One agent identifies changes, another implements them
+
+Say: "I'll spawn agents to tackle different aspects of this problem" whenever a task has multiple independent parts.
+
+### Reality Checkpoints
+**Stop and validate** at these moments:
+- After implementing a complete feature
+- Before starting a new major component  
+- When something feels wrong
+- Before declaring "done"
+- **WHEN HOOKS FAIL WITH ERRORS** ❌
+
+Run: `flutter format . && flutter analyze && flutter test`
+
+> Why: You can lose track of what's actually working. These checkpoints prevent cascading failures.
+
+### 🚨 CRITICAL: Hook Failures Are BLOCKING
+**When hooks report ANY issues (exit code 2), you MUST:**
+1. **STOP IMMEDIATELY** - Do not continue with other tasks
+2. **FIX ALL ISSUES** - Address every ❌ issue until everything is ✅ GREEN
+3. **VERIFY THE FIX** - Re-run the failed command to confirm it's fixed
+4. **CONTINUE ORIGINAL TASK** - Return to what you were doing before the interrupt
+5. **NEVER IGNORE** - There are NO warnings, only requirements
+
+This includes:
+- Formatting issues (dart format)
+- Linting violations (flutter analyze)
+- Forbidden patterns (dynamic without justification, missing null safety)
+- ALL other checks
+
+Your code must be 100% clean. No exceptions.
+
+**Recovery Protocol:**
+- When interrupted by a hook failure, maintain awareness of your original task
+- After fixing all issues and verifying the fix, continue where you left off
+- Use the todo list to track both the fix and your original task
+
+## Working Memory Management
+
+### When context gets long:
+- Re-read this CLAUDE.md file
+- Summarize progress in a PROGRESS.md file
+- Document current state before major changes
+
+### Maintain TODO.md:
+```
+## Current Task
+- [ ] What we're doing RIGHT NOW
+
+## Completed  
+- [x] What's actually done and tested
+
+## Next Steps
+- [ ] What comes next
+```
+
+## Flutter/Dart-Specific Rules
+
+### FORBIDDEN - NEVER DO THESE:
+- **NO dynamic** without strong justification - use concrete types!
+- **NO setState() in loops** - use proper state management!
+- **NO** keeping old and new code together
+- **NO** migration functions or compatibility layers
+- **NO** versioned function names (processV2, handleNew)
+- **NO** Navigator.push() without proper context management
+- **NO** hardcoded strings - use constants or localization
+- **NO** missing dispose() - clean up resources in StatefulWidgets
+- **NO** missing await on async operations
+- **NO** using ! operator without strong justification
+- **NO** TODOs in final code
+
+> **AUTOMATED ENFORCEMENT**: The flutter analyze hook will BLOCK commits that violate these rules.  
+> When you see `❌ FORBIDDEN PATTERN`, you MUST fix it immediately!
+
+### Required Standards:
+- **Delete** old code when replacing it
+- **Meaningful names**: `userId` not `id`, `userName` not `name`
+- **Early returns** to reduce nesting
+- **Const constructors** wherever possible for performance
+- **Proper null safety**: handle nulls explicitly, avoid `!`
+- **Widget tests** for UI components
+- **Proper async/await**: handle Futures correctly
+- **Use StatelessWidget** when possible - avoid StatefulWidget unless needed
+- **Implement proper dispose()** in StatefulWidgets for cleanup
+- **Expensive Build methods** Make sure build methods do not wait on expensive methods
+
+## Implementation Standards
+
+### Our code is complete when:
+- ✅ All linters pass with zero issues (`flutter analyze`)
+- ✅ All tests pass (`flutter test`)
+- ✅ Feature works end-to-end on multiple platforms
+- ✅ Old code is deleted
+- ✅ Proper documentation on all public APIs
+- ✅ Proper null safety implementation
+- ✅ No performance warnings in debug mode
+
+### Testing Strategy
+- **Complex business logic** → Write tests first (TDD)
+- **UI components** → Write widget tests after implementation
+- **User flows** → Add integration tests
+- **Performance critical paths** → Add performance tests
+- **Skip tests for** → Simple getters/setters, basic constructors
+
+### Project Structure
 ```
 lib/
-├── models/              # Data models (games, tips, teams, competitions, etc.)
-├── pages/               # UI pages organized by functionality
-│   ├── admin_daucomps/  # Admin interfaces for managing competitions
-│   ├── admin_teams/     # Team management interfaces
-│   ├── admin_tippers/   # Tipper management and merging
-│   ├── user_auth/       # Authentication pages
-│   └── user_home/       # Main user interface (tips, stats, profiles)
-├── services/            # Business logic and external service integrations
-├── view_models/         # State management using Provider pattern
-├── theme_data.dart      # App theming configuration
-└── firebase_options.dart # Firebase configuration
+├── main.dart              # Application entry point
+├── models/               # Data models and entities
+├── pages/                # UI screens/pages
+├── services/             # Business logic and API calls
+├── view_models/          # State management (Provider/Riverpod)
+├── widgets/              # Reusable UI components
+├── theme_data.dart       # App theming
+└── constants.dart        # App constants
 
-functions/               # Firebase Cloud Functions (TypeScript/Node.js)
-test/                   # Unit and widget tests with mock data
-assets/                 # Static assets including team logos and icons
-android/ios/web/        # Platform-specific code and configurations
+test/                     # Tests mirror lib/ structure
+├── models/
+├── services/
+├── view_models/
+├── widgets/
+└── integration_test/     # Full app integration tests
+
+functions/                # Firebase backend functions
+├── src/                  # TypeScript source
+└── lib/                  # Compiled JavaScript
 ```
 
-## View Model Dependency Tree
+## Problem-Solving Together
+
+When you're stuck or confused:
+1. **Stop** - Don't spiral into complex solutions
+2. **Delegate** - Consider spawning agents for parallel investigation
+3. **Ultrathink** - For complex problems, say "I need to ultrathink through this challenge" to engage deeper reasoning
+4. **Step back** - Re-read the requirements
+5. **Simplify** - The simple solution is usually correct
+6. **Ask** - "I see two approaches: [A] vs [B]. Which do you prefer?"
+
+My insights on better approaches are valued - please ask for them!
+
+## Performance & Security
+
+### **Flutter Performance**:
+- No premature optimization
+- Use `const` constructors liberally
+- Implement proper widget rebuilding strategies (`Consumer`, `Selector`)
+- Use `ListView.builder` for large lists
+- Implement proper image caching and loading
+- Profile with Flutter DevTools before claiming performance improvements
+- Monitor widget rebuilds with `debugPrintBuildLog`
+
+### **Security Always**:
+- Validate all user inputs
+- Use `dart:math` Random.secure() for cryptographic randomness
+- Implement proper Firebase security rules
+- Use secure storage for sensitive data (flutter_secure_storage)
+- Validate data from external APIs
+- Never log sensitive information
+
+## Communication Protocol
+
+### Progress Updates:
 ```
-DAUCompsViewModel
-├── GamesViewModel
-│   ├── DAUCompsViewModel
-│   ├── StatsViewModel
-│   └── TeamsViewModel
-├── StatsViewModel
-│   ├── DAUCompsViewModel
-│   ├── TipsViewModel
-│   └── TippersViewModel
-├── TipsViewModel
-│   ├── GamesViewModel
-│   └── DAUCompsViewModel
-├── TippersViewModel
-│   ├── FirebaseMessagingService
-│   ├── GoogleSheetService
-│   └── DAUCompsViewModel
-└── FixtureDownloadService
-
-GameTipsViewModel
-├── TipsViewModel
-├── DAUCompsViewModel
-└── ScoringViewModel
-```
-
-## Technology Stack
-- **Frontend**: Flutter (Dart SDK >=3.1.5 <4.0.0)
-- **Backend**: Firebase (Realtime Database, Firestore, Authentication, Cloud Functions, Messaging)
-- **State Management**: Provider pattern with dependency injection
-- **Testing**: Flutter test framework with Mockito
-- **Build Tools**: Flutter build system with build_runner for code generation
-
-## Development Commands
-```bash
-# Essential Flutter commands
-flutter pub get                    # Install dependencies
-flutter run                       # Run app in development
-flutter test                      # Run all tests
-flutter clean                     # Clean build cache
-
-# Build commands
-flutter build appbundle           # Build Android App Bundle
-flutter build apk --release       # Build Android APK
-flutter build ios --release       # Build iOS release
-
-# Code generation
-flutter packages pub run build_runner build  # Generate JSON serialization code
-
-# Firebase commands
-firebase emulators:start          # Start Firebase emulators
-firebase deploy --only hosting    # Deploy to Firebase hosting
+✓ Implemented user authentication (all tests passing)
+✓ Added login/logout flow with proper state management
+✗ Found issue with widget rebuilding - investigating
 ```
 
-## Key Features
-- **Multi-league Support**: AFL and NRL competitions
-- **User Authentication**: Firebase Auth with Google/Apple sign-in
-- **Real-time Tipping**: Live game scoring and tip submission
-- **Competition Management**: Admin tools for managing competitions, rounds, and fixtures
-- **Statistics & Analytics**: Comprehensive leaderboards and performance tracking
-- **Push Notifications**: Game reminders and score updates
-- **Team Management**: Team logos, colors, and game history
-- **Responsive Design**: Optimized for mobile platforms
+### Suggesting Improvements:
+"The current approach works, but I notice [observation].
+Would you like me to [specific improvement]?"
 
-## Firebase Integration
-- **Firebase Realtime Database**: Primary data storage for real-time updates
-- **Firestore**: Secondary storage for complex queries
-- **Firebase Auth**: User authentication and authorization
-- **Cloud Functions**: Server-side logic for notifications and data processing
-- **Firebase Messaging**: Push notifications for game reminders
-- **Analytics & Crashlytics**: App performance monitoring
+## Working Together
 
-## Key Dependencies
-```yaml
-# Core Firebase
-firebase_core: ^3.4.0
-firebase_database: ^11.1.0
-firebase_auth: ^5.2.0
-firebase_messaging: ^15.1.0
+- This is always a feature branch - no backwards compatibility needed
+- When in doubt, we choose clarity over cleverness
+- Prefer composition over inheritance in Widget design
+- Use Flutter's built-in widgets before creating custom ones
+- **REMINDER**: If this file hasn't been referenced in 30+ minutes, RE-READ IT!
 
-# State Management
-provider: ^6.1.1
-get_it: ^8.0.3
-watch_it: ^1.4.0
+Avoid complex abstractions or "clever" code. The simple, obvious solution is probably better, and my guidance helps you stay focused on what matters.
 
-# UI Components
-flex_color_scheme: ^8.1.0
-data_table_2: ^2.5.10
-modal_bottom_sheet: ^3.0.0
+## Flutter-Specific Best Practices
 
-# HTTP & Data
-dio: ^5.3.4
-http: ^1.1.2
-json_annotation: ^4.8.1
-```
+### Widget Design:
+- **StatelessWidget first** - only use StatefulWidget when state is truly needed
+- **Const constructors** - use them everywhere possible
+- **Single responsibility** - each widget should have one clear purpose
+- **Proper key usage** - use keys for widgets in lists or when identity matters
 
-## Testing Strategy
-- **Unit Tests**: View models, services, and business logic
-- **Widget Tests**: UI components and user interactions
-- **Integration Tests**: End-to-end user flows
-- **Mock Data**: Comprehensive test data in `test/data/` directory
-- **Mocking**: Mockito for dependency injection testing
+### State Management:
+- **Provider/Riverpod** for app-wide state
+- **setState** only for simple, local widget state
+- **Avoid** global variables or static state
+- **Proper disposal** of resources in StatefulWidgets
 
-## Architecture Patterns
-- **MVVM**: Model-View-ViewModel pattern with Provider
-- **Repository Pattern**: Data access abstraction
-- **Service Layer**: Business logic separation
-- **Dependency Injection**: Using get_it for service location
+### Navigation:
+- **Named routes** for complex navigation
+- **Proper context management** - don't store BuildContext in fields
+- **Navigator 2.0** for complex routing scenarios
 
-## Important Configuration
-- **App Version**: 1.2.20+436 (managed in pubspec.yaml)
-- **Min SDK**: Android 21, iOS deployment target varies
-- **Firebase Config**: Platform-specific configuration files included
-- **App Icons**: Adaptive icons configured for all platforms
-
-## Learning Resources
-- [Firebase Realtime Database Tutorial](https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw) - Understanding the database structure used in this project
-
-## Development Notes
-- Uses Provider pattern for state management throughout the app
-- Firebase Realtime Database is the primary data store
-- Platform-specific code exists for iOS, Android, Web, and Desktop
-- Cloud Functions handle server-side operations like notifications
-- Mock data and comprehensive test coverage for reliable development
+### Common Flutter Pitfalls to Avoid:
+- Widget overflow errors - use `Flexible`, `Expanded`, or `SingleChildScrollView`
+- Calling `setState` after `dispose()` - always check `mounted`
+- Not disposing controllers, listeners, or streams
+- Using `Scaffold.of(context)` without proper context
+- Forgetting to handle loading/error states in async operations

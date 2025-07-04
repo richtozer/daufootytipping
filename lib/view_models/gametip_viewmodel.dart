@@ -59,7 +59,7 @@ class GameTipViewModel extends ChangeNotifier {
   int? _awayTeamScore;
   int? get awayTeamScore => _awayTeamScore;
 
-  final _db = FirebaseDatabase.instance.ref();
+  final DatabaseReference _db;
 
   bool _savingTip = false;
   bool get savingTip => _savingTip;
@@ -84,8 +84,9 @@ class GameTipViewModel extends ChangeNotifier {
     this.currentTipper,
     this._currentDAUComp,
     this.game,
-    this.allTipsViewModel,
-  ) {
+    this.allTipsViewModel, {
+    DatabaseReference? database,
+  }) : _db = database ?? FirebaseDatabase.instance.ref() {
     allTipsViewModel.addListener(_tipsUpdated); // Restored listener for tips
     // only monitor gamesViewModel if the comp still has active rounds
     if (_currentDAUComp.highestRoundNumberInPast() <
