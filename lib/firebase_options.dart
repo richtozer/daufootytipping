@@ -49,7 +49,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1008137398618',
     projectId: 'dau-footy-tipping-f8a42',
     authDomain: 'dau-footy-tipping-f8a42.firebaseapp.com',
-    databaseURL: 'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'dau-footy-tipping-f8a42.appspot.com',
     measurementId: 'G-V81MDHE3QN',
   );
@@ -59,7 +60,8 @@ class DefaultFirebaseOptions {
     appId: '1:1008137398618:android:dae59f80f55edf7bd6ab63',
     messagingSenderId: '1008137398618',
     projectId: 'dau-footy-tipping-f8a42',
-    databaseURL: 'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'dau-footy-tipping-f8a42.appspot.com',
   );
 
@@ -68,10 +70,13 @@ class DefaultFirebaseOptions {
     appId: '1:1008137398618:ios:30530140c0051760d6ab63',
     messagingSenderId: '1008137398618',
     projectId: 'dau-footy-tipping-f8a42',
-    databaseURL: 'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'dau-footy-tipping-f8a42.appspot.com',
-    androidClientId: '1008137398618-fnp182b8skq0qksl7u2kdfejbh6cl7aq.apps.googleusercontent.com',
-    iosClientId: '1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com',
+    androidClientId:
+        '1008137398618-fnp182b8skq0qksl7u2kdfejbh6cl7aq.apps.googleusercontent.com',
+    iosClientId:
+        '1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com',
     iosBundleId: 'coach.interview.daufootytipping',
   );
 
@@ -80,10 +85,13 @@ class DefaultFirebaseOptions {
     appId: '1:1008137398618:ios:f5b2ad52ed9d93e8d6ab63',
     messagingSenderId: '1008137398618',
     projectId: 'dau-footy-tipping-f8a42',
-    databaseURL: 'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'dau-footy-tipping-f8a42.appspot.com',
-    androidClientId: '1008137398618-fnp182b8skq0qksl7u2kdfejbh6cl7aq.apps.googleusercontent.com',
-    iosClientId: '1008137398618-5v7nuhp6qaef6uorfoe2j4mgv6ls613q.apps.googleusercontent.com',
+    androidClientId:
+        '1008137398618-fnp182b8skq0qksl7u2kdfejbh6cl7aq.apps.googleusercontent.com',
+    iosClientId:
+        '1008137398618-5v7nuhp6qaef6uorfoe2j4mgv6ls613q.apps.googleusercontent.com',
     iosBundleId: 'coach.interview.daufootytipping.RunnerTests',
   );
 }

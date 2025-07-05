@@ -135,15 +135,17 @@ class Scoring {
   GameResult getGameResultCalculated(League league) {
     int? homeScore = currentScore(ScoringTeam.home);
     int? awayScore = currentScore(ScoringTeam.away);
-    
+
     // Handle partial live scores by assuming unscored team has 0
     // This allows proper scoring during live updates until fixture scores are available
     if (homeScore != null && awayScore == null && croudSourcedScores != null) {
       awayScore = 0;
-    } else if (awayScore != null && homeScore == null && croudSourcedScores != null) {
+    } else if (awayScore != null &&
+        homeScore == null &&
+        croudSourcedScores != null) {
       homeScore = 0;
     }
-    
+
     if (homeScore != null && awayScore != null) {
       switch (league) {
         case League.nrl:

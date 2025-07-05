@@ -156,35 +156,47 @@ void main() {
         () {
       // Round 1 games
       final game1 = _createGame(
-        dbkey: 'afl-1-1', homeTeam: teamAflA, awayTeam: teamAflB,
+        dbkey: 'afl-1-1',
+        homeTeam: teamAflA,
+        awayTeam: teamAflB,
         league: League.afl,
         startTime: DateTime.now().subtract(const Duration(days: 4)),
-        homeScore: 60, awayScore: 90,
+        homeScore: 60,
+        awayScore: 90,
         roundNumber: 1,
       );
       final game2 = _createGame(
-        dbkey: 'afl-1-2', homeTeam: teamAflA, awayTeam: teamAflC,
+        dbkey: 'afl-1-2',
+        homeTeam: teamAflA,
+        awayTeam: teamAflC,
         league: League.afl,
         startTime: DateTime.now().subtract(const Duration(days: 3)),
-        homeScore: 70, awayScore: 70,
+        homeScore: 70,
+        awayScore: 70,
         roundNumber: 1,
       );
 
       // Round 2 games
       final game3 = _createGame(
-        dbkey: 'afl-2-1', homeTeam: teamAflB, awayTeam: teamAflC,
+        dbkey: 'afl-2-1',
+        homeTeam: teamAflB,
+        awayTeam: teamAflC,
         league: League.afl,
         startTime: DateTime.now().subtract(const Duration(days: 2)),
-        homeScore: 85, awayScore: 75,
+        homeScore: 85,
+        awayScore: 75,
         roundNumber: 2,
       );
 
       // Round 3 games
       final game4 = _createGame(
-        dbkey: 'afl-3-1', homeTeam: teamAflC, awayTeam: teamAflA,
+        dbkey: 'afl-3-1',
+        homeTeam: teamAflC,
+        awayTeam: teamAflA,
         league: League.afl,
         startTime: DateTime.now().subtract(const Duration(days: 1)),
-        homeScore: 80, awayScore: 65,
+        homeScore: 80,
+        awayScore: 65,
         roundNumber: 3,
       );
 

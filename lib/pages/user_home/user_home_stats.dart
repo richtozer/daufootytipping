@@ -172,18 +172,22 @@ class StatsTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: Row( // Removed const here because Hero is not const
+                  child: Row(
+                    // Removed const here because Hero is not const
                     children: [
-                      Hero( // Added Hero widget
+                      Hero(
+                        // Added Hero widget
                         tag: "nrl_league_logo_hero", // Updated tag
-                        child: SvgPicture.asset( // Replaced Icon with SvgPicture
+                        child: SvgPicture.asset(
+                          // Replaced Icon with SvgPicture
                           'assets/teams/nrl.svg',
                           width: 30,
                           height: 40,
                         ),
                       ),
                       const SizedBox(height: 64, width: 16), // Added const here
-                      const Expanded( // Added const here
+                      const Expanded(
+                        // Added const here
                         child: Text('NRL Ladder\nView current standings'),
                       ),
                       Icon(Icons.arrow_forward),

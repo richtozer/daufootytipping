@@ -210,10 +210,11 @@ class TipsTabState extends State<TipsTab> {
     return null;
   }
 
-  Widget _buildItem(DAUCompsViewModel daucompsViewmodelConsumer,
-      int roundIndex, int itemIndex) {
-    final dauRound = daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
-    
+  Widget _buildItem(DAUCompsViewModel daucompsViewmodelConsumer, int roundIndex,
+      int itemIndex) {
+    final dauRound =
+        daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
+
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
       return roundLeagueHeaderListTile(

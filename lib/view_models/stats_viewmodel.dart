@@ -625,9 +625,67 @@ class StatsViewModel extends ChangeNotifier {
     _roundWinners = roundWinners;
   }
 
+  Map<Tipper, int> _calculateCumulativeRanksUpToRound(int upToRoundNumber) {
+    Map<Tipper, int> cumulativeScores = {};
+
+    // Calculate cumulative scores up to the specified round
+    for (var roundEntry in _allTipperRoundStats.entries) {
+      int roundIndex = roundEntry.key;
+
+      // Only include rounds up to the specified round number
+      if (roundIndex + 1 > upToRoundNumber) {
+        continue;
+      }
+
+      Map<Tipper, RoundStats> tipperStats = roundEntry.value;
+
+      for (var tipperEntry in tipperStats.entries) {
+        Tipper tipper = tipperEntry.key;
+        RoundStats roundScores = tipperEntry.value;
+
+        // Only include tippers who's paid status matches that of the authenticated tipper
+        if (_isSelectedTipperPaidUpMember !=
+            tipper.paidForComp(selectedDAUComp)) {
+          continue;
+        }
+
+        cumulativeScores[tipper] = (cumulativeScores[tipper] ?? 0) +
+            roundScores.aflScore +
+            roundScores.nrlScore;
+      }
+    }
+
+    // Convert to list and sort by cumulative score
+    var scoreEntries = cumulativeScores.entries.toList();
+    scoreEntries.sort((a, b) => b.value.compareTo(a.value));
+
+    // Assign ranks
+    Map<Tipper, int> ranks = {};
+    int rank = 1;
+    int skip = 1;
+    for (int i = 0; i < scoreEntries.length; i++) {
+      if (i > 0 && scoreEntries[i].value < scoreEntries[i - 1].value) {
+        rank += skip;
+        skip = 1;
+      } else if (i > 0 && scoreEntries[i].value == scoreEntries[i - 1].value) {
+        skip++;
+      }
+      ranks[scoreEntries[i].key] = rank;
+    }
+
+    return ranks;
+  }
+
   void _updateLeaderboardForComp() {
     // Create a map to accumulate scores for each tipper
     Map<Tipper, LeaderboardEntry> leaderboardMap = {};
+
+    // Get the current round number and calculate previous round cumulative ranks
+    int currentRound = selectedDAUComp.highestRoundNumberInPast();
+    Map<Tipper, int> previousRoundRanks = {};
+    if (currentRound > 1) {
+      previousRoundRanks = _calculateCumulativeRanksUpToRound(currentRound - 1);
+    }
 
     // Iterate over each round
     for (var roundEntry in _allTipperRoundStats.entries) {
@@ -665,6 +723,7 @@ class StatsViewModel extends ChangeNotifier {
             aflUPS: 0,
             nrlMargins: 0,
             nrlUPS: 0,
+            previousRank: previousRoundRanks[tipper],
           );
         }
 
@@ -695,6 +754,11 @@ class StatsViewModel extends ChangeNotifier {
         skip++;
       }
       leaderboard[i].rank = rank;
+
+      // Calculate rank change
+      if (leaderboard[i].previousRank != null) {
+        leaderboard[i].rankChange = leaderboard[i].previousRank! - rank;
+      }
     }
 
     // Sort by rank and then by tipper name

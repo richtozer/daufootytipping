@@ -62,8 +62,9 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = widget.gameTipViewModel ?? GameTipViewModel(widget.currentTipper,
-        widget.currentDAUComp, widget.game, widget.allTipsViewModel);
+    gameTipsViewModel = widget.gameTipViewModel ??
+        GameTipViewModel(widget.currentTipper, widget.currentDAUComp,
+            widget.game, widget.allTipsViewModel);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&

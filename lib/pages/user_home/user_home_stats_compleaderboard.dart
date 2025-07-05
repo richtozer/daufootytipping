@@ -26,6 +26,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   final List<String> columns = [
     'Name',
     "Rank",
+    'Cng.',
     'Total',
     'NRL',
     'AFL',
@@ -154,6 +155,11 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                                     onTap: () => onTipperTapped(context,
                                         scoresViewModelConsumer, index)),
                                 DataCell(
+                                    _buildRankChangeCell(scoresViewModelConsumer
+                                        .compLeaderboard[index]),
+                                    onTap: () => onTipperTapped(context,
+                                        scoresViewModelConsumer, index)),
+                                DataCell(
                                     Text(scoresViewModelConsumer
                                         .compLeaderboard[index].total
                                         .toString()),
@@ -239,27 +245,36 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     if (columnIndex == 2) {
       if (ascending) {
         scoresViewModel.compLeaderboard
+            .sort((a, b) => (a.rankChange ?? 0).compareTo(b.rankChange ?? 0));
+      } else {
+        scoresViewModel.compLeaderboard
+            .sort((a, b) => (b.rankChange ?? 0).compareTo(a.rankChange ?? 0));
+      }
+    }
+    if (columnIndex == 3) {
+      if (ascending) {
+        scoresViewModel.compLeaderboard
             .sort((a, b) => a.total.compareTo(b.total));
       } else {
         scoresViewModel.compLeaderboard
             .sort((a, b) => b.total.compareTo(a.total));
       }
     }
-    if (columnIndex == 3) {
+    if (columnIndex == 4) {
       if (ascending) {
         scoresViewModel.compLeaderboard.sort((a, b) => a.nRL.compareTo(b.nRL));
       } else {
         scoresViewModel.compLeaderboard.sort((a, b) => b.nRL.compareTo(a.nRL));
       }
     }
-    if (columnIndex == 4) {
+    if (columnIndex == 5) {
       if (ascending) {
         scoresViewModel.compLeaderboard.sort((a, b) => a.aFL.compareTo(b.aFL));
       } else {
         scoresViewModel.compLeaderboard.sort((a, b) => b.aFL.compareTo(a.aFL));
       }
     }
-    if (columnIndex == 5) {
+    if (columnIndex == 6) {
       if (ascending) {
         scoresViewModel.compLeaderboard
             .sort((a, b) => a.numRoundsWon.compareTo(b.numRoundsWon));
@@ -268,7 +283,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
             .sort((a, b) => b.numRoundsWon.compareTo(a.numRoundsWon));
       }
     }
-    if (columnIndex == 6) {
+    if (columnIndex == 7) {
       if (ascending) {
         scoresViewModel.compLeaderboard.sort((a, b) =>
             (a.aflMargins + a.nrlMargins)
@@ -279,7 +294,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 .compareTo(a.aflMargins + a.nrlMargins));
       }
     }
-    if (columnIndex == 7) {
+    if (columnIndex == 8) {
       if (ascending) {
         scoresViewModel.compLeaderboard.sort(
             (a, b) => (a.aflUPS + a.nrlUPS).compareTo(b.aflUPS + b.nrlUPS));
@@ -295,20 +310,60 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .map((String column) => DataColumn2(
-            fixedWidth: column == 'Name'
-                ? 155
-                : column == '#\nrounds\nwon' || column == 'Margins'
-                    ? 75
-                    : 55,
-            numeric: column == 'Name' ? false : true,
-            label: Text(
-              column,
-            ),
+  List<DataColumn> getColumns(List<String> columns) =>
+      columns.map((String column) {
+        if (column == 'Name') {
+          return DataColumn2(
+            fixedWidth: 140,
+            numeric: false,
+            label: Text(column),
             onSort: onSort,
-          ))
-      .toList();
+          );
+        } else if (column == 'Cng.') {
+          return DataColumn2(
+            fixedWidth: 45,
+            numeric: true,
+            label: Text(column),
+            onSort: onSort,
+          );
+        } else if (column == 'Rank') {
+          return DataColumn2(
+            fixedWidth: 50,
+            numeric: true,
+            label: Text(column),
+            onSort: onSort,
+          );
+        } else {
+          return DataColumn2(
+            size: ColumnSize.S,
+            numeric: true,
+            label: Text(column),
+            onSort: onSort,
+          );
+        }
+      }).toList();
+
+  Widget _buildRankChangeCell(dynamic leaderboardEntry) {
+    if (leaderboardEntry.previousRank == null ||
+        leaderboardEntry.rankChange == null) {
+      return const Text('-');
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        //Text('${leaderboardEntry.previousRank}'),
+        //const SizedBox(width: 2),
+        leaderboardEntry.rankChange > 0
+            ? const Icon(color: Colors.green, Icons.arrow_upward, size: 16)
+            : leaderboardEntry.rankChange < 0
+                ? const Icon(color: Colors.red, Icons.arrow_downward, size: 16)
+                : const Icon(color: Colors.green, Icons.sync_alt, size: 16),
+        //const SizedBox(width: 2),
+        Text('${leaderboardEntry.rankChange.abs()}'),
+      ],
+    );
+  }
 
   Widget avatarPic(Tipper tipper) {
     return Hero(

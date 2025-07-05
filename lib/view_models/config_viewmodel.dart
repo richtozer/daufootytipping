@@ -54,9 +54,9 @@ class ConfigViewModel extends ChangeNotifier {
       notifyListeners();
     }, onError: (error) {
       log('ConfigViewModel._listenToConfigChanges() Error: $error');
-      
+
       // For network disconnection errors, attempt reconnection after delay
-      if (error.toString().contains('network disconnect') || 
+      if (error.toString().contains('network disconnect') ||
           error.toString().contains('U3.e')) {
         log('Network disconnection detected, attempting reconnection in 5 seconds');
         Timer(const Duration(seconds: 5), () {

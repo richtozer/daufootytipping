@@ -242,30 +242,32 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _processSnapshot(DataSnapshot snapshot) async {
-    final databaseDAUComps = Map<String, dynamic>.from(snapshot.value as dynamic);
-    
+    final databaseDAUComps =
+        Map<String, dynamic>.from(snapshot.value as dynamic);
+
     // Create a map of existing comps for quick lookup
     Map<String, DAUComp> existingDAUCompsMap = {
       for (var daucomp in _daucomps) daucomp.dbkey!: daucomp
     };
-    
+
     // Track which database comps we've processed
     Set<String> processedDbKeys = <String>{};
-    
+
     // Process each comp from database
     for (var entry in databaseDAUComps.entries) {
       String dbKey = entry.key;
       dynamic daucompAsJSON = entry.value;
       processedDbKeys.add(dbKey);
-      
+
       if (existingDAUCompsMap.containsKey(dbKey)) {
         // Update existing comp incrementally
-        DAUComp? replacementComp = await _updateExistingComp(existingDAUCompsMap[dbKey]!, daucompAsJSON);
+        DAUComp? replacementComp = await _updateExistingComp(
+            existingDAUCompsMap[dbKey]!, daucompAsJSON);
         if (replacementComp != null) {
           // Replace the existing comp with the new one (final fields changed)
           existingDAUCompsMap[dbKey] = replacementComp;
           log('Replaced DAUComp object due to final field changes: $dbKey');
-          
+
           // Update references if needed
           if (dbKey == _activeDAUComp?.dbkey) {
             _activeDAUComp = replacementComp;
@@ -280,26 +282,29 @@ class DAUCompsViewModel extends ChangeNotifier {
         await _addNewComp(dbKey, daucompAsJSON, existingDAUCompsMap);
       }
     }
-    
+
     // Remove comps that are no longer in database
     List<String> keysToRemove = existingDAUCompsMap.keys
         .where((key) => !processedDbKeys.contains(key))
         .toList();
-    
+
     for (String keyToRemove in keysToRemove) {
       existingDAUCompsMap.remove(keyToRemove);
       log('Removed DAUComp from memory: $keyToRemove');
     }
-    
+
     _daucomps = existingDAUCompsMap.values.toList();
   }
 
-  Future<DAUComp?> _updateExistingComp(DAUComp existingComp, dynamic daucompAsJSON) async {
+  Future<DAUComp?> _updateExistingComp(
+      DAUComp existingComp, dynamic daucompAsJSON) async {
     // Create a temporary DAUComp from database data for comparison
     List<DAURound> databaseRounds = _parseRounds(daucompAsJSON);
     DAUComp databaseComp = DAUComp.fromJson(
-        Map<String, dynamic>.from(daucompAsJSON), existingComp.dbkey!, databaseRounds);
-    
+        Map<String, dynamic>.from(daucompAsJSON),
+        existingComp.dbkey!,
+        databaseRounds);
+
     // Apply cutoff filter to database rounds
     DateTime? greaterEndDate = _getGreaterEndDate(databaseComp);
     if (greaterEndDate != null) {
@@ -307,48 +312,55 @@ class DAUCompsViewModel extends ChangeNotifier {
         return round.getRoundStartDate().isAfter(greaterEndDate);
       });
     }
-    
+
     bool finalFieldsChanged = false;
     bool mutableFieldsChanged = false;
-    
+
     // Check if final fields have changed (these require object replacement)
     if (existingComp.name != databaseComp.name ||
         existingComp.aflFixtureJsonURL != databaseComp.aflFixtureJsonURL ||
         existingComp.nrlFixtureJsonURL != databaseComp.nrlFixtureJsonURL) {
       finalFieldsChanged = true;
     }
-    
+
     // If final fields changed, we need to replace the entire object
     if (finalFieldsChanged) {
       log('Final fields changed for DAUComp ${existingComp.dbkey}, replacing object');
       return databaseComp; // Return the new object to replace the existing one
     }
-    
+
     // Update mutable fields
-    if (existingComp.aflRegularCompEndDateUTC != databaseComp.aflRegularCompEndDateUTC) {
-      existingComp.aflRegularCompEndDateUTC = databaseComp.aflRegularCompEndDateUTC;
+    if (existingComp.aflRegularCompEndDateUTC !=
+        databaseComp.aflRegularCompEndDateUTC) {
+      existingComp.aflRegularCompEndDateUTC =
+          databaseComp.aflRegularCompEndDateUTC;
       mutableFieldsChanged = true;
     }
-    if (existingComp.nrlRegularCompEndDateUTC != databaseComp.nrlRegularCompEndDateUTC) {
-      existingComp.nrlRegularCompEndDateUTC = databaseComp.nrlRegularCompEndDateUTC;
+    if (existingComp.nrlRegularCompEndDateUTC !=
+        databaseComp.nrlRegularCompEndDateUTC) {
+      existingComp.nrlRegularCompEndDateUTC =
+          databaseComp.nrlRegularCompEndDateUTC;
       mutableFieldsChanged = true;
     }
-    if (existingComp.lastFixtureUpdateTimestampUTC != databaseComp.lastFixtureUpdateTimestampUTC) {
-      existingComp.lastFixtureUpdateTimestampUTC = databaseComp.lastFixtureUpdateTimestampUTC;
+    if (existingComp.lastFixtureUpdateTimestampUTC !=
+        databaseComp.lastFixtureUpdateTimestampUTC) {
+      existingComp.lastFixtureUpdateTimestampUTC =
+          databaseComp.lastFixtureUpdateTimestampUTC;
       mutableFieldsChanged = true;
     }
-    
+
     // Update rounds using CRUD operations
-    bool roundsChanged = await _updateDauRounds(existingComp, databaseComp.daurounds);
-    
+    bool roundsChanged =
+        await _updateDauRounds(existingComp, databaseComp.daurounds);
+
     if (mutableFieldsChanged || roundsChanged) {
       log('Updated DAUComp attributes from database: ${existingComp.dbkey}');
-      
+
       // Update active comp reference if it matches
       if (existingComp.dbkey == _activeDAUComp?.dbkey) {
         _activeDAUComp = existingComp;
       }
-      
+
       // Update selected comp reference and link games if it matches
       if (existingComp.dbkey == _selectedDAUComp?.dbkey) {
         _selectedDAUComp = existingComp;
@@ -357,15 +369,16 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
       }
     }
-    
+
     return null; // Return null to indicate no replacement needed
   }
 
-  Future<void> _addNewComp(String dbKey, dynamic daucompAsJSON, Map<String, DAUComp> existingDAUCompsMap) async {
+  Future<void> _addNewComp(String dbKey, dynamic daucompAsJSON,
+      Map<String, DAUComp> existingDAUCompsMap) async {
     List<DAURound> daurounds = _parseRounds(daucompAsJSON);
     DAUComp newComp = DAUComp.fromJson(
         Map<String, dynamic>.from(daucompAsJSON), dbKey, daurounds);
-    
+
     // Apply cutoff filter
     DateTime? greaterEndDate = _getGreaterEndDate(newComp);
     if (greaterEndDate != null) {
@@ -373,14 +386,15 @@ class DAUCompsViewModel extends ChangeNotifier {
         return round.getRoundStartDate().isAfter(greaterEndDate);
       });
     }
-    
+
     existingDAUCompsMap[dbKey] = newComp;
     log('Added new DAUComp to memory: $dbKey');
   }
 
-  Future<bool> _updateDauRounds(DAUComp existingComp, List<DAURound> databaseRounds) async {
+  Future<bool> _updateDauRounds(
+      DAUComp existingComp, List<DAURound> databaseRounds) async {
     bool roundsChanged = false;
-    
+
     // Create maps for efficient lookup
     Map<int, DAURound> existingRoundsMap = {
       for (var round in existingComp.daurounds) round.dAUroundNumber: round
@@ -388,14 +402,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     Map<int, DAURound> databaseRoundsMap = {
       for (var round in databaseRounds) round.dAUroundNumber: round
     };
-    
+
     // Update existing rounds and add new ones
     for (var databaseRound in databaseRounds) {
       int roundNumber = databaseRound.dAUroundNumber;
-      
+
       if (existingRoundsMap.containsKey(roundNumber)) {
         // Update existing round
-        if (await _updateSingleRound(existingRoundsMap[roundNumber]!, databaseRound)) {
+        if (await _updateSingleRound(
+            existingRoundsMap[roundNumber]!, databaseRound)) {
           roundsChanged = true;
         }
       } else {
@@ -405,31 +420,34 @@ class DAUCompsViewModel extends ChangeNotifier {
         log('Added new round $roundNumber to comp ${existingComp.dbkey}');
       }
     }
-    
+
     // Remove rounds that no longer exist in database
     List<DAURound> roundsToRemove = existingComp.daurounds
         .where((round) => !databaseRoundsMap.containsKey(round.dAUroundNumber))
         .toList();
-    
+
     for (var roundToRemove in roundsToRemove) {
       existingComp.daurounds.remove(roundToRemove);
       roundsChanged = true;
       log('Removed round ${roundToRemove.dAUroundNumber} from comp ${existingComp.dbkey}');
     }
-    
+
     // Sort rounds by round number
     if (roundsChanged) {
-      existingComp.daurounds.sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
+      existingComp.daurounds
+          .sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
     }
-    
+
     return roundsChanged;
   }
 
-  Future<bool> _updateSingleRound(DAURound existingRound, DAURound databaseRound) async {
+  Future<bool> _updateSingleRound(
+      DAURound existingRound, DAURound databaseRound) async {
     bool roundChanged = false;
-    
+
     // Compare and update round attributes
-    if (existingRound.firstGameKickOffUTC != databaseRound.firstGameKickOffUTC) {
+    if (existingRound.firstGameKickOffUTC !=
+        databaseRound.firstGameKickOffUTC) {
       existingRound.firstGameKickOffUTC = databaseRound.firstGameKickOffUTC;
       roundChanged = true;
     }
@@ -437,25 +455,31 @@ class DAUCompsViewModel extends ChangeNotifier {
       existingRound.lastGameKickOffUTC = databaseRound.lastGameKickOffUTC;
       roundChanged = true;
     }
-    if (existingRound.adminOverrideRoundStartDate != databaseRound.adminOverrideRoundStartDate) {
-      existingRound.adminOverrideRoundStartDate = databaseRound.adminOverrideRoundStartDate;
+    if (existingRound.adminOverrideRoundStartDate !=
+        databaseRound.adminOverrideRoundStartDate) {
+      existingRound.adminOverrideRoundStartDate =
+          databaseRound.adminOverrideRoundStartDate;
       roundChanged = true;
     }
-    if (existingRound.adminOverrideRoundEndDate != databaseRound.adminOverrideRoundEndDate) {
-      existingRound.adminOverrideRoundEndDate = databaseRound.adminOverrideRoundEndDate;
+    if (existingRound.adminOverrideRoundEndDate !=
+        databaseRound.adminOverrideRoundEndDate) {
+      existingRound.adminOverrideRoundEndDate =
+          databaseRound.adminOverrideRoundEndDate;
       roundChanged = true;
     }
-    
+
     if (roundChanged) {
       log('Updated round ${existingRound.dAUroundNumber} attributes');
     }
-    
+
     return roundChanged;
   }
 
   DateTime? _getGreaterEndDate(DAUComp comp) {
-    if (comp.aflRegularCompEndDateUTC != null && comp.nrlRegularCompEndDateUTC != null) {
-      return comp.aflRegularCompEndDateUTC!.isAfter(comp.nrlRegularCompEndDateUTC!)
+    if (comp.aflRegularCompEndDateUTC != null &&
+        comp.nrlRegularCompEndDateUTC != null) {
+      return comp.aflRegularCompEndDateUTC!
+              .isAfter(comp.nrlRegularCompEndDateUTC!)
           ? comp.aflRegularCompEndDateUTC!
           : comp.nrlRegularCompEndDateUTC!;
     }

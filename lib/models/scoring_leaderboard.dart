@@ -11,6 +11,8 @@ class LeaderboardEntry {
   int aflUPS;
   int nrlMargins;
   int nrlUPS;
+  int? previousRank;
+  int? rankChange;
 
   int? sortColumnIndex;
   bool isAscending = false;
@@ -27,6 +29,8 @@ class LeaderboardEntry {
     required this.aflUPS,
     required this.nrlMargins,
     required this.nrlUPS,
+    this.previousRank,
+    this.rankChange,
   });
 
   // method to convert instance into json
@@ -42,6 +46,8 @@ class LeaderboardEntry {
       'aflUPS': aflUPS,
       'nrlMargins': nrlMargins,
       'nrlUPS': nrlUPS,
+      'previousRank': previousRank,
+      'rankChange': rankChange,
     };
   }
 }

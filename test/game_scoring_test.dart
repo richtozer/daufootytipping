@@ -39,11 +39,15 @@ void main() {
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.c);
     });
 
-    test('returns NRL GameResult.z when homeTeamScore is null and no crowd-sourced scores', () {
+    test(
+        'returns NRL GameResult.z when homeTeamScore is null and no crowd-sourced scores',
+        () {
       final scoring = Scoring(homeTeamScore: null, awayTeamScore: 10);
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.z);
     });
-    test('returns NRL GameResult.z when awayTeamScore is null and no crowd-sourced scores', () {
+    test(
+        'returns NRL GameResult.z when awayTeamScore is null and no crowd-sourced scores',
+        () {
       final scoring = Scoring(homeTeamScore: 10, awayTeamScore: null);
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.z);
     });
@@ -53,7 +57,9 @@ void main() {
     });
 
     // New tests for partial live scoring with crowd-sourced scores
-    test('returns NRL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0', () {
+    test(
+        'returns NRL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.home,
@@ -69,7 +75,9 @@ void main() {
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.a);
     });
 
-    test('returns NRL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0', () {
+    test(
+        'returns NRL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.away,
@@ -85,7 +93,9 @@ void main() {
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.e);
     });
 
-    test('returns NRL GameResult.b when homeTeamScore from crowd-sourced wins narrowly', () {
+    test(
+        'returns NRL GameResult.b when homeTeamScore from crowd-sourced wins narrowly',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.home,
@@ -153,11 +163,15 @@ void main() {
       expect(scoring.getGameResultCalculated(League.afl), GameResult.c);
     });
 
-    test('returns AFL GameResult.z when homeTeamScore is null and no crowd-sourced scores', () {
+    test(
+        'returns AFL GameResult.z when homeTeamScore is null and no crowd-sourced scores',
+        () {
       final scoring = Scoring(homeTeamScore: null, awayTeamScore: 10);
       expect(scoring.getGameResultCalculated(League.afl), GameResult.z);
     });
-    test('returns AFL GameResult.z when awayTeamScore is null and no crowd-sourced scores', () {
+    test(
+        'returns AFL GameResult.z when awayTeamScore is null and no crowd-sourced scores',
+        () {
       final scoring = Scoring(homeTeamScore: 10, awayTeamScore: null);
       expect(scoring.getGameResultCalculated(League.afl), GameResult.z);
     });
@@ -167,7 +181,9 @@ void main() {
     });
 
     // New tests for partial live scoring with crowd-sourced scores
-    test('returns AFL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0', () {
+    test(
+        'returns AFL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.home,
@@ -183,7 +199,9 @@ void main() {
       expect(scoring.getGameResultCalculated(League.afl), GameResult.a);
     });
 
-    test('returns AFL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0', () {
+    test(
+        'returns AFL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.away,
@@ -199,7 +217,9 @@ void main() {
       expect(scoring.getGameResultCalculated(League.afl), GameResult.e);
     });
 
-    test('returns AFL GameResult.b when homeTeamScore from crowd-sourced wins narrowly', () {
+    test(
+        'returns AFL GameResult.b when homeTeamScore from crowd-sourced wins narrowly',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.home,
@@ -215,7 +235,8 @@ void main() {
       expect(scoring.getGameResultCalculated(League.afl), GameResult.b);
     });
 
-    test('prefers official AFL scores over crowd-sourced when both available', () {
+    test('prefers official AFL scores over crowd-sourced when both available',
+        () {
       final crowdScore = CrowdSourcedScore(
         DateTime.now().toUtc(),
         ScoringTeam.home,
