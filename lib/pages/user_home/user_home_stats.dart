@@ -137,7 +137,7 @@ class StatsTab extends StatelessWidget {
                           builder: (context) => RoundMissingTipsStats(
                               di<DAUCompsViewModel>()
                                   .selectedDAUComp!
-                                  .lowestRoundNumberNotEnded())),
+                                  .firstNotEndedRoundNumber())),
                     );
                   },
                   child: Row(
@@ -152,7 +152,7 @@ class StatsTab extends StatelessWidget {
                               16), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text(
-                            'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.lowestRoundNumberNotEnded()}'),
+                            'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.firstNotEndedRoundNumber()}'),
                       ),
                       Icon(Icons.arrow_forward),
                     ],

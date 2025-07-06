@@ -448,7 +448,7 @@ class MockDAUComp extends _i1.Mock implements _i7.DAUComp {
       );
 
   @override
-  int highestRoundNumberInPast() => (super.noSuchMethod(
+  int latestsCompletedRoundNumber() => (super.noSuchMethod(
         Invocation.method(
           #highestRoundNumberInPast,
           [],
@@ -466,7 +466,7 @@ class MockDAUComp extends _i1.Mock implements _i7.DAUComp {
       ) as double);
 
   @override
-  int lowestRoundNumberNotEnded() => (super.noSuchMethod(
+  int firstNotEndedRoundNumber() => (super.noSuchMethod(
         Invocation.method(
           #lowestRoundNumberNotEnded,
           [],

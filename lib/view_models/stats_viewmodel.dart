@@ -625,7 +625,7 @@ class StatsViewModel extends ChangeNotifier {
     _roundWinners = roundWinners;
   }
 
-  Map<Tipper, int> _calculateCumulativeRanksUpToRound(int upToRoundNumber) {
+  Map<Tipper, int> _calculateCumulativeRankUpToRound(int upToRoundNumber) {
     Map<Tipper, int> cumulativeScores = {};
 
     // Calculate cumulative scores up to the specified round
@@ -680,14 +680,17 @@ class StatsViewModel extends ChangeNotifier {
     // Create a map to accumulate scores for each tipper
     Map<Tipper, LeaderboardEntry> leaderboardMap = {};
 
-    // Get the current round number and calculate previous round cumulative ranks
-    int currentRound = selectedDAUComp.highestRoundNumberInPast();
+    // Get the most recent completed round
+    int latestCompletedRound = selectedDAUComp.latestsCompletedRoundNumber();
+
+    // Calculate previous round ranks if there are any completed rounds
     Map<Tipper, int> previousRoundRanks = {};
-    if (currentRound > 1) {
-      previousRoundRanks = _calculateCumulativeRanksUpToRound(currentRound - 1);
+    if (latestCompletedRound > 1) {
+      previousRoundRanks =
+          _calculateCumulativeRankUpToRound(latestCompletedRound - 1);
     }
 
-    // Iterate over each round
+    // Calculate the leaderboard for the current comp
     for (var roundEntry in _allTipperRoundStats.entries) {
       int roundIndex = roundEntry.key;
 

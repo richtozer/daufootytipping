@@ -26,7 +26,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   final List<String> columns = [
     'Name',
     "Rank",
-    'Cng.',
+    'Cng',
     'Total',
     'NRL',
     'AFL',
@@ -90,7 +90,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast()}. Click a Tipper row below to see the breakdown of their round scores.',
+                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedorUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedorUnderway()}. Click a Tipper row below to see the breakdown of their round scores. Click column headings to sort.',
                     ),
                   )
                 : Container(), // Return an empty container in landscape mode
@@ -319,7 +319,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
             label: Text(column),
             onSort: onSort,
           );
-        } else if (column == 'Cng.') {
+        } else if (column == 'Cng') {
           return DataColumn2(
             fixedWidth: 45,
             numeric: true,
@@ -335,7 +335,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
           );
         } else {
           return DataColumn2(
-            size: ColumnSize.S,
+            fixedWidth: 50,
             numeric: true,
             label: Text(column),
             onSort: onSort,

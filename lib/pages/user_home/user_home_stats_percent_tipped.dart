@@ -40,7 +40,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     }
 
     latestRoundNumber =
-        daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
+        daucompsViewModel.selectedDAUComp!.latestsCompletedRoundNumber();
     log('StatPercentTipped.initState() latestRoundNumber: $latestRoundNumber');
 
     focusNode = FocusNode();

@@ -89,7 +89,7 @@ class GameTipViewModel extends ChangeNotifier {
   }) : _db = database ?? FirebaseDatabase.instance.ref() {
     allTipsViewModel.addListener(_tipsUpdated); // Restored listener for tips
     // only monitor gamesViewModel if the comp still has active rounds
-    if (_currentDAUComp.highestRoundNumberInPast() <
+    if (_currentDAUComp.latestsCompletedRoundNumber() <
         _currentDAUComp.daurounds.length) {
       allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
     } else {

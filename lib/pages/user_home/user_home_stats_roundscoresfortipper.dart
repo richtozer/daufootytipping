@@ -48,7 +48,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     // get the highest round number will Roundstate.allgamesended
     // and store that number
     highestRoundNumber =
-        di<DAUCompsViewModel>().selectedDAUComp!.highestRoundNumberInPast();
+        di<DAUCompsViewModel>().selectedDAUComp!.latestsCompletedRoundNumber();
     log('StatRoundScoresForTipper() highest round number is $highestRoundNumber');
   }
 

@@ -39,7 +39,7 @@ class TipsTabState extends State<TipsTab> {
     }
 
     latestRoundNumber =
-        daucompsViewModel.selectedDAUComp!.highestRoundNumberInPast();
+        daucompsViewModel.selectedDAUComp!.latestsCompletedRoundNumber();
     log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
 
     focusNode = FocusNode();

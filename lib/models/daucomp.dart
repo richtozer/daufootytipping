@@ -40,7 +40,7 @@ class DAUComp implements Comparable<DAUComp> {
   // it does not require gamesviewmodel to fully load all games
   // tips page calls this method ahead of gamesviewmodel loading all games
   // we will add an arbitrary 6 hours to the round end date to ensure the round is considered past
-  int highestRoundNumberInPast() {
+  int latestsCompletedRoundNumber() {
     int highestRoundNumber = 0;
 
     //find the highest round number where roundEndDate + 6 hours is the past UTC
@@ -55,6 +55,32 @@ class DAUComp implements Comparable<DAUComp> {
     }
 
     return highestRoundNumber;
+  }
+
+  int latestRoundWithGamesCompletedorUnderway() {
+    int roundNumber = 0;
+
+    // find lowest round number where roundState is underway
+    // if no rounds are underway, then find the lowest round number where roundState is completed
+    for (var dauround in daurounds) {
+      if (dauround.roundState == RoundState.started) {
+        if (dauround.dAUroundNumber > roundNumber) {
+          roundNumber = dauround.dAUroundNumber;
+          continue;
+        }
+      }
+    }
+    // if no rounds are underway, then find the lowest round number where roundState is completed
+    if (roundNumber == 0) {
+      for (var dauround in daurounds) {
+        if (dauround.roundState == RoundState.allGamesEnded) {
+          if (dauround.dAUroundNumber > roundNumber) {
+            roundNumber = dauround.dAUroundNumber;
+          }
+        }
+      }
+    }
+    return roundNumber;
   }
 
   // method to calculate the pixel height up to the supplied round number
@@ -91,7 +117,7 @@ class DAUComp implements Comparable<DAUComp> {
   }
 
   // get lowest round number where RoundState is notStarted or started
-  int lowestRoundNumberNotEnded() {
+  int firstNotEndedRoundNumber() {
     int lowestRoundNumber = daurounds.length;
 
     // work backwards from highestRoundNumber to find the lowest round number where roundState is notStarted or started

@@ -505,7 +505,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       return;
     }
 
-    bool allGamesStarted = round.games.every((game) =>
+    bool anyGamesStarted = round.games.any((game) =>
         game.gameState == GameState.startedResultKnown ||
         game.gameState == GameState.startedResultNotKnown);
     bool allGamesEnded = round.games
@@ -513,7 +513,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     if (allGamesEnded) {
       round.roundState = RoundState.allGamesEnded;
-    } else if (allGamesStarted) {
+    } else if (anyGamesStarted) {
       round.roundState = RoundState.started;
     } else {
       round.roundState = RoundState.notStarted;
