@@ -1102,9 +1102,17 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> _calculateRoundStats(List<Tipper> tippers, DAURound dauRound,
       TipsViewModel allTipsViewModel) async {
     List<Future<void>> futures = [];
+    int processedTippers = 0;
+    
     for (var tipper in tippers) {
+      // Yield control every 10 tippers to prevent UI blocking
+      if (processedTippers % 10 == 0) {
+        await Future.microtask(() {});
+      }
+      
       futures.add(
           _calculateRoundStatsForTipper(tipper, dauRound, allTipsViewModel));
+      processedTippers++;
     }
     await Future.wait(futures);
   }

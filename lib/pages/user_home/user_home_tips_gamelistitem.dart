@@ -144,6 +144,9 @@ class _GameListItemState extends State<GameListItem> {
               ?.cast<Team>() ??
           [];
 
+      // Yield control before heavy ladder calculation
+      await Future.microtask(() {});
+      
       LeagueLadder? calculatedLadder = ladderService.calculateLadder(
         allGames: allGames,
         leagueTeams: leagueTeams,

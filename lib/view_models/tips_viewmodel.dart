@@ -124,7 +124,13 @@ class TipsViewModel extends ChangeNotifier {
     final stopwatch = Stopwatch()..start();
     List<Tip> allCompTips = [];
 
+    int processedTippers = 0;
     for (var tipperEntry in json.entries) {
+      // Yield control every 5 tippers to prevent UI blocking
+      if (processedTippers % 5 == 0) {
+        await Future.microtask(() {});
+      }
+      
       Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
       if (tipper != null) {
         Map<String, dynamic> tipperTips =
@@ -144,6 +150,7 @@ class TipsViewModel extends ChangeNotifier {
         // tipper does not exist - skip this record
         log('Tipper ${tipperEntry.key} does not exist in deserializeTips');
       }
+      processedTippers++;
     }
     
     stopwatch.stop();
