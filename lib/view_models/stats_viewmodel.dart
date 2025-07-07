@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io'; // Add this import for IOException, SocketException
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
@@ -172,11 +173,11 @@ class StatsViewModel extends ChangeNotifier {
 
       log('StatsViewModel()._updateLeaderAndRoundAndRank() Tipper ${di<TippersViewModel>().selectedTipper.name} paid status is $_isSelectedTipperPaidUpMember');
 
-      _updateLeaderboardForComp();
-      _updateRoundWinners();
-      _rankTippersPerRound();
-
-      notifyListeners();
+      // Essential stats first - for immediate UI display
+      _updateEssentialStats();
+      
+      // Defer expensive calculations to background
+      _updateDetailedStatsBackground();
     } catch (e) {
       log('Error: $e');
       rethrow;
@@ -184,6 +185,28 @@ class StatsViewModel extends ChangeNotifier {
       _updateLock?.complete();
       _updateLock = null;
     }
+  }
+
+  void _updateEssentialStats() {
+    // Essential stats that must be available immediately
+    _updateLeaderboardForComp();
+    notifyListeners();
+    log('StatsViewModel._updateEssentialStats() Essential stats updated');
+  }
+
+  void _updateDetailedStatsBackground() {
+    // Defer expensive calculations to background using microtask
+    Future.microtask(() async {
+      try {
+        log('StatsViewModel._updateDetailedStatsBackground() Starting background stats');
+        _updateRoundWinners();
+        _rankTippersPerRound();
+        notifyListeners();
+        log('StatsViewModel._updateDetailedStatsBackground() Background stats completed');
+      } catch (e) {
+        log('StatsViewModel._updateDetailedStatsBackground() Error: $e');
+      }
+    });
   }
 
   Future<void> _handleEventLiveScores(DatabaseEvent event) async {
