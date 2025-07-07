@@ -84,11 +84,18 @@ class TipsViewModel extends ChangeNotifier {
           _listOfTips = await _deserializeTips(allTips);
         } else {
           log('_handleEvent deserializing tips for tipper ${_tipper!.dbkey}');
+          final stopwatch = Stopwatch()..start();
           Map<String, dynamic> dbData =
               Map<String, dynamic>.from(event.snapshot.value as Map);
           log('_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
-          _listOfTips = await Future.wait(dbData.entries.map((tipEntry) async {
-            Game? game = await _gamesViewModel.findGame(tipEntry.key);
+          // Pre-load game map for instant O(1) lookups
+          final games = await _gamesViewModel.getGames();
+          final Map<String, Game> gameMap = {
+            for (final game in games) game.dbkey: game
+          };
+          
+          _listOfTips = dbData.entries.map((tipEntry) {
+            Game? game = gameMap[tipEntry.key];
             if (game == null) {
               assert(game != null);
               log('TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}');
@@ -98,7 +105,9 @@ class TipsViewModel extends ChangeNotifier {
                   Map<String, dynamic>.from(tipEntry.value as Map);
               return Tip.fromJson(entryValue, tipEntry.key, _tipper!, game);
             }
-          }));
+          }).toList();
+          stopwatch.stop();
+          log('Single tipper tip loading completed in ${stopwatch.elapsedMilliseconds}ms for ${_listOfTips.length} tips');
         }
       } else {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
@@ -112,6 +121,7 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   Future<List<Tip>> _deserializeTips(Map<String, dynamic> json) async {
+    final stopwatch = Stopwatch()..start();
     List<Tip> allCompTips = [];
 
     for (var tipperEntry in json.entries) {
@@ -135,6 +145,10 @@ class TipsViewModel extends ChangeNotifier {
         log('Tipper ${tipperEntry.key} does not exist in deserializeTips');
       }
     }
+    
+    stopwatch.stop();
+    log('_deserializeTips completed in ${stopwatch.elapsedMilliseconds}ms for ${allCompTips.length} tips');
+    
     return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
   }
 
