@@ -27,9 +27,9 @@ import 'package:synchronized/synchronized.dart';
 // Define constants for Firestore database locations
 const statsFormatVersion = 'v1';
 const statsPathRoot = '/Stats';
-const roundStatsRoot = 'round_stats{statsFormatVwersion}';
-const liveScoresRoot = 'live_scores{statsFormatVwersion}';
-const gameStatsRoot = 'game_stats{statsFormatVwersion}';
+const roundStatsRoot = 'round_stats_$statsFormatVersion';
+const liveScoresRoot = 'live_scores_$statsFormatVersion';
+const gameStatsRoot = 'game_stats_$statsFormatVersion';
 
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};

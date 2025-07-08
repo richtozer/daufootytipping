@@ -66,16 +66,6 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
             onDisableBack(false);
           }
         },
-        // change the button outline color to orange when downloading is running
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(
-            color:
-                !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
-                    false)
-                ? Colors.green
-                : Colors.orange,
-          ),
-        ),
         child: Text(
           !dauCompsViewModel.isDownloading ? 'Download' : 'Downloading...',
         ),
@@ -153,17 +143,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
             }
           }
         },
-        // change the button outline color to orange when scoring is running
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(
-            color:
-                !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
-                    false)
-                ? Colors.green
-                : Colors.orange,
-          ),
-        ),
-
         child: Text(
           !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ?? false)
               ? 'Rescore'
