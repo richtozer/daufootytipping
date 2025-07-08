@@ -231,6 +231,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
     gamesViewModel!.addListener(_otherViewModelUpdated);
     statsViewModel = StatsViewModel(_selectedDAUComp!, gamesViewModel);
+    statsViewModel!.addListener(_otherViewModelUpdated);
   }
 
   void _listenToDAUComps() {

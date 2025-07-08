@@ -349,11 +349,13 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             dauCompsViewModel: dauCompsViewModeconsumer,
                             daucomp: widget.daucomp,
                             setStateCallback: (fn) => setState(fn),
+                            onDisableBack: (bool disabled) => setState(() => disableBack = disabled),
                           ),
                           AdminDaucompsEditScoringButton(
                             dauCompsViewModel: dauCompsViewModeconsumer,
                             daucomp: widget.daucomp,
                             setStateCallback: (fn) => setState(fn),
+                            onDisableBack: (bool disabled) => setState(() => disableBack = disabled),
                           ),
                         ],
                       ),
