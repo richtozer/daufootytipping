@@ -27,16 +27,20 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
       return OutlinedButton(
         onPressed: () async {
           if (dauCompsViewModel.isDownloading) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
                 backgroundColor: League.afl.colour,
-                content: const Text('Fixture download already in progress')));
+                content: const Text('Fixture download already in progress'),
+              ),
+            );
             return;
           }
           try {
             onDisableBack(true);
 
-            String result =
-                await dauCompsViewModel.getNetworkFixtureData(daucomp!);
+            String result = await dauCompsViewModel.getNetworkFixtureData(
+              daucomp!,
+            );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -51,8 +55,9 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: League.afl.colour,
-                  content:
-                      Text('An error occurred during fixture download: $e'),
+                  content: Text(
+                    'An error occurred during fixture download: $e',
+                  ),
                   duration: const Duration(seconds: 4),
                 ),
               );
@@ -61,8 +66,19 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
             onDisableBack(false);
           }
         },
+        // change the button outline color to orange when downloading is running
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(
+            color:
+                !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
+                    false)
+                ? Colors.green
+                : Colors.orange,
+          ),
+        ),
         child: Text(
-            !dauCompsViewModel.isDownloading ? 'Download' : 'Downloading...'),
+          !dauCompsViewModel.isDownloading ? 'Download' : 'Downloading...',
+        ),
       );
     }
   }
@@ -91,17 +107,24 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
         onPressed: () async {
           if (dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
               false) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
                 backgroundColor: Colors.red,
-                content: Text('Scoring already in progress')));
+                content: Text('Scoring already in progress'),
+              ),
+            );
             return;
           }
 
           try {
             onDisableBack(true);
             await Future.delayed(const Duration(milliseconds: 100));
-            String syncResult = await dauCompsViewModel.statsViewModel
-                    ?.updateStats(daucomp!, null, null) ??
+            String syncResult =
+                await dauCompsViewModel.statsViewModel?.updateStats(
+                  daucomp!,
+                  null,
+                  null,
+                ) ??
                 'Stats update failed: statsViewModel is null';
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -117,8 +140,9 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: Colors.red,
-                  content:
-                      Text('An error occurred during scoring calculation: $e'),
+                  content: Text(
+                    'An error occurred during scoring calculation: $e',
+                  ),
                   duration: const Duration(seconds: 4),
                 ),
               );
@@ -129,10 +153,22 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
             }
           }
         },
+        // change the button outline color to orange when scoring is running
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(
+            color:
+                !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
+                    false)
+                ? Colors.green
+                : Colors.orange,
+          ),
+        ),
+
         child: Text(
-            !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ?? false)
-                ? 'Rescore'
-                : 'Scoring...'),
+          !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ?? false)
+              ? 'Rescore'
+              : 'Scoring...',
+        ),
       );
     }
   }
