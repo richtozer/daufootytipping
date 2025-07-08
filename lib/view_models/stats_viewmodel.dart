@@ -25,10 +25,11 @@ import 'package:watch_it/watch_it.dart';
 import 'package:synchronized/synchronized.dart';
 
 // Define constants for Firestore database locations
+const statsFormatVersion = 'v1';
 const statsPathRoot = '/Stats';
-const roundStatsRoot = 'round_stats';
-const liveScoresRoot = 'live_scores';
-const gameStatsRoot = 'game_stats';
+const roundStatsRoot = 'round_stats{statsFormatVwersion}';
+const liveScoresRoot = 'live_scores{statsFormatVwersion}';
+const gameStatsRoot = 'game_stats{statsFormatVwersion}';
 
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
