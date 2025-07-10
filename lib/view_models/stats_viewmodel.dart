@@ -337,6 +337,26 @@ class StatsViewModel extends ChangeNotifier {
         /// make sure we have all tippers
         await di<TippersViewModel>().initialLoadComplete;
 
+        // Check if we have existing round stats before allowing partial updates
+        if ((onlyUpdateThisRound != null || onlyUpdateThisTipper != null) &&
+            _allTipperRoundStats.isEmpty) {
+          String skipReason =
+              'Round stats database is empty - partial updates not allowed';
+          log('StatsViewModel.updateStats() $skipReason');
+          _logEventScoringInitiated(
+            'scoring_skipped_empty_database',
+            daucompToUpdate,
+            onlyUpdateThisRound,
+            onlyUpdateThisTipper,
+          );
+
+          _isUpdateScoringRunning = false;
+          notifyListeners();
+          _updateStatsInProgress = null;
+          completer.complete(skipReason);
+          return;
+        }
+
         // Set the tippers to update
         List<Tipper> tippersToUpdate = onlyUpdateThisTipper != null
             ? [onlyUpdateThisTipper]
@@ -974,46 +994,48 @@ class StatsViewModel extends ChangeNotifier {
     return tipperRoundScores;
   }
 
-  Future<void> _addLiveScore(
+  Future<void> _addMultipleLiveScores(
     Game game,
-    CrowdSourcedScore croudSourcedScore,
+    List<CrowdSourcedScore> croudSourcedScores,
   ) async {
+    if (croudSourcedScores.isEmpty) return;
+
     final oldScoring = game.scoring;
 
     final newScoring = oldScoring?.copyWith(
       croudSourcedScores: oldScoring.croudSourcedScores == null
-          ? [croudSourcedScore]
-          : [...oldScoring.croudSourcedScores!, croudSourcedScore],
+          ? croudSourcedScores
+          : [...oldScoring.croudSourcedScores!, ...croudSourcedScores],
     );
 
     game.scoring = newScoring;
 
-    if (game.scoring?.croudSourcedScores != null &&
-        game.scoring!.croudSourcedScores!
-                .where(
-                  (element) => element.scoreTeam == croudSourcedScore.scoreTeam,
-                )
-                .length >
-            3) {
-      game.scoring!.croudSourcedScores!.removeWhere(
-        (element) =>
-            element.scoreTeam == croudSourcedScore.scoreTeam &&
-            element.submittedTimeUTC ==
-                game.scoring!.croudSourcedScores!
-                    .where(
-                      (element) =>
-                          element.scoreTeam == croudSourcedScore.scoreTeam,
-                    )
-                    .reduce(
-                      (value, element) =>
-                          value.submittedTimeUTC.isBefore(
-                            element.submittedTimeUTC,
-                          )
-                          ? value
-                          : element,
-                    )
-                    .submittedTimeUTC,
-      );
+    // Clean up old scores for each team that was updated
+    for (final scoreTeam in {ScoringTeam.home, ScoringTeam.away}) {
+      if (croudSourcedScores.any((score) => score.scoreTeam == scoreTeam)) {
+        if (game.scoring?.croudSourcedScores != null &&
+            game.scoring!.croudSourcedScores!
+                    .where((element) => element.scoreTeam == scoreTeam)
+                    .length >
+                3) {
+          game.scoring!.croudSourcedScores!.removeWhere(
+            (element) =>
+                element.scoreTeam == scoreTeam &&
+                element.submittedTimeUTC ==
+                    game.scoring!.croudSourcedScores!
+                        .where((element) => element.scoreTeam == scoreTeam)
+                        .reduce(
+                          (value, element) =>
+                              value.submittedTimeUTC.isBefore(
+                                element.submittedTimeUTC,
+                              )
+                              ? value
+                              : element,
+                        )
+                        .submittedTimeUTC,
+          );
+        }
+      }
     }
 
     await di<StatsViewModel>()._writeLiveScoreToDb(game);
@@ -1030,24 +1052,35 @@ class StatsViewModel extends ChangeNotifier {
     required DAUComp selectedDAUComp,
   }) async {
     await _submitLock.synchronized(() async {
-      // Update home score if changed
+      // Process BOTH scores in single atomic operation
+      List<CrowdSourcedScore> scoresToAdd = [];
+
       if (homeScore != originalHomeScore) {
-        await _liveScoreUpdated(
-          homeScore,
-          ScoringTeam.home,
-          selectedDAUComp,
-          tip,
+        scoresToAdd.add(
+          CrowdSourcedScore(
+            DateTime.now().toUtc(),
+            ScoringTeam.home,
+            tip.tipper.dbkey!,
+            int.tryParse(homeScore)!,
+            false,
+          ),
         );
       }
-      // Update away score if changed
+
       if (awayScore != originalAwayScore) {
-        await _liveScoreUpdated(
-          awayScore,
-          ScoringTeam.away,
-          selectedDAUComp,
-          tip,
+        scoresToAdd.add(
+          CrowdSourcedScore(
+            DateTime.now().toUtc(),
+            ScoringTeam.away,
+            tip.tipper.dbkey!,
+            int.tryParse(awayScore)!,
+            false,
+          ),
         );
       }
+
+      // Add all scores atomically
+      await _addMultipleLiveScores(tip.game, scoresToAdd);
 
       unawaited(
         updateStats(
@@ -1059,24 +1092,6 @@ class StatsViewModel extends ChangeNotifier {
         }),
       );
     });
-  }
-
-  // You may need to update _liveScoreUpdated to accept the Tip as a parameter.
-  Future<void> _liveScoreUpdated(
-    dynamic score,
-    ScoringTeam scoreTeam,
-    DAUComp selectedDAUComp,
-    Tip tip,
-  ) async {
-    CrowdSourcedScore croudSourcedScore = CrowdSourcedScore(
-      DateTime.now().toUtc(),
-      scoreTeam,
-      tip.tipper.dbkey!,
-      int.tryParse(score)!,
-      false,
-    );
-
-    await _addLiveScore(tip.game, croudSourcedScore);
   }
 
   Future<void> _writeLiveScoreToDb(Game game) async {
