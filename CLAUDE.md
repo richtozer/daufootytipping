@@ -39,8 +39,6 @@ Say: "I'll spawn agents to tackle different aspects of this problem" whenever a 
 - Before declaring "done"
 - **WHEN HOOKS FAIL WITH ERRORS** ❌
 
-Run: `flutter format . && flutter analyze && flutter test`
-
 > Why: You can lose track of what's actually working. These checkpoints prevent cascading failures.
 
 ### 🚨 CRITICAL: Hook Failures Are BLOCKING
@@ -70,6 +68,7 @@ Your code must be 100% clean. No exceptions.
 - Re-read this CLAUDE.md file
 - Summarize progress in a PROGRESS.md file
 - Document current state before major changes
+- Before working on any problem, always run pwd command and find out the current working directory.
 
 ### Maintain TODO.md:
 ```
