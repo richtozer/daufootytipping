@@ -55,8 +55,8 @@ class _TipChoiceState extends State<TipChoice> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<StatsViewModel?>(
-        builder: (context, consumerStatsViewModel, child) {
+    return Consumer2<StatsViewModel?, GameTipViewModel>(
+        builder: (context, consumerStatsViewModel, gameTipViewModel, child) {
       if (consumerStatsViewModel == null) {
         return const Center(
           child: CircularProgressIndicator(),
@@ -77,22 +77,22 @@ class _TipChoiceState extends State<TipChoice> {
                 children: [
                   !widget.isPercentStatsPage
                       ? generateChoiceChip(
-                          GameResult.a, widget.gameTipViewModel, context)
+                          GameResult.a, gameTipViewModel, context)
                       : generatePercentStatsChip(
                           GameResult.a,
-                          widget.gameTipViewModel,
+                          gameTipViewModel,
                           consumerStatsViewModel
-                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                              .gamesStatsEntry[gameTipViewModel.game],
                           context),
                   const SizedBox(width: 8),
                   !widget.isPercentStatsPage
                       ? generateChoiceChip(
-                          GameResult.b, widget.gameTipViewModel, context)
+                          GameResult.b, gameTipViewModel, context)
                       : generatePercentStatsChip(
                           GameResult.b,
-                          widget.gameTipViewModel,
+                          gameTipViewModel,
                           consumerStatsViewModel
-                              .gamesStatsEntry[widget.gameTipViewModel.game],
+                              .gamesStatsEntry[gameTipViewModel.game],
                           context),
                 ],
               ),
@@ -102,12 +102,12 @@ class _TipChoiceState extends State<TipChoice> {
               children: [
                 !widget.isPercentStatsPage
                     ? generateChoiceChip(
-                        GameResult.c, widget.gameTipViewModel, context)
+                        GameResult.c, gameTipViewModel, context)
                     : generatePercentStatsChip(
                         GameResult.c,
-                        widget.gameTipViewModel,
+                        gameTipViewModel,
                         consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                            .gamesStatsEntry[gameTipViewModel.game],
                         context),
               ],
             ),
@@ -116,22 +116,22 @@ class _TipChoiceState extends State<TipChoice> {
               children: [
                 !widget.isPercentStatsPage
                     ? generateChoiceChip(
-                        GameResult.d, widget.gameTipViewModel, context)
+                        GameResult.d, gameTipViewModel, context)
                     : generatePercentStatsChip(
                         GameResult.d,
-                        widget.gameTipViewModel,
+                        gameTipViewModel,
                         consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                            .gamesStatsEntry[gameTipViewModel.game],
                         context),
                 const SizedBox(width: 8),
                 !widget.isPercentStatsPage
                     ? generateChoiceChip(
-                        GameResult.e, widget.gameTipViewModel, context)
+                        GameResult.e, gameTipViewModel, context)
                     : generatePercentStatsChip(
                         GameResult.e,
-                        widget.gameTipViewModel,
+                        gameTipViewModel,
                         consumerStatsViewModel
-                            .gamesStatsEntry[widget.gameTipViewModel.game],
+                            .gamesStatsEntry[gameTipViewModel.game],
                         context),
               ],
             ),
@@ -159,7 +159,7 @@ class _TipChoiceState extends State<TipChoice> {
       selectedColor: Colors.lightGreen[500],
       selected:
           gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
-      onSelected: (bool selected) {
+      onSelected: gameTipsViewModel.savingTip ? null : (bool selected) {
         // ADD THIS CHECK:
         if (widget.gameTipViewModel.currentTipper.isAnonymous) {
           ScaffoldMessenger.of(context).showSnackBar(

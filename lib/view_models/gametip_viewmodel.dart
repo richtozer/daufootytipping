@@ -29,7 +29,7 @@ class HistoricalMatchupUIData {
   final String userTipTeamName;
   final bool isCurrentYear;
   final Game
-      pastGame; // Keep a reference to the original game if needed for more details
+  pastGame; // Keep a reference to the original game if needed for more details
   final String location; // New field
 
   HistoricalMatchupUIData({
@@ -93,7 +93,9 @@ class GameTipViewModel extends ChangeNotifier {
         _currentDAUComp.daurounds.length) {
       allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
     } else {
-      log('GameTipsViewModel constructor: ${_currentDAUComp.name} has no active rounds. Not listening to gamesViewModel');
+      log(
+        'GameTipsViewModel constructor: ${_currentDAUComp.name} has no active rounds. Not listening to gamesViewModel',
+      );
     }
 
     _findTip();
@@ -111,14 +113,17 @@ class GameTipViewModel extends ChangeNotifier {
 
     // calculate the time until the game starts and create a future.delayed
     // to wait until the game starts
-    var timeUntilGameStarts =
-        game.startTimeUTC.difference(DateTime.now().toUtc());
+    var timeUntilGameStarts = game.startTimeUTC.difference(
+      DateTime.now().toUtc(),
+    );
 
     // wait for the game to start before updating the UI
     await Future.delayed(timeUntilGameStarts);
 
     // now that the game has started, trigger the UI to update
-    log('GameTipsViewModel._gameStartedTrigger()  Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}.');
+    log(
+      'GameTipsViewModel._gameStartedTrigger()  Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}.',
+    );
     notifyListeners();
   }
 
@@ -128,7 +133,9 @@ class GameTipViewModel extends ChangeNotifier {
     // if the tip has changed, then update the tip and notify listeners
     if (newTip != _tip) {
       _tip = newTip;
-      log('GameTipsViewModel._tipsUpdated() Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. ');
+      log(
+        'GameTipsViewModel._tipsUpdated() Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. ',
+      );
       notifyListeners();
     }
   }
@@ -137,7 +144,9 @@ class GameTipViewModel extends ChangeNotifier {
     // we may have new game data, notify listeners
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     _tip?.game.scoring = game.scoring; //update the tip scoring
-    log('GameTipsViewModel._gamesViewModelUpdated() called for game ${game.dbkey}, ${game.gameState}. Notify listeners');
+    log(
+      'GameTipsViewModel._gamesViewModelUpdated() called for game ${game.dbkey}, ${game.gameState}. Notify listeners',
+    );
 
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
@@ -175,8 +184,9 @@ class GameTipViewModel extends ChangeNotifier {
     // GameTipViewModel's _findTip already awaits allTipsViewModel.initialLoadCompleted
     // so it should be safe here.
 
-    List<Tip?> tipperPastTips =
-        allTipsViewModel.getTipsForTipper(currentTipper);
+    List<Tip?> tipperPastTips = allTipsViewModel.getTipsForTipper(
+      currentTipper,
+    );
 
     if (tipperPastTips.isEmpty) {
       historicalInsightsString = "No past tips for this team combination.";
@@ -197,9 +207,9 @@ class GameTipViewModel extends ChangeNotifier {
 
       bool sameCombination =
           (pastTip.game.homeTeam.dbkey == game.homeTeam.dbkey &&
-                  pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
-              (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
-                  pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
+              pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
+          (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
+              pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
 
       if (sameCombination) {
         historicalTotalTipsOnCombination++;
@@ -208,15 +218,17 @@ class GameTipViewModel extends ChangeNotifier {
           continue;
         }
 
-        GameResult? actualGameResult =
-            pastTip.game.scoring!.getGameResultCalculated(pastTip.game.league);
+        GameResult? actualGameResult = pastTip.game.scoring!
+            .getGameResultCalculated(pastTip.game.league);
 
-        bool isActualGameDraw = (pastTip.game.league == League.afl &&
+        bool isActualGameDraw =
+            (pastTip.game.league == League.afl &&
                 actualGameResult == GameResult.c) ||
             (pastTip.game.league == League.nrl &&
                 actualGameResult == GameResult.c);
 
-        bool isTipperPickedDraw = (pastTip.game.league == League.afl &&
+        bool isTipperPickedDraw =
+            (pastTip.game.league == League.afl &&
                 pastTip.tip == GameResult.c) ||
             (pastTip.game.league == League.nrl && pastTip.tip == GameResult.c);
 
@@ -262,8 +274,10 @@ class GameTipViewModel extends ChangeNotifier {
 
   void addTip(Tip tip) async {
     try {
-      assert(_initialLoadCompleter.isCompleted,
-          'GameTipsViewModel.addTip() called before initial load completed');
+      assert(
+        _initialLoadCompleter.isCompleted,
+        'GameTipsViewModel.addTip() called before initial load completed',
+      );
 
       _savingTip = true;
       notifyListeners();
@@ -280,20 +294,25 @@ class GameTipViewModel extends ChangeNotifier {
       _tip = tip; // update the tip with the new tip
 
       // write a firebase analytic event that a tip was submitted
-      FirebaseAnalytics.instance.logEvent(name: 'tip_submitted', parameters: {
-        'game': tip.game.dbkey,
-        'tipper': tip.tipper.name.toString(),
-        'tip': tipJson.toString(),
-        'submittedBy': currentTipper.name.toString(),
-      });
+      FirebaseAnalytics.instance.logEvent(
+        name: 'tip_submitted',
+        parameters: {
+          'game': tip.game.dbkey,
+          'tipper': tip.tipper.name.toString(),
+          'tip': tipJson.toString(),
+          'submittedBy': currentTipper.name.toString(),
+        },
+      );
 
       // Log the tip in Firestore
       _addLogOfTipToFirestore(tip);
 
       // do a mini stats update (asyncronously) for this round and tipper to update tips outstanding counts
-      // also pass in the game, so we do a % tipped calculation
       di<StatsViewModel>().updateStats(
-          _currentDAUComp, tip.game.getDAURound(_currentDAUComp), tip.tipper);
+        _currentDAUComp,
+        tip.game.getDAURound(_currentDAUComp),
+        tip.tipper,
+      );
 
       // if we are in god mode, then also do a gamestats update
       if (di<TippersViewModel>().inGodMode == true) {
@@ -333,32 +352,34 @@ class GameTipViewModel extends ChangeNotifier {
           .collection(gameId) // Game ID as a sub-collection
           .doc(timestamp) // Timestamp as a document
           .set({
-        'tipperId': tipperId,
-        'tipperName': tip.tipper.name,
-        'gameId': gameId,
-        'gameDetails': {
-          'league': tip.game.league.name,
-          'homeTeam': tip.game.homeTeam.name,
-          'awayTeam': tip.game.awayTeam.name,
-          'startTimeUTC': tip.game.startTimeUTC.toIso8601String(),
-        },
-        'tip': tip.game.league == League.afl
-            ? tip.tip.afl
-            : tip.tip.nrl, // Assuming `tip.tip` contains the actual tip value
-        'tipSubmittedUTC': timestamp,
-        'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
-        'appDetails': {
-          'vversion': packageInfo.version,
-          'buildNumber': packageInfo.buildNumber,
-          'installTime': packageInfo.installTime?.toIso8601String(),
-          'lastUpdateTime': packageInfo.updateTime?.toIso8601String(),
-        },
-        'platform': {
-          'os': UniversalPlatform.operatingSystem,
-        }
-      });
+            'tipperId': tipperId,
+            'tipperName': tip.tipper.name,
+            'gameId': gameId,
+            'gameDetails': {
+              'league': tip.game.league.name,
+              'homeTeam': tip.game.homeTeam.name,
+              'awayTeam': tip.game.awayTeam.name,
+              'startTimeUTC': tip.game.startTimeUTC.toIso8601String(),
+            },
+            'tip': tip.game.league == League.afl
+                ? tip.tip.afl
+                : tip
+                      .tip
+                      .nrl, // Assuming `tip.tip` contains the actual tip value
+            'tipSubmittedUTC': timestamp,
+            'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
+            'appDetails': {
+              'vversion': packageInfo.version,
+              'buildNumber': packageInfo.buildNumber,
+              'installTime': packageInfo.installTime?.toIso8601String(),
+              'lastUpdateTime': packageInfo.updateTime?.toIso8601String(),
+            },
+            'platform': {'os': UniversalPlatform.operatingSystem},
+          });
 
-      log('_addLogOfTipToFirestore() Tip logged in Firestore for tipper: ${tip.tipper.name}, game: ${tip.game.dbkey}, timestamp: $timestamp');
+      log(
+        '_addLogOfTipToFirestore() Tip logged in Firestore for tipper: ${tip.tipper.name}, game: ${tip.game.dbkey}, timestamp: $timestamp',
+      );
     } catch (e) {
       log('Error logging tip in Firestore: $e');
     }
@@ -372,7 +393,9 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   Future<List<HistoricalMatchupUIData>> getFormattedHistoricalMatchups() async {
-    log('GameTipViewModel.getFormattedHistoricalMatchups() called for game ${game.dbkey}');
+    log(
+      'GameTipViewModel.getFormattedHistoricalMatchups() called for game ${game.dbkey}',
+    );
     final List<HistoricalMatchupUIData> formattedMatchups = [];
 
     // 1. Get GamesViewModel
@@ -380,14 +403,12 @@ class GameTipViewModel extends ChangeNotifier {
     await gamesViewModel.initialLoadComplete; // Ensure games are loaded
 
     // 2. Get historical matchups
-    final List<Game> historicalGames =
-        await gamesViewModel.getCompleteMatchupHistory(
-      game.homeTeam,
-      game.awayTeam,
-      game.league,
-    );
+    final List<Game> historicalGames = await gamesViewModel
+        .getCompleteMatchupHistory(game.homeTeam, game.awayTeam, game.league);
 
-    log('Found ${historicalGames.length} historical games for ${game.homeTeam.name} vs ${game.awayTeam.name}');
+    log(
+      'Found ${historicalGames.length} historical games for ${game.homeTeam.name} vs ${game.awayTeam.name}',
+    );
 
     // 3. For each past game, format the data
     for (final pastGame in historicalGames) {
@@ -399,8 +420,10 @@ class GameTipViewModel extends ChangeNotifier {
       }
 
       // a. Get user's tip for the past game
-      final Tip? pastTip =
-          await allTipsViewModel.findTip(pastGame, currentTipper);
+      final Tip? pastTip = await allTipsViewModel.findTip(
+        pastGame,
+        currentTipper,
+      );
 
       // b. Determine winning team and winType
       String winningTeamName = '';
@@ -453,7 +476,9 @@ class GameTipViewModel extends ChangeNotifier {
           location: pastGame.location, // Populate new field
         ),
       );
-      log('Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName, Location: ${pastGame.location}');
+      log(
+        'Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName, Location: ${pastGame.location}',
+      );
     }
     log('Finished formatting ${formattedMatchups.length} historical matchups.');
     return formattedMatchups;
