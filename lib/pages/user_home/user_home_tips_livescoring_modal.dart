@@ -49,13 +49,15 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
           defaultColumnWidth: const FlexColumnWidth(1.0),
           defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           children: const [
-            TableRow(children: [
-              Text(
-                'Enter final or\ninterim score',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-              ),
-            ]),
+            TableRow(
+              children: [
+                Text(
+                  'Enter final or\ninterim score',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
           ],
         ),
         // 2
@@ -70,48 +72,58 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
             },
             defaultVerticalAlignment: TableCellVerticalAlignment.middle,
             children: [
-              TableRow(children: [
-                _buildElevatedButton(
-                  widget.tip.game.homeTeam.name,
-                  homeScore,
-                  () {
-                    setState(() {
-                      enableKeypad = true;
-                      isUpdatingHomeScore = true;
-                      //positionHomeScore = 0;
-                    });
-                  },
-                  isUpdatingHomeScore ?? false
-                      ? ElevatedButton.styleFrom(
-                          backgroundColor: Colors.lightGreen[200])
-                      : null,
-                ),
-                const Center(
-                    child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.arrow_back, size: 30),
-                    Icon(Icons.arrow_forward, size: 30)
-                  ],
-                )),
-                _buildElevatedButton(widget.tip.game.awayTeam.name, awayScore,
+              TableRow(
+                children: [
+                  _buildElevatedButton(
+                    widget.tip.game.homeTeam.name,
+                    homeScore,
                     () {
-                  setState(() {
-                    enableKeypad = true;
-                    isUpdatingHomeScore = false;
-                    //positionAwayScore = 0;
-                  });
-                },
+                      setState(() {
+                        enableKeypad = true;
+                        isUpdatingHomeScore = true;
+                        //positionHomeScore = 0;
+                      });
+                    },
+                    isUpdatingHomeScore ?? false
+                        ? ElevatedButton.styleFrom(
+                            backgroundColor: Colors.lightGreen[200],
+                          )
+                        : null,
+                  ),
+                  const Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.arrow_back, size: 30),
+                        Icon(Icons.arrow_forward, size: 30),
+                      ],
+                    ),
+                  ),
+                  _buildElevatedButton(
+                    widget.tip.game.awayTeam.name,
+                    awayScore,
+                    () {
+                      setState(() {
+                        enableKeypad = true;
+                        isUpdatingHomeScore = false;
+                        //positionAwayScore = 0;
+                      });
+                    },
                     isUpdatingHomeScore ?? true
                         ? null
                         : ElevatedButton.styleFrom(
-                            backgroundColor: Colors.lightGreen[200])),
-              ]),
+                            backgroundColor: Colors.lightGreen[200],
+                          ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-        const Text('Enter score:',
-            style: TextStyle(fontWeight: FontWeight.w900)),
+        const Text(
+          'Enter score:',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
         // 3 - keypad
         Container(
           padding: const EdgeInsets.fromLTRB(30.0, 0.0, 30.0, 30.0),
@@ -177,19 +189,24 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
-                          minimumSize:
-                              const Size(100, 36), // Set a smaller size
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8)), // Reduce padding
-                      child:
-                          const Text('Cancel', style: TextStyle(fontSize: 15)),
+                        minimumSize: const Size(100, 36), // Set a smaller size
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ), // Reduce padding
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontSize: 15),
+                      ),
                     ),
                   ),
                   Container(),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
-                      onPressed: (homeScore == originalHomeScore &&
+                      onPressed:
+                          (homeScore == originalHomeScore &&
                               awayScore == originalAwayScore)
                           ? null
                           : () async {
@@ -205,12 +222,16 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                               );
                             },
                       style: ElevatedButton.styleFrom(
-                          minimumSize:
-                              const Size(100, 36), // Set a smaller size
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8)), // Reduce padding
-                      child:
-                          const Text('Submit', style: TextStyle(fontSize: 15)),
+                        minimumSize: const Size(100, 36), // Set a smaller size
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ), // Reduce padding
+                      child: const Text(
+                        'Submit',
+                        style: TextStyle(fontSize: 15),
+                      ),
                     ),
                   ),
                 ],
@@ -223,7 +244,11 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
   }
 
   Widget _buildElevatedButton(
-      String team, String score, VoidCallback onPressed, ButtonStyle? style) {
+    String team,
+    String score,
+    VoidCallback onPressed,
+    ButtonStyle? style,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: ElevatedButton(
@@ -231,17 +256,16 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
         style: style,
         child: Column(
           children: [
-            Text(
-              team,
-              textAlign: TextAlign.center,
-            ),
+            Text(team, textAlign: TextAlign.center),
             SizedBox(
               width: 100,
               child: Text(
                 score,
                 textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ],
@@ -263,12 +287,14 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
         ),
         onPressed: enableKeypad
             ? onPressed ??
-                () {
-                  isUpdatingHomeScore == null ? null : _input(text);
-                }
+                  () {
+                    isUpdatingHomeScore == null ? null : _input(text);
+                  }
             : null,
-        child: Text(text,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+        ),
       ),
     );
   }

@@ -38,14 +38,16 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
-    latestRoundNumber =
-        daucompsViewModel.selectedDAUComp!.latestsCompletedRoundNumber();
+    latestRoundNumber = daucompsViewModel.selectedDAUComp!
+        .latestsCompletedRoundNumber();
     log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
 
     focusNode = FocusNode();
 
-    final initialOffset = daucompsViewModel.selectedDAUComp!
-            .pixelHeightUpToRound(latestRoundNumber) +
+    final initialOffset =
+        daucompsViewModel.selectedDAUComp!.pixelHeightUpToRound(
+          latestRoundNumber,
+        ) +
         initialScrollOffset;
 
     scrollController = ScrollController();
@@ -89,9 +91,13 @@ class TipsTabState extends State<TipsTab> {
     log('TipsPageBody.build()');
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log('TipsPageBody.build() selectedDAUComp is null. Trying to change to active comp');
+      log(
+        'TipsPageBody.build() selectedDAUComp is null. Trying to change to active comp',
+      );
       daucompsViewModel.changeDisplayedDAUComp(
-          daucompsViewModel.activeDAUComp!, false);
+        daucompsViewModel.activeDAUComp!,
+        false,
+      );
       if (daucompsViewModel.selectedDAUComp == null) {
         return Center(
           child: SizedBox(
@@ -120,79 +126,102 @@ class TipsTabState extends State<TipsTab> {
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider<DAUCompsViewModel>.value(
-              value: daucompsViewModel),
+            value: daucompsViewModel,
+          ),
           ChangeNotifierProvider<StatsViewModel?>.value(
-              value: daucompsViewModel.statsViewModel),
+            value: daucompsViewModel.statsViewModel,
+          ),
         ],
         child: Theme(
           data: myTheme,
           child: Consumer<DAUCompsViewModel>(
-              builder: (context, daucompsViewmodelConsumer, client) {
-            return CustomScrollView(
-              controller: scrollController,
-              restorationId: 'tipsListView',
-              slivers: [
-                SliverVariedExtentList.builder(
-                  itemExtentBuilder: (index, dimensions) {
-                    if (index == 0) {
-                      return WelcomeHeader.height;
-                    } else if (index ==
+            builder: (context, daucompsViewmodelConsumer, client) {
+              return CustomScrollView(
+                controller: scrollController,
+                restorationId: 'tipsListView',
+                slivers: [
+                  SliverVariedExtentList.builder(
+                    itemExtentBuilder: (index, dimensions) {
+                      if (index == 0) {
+                        return WelcomeHeader.height;
+                      } else if (index ==
+                          (daucompsViewmodelConsumer
+                                      .selectedDAUComp!
+                                      .daurounds
+                                      .length *
+                                  4) +
+                              1) {
+                        return EndFooter.height;
+                      }
+                      final roundIndex = (index - 1) ~/ 4;
+                      final itemIndex = (index - 1) % 4;
+                      return _getItemExtent(
+                        daucompsViewmodelConsumer,
+                        roundIndex,
+                        itemIndex,
+                      );
+                    },
+                    itemCount:
                         (daucompsViewmodelConsumer
-                                    .selectedDAUComp!.daurounds.length *
-                                4) +
-                            1) {
-                      return EndFooter.height;
-                    }
-                    final roundIndex = (index - 1) ~/ 4;
-                    final itemIndex = (index - 1) % 4;
-                    return _getItemExtent(
-                        daucompsViewmodelConsumer, roundIndex, itemIndex);
-                  },
-                  itemCount: (daucompsViewmodelConsumer
-                              .selectedDAUComp!.daurounds.length *
-                          4) +
-                      1 +
-                      1,
-                  itemBuilder: (context, index) {
-                    log('building index: $index');
-                    if (index == 0) {
-                      return WelcomeHeader(
-                          daucompsViewmodelConsumer: daucompsViewmodelConsumer);
-                    }
-                    if (index ==
-                        (daucompsViewmodelConsumer
-                                    .selectedDAUComp!.daurounds.length *
-                                4) +
-                            1) {
-                      return const EndFooter();
-                    }
+                                .selectedDAUComp!
+                                .daurounds
+                                .length *
+                            4) +
+                        1 +
+                        1,
+                    itemBuilder: (context, index) {
+                      log('building index: $index');
+                      if (index == 0) {
+                        return WelcomeHeader(
+                          daucompsViewmodelConsumer: daucompsViewmodelConsumer,
+                        );
+                      }
+                      if (index ==
+                          (daucompsViewmodelConsumer
+                                      .selectedDAUComp!
+                                      .daurounds
+                                      .length *
+                                  4) +
+                              1) {
+                        return const EndFooter();
+                      }
 
-                    final roundIndex = (index - 1) ~/ 4;
-                    final itemIndex = (index - 1) % 4;
+                      final roundIndex = (index - 1) ~/ 4;
+                      final itemIndex = (index - 1) % 4;
 
-                    return _buildItem(
-                        daucompsViewmodelConsumer, roundIndex, itemIndex);
-                  },
-                ),
-              ],
-            );
-          }),
+                      return _buildItem(
+                        daucompsViewmodelConsumer,
+                        roundIndex,
+                        itemIndex,
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  double? _getItemExtent(DAUCompsViewModel daucompsViewmodelConsumer,
-      int roundIndex, int itemIndex) {
+  double? _getItemExtent(
+    DAUCompsViewModel daucompsViewmodelConsumer,
+    int roundIndex,
+    int itemIndex,
+  ) {
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
       final games = daucompsViewmodelConsumer
-          .selectedDAUComp!.daurounds[roundIndex]
+          .selectedDAUComp!
+          .daurounds[roundIndex]
           .getGamesForLeague(league);
       if (games.isEmpty) {
         return DAURound.leagueHeaderHeight;
       } else if (daucompsViewmodelConsumer
-              .selectedDAUComp!.daurounds[roundIndex].roundState ==
+              .selectedDAUComp!
+              .daurounds[roundIndex]
+              .roundState ==
           RoundState.allGamesEnded) {
         return DAURound.leagueHeaderEndedHeight;
       }
@@ -200,7 +229,8 @@ class TipsTabState extends State<TipsTab> {
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       final games = daucompsViewmodelConsumer
-          .selectedDAUComp!.daurounds[roundIndex]
+          .selectedDAUComp!
+          .daurounds[roundIndex]
           .getGamesForLeague(league);
       if (games.isEmpty) {
         return DAURound.noGamesCardheight;
@@ -210,21 +240,25 @@ class TipsTabState extends State<TipsTab> {
     return null;
   }
 
-  Widget _buildItem(DAUCompsViewModel daucompsViewmodelConsumer, int roundIndex,
-      int itemIndex) {
+  Widget _buildItem(
+    DAUCompsViewModel daucompsViewmodelConsumer,
+    int roundIndex,
+    int itemIndex,
+  ) {
     final dauRound =
         daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
 
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
       return roundLeagueHeaderListTile(
-          league,
-          50,
-          50,
-          dauRound,
-          daucompsViewmodelConsumer,
-          di<TippersViewModel>().selectedTipper,
-          false);
+        league,
+        50,
+        50,
+        dauRound,
+        daucompsViewmodelConsumer,
+        di<TippersViewModel>().selectedTipper,
+        false,
+      );
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       return GameListBuilder(
@@ -258,9 +292,7 @@ class EndFooter extends StatelessWidget {
     return SizedBox(
       height: height,
       child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         color: Colors.black38,
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -279,10 +311,7 @@ class EndFooter extends StatelessWidget {
 }
 
 class WelcomeHeader extends StatelessWidget {
-  const WelcomeHeader({
-    required this.daucompsViewmodelConsumer,
-    super.key,
-  });
+  const WelcomeHeader({required this.daucompsViewmodelConsumer, super.key});
 
   final DAUCompsViewModel daucompsViewmodelConsumer;
 
@@ -293,9 +322,7 @@ class WelcomeHeader extends StatelessWidget {
     return SizedBox(
       height: height,
       child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         color: Colors.black38,
         child: Padding(
           padding: const EdgeInsets.all(20.0),

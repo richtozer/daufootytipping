@@ -17,8 +17,9 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
         watch(di<TippersViewModel>()).selectedTipper.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
     // grab teamViewModel from gamesViewModel
-    final teamsViewModel =
-        watch(di<DAUCompsViewModel>()).gamesViewModel?.teamsViewModel;
+    final teamsViewModel = watch(
+      di<DAUCompsViewModel>(),
+    ).gamesViewModel?.teamsViewModel;
     return SizedBox(
       width: 300,
       child: Card(
@@ -26,53 +27,52 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
         color: Theme.of(context).brightness == Brightness.dark
             ? Colors.grey[800]
             : Colors.grey[200],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Column(children: [
-            const SizedBox(
-              width: 300,
-              child: Text(
+          child: Column(
+            children: [
+              const SizedBox(
+                width: 300,
+                child: Text(
                   textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.normal),
-                  'Only admins can see these options: '),
-            ),
-            OutlinedButton(
-              child: const Text('Admin DAU Comps'),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const DAUCompsListPage(),
-                  ),
-                );
-              },
-            ),
-            OutlinedButton(
+                  'Only admins can see these options: ',
+                ),
+              ),
+              OutlinedButton(
+                child: const Text('Admin DAU Comps'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const DAUCompsListPage(),
+                    ),
+                  );
+                },
+              ),
+              OutlinedButton(
                 child: const Text('Admin Tippers'),
                 onPressed: () {
-                  Navigator.of(
-                    context,
-                  ).push(
+                  Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const TippersAdminPage(),
                     ),
                   );
-                }),
-            OutlinedButton(
-              child: const Text('Admin Teams'),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => TeamsListPage(
-                      teamsViewModel: teamsViewModel!,
+                },
+              ),
+              OutlinedButton(
+                child: const Text('Admin Teams'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          TeamsListPage(teamsViewModel: teamsViewModel!),
                     ),
-                  ),
-                );
-              },
-            ),
-          ]),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

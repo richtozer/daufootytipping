@@ -12,10 +12,24 @@ void main() {
 
     setUp(() {
       testStartTime = DateTime.utc(2024, 1, 15, 19, 0); // 7 PM UTC
-      testEndTime = DateTime.utc(2024, 1, 17, 21, 30);   // 9:30 PM UTC two days later
+      testEndTime = DateTime.utc(
+        2024,
+        1,
+        17,
+        21,
+        30,
+      ); // 9:30 PM UTC two days later
 
-      final homeTeam = Team(dbkey: 'home', name: 'Home Team', league: League.nrl);
-      final awayTeam = Team(dbkey: 'away', name: 'Away Team', league: League.nrl);
+      final homeTeam = Team(
+        dbkey: 'home',
+        name: 'Home Team',
+        league: League.nrl,
+      );
+      final awayTeam = Team(
+        dbkey: 'away',
+        name: 'Away Team',
+        league: League.nrl,
+      );
 
       testGame = Game(
         dbkey: 'test_game',
@@ -102,8 +116,14 @@ void main() {
         final dauRound = DAURound.fromJson(jsonData, 3);
 
         expect(dauRound.dAUroundNumber, equals(3));
-        expect(dauRound.firstGameKickOffUTC, equals(DateTime.parse('2024-01-15T19:00:00.000Z')));
-        expect(dauRound.lastGameKickOffUTC, equals(DateTime.parse('2024-01-17T21:30:00.000Z')));
+        expect(
+          dauRound.firstGameKickOffUTC,
+          equals(DateTime.parse('2024-01-15T19:00:00.000Z')),
+        );
+        expect(
+          dauRound.lastGameKickOffUTC,
+          equals(DateTime.parse('2024-01-17T21:30:00.000Z')),
+        );
       });
 
       test('should handle ISO8601 date formats correctly', () {
@@ -224,11 +244,16 @@ void main() {
       test('should handle round where end time is before start time', () {
         final invalidRound = DAURound(
           dAUroundNumber: 1,
-          firstGameKickOffUTC: testEndTime,   // End time as start
-          lastGameKickOffUTC: testStartTime,  // Start time as end
+          firstGameKickOffUTC: testEndTime, // End time as start
+          lastGameKickOffUTC: testStartTime, // Start time as end
         );
 
-        expect(invalidRound.firstGameKickOffUTC.isAfter(invalidRound.lastGameKickOffUTC), isTrue);
+        expect(
+          invalidRound.firstGameKickOffUTC.isAfter(
+            invalidRound.lastGameKickOffUTC,
+          ),
+          isTrue,
+        );
       });
 
       test('should handle extreme round numbers', () {

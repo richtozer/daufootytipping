@@ -11,12 +11,13 @@ class Tip implements Comparable<Tip> {
   final GameResult tip; //their tip
   final DateTime submittedTimeUTC;
 
-  Tip(
-      {this.dbkey,
-      required this.game,
-      required this.tipper,
-      required this.tip,
-      required this.submittedTimeUTC});
+  Tip({
+    this.dbkey,
+    required this.game,
+    required this.tipper,
+    required this.tip,
+    required this.submittedTimeUTC,
+  });
 
   bool isDefaultTip() {
     return (submittedTimeUTC ==
@@ -50,14 +51,18 @@ class Tip implements Comparable<Tip> {
 
   int getTipScoreCalculated() {
     return Scoring.getTipScoreCalculated(
-        game.league, game.scoring!.getGameResultCalculated(game.league), tip);
+      game.league,
+      game.scoring!.getGameResultCalculated(game.league),
+      tip,
+    );
   }
 
   int getMaxScoreCalculated() {
     return Scoring.getTipScoreCalculated(
-        game.league,
-        game.scoring!.getGameResultCalculated(game.league),
-        game.scoring!.getGameResultCalculated(game.league));
+      game.league,
+      game.scoring!.getGameResultCalculated(game.league),
+      game.scoring!.getGameResultCalculated(game.league),
+    );
   }
 
   @override

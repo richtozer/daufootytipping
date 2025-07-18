@@ -17,9 +17,9 @@ class DAUComp implements Comparable<DAUComp> {
 
   DateTime? lastFixtureUpdateTimestampUTC;
   DateTime?
-      aflRegularCompEndDateUTC; // if provided, do not include games in afl fixture after this date
+  aflRegularCompEndDateUTC; // if provided, do not include games in afl fixture after this date
   DateTime?
-      nrlRegularCompEndDateUTC; // if provided, do not include games in nrl fixture after this date
+  nrlRegularCompEndDateUTC; // if provided, do not include games in nrl fixture after this date
 
   //constructor
   DAUComp({
@@ -99,14 +99,14 @@ class DAUComp implements Comparable<DAUComp> {
         dauround.getGamesForLeague(League.nrl).isEmpty
             ? totalHeight += DAURound.noGamesCardheight
             : dauround.roundState == RoundState.allGamesEnded
-                ? totalHeight += DAURound.leagueHeaderEndedHeight
-                : totalHeight += DAURound.leagueHeaderHeight;
+            ? totalHeight += DAURound.leagueHeaderEndedHeight
+            : totalHeight += DAURound.leagueHeaderHeight;
 
         dauround.getGamesForLeague(League.afl).isEmpty
             ? totalHeight += DAURound.noGamesCardheight
             : dauround.roundState == RoundState.allGamesEnded
-                ? totalHeight += DAURound.leagueHeaderEndedHeight
-                : totalHeight += DAURound.leagueHeaderHeight;
+            ? totalHeight += DAURound.leagueHeaderEndedHeight
+            : totalHeight += DAURound.leagueHeaderHeight;
 
         // add the height for all games in the round
         totalHeight += dauround.games.length * Game.gameCardHeight;
@@ -134,7 +134,10 @@ class DAUComp implements Comparable<DAUComp> {
   }
 
   factory DAUComp.fromJson(
-      Map<String, dynamic> data, String? key, List<DAURound> daurounds) {
+    Map<String, dynamic> data,
+    String? key,
+    List<DAURound> daurounds,
+  ) {
     return DAUComp(
       dbkey: key,
       name: data['name'] ?? '',

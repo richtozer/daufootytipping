@@ -29,7 +29,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
 
   Tipper?
-      _tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
+  _tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
 
   late final GamesViewModel _gamesViewModel;
   GamesViewModel get gamesViewModel => _gamesViewModel;
@@ -38,15 +38,22 @@ class TipsViewModel extends ChangeNotifier {
 
   //constructor - this will get all tips from db
   TipsViewModel(
-      this.tipperViewModel, this.selectedDAUComp, this._gamesViewModel) {
+    this.tipperViewModel,
+    this.selectedDAUComp,
+    this._gamesViewModel,
+  ) {
     log('TipsViewModel (all tips) constructor');
     _gamesViewModel.addListener(_update);
     _listenToTips();
   }
 
   //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
-  TipsViewModel.forTipper(this.tipperViewModel, this.selectedDAUComp,
-      this._gamesViewModel, this._tipper) {
+  TipsViewModel.forTipper(
+    this.tipperViewModel,
+    this.selectedDAUComp,
+    this._gamesViewModel,
+    this._tipper,
+  ) {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
     _gamesViewModel.addListener(_update);
     _listenToTips();
@@ -62,15 +69,15 @@ class TipsViewModel extends ChangeNotifier {
           .child('$tipsPathRoot/${selectedDAUComp.dbkey}/${_tipper!.dbkey}')
           .onValue
           .listen((event) {
-        _handleEvent(event);
-      });
+            _handleEvent(event);
+          });
     } else {
       _tipsStream = _db
           .child('$tipsPathRoot/${selectedDAUComp.dbkey}')
           .onValue
           .listen((event) {
-        _handleEvent(event);
-      });
+            _handleEvent(event);
+          });
     }
   }
 
@@ -78,36 +85,47 @@ class TipsViewModel extends ChangeNotifier {
     try {
       if (event.snapshot.exists) {
         if (_tipper == null) {
-          final allTips =
-              Map<String, dynamic>.from(event.snapshot.value as Map);
-          log('TipsViewModel._handleEvent() All tippers - Deserialize tip for ${allTips.length} tippers.');
+          final allTips = Map<String, dynamic>.from(
+            event.snapshot.value as Map,
+          );
+          log(
+            'TipsViewModel._handleEvent() All tippers - Deserialize tip for ${allTips.length} tippers.',
+          );
           _listOfTips = await _deserializeTips(allTips);
         } else {
           log('_handleEvent deserializing tips for tipper ${_tipper!.dbkey}');
           final stopwatch = Stopwatch()..start();
-          Map<String, dynamic> dbData =
-              Map<String, dynamic>.from(event.snapshot.value as Map);
-          log('_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}');
+          Map<String, dynamic> dbData = Map<String, dynamic>.from(
+            event.snapshot.value as Map,
+          );
+          log(
+            '_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}',
+          );
           // Pre-load game map for instant O(1) lookups
           final games = await _gamesViewModel.getGames();
           final Map<String, Game> gameMap = {
-            for (final game in games) game.dbkey: game
+            for (final game in games) game.dbkey: game,
           };
-          
+
           _listOfTips = dbData.entries.map((tipEntry) {
             Game? game = gameMap[tipEntry.key];
             if (game == null) {
               assert(game != null);
-              log('TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}');
+              log(
+                'TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}',
+              );
               return null;
             } else {
-              Map<String, dynamic> entryValue =
-                  Map<String, dynamic>.from(tipEntry.value as Map);
+              Map<String, dynamic> entryValue = Map<String, dynamic>.from(
+                tipEntry.value as Map,
+              );
               return Tip.fromJson(entryValue, tipEntry.key, _tipper!, game);
             }
           }).toList();
           stopwatch.stop();
-          log('Single tipper tip loading completed in ${stopwatch.elapsedMilliseconds}ms for ${_listOfTips.length} tips');
+          log(
+            'Single tipper tip loading completed in ${stopwatch.elapsedMilliseconds}ms for ${_listOfTips.length} tips',
+          );
         }
       } else {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
@@ -130,16 +148,19 @@ class TipsViewModel extends ChangeNotifier {
       if (processedTippers % 5 == 0) {
         await Future.microtask(() {});
       }
-      
+
       Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
       if (tipper != null) {
-        Map<String, dynamic> tipperTips =
-            Map<String, dynamic>.from(tipperEntry.value as Map);
+        Map<String, dynamic> tipperTips = Map<String, dynamic>.from(
+          tipperEntry.value as Map,
+        );
         for (var tipEntry in tipperTips.entries) {
           Game? game = await _gamesViewModel.findGame(tipEntry.key);
           if (game == null) {
             assert(game != null);
-            log('TipsViewModel._deserializeTips() Game not found for tip ${tipEntry.key}');
+            log(
+              'TipsViewModel._deserializeTips() Game not found for tip ${tipEntry.key}',
+            );
           } else {
             //log('game found for tip ${tipEntry.key}'
             Tip tip = Tip.fromJson(tipEntry.value, tipEntry.key, tipper, game);
@@ -152,10 +173,12 @@ class TipsViewModel extends ChangeNotifier {
       }
       processedTippers++;
     }
-    
+
     stopwatch.stop();
-    log('_deserializeTips completed in ${stopwatch.elapsedMilliseconds}ms for ${allCompTips.length} tips');
-    
+    log(
+      '_deserializeTips completed in ${stopwatch.elapsedMilliseconds}ms for ${allCompTips.length} tips',
+    );
+
     return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
   }
 
@@ -190,7 +213,8 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> deleteTip(Tip tip) async {
     await _db
         .child(
-            '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}')
+          '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
+        )
         .remove();
   }
 
@@ -218,12 +242,16 @@ class TipsViewModel extends ChangeNotifier {
 
   // method to return the number of margin tips for the supplied round and league
   int numberOfMarginTipsSubmittedForRoundAndLeague(
-      DAURound round, League league) {
+    DAURound round,
+    League league,
+  ) {
     return _listOfTips
-        .where((tip) =>
-            tip!.game.getDAURound(selectedDAUComp) == round &&
-            tip.game.league == league &&
-            (tip.tip == GameResult.a || tip.tip == GameResult.e))
+        .where(
+          (tip) =>
+              tip!.game.getDAURound(selectedDAUComp) == round &&
+              tip.game.league == league &&
+              (tip.tip == GameResult.a || tip.tip == GameResult.e),
+        )
         .length;
   }
 
@@ -231,17 +259,20 @@ class TipsViewModel extends ChangeNotifier {
     // throw an exception if the tipper is not null
     if (_tipper != null) {
       throw Exception(
-          'percentageOfTippersTipped() should not be called when doing aggregates for scoring. _tipper is not null');
+        'percentageOfTippersTipped() should not be called when doing aggregates for scoring. _tipper is not null',
+      );
     }
     // get the paidForComp status for the selected tipper
     bool isScoringPaidComp = false;
-    isScoringPaidComp =
-        di<TippersViewModel>().selectedTipper.paidForComp(selectedDAUComp);
+    isScoringPaidComp = di<TippersViewModel>().selectedTipper.paidForComp(
+      selectedDAUComp,
+    );
 
     // loop through all tippers and remove those that don't have the same paidForComp status
     List<Tipper> tippers = tipperViewModel.tippers
-        .where((tipper) =>
-            tipper.paidForComp(selectedDAUComp) == isScoringPaidComp)
+        .where(
+          (tipper) => tipper.paidForComp(selectedDAUComp) == isScoringPaidComp,
+        )
         .toList();
 
     double runningAverageScoreTotal = 0.0;
@@ -277,24 +308,27 @@ class TipsViewModel extends ChangeNotifier {
       // switch on the game result and set the correct value
       switch (gameResult) {
         case GameResult.a:
-          gameStatsEntry.percentageTippedHomeMargin =
-              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
+          gameStatsEntry.percentageTippedHomeMargin = gameStatsEntry
+              .reducePrecision(totalTippersTipped / totalTippers);
           break;
         case GameResult.b:
-          gameStatsEntry.percentageTippedHome =
-              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
+          gameStatsEntry.percentageTippedHome = gameStatsEntry.reducePrecision(
+            totalTippersTipped / totalTippers,
+          );
           break;
         case GameResult.c:
-          gameStatsEntry.percentageTippedDraw =
-              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
+          gameStatsEntry.percentageTippedDraw = gameStatsEntry.reducePrecision(
+            totalTippersTipped / totalTippers,
+          );
           break;
         case GameResult.d:
-          gameStatsEntry.percentageTippedAway =
-              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
+          gameStatsEntry.percentageTippedAway = gameStatsEntry.reducePrecision(
+            totalTippersTipped / totalTippers,
+          );
           break;
         case GameResult.e:
-          gameStatsEntry.percentageTippedAwayMargin =
-              gameStatsEntry.reducePrecision(totalTippersTipped / totalTippers);
+          gameStatsEntry.percentageTippedAwayMargin = gameStatsEntry
+              .reducePrecision(totalTippersTipped / totalTippers);
           break;
         case GameResult.z:
           break;
@@ -303,7 +337,8 @@ class TipsViewModel extends ChangeNotifier {
     // calculate the average score across all tippers for this game
     if (runningAverageScoreCountTips > 0) {
       gameStatsEntry.averageScore = gameStatsEntry.reducePrecision(
-          runningAverageScoreTotal / runningAverageScoreCountTips);
+        runningAverageScoreTotal / runningAverageScoreCountTips,
+      );
     } else {
       gameStatsEntry.averageScore = 0.0;
     }
@@ -319,7 +354,8 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> updateTip(Tip tip) async {
     await _db
         .child(
-            '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}')
+          '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
+        )
         .update(tip.toJson());
   }
 
@@ -334,7 +370,8 @@ class TipsViewModel extends ChangeNotifier {
     try {
       await _db
           .child(
-              '$tipsPathRoot/${selectedDAUComp.dbkey}/${originalTipper.dbkey}')
+            '$tipsPathRoot/${selectedDAUComp.dbkey}/${originalTipper.dbkey}',
+          )
           .remove();
     } catch (e) {
       log('Error deleting all tips for tipper ${originalTipper.dbkey}');

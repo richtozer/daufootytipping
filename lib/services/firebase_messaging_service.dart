@@ -85,7 +85,9 @@ class FirebaseMessagingService {
   // this method is called after TippersViewModel is initialized
   Future<void> deleteStaleTokens(TippersViewModel tippersViewModel) async {
     try {
-      log('FirebaseMessagingService.deleteStaleTokens() Deleting any stale tokens');
+      log(
+        'FirebaseMessagingService.deleteStaleTokens() Deleting any stale tokens',
+      );
       int countDeleted = 0;
       final timeNow = DateTime.now().millisecondsSinceEpoch;
       final staleTime = timeNow - tokenExpirationDuration;
@@ -107,7 +109,9 @@ class FirebaseMessagingService {
           }
         }
       }
-      log('FirebaseMessagingService.deleteStaleTokens() Deleted $countDeleted stale tokens');
+      log(
+        'FirebaseMessagingService.deleteStaleTokens() Deleted $countDeleted stale tokens',
+      );
     } catch (e) {
       log('Failed to delete stale tokens: $e');
     }
@@ -126,11 +130,12 @@ class FirebaseMessagingService {
           return;
         }
 
-        await databaseReference
-            .child(tokensPath)
-            .child(tipper.dbkey!)
-            .update({token: timeNow});
-        log('FirebaseMessagingService._saveTokenToDatabase() Token ending in ${token.substring(token.length - 4)} saved to database');
+        await databaseReference.child(tokensPath).child(tipper.dbkey!).update({
+          token: timeNow,
+        });
+        log(
+          'FirebaseMessagingService._saveTokenToDatabase() Token ending in ${token.substring(token.length - 4)} saved to database',
+        );
       } else {
         log('User is not logged in, cannot save token');
       }
@@ -146,7 +151,9 @@ class FirebaseMessagingService {
       sound: true,
     );
 
-    log('APNS user granted notification permission: ${settings.authorizationStatus}');
+    log(
+      'APNS user granted notification permission: ${settings.authorizationStatus}',
+    );
   }
 }
 

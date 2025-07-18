@@ -43,10 +43,11 @@ class _TeamEditPageState extends State<TeamEditPage> {
     try {
       //create a new temp team object to pass the changes to the viewmodel
       Team teamEdited = Team(
-          name: _teamNameController.text,
-          dbkey: oldTeam.dbkey,
-          league: oldTeam.league,
-          logoURI: _teamLogoURIController.text);
+        name: _teamNameController.text,
+        dbkey: oldTeam.dbkey,
+        league: oldTeam.league,
+        logoURI: _teamLogoURIController.text,
+      );
 
       widget.teamsViewModel.editTeam(teamEdited);
 
@@ -65,7 +66,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                   Navigator.of(context).pop();
                 },
                 child: const Text('OK'),
-              )
+              ),
             ],
           ),
         );
@@ -82,7 +83,8 @@ class _TeamEditPageState extends State<TeamEditPage> {
             return IconButton(
               icon: disableBackButton
                   ? const ImageIcon(
-                      null) // dont show anything clickable while saving is in progress
+                      null,
+                    ) // dont show anything clickable while saving is in progress
                   : const Icon(Icons.arrow_back),
               onPressed: disableBackButton
                   ? null
@@ -148,9 +150,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                           });
                         }
                       },
-                      decoration: const InputDecoration(
-                        hintText: 'Team name',
-                      ),
+                      decoration: const InputDecoration(hintText: 'Team name'),
                       onFieldSubmitted: (_) {
                         FocusScope.of(context).nextFocus();
                       },
@@ -161,7 +161,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                         return null;
                       },
                     ),
-                  )
+                  ),
                 ],
               ),
               Row(
@@ -183,9 +183,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                           });
                         }
                       },
-                      decoration: const InputDecoration(
-                        hintText: 'Logo',
-                      ),
+                      decoration: const InputDecoration(hintText: 'Logo'),
                       onFieldSubmitted: (_) {
                         FocusScope.of(context).nextFocus();
                       },
@@ -196,7 +194,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
                         return null;
                       },
                     ),
-                  )
+                  ),
                 ],
               ),
             ],

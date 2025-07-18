@@ -10,87 +10,95 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
   const DAUCompsListPage({super.key});
 
   Future<void> _addDAUComp(BuildContext context) async {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => DAUCompsEditPage(null),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => DAUCompsEditPage(null)));
   }
 
   Future<void> _editDAUComp(DAUComp daucomp, BuildContext context) async {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => DAUCompsEditPage(daucomp),
-    ));
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => DAUCompsEditPage(daucomp)));
   }
 
   @override
   Widget build(BuildContext context) {
     DAUCompsViewModel daucompsViewModel = watchIt<DAUCompsViewModel>();
     return Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          title: const Text('Admin DAU Comps'),
-        ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Colors.lightGreen[200],
-          foregroundColor: Colors.white70,
-          onPressed: () async {
-            await _addDAUComp(context);
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.of(context).pop();
           },
-          child: const Icon(Icons.add),
         ),
-        body: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(children: [
-              Expanded(
-                child: FutureBuilder<List<DAUComp>>(
-                  future: daucompsViewModel.getDAUcomps(),
-                  builder: (BuildContext context,
-                      AsyncSnapshot<List<DAUComp>> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(
+        title: const Text('Admin DAU Comps'),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
+        onPressed: () async {
+          await _addDAUComp(context);
+        },
+        child: const Icon(Icons.add),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: FutureBuilder<List<DAUComp>>(
+                future: daucompsViewModel.getDAUcomps(),
+                builder:
+                    (
+                      BuildContext context,
+                      AsyncSnapshot<List<DAUComp>> snapshot,
+                    ) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(
                           child: CircularProgressIndicator(
-                              color: League.nrl.colour));
-                    }
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Text('No Records');
-                    } else {
-                      List<DAUComp> daucomps = snapshot.data!;
-                      // sort by name descending
-                      daucomps.sort((a, b) => b.name.compareTo(a.name));
-                      return ListView(
-                        children: daucomps
-                            .map(
-                              (daucomp) => Card(
-                                child: ListTile(
-                                  dense: true,
-                                  isThreeLine: true,
-                                  trailing: const Icon(Icons.arrow_forward),
-                                  title: Text(daucomp.name),
-                                  subtitle: daucomp
-                                              .lastFixtureUpdateTimestampUTC !=
-                                          null
-                                      ? Text(
-                                          'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestampUTC?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}')
-                                      : const Text(''),
-                                  onTap: () async {
-                                    // Trigger edit functionality
-                                    await _editDAUComp(daucomp, context);
-                                  },
+                            color: League.nrl.colour,
+                          ),
+                        );
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Text('No Records');
+                      } else {
+                        List<DAUComp> daucomps = snapshot.data!;
+                        // sort by name descending
+                        daucomps.sort((a, b) => b.name.compareTo(a.name));
+                        return ListView(
+                          children: daucomps
+                              .map(
+                                (daucomp) => Card(
+                                  child: ListTile(
+                                    dense: true,
+                                    isThreeLine: true,
+                                    trailing: const Icon(Icons.arrow_forward),
+                                    title: Text(daucomp.name),
+                                    subtitle:
+                                        daucomp.lastFixtureUpdateTimestampUTC !=
+                                            null
+                                        ? Text(
+                                            'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestampUTC?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}',
+                                          )
+                                        : const Text(''),
+                                    onTap: () async {
+                                      // Trigger edit functionality
+                                      await _editDAUComp(daucomp, context);
+                                    },
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(),
-                      );
-                    }
-                  },
-                ),
+                              )
+                              .toList(),
+                        );
+                      }
+                    },
               ),
-            ])));
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

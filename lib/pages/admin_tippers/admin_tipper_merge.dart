@@ -9,8 +9,11 @@ class AdminTipperMergeEditPage extends StatefulWidget {
   final TippersViewModel tippersViewModel;
   final Tipper? sourceTipper;
 
-  const AdminTipperMergeEditPage(this.tippersViewModel, this.sourceTipper,
-      {super.key});
+  const AdminTipperMergeEditPage(
+    this.tippersViewModel,
+    this.sourceTipper, {
+    super.key,
+  });
 
   @override
   State<AdminTipperMergeEditPage> createState() =>
@@ -27,9 +30,16 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
   }
 
   Future<int> getTipsToBeMerged(
-      Tipper sourceTipper, Tipper targetTipper, DAUComp comp) {
-    return widget.tippersViewModel
-        .mergeTipsForComp(sourceTipper, targetTipper, comp, trialMode: true);
+    Tipper sourceTipper,
+    Tipper targetTipper,
+    DAUComp comp,
+  ) {
+    return widget.tippersViewModel.mergeTipsForComp(
+      sourceTipper,
+      targetTipper,
+      comp,
+      trialMode: true,
+    );
   }
 
   Future<bool?> _showConfirmationDialog(BuildContext context) {
@@ -39,7 +49,8 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
         return AlertDialog(
           title: Text('Confirm Merge'),
           content: Text(
-              'Are you sure you want to merge these tippers? This action cannot be undone.'),
+            'Are you sure you want to merge these tippers? This action cannot be undone.',
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -61,15 +72,14 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    List<Tipper> targetTippers = widget.tippersViewModel.tippers
-        .where((tipper) => tipper.dbkey != widget.sourceTipper?.dbkey)
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    List<Tipper> targetTippers =
+        widget.tippersViewModel.tippers
+            .where((tipper) => tipper.dbkey != widget.sourceTipper?.dbkey)
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Merge Tippers'),
-      ),
+      appBar: AppBar(title: Text('Merge Tippers')),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -103,8 +113,9 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                         targetTipper = newValue;
                       });
                     },
-                    items: targetTippers
-                        .map<DropdownMenuItem<Tipper>>((Tipper tipper) {
+                    items: targetTippers.map<DropdownMenuItem<Tipper>>((
+                      Tipper tipper,
+                    ) {
                       return DropdownMenuItem<Tipper>(
                         value: tipper,
                         child: Text(tipper.name),
@@ -142,8 +153,9 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                               Positioned.fill(
                                 child: Icon(
                                   Icons.clear,
-                                  color:
-                                      Colors.red.withAlpha((0.5 * 255).toInt()),
+                                  color: Colors.red.withAlpha(
+                                    (0.5 * 255).toInt(),
+                                  ),
                                   size: 50,
                                 ),
                               ),
@@ -158,12 +170,16 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                     for (var comp in compsViewModel!.daucomps)
                       FutureBuilder<int>(
                         future: getTipsToBeMerged(
-                            widget.sourceTipper!, targetTipper!, comp),
+                          widget.sourceTipper!,
+                          targetTipper!,
+                          comp,
+                        ),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
                             return CircularProgressIndicator(
-                                color: Colors.orange);
+                              color: Colors.orange,
+                            );
                           } else if (snapshot.hasError) {
                             return Text('Error: ${snapshot.error}');
                           } else if (snapshot.hasData && snapshot.data! > 0) {
@@ -181,9 +197,7 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                       ),
                     Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        '--end of list--',
-                      ),
+                      child: Text('--end of list--'),
                     ),
                   ],
                 ),
@@ -200,18 +214,24 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                   ElevatedButton(
                     onPressed: () async {
                       if (targetTipper != null && widget.sourceTipper != null) {
-                        bool? confirmed =
-                            await _showConfirmationDialog(context);
+                        bool? confirmed = await _showConfirmationDialog(
+                          context,
+                        );
                         if (confirmed == true) {
                           widget.tippersViewModel.mergeTippers(
-                              widget.sourceTipper!, targetTipper!, true, true,
-                              trialMode: false);
+                            widget.sourceTipper!,
+                            targetTipper!,
+                            true,
+                            true,
+                            trialMode: false,
+                          );
                           // show progress of the merge
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                    'Merging logon and tips of ${widget.sourceTipper!.name} into ${targetTipper!.name}'),
+                                  'Merging logon and tips of ${widget.sourceTipper!.name} into ${targetTipper!.name}',
+                                ),
                               ),
                             );
                           }
@@ -225,8 +245,9 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                         // Show an error message if tippers are not selected
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content:
-                                Text('Please select a target tipper to merge.'),
+                            content: Text(
+                              'Please select a target tipper to merge.',
+                            ),
                           ),
                         );
                       }

@@ -24,12 +24,14 @@ class UserAuthPage extends StatefulWidget {
   final bool createLinkedTipper;
   final String googleClientId;
 
-  const UserAuthPage(this.configMinAppVersion,
-      {super.key,
-      this.isUserLoggingOut = false,
-      this.isUserDeletingAccount = false,
-      required this.createLinkedTipper,
-      required this.googleClientId});
+  const UserAuthPage(
+    this.configMinAppVersion, {
+    super.key,
+    this.isUserLoggingOut = false,
+    this.isUserDeletingAccount = false,
+    required this.createLinkedTipper,
+    required this.googleClientId,
+  });
 
   @override
   UserAuthPageState createState() => UserAuthPageState();
@@ -52,8 +54,9 @@ class UserAuthPageState extends State<UserAuthPage> {
 
     //use this opportunity to setup default analytics parameter for version
     if (!kIsWeb) {
-      FirebaseAnalytics.instance
-          .setDefaultEventParameters({'version': packageInfo.version});
+      FirebaseAnalytics.instance.setDefaultEventParameters({
+        'version': packageInfo.version,
+      });
     }
 
     List<String> currentVersionParts = packageInfo.version.split('.');
@@ -94,14 +97,16 @@ class UserAuthPageState extends State<UserAuthPage> {
   void _initializeFirebaseMessagingService() {
     if (!kIsWeb) {
       di.registerLazySingleton<FirebaseMessagingService>(
-          () => FirebaseMessagingService());
+        () => FirebaseMessagingService(),
+      );
       di<FirebaseMessagingService>().initializeFirebaseMessaging();
     }
   }
 
   void _showEditNameDialog(BuildContext context, Tipper? tipper) {
-    final TextEditingController nameController =
-        TextEditingController(text: tipper?.name);
+    final TextEditingController nameController = TextEditingController(
+      text: tipper?.name,
+    );
     String? errorMessage;
 
     showDialog(
@@ -116,7 +121,8 @@ class UserAuthPageState extends State<UserAuthPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                      'Welcome to the competition. You need to choose a tipper alias. This is your identity as shown to others in the competition. It must be unique.'),
+                    'Welcome to the competition. You need to choose a tipper alias. This is your identity as shown to others in the competition. It must be unique.',
+                  ),
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(
@@ -204,15 +210,16 @@ class UserAuthPageState extends State<UserAuthPage> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                  builder: (BuildContext context) => const MyApp()),
+                builder: (BuildContext context) => const MyApp(),
+              ),
               (Route<dynamic> route) => false,
             );
           });
         } else {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(result)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(result)));
           }
         }
       });
@@ -231,7 +238,8 @@ class UserAuthPageState extends State<UserAuthPage> {
             builder: (context, versionSnapshot) {
               if (versionSnapshot.connectionState == ConnectionState.waiting) {
                 return Center(
-                    child: CircularProgressIndicator(color: Colors.orange));
+                  child: CircularProgressIndicator(color: Colors.orange),
+                );
               }
               if (versionSnapshot.data == true) {
                 return const Center(
@@ -291,8 +299,9 @@ class UserAuthPageState extends State<UserAuthPage> {
                       child: AspectRatio(
                         aspectRatio: 1,
                         child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15.0),
-                            child: Image.asset('assets/icon/AppIcon.png')),
+                          borderRadius: BorderRadius.circular(15.0),
+                          child: Image.asset('assets/icon/AppIcon.png'),
+                        ),
                       ),
                     );
                   },
@@ -301,9 +310,11 @@ class UserAuthPageState extends State<UserAuthPage> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: action == AuthAction.signIn
                           ? const Text(
-                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.\n\nOptionally, you can sign in with your email and password.')
+                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.\n\nOptionally, you can sign in with your email and password.',
+                            )
                           : const Text(
-                              'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.'),
+                              'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.',
+                            ),
                     );
                   },
                   footerBuilder: (context, action) {
@@ -320,13 +331,17 @@ class UserAuthPageState extends State<UserAuthPage> {
                                       .signInAnonymously();
                                   log("Signed in anonymously via text link");
                                 } catch (e) {
-                                  log("Error signing in anonymously via text link: $e");
+                                  log(
+                                    "Error signing in anonymously via text link: $e",
+                                  );
                                   if (context.mounted) {
                                     // Ensure widget is still in tree
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                          content: Text(
-                                              "Anonymous sign-in failed: ${e.toString()}")),
+                                        content: Text(
+                                          "Anonymous sign-in failed: ${e.toString()}",
+                                        ),
+                                      ),
                                     );
                                   }
                                 }
@@ -335,9 +350,9 @@ class UserAuthPageState extends State<UserAuthPage> {
                                 'Click here to view Stats',
                                 style: TextStyle(
                                   decoration: TextDecoration.underline,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary, // Or a specific blue
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary, // Or a specific blue
                                 ),
                               ),
                             ),
@@ -386,8 +401,9 @@ class UserAuthPageState extends State<UserAuthPage> {
               User? authenticatedFirebaseUser = authSnapshot.data;
               if (authenticatedFirebaseUser == null) {
                 return const LoginIssueScreen(
-                    message:
-                        'No user context found. Please try signing in again.');
+                  message:
+                      'No user context found. Please try signing in again.',
+                );
               }
 
               if (authenticatedFirebaseUser.emailVerified == false &&
@@ -403,49 +419,57 @@ class UserAuthPageState extends State<UserAuthPage> {
               }
 
               FirebaseAnalytics.instance.logLogin(
-                  loginMethod: authenticatedFirebaseUser.providerData.isNotEmpty
-                      ? authenticatedFirebaseUser.providerData[0].providerId
-                      : 'unknown');
+                loginMethod: authenticatedFirebaseUser.providerData.isNotEmpty
+                    ? authenticatedFirebaseUser.providerData[0].providerId
+                    : 'unknown',
+              );
 
               return FutureBuilder<Tipper?>(
                 future: _linkUserToTipper(),
-                builder:
-                    (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
+                builder: (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
-                        child: CircularProgressIndicator(color: Colors.orange));
+                      child: CircularProgressIndicator(color: Colors.orange),
+                    );
                   } else if (snapshot.hasError) {
                     return LoginIssueScreen(
-                        message:
-                            'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping');
+                      message:
+                          'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping',
+                    );
                   } else if (snapshot.data == null) {
                     // This means no existing Tipper record
                     if (authenticatedFirebaseUser.isAnonymous) {
                       // For new anonymous users, bypass edit name dialog
                       return FutureBuilder<bool>(
-                        future: _updateOrCreateTipper(null,
-                            null), // Pass null to let ViewModel handle name
-                        builder: (BuildContext context,
-                            AsyncSnapshot<bool> updateSnapshot) {
+                        future: _updateOrCreateTipper(
+                          null,
+                          null,
+                        ), // Pass null to let ViewModel handle name
+                        builder: (BuildContext context, AsyncSnapshot<bool> updateSnapshot) {
                           if (updateSnapshot.connectionState ==
                               ConnectionState.waiting) {
                             return Center(
-                                child: CircularProgressIndicator(
-                                    color: Colors.orange));
+                              child: CircularProgressIndicator(
+                                color: Colors.orange,
+                              ),
+                            );
                           } else if (updateSnapshot.hasError) {
                             return LoginIssueScreen(
-                                message:
-                                    'Error creating anonymous user: ${updateSnapshot.error}. Contact support.');
+                              message:
+                                  'Error creating anonymous user: ${updateSnapshot.error}. Contact support.',
+                            );
                           } else if (updateSnapshot.data == false) {
                             return LoginIssueScreen(
-                                message:
-                                    'Failed to create anonymous user. Contact support.');
+                              message:
+                                  'Failed to create anonymous user. Contact support.',
+                            );
                           } else {
                             // Successfully created anonymous user, navigate to home
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               Navigator.of(context).pushReplacement(
                                 MaterialPageRoute(
-                                    builder: (context) => const HomePage()),
+                                  builder: (context) => const HomePage(),
+                                ),
                               );
                             });
                             return Container(); // Show loading or empty container while navigating
@@ -463,26 +487,35 @@ class UserAuthPageState extends State<UserAuthPage> {
                     // Existing tipper found
                     return FutureBuilder<bool>(
                       future: _updateOrCreateTipper(
-                          snapshot.data!.name, snapshot.data!),
-                      builder: (BuildContext context,
-                          AsyncSnapshot<bool> updateSnapshot) {
-                        if (updateSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.orange));
-                        } else if (updateSnapshot.hasError) {
-                          return LoginIssueScreen(
-                              message:
-                                  'Unexpected error ${updateSnapshot.error}. Contact support: https://interview.coach/tipping');
-                        } else if (updateSnapshot.data == false) {
-                          return LoginIssueScreen(
-                              message:
-                                  'Failed to create or update tipper. Contact support: https://interview.coach/tipping');
-                        } else {
-                          return const HomePage();
-                        }
-                      },
+                        snapshot.data!.name,
+                        snapshot.data!,
+                      ),
+                      builder:
+                          (
+                            BuildContext context,
+                            AsyncSnapshot<bool> updateSnapshot,
+                          ) {
+                            if (updateSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.orange,
+                                ),
+                              );
+                            } else if (updateSnapshot.hasError) {
+                              return LoginIssueScreen(
+                                message:
+                                    'Unexpected error ${updateSnapshot.error}. Contact support: https://interview.coach/tipping',
+                              );
+                            } else if (updateSnapshot.data == false) {
+                              return LoginIssueScreen(
+                                message:
+                                    'Failed to create or update tipper. Contact support: https://interview.coach/tipping',
+                              );
+                            } else {
+                              return const HomePage();
+                            }
+                          },
                     );
                   }
                 },
@@ -501,12 +534,13 @@ class LoginIssueScreen extends StatelessWidget {
   final String googleClientId;
   final Color msgColor;
 
-  const LoginIssueScreen(
-      {super.key,
-      required this.message,
-      this.displaySignOutButton = true,
-      this.googleClientId = '',
-      this.msgColor = Colors.red});
+  const LoginIssueScreen({
+    super.key,
+    required this.message,
+    this.displaySignOutButton = true,
+    this.googleClientId = '',
+    this.msgColor = Colors.red,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -549,10 +583,7 @@ class LoginIssueScreen extends StatelessWidget {
                     ? OutlinedButton(
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout),
-                            Text('Sign Out'),
-                          ],
+                          children: [Icon(Icons.logout), Text('Sign Out')],
                         ),
                         onPressed: () {
                           Navigator.of(context).pushReplacement(

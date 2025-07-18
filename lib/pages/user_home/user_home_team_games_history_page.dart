@@ -43,8 +43,10 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
 
     try {
       final gamesViewModel = di<DAUCompsViewModel>().gamesViewModel;
-      final history =
-          await gamesViewModel!.getTeamGameHistory(widget.team, widget.league);
+      final history = await gamesViewModel!.getTeamGameHistory(
+        widget.team,
+        widget.league,
+      );
       if (mounted) {
         setState(() {
           _gameHistory = history;
@@ -79,83 +81,88 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
               height: 40,
               child:
                   widget.team.logoURI != null && widget.team.logoURI!.isNotEmpty
-                      ? SvgPicture.asset(
-                          widget.team.logoURI!,
-                          placeholderBuilder: (context) =>
-                              const Icon(Icons.shield), // Fallback during load
-                        )
-                      : const Icon(Icons.shield), // Fallback if no URI
+                  ? SvgPicture.asset(
+                      widget.team.logoURI!,
+                      placeholderBuilder: (context) =>
+                          const Icon(Icons.shield), // Fallback during load
+                    )
+                  : const Icon(Icons.shield), // Fallback if no URI
             ),
           ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(child: Text('Error: $_error'))
-                    : _gameHistory.isEmpty &&
-                            !_isLoading // Check after loading is done
-                        ? const Center(
-                            child: Text(
-                                'No game history available for this team.'))
-                        : ListView.builder(
-                            itemCount: _gameHistory.length,
-                            itemBuilder: (context, index) {
-                              final item = _gameHistory[index];
-                              Color resultColor = Colors.black;
-                              if (item.result == "Won") {
-                                resultColor = Colors.green;
-                              }
-                              if (item.result == "Lost") {
-                                resultColor = Colors.red;
-                              }
-                              if (item.result == "Draw") {
-                                resultColor = Colors.grey.shade700;
-                              }
+                ? Center(child: Text('Error: $_error'))
+                : _gameHistory.isEmpty &&
+                      !_isLoading // Check after loading is done
+                ? const Center(
+                    child: Text('No game history available for this team.'),
+                  )
+                : ListView.builder(
+                    itemCount: _gameHistory.length,
+                    itemBuilder: (context, index) {
+                      final item = _gameHistory[index];
+                      Color resultColor = Colors.black;
+                      if (item.result == "Won") {
+                        resultColor = Colors.green;
+                      }
+                      if (item.result == "Lost") {
+                        resultColor = Colors.red;
+                      }
+                      if (item.result == "Draw") {
+                        resultColor = Colors.grey.shade700;
+                      }
 
-                              return Card(
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 8.0, vertical: 4.0),
-                                child: ListTile(
-                                  leading: SizedBox(
-                                    width: 40,
-                                    height: 40,
-                                    child: item.opponentLogoUri != null &&
-                                            item.opponentLogoUri!.isNotEmpty
-                                        ? SvgPicture.asset(
-                                            item.opponentLogoUri!,
-                                            placeholderBuilder: (context) =>
-                                                const Icon(Icons
-                                                    .shield), // Fallback during load
-                                            // Consider adding errorBuilder for production apps
-                                            // errorBuilder: (context, error, stackTrace) => Icon(Icons.error_outline, color: Colors.red),
-                                          )
-                                        : const Icon(
-                                            Icons.shield), // Fallback if no URI
-                                  ),
-                                  title: Text('Vs ${item.opponentName}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          'Round ${item.roundNumber} | ${item.gameDate.toLocal().toString().split(' ')[0]}'),
-                                      Text(
-                                        'Score: ${item.teamScore} - ${item.opponentScore} (${item.result})',
-                                        style: TextStyle(
-                                            color: resultColor,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      Text(
-                                          'Ladder Points: ${item.ladderPoints}'),
-                                    ],
-                                  ),
-                                  isThreeLine: true,
-                                ),
-                              );
-                            },
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 4.0,
+                        ),
+                        child: ListTile(
+                          leading: SizedBox(
+                            width: 40,
+                            height: 40,
+                            child:
+                                item.opponentLogoUri != null &&
+                                    item.opponentLogoUri!.isNotEmpty
+                                ? SvgPicture.asset(
+                                    item.opponentLogoUri!,
+                                    placeholderBuilder: (context) => const Icon(
+                                      Icons.shield,
+                                    ), // Fallback during load
+                                    // Consider adding errorBuilder for production apps
+                                    // errorBuilder: (context, error, stackTrace) => Icon(Icons.error_outline, color: Colors.red),
+                                  )
+                                : const Icon(
+                                    Icons.shield,
+                                  ), // Fallback if no URI
                           ),
+                          title: Text(
+                            'Vs ${item.opponentName}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Round ${item.roundNumber} | ${item.gameDate.toLocal().toString().split(' ')[0]}',
+                              ),
+                              Text(
+                                'Score: ${item.teamScore} - ${item.opponentScore} (${item.result})',
+                                style: TextStyle(
+                                  color: resultColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text('Ladder Points: ${item.ladderPoints}'),
+                            ],
+                          ),
+                          isThreeLine: true,
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

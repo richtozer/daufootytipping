@@ -62,9 +62,14 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel = widget.gameTipViewModel ??
-        GameTipViewModel(widget.currentTipper, widget.currentDAUComp,
-            widget.game, widget.allTipsViewModel);
+    gameTipsViewModel =
+        widget.gameTipViewModel ??
+        GameTipViewModel(
+          widget.currentTipper,
+          widget.currentDAUComp,
+          widget.game,
+          widget.allTipsViewModel,
+        );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
@@ -109,7 +114,9 @@ class _GameListItemState extends State<GameListItem> {
     try {
       final dauCompsViewModel = di<DAUCompsViewModel>();
       if (dauCompsViewModel.selectedDAUComp == null) {
-        log('Selected DAUComp is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
+        log(
+          'Selected DAUComp is null in _fetchAndSetLadderRanks. Cannot calculate ladder.',
+        );
         if (!mounted) return;
         setState(() {
           _isLoadingLadderRank = false;
@@ -121,7 +128,9 @@ class _GameListItemState extends State<GameListItem> {
 
       final gamesViewModel = dauCompsViewModel.gamesViewModel;
       if (gamesViewModel == null) {
-        log('GamesViewModel is null in _fetchAndSetLadderRanks. Cannot calculate ladder.');
+        log(
+          'GamesViewModel is null in _fetchAndSetLadderRanks. Cannot calculate ladder.',
+        );
         if (!mounted) return;
         setState(() {
           _isLoadingLadderRank = false;
@@ -139,14 +148,15 @@ class _GameListItemState extends State<GameListItem> {
       final ladderService = LadderCalculationService();
 
       List<Game> allGames = await gamesViewModel.getGames();
-      List<Team> leagueTeams = teamsViewModel
+      List<Team> leagueTeams =
+          teamsViewModel
               .groupedTeams[gameTipsViewModel.game.league.name.toLowerCase()]
               ?.cast<Team>() ??
           [];
 
       // Yield control before heavy ladder calculation
       await Future.microtask(() {});
-      
+
       LeagueLadder? calculatedLadder = ladderService.calculateLadder(
         allGames: allGames,
         leagueTeams: leagueTeams,
@@ -158,16 +168,20 @@ class _GameListItemState extends State<GameListItem> {
 
       if (calculatedLadder != null) {
         final homeIdx = calculatedLadder.teams.indexWhere(
-            (t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey);
+          (t) => t.dbkey == gameTipsViewModel.game.homeTeam.dbkey,
+        );
         final homeRank = (homeIdx == -1) ? null : homeIdx + 1;
-        calculatedHomeLabel =
-            homeRank != null ? LeagueLadder.ordinal(homeRank) : '--';
+        calculatedHomeLabel = homeRank != null
+            ? LeagueLadder.ordinal(homeRank)
+            : '--';
 
         final awayIdx = calculatedLadder.teams.indexWhere(
-            (t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey);
+          (t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey,
+        );
         final awayRank = (awayIdx == -1) ? null : awayIdx + 1;
-        calculatedAwayLabel =
-            awayRank != null ? LeagueLadder.ordinal(awayRank) : '--';
+        calculatedAwayLabel = awayRank != null
+            ? LeagueLadder.ordinal(awayRank)
+            : '--';
       }
 
       if (!mounted) return;
@@ -208,125 +222,147 @@ class _GameListItemState extends State<GameListItem> {
             ),
             color: Colors.white70,
             surfaceTintColor: League.nrl.colour,
-            child: Row(children: [
-              gameTipsViewModelConsumer.game.gameState ==
-                      GameState.startedResultNotKnown
-                  ? Tooltip(
-                      message: 'Click here to edit scoring for this game',
-                      child: GestureDetector(
-                        onTap: () => showMaterialModalBottomSheet(
+            child: Row(
+              children: [
+                gameTipsViewModelConsumer.game.gameState ==
+                        GameState.startedResultNotKnown
+                    ? Tooltip(
+                        message: 'Click here to edit scoring for this game',
+                        child: GestureDetector(
+                          onTap: () => showMaterialModalBottomSheet(
                             expand: false,
                             context: context,
                             builder: (context) => LiveScoringModal(
-                                gameTipsViewModelConsumer.tip!)),
-                        child: SizedBox(
-                          width: Game.teamVteamWidth,
+                              gameTipsViewModelConsumer.tip!,
+                            ),
+                          ),
+                          child: SizedBox(
+                            width: Game.teamVteamWidth,
+                            child: _TeamVersusDisplay(
+                              gameTipsViewModelConsumer:
+                                  gameTipsViewModelConsumer,
+                              displayHomeRank: '', // No rank in this branch
+                              displayAwayRank: '', // No rank in this branch
+                              homeTeamScoreWidget: liveScoringHome(
+                                gameTipsViewModelConsumer.game,
+                                context,
+                              ),
+                              awayTeamScoreWidget: liveScoringAway(
+                                gameTipsViewModelConsumer.game,
+                                context,
+                              ),
+                              middleRowWidget: liveScoringEdit(context),
+                              teamNameTextStyle: Theme.of(
+                                context,
+                              ).textTheme.titleMedium!,
+                              rankTextStyle: Theme.of(
+                                context,
+                              ).textTheme.labelSmall!,
+                            ),
+                          ),
+                        ),
+                      )
+                    : SizedBox(
+                        width: Game.teamVteamWidth,
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => LeagueLadderPage(
+                                  league: game.league,
+                                  teamDbKeysToDisplay: [
+                                    game.homeTeam.dbkey,
+                                    game.awayTeam.dbkey,
+                                  ],
+                                  customTitle:
+                                      "League Leaderboard comparison.", // Updated title
+                                ),
+                              ),
+                            );
+                          },
                           child: _TeamVersusDisplay(
                             gameTipsViewModelConsumer:
                                 gameTipsViewModelConsumer,
-                            displayHomeRank: '', // No rank in this branch
-                            displayAwayRank: '', // No rank in this branch
-                            homeTeamScoreWidget: liveScoringHome(
-                                gameTipsViewModelConsumer.game, context),
-                            awayTeamScoreWidget: liveScoringAway(
-                                gameTipsViewModelConsumer.game, context),
-                            middleRowWidget: liveScoringEdit(context),
-                            teamNameTextStyle:
-                                Theme.of(context).textTheme.titleMedium!,
-                            rankTextStyle:
-                                Theme.of(context).textTheme.labelSmall!,
-                          ),
-                        ),
-                      ),
-                    )
-                  : SizedBox(
-                      width: Game.teamVteamWidth,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => LeagueLadderPage(
-                                league: game.league,
-                                teamDbKeysToDisplay: [
-                                  game.homeTeam.dbkey,
-                                  game.awayTeam.dbkey
-                                ],
-                                customTitle:
-                                    "League Leaderboard comparison.", // Updated title
-                              ),
+                            displayHomeRank: displayHomeRank,
+                            displayAwayRank: displayAwayRank,
+                            homeTeamScoreWidget: fixtureScoringHome(
+                              gameTipsViewModelConsumer,
                             ),
-                          );
-                        },
-                        child: _TeamVersusDisplay(
-                          gameTipsViewModelConsumer: gameTipsViewModelConsumer,
-                          displayHomeRank: displayHomeRank,
-                          displayAwayRank: displayAwayRank,
-                          homeTeamScoreWidget:
-                              fixtureScoringHome(gameTipsViewModelConsumer),
-                          awayTeamScoreWidget:
-                              fixtureScoringAway(gameTipsViewModelConsumer),
-                          middleRowWidget: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SvgPicture.asset(
-                                gameTipsViewModelConsumer
-                                        .game.homeTeam.logoURI ??
-                                    (gameTipsViewModelConsumer.game.league ==
-                                            League.nrl
-                                        ? League.nrl.logo
-                                        : League.afl.logo),
-                                width: 25,
-                                height: 25,
-                              ),
-                              const Text(textAlign: TextAlign.left, ' V '),
-                              SvgPicture.asset(
-                                gameTipsViewModelConsumer
-                                        .game.awayTeam.logoURI ??
-                                    (gameTipsViewModelConsumer.game.league ==
-                                            League.nrl
-                                        ? League.nrl.logo
-                                        : League.afl.logo),
-                                width: 25,
-                                height: 25,
-                              ),
-                            ],
+                            awayTeamScoreWidget: fixtureScoringAway(
+                              gameTipsViewModelConsumer,
+                            ),
+                            middleRowWidget: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SvgPicture.asset(
+                                  gameTipsViewModelConsumer
+                                          .game
+                                          .homeTeam
+                                          .logoURI ??
+                                      (gameTipsViewModelConsumer.game.league ==
+                                              League.nrl
+                                          ? League.nrl.logo
+                                          : League.afl.logo),
+                                  width: 25,
+                                  height: 25,
+                                ),
+                                const Text(textAlign: TextAlign.left, ' V '),
+                                SvgPicture.asset(
+                                  gameTipsViewModelConsumer
+                                          .game
+                                          .awayTeam
+                                          .logoURI ??
+                                      (gameTipsViewModelConsumer.game.league ==
+                                              League.nrl
+                                          ? League.nrl.logo
+                                          : League.afl.logo),
+                                  width: 25,
+                                  height: 25,
+                                ),
+                              ],
+                            ),
+                            teamNameTextStyle: Theme.of(
+                              context,
+                            ).textTheme.titleMedium!,
+                            rankTextStyle: Theme.of(
+                              context,
+                            ).textTheme.labelSmall!,
                           ),
-                          teamNameTextStyle:
-                              Theme.of(context).textTheme.titleMedium!,
-                          rankTextStyle:
-                              Theme.of(context).textTheme.labelSmall!,
                         ),
                       ),
-                    ),
-              Expanded(
-                child: Column(
-                  children: [
-                    CarouselSlider(
-                      options: CarouselOptions(
-                        height: Game.gameCardHeight - 8,
-                        enlargeFactor: 1.0,
-                        enlargeCenterPage: true,
-                        enlargeStrategy: CenterPageEnlargeStrategy.zoom,
-                        enableInfiniteScroll: false,
-                        onPageChanged: (index, reason) {
-                          // Start pulling historical data after the first item
-                          if (_historicalData == null &&
-                              !_isLoadingHistoricalData &&
-                              !_historicalDataError &&
-                              index >= 1) {
-                            _fetchHistoricalData();
-                          }
-                        },
+                Expanded(
+                  child: Column(
+                    children: [
+                      CarouselSlider(
+                        options: CarouselOptions(
+                          height: Game.gameCardHeight - 8,
+                          enlargeFactor: 1.0,
+                          enlargeCenterPage: true,
+                          enlargeStrategy: CenterPageEnlargeStrategy.zoom,
+                          enableInfiniteScroll: false,
+                          onPageChanged: (index, reason) {
+                            // Start pulling historical data after the first item
+                            if (_historicalData == null &&
+                                !_isLoadingHistoricalData &&
+                                !_historicalDataError &&
+                                index >= 1) {
+                              _fetchHistoricalData();
+                            }
+                          },
+                        ),
+                        items: carouselItems(
+                          gameTipsViewModelConsumer,
+                          widget.isPercentStatsPage,
+                        ),
+                        carouselController:
+                            gameTipsViewModelConsumer.controller,
                       ),
-                      items: carouselItems(
-                          gameTipsViewModelConsumer, widget.isPercentStatsPage),
-                      carouselController: gameTipsViewModelConsumer.controller,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              )
-            ]),
+              ],
+            ),
           );
 
           // if game is more than 3 hours in the past, don't show any banner
@@ -370,41 +406,56 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   List<Widget> carouselItems(
-      GameTipViewModel gameTipsViewModelConsumer, bool isPercentStatsPage) {
+    GameTipViewModel gameTipsViewModelConsumer,
+    bool isPercentStatsPage,
+  ) {
     if (isPercentStatsPage) {
-      return [
-        gameStatsCard(gameTipsViewModelConsumer),
-      ];
+      return [gameStatsCard(gameTipsViewModelConsumer)];
     }
 
     // Always add the base cards for the game
     List<Widget> cards = [
       gameTipCard(gameTipsViewModelConsumer), // Tip Choice card
-      GameInfo(gameTipsViewModelConsumer.game,
-          gameTipsViewModelConsumer), // Game Info card
+      GameInfo(
+        gameTipsViewModelConsumer.game,
+        gameTipsViewModelConsumer,
+      ), // Game Info card
     ];
 
     // Add historical matchup cards or loading/error indicators for all game states
     if (_isLoadingHistoricalData) {
-      cards.add(Card(
+      cards.add(
+        Card(
           child: SizedBox(
-              height: 100,
-              child: Center(
-                  child:
-                      CircularProgressIndicator(color: League.nrl.colour)))));
+            height: 100,
+            child: Center(
+              child: CircularProgressIndicator(color: League.nrl.colour),
+            ),
+          ),
+        ),
+      );
     } else if (_historicalDataError) {
-      cards.add(Card(
+      cards.add(
+        Card(
           child: SizedBox(
-              height: 100,
-              child: Center(child: Text("Error loading history.")))));
+            height: 100,
+            child: Center(child: Text("Error loading history.")),
+          ),
+        ),
+      );
     } else if (_historicalData != null && _historicalData!.isNotEmpty) {
       final matchupsToShow = _historicalData!.take(3).toList();
       int totalMatchupsInList = matchupsToShow.length;
       for (var entry in matchupsToShow.asMap().entries) {
         int index = entry.key;
         HistoricalMatchupUIData matchupData = entry.value;
-        cards.add(_buildSingleHistoricalMatchupCard(
-            matchupData, index, totalMatchupsInList));
+        cards.add(
+          _buildSingleHistoricalMatchupCard(
+            matchupData,
+            index,
+            totalMatchupsInList,
+          ),
+        );
       }
     } else if (_historicalData != null && _historicalData!.isEmpty) {
       // Optionally, add a card indicating no historical data found if preferred over silence
@@ -423,7 +474,10 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget _buildSingleHistoricalMatchupCard(
-      HistoricalMatchupUIData matchupData, int index, int totalMatchupsInList) {
+    HistoricalMatchupUIData matchupData,
+    int index,
+    int totalMatchupsInList,
+  ) {
     String outcomeString;
     if (matchupData.winningTeamName == "Draw") {
       outcomeString = "Match was a Draw";
@@ -484,15 +538,17 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   FutureBuilder<dynamic> scoringTileBuilder(
-      GameTipViewModel gameTipsViewModelConsumer) {
+    GameTipViewModel gameTipsViewModelConsumer,
+  ) {
     return FutureBuilder<Tip?>(
       future: gameTipsViewModelConsumer.gettip(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return ScoringTile(
-              tip: snapshot.data!,
-              gameTipsViewModel: gameTipsViewModelConsumer,
-              selectedDAUComp: widget.currentDAUComp);
+            tip: snapshot.data!,
+            gameTipsViewModel: gameTipsViewModelConsumer,
+            selectedDAUComp: widget.currentDAUComp,
+          );
         } else {
           return CircularProgressIndicator(color: League.nrl.colour);
         }
@@ -592,8 +648,9 @@ class _TeamVersusDisplay extends StatelessWidget {
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.homeTeam.name,
           teamRank: showExtra ? displayHomeRank : null,
-          scoreWidget:
-              showExtra ? homeTeamScoreWidget : const SizedBox.shrink(),
+          scoreWidget: showExtra
+              ? homeTeamScoreWidget
+              : const SizedBox.shrink(),
           gameState: gameTipsViewModelConsumer.game.gameState,
           textStyle: teamNameTextStyle,
           rankTextStyle: rankTextStyle,
@@ -602,8 +659,9 @@ class _TeamVersusDisplay extends StatelessWidget {
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.awayTeam.name,
           teamRank: showExtra ? displayAwayRank : null,
-          scoreWidget:
-              showExtra ? awayTeamScoreWidget : const SizedBox.shrink(),
+          scoreWidget: showExtra
+              ? awayTeamScoreWidget
+              : const SizedBox.shrink(),
           gameState: gameTipsViewModelConsumer.game.gameState,
           textStyle: teamNameTextStyle,
           rankTextStyle: rankTextStyle,
@@ -622,37 +680,42 @@ bool shouldShowTextTeamInfo(BuildContext context) {
 
 Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
   return Text(
-      style: const TextStyle(fontWeight: FontWeight.w800),
-      ' ${consumerTipGame.scoring?.currentScore(ScoringTeam.home) ?? '0'}');
+    style: const TextStyle(fontWeight: FontWeight.w800),
+    ' ${consumerTipGame.scoring?.currentScore(ScoringTeam.home) ?? '0'}',
+  );
 }
 
 Widget liveScoringAway(Game consumerTipGame, BuildContext context) {
   return Text(
-      style: const TextStyle(fontWeight: FontWeight.w800),
-      '${consumerTipGame.scoring?.currentScore(ScoringTeam.away) ?? '0'} ');
-}
-
-Widget liveScoringEdit(BuildContext context) {
-  return SizedBox(
-    width: 30,
-    child: const Icon(Icons.edit),
+    style: const TextStyle(fontWeight: FontWeight.w800),
+    '${consumerTipGame.scoring?.currentScore(ScoringTeam.away) ?? '0'} ',
   );
 }
 
+Widget liveScoringEdit(BuildContext context) {
+  return SizedBox(width: 30, child: const Icon(Icons.edit));
+}
+
 Widget fixtureScoringHome(GameTipViewModel consumerTipGameViewModel) {
-  return Text('${consumerTipGameViewModel.game.scoring!.homeTeamScore ?? ''}',
-      style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
-          ? TextStyle(
-              backgroundColor: Colors.lightGreen[200],
-              fontWeight: FontWeight.w900)
-          : TextStyle(fontWeight: FontWeight.w600));
+  return Text(
+    '${consumerTipGameViewModel.game.scoring!.homeTeamScore ?? ''}',
+    style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
+        ? TextStyle(
+            backgroundColor: Colors.lightGreen[200],
+            fontWeight: FontWeight.w900,
+          )
+        : TextStyle(fontWeight: FontWeight.w600),
+  );
 }
 
 Widget fixtureScoringAway(GameTipViewModel consumerTipGameViewModel) {
-  return Text('${consumerTipGameViewModel.game.scoring!.awayTeamScore ?? ''}',
-      style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
-          ? TextStyle(
-              backgroundColor: Colors.lightGreen[200],
-              fontWeight: FontWeight.w900)
-          : TextStyle(fontWeight: FontWeight.w600));
+  return Text(
+    '${consumerTipGameViewModel.game.scoring!.awayTeamScore ?? ''}',
+    style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
+        ? TextStyle(
+            backgroundColor: Colors.lightGreen[200],
+            fontWeight: FontWeight.w900,
+          )
+        : TextStyle(fontWeight: FontWeight.w600),
+  );
 }

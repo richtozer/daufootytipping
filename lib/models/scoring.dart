@@ -79,11 +79,7 @@ class Scoring {
   List<CrowdSourcedScore>? croudSourcedScores;
 
   //constructor
-  Scoring({
-    this.homeTeamScore,
-    this.awayTeamScore,
-    this.croudSourcedScores,
-  });
+  Scoring({this.homeTeamScore, this.awayTeamScore, this.croudSourcedScores});
 
   Scoring copyWith({
     int? homeTeamScore,
@@ -99,8 +95,9 @@ class Scoring {
 
   int? currentScore(ScoringTeam team) {
     //always return the official score from fixture if available
-    int? officialScore =
-        (team == ScoringTeam.home) ? homeTeamScore : awayTeamScore;
+    int? officialScore = (team == ScoringTeam.home)
+        ? homeTeamScore
+        : awayTeamScore;
     if (officialScore != null) {
       return officialScore;
     }
@@ -182,7 +179,7 @@ class Scoring {
     return {
       'homeTeamScore': homeTeamScore,
       'awayTeamScore': awayTeamScore,
-      'croudSourcedScores': croudSourcedScores?.map((x) => x.toJson()).toList()
+      'croudSourcedScores': croudSourcedScores?.map((x) => x.toJson()).toList(),
     };
   }
 
@@ -192,16 +189,21 @@ class Scoring {
       homeTeamScore: data['homeTeamScore'],
       awayTeamScore: data['awayTeamScore'],
       croudSourcedScores: data['croudSourcedScores'] != null
-          ? List<CrowdSourcedScore>.from((data['croudSourcedScores'] as List)
-              .where((x) => x != null)
-              .map((x) => CrowdSourcedScore.fromJson(x as Map))
-              .toList())
+          ? List<CrowdSourcedScore>.from(
+              (data['croudSourcedScores'] as List)
+                  .where((x) => x != null)
+                  .map((x) => CrowdSourcedScore.fromJson(x as Map))
+                  .toList(),
+            )
           : null,
     );
   }
 
   static int getTipScoreCalculated(
-      League gameLeague, GameResult gameResult, GameResult tip) {
+    League gameLeague,
+    GameResult gameResult,
+    GameResult tip,
+  ) {
     final nrlScoreLookupTable = {
       GameResult.a: {
         GameResult.a: 4,
@@ -209,7 +211,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 0,
         GameResult.e: -2,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.b: {
         GameResult.a: 1,
@@ -217,7 +219,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 0,
         GameResult.e: -2,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.c: {
         GameResult.a: 0,
@@ -225,7 +227,7 @@ class Scoring {
         GameResult.c: 50,
         GameResult.d: 1,
         GameResult.e: 0,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.d: {
         GameResult.a: -2,
@@ -233,7 +235,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 2,
         GameResult.e: 1,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.e: {
         GameResult.a: -2,
@@ -241,7 +243,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 2,
         GameResult.e: 4,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.z: {
         GameResult.a: 0,
@@ -249,7 +251,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 0,
         GameResult.e: 0,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
     };
 
@@ -260,7 +262,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 0,
         GameResult.e: -2,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.b: {
         GameResult.a: 1,
@@ -268,7 +270,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 0,
         GameResult.e: -2,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.c: {
         GameResult.a: 0,
@@ -276,7 +278,7 @@ class Scoring {
         GameResult.c: 20,
         GameResult.d: 1,
         GameResult.e: 0,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.d: {
         GameResult.a: -2,
@@ -284,7 +286,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 2,
         GameResult.e: 1,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.e: {
         GameResult.a: -2,
@@ -292,7 +294,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 2,
         GameResult.e: 4,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
       GameResult.z: {
         GameResult.a: 0,
@@ -300,7 +302,7 @@ class Scoring {
         GameResult.c: 0,
         GameResult.d: 0,
         GameResult.e: 0,
-        GameResult.z: 0
+        GameResult.z: 0,
       },
     };
 

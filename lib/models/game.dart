@@ -66,7 +66,9 @@ class Game implements Comparable<Game> {
         return dauRound;
       }
     }
-    log('Game.getDAURound: WARNING, no DAURound found for game $dbkey. Check that the game start time is within the round start and end dates.');
+    log(
+      'Game.getDAURound: WARNING, no DAURound found for game $dbkey. Check that the game start time is within the round start and end dates.',
+    );
     return null;
   }
 
@@ -103,20 +105,24 @@ class Game implements Comparable<Game> {
   }
 
   Map<String, dynamic> toJson() => {
-        'League': league.name,
-        'HomeTeam': homeTeam.dbkey.substring(4),
-        'AwayTeam': awayTeam.dbkey.substring(4),
-        'Location': location,
-        'DateUtc':
-            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
-        'RoundNumber': fixtureRoundNumber,
-        'MatchNumber': fixtureMatchNumber,
-        'HomeTeamScore': (scoring != null) ? scoring!.homeTeamScore : null,
-        "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
-      };
+    'League': league.name,
+    'HomeTeam': homeTeam.dbkey.substring(4),
+    'AwayTeam': awayTeam.dbkey.substring(4),
+    'Location': location,
+    'DateUtc':
+        '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
+    'RoundNumber': fixtureRoundNumber,
+    'MatchNumber': fixtureMatchNumber,
+    'HomeTeamScore': (scoring != null) ? scoring!.homeTeamScore : null,
+    "AwayTeamScore": (scoring != null) ? scoring!.awayTeamScore : null,
+  };
 
   factory Game.fromJson(
-      String dbkey, Map<String, dynamic> data, homeTeam, awayTeam) {
+    String dbkey,
+    Map<String, dynamic> data,
+    homeTeam,
+    awayTeam,
+  ) {
     //use the left 3 chars of the dbkey to determine the league
     final league = League.values.byName(dbkey.substring(0, 3));
     return Game(

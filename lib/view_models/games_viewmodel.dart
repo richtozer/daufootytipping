@@ -58,8 +58,8 @@ class GamesViewModel extends ChangeNotifier {
         .child('$gamesPathRoot/${selectedDAUComp.dbkey}')
         .onValue
         .listen((event) {
-      _handleEvent(event);
-    });
+          _handleEvent(event);
+        });
   }
 
   void _handleEvent(DatabaseEvent event) async {
@@ -70,8 +70,9 @@ class GamesViewModel extends ChangeNotifier {
     _isUpdating = true;
     try {
       if (event.snapshot.exists) {
-        final allGames =
-            Map<String, dynamic>.from(event.snapshot.value as dynamic);
+        final allGames = Map<String, dynamic>.from(
+          event.snapshot.value as dynamic,
+        );
 
         // Deserialize the games
         List<Game> gamesList = allGames.entries.map((entry) {
@@ -80,22 +81,30 @@ class GamesViewModel extends ChangeNotifier {
           dynamic gameAsJSON = entry.value;
 
           // Find and deserialize the home and away teams
-          Team? homeTeam =
-              _teamsViewModel.findTeam('$league-${gameAsJSON['HomeTeam']}');
-          Team? awayTeam =
-              _teamsViewModel.findTeam('$league-${gameAsJSON['AwayTeam']}');
+          Team? homeTeam = _teamsViewModel.findTeam(
+            '$league-${gameAsJSON['HomeTeam']}',
+          );
+          Team? awayTeam = _teamsViewModel.findTeam(
+            '$league-${gameAsJSON['AwayTeam']}',
+          );
 
           if (homeTeam == null || awayTeam == null) {
             throw Exception(
-                'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null');
+              'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null',
+            );
           }
 
           Scoring? scoring = Scoring(
-              homeTeamScore: gameAsJSON['HomeTeamScore'],
-              awayTeamScore: gameAsJSON['AwayTeamScore']);
+            homeTeamScore: gameAsJSON['HomeTeamScore'],
+            awayTeamScore: gameAsJSON['AwayTeamScore'],
+          );
 
           Game game = Game.fromJson(
-              dbKey, Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
+            dbKey,
+            Map<String, dynamic>.from(gameAsJSON),
+            homeTeam,
+            awayTeam,
+          );
           game.scoring = scoring;
 
           return game;
@@ -103,7 +112,9 @@ class GamesViewModel extends ChangeNotifier {
 
         gamesList.sort();
         _games = gamesList;
-        log('GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}');
+        log(
+          'GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}',
+        );
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
@@ -127,16 +138,21 @@ class GamesViewModel extends ChangeNotifier {
 
   final Map<String, dynamic> updates = {};
 
-  Future<void> updateGameAttribute(String gameDbKey, String attributeName,
-      dynamic attributeValue, String league) async {
+  Future<void> updateGameAttribute(
+    String gameDbKey,
+    String attributeName,
+    dynamic attributeValue,
+    String league,
+  ) async {
     await initialLoadComplete;
 
     //make sure the related team records exist
     if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
       Team team = Team(
-          dbkey: '$league-$attributeValue',
-          name: attributeValue,
-          league: League.values.firstWhere((e) => e.name == league));
+        dbkey: '$league-$attributeValue',
+        name: attributeValue,
+        league: League.values.firstWhere((e) => e.name == league),
+      );
       //make sure the related team records exist
       _teamsViewModel.addTeam(team);
     }
@@ -146,7 +162,9 @@ class GamesViewModel extends ChangeNotifier {
     if (gameToUpdate != null) {
       dynamic oldValue = gameToUpdate.toJson()[attributeName];
       if (attributeValue != oldValue) {
-        log('Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue');
+        log(
+          'Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue',
+        );
         updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
         if (attributeName == 'HomeTeamScore' ||
@@ -155,13 +173,16 @@ class GamesViewModel extends ChangeNotifier {
           // avoid adding rounds multiple times
           // also in the unlikely event we have scores but no rounds defined yet then skip this update
           if (selectedDAUComp.daurounds.isEmpty) {
-            log('Game: $gameDbKey has scores but there are no rounds defined. Skipping scoring update.');
+            log(
+              'Game: $gameDbKey has scores but there are no rounds defined. Skipping scoring update.',
+            );
             return;
           }
           final round = gameToUpdate.getDAURound(selectedDAUComp);
           if (round != null && !_roundsThatNeedScoringUpdate.contains(round)) {
-            _roundsThatNeedScoringUpdate
-                .add(gameToUpdate.getDAURound(selectedDAUComp)!);
+            _roundsThatNeedScoringUpdate.add(
+              gameToUpdate.getDAURound(selectedDAUComp)!,
+            );
             // also force a gamestats update - in normal processing this should be the initial calcation
             di<StatsViewModel>().getGamesStatsEntry(gameToUpdate, true);
           }
@@ -195,7 +216,9 @@ class GamesViewModel extends ChangeNotifier {
       // update in List<DAURound> _roundsThatNeedScoringUpdate
       // update the round scores then remove the round from the list
       for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
-        log('GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}');
+        log(
+          'GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}',
+        );
         await di<StatsViewModel>().updateStats(selectedDAUComp, dauRound, null);
       }
       // clear the list
@@ -219,8 +242,9 @@ class GamesViewModel extends ChangeNotifier {
   Future<List<Game>> getGamesForRound(DAURound dauRound) async {
     await initialLoadComplete;
 
-    List<Game> gamesForRound =
-        _games.where((game) => (game.isGameInRound(dauRound))).toList();
+    List<Game> gamesForRound = _games
+        .where((game) => (game.isGameInRound(dauRound)))
+        .toList();
 
     // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
     removeGamesOutsideRegularComp(gamesForRound);
@@ -235,16 +259,20 @@ class GamesViewModel extends ChangeNotifier {
 
       if (game.league == League.afl &&
           selectedDAUComp.aflRegularCompEndDateUTC != null) {
-        shouldRemove = game.startTimeUTC
-            .isAfter(selectedDAUComp.aflRegularCompEndDateUTC!);
+        shouldRemove = game.startTimeUTC.isAfter(
+          selectedDAUComp.aflRegularCompEndDateUTC!,
+        );
       } else if (game.league == League.nrl &&
           selectedDAUComp.nrlRegularCompEndDateUTC != null) {
-        shouldRemove = game.startTimeUTC
-            .isAfter(selectedDAUComp.nrlRegularCompEndDateUTC!);
+        shouldRemove = game.startTimeUTC.isAfter(
+          selectedDAUComp.nrlRegularCompEndDateUTC!,
+        );
       }
 
       if (shouldRemove) {
-        log('removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, Start Time: ${game.startTimeUTC}');
+        log(
+          'removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, Start Time: ${game.startTimeUTC}',
+        );
       }
 
       return shouldRemove;
@@ -291,17 +319,21 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<List<TeamGameHistoryItem>> getTeamGameHistory(
-      Team targetTeam, League league) async {
+    Team targetTeam,
+    League league,
+  ) async {
     await initialLoadComplete;
 
     List<TeamGameHistoryItem> historyItems = [];
 
     // Filter games
     List<Game> relevantGames = _games.where((game) {
-      bool isTargetTeamInvolved = game.homeTeam.dbkey == targetTeam.dbkey ||
+      bool isTargetTeamInvolved =
+          game.homeTeam.dbkey == targetTeam.dbkey ||
           game.awayTeam.dbkey == targetTeam.dbkey;
       bool isCorrectLeague = game.league == league;
-      bool hasScores = game.scoring != null &&
+      bool hasScores =
+          game.scoring != null &&
           game.scoring!.homeTeamScore != null &&
           game.scoring!.awayTeamScore != null;
       return isTargetTeamInvolved && isCorrectLeague && hasScores;
@@ -347,13 +379,19 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   List<Game> _filterGamesForMatchup(
-      List<Game> games, Team teamA, Team teamB, League league) {
+    List<Game> games,
+    Team teamA,
+    Team teamB,
+    League league,
+  ) {
     return games.where((game) {
       bool isCorrectLeague = game.league == league;
-      bool hasScores = game.scoring != null &&
+      bool hasScores =
+          game.scoring != null &&
           game.scoring!.homeTeamScore != null &&
           game.scoring!.awayTeamScore != null;
-      bool teamsInvolved = (game.homeTeam.dbkey == teamA.dbkey &&
+      bool teamsInvolved =
+          (game.homeTeam.dbkey == teamA.dbkey &&
               game.awayTeam.dbkey == teamB.dbkey) ||
           (game.homeTeam.dbkey == teamB.dbkey &&
               game.awayTeam.dbkey == teamA.dbkey);
@@ -364,7 +402,9 @@ class GamesViewModel extends ChangeNotifier {
   final Map<String, List<Game>> _gamesByDAUCompKeyCache = {};
 
   Future<List<Game>> _fetchGamesForDAUCompKey(String dauCompDbKey) async {
-    log('GamesViewModel_fetchGamesForDAUCompKey: Fetching games for DAUComp key $dauCompDbKey');
+    log(
+      'GamesViewModel_fetchGamesForDAUCompKey: Fetching games for DAUComp key $dauCompDbKey',
+    );
 
     if (_gamesByDAUCompKeyCache.containsKey(dauCompDbKey)) {
       return _gamesByDAUCompKeyCache[dauCompDbKey]!;
@@ -373,7 +413,9 @@ class GamesViewModel extends ChangeNotifier {
     // Testability hook: If testGamesByCompKey is set and contains data for this key, return it.
     if (testGamesByCompKey != null &&
         testGamesByCompKey!.containsKey(dauCompDbKey)) {
-      log('GamesViewModel_fetchGamesForDAUCompKey: Using test data for DAUComp key $dauCompDbKey');
+      log(
+        'GamesViewModel_fetchGamesForDAUCompKey: Using test data for DAUComp key $dauCompDbKey',
+      );
       final testGames = testGamesByCompKey![dauCompDbKey]!;
       return Future.value(List<Game>.from(testGames)); // Return a copy
     }
@@ -385,8 +427,9 @@ class GamesViewModel extends ChangeNotifier {
 
       final event = await _db.child('$gamesPathRoot/$dauCompDbKey').once();
       if (event.snapshot.exists) {
-        final allGamesData =
-            Map<String, dynamic>.from(event.snapshot.value as dynamic);
+        final allGamesData = Map<String, dynamic>.from(
+          event.snapshot.value as dynamic,
+        );
 
         fetchedGames = allGamesData.entries
             .map((entry) {
@@ -394,13 +437,17 @@ class GamesViewModel extends ChangeNotifier {
               String leagueName = gameDbKey.split('-').first;
               dynamic gameAsJSON = entry.value;
 
-              Team? homeTeam = _teamsViewModel
-                  .findTeam('$leagueName-${gameAsJSON['HomeTeam']}');
-              Team? awayTeam = _teamsViewModel
-                  .findTeam('$leagueName-${gameAsJSON['AwayTeam']}');
+              Team? homeTeam = _teamsViewModel.findTeam(
+                '$leagueName-${gameAsJSON['HomeTeam']}',
+              );
+              Team? awayTeam = _teamsViewModel.findTeam(
+                '$leagueName-${gameAsJSON['AwayTeam']}',
+              );
 
               if (homeTeam == null || awayTeam == null) {
-                log('GamesViewModel_fetchGamesForDAUCompKey: Warning - homeTeam or awayTeam is null for game $gameDbKey in DAUComp $dauCompDbKey. Skipping game.');
+                log(
+                  'GamesViewModel_fetchGamesForDAUCompKey: Warning - homeTeam or awayTeam is null for game $gameDbKey in DAUComp $dauCompDbKey. Skipping game.',
+                );
                 return null;
               }
 
@@ -409,28 +456,43 @@ class GamesViewModel extends ChangeNotifier {
                 awayTeamScore: gameAsJSON['AwayTeamScore'],
               );
 
-              Game game = Game.fromJson(gameDbKey,
-                  Map<String, dynamic>.from(gameAsJSON), homeTeam, awayTeam);
+              Game game = Game.fromJson(
+                gameDbKey,
+                Map<String, dynamic>.from(gameAsJSON),
+                homeTeam,
+                awayTeam,
+              );
               game.scoring = scoring;
               return game;
             })
             .whereType<Game>()
             .toList();
 
-        log('GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase');
+        log(
+          'GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase',
+        );
       } else {
-        log('GamesViewModel_fetchGamesForDAUCompKey: No games found for DAUComp $dauCompDbKey from Firebase');
+        log(
+          'GamesViewModel_fetchGamesForDAUCompKey: No games found for DAUComp $dauCompDbKey from Firebase',
+        );
       }
     } catch (e) {
-      log('GamesViewModel_fetchGamesForDAUCompKey: Error fetching games for DAUComp $dauCompDbKey: $e');
+      log(
+        'GamesViewModel_fetchGamesForDAUCompKey: Error fetching games for DAUComp $dauCompDbKey: $e',
+      );
     }
     _gamesByDAUCompKeyCache[dauCompDbKey] = fetchedGames;
     return fetchedGames;
   }
 
   Future<List<Game>> getCompleteMatchupHistory(
-      Team teamA, Team teamB, League league) async {
-    log('GamesViewModel_getCompleteMatchupHistory: Called for ${teamA.name} vs ${teamB.name}, league ${league.name}');
+    Team teamA,
+    Team teamB,
+    League league,
+  ) async {
+    log(
+      'GamesViewModel_getCompleteMatchupHistory: Called for ${teamA.name} vs ${teamB.name}, league ${league.name}',
+    );
 
     await initialLoadComplete;
     await _teamsViewModel.initialLoadComplete;
@@ -440,33 +502,55 @@ class GamesViewModel extends ChangeNotifier {
     //await _dauCompsViewModel.initialDAUCompLoadComplete;
     List<DAUComp> allDAUComps = _dauCompsViewModel.daucomps;
 
-    log('GamesViewModel_getCompleteMatchupHistory: Found ${allDAUComps.length} DAUComps to check.');
+    log(
+      'GamesViewModel_getCompleteMatchupHistory: Found ${allDAUComps.length} DAUComps to check.',
+    );
 
     for (DAUComp dauComp in allDAUComps) {
       if (dauComp.dbkey == null) {
-        log('GamesViewModel_getCompleteMatchupHistory: Skipping a DAUComp with null dbkey.');
+        log(
+          'GamesViewModel_getCompleteMatchupHistory: Skipping a DAUComp with null dbkey.',
+        );
         continue;
       }
-      log('GamesViewModel_getCompleteMatchupHistory: Fetching games for DAUComp ${dauComp.name} (${dauComp.dbkey!})');
-      List<Game> gamesFromThisDAUComp =
-          await _fetchGamesForDAUCompKey(dauComp.dbkey!);
-      List<Game> filteredGames =
-          _filterGamesForMatchup(gamesFromThisDAUComp, teamA, teamB, league);
+      log(
+        'GamesViewModel_getCompleteMatchupHistory: Fetching games for DAUComp ${dauComp.name} (${dauComp.dbkey!})',
+      );
+      List<Game> gamesFromThisDAUComp = await _fetchGamesForDAUCompKey(
+        dauComp.dbkey!,
+      );
+      List<Game> filteredGames = _filterGamesForMatchup(
+        gamesFromThisDAUComp,
+        teamA,
+        teamB,
+        league,
+      );
       allMatchupGames.addAll(filteredGames);
-      log('GamesViewModel_getCompleteMatchupHistory: Added ${filteredGames.length} games from DAUComp ${dauComp.name}. Total matchups so far: ${allMatchupGames.length}');
+      log(
+        'GamesViewModel_getCompleteMatchupHistory: Added ${filteredGames.length} games from DAUComp ${dauComp.name}. Total matchups so far: ${allMatchupGames.length}',
+      );
     }
 
     allMatchupGames.sort((a, b) => b.startTimeUTC.compareTo(a.startTimeUTC));
-    log('GamesViewModel_getCompleteMatchupHistory: Total ${allMatchupGames.length} matchup games found across all DAUComps.');
+    log(
+      'GamesViewModel_getCompleteMatchupHistory: Total ${allMatchupGames.length} matchup games found across all DAUComps.',
+    );
     return allMatchupGames;
   }
 
   Future<List<Game>> getMatchupHistory(
-      Team teamA, Team teamB, League league) async {
+    Team teamA,
+    Team teamB,
+    League league,
+  ) async {
     await initialLoadComplete;
 
-    List<Game> relevantGames =
-        _filterGamesForMatchup(_games, teamA, teamB, league);
+    List<Game> relevantGames = _filterGamesForMatchup(
+      _games,
+      teamA,
+      teamB,
+      league,
+    );
 
     relevantGames.sort((a, b) => b.startTimeUTC.compareTo(a.startTimeUTC));
 

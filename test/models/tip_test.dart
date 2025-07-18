@@ -18,7 +18,7 @@ void main() {
 
     setUp(() {
       testDateTime = DateTime.utc(2024, 1, 15, 14, 30);
-      
+
       testTipper = Tipper(
         dbkey: 'tipper1',
         name: 'Test Tipper',
@@ -40,10 +40,7 @@ void main() {
         league: League.nrl,
       );
 
-      testScoring = Scoring(
-        homeTeamScore: 24,
-        awayTeamScore: 18,
-      );
+      testScoring = Scoring(homeTeamScore: 24, awayTeamScore: 18);
 
       testGame = Game(
         dbkey: 'game1',
@@ -139,7 +136,10 @@ void main() {
         expect(tip.game, equals(testGame));
         expect(tip.tipper, equals(testTipper));
         expect(tip.tip, equals(GameResult.a));
-        expect(tip.submittedTimeUTC, equals(DateTime.parse('2024-01-15T14:30:00.000Z')));
+        expect(
+          tip.submittedTimeUTC,
+          equals(DateTime.parse('2024-01-15T14:30:00.000Z')),
+        );
       });
 
       test('should handle all game results in fromJson', () {
@@ -180,18 +180,34 @@ void main() {
         );
 
         final json = originalTip.toJson();
-        final reconstructedTip = Tip.fromJson(json, 'tip1', testTipper, testGame);
+        final reconstructedTip = Tip.fromJson(
+          json,
+          'tip1',
+          testTipper,
+          testGame,
+        );
 
         expect(reconstructedTip.tip, equals(originalTip.tip));
-        expect(reconstructedTip.submittedTimeUTC, equals(originalTip.submittedTimeUTC));
+        expect(
+          reconstructedTip.submittedTimeUTC,
+          equals(originalTip.submittedTimeUTC),
+        );
       });
     });
 
     group('getGameResultText', () {
       test('should return NRL text for NRL game', () {
-        final nrlHomeTeam = Team(dbkey: 'broncos', name: 'Broncos', league: League.nrl);
-        final nrlAwayTeam = Team(dbkey: 'cowboys', name: 'Cowboys', league: League.nrl);
-        
+        final nrlHomeTeam = Team(
+          dbkey: 'broncos',
+          name: 'Broncos',
+          league: League.nrl,
+        );
+        final nrlAwayTeam = Team(
+          dbkey: 'cowboys',
+          name: 'Cowboys',
+          league: League.nrl,
+        );
+
         final nrlGame = Game(
           dbkey: 'nrl_game',
           homeTeam: nrlHomeTeam,
@@ -217,9 +233,17 @@ void main() {
       });
 
       test('should return AFL text for AFL game', () {
-        final aflHomeTeam = Team(dbkey: 'hawks', name: 'Hawks', league: League.afl);
-        final aflAwayTeam = Team(dbkey: 'blues', name: 'Blues', league: League.afl);
-        
+        final aflHomeTeam = Team(
+          dbkey: 'hawks',
+          name: 'Hawks',
+          league: League.afl,
+        );
+        final aflAwayTeam = Team(
+          dbkey: 'blues',
+          name: 'Blues',
+          league: League.afl,
+        );
+
         final aflGame = Game(
           dbkey: 'afl_game',
           homeTeam: aflHomeTeam,
@@ -386,7 +410,7 @@ void main() {
       test('should handle tip with null scoring in game', () {
         final teamA = Team(dbkey: 'team_a', name: 'Team A', league: League.nrl);
         final teamB = Team(dbkey: 'team_b', name: 'Team B', league: League.nrl);
-        
+
         final gameWithoutScoring = Game(
           dbkey: 'game_no_scoring',
           homeTeam: teamA,

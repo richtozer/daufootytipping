@@ -4,11 +4,15 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 void main() {
   group('FixtureDownloadService Tests', () {
     late FixtureDownloadService service;
-    
+
     // Use invalid URLs to trigger error scenarios without real network calls
-    final invalidNrlUrl = Uri.parse('https://invalid-url-that-does-not-exist.com/nrl');
-    final invalidAflUrl = Uri.parse('https://invalid-url-that-does-not-exist.com/afl');
-    
+    final invalidNrlUrl = Uri.parse(
+      'https://invalid-url-that-does-not-exist.com/nrl',
+    );
+    final invalidAflUrl = Uri.parse(
+      'https://invalid-url-that-does-not-exist.com/afl',
+    );
+
     setUp(() {
       service = FixtureDownloadService();
     });
@@ -22,13 +26,16 @@ void main() {
         );
       });
 
-      test('should throw exception when using invalid URLs on background thread', () async {
-        // Act & Assert
-        expect(
-          () async => await service.fetch(invalidNrlUrl, invalidAflUrl, true),
-          throwsA(isA<Exception>()),
-        );
-      });
+      test(
+        'should throw exception when using invalid URLs on background thread',
+        () async {
+          // Act & Assert
+          expect(
+            () async => await service.fetch(invalidNrlUrl, invalidAflUrl, true),
+            throwsA(isA<Exception>()),
+          );
+        },
+      );
 
       test('exception message should contain NRL error information', () async {
         // Act & Assert
@@ -48,7 +55,8 @@ void main() {
 
         // Act & Assert
         expect(
-          () async => await service.fetch(malformedNrlUrl, malformedAflUrl, false),
+          () async =>
+              await service.fetch(malformedNrlUrl, malformedAflUrl, false),
           throwsA(isA<Exception>()),
         );
       });
@@ -86,7 +94,7 @@ void main() {
       test('should handle multiple service instances', () {
         final service1 = FixtureDownloadService();
         final service2 = FixtureDownloadService();
-        
+
         expect(service1, isA<FixtureDownloadService>());
         expect(service2, isA<FixtureDownloadService>());
         expect(service1, isNot(same(service2)));
@@ -98,7 +106,7 @@ void main() {
         // This test validates the method signature is correct
         final nrlUri = Uri.parse('https://example.com/nrl');
         final aflUri = Uri.parse('https://example.com/afl');
-        
+
         // Should not throw a compilation error for correct signature
         expect(() async {
           try {
@@ -113,11 +121,11 @@ void main() {
         // This test documents the expected return type
         // Since we can't easily test successful network calls in unit tests,
         // we document the expected structure
-        
+
         // Expected return type: Map<String, List<dynamic>>
         // Expected keys: 'nrlGames', 'aflGames'
         // Expected values: List<dynamic> for each key
-        
+
         expect(true, isTrue); // Placeholder for type documentation
       });
     });
@@ -131,12 +139,15 @@ void main() {
           final errorMessage = e.toString();
           expect(errorMessage, contains('Exception'));
           // Error should contain context about what failed
-          expect(errorMessage.toLowerCase(), anyOf([
-            contains('nrl'),
-            contains('afl'),
-            contains('error'),
-            contains('loading'),
-          ]));
+          expect(
+            errorMessage.toLowerCase(),
+            anyOf([
+              contains('nrl'),
+              contains('afl'),
+              contains('error'),
+              contains('loading'),
+            ]),
+          );
         }
       });
     });

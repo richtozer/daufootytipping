@@ -32,7 +32,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     'AFL',
     '#\nrounds\nwon',
     'Margins',
-    'UPS'
+    'UPS',
   ];
 
   @override
@@ -48,10 +48,11 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           return buildScaffold(
-              context,
-              scoresViewModelConsumer,
-              di<TippersViewModel>().selectedTipper.dbkey ?? '',
-              Theme.of(context).highlightColor);
+            context,
+            scoresViewModelConsumer,
+            di<TippersViewModel>().selectedTipper.dbkey ?? '',
+            Theme.of(context).highlightColor,
+          );
         },
       ),
     );
@@ -96,114 +97,168 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 : Container(), // Return an empty container in landscape mode
             Expanded(
               child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
+                padding: const EdgeInsets.all(5.0),
+                child: DataTable2(
+                  border: TableBorder.all(
+                    width: 1.0,
+                    color: Colors.grey.shade300,
+                  ),
+                  sortColumnIndex: sortColumnIndex,
+                  sortAscending: isAscending,
+                  columnSpacing: 0,
+                  horizontalMargin: 0,
+                  minWidth: 600,
+                  fixedTopRows: 1,
+                  fixedLeftColumns: orientation == Orientation.portrait ? 1 : 0,
+                  showCheckboxColumn: false,
+                  isHorizontalScrollBarVisible: true,
+                  isVerticalScrollBarVisible: true,
+                  columns: getColumns(columns),
+                  rows: List<DataRow>.generate(
+                    scoresViewModelConsumer.compLeaderboard.length,
+                    (index) => DataRow(
+                      color:
+                          scoresViewModelConsumer
+                                  .compLeaderboard[index]
+                                  .tipper
+                                  .dbkey ==
+                              dbkey
+                          ? WidgetStateProperty.resolveWith((states) => color)
+                          : WidgetStateProperty.resolveWith(
+                              (states) => Colors.transparent,
+                            ),
+                      cells: [
+                        DataCell(
+                          Row(
+                            children: [
+                              const Icon(Icons.arrow_forward, size: 15),
+                              avatarPic(
+                                scoresViewModelConsumer
+                                    .compLeaderboard[index]
+                                    .tipper,
+                              ),
+                              Expanded(
+                                child: Text(
+                                  softWrap: false,
+                                  scoresViewModelConsumer
+                                      .compLeaderboard[index]
+                                      .tipper
+                                      .name,
+                                  overflow: TextOverflow.fade,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            scoresViewModelConsumer.compLeaderboard[index].rank
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          _buildRankChangeCell(
+                            scoresViewModelConsumer.compLeaderboard[index],
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            scoresViewModelConsumer.compLeaderboard[index].total
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            scoresViewModelConsumer.compLeaderboard[index].nRL
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            scoresViewModelConsumer.compLeaderboard[index].aFL
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            scoresViewModelConsumer
+                                .compLeaderboard[index]
+                                .numRoundsWon
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            (scoresViewModelConsumer
+                                        .compLeaderboard[index]
+                                        .aflMargins +
+                                    scoresViewModelConsumer
+                                        .compLeaderboard[index]
+                                        .nrlMargins)
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            (scoresViewModelConsumer
+                                        .compLeaderboard[index]
+                                        .aflUPS +
+                                    scoresViewModelConsumer
+                                        .compLeaderboard[index]
+                                        .nrlUPS)
+                                .toString(),
+                          ),
+                          onTap: () => onTipperTapped(
+                            context,
+                            scoresViewModelConsumer,
+                            index,
+                          ),
+                        ),
+                      ],
                     ),
-                    sortColumnIndex: sortColumnIndex,
-                    sortAscending: isAscending,
-                    columnSpacing: 0,
-                    horizontalMargin: 0,
-                    minWidth: 600,
-                    fixedTopRows: 1,
-                    fixedLeftColumns:
-                        orientation == Orientation.portrait ? 1 : 0,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: true,
-                    isVerticalScrollBarVisible: true,
-                    columns: getColumns(columns),
-                    rows: List<DataRow>.generate(
-                        scoresViewModelConsumer.compLeaderboard.length,
-                        (index) => DataRow(
-                              color: scoresViewModelConsumer
-                                          .compLeaderboard[index]
-                                          .tipper
-                                          .dbkey ==
-                                      dbkey
-                                  ? WidgetStateProperty.resolveWith(
-                                      (states) => color)
-                                  : WidgetStateProperty.resolveWith(
-                                      (states) => Colors.transparent),
-                              cells: [
-                                DataCell(
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.arrow_forward,
-                                            size: 15),
-                                        avatarPic(scoresViewModelConsumer
-                                            .compLeaderboard[index].tipper),
-                                        Expanded(
-                                          child: Text(
-                                            softWrap: false,
-                                            scoresViewModelConsumer
-                                                .compLeaderboard[index]
-                                                .tipper
-                                                .name,
-                                            overflow: TextOverflow.fade,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text(scoresViewModelConsumer
-                                        .compLeaderboard[index].rank
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    _buildRankChangeCell(scoresViewModelConsumer
-                                        .compLeaderboard[index]),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text(scoresViewModelConsumer
-                                        .compLeaderboard[index].total
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text(scoresViewModelConsumer
-                                        .compLeaderboard[index].nRL
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text(scoresViewModelConsumer
-                                        .compLeaderboard[index].aFL
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text(scoresViewModelConsumer
-                                        .compLeaderboard[index].numRoundsWon
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text((scoresViewModelConsumer
-                                                .compLeaderboard[index]
-                                                .aflMargins +
-                                            scoresViewModelConsumer
-                                                .compLeaderboard[index]
-                                                .nrlMargins)
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                                DataCell(
-                                    Text((scoresViewModelConsumer
-                                                .compLeaderboard[index].aflUPS +
-                                            scoresViewModelConsumer
-                                                .compLeaderboard[index].nrlUPS)
-                                        .toString()),
-                                    onTap: () => onTipperTapped(context,
-                                        scoresViewModelConsumer, index)),
-                              ],
-                            )),
-                  )),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -212,52 +267,67 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   }
 
   void onTipperTapped(
-      BuildContext context, StatsViewModel scoresViewModelConsumer, int index) {
+    BuildContext context,
+    StatsViewModel scoresViewModelConsumer,
+    int index,
+  ) {
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) => StatRoundScoresForTipper(
-              scoresViewModelConsumer.compLeaderboard[index].tipper)),
+        builder: (context) => StatRoundScoresForTipper(
+          scoresViewModelConsumer.compLeaderboard[index].tipper,
+        ),
+      ),
     );
   }
 
   void onSort(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       if (ascending) {
-        scoresViewModel.compLeaderboard.sort((a, b) =>
-            (a.tipper.name.toLowerCase())
-                .compareTo(b.tipper.name.toLowerCase()));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => (a.tipper.name.toLowerCase()).compareTo(
+            b.tipper.name.toLowerCase(),
+          ),
+        );
       } else {
-        scoresViewModel.compLeaderboard.sort((a, b) =>
-            (b.tipper.name.toLowerCase())
-                .compareTo(a.tipper.name.toLowerCase()));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => (b.tipper.name.toLowerCase()).compareTo(
+            a.tipper.name.toLowerCase(),
+          ),
+        );
       }
     }
     if (columnIndex == 1) {
       if (ascending) {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => a.rank.compareTo(b.rank));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => a.rank.compareTo(b.rank),
+        );
       } else {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => b.rank.compareTo(a.rank));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => b.rank.compareTo(a.rank),
+        );
       }
     }
     if (columnIndex == 2) {
       if (ascending) {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => (a.rankChange ?? 0).compareTo(b.rankChange ?? 0));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => (a.rankChange ?? 0).compareTo(b.rankChange ?? 0),
+        );
       } else {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => (b.rankChange ?? 0).compareTo(a.rankChange ?? 0));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => (b.rankChange ?? 0).compareTo(a.rankChange ?? 0),
+        );
       }
     }
     if (columnIndex == 3) {
       if (ascending) {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => a.total.compareTo(b.total));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => a.total.compareTo(b.total),
+        );
       } else {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => b.total.compareTo(a.total));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => b.total.compareTo(a.total),
+        );
       }
     }
     if (columnIndex == 4) {
@@ -276,31 +346,39 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     }
     if (columnIndex == 6) {
       if (ascending) {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => a.numRoundsWon.compareTo(b.numRoundsWon));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => a.numRoundsWon.compareTo(b.numRoundsWon),
+        );
       } else {
-        scoresViewModel.compLeaderboard
-            .sort((a, b) => b.numRoundsWon.compareTo(a.numRoundsWon));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => b.numRoundsWon.compareTo(a.numRoundsWon),
+        );
       }
     }
     if (columnIndex == 7) {
       if (ascending) {
-        scoresViewModel.compLeaderboard.sort((a, b) =>
-            (a.aflMargins + a.nrlMargins)
-                .compareTo(b.aflMargins + b.nrlMargins));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => (a.aflMargins + a.nrlMargins).compareTo(
+            b.aflMargins + b.nrlMargins,
+          ),
+        );
       } else {
-        scoresViewModel.compLeaderboard.sort((a, b) =>
-            (b.aflMargins + b.nrlMargins)
-                .compareTo(a.aflMargins + a.nrlMargins));
+        scoresViewModel.compLeaderboard.sort(
+          (a, b) => (b.aflMargins + b.nrlMargins).compareTo(
+            a.aflMargins + a.nrlMargins,
+          ),
+        );
       }
     }
     if (columnIndex == 8) {
       if (ascending) {
         scoresViewModel.compLeaderboard.sort(
-            (a, b) => (a.aflUPS + a.nrlUPS).compareTo(b.aflUPS + b.nrlUPS));
+          (a, b) => (a.aflUPS + a.nrlUPS).compareTo(b.aflUPS + b.nrlUPS),
+        );
       } else {
         scoresViewModel.compLeaderboard.sort(
-            (a, b) => (b.aflUPS + b.nrlUPS).compareTo(a.aflUPS + a.nrlUPS));
+          (a, b) => (b.aflUPS + b.nrlUPS).compareTo(a.aflUPS + a.nrlUPS),
+        );
       }
     }
 
@@ -357,8 +435,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         leaderboardEntry.rankChange > 0
             ? const Icon(color: Colors.green, Icons.arrow_upward, size: 16)
             : leaderboardEntry.rankChange < 0
-                ? const Icon(color: Colors.red, Icons.arrow_downward, size: 16)
-                : const Icon(color: Colors.green, Icons.sync_alt, size: 16),
+            ? const Icon(color: Colors.red, Icons.arrow_downward, size: 16)
+            : const Icon(color: Colors.green, Icons.sync_alt, size: 16),
         //const SizedBox(width: 2),
         Text('${leaderboardEntry.rankChange.abs()}'),
       ],
@@ -367,8 +445,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   Widget avatarPic(Tipper tipper) {
     return Hero(
-        tag: tipper.dbkey!,
-        child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
+      tag: tipper.dbkey!,
+      child: circleAvatarWithFallback(
+        imageUrl: tipper.photoURL,
+        text: tipper.name,
+        radius: 15,
+      ),
+    );
   }
 }

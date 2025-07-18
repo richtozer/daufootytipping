@@ -23,20 +23,22 @@ class DAUCompsEditPage extends StatefulWidget {
 
   DAUCompsEditPage(this.daucomp, {super.key}) {
     _daucompNameController = TextEditingController(text: daucomp?.name);
-    _daucompAflJsonURLController =
-        TextEditingController(text: daucomp?.aflFixtureJsonURL.toString());
-    _daucompNrlJsonURLController =
-        TextEditingController(text: daucomp?.nrlFixtureJsonURL.toString());
+    _daucompAflJsonURLController = TextEditingController(
+      text: daucomp?.aflFixtureJsonURL.toString(),
+    );
+    _daucompNrlJsonURLController = TextEditingController(
+      text: daucomp?.nrlFixtureJsonURL.toString(),
+    );
     _nrlRegularCompEndDateController = TextEditingController(
-        text: daucomp?.nrlRegularCompEndDateUTC != null
-            ? DateFormat('yyyy-MM-dd')
-                .format(daucomp!.nrlRegularCompEndDateUTC!)
-            : '');
+      text: daucomp?.nrlRegularCompEndDateUTC != null
+          ? DateFormat('yyyy-MM-dd').format(daucomp!.nrlRegularCompEndDateUTC!)
+          : '',
+    );
     _aflRegularCompEndDateController = TextEditingController(
-        text: daucomp?.aflRegularCompEndDateUTC != null
-            ? DateFormat('yyyy-MM-dd')
-                .format(daucomp!.aflRegularCompEndDateUTC!)
-            : '');
+      text: daucomp?.aflRegularCompEndDateUTC != null
+          ? DateFormat('yyyy-MM-dd').format(daucomp!.aflRegularCompEndDateUTC!)
+          : '',
+    );
   }
 
   @override
@@ -58,9 +60,12 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     super.initState();
     // Correct initialization of _localActiveCompState
     if (widget.daucomp != null) {
-      final globalDauCompsVM = di<
-          DAUCompsViewModel>(); // Assuming DAUCompsViewModel is registered with WatchIt
-      _localActiveCompState = globalDauCompsVM.initDAUCompDbKey != null &&
+      final globalDauCompsVM =
+          di<
+            DAUCompsViewModel
+          >(); // Assuming DAUCompsViewModel is registered with WatchIt
+      _localActiveCompState =
+          globalDauCompsVM.initDAUCompDbKey != null &&
           widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
     } else {
       _localActiveCompState = false; // New comps are not active by default
@@ -82,10 +87,12 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     widget._daucompNameController.removeListener(_updateSaveButtonState);
     widget._daucompAflJsonURLController.removeListener(_updateSaveButtonState);
     widget._daucompNrlJsonURLController.removeListener(_updateSaveButtonState);
-    widget._nrlRegularCompEndDateController
-        .removeListener(_updateSaveButtonState);
-    widget._aflRegularCompEndDateController
-        .removeListener(_updateSaveButtonState);
+    widget._nrlRegularCompEndDateController.removeListener(
+      _updateSaveButtonState,
+    );
+    widget._aflRegularCompEndDateController.removeListener(
+      _updateSaveButtonState,
+    );
     super.dispose();
   }
 
@@ -104,12 +111,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     bool originalActiveStatus = false;
     if (widget.daucomp != null) {
       final globalDauCompsVM = di<DAUCompsViewModel>();
-      originalActiveStatus = globalDauCompsVM.initDAUCompDbKey != null &&
+      originalActiveStatus =
+          globalDauCompsVM.initDAUCompDbKey != null &&
           widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
     }
 
     if (widget.daucomp == null) {
-      shouldEnableSave = widget._daucompNameController.text.isNotEmpty &&
+      shouldEnableSave =
+          widget._daucompNameController.text.isNotEmpty &&
           widget._daucompAflJsonURLController.text.isNotEmpty &&
           widget._daucompNrlJsonURLController.text.isNotEmpty;
       // For new comps, also consider if _localActiveCompState is true (if we allow setting new comp as active immediately)
@@ -124,25 +133,29 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     } else {
       shouldEnableSave =
           (widget._daucompNameController.text != widget.daucomp!.name ||
-                  widget._daucompAflJsonURLController.text !=
-                      widget.daucomp!.aflFixtureJsonURL.toString() ||
-                  widget._daucompNrlJsonURLController.text !=
-                      widget.daucomp!.nrlFixtureJsonURL.toString() ||
-                  widget._nrlRegularCompEndDateController.text !=
-                      (widget.daucomp!.nrlRegularCompEndDateUTC != null
-                          ? DateFormat('yyyy-MM-dd')
-                              .format(widget.daucomp!.nrlRegularCompEndDateUTC!)
-                          : '') ||
-                  widget._aflRegularCompEndDateController.text !=
-                      (widget.daucomp!.aflRegularCompEndDateUTC != null
-                          ? DateFormat('yyyy-MM-dd')
-                              .format(widget.daucomp!.aflRegularCompEndDateUTC!)
-                          : '')) ||
-              (_localActiveCompState !=
-                  originalActiveStatus); // Added this condition
+              widget._daucompAflJsonURLController.text !=
+                  widget.daucomp!.aflFixtureJsonURL.toString() ||
+              widget._daucompNrlJsonURLController.text !=
+                  widget.daucomp!.nrlFixtureJsonURL.toString() ||
+              widget._nrlRegularCompEndDateController.text !=
+                  (widget.daucomp!.nrlRegularCompEndDateUTC != null
+                      ? DateFormat(
+                          'yyyy-MM-dd',
+                        ).format(widget.daucomp!.nrlRegularCompEndDateUTC!)
+                      : '') ||
+              widget._aflRegularCompEndDateController.text !=
+                  (widget.daucomp!.aflRegularCompEndDateUTC != null
+                      ? DateFormat(
+                          'yyyy-MM-dd',
+                        ).format(widget.daucomp!.aflRegularCompEndDateUTC!)
+                      : '')) ||
+          (_localActiveCompState !=
+              originalActiveStatus); // Added this condition
     }
 
-    log('shouldEnableSave = $shouldEnableSave, _localActiveCompState = $_localActiveCompState, originalActiveStatus = $originalActiveStatus');
+    log(
+      'shouldEnableSave = $shouldEnableSave, _localActiveCompState = $_localActiveCompState, originalActiveStatus = $originalActiveStatus',
+    );
 
     if (disableSaves != !shouldEnableSave) {
       setState(() {
@@ -153,7 +166,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   }
 
   Future<void> _saveDAUComp(
-      DAUCompsViewModel dauCompsViewModel, BuildContext context) async {
+    DAUCompsViewModel dauCompsViewModel,
+    BuildContext context,
+  ) async {
     try {
       // Prepare data for the ViewModel call
       String name = widget._daucompNameController.text;
@@ -170,7 +185,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         nrlRegularCompEndDateString: nrlEndDate.isNotEmpty ? nrlEndDate : null,
         aflRegularCompEndDateString: aflEndDate.isNotEmpty ? aflEndDate : null,
         existingComp: widget.daucomp,
-        currentRounds: dauCompsViewModel.selectedDAUComp?.daurounds ??
+        currentRounds:
+            dauCompsViewModel.selectedDAUComp?.daurounds ??
             [], // Added this line
       );
 
@@ -232,14 +248,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           context: context,
           builder: (_) => AlertDialog(
             content: const Text(
-                'Failed to update the DAU Comp record'), // Generic message
+              'Failed to update the DAU Comp record',
+            ), // Generic message
             actions: <Widget>[
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
                 child: const Text('OK'),
-              )
+              ),
             ],
           ),
         );
@@ -254,89 +271,92 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     return ChangeNotifierProvider<DAUCompsViewModel>(
       create: (context) => DAUCompsViewModel(widget.daucomp?.dbkey, true),
       child: Scaffold(
-          appBar: AppBar(
-            leading: Builder(
-              builder: (BuildContext context) {
-                return IconButton(
-                  icon: disableBack
-                      ? const ImageIcon(null)
-                      : const Icon(Icons.arrow_back),
-                  onPressed: () async {
-                    if (!disableBack) {
-                      // changethe displayed comp back to the active comp
-                      await di<DAUCompsViewModel>().changeDisplayedDAUComp(
-                          di<DAUCompsViewModel>().activeDAUComp!, false);
+        appBar: AppBar(
+          leading: Builder(
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: disableBack
+                    ? const ImageIcon(null)
+                    : const Icon(Icons.arrow_back),
+                onPressed: () async {
+                  if (!disableBack) {
+                    // changethe displayed comp back to the active comp
+                    await di<DAUCompsViewModel>().changeDisplayedDAUComp(
+                      di<DAUCompsViewModel>().activeDAUComp!,
+                      false,
+                    );
 
-                      if (context.mounted) {
-                        Navigator.maybePop(context);
-                      }
-                    } else {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          content: const Text(
-                              'You have unsaved changes. Do you really want to discard them?'),
-                          actions: <Widget>[
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop(); // Close the dialog
-                                Navigator.of(context).pop(); // Go back
-                              },
-                              child: const Text('Discard'),
-                            )
-                          ],
-                        ),
-                      );
+                    if (context.mounted) {
+                      Navigator.maybePop(context);
                     }
-                  },
+                  } else {
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        content: const Text(
+                          'You have unsaved changes. Do you really want to discard them?',
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close the dialog
+                              Navigator.of(context).pop(); // Go back
+                            },
+                            child: const Text('Discard'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+          actions: <Widget>[
+            Consumer<DAUCompsViewModel>(
+              builder: (context, dauCompsViewModel, child) {
+                return IconButton(
+                  color: Colors.green,
+                  disabledColor: Colors.grey,
+                  icon: disableSaves
+                      ? const Icon(Icons.save)
+                      : Icon(Icons.save),
+                  onPressed: disableSaves
+                      ? null
+                      : () async {
+                          final isValid = _formKey.currentState!.validate();
+                          if (isValid) {
+                            setState(() {
+                              disableSaves = true;
+                              disableBack = true;
+                            });
+
+                            await _saveDAUComp(dauCompsViewModel, context);
+
+                            setState(() {
+                              disableSaves = true;
+                              disableBack = false;
+                            });
+                          }
+                        },
                 );
               },
             ),
-            actions: <Widget>[
-              Consumer<DAUCompsViewModel>(
-                builder: (context, dauCompsViewModel, child) {
-                  return IconButton(
-                    color: Colors.green,
-                    disabledColor: Colors.grey,
-                    icon: disableSaves
-                        ? const Icon(Icons.save)
-                        : Icon(Icons.save),
-                    onPressed: disableSaves
-                        ? null
-                        : () async {
-                            final isValid = _formKey.currentState!.validate();
-                            if (isValid) {
-                              setState(() {
-                                disableSaves = true;
-                                disableBack = true;
-                              });
-
-                              await _saveDAUComp(dauCompsViewModel, context);
-
-                              setState(() {
-                                disableSaves = true;
-                                disableBack = false;
-                              });
-                            }
-                          },
-                  );
-                },
-              ),
-            ],
-            title: const Text('Edit DAU Comp'),
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            // Form tag is removed from here and now lives in AdminDaucompsEditForm
-            child: SingleChildScrollView(
-              child: Consumer<DAUCompsViewModel>(
-                  builder: (context, dauCompsViewModeconsumer, child) {
+          ],
+          title: const Text('Edit DAU Comp'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          // Form tag is removed from here and now lives in AdminDaucompsEditForm
+          child: SingleChildScrollView(
+            child: Consumer<DAUCompsViewModel>(
+              builder: (context, dauCompsViewModeconsumer, child) {
                 // This is the mainColumn
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,13 +369,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             dauCompsViewModel: dauCompsViewModeconsumer,
                             daucomp: widget.daucomp,
                             setStateCallback: (fn) => setState(fn),
-                            onDisableBack: (bool disabled) => setState(() => disableBack = disabled),
+                            onDisableBack: (bool disabled) =>
+                                setState(() => disableBack = disabled),
                           ),
                           AdminDaucompsEditScoringButton(
                             dauCompsViewModel: dauCompsViewModeconsumer,
                             daucomp: widget.daucomp,
                             setStateCallback: (fn) => setState(fn),
-                            onDisableBack: (bool disabled) => setState(() => disableBack = disabled),
+                            onDisableBack: (bool disabled) =>
+                                setState(() => disableBack = disabled),
                           ),
                         ],
                       ),
@@ -385,7 +407,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       onActiveStatusChangedLocally: (bool newValue) {
                         setState(() {
                           final globalDauCompsVM = di<DAUCompsViewModel>();
-                          bool isCurrentGlobalActive = widget.daucomp != null &&
+                          bool isCurrentGlobalActive =
+                              widget.daucomp != null &&
                               globalDauCompsVM.initDAUCompDbKey != null &&
                               widget.daucomp!.dbkey ==
                                   globalDauCompsVM.initDAUCompDbKey;
@@ -397,7 +420,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    'You cannot turn off the active comp. Instead, edit another comp to be active.'),
+                                  'You cannot turn off the active comp. Instead, edit another comp to be active.',
+                                ),
                                 backgroundColor: Colors.orange,
                               ),
                             );
@@ -413,7 +437,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     if (widget.daucomp != null) ...[
                       if (dauCompsViewModeconsumer.unassignedGames.isNotEmpty)
                         AdminDaucompsEditWarning(
-                            viewModel: dauCompsViewModeconsumer),
+                          viewModel: dauCompsViewModeconsumer,
+                        ),
                       Row(
                         //mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -450,30 +475,36 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         ],
                       ),
                       AdminDaucompsEditRoundsTable(
-                        rounds: dauCompsViewModeconsumer
-                                .activeDAUComp?.daurounds
+                        rounds:
+                            dauCompsViewModeconsumer.activeDAUComp?.daurounds
                                 .where((r) => r.games.isNotEmpty)
                                 .toList() ??
                             [],
-                        onRoundDateChanged: (DAURound round, DateTime newDate,
-                            bool isStartDate) {
-                          setState(() {
-                            if (isStartDate) {
-                              round.adminOverrideRoundStartDate = newDate;
-                            } else {
-                              round.adminOverrideRoundEndDate = newDate;
-                            }
-                            _recalculateGameCounts();
-                            disableSaves = false;
-                          });
-                        },
+                        onRoundDateChanged:
+                            (
+                              DAURound round,
+                              DateTime newDate,
+                              bool isStartDate,
+                            ) {
+                              setState(() {
+                                if (isStartDate) {
+                                  round.adminOverrideRoundStartDate = newDate;
+                                } else {
+                                  round.adminOverrideRoundEndDate = newDate;
+                                }
+                                _recalculateGameCounts();
+                                disableSaves = false;
+                              });
+                            },
                       ),
                     ],
                   ],
                 );
-              }),
+              },
             ),
-          )),
+          ),
+        ),
+      ),
     );
   }
 
@@ -482,8 +513,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     final dauCompsViewModel = di<DAUCompsViewModel>();
     if (dauCompsViewModel.selectedDAUComp != null &&
         dauCompsViewModel.selectedDAUComp!.daurounds.isNotEmpty) {
-      dauCompsViewModel
-          .linkGamesWithRounds(dauCompsViewModel.selectedDAUComp!.daurounds);
+      dauCompsViewModel.linkGamesWithRounds(
+        dauCompsViewModel.selectedDAUComp!.daurounds,
+      );
     }
   }
 

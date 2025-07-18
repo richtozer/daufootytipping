@@ -5,7 +5,7 @@ class Tipper implements Comparable<Tipper> {
   String? dbkey;
   String authuid; // this is the Firebase auth uid
   String?
-      email; // this is the email address used for communication - same as legacy sheet email
+  email; // this is the email address used for communication - same as legacy sheet email
   String? logon; // this is the email address used for login
   String name;
   final TipperRole tipperRole;
@@ -62,9 +62,9 @@ class Tipper implements Comparable<Tipper> {
     if (checkThisComp == null) {
       return false;
     }
-    return compsPaidFor.any((compParticipatedIn) =>
-        compParticipatedIn.dbkey ==
-        checkThisComp.dbkey); //check if the tipper has paid for this comp
+    return compsPaidFor.any(
+      (compParticipatedIn) => compParticipatedIn.dbkey == checkThisComp.dbkey,
+    ); //check if the tipper has paid for this comp
   }
 
   static List<Tipper?> fromJsonList(dynamic json) {
@@ -104,14 +104,15 @@ class Tipper implements Comparable<Tipper> {
 
   @override
   int get hashCode => Object.hash(
-        dbkey ?? '', // Use an empty string if dbkey is null
-        authuid,
-      );
+    dbkey ?? '', // Use an empty string if dbkey is null
+    authuid,
+  );
 
   @override
   // method used to sort Tippers in a List
   int compareTo(Tipper other) {
     return name.toString().toLowerCase().compareTo(
-        other.name.toString().toLowerCase()); //sort by the tipper name
+      other.name.toString().toLowerCase(),
+    ); //sort by the tipper name
   }
 }

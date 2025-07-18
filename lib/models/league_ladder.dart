@@ -5,10 +5,7 @@ class LeagueLadder {
   League league;
   List<LadderTeam> teams;
 
-  LeagueLadder({
-    required this.league,
-    required this.teams,
-  });
+  LeagueLadder({required this.league, required this.teams});
 
   // static method to generate oridnal number in string format
   static String ordinal(int number) {

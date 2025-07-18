@@ -16,8 +16,9 @@ Widget circleAvatarWithFallback({
       // If name is multiple words, use the first character of the first two words
       initials = nameParts
           .take(2)
-          .map((word) =>
-              word.characters.first) // Use characters.first for Unicode safety
+          .map(
+            (word) => word.characters.first,
+          ) // Use characters.first for Unicode safety
           .join();
     } else {
       // If name is one word, use the first two grapheme clusters
@@ -37,10 +38,7 @@ Widget circleAvatarWithFallback({
     child: Center(
       child: Text(
         initials,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: radius == 40 ? 40 : 15,
-        ),
+        style: TextStyle(color: Colors.white, fontSize: radius == 40 ? 40 : 15),
       ),
     ),
   );

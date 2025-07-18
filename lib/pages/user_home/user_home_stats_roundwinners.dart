@@ -31,7 +31,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     'NRL',
     'AFL',
     'Margins',
-    'UPS'
+    'UPS',
   ];
 
   @override
@@ -79,165 +79,182 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       ? const HeaderWidget(
                           text: 'Round Winners',
                           leadingIconAvatar: Hero(
-                              tag: 'person',
-                              child: Icon(Icons.person, size: 40)),
+                            tag: 'person',
+                            child: Icon(Icons.person, size: 40),
+                          ),
                         )
                       : const Text('Round Winners'),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                        'This is a list of round winner(s), grouped by round. Tap on a row to see the full round leaderboard.'),
+                      'This is a list of round winner(s), grouped by round. Tap on a row to see the full round leaderboard.',
+                    ),
                   ),
                   Expanded(
-                      child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: DataTable2(
-                      border: TableBorder.all(
-                        width: 1.0,
-                        color: Colors.grey.shade300,
-                      ),
-                      //dividerThickness: 0,
-                      sortColumnIndex: sortColumnIndex,
-                      sortAscending: isAscending,
-                      columnSpacing: 0,
-                      horizontalMargin: 0,
-                      minWidth: 600,
-                      fixedTopRows: 1,
-                      fixedLeftColumns:
-                          orientation == Orientation.portrait ? 2 : 0,
-                      showCheckboxColumn: false,
-                      isHorizontalScrollBarVisible: true,
-                      isVerticalScrollBarVisible: true,
-                      columns: getColumns(columns),
-                      rows:
-                          scoresViewModel.roundWinners.values.expand((winners) {
-                        return winners.map((winner) {
-                          // Check if the round number has changed
-                          if (lastRoundNumber != winner.roundNumber) {
-                            // Swap the colors
-                            Color temp = currentColor;
-                            currentColor = lastColor;
-                            lastColor = temp;
-                          }
-                          lastRoundNumber = winner.roundNumber;
+                    child: Padding(
+                      padding: const EdgeInsets.all(10.0),
+                      child: DataTable2(
+                        border: TableBorder.all(
+                          width: 1.0,
+                          color: Colors.grey.shade300,
+                        ),
+                        //dividerThickness: 0,
+                        sortColumnIndex: sortColumnIndex,
+                        sortAscending: isAscending,
+                        columnSpacing: 0,
+                        horizontalMargin: 0,
+                        minWidth: 600,
+                        fixedTopRows: 1,
+                        fixedLeftColumns: orientation == Orientation.portrait
+                            ? 2
+                            : 0,
+                        showCheckboxColumn: false,
+                        isHorizontalScrollBarVisible: true,
+                        isVerticalScrollBarVisible: true,
+                        columns: getColumns(columns),
+                        rows: scoresViewModel.roundWinners.values.expand((
+                          winners,
+                        ) {
+                          return winners.map((winner) {
+                            // Check if the round number has changed
+                            if (lastRoundNumber != winner.roundNumber) {
+                              // Swap the colors
+                              Color temp = currentColor;
+                              currentColor = lastColor;
+                              lastColor = temp;
+                            }
+                            lastRoundNumber = winner.roundNumber;
 
-                          return DataRow(
-                            color: winner.tipper ==
-                                    di<TippersViewModel>().selectedTipper
-                                ? WidgetStateProperty.resolveWith((states) =>
-                                    Theme.of(context).highlightColor)
-                                : WidgetStateProperty.resolveWith(
-                                    (states) => Colors.transparent),
-                            cells: [
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    color: currentColor,
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      children: [
-                                        const Icon(Icons.arrow_forward,
-                                            size: 15),
-                                        Text('  ${winner.roundNumber}'),
-                                      ],
+                            return DataRow(
+                              color:
+                                  winner.tipper ==
+                                      di<TippersViewModel>().selectedTipper
+                                  ? WidgetStateProperty.resolveWith(
+                                      (states) =>
+                                          Theme.of(context).highlightColor,
+                                    )
+                                  : WidgetStateProperty.resolveWith(
+                                      (states) => Colors.transparent,
+                                    ),
+                              cells: [
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      color: currentColor,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          const Icon(
+                                            Icons.arrow_forward,
+                                            size: 15,
+                                          ),
+                                          Text('  ${winner.roundNumber}'),
+                                        ],
+                                      ),
                                     ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    color: currentColor,
-                                    child: Row(
-                                      children: [
-                                        avatarPic(
-                                            winner.tipper, winner.roundNumber),
-                                        Expanded(
-                                          child: Text(
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      color: currentColor,
+                                      child: Row(
+                                        children: [
+                                          avatarPic(
+                                            winner.tipper,
+                                            winner.roundNumber,
+                                          ),
+                                          Expanded(
+                                            child: Text(
                                               overflow: TextOverflow.fade,
-                                              winner.tipper.name.toString()),
-                                        ),
-                                      ],
+                                              winner.tipper.name.toString(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    alignment: Alignment.centerRight,
-                                    color: currentColor,
-                                    child: Text(winner.total.toString()),
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      alignment: Alignment.centerRight,
+                                      color: currentColor,
+                                      child: Text(winner.total.toString()),
+                                    ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    alignment: Alignment.centerRight,
-                                    color: currentColor,
-                                    child: Text(winner.nRL.toString()),
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      alignment: Alignment.centerRight,
+                                      color: currentColor,
+                                      child: Text(winner.nRL.toString()),
+                                    ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    alignment: Alignment.centerRight,
-                                    color: currentColor,
-                                    child: Text(winner.aFL.toString()),
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      alignment: Alignment.centerRight,
+                                      color: currentColor,
+                                      child: Text(winner.aFL.toString()),
+                                    ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    alignment: Alignment.centerRight,
-                                    color: currentColor,
-                                    child: Text(
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      alignment: Alignment.centerRight,
+                                      color: currentColor,
+                                      child: Text(
                                         (winner.aflMargins + winner.nrlMargins)
-                                            .toString()),
+                                            .toString(),
+                                      ),
+                                    ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                              DataCell(
-                                SizedBox.expand(
-                                  child: Container(
-                                    alignment: Alignment.centerRight,
-                                    color: currentColor,
-                                    child: Text((winner.aflUPS + winner.nrlUPS)
-                                        .toString()),
+                                DataCell(
+                                  SizedBox.expand(
+                                    child: Container(
+                                      alignment: Alignment.centerRight,
+                                      color: currentColor,
+                                      child: Text(
+                                        (winner.aflUPS + winner.nrlUPS)
+                                            .toString(),
+                                      ),
+                                    ),
                                   ),
+                                  onTap: () {
+                                    onRowTapped(context, winner);
+                                  },
                                 ),
-                                onTap: () {
-                                  onRowTapped(context, winner);
-                                },
-                              ),
-                            ],
-                          );
-                        });
-                      }).toList(),
+                              ],
+                            );
+                          });
+                        }).toList(),
+                      ),
                     ),
-                  ))
+                  ),
                 ],
               ),
             ),
@@ -249,9 +266,11 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   void onRowTapped(BuildContext context, RoundWinnerEntry winner) {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => StatRoundLeaderboard(winner.roundNumber)));
+      context,
+      MaterialPageRoute(
+        builder: (context) => StatRoundLeaderboard(winner.roundNumber),
+      ),
+    );
   }
 
   void onSort(int columnIndex, bool ascending) {
@@ -301,22 +320,26 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
-      .map((String column) => DataColumn2(
-            fixedWidth: column == 'Winner' ? 150 : 50,
-            numeric: column == 'Winner' || column == 'Round' ? false : true,
-            label: Text(
-              column,
-            ),
-            onSort: onSort,
-          ))
+      .map(
+        (String column) => DataColumn2(
+          fixedWidth: column == 'Winner' ? 150 : 50,
+          numeric: column == 'Winner' || column == 'Round' ? false : true,
+          label: Text(column),
+          onSort: onSort,
+        ),
+      )
       .toList();
 
   Widget avatarPic(Tipper tipper, int roundNumber) {
     return Hero(
-        tag:
-            '$roundNumber-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
-        child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
+      tag:
+          '$roundNumber-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      child: circleAvatarWithFallback(
+        imageUrl: tipper.photoURL,
+        text: tipper.name,
+        radius: 15,
+      ),
+    );
   }
 }
 
@@ -333,11 +356,10 @@ class CellContents extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox.expand(
-        child: Container(
-            color: currentColor,
-            child: Text(
-              cellText,
-              textAlign: TextAlign.right,
-            )));
+      child: Container(
+        color: currentColor,
+        child: Text(cellText, textAlign: TextAlign.right),
+      ),
+    );
   }
 }

@@ -16,13 +16,15 @@ class GameStatsEntry {
     double? averageScore,
   }) {
     // Reduce precision to 2 decimal places
-    this.percentageTippedHomeMargin =
-        reducePrecision(percentageTippedHomeMargin);
+    this.percentageTippedHomeMargin = reducePrecision(
+      percentageTippedHomeMargin,
+    );
     this.percentageTippedHome = reducePrecision(percentageTippedHome);
     this.percentageTippedDraw = reducePrecision(percentageTippedDraw);
     this.percentageTippedAway = reducePrecision(percentageTippedAway);
-    this.percentageTippedAwayMargin =
-        reducePrecision(percentageTippedAwayMargin);
+    this.percentageTippedAwayMargin = reducePrecision(
+      percentageTippedAwayMargin,
+    );
     this.averageScore = reducePrecision(averageScore);
   }
 

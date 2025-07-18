@@ -52,307 +52,335 @@ class Profile extends StatelessWidget with WatchItMixin {
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           Consumer<TippersViewModel>(
-              builder: (context, tippersViewModelConsumer, child) {
-            Tipper profileTipper = tippersViewModelConsumer.tippers
-                .firstWhere((t) => t.dbkey == authenticatedTipper!.dbkey);
-            return Column(
-              children: [
-                Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(5.0),
-                      child: avatarPic(profileTipper),
-                    ),
-                    Expanded(
-                      child: Padding(
+            builder: (context, tippersViewModelConsumer, child) {
+              Tipper profileTipper = tippersViewModelConsumer.tippers
+                  .firstWhere((t) => t.dbkey == authenticatedTipper!.dbkey);
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Padding(
                         padding: const EdgeInsets.all(5.0),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    (profileTipper.name),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                        child: avatarPic(profileTipper),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      (profileTipper.name),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
                                         letterSpacing: 5,
                                         fontSize: 20,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.all(5),
-                                    minimumSize: Size(50, 30),
-                                  ),
-                                  onPressed: profileTipper.isAnonymous
-                                      ? null
-                                      : () {
-                                          _showEditNameDialog(
-                                              context, profileTipper);
-                                        },
-                                  child: const Text('Edit',
-                                      textAlign: TextAlign.center),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                Icon(
-                                  size: 20,
-                                  Icons.login,
-                                  color: Colors.black54,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    profileTipper.logon ?? '',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.all(5),
-                                    minimumSize: Size(50, 30),
-                                  ),
-                                  child: const Text('Sign Out',
-                                      textAlign: TextAlign.center),
-                                  onPressed: () {
-                                    Navigator.of(context).pushReplacement(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const UserAuthPage(
-                                          null,
-                                          isUserLoggingOut: true,
-                                          createLinkedTipper: false,
-                                          googleClientId: '',
-                                        ),
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Card(
-                  child: Column(
-                    children: [
-                      profileTipper.tipperRole == TipperRole.admin
-                          ? const Center(child: AdminFunctionsWidget())
-                          : const SizedBox.shrink(),
-                      const SizedBox(height: 20),
-                      ChangeNotifierProvider<DAUCompsViewModel>.value(
-                        value: di<DAUCompsViewModel>(),
-                        child: Consumer<DAUCompsViewModel>(
-                          builder: (context, dauCompsViewModelConsumer, child) {
-                            if (dauCompsViewModelConsumer.activeDAUComp ==
-                                null) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: SizedBox(
-                                  width: 250,
-                                  child: Text(
-                                    'There are no active competitions. Contact support: https://interview.coach/tipping.',
-                                    textAlign: TextAlign.center,
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                ),
-                              );
-                            } else {
-                              return Column(
-                                children: [
-                                  SizedBox(
-                                    width: 300,
-                                    child: Text(
-                                      'Tipper in a previous year? Select it below to revisit your tips and stats: ',
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
                                     ),
                                   ),
-                                  DropdownButton<DAUComp>(
-                                    value: selectedDAUComp,
-                                    icon: const Icon(Icons.arrow_downward),
-                                    onChanged: (DAUComp? newValue) {
-                                      // update the current comp in the view model
-                                      dauCompsViewModelConsumer
-                                          .changeDisplayedDAUComp(
-                                              newValue!, false);
-                                    },
-                                    items: compsForDropdown
-                                        .map<DropdownMenuItem<DAUComp>>(
-                                            (DAUComp comp) {
-                                      return DropdownMenuItem<DAUComp>(
-                                        value: comp,
-                                        child: Text(comp.name),
-                                      );
-                                    }).toList(),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.all(5),
+                                      minimumSize: Size(50, 30),
+                                    ),
+                                    onPressed: profileTipper.isAnonymous
+                                        ? null
+                                        : () {
+                                            _showEditNameDialog(
+                                              context,
+                                              profileTipper,
+                                            );
+                                          },
+                                    child: const Text(
+                                      'Edit',
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
                                 ],
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FutureBuilder<Widget>(
-                            future: help(context),
-                            builder: (BuildContext context,
-                                AsyncSnapshot<Widget> snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.done) {
-                                return snapshot.data!;
-                              } else {
-                                return CircularProgressIndicator(
-                                    color: League.afl.colour);
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 10),
-                          FutureBuilder<Widget>(
-                            future: faq(context),
-                            builder: (BuildContext context,
-                                AsyncSnapshot<Widget> snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.done) {
-                                return snapshot.data!;
-                              } else {
-                                return CircularProgressIndicator(
-                                    color: League.afl.colour);
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 3),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.delete),
-                                Text(
-                                  'Delete\nAccount',
-                                  textScaler: TextScaler.linear(0.75),
-                                ),
-                              ],
-                            ),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title: Text(
-                                      'Confirm Account Deletion',
-                                      style:
-                                          TextStyle(color: League.afl.colour),
+                              ),
+                              Row(
+                                children: [
+                                  Icon(
+                                    size: 20,
+                                    Icons.login,
+                                    color: Colors.black54,
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      profileTipper.logon ?? '',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 16),
                                     ),
-                                    content: const Text(
-                                        'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediatedly.'),
-                                    actions: [
-                                      TextButton(
-                                        child: const Text('Cancel'),
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                      ),
-                                      TextButton(
-                                        child: Text(
-                                          'Delete',
-                                          style: TextStyle(
-                                              color: League.afl.colour),
-                                        ),
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                          Navigator.of(context).pushReplacement(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const UserAuthPage(
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.all(5),
+                                      minimumSize: Size(50, 30),
+                                    ),
+                                    child: const Text(
+                                      'Sign Out',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const UserAuthPage(
                                                 null,
-                                                isUserDeletingAccount: true,
+                                                isUserLoggingOut: true,
                                                 createLinkedTipper: false,
                                                 googleClientId: '',
                                               ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FutureBuilder<PackageInfo>(
-                            future: PackageInfo.fromPlatform(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Padding(
-                                  padding: EdgeInsets.only(top: 16),
-                                  child: Text(
-                                    'Loading...',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                );
-                              } else if (snapshot.hasError) {
-                                return const Padding(
-                                  padding: EdgeInsets.only(top: 16),
-                                  child: Text(
-                                    'App Version: Unknown',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                );
-                              } else {
-                                final packageInfo = snapshot.data!;
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 16),
-                                  child: Text(
-                                    'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                                    style: const TextStyle(fontSize: 10),
-                                  ),
-                                );
-                              }
-                            },
-                          )
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            );
-          }),
-          Container(
-            height: 25,
+                  Card(
+                    child: Column(
+                      children: [
+                        profileTipper.tipperRole == TipperRole.admin
+                            ? const Center(child: AdminFunctionsWidget())
+                            : const SizedBox.shrink(),
+                        const SizedBox(height: 20),
+                        ChangeNotifierProvider<DAUCompsViewModel>.value(
+                          value: di<DAUCompsViewModel>(),
+                          child: Consumer<DAUCompsViewModel>(
+                            builder: (context, dauCompsViewModelConsumer, child) {
+                              if (dauCompsViewModelConsumer.activeDAUComp ==
+                                  null) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: SizedBox(
+                                    width: 250,
+                                    child: Text(
+                                      'There are no active competitions. Contact support: https://interview.coach/tipping.',
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                return Column(
+                                  children: [
+                                    SizedBox(
+                                      width: 300,
+                                      child: Text(
+                                        'Tipper in a previous year? Select it below to revisit your tips and stats: ',
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                    ),
+                                    DropdownButton<DAUComp>(
+                                      value: selectedDAUComp,
+                                      icon: const Icon(Icons.arrow_downward),
+                                      onChanged: (DAUComp? newValue) {
+                                        // update the current comp in the view model
+                                        dauCompsViewModelConsumer
+                                            .changeDisplayedDAUComp(
+                                              newValue!,
+                                              false,
+                                            );
+                                      },
+                                      items: compsForDropdown
+                                          .map<DropdownMenuItem<DAUComp>>((
+                                            DAUComp comp,
+                                          ) {
+                                            return DropdownMenuItem<DAUComp>(
+                                              value: comp,
+                                              child: Text(comp.name),
+                                            );
+                                          })
+                                          .toList(),
+                                    ),
+                                  ],
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            FutureBuilder<Widget>(
+                              future: help(context),
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    AsyncSnapshot<Widget> snapshot,
+                                  ) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.done) {
+                                      return snapshot.data!;
+                                    } else {
+                                      return CircularProgressIndicator(
+                                        color: League.afl.colour,
+                                      );
+                                    }
+                                  },
+                            ),
+                            const SizedBox(width: 10),
+                            FutureBuilder<Widget>(
+                              future: faq(context),
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    AsyncSnapshot<Widget> snapshot,
+                                  ) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.done) {
+                                      return snapshot.data!;
+                                    } else {
+                                      return CircularProgressIndicator(
+                                        color: League.afl.colour,
+                                      );
+                                    }
+                                  },
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 3,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.delete),
+                                  Text(
+                                    'Delete\nAccount',
+                                    textScaler: TextScaler.linear(0.75),
+                                  ),
+                                ],
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: Text(
+                                        'Confirm Account Deletion',
+                                        style: TextStyle(
+                                          color: League.afl.colour,
+                                        ),
+                                      ),
+                                      content: const Text(
+                                        'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediatedly.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          child: const Text('Cancel'),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        ),
+                                        TextButton(
+                                          child: Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              color: League.afl.colour,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            Navigator.of(
+                                              context,
+                                            ).pushReplacement(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const UserAuthPage(
+                                                      null,
+                                                      isUserDeletingAccount:
+                                                          true,
+                                                      createLinkedTipper: false,
+                                                      googleClientId: '',
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            FutureBuilder<PackageInfo>(
+                              future: PackageInfo.fromPlatform(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Padding(
+                                    padding: EdgeInsets.only(top: 16),
+                                    child: Text(
+                                      'Loading...',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  );
+                                } else if (snapshot.hasError) {
+                                  return const Padding(
+                                    padding: EdgeInsets.only(top: 16),
+                                    child: Text(
+                                      'App Version: Unknown',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  );
+                                } else {
+                                  final packageInfo = snapshot.data!;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 16),
+                                    child: Text(
+                                      'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
+          Container(height: 25),
         ],
       ),
     );
   }
 
   void _showEditNameDialog(BuildContext context, Tipper tipper) {
-    final TextEditingController nameController =
-        TextEditingController(text: tipper.name);
+    final TextEditingController nameController = TextEditingController(
+      text: tipper.name,
+    );
     String? errorMessage;
     bool isNewTipper = tipper.name.isEmpty;
 
@@ -370,7 +398,8 @@ class Profile extends StatelessWidget with WatchItMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                      'This is your identity as shown to others in the competition. It must be unique.'),
+                    'This is your identity as shown to others in the competition. It must be unique.',
+                  ),
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(
@@ -422,8 +451,10 @@ class Profile extends StatelessWidget with WatchItMixin {
                     }
                     try {
                       // Update the tipper name in the database
-                      await di<TippersViewModel>()
-                          .setTipperName(tipper.dbkey!, newName);
+                      await di<TippersViewModel>().setTipperName(
+                        tipper.dbkey!,
+                        newName,
+                      );
 
                       // update the name on the tipper object
                       tipper.name =

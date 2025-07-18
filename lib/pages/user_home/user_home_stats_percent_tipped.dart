@@ -39,16 +39,19 @@ class StatPercentTippedState extends State<StatPercentTipped> {
       return;
     }
 
-    latestRoundNumber =
-        daucompsViewModel.selectedDAUComp!.latestsCompletedRoundNumber();
+    latestRoundNumber = daucompsViewModel.selectedDAUComp!
+        .latestsCompletedRoundNumber();
     log('StatPercentTipped.initState() latestRoundNumber: $latestRoundNumber');
 
     focusNode = FocusNode();
 
     scrollController = ScrollController(
-        initialScrollOffset: daucompsViewModel.selectedDAUComp!
-                .pixelHeightUpToRound(latestRoundNumber) +
-            initialScrollOffset);
+      initialScrollOffset:
+          daucompsViewModel.selectedDAUComp!.pixelHeightUpToRound(
+            latestRoundNumber,
+          ) +
+          initialScrollOffset,
+    );
   }
 
   void _handleKeyEvent(KeyEvent event, BuildContext context) {
@@ -84,9 +87,13 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     Orientation orientation = MediaQuery.of(context).orientation;
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log('StatPercentTipped.build() selectedDAUComp is null. Trying to change to active comp');
+      log(
+        'StatPercentTipped.build() selectedDAUComp is null. Trying to change to active comp',
+      );
       daucompsViewModel.changeDisplayedDAUComp(
-          daucompsViewModel.activeDAUComp!, false);
+        daucompsViewModel.activeDAUComp!,
+        false,
+      );
       if (daucompsViewModel.selectedDAUComp == null) {
         return Center(
           child: SizedBox(
@@ -115,87 +122,104 @@ class StatPercentTippedState extends State<StatPercentTipped> {
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider<DAUCompsViewModel>.value(
-              value: daucompsViewModel),
+            value: daucompsViewModel,
+          ),
           ChangeNotifierProvider<StatsViewModel?>.value(
-              value: daucompsViewModel.statsViewModel),
+            value: daucompsViewModel.statsViewModel,
+          ),
         ],
         child: Theme(
           data: myTheme,
           child: Consumer<DAUCompsViewModel>(
-              builder: (context, daucompsViewmodelConsumer, client) {
-            return Scaffold(
-              floatingActionButton: FloatingActionButton(
-                backgroundColor: Colors.lightGreen[200],
-                foregroundColor: Colors.white70,
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Icon(Icons.arrow_back),
-              ),
-              body: Column(mainAxisSize: MainAxisSize.min, children: [
-                orientation == Orientation.portrait
-                    ? const HeaderWidget(
-                        text: 'Percentage Tipped',
-                        leadingIconAvatar: Hero(
-                          tag: 'percentage',
-                          child: Icon(Icons.percent, size: 40),
-                        ),
-                      )
-                    : Container(),
-                orientation == Orientation.portrait
-                    ? Padding(
-                        padding: const EdgeInsets.all(5.0),
-                        child: Text(
-                            'This is a breakdown of how people tipped previous games. Each % represents the number of people who tipped this outcome. Legend: 🟩 = Your tip, 🏆 = Game result.',
-                            style: const TextStyle(
-                              fontSize: 14,
-                            )),
-                      )
-                    : Container(), //
-                Expanded(
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    restorationId: 'statsPercentTippedView',
-                    slivers: [
-                      SliverVariedExtentList.builder(
-                        itemExtentBuilder: (index, dimensions) {
-                          final roundIndex = (index) ~/ 4;
-                          final itemIndex = (index) % 4;
-                          return _getItemExtent(
-                              daucompsViewmodelConsumer, roundIndex, itemIndex);
-                        },
-                        itemCount: (latestRoundNumber * 4),
-                        itemBuilder: (context, index) {
-                          log('StatPercentTipped building index: $index');
-                          final roundIndex = (index) ~/ 4;
-                          final itemIndex = (index) % 4;
-
-                          return _buildItem(
-                              daucompsViewmodelConsumer, roundIndex, itemIndex);
-                        },
-                      ),
-                    ],
-                  ),
+            builder: (context, daucompsViewmodelConsumer, client) {
+              return Scaffold(
+                floatingActionButton: FloatingActionButton(
+                  backgroundColor: Colors.lightGreen[200],
+                  foregroundColor: Colors.white70,
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Icon(Icons.arrow_back),
                 ),
-              ]),
-            );
-          }),
+                body: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    orientation == Orientation.portrait
+                        ? const HeaderWidget(
+                            text: 'Percentage Tipped',
+                            leadingIconAvatar: Hero(
+                              tag: 'percentage',
+                              child: Icon(Icons.percent, size: 40),
+                            ),
+                          )
+                        : Container(),
+                    orientation == Orientation.portrait
+                        ? Padding(
+                            padding: const EdgeInsets.all(5.0),
+                            child: Text(
+                              'This is a breakdown of how people tipped previous games. Each % represents the number of people who tipped this outcome. Legend: 🟩 = Your tip, 🏆 = Game result.',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          )
+                        : Container(), //
+                    Expanded(
+                      child: CustomScrollView(
+                        controller: scrollController,
+                        restorationId: 'statsPercentTippedView',
+                        slivers: [
+                          SliverVariedExtentList.builder(
+                            itemExtentBuilder: (index, dimensions) {
+                              final roundIndex = (index) ~/ 4;
+                              final itemIndex = (index) % 4;
+                              return _getItemExtent(
+                                daucompsViewmodelConsumer,
+                                roundIndex,
+                                itemIndex,
+                              );
+                            },
+                            itemCount: (latestRoundNumber * 4),
+                            itemBuilder: (context, index) {
+                              log('StatPercentTipped building index: $index');
+                              final roundIndex = (index) ~/ 4;
+                              final itemIndex = (index) % 4;
+
+                              return _buildItem(
+                                daucompsViewmodelConsumer,
+                                roundIndex,
+                                itemIndex,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  double? _getItemExtent(DAUCompsViewModel daucompsViewmodelConsumer,
-      int roundIndex, int itemIndex) {
+  double? _getItemExtent(
+    DAUCompsViewModel daucompsViewmodelConsumer,
+    int roundIndex,
+    int itemIndex,
+  ) {
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
       final games = daucompsViewmodelConsumer
-          .selectedDAUComp!.daurounds[roundIndex]
+          .selectedDAUComp!
+          .daurounds[roundIndex]
           .getGamesForLeague(league);
       if (games.isEmpty) {
         return DAURound.leagueHeaderHeight;
       } else if (daucompsViewmodelConsumer
-              .selectedDAUComp!.daurounds[roundIndex].roundState ==
+              .selectedDAUComp!
+              .daurounds[roundIndex]
+              .roundState ==
           RoundState.allGamesEnded) {
         return DAURound.leagueHeaderEndedHeight;
       }
@@ -203,7 +227,8 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       final games = daucompsViewmodelConsumer
-          .selectedDAUComp!.daurounds[roundIndex]
+          .selectedDAUComp!
+          .daurounds[roundIndex]
           .getGamesForLeague(league);
       if (games.isEmpty) {
         return DAURound.noGamesCardheight;
@@ -213,21 +238,25 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     return null;
   }
 
-  Widget _buildItem(DAUCompsViewModel daucompsViewmodelConsumer, int roundIndex,
-      int itemIndex) {
+  Widget _buildItem(
+    DAUCompsViewModel daucompsViewmodelConsumer,
+    int roundIndex,
+    int itemIndex,
+  ) {
     final dauRound =
         daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
 
     if (itemIndex == 0 || itemIndex == 2) {
       final league = itemIndex == 0 ? League.nrl : League.afl;
       return roundLeagueHeaderListTile(
-          league,
-          50,
-          50,
-          dauRound,
-          daucompsViewmodelConsumer,
-          di<TippersViewModel>().selectedTipper,
-          true);
+        league,
+        50,
+        50,
+        dauRound,
+        daucompsViewmodelConsumer,
+        di<TippersViewModel>().selectedTipper,
+        true,
+      );
     } else if (itemIndex == 1 || itemIndex == 3) {
       final league = itemIndex == 1 ? League.nrl : League.afl;
       return GameListBuilder(

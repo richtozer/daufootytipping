@@ -34,7 +34,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     'NRL',
     'AFL',
     'Margins',
-    'UPS'
+    'UPS',
   ];
 
   @override
@@ -46,8 +46,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   }
 
   void _loadLeaderboard() {
-    roundLeaderboard =
-        statsViewModel.getRoundLeaderBoard(widget.roundNumberToDisplay);
+    roundLeaderboard = statsViewModel.getRoundLeaderBoard(
+      widget.roundNumberToDisplay,
+    );
     onSort(1, true);
   }
 
@@ -92,86 +93,103 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                 ? HeaderWidget(
                     text: 'Round ${widget.roundNumberToDisplay} Leaderboard',
                     leadingIconAvatar: const Hero(
-                        tag: 'one_two_three',
-                        child: Icon(Icons.onetwothree, size: 50)),
+                      tag: 'one_two_three',
+                      child: Icon(Icons.onetwothree, size: 50),
+                    ),
                   )
                 : Text('Round ${widget.roundNumberToDisplay} Leaderboard'),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                  'This is the round leaderboard. Tap on a row to see the tips for that tipper.'),
+                'This is the round leaderboard. Tap on a row to see the tips for that tipper.',
+              ),
             ),
             Expanded(
               child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
-                    ),
-                    sortColumnIndex: sortColumnIndex,
-                    sortAscending: isAscending,
-                    columnSpacing: 0,
-                    horizontalMargin: 0,
-                    minWidth: 600,
-                    fixedTopRows: 1,
-                    fixedLeftColumns:
-                        orientation == Orientation.portrait ? 1 : 0,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: true,
-                    isVerticalScrollBarVisible: true,
-                    columns: getColumns(columns),
-                    rows: roundLeaderboard.entries
-                        .map((MapEntry<Tipper, RoundStats> entry) {
-                      return DataRow(
-                        color: entry.key ==
-                                di<TippersViewModel>().selectedTipper
-                            ? WidgetStateProperty.resolveWith(
-                                (states) => Theme.of(context).highlightColor)
-                            : WidgetStateProperty.resolveWith(
-                                (states) => Colors.transparent),
-                        cells: [
-                          DataCell(
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.arrow_forward,
-                                    size: 15,
-                                  ),
-                                  avatarPic(
-                                      entry.key, widget.roundNumberToDisplay),
-                                  Expanded(
-                                    child: Text(
-                                      softWrap: false,
-                                      entry.key.name,
-                                      overflow: TextOverflow.fade,
-                                    ),
-                                  ),
-                                ],
-                              ), onTap: () {
+                padding: const EdgeInsets.all(5.0),
+                child: DataTable2(
+                  border: TableBorder.all(
+                    width: 1.0,
+                    color: Colors.grey.shade300,
+                  ),
+                  sortColumnIndex: sortColumnIndex,
+                  sortAscending: isAscending,
+                  columnSpacing: 0,
+                  horizontalMargin: 0,
+                  minWidth: 600,
+                  fixedTopRows: 1,
+                  fixedLeftColumns: orientation == Orientation.portrait ? 1 : 0,
+                  showCheckboxColumn: false,
+                  isHorizontalScrollBarVisible: true,
+                  isVerticalScrollBarVisible: true,
+                  columns: getColumns(columns),
+                  rows: roundLeaderboard.entries.map((
+                    MapEntry<Tipper, RoundStats> entry,
+                  ) {
+                    return DataRow(
+                      color: entry.key == di<TippersViewModel>().selectedTipper
+                          ? WidgetStateProperty.resolveWith(
+                              (states) => Theme.of(context).highlightColor,
+                            )
+                          : WidgetStateProperty.resolveWith(
+                              (states) => Colors.transparent,
+                            ),
+                      cells: [
+                        DataCell(
+                          Row(
+                            children: [
+                              const Icon(Icons.arrow_forward, size: 15),
+                              avatarPic(entry.key, widget.roundNumberToDisplay),
+                              Expanded(
+                                child: Text(
+                                  softWrap: false,
+                                  entry.key.name,
+                                  overflow: TextOverflow.fade,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () {
                             Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        StatRoundGameScoresForTipper(entry.key,
-                                            widget.roundNumberToDisplay)));
-                          }),
-                          DataCell(Text(entry.value.rank.toString())),
-                          DataCell(Text(
-                              (entry.value.aflScore + entry.value.nrlScore)
-                                  .toString())),
-                          DataCell(Text(entry.value.nrlScore.toString())),
-                          DataCell(Text(entry.value.aflScore.toString())),
-                          DataCell(Text((entry.value.aflMarginTips +
-                                  entry.value.nrlMarginTips)
-                              .toString())),
-                          DataCell(Text((entry.value.aflMarginUPS +
-                                  entry.value.nrlMarginUPS)
-                              .toString())),
-                        ],
-                      );
-                    }).toList(),
-                  )),
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    StatRoundGameScoresForTipper(
+                                      entry.key,
+                                      widget.roundNumberToDisplay,
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
+                        DataCell(Text(entry.value.rank.toString())),
+                        DataCell(
+                          Text(
+                            (entry.value.aflScore + entry.value.nrlScore)
+                                .toString(),
+                          ),
+                        ),
+                        DataCell(Text(entry.value.nrlScore.toString())),
+                        DataCell(Text(entry.value.aflScore.toString())),
+                        DataCell(
+                          Text(
+                            (entry.value.aflMarginTips +
+                                    entry.value.nrlMarginTips)
+                                .toString(),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            (entry.value.aflMarginUPS +
+                                    entry.value.nrlMarginUPS)
+                                .toString(),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ],
         ),
@@ -183,9 +201,11 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     if (columnIndex == 0) {
       // Sort by tipper.name
       var sortedEntries = roundLeaderboard.entries.toList()
-        ..sort((a, b) => ascending
-            ? a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase())
-            : b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()));
+        ..sort(
+          (a, b) => ascending
+              ? a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase())
+              : b.key.name.toLowerCase().compareTo(a.key.name.toLowerCase()),
+        );
 
       roundLeaderboard = Map.fromEntries(sortedEntries);
     }
@@ -195,9 +215,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.rank == b.value.rank) {
-              return a.key.name
-                  .toLowerCase()
-                  .compareTo(b.key.name.toLowerCase());
+              return a.key.name.toLowerCase().compareTo(
+                b.key.name.toLowerCase(),
+              );
             } else {
               return a.value.rank.compareTo(b.value.rank);
             }
@@ -209,9 +229,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.rank == b.value.rank) {
-              return b.key.name
-                  .toLowerCase()
-                  .compareTo(a.key.name.toLowerCase());
+              return b.key.name.toLowerCase().compareTo(
+                a.key.name.toLowerCase(),
+              );
             } else {
               return b.value.rank.compareTo(a.value.rank);
             }
@@ -226,9 +246,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.nrlScore == b.value.nrlScore) {
-              return a.key.name
-                  .toLowerCase()
-                  .compareTo(b.key.name.toLowerCase());
+              return a.key.name.toLowerCase().compareTo(
+                b.key.name.toLowerCase(),
+              );
             } else {
               return a.value.nrlScore.compareTo(b.value.nrlScore);
             }
@@ -240,8 +260,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.nrlScore == b.value.nrlScore) {
-              return (a.key.name.toLowerCase())
-                  .compareTo(b.key.name.toLowerCase());
+              return (a.key.name.toLowerCase()).compareTo(
+                b.key.name.toLowerCase(),
+              );
             } else {
               return b.value.nrlScore.compareTo(a.value.nrlScore);
             }
@@ -269,15 +290,21 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       if (ascending) {
         // Sort by RoundScores.aflMarginTips + RoundScores.nrlMarginTips
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => (a.value.aflMarginTips + a.value.nrlMarginTips)
-              .compareTo(b.value.aflMarginTips + b.value.nrlMarginTips));
+          ..sort(
+            (a, b) => (a.value.aflMarginTips + a.value.nrlMarginTips).compareTo(
+              b.value.aflMarginTips + b.value.nrlMarginTips,
+            ),
+          );
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
         // Sort by RoundScores.aflMarginTips + RoundScores.nrlMarginTips
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => (b.value.aflMarginTips + b.value.nrlMarginTips)
-              .compareTo(a.value.aflMarginTips + a.value.nrlMarginTips));
+          ..sort(
+            (a, b) => (b.value.aflMarginTips + b.value.nrlMarginTips).compareTo(
+              a.value.aflMarginTips + a.value.nrlMarginTips,
+            ),
+          );
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
@@ -286,15 +313,21 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       if (ascending) {
         // Sort by RoundScores.aflMarginUPS + RoundScores.nrlMarginUPS
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => (a.value.aflMarginUPS + a.value.nrlMarginUPS)
-              .compareTo(b.value.aflMarginUPS + b.value.nrlMarginUPS));
+          ..sort(
+            (a, b) => (a.value.aflMarginUPS + a.value.nrlMarginUPS).compareTo(
+              b.value.aflMarginUPS + b.value.nrlMarginUPS,
+            ),
+          );
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
         // Sort by RoundScores.aflMarginUPS + RoundScores.nrlMarginUPS
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => (b.value.aflMarginUPS + b.value.nrlMarginUPS)
-              .compareTo(a.value.aflMarginUPS + a.value.nrlMarginUPS));
+          ..sort(
+            (a, b) => (b.value.aflMarginUPS + b.value.nrlMarginUPS).compareTo(
+              a.value.aflMarginUPS + a.value.nrlMarginUPS,
+            ),
+          );
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
@@ -307,25 +340,29 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
-      .map((String column) => DataColumn2(
-            fixedWidth: column == 'Name'
-                ? 150
-                : column == '#\nrounds\nwon' || column == 'Margins'
-                    ? 75
-                    : 55,
-            numeric: column == 'Name' ? false : true,
-            label: Text(
-              column,
-            ),
-            onSort: onSort,
-          ))
+      .map(
+        (String column) => DataColumn2(
+          fixedWidth: column == 'Name'
+              ? 150
+              : column == '#\nrounds\nwon' || column == 'Margins'
+              ? 75
+              : 55,
+          numeric: column == 'Name' ? false : true,
+          label: Text(column),
+          onSort: onSort,
+        ),
+      )
       .toList();
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-        tag:
-            '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
-        child: circleAvatarWithFallback(
-            imageUrl: tipper.photoURL, text: tipper.name, radius: 15));
+      tag:
+          '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      child: circleAvatarWithFallback(
+        imageUrl: tipper.photoURL,
+        text: tipper.name,
+        radius: 15,
+      ),
+    );
   }
 }

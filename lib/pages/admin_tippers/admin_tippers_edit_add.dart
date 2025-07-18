@@ -61,23 +61,27 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   void _saveTipper(BuildContext context) async {
     try {
       // make sure the email and logon are not assigned to another tipper
-      Tipper? tipperWithDupEmail =
-          await tippersViewModel.isEmailOrLogonAlreadyAssigned(
-              _tipperEmailController.text, _tipperLogonController.text, tipper);
+      Tipper? tipperWithDupEmail = await tippersViewModel
+          .isEmailOrLogonAlreadyAssigned(
+            _tipperEmailController.text,
+            _tipperLogonController.text,
+            tipper,
+          );
       if (tipperWithDupEmail != null) {
         if (context.mounted) {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
               content: Text(
-                  'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}'),
+                'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}',
+              ),
               actions: <Widget>[
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
                   child: const Text('OK'),
-                )
+                ),
               ],
             ),
           );
@@ -87,22 +91,33 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       }
 
       await tippersViewModel.updateTipperAttribute(
-          tipper.dbkey!, "name", _tipperNameController.text);
+        tipper.dbkey!,
+        "name",
+        _tipperNameController.text,
+      );
       await tippersViewModel.updateTipperAttribute(
-          tipper.dbkey!, "email", _tipperEmailController.text);
+        tipper.dbkey!,
+        "email",
+        _tipperEmailController.text,
+      );
       await tippersViewModel.updateTipperAttribute(
-          tipper.dbkey!, "logon", _tipperLogonController.text);
+        tipper.dbkey!,
+        "logon",
+        _tipperLogonController.text,
+      );
       await tippersViewModel.updateTipperAttribute(
-          tipper.dbkey!,
-          "tipperRole",
-          admin == true
-              ? TipperRole.admin.toString().split('.').last
-              : TipperRole.tipper.toString().split('.').last);
+        tipper.dbkey!,
+        "tipperRole",
+        admin == true
+            ? TipperRole.admin.toString().split('.').last
+            : TipperRole.tipper.toString().split('.').last,
+      );
 
       await tippersViewModel.updateTipperAttribute(
-          tipper.dbkey!,
-          "compsParticipatedIn",
-          tipper.compsPaidFor.map((comp) => comp.dbkey).toList());
+        tipper.dbkey!,
+        "compsParticipatedIn",
+        tipper.compsPaidFor.map((comp) => comp.dbkey).toList(),
+      );
 
       await tippersViewModel.saveBatchOfTipperChangesToDb();
 
@@ -121,7 +136,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   Navigator.of(context).pop();
                 },
                 child: const Text('OK'),
-              )
+              ),
             ],
           ),
         );
@@ -138,7 +153,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             return IconButton(
               icon: changesNeedSaving
                   ? const ImageIcon(
-                      null) // dont show anything clickable while saving is in progress
+                      null,
+                    ) // dont show anything clickable while saving is in progress
                   : const Icon(Icons.arrow_back),
               onPressed: changesNeedSaving
                   ? null
@@ -234,7 +250,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             }
                           },
                         ),
-                      )
+                      ),
                     ],
                   ),
 
@@ -325,149 +341,166 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     ],
                   ),
                   Row(
-                      //mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('DAU\nAdmin:'),
-                        Switch(
-                          value: admin,
-                          activeColor: Colors.orange,
-                          onChanged: (value) {
+                    //mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('DAU\nAdmin:'),
+                      Switch(
+                        value: admin,
+                        activeColor: Colors.orange,
+                        onChanged: (value) {
+                          setState(() {
+                            admin = value;
+                          });
+
+                          if (tipper.tipperRole.index.isEven
+                              ? false
+                              : true == value) {
+                            //something has changed, maybe allow saves
                             setState(() {
-                              admin = value;
+                              changes++; //increment the number of changes
+                              if (changes == 0) {
+                                disableSaves = true;
+                              } else {
+                                disableSaves = false;
+                              }
                             });
+                          } else {
+                            setState(() {
+                              changes--; //decrement the number of changes, maybe stop saves
+                              if (changes == 0) {
+                                disableSaves = true;
+                              } else {
+                                disableSaves = false;
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      // if selectedDAUComp is not null then offer god mode
+                      if (di<DAUCompsViewModel>().selectedDAUComp != null)
+                        Row(
+                          children: [
+                            const Text('God\nmode: '),
+                            ChangeNotifierProvider<TippersViewModel>.value(
+                              value: di<TippersViewModel>(),
+                              child: Consumer<TippersViewModel>(
+                                builder: (context, tippersViewModelConsumer, child) {
+                                  return Switch(
+                                    value:
+                                        (tippersViewModelConsumer.inGodMode &&
+                                        tippersViewModelConsumer
+                                                .selectedTipper ==
+                                            tipper),
+                                    activeColor: Colors.red,
+                                    onChanged: (value) {
+                                      if (value == true) {
+                                        // admins cannot god mode themselves - display snackbar if they try
+                                        if (tippersViewModelConsumer
+                                                .authenticatedTipper ==
+                                            tipper) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: Colors.red,
+                                              content: const Text(
+                                                'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.',
+                                              ),
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        // if godmode is already turned on for another tipper
+                                        // then continue with this change, but display a snackbar
+                                        // saying we turned it off for tipper A, and turned it on here for tipper B
+                                        if (tippersViewModelConsumer
+                                            .inGodMode) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: Colors.red,
+                                              content: Text(
+                                                'God mode changed from ${tippersViewModelConsumer.selectedTipper.name} to ${tipper.name}',
+                                              ),
+                                            ),
+                                          );
+                                        }
 
-                            if (tipper.tipperRole.index.isEven
-                                ? false
-                                : true == value) {
-                              //something has changed, maybe allow saves
-                              setState(() {
-                                changes++; //increment the number of changes
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            } else {
-                              setState(() {
-                                changes--; //decrement the number of changes, maybe stop saves
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            }
-                          },
-                        ),
-                        // if selectedDAUComp is not null then offer god mode
-                        if (di<DAUCompsViewModel>().selectedDAUComp != null)
-                          Row(
-                            children: [
-                              const Text('God\nmode: '),
-                              ChangeNotifierProvider<TippersViewModel>.value(
-                                  value: di<TippersViewModel>(),
-                                  child: Consumer<TippersViewModel>(
-                                    builder: (context, tippersViewModelConsumer,
-                                        child) {
-                                      return Switch(
-                                        value: (tippersViewModelConsumer
-                                                .inGodMode &&
+                                        tippersViewModelConsumer
+                                                .selectedTipper =
+                                            tipper;
+                                      } else {
+                                        tippersViewModelConsumer
+                                                .selectedTipper =
                                             tippersViewModelConsumer
-                                                    .selectedTipper ==
-                                                tipper),
-                                        activeColor: Colors.red,
-                                        onChanged: (value) {
-                                          if (value == true) {
-                                            // admins cannot god mode themselves - display snackbar if they try
-                                            if (tippersViewModelConsumer
-                                                    .authenticatedTipper ==
-                                                tipper) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  backgroundColor: Colors.red,
-                                                  content: const Text(
-                                                      'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.'),
-                                                ),
-                                              );
-                                              return;
-                                            }
-                                            // if godmode is already turned on for another tipper
-                                            // then continue with this change, but display a snackbar
-                                            // saying we turned it off for tipper A, and turned it on here for tipper B
-                                            if (tippersViewModelConsumer
-                                                .inGodMode) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  backgroundColor: Colors.red,
-                                                  content: Text(
-                                                      'God mode changed from ${tippersViewModelConsumer.selectedTipper.name} to ${tipper.name}'),
-                                                ),
-                                              );
-                                            }
-
-                                            tippersViewModelConsumer
-                                                .selectedTipper = tipper;
-                                          } else {
-                                            tippersViewModelConsumer
-                                                    .selectedTipper =
-                                                tippersViewModelConsumer
-                                                    .authenticatedTipper!;
-                                          }
-                                          // reset the other view models in daucompsviewmodel to reflect
-                                          // any changes in the selected tipper
-                                          di<DAUCompsViewModel>()
-                                              .selectedTipperChanged();
-                                        },
-                                      );
+                                                .authenticatedTipper!;
+                                      }
+                                      // reset the other view models in daucompsviewmodel to reflect
+                                      // any changes in the selected tipper
+                                      di<DAUCompsViewModel>()
+                                          .selectedTipperChanged();
                                     },
-                                  )),
-                            ],
-                          ),
-                      ]),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
 
                   // add a row for 'Paid Comps', display a list of all DAUComps
                   // if the tipper is a paid up member, then show a tick
                   // allow the admin to edit which comps this tipper has paid for
                   FutureBuilder<List<DAUComp>>(
-                      future: di<DAUCompsViewModel>().getDAUcomps(),
-                      builder: (BuildContext context,
-                          AsyncSnapshot<List<DAUComp>> snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Center(
+                    future: di<DAUCompsViewModel>().getDAUcomps(),
+                    builder:
+                        (
+                          BuildContext context,
+                          AsyncSnapshot<List<DAUComp>> snapshot,
+                        ) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
                               child: CircularProgressIndicator(
-                                  color: League.nrl.colour));
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Text('No Records');
-                        } else {
-                          comps = snapshot.data!;
-                          // sort the comps by name descending
-                          comps.sort((a, b) => b.name
-                              .toLowerCase()
-                              .compareTo(a.name.toLowerCase()));
-                          return Column(
-                            children: [
-                              const Text(
-                                  'Select the competitions this tipper has paid for:'),
-                              DataTable(
-                                sortColumnIndex: 1,
-                                sortAscending: true,
-                                columns: const [
-                                  DataColumn(label: Text('Paid')),
-                                  DataColumn(label: Text('Competition Name'))
-                                ],
-                                rows: comps
-                                    .map((comp) => DataRow(
+                                color: League.nrl.colour,
+                              ),
+                            );
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Text('No Records');
+                          } else {
+                            comps = snapshot.data!;
+                            // sort the comps by name descending
+                            comps.sort(
+                              (a, b) => b.name.toLowerCase().compareTo(
+                                a.name.toLowerCase(),
+                              ),
+                            );
+                            return Column(
+                              children: [
+                                const Text(
+                                  'Select the competitions this tipper has paid for:',
+                                ),
+                                DataTable(
+                                  sortColumnIndex: 1,
+                                  sortAscending: true,
+                                  columns: const [
+                                    DataColumn(label: Text('Paid')),
+                                    DataColumn(label: Text('Competition Name')),
+                                  ],
+                                  rows: comps
+                                      .map(
+                                        (comp) => DataRow(
                                           cells: [
                                             DataCell(
                                               Checkbox(
                                                 value: tipper.paidForComp(comp),
                                                 onChanged: (bool? value) {
-                                                  log('Checkbox changed to $value');
+                                                  log(
+                                                    'Checkbox changed to $value',
+                                                  );
                                                   setState(() {
                                                     if (value == true) {
                                                       widget.tipper.compsPaidFor
@@ -488,13 +521,15 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                             ),
                                             DataCell(Text(comp.name)),
                                           ],
-                                        ))
-                                    .toList(),
-                              ),
-                            ],
-                          );
-                        }
-                      }),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                  ),
                 ],
               ),
             ),
@@ -506,7 +541,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => AdminTipperMergeEditPage(
-                        widget.tippersViewModel, tipper),
+                      widget.tippersViewModel,
+                      tipper,
+                    ),
                   ),
                 );
               },

@@ -13,7 +13,7 @@ class RoundStats {
   int nrlTipsOutstanding = 0;
   int aflTipsOutstanding = 0;
 
-//contructor
+  //contructor
   RoundStats({
     required this.roundNumber,
     required this.aflScore,

@@ -10,7 +10,10 @@ class TeamsListPage extends StatelessWidget {
   const TeamsListPage({super.key, required this.teamsViewModel});
 
   Future<void> _editTeam(
-      Team team, TeamsViewModel teamsViewModel, BuildContext context) async {
+    Team team,
+    TeamsViewModel teamsViewModel,
+    BuildContext context,
+  ) async {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -22,54 +25,60 @@ class TeamsListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          title: const Text('Admin Teams'),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
         ),
-        body: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ListView.builder(
-              itemCount: teamsViewModel.groupedTeams.length,
-              itemBuilder: (BuildContext context, int index) {
-                String league =
-                    teamsViewModel.groupedTeams.keys.elementAt(index);
-                List itemsInCategory = teamsViewModel.groupedTeams[league]!;
+        title: const Text('Admin Teams'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView.builder(
+          itemCount: teamsViewModel.groupedTeams.length,
+          itemBuilder: (BuildContext context, int index) {
+            String league = teamsViewModel.groupedTeams.keys.elementAt(index);
+            List itemsInCategory = teamsViewModel.groupedTeams[league]!;
 
-                // Return a widget representing the category and its items
-                return Column(
-                  children: [
-                    Text(league.toUpperCase(),
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const ClampingScrollPhysics(),
-                      itemCount: itemsInCategory.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        Team team = itemsInCategory[index];
-                        // Return a widget representing the item
-                        return ListTile(
-                          dense: true,
-                          leading: team.logoURI != null
-                              ? SvgPicture.asset(team.logoURI!,
-                                  width: 30, height: 30)
-                              : null,
-                          trailing: const Icon(Icons.edit),
-                          title: Text(team.name),
-                          onTap: () async {
-                            // Trigger edit functionality
-                            await _editTeam(team, teamsViewModel, context);
-                          },
-                        );
+            // Return a widget representing the category and its items
+            return Column(
+              children: [
+                Text(
+                  league.toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: itemsInCategory.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    Team team = itemsInCategory[index];
+                    // Return a widget representing the item
+                    return ListTile(
+                      dense: true,
+                      leading: team.logoURI != null
+                          ? SvgPicture.asset(
+                              team.logoURI!,
+                              width: 30,
+                              height: 30,
+                            )
+                          : null,
+                      trailing: const Icon(Icons.edit),
+                      title: Text(team.name),
+                      onTap: () async {
+                        // Trigger edit functionality
+                        await _editTeam(team, teamsViewModel, context);
                       },
-                    ),
-                  ],
-                );
-              },
-            )));
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 }

@@ -7,8 +7,11 @@ import 'package:flutter/foundation.dart';
 class FixtureDownloadService {
   FixtureDownloadService();
 
-  Future<Map<String, List<dynamic>>> fetch(Uri nrlFixtureJsonURL,
-      Uri aflFixtureJsonURL, bool downloadOnSeparateThread) async {
+  Future<Map<String, List<dynamic>>> fetch(
+    Uri nrlFixtureJsonURL,
+    Uri aflFixtureJsonURL,
+    bool downloadOnSeparateThread,
+  ) async {
     Map<String, dynamic> simpleDAUComp = {
       'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
       'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
@@ -35,14 +38,17 @@ class FixtureDownloadService {
   }
 
   Future<Map<String, dynamic>> _fetchFixtures(
-      Map<String, dynamic> simpleDAUComp) async {
+    Map<String, dynamic> simpleDAUComp,
+  ) async {
     List<dynamic> nrlGames = [];
     List<dynamic> aflGames = [];
     String errorMessage = '';
 
     try {
       nrlGames = await FixtureDownloadService._getLeagueFixtureRaw(
-          Uri.parse(simpleDAUComp['nrlFixtureJsonURL']), League.nrl);
+        Uri.parse(simpleDAUComp['nrlFixtureJsonURL']),
+        League.nrl,
+      );
     } catch (e) {
       errorMessage = 'Error loading NRL fixture data. Exception was: $e';
     }
@@ -50,7 +56,9 @@ class FixtureDownloadService {
     if (errorMessage.isEmpty) {
       try {
         aflGames = await FixtureDownloadService._getLeagueFixtureRaw(
-            Uri.parse(simpleDAUComp['aflFixtureJsonURL']), League.afl);
+          Uri.parse(simpleDAUComp['aflFixtureJsonURL']),
+          League.afl,
+        );
       } catch (e) {
         errorMessage = 'Error loading AFL fixture data. Exception was: $e';
       }
@@ -64,9 +72,12 @@ class FixtureDownloadService {
   }
 
   static Future<List<dynamic>> _getLeagueFixtureRaw(
-      Uri endpoint, League league) async {
-    final dio = Dio(BaseOptions(
-        headers: {'Content-Type': 'application/json; charset=UTF-8'}));
+    Uri endpoint,
+    League league,
+  ) async {
+    final dio = Dio(
+      BaseOptions(headers: {'Content-Type': 'application/json; charset=UTF-8'}),
+    );
 
     // if we are debuging code? if so, mock the JSON fixture services network call
     /*if (!kReleaseMode) {
@@ -121,6 +132,7 @@ class FixtureDownloadService {
       return res;
     }
     throw Exception(
-        'Could not receive the league fixture list: ${endpoint.toString()}');
+      'Could not receive the league fixture list: ${endpoint.toString()}',
+    );
   }
 }

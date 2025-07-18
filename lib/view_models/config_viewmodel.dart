@@ -28,50 +28,58 @@ class ConfigViewModel extends ChangeNotifier {
   ConfigViewModel() {
     _listenToConfigChanges();
     // Add a timeout for initial load
-    _initialLoadCompleter.future
-        .timeout(const Duration(seconds: 10))
-        .catchError((_) {
+    _initialLoadCompleter.future.timeout(const Duration(seconds: 10)).catchError((
+      _,
+    ) {
       // If timeout occurs and not completed, complete with error
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.completeError(
-            'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.');
+          'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.',
+        );
         notifyListeners();
       }
     });
   }
 
   void _listenToConfigChanges() {
-    _configStream = _db.onValue.listen((event) {
-      if (event.snapshot.exists) {
-        _processSnapshot(event.snapshot);
-      } else {
-        log('ConfigViewModel._listenToConfigChanges() No config found in database');
-      }
-
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
-      notifyListeners();
-    }, onError: (error) {
-      log('ConfigViewModel._listenToConfigChanges() Error: $error');
-
-      // For network disconnection errors, attempt reconnection after delay
-      if (error.toString().contains('network disconnect') ||
-          error.toString().contains('U3.e')) {
-        log('Network disconnection detected, attempting reconnection in 5 seconds');
-        Timer(const Duration(seconds: 5), () {
-          if (!_initialLoadCompleter.isCompleted) {
-            _reconnectDatabase();
-          }
-        });
-      } else {
-        // For other errors, complete with error immediately
-        if (!_initialLoadCompleter.isCompleted) {
-          _initialLoadCompleter.completeError(error);
-          notifyListeners();
+    _configStream = _db.onValue.listen(
+      (event) {
+        if (event.snapshot.exists) {
+          _processSnapshot(event.snapshot);
+        } else {
+          log(
+            'ConfigViewModel._listenToConfigChanges() No config found in database',
+          );
         }
-      }
-    });
+
+        if (!_initialLoadCompleter.isCompleted) {
+          _initialLoadCompleter.complete();
+        }
+        notifyListeners();
+      },
+      onError: (error) {
+        log('ConfigViewModel._listenToConfigChanges() Error: $error');
+
+        // For network disconnection errors, attempt reconnection after delay
+        if (error.toString().contains('network disconnect') ||
+            error.toString().contains('U3.e')) {
+          log(
+            'Network disconnection detected, attempting reconnection in 5 seconds',
+          );
+          Timer(const Duration(seconds: 5), () {
+            if (!_initialLoadCompleter.isCompleted) {
+              _reconnectDatabase();
+            }
+          });
+        } else {
+          // For other errors, complete with error immediately
+          if (!_initialLoadCompleter.isCompleted) {
+            _initialLoadCompleter.completeError(error);
+            notifyListeners();
+          }
+        }
+      },
+    );
   }
 
   void _reconnectDatabase() {

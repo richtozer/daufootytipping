@@ -50,11 +50,13 @@ class _GameListBuilderState extends State<GameListBuilder> {
 
         // Get fresh round data from the view model
         final dauRound = dauCompsViewModelConsumer
-            .selectedDAUComp!.daurounds[widget.roundIndex];
+            .selectedDAUComp!
+            .daurounds[widget.roundIndex];
 
         // Now it's safe to group games
-        final allGames =
-            dauCompsViewModelConsumer.groupGamesIntoLeagues(dauRound);
+        final allGames = dauCompsViewModelConsumer.groupGamesIntoLeagues(
+          dauRound,
+        );
         final leagueGames = allGames[widget.league];
 
         if (leagueGames == null || leagueGames.isEmpty) {
@@ -97,7 +99,8 @@ class _GameListBuilderState extends State<GameListBuilder> {
             var game = leagueGames[index];
             if (widget.tipperTipsViewModel == null) {
               return Center(
-                  child: CircularProgressIndicator(color: League.nrl.colour));
+                child: CircularProgressIndicator(color: League.nrl.colour),
+              );
             }
             return GameListItem(
               key: ValueKey(game.dbkey),

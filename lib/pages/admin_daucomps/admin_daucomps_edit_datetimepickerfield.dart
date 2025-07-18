@@ -27,9 +27,7 @@ class DateTimePickerField extends StatelessWidget {
         fontSize: 14,
         fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
       ),
-      decoration: const InputDecoration(
-        isDense: true,
-      ),
+      decoration: const InputDecoration(isDense: true),
       onTap: () async {
         FocusScope.of(context).requestFocus(FocusNode());
         DateTime? date = await showDatePicker(

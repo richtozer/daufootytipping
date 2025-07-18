@@ -33,13 +33,8 @@ import 'package:mockito/src/dummies.dart' as _i9;
 // ignore_for_file: subtype_of_sealed_class
 
 class _FakeDuration_0 extends _i1.SmartFake implements Duration {
-  _FakeDuration_0(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeDuration_0(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 /// A class which mocks [DAUCompsViewModel].
@@ -51,126 +46,126 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i2.DAUCompsViewModel {
   }
 
   @override
-  Duration get fixtureUpdateTimerDuration => (super.noSuchMethod(
-        Invocation.getter(#fixtureUpdateTimerDuration),
-        returnValue: _FakeDuration_0(
-          this,
-          Invocation.getter(#fixtureUpdateTimerDuration),
-        ),
-      ) as Duration);
+  Duration get fixtureUpdateTimerDuration =>
+      (super.noSuchMethod(
+            Invocation.getter(#fixtureUpdateTimerDuration),
+            returnValue: _FakeDuration_0(
+              this,
+              Invocation.getter(#fixtureUpdateTimerDuration),
+            ),
+          )
+          as Duration);
 
   @override
-  Map<String, dynamic> get updates => (super.noSuchMethod(
-        Invocation.getter(#updates),
-        returnValue: <String, dynamic>{},
-      ) as Map<String, dynamic>);
+  Map<String, dynamic> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: <String, dynamic>{},
+          )
+          as Map<String, dynamic>);
 
   @override
-  List<_i3.Game> get unassignedGames => (super.noSuchMethod(
-        Invocation.getter(#unassignedGames),
-        returnValue: <_i3.Game>[],
-      ) as List<_i3.Game>);
+  List<_i3.Game> get unassignedGames =>
+      (super.noSuchMethod(
+            Invocation.getter(#unassignedGames),
+            returnValue: <_i3.Game>[],
+          )
+          as List<_i3.Game>);
 
   @override
-  List<_i4.DAUComp> get daucomps => (super.noSuchMethod(
-        Invocation.getter(#daucomps),
-        returnValue: <_i4.DAUComp>[],
-      ) as List<_i4.DAUComp>);
+  List<_i4.DAUComp> get daucomps =>
+      (super.noSuchMethod(
+            Invocation.getter(#daucomps),
+            returnValue: <_i4.DAUComp>[],
+          )
+          as List<_i4.DAUComp>);
 
   @override
-  bool get savingDAUComp => (super.noSuchMethod(
-        Invocation.getter(#savingDAUComp),
-        returnValue: false,
-      ) as bool);
+  bool get savingDAUComp =>
+      (super.noSuchMethod(Invocation.getter(#savingDAUComp), returnValue: false)
+          as bool);
 
   @override
-  _i5.Future<void> get initialDAUCompLoadComplete => (super.noSuchMethod(
-        Invocation.getter(#initialDAUCompLoadComplete),
-        returnValue: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+  _i5.Future<void> get initialDAUCompLoadComplete =>
+      (super.noSuchMethod(
+            Invocation.getter(#initialDAUCompLoadComplete),
+            returnValue: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  _i5.Future<void> get otherViewModelsLoadComplete => (super.noSuchMethod(
-        Invocation.getter(#otherViewModelsLoadComplete),
-        returnValue: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+  _i5.Future<void> get otherViewModelsLoadComplete =>
+      (super.noSuchMethod(
+            Invocation.getter(#otherViewModelsLoadComplete),
+            returnValue: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  bool get isDownloading => (super.noSuchMethod(
-        Invocation.getter(#isDownloading),
-        returnValue: false,
-      ) as bool);
+  bool get isDownloading =>
+      (super.noSuchMethod(Invocation.getter(#isDownloading), returnValue: false)
+          as bool);
 
   @override
-  bool get isLegacySyncing => (super.noSuchMethod(
-        Invocation.getter(#isLegacySyncing),
-        returnValue: false,
-      ) as bool);
+  bool get isLegacySyncing =>
+      (super.noSuchMethod(
+            Invocation.getter(#isLegacySyncing),
+            returnValue: false,
+          )
+          as bool);
 
   @override
-  bool get adminMode => (super.noSuchMethod(
-        Invocation.getter(#adminMode),
-        returnValue: false,
-      ) as bool);
+  bool get adminMode =>
+      (super.noSuchMethod(Invocation.getter(#adminMode), returnValue: false)
+          as bool);
 
   @override
-  bool get isLinkingGames => (super.noSuchMethod(
-        Invocation.getter(#isLinkingGames),
-        returnValue: false,
-      ) as bool);
+  bool get isLinkingGames =>
+      (super.noSuchMethod(
+            Invocation.getter(#isLinkingGames),
+            returnValue: false,
+          )
+          as bool);
 
   @override
   set gamesViewModel(_i6.GamesViewModel? _gamesViewModel) => super.noSuchMethod(
-        Invocation.setter(
-          #gamesViewModel,
-          _gamesViewModel,
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.setter(#gamesViewModel, _gamesViewModel),
+    returnValueForMissingStub: null,
+  );
 
   @override
   set statsViewModel(_i7.StatsViewModel? _statsViewModel) => super.noSuchMethod(
-        Invocation.setter(
-          #statsViewModel,
-          _statsViewModel,
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.setter(#statsViewModel, _statsViewModel),
+    returnValueForMissingStub: null,
+  );
 
   @override
   set selectedTipperTipsViewModel(
-          _i8.TipsViewModel? _selectedTipperTipsViewModel) =>
-      super.noSuchMethod(
-        Invocation.setter(
-          #selectedTipperTipsViewModel,
-          _selectedTipperTipsViewModel,
-        ),
-        returnValueForMissingStub: null,
-      );
+    _i8.TipsViewModel? _selectedTipperTipsViewModel,
+  ) => super.noSuchMethod(
+    Invocation.setter(
+      #selectedTipperTipsViewModel,
+      _selectedTipperTipsViewModel,
+    ),
+    returnValueForMissingStub: null,
+  );
 
   @override
   set unassignedGames(List<_i3.Game>? _unassignedGames) => super.noSuchMethod(
-        Invocation.setter(
-          #unassignedGames,
-          _unassignedGames,
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.setter(#unassignedGames, _unassignedGames),
+    returnValueForMissingStub: null,
+  );
 
   @override
-  bool get hasListeners => (super.noSuchMethod(
-        Invocation.getter(#hasListeners),
-        returnValue: false,
-      ) as bool);
+  bool get hasListeners =>
+      (super.noSuchMethod(Invocation.getter(#hasListeners), returnValue: false)
+          as bool);
 
   @override
   void triggerDailyEvent() => super.noSuchMethod(
-        Invocation.method(
-          #triggerDailyEvent,
-          [],
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.method(#triggerDailyEvent, []),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i5.Future<void> changeDisplayedDAUComp(
@@ -178,71 +173,61 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i2.DAUCompsViewModel {
     bool? changingActiveComp,
   ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #changeDisplayedDAUComp,
-          [
-            changeToDAUComp,
-            changingActiveComp,
-          ],
-        ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+            Invocation.method(#changeDisplayedDAUComp, [
+              changeToDAUComp,
+              changingActiveComp,
+            ]),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  _i5.Future<void> selectedTipperChanged() => (super.noSuchMethod(
-        Invocation.method(
-          #selectedTipperChanged,
-          [],
-        ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+  _i5.Future<void> selectedTipperChanged() =>
+      (super.noSuchMethod(
+            Invocation.method(#selectedTipperChanged, []),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  bool isSelectedCompActiveComp() => (super.noSuchMethod(
-        Invocation.method(
-          #isSelectedCompActiveComp,
-          [],
-        ),
-        returnValue: false,
-      ) as bool);
+  bool isSelectedCompActiveComp() =>
+      (super.noSuchMethod(
+            Invocation.method(#isSelectedCompActiveComp, []),
+            returnValue: false,
+          )
+          as bool);
 
   @override
   _i5.Future<String> getNetworkFixtureData(_i4.DAUComp? daucompToUpdate) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #getNetworkFixtureData,
-          [daucompToUpdate],
-        ),
-        returnValue: _i5.Future<String>.value(_i9.dummyValue<String>(
-          this,
-          Invocation.method(
-            #getNetworkFixtureData,
-            [daucompToUpdate],
-          ),
-        )),
-      ) as _i5.Future<String>);
+            Invocation.method(#getNetworkFixtureData, [daucompToUpdate]),
+            returnValue: _i5.Future<String>.value(
+              _i9.dummyValue<String>(
+                this,
+                Invocation.method(#getNetworkFixtureData, [daucompToUpdate]),
+              ),
+            ),
+          )
+          as _i5.Future<String>);
 
   @override
   _i5.Future<void> linkGamesWithRounds(List<_i10.DAURound>? allRounds) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #linkGamesWithRounds,
-          [allRounds],
-        ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+            Invocation.method(#linkGamesWithRounds, [allRounds]),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  _i5.Future<_i4.DAUComp?> findComp(String? compDbKey) => (super.noSuchMethod(
-        Invocation.method(
-          #findComp,
-          [compDbKey],
-        ),
-        returnValue: _i5.Future<_i4.DAUComp?>.value(),
-      ) as _i5.Future<_i4.DAUComp?>);
+  _i5.Future<_i4.DAUComp?> findComp(String? compDbKey) =>
+      (super.noSuchMethod(
+            Invocation.method(#findComp, [compDbKey]),
+            returnValue: _i5.Future<_i4.DAUComp?>.value(),
+          )
+          as _i5.Future<_i4.DAUComp?>);
 
   @override
   void updateRoundAttribute(
@@ -250,96 +235,77 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i2.DAUCompsViewModel {
     int? roundNumber,
     String? attributeName,
     dynamic attributeValue,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #updateRoundAttribute,
-          [
-            dauCompDbKey,
-            roundNumber,
-            attributeName,
-            attributeValue,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
+  ) => super.noSuchMethod(
+    Invocation.method(#updateRoundAttribute, [
+      dauCompDbKey,
+      roundNumber,
+      attributeName,
+      attributeValue,
+    ]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   void updateCompAttribute(
     String? dauCompDbKey,
     String? attributeName,
     dynamic attributeValue,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #updateCompAttribute,
-          [
-            dauCompDbKey,
-            attributeName,
-            attributeValue,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
+  ) => super.noSuchMethod(
+    Invocation.method(#updateCompAttribute, [
+      dauCompDbKey,
+      attributeName,
+      attributeValue,
+    ]),
+    returnValueForMissingStub: null,
+  );
 
   @override
-  _i5.Future<void> newDAUComp(_i4.DAUComp? newDAUComp) => (super.noSuchMethod(
-        Invocation.method(
-          #newDAUComp,
-          [newDAUComp],
-        ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+  _i5.Future<void> newDAUComp(_i4.DAUComp? newDAUComp) =>
+      (super.noSuchMethod(
+            Invocation.method(#newDAUComp, [newDAUComp]),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  _i5.Future<void> saveBatchOfCompAttributes() => (super.noSuchMethod(
-        Invocation.method(
-          #saveBatchOfCompAttributes,
-          [],
-        ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+  _i5.Future<void> saveBatchOfCompAttributes() =>
+      (super.noSuchMethod(
+            Invocation.method(#saveBatchOfCompAttributes, []),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
-  _i5.Future<List<_i4.DAUComp>> getDAUcomps() => (super.noSuchMethod(
-        Invocation.method(
-          #getDAUcomps,
-          [],
-        ),
-        returnValue: _i5.Future<List<_i4.DAUComp>>.value(<_i4.DAUComp>[]),
-      ) as _i5.Future<List<_i4.DAUComp>>);
+  _i5.Future<List<_i4.DAUComp>> getDAUcomps() =>
+      (super.noSuchMethod(
+            Invocation.method(#getDAUcomps, []),
+            returnValue: _i5.Future<List<_i4.DAUComp>>.value(<_i4.DAUComp>[]),
+          )
+          as _i5.Future<List<_i4.DAUComp>>);
 
   @override
   Map<_i11.League, List<_i3.Game>> groupGamesIntoLeagues(
-          _i10.DAURound? combinedRound) =>
+    _i10.DAURound? combinedRound,
+  ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #groupGamesIntoLeagues,
-          [combinedRound],
-        ),
-        returnValue: <_i11.League, List<_i3.Game>>{},
-      ) as Map<_i11.League, List<_i3.Game>>);
+            Invocation.method(#groupGamesIntoLeagues, [combinedRound]),
+            returnValue: <_i11.League, List<_i3.Game>>{},
+          )
+          as Map<_i11.League, List<_i3.Game>>);
 
   @override
   void dispose() => super.noSuchMethod(
-        Invocation.method(
-          #dispose,
-          [],
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.method(#dispose, []),
+    returnValueForMissingStub: null,
+  );
 
   @override
   void clearLeagueLadderCache({_i11.League? league}) => super.noSuchMethod(
-        Invocation.method(
-          #clearLeagueLadderCache,
-          [],
-          {#league: league},
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.method(#clearLeagueLadderCache, [], {#league: league}),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i5.Future<_i12.LeagueLadder?> getOrCalculateLeagueLadder(
@@ -347,13 +313,14 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i2.DAUCompsViewModel {
     bool? forceRecalculate = false,
   }) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #getOrCalculateLeagueLadder,
-          [league],
-          {#forceRecalculate: forceRecalculate},
-        ),
-        returnValue: _i5.Future<_i12.LeagueLadder?>.value(),
-      ) as _i5.Future<_i12.LeagueLadder?>);
+            Invocation.method(
+              #getOrCalculateLeagueLadder,
+              [league],
+              {#forceRecalculate: forceRecalculate},
+            ),
+            returnValue: _i5.Future<_i12.LeagueLadder?>.value(),
+          )
+          as _i5.Future<_i12.LeagueLadder?>);
 
   @override
   _i5.Future<Map<String, dynamic>> processAndSaveDauComp({
@@ -366,47 +333,36 @@ class MockDAUCompsViewModel extends _i1.Mock implements _i2.DAUCompsViewModel {
     required List<_i10.DAURound>? currentRounds,
   }) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #processAndSaveDauComp,
-          [],
-          {
-            #name: name,
-            #aflFixtureJsonURL: aflFixtureJsonURL,
-            #nrlFixtureJsonURL: nrlFixtureJsonURL,
-            #nrlRegularCompEndDateString: nrlRegularCompEndDateString,
-            #aflRegularCompEndDateString: aflRegularCompEndDateString,
-            #existingComp: existingComp,
-            #currentRounds: currentRounds,
-          },
-        ),
-        returnValue:
-            _i5.Future<Map<String, dynamic>>.value(<String, dynamic>{}),
-      ) as _i5.Future<Map<String, dynamic>>);
+            Invocation.method(#processAndSaveDauComp, [], {
+              #name: name,
+              #aflFixtureJsonURL: aflFixtureJsonURL,
+              #nrlFixtureJsonURL: nrlFixtureJsonURL,
+              #nrlRegularCompEndDateString: nrlRegularCompEndDateString,
+              #aflRegularCompEndDateString: aflRegularCompEndDateString,
+              #existingComp: existingComp,
+              #currentRounds: currentRounds,
+            }),
+            returnValue: _i5.Future<Map<String, dynamic>>.value(
+              <String, dynamic>{},
+            ),
+          )
+          as _i5.Future<Map<String, dynamic>>);
 
   @override
   void addListener(_i13.VoidCallback? listener) => super.noSuchMethod(
-        Invocation.method(
-          #addListener,
-          [listener],
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.method(#addListener, [listener]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   void removeListener(_i13.VoidCallback? listener) => super.noSuchMethod(
-        Invocation.method(
-          #removeListener,
-          [listener],
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.method(#removeListener, [listener]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   void notifyListeners() => super.noSuchMethod(
-        Invocation.method(
-          #notifyListeners,
-          [],
-        ),
-        returnValueForMissingStub: null,
-      );
+    Invocation.method(#notifyListeners, []),
+    returnValueForMissingStub: null,
+  );
 }

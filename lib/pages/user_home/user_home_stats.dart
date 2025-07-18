@@ -18,9 +18,9 @@ class StatsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     Orientation orientation = MediaQuery.of(context).orientation;
 
-    bool paidTipper = di<TippersViewModel>()
-        .selectedTipper
-        .paidForComp(di<DAUCompsViewModel>().selectedDAUComp);
+    bool paidTipper = di<TippersViewModel>().selectedTipper.paidForComp(
+      di<DAUCompsViewModel>().selectedDAUComp,
+    );
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -31,7 +31,10 @@ class StatsTab extends StatelessWidget {
                 // 'DAU Stats' otherwise just 'Stats'
                 text: paidTipper ? 'DAU Stats' : 'Stats',
                 leadingIconAvatar: const Hero(
-                    tag: 'stats', child: Icon(Icons.auto_graph, size: 40)))
+                  tag: 'stats',
+                  child: Icon(Icons.auto_graph, size: 40),
+                ),
+              )
             : const Text('Stats'),
         Card(
           margin: const EdgeInsets.all(4),
@@ -45,7 +48,8 @@ class StatsTab extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const StatCompLeaderboard()),
+                        builder: (context) => const StatCompLeaderboard(),
+                      ),
                     );
                   },
                   child: const Row(
@@ -55,12 +59,13 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.emoji_events, size: 40),
                       ),
                       SizedBox(
-                          height: 64,
-                          width:
-                              16), // Add some spacing between the icon and the text
+                        height: 64,
+                        width: 16,
+                      ), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text(
-                            'Competition Leaderboard\nWhat did others tip?'),
+                          'Competition Leaderboard\nWhat did others tip?',
+                        ),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -75,7 +80,8 @@ class StatsTab extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const StatRoundWinners()),
+                        builder: (context) => const StatRoundWinners(),
+                      ),
                     );
                   },
                   child: const Row(
@@ -85,9 +91,9 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.person_3, size: 40),
                       ),
                       SizedBox(
-                          height: 64,
-                          width:
-                              16), // Add some spacing between the icon and the text
+                        height: 64,
+                        width: 16,
+                      ), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text('Round winners\nRound Leaderboards'),
                       ),
@@ -104,7 +110,8 @@ class StatsTab extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => StatPercentTipped()),
+                        builder: (context) => StatPercentTipped(),
+                      ),
                     );
                   },
                   child: Row(
@@ -114,12 +121,13 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.percent, size: 40),
                       ),
                       SizedBox(
-                          height: 64,
-                          width:
-                              16), // Add some spacing between the icon and the text
+                        height: 64,
+                        width: 16,
+                      ), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text(
-                            'Shows percent breakdown of tips for all tippers per game.'),
+                          'Shows percent breakdown of tips for all tippers per game.',
+                        ),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -134,10 +142,11 @@ class StatsTab extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => RoundMissingTipsStats(
-                              di<DAUCompsViewModel>()
-                                  .selectedDAUComp!
-                                  .firstNotEndedRoundNumber())),
+                        builder: (context) => RoundMissingTipsStats(
+                          di<DAUCompsViewModel>().selectedDAUComp!
+                              .firstNotEndedRoundNumber(),
+                        ),
+                      ),
                     );
                   },
                   child: Row(
@@ -147,12 +156,13 @@ class StatsTab extends StatelessWidget {
                         child: Icon(Icons.search, size: 40),
                       ),
                       SizedBox(
-                          height: 64,
-                          width:
-                              16), // Add some spacing between the icon and the text
+                        height: 64,
+                        width: 16,
+                      ), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text(
-                            'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.firstNotEndedRoundNumber()}'),
+                          'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.firstNotEndedRoundNumber()}',
+                        ),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -231,9 +241,7 @@ class StatsTab extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          height: 25,
-        ),
+        Container(height: 25),
       ],
     );
   }

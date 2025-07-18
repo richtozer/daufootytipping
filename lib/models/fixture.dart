@@ -17,9 +17,6 @@ class Fixture {
 
   //toJSON
   Map<String, dynamic> toJson() {
-    return {
-      'fixtureJsonURL': fixtureJsonURL.toString(),
-      'league': league.name,
-    };
+    return {'fixtureJsonURL': fixtureJsonURL.toString(), 'league': league.name};
   }
 }

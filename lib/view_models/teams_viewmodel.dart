@@ -61,12 +61,15 @@ class TeamsViewModel extends ChangeNotifier {
     notifyListeners();
 
     Team? originalTeam = _teams.firstWhereOrNull(
-        (existingTeam) => existingTeam.dbkey == updatedTeam.dbkey);
+      (existingTeam) => existingTeam.dbkey == updatedTeam.dbkey,
+    );
 
     if (originalTeam != null) {
       _editExistingTeam(originalTeam, updatedTeam);
     } else {
-      log('Team: ${updatedTeam.dbkey} does not exist in the database, ignoring edit request');
+      log(
+        'Team: ${updatedTeam.dbkey} does not exist in the database, ignoring edit request',
+      );
     }
 
     _savingTeam = false;
@@ -97,8 +100,10 @@ class TeamsViewModel extends ChangeNotifier {
     _savingTeam = true;
     notifyListeners();
 
-    Team? foundTeam = teams.firstWhereOrNull((existingTeam) =>
-        existingTeam.dbkey.toLowerCase() == team.dbkey.toLowerCase());
+    Team? foundTeam = teams.firstWhereOrNull(
+      (existingTeam) =>
+          existingTeam.dbkey.toLowerCase() == team.dbkey.toLowerCase(),
+    );
 
     if (foundTeam == null) {
       _addNewTeam(team);
@@ -122,10 +127,12 @@ class TeamsViewModel extends ChangeNotifier {
     // if the initial load is not complete, throw an exception
     if (!_initialLoadCompleter.isCompleted) {
       throw Exception(
-          'TeamsViewModel.findTeam() Initial Teams load not complete');
+        'TeamsViewModel.findTeam() Initial Teams load not complete',
+      );
     }
     return _teams.firstWhereOrNull(
-        (team) => team.dbkey.toLowerCase() == teamDbKey.toLowerCase());
+      (team) => team.dbkey.toLowerCase() == teamDbKey.toLowerCase(),
+    );
   }
 
   @override

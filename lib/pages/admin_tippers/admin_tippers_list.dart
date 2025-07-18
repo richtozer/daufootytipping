@@ -47,24 +47,30 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             child: ListBody(
               children: <Widget>[
                 Text(
-                    'Filter tippers by name, email, logon, role, competition name or \'godmode\''
-                    '.'),
+                  'Filter tippers by name, email, logon, role, competition name or \'godmode\''
+                  '.',
+                ),
                 Text('\nUse "!" for negative search.'),
                 SizedBox(height: 10),
                 Text('Example searches:'),
                 Text(
-                    'mad_kiwi - returns all tippers with "mad_kiwi" in their name, logon or email addresses'),
+                  'mad_kiwi - returns all tippers with "mad_kiwi" in their name, logon or email addresses',
+                ),
                 Text(
-                    '@gmail.com - returns all tippers with "@gmail.com" in their name, logon or email addresses'),
+                  '@gmail.com - returns all tippers with "@gmail.com" in their name, logon or email addresses',
+                ),
                 Text('tipper - returns all tippers with "tipper" role'),
                 Text('!admin - returns all tippers without "admin" role'),
                 Text(
-                    '2025 - returns all tippers that paid for a comp with "2025" in its name'),
+                  '2025 - returns all tippers that paid for a comp with "2025" in its name',
+                ),
                 Text(
-                    '!2025 - returns all tippers that did not pay for a comp with "2025" in its name'),
+                  '!2025 - returns all tippers that did not pay for a comp with "2025" in its name',
+                ),
                 Text('godmode - returns the tipper record in god mode'),
                 Text(
-                    'id=abcd - returns the tipper records with abcd in their dbkey'),
+                  'id=abcd - returns the tipper records with abcd in their dbkey',
+                ),
                 Text('etc'),
               ],
             ),
@@ -117,8 +123,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                               border: OutlineInputBorder(),
                             ),
                             onChanged: (value) {
-                              searchQueryProvider
-                                  .updateSearchQuery(value.toLowerCase());
+                              searchQueryProvider.updateSearchQuery(
+                                value.toLowerCase(),
+                              );
                             },
                           );
                         },
@@ -129,8 +136,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
               ),
               Expanded(
                 child: Consumer2<TippersViewModel, SearchQueryProvider>(
-                  builder:
-                      (context, tipperViewModel, searchQueryProvider, child) {
+                  builder: (context, tipperViewModel, searchQueryProvider, child) {
                     var tippers = tipperViewModel.tippers;
                     int totalTippers = tippers.length;
                     String searchQuery = searchQueryProvider.searchQuery;
@@ -152,25 +158,25 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                           // Check for id= prefix for dbkey search
                           if (query.startsWith('id=')) {
                             final idQuery = query.substring(3).toLowerCase();
-                            return (tipper.dbkey
-                                    ?.toLowerCase()
-                                    .contains(idQuery) ??
+                            return (tipper.dbkey?.toLowerCase().contains(
+                                  idQuery,
+                                ) ??
                                 false);
                           }
 
-                          bool matches = (tipper
-                                  .name
-                                  .toLowerCase()
-                                  .contains(query)) ||
+                          bool matches =
+                              (tipper.name.toLowerCase().contains(query)) ||
                               (tipper.email?.toLowerCase().contains(query) ??
                                   false) ||
                               (tipper.logon?.toLowerCase().contains(query) ??
                                   false) ||
-                              (tipper.tipperRole.name
-                                  .toLowerCase()
-                                  .contains(query)) ||
-                              tipper.compsPaidFor.any((comp) =>
-                                  comp.name.toLowerCase().contains(query));
+                              (tipper.tipperRole.name.toLowerCase().contains(
+                                query,
+                              )) ||
+                              tipper.compsPaidFor.any(
+                                (comp) =>
+                                    comp.name.toLowerCase().contains(query),
+                              );
                           return isNegativeSearch ? !matches : matches;
                         }).toList();
                       }
@@ -202,9 +208,10 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                             itemBuilder: (context, index) {
                               var tipper = tippers[index];
 
-                              bool tipperPaidForCurrentComp =
-                                  tipper.paidForComp(
-                                      di<DAUCompsViewModel>().activeDAUComp);
+                              bool tipperPaidForCurrentComp = tipper
+                                  .paidForComp(
+                                    di<DAUCompsViewModel>().activeDAUComp,
+                                  );
 
                               // create the ListTile title by concatenating the tipper name and role. if the name is null, use 'new tipper'
                               String title =
@@ -213,10 +220,12 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                               return Card(
                                 child: ListTile(
                                   //if this tipper is in godmode then tint this ListTile in red
-                                  tileColor: tipperViewModel.inGodMode &&
+                                  tileColor:
+                                      tipperViewModel.inGodMode &&
                                           tipper.dbkey ==
                                               tipperViewModel
-                                                  .selectedTipper.dbkey
+                                                  .selectedTipper
+                                                  .dbkey
                                       ? Colors.red[100]
                                       : null,
                                   dense: true,
@@ -228,8 +237,10 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       if (tipperPaidForCurrentComp)
-                                        const Text('\$',
-                                            style: TextStyle(fontSize: 20)),
+                                        const Text(
+                                          '\$',
+                                          style: TextStyle(fontSize: 20),
+                                        ),
                                     ],
                                   ),
                                   title: Text(title),
@@ -245,7 +256,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                                       MaterialPageRoute(
                                         builder: (context) =>
                                             TipperAdminEditPage(
-                                                tipperViewModel, tipper),
+                                              tipperViewModel,
+                                              tipper,
+                                            ),
                                       ),
                                     );
                                   },
@@ -253,7 +266,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                               );
                             },
                           ),
-                        )
+                        ),
                       ],
                     );
                   },
@@ -277,7 +290,10 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     return Hero(
       tag: tipper.dbkey!,
       child: circleAvatarWithFallback(
-          imageUrl: tipper.photoURL, text: tipper.name, radius: 20),
+        imageUrl: tipper.photoURL,
+        text: tipper.name,
+        radius: 20,
+      ),
     );
   }
 }

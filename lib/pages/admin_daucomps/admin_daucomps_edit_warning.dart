@@ -22,10 +22,7 @@ class AdminDaucompsEditWarning extends StatelessWidget {
         children: [
           const Text(
             'Warning: Unassigned Games Detected!',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
           ),
           const SizedBox(height: 8.0),
           const Text(

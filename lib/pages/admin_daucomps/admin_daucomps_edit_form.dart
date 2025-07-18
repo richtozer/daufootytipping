@@ -12,7 +12,7 @@ class AdminDaucompsEditForm extends StatelessWidget {
   final TextEditingController nrlRegularCompEndDateController;
   final TextEditingController aflRegularCompEndDateController;
   final DAUCompsViewModel
-      dauCompsViewModel; // This is the dauCompsViewModeconsumer from parent
+  dauCompsViewModel; // This is the dauCompsViewModeconsumer from parent
   final VoidCallback onFormInteracted;
   final bool isLocallyMarkedActive; // New
   final Function(bool newValue) onActiveStatusChangedLocally; // New
@@ -42,8 +42,10 @@ class AdminDaucompsEditForm extends StatelessWidget {
           Row(
             children: [
               if (daucomp != null)
-                const Text('Active\nComp:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Active\nComp:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               if (daucomp != null)
                 Switch(
                   value: isLocallyMarkedActive,
@@ -52,8 +54,10 @@ class AdminDaucompsEditForm extends StatelessWidget {
                   },
                 ),
               if (daucomp != null) const SizedBox(width: 10),
-              const Text('Name: ',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Name: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               Expanded(
                 child: TextFormField(
                   controller: daucompNameController,
@@ -68,11 +72,13 @@ class AdminDaucompsEditForm extends StatelessWidget {
                     return null;
                   },
                 ),
-              )
+              ),
             ],
           ),
-          const Text('NRL json URL:',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'NRL json URL:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           Row(
             children: [
               Expanded(
@@ -90,11 +96,13 @@ class AdminDaucompsEditForm extends StatelessWidget {
                     return null;
                   },
                 ),
-              )
+              ),
             ],
           ),
-          const Text('AFL json URL:',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'AFL json URL:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           Row(
             children: [
               Expanded(
@@ -112,13 +120,15 @@ class AdminDaucompsEditForm extends StatelessWidget {
                     return null;
                   },
                 ),
-              )
+              ),
             ],
           ),
           Row(
             children: [
-              const Text('NRL Regular Comp Cutoff: ',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'NRL Regular Comp Cutoff: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               Expanded(
                 child: TextFormField(
                   controller: nrlRegularCompEndDateController,
@@ -136,8 +146,9 @@ class AdminDaucompsEditForm extends StatelessWidget {
                       lastDate: DateTime(2100),
                     );
                     if (date != null) {
-                      nrlRegularCompEndDateController.text =
-                          DateFormat('yyyy-MM-dd').format(date);
+                      nrlRegularCompEndDateController.text = DateFormat(
+                        'yyyy-MM-dd',
+                      ).format(date);
                       onFormInteracted();
                     }
                   },
@@ -164,8 +175,10 @@ class AdminDaucompsEditForm extends StatelessWidget {
           ),
           Row(
             children: [
-              const Text('AFL Regular Comp Cutoff: ',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'AFL Regular Comp Cutoff: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               Expanded(
                 child: TextFormField(
                   controller: aflRegularCompEndDateController,
@@ -183,8 +196,9 @@ class AdminDaucompsEditForm extends StatelessWidget {
                       lastDate: DateTime(2100),
                     );
                     if (date != null) {
-                      aflRegularCompEndDateController.text =
-                          DateFormat('yyyy-MM-dd').format(date);
+                      aflRegularCompEndDateController.text = DateFormat(
+                        'yyyy-MM-dd',
+                      ).format(date);
                       onFormInteracted();
                     }
                   },
@@ -212,8 +226,9 @@ class AdminDaucompsEditForm extends StatelessWidget {
           const SizedBox(height: 20.0),
           if (daucomp == null) ...[
             const Text(
-                'After adding a new comp name and URLs, click the save button and then reopen this record to see the round details.',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+              'After adding a new comp name and URLs, click the save button and then reopen this record to see the round details.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ],
       ),

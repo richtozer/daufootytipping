@@ -21,10 +21,14 @@ class LadderCalculationService {
     }
     // Count rounds where all games have scores
     int completedRounds = gamesByRound.values
-        .where((games) => games.every((g) =>
-            g.scoring != null &&
-            g.scoring!.homeTeamScore != null &&
-            g.scoring!.awayTeamScore != null))
+        .where(
+          (games) => games.every(
+            (g) =>
+                g.scoring != null &&
+                g.scoring!.homeTeamScore != null &&
+                g.scoring!.awayTeamScore != null,
+          ),
+        )
         .length;
 
     // Wait until at least 3 rounds are completed before showing ladder
@@ -39,7 +43,10 @@ class LadderCalculationService {
       // but it's a good safeguard.
       if (team.league == league) {
         ladderTeamsMap[team.dbkey] = LadderTeam(
-            dbkey: team.dbkey, teamName: team.name, logoURI: team.logoURI);
+          dbkey: team.dbkey,
+          teamName: team.name,
+          logoURI: team.logoURI,
+        );
       }
     }
 
@@ -59,7 +66,9 @@ class LadderCalculationService {
 
       if (homeLadderTeam == null || awayLadderTeam == null) {
         // This implies a team played in a game but wasn't in the initial leagueTeams list for that league.
-        log('Warning: Team data not found in ladderTeamsMap for game ${game.dbkey}. Home: ${game.homeTeam.name}, Away: ${game.awayTeam.name}');
+        log(
+          'Warning: Team data not found in ladderTeamsMap for game ${game.dbkey}. Home: ${game.homeTeam.name}, Away: ${game.awayTeam.name}',
+        );
         continue;
       }
 
@@ -116,13 +125,16 @@ class LadderCalculationService {
 
     // Create and sort the league ladder
     List<LadderTeam> finalLadderTeams = ladderTeamsMap.values.toList();
-    LeagueLadder leagueLadder =
-        LeagueLadder(league: league, teams: finalLadderTeams);
+    LeagueLadder leagueLadder = LeagueLadder(
+      league: league,
+      teams: finalLadderTeams,
+    );
     leagueLadder.sortLadder(); // Uses the sortLadder method from LeagueLadder
 
     // remove teams with 0 points, 0 played
-    leagueLadder.teams
-        .removeWhere((team) => team.points == 0 && team.played == 0);
+    leagueLadder.teams.removeWhere(
+      (team) => team.points == 0 && team.played == 0,
+    );
 
     return leagueLadder;
   }

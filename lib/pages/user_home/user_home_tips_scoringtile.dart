@@ -29,8 +29,10 @@ class ScoringTileState extends State<ScoringTile> {
   @override
   void initState() {
     super.initState();
-    di<StatsViewModel>()
-        .getGamesStatsEntry(widget.gameTipsViewModel.game, false);
+    di<StatsViewModel>().getGamesStatsEntry(
+      widget.gameTipsViewModel.game,
+      false,
+    );
   }
 
   @override
@@ -118,8 +120,9 @@ class ScoringTileState extends State<ScoringTile> {
   }
 
   Widget _buildTipRow(Tip? tip, League? league) {
-    final tipText =
-        league == League.nrl ? '${tip?.tip.nrl}' : '${tip?.tip.afl}';
+    final tipText = league == League.nrl
+        ? '${tip?.tip.nrl}'
+        : '${tip?.tip.afl}';
     final tipLabel = 'Your tip: ';
 
     return Padding(
@@ -136,12 +139,7 @@ class ScoringTileState extends State<ScoringTile> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
-                Flexible(
-                  child: Text(
-                    tipText,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                Flexible(child: Text(tipText, overflow: TextOverflow.ellipsis)),
                 if (widget.tip.isDefaultTip())
                   InkWell(
                     onTap: () {
@@ -246,10 +244,7 @@ class ScoringTileState extends State<ScoringTile> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Flexible(
-                    child: Text(
-                      averageText,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(averageText, overflow: TextOverflow.ellipsis),
                   ),
                 ],
               ),

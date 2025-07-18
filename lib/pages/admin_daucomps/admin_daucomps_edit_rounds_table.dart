@@ -6,7 +6,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_datetim
 class AdminDaucompsEditRoundsTable extends StatefulWidget {
   final List<DAURound> rounds;
   final Function(DAURound round, DateTime newDate, bool isStartDate)
-      onRoundDateChanged;
+  onRoundDateChanged;
 
   const AdminDaucompsEditRoundsTable({
     super.key,
@@ -113,13 +113,17 @@ class AdminDaucompsEditRoundsTableState
             ),
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,
-              child: Text('First kickoff',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'First kickoff',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,
-              child: Text('Last kickoff',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'Last kickoff',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,

@@ -6,8 +6,13 @@ class CrowdSourcedScore {
   final bool gameComplete;
 
   //constructor
-  const CrowdSourcedScore(this.submittedTimeUTC, this.scoreTeam, this.tipperID,
-      this.interimScore, this.gameComplete);
+  const CrowdSourcedScore(
+    this.submittedTimeUTC,
+    this.scoreTeam,
+    this.tipperID,
+    this.interimScore,
+    this.gameComplete,
+  );
 
   //tojson method
   Map<String, dynamic> toJson() {

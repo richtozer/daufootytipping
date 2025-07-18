@@ -21,7 +21,8 @@ class GameInfo extends StatelessWidget {
       }
     }
 
-    final kickoffText = game.gameState != GameState.notStarted &&
+    final kickoffText =
+        game.gameState != GameState.notStarted &&
             game.gameState != GameState.startingSoon
         ? 'Played: ${DateFormat('EEE d MMM').format(game.startTimeUTC.toLocal())}'
         : 'Kickoff: ${DateFormat('EEE dd MMM hh:mm').format(game.startTimeUTC.toLocal())}';

@@ -45,18 +45,21 @@ Future<void> main() async {
       androidProvider: AndroidProvider.playIntegrity,
       appleProvider: AppleProvider.appAttest,
       webProvider: ReCaptchaEnterpriseProvider(
-          '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'),
+        '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
+      ),
     );
     log('FirebaseAppCheck activated');
   } else {
     await FirebaseAppCheck.instance.activate(
-        androidProvider: AndroidProvider.debug,
-        appleProvider: AppleProvider.debug,
-        // webProvider: ReCaptchaEnterpriseProvider(
-        //     '6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'));
-        webProvider:
-            ReCaptchaEnterpriseProvider(//temporarily use prod key in debug
-                '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E'));
+      androidProvider: AndroidProvider.debug,
+      appleProvider: AppleProvider.debug,
+      // webProvider: ReCaptchaEnterpriseProvider(
+      //     '6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'));
+      webProvider: ReCaptchaEnterpriseProvider(
+        //temporarily use prod key in debug
+        '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
+      ),
+    );
     log('FirebaseAppCheck activated in debug mode');
   }
 
@@ -118,8 +121,9 @@ class MyApp extends StatelessWidget {
           // Set the maximum width of the app
           const maxWidth = 500.0; // Adjust this value as needed
           // Calculate the width to be used, ensuring it does not exceed maxWidth
-          final width =
-              constraints.maxWidth > maxWidth ? maxWidth : constraints.maxWidth;
+          final width = constraints.maxWidth > maxWidth
+              ? maxWidth
+              : constraints.maxWidth;
 
           return Center(
             child: SizedBox(
@@ -146,13 +150,18 @@ class MyApp extends StatelessWidget {
                           displaySignOutButton: false,
                         );
                       } else {
-                        di.registerLazySingleton<DAUCompsViewModel>(() =>
-                            DAUCompsViewModel(
-                                configViewModel.activeDAUComp!, false));
+                        di.registerLazySingleton<DAUCompsViewModel>(
+                          () => DAUCompsViewModel(
+                            configViewModel.activeDAUComp!,
+                            false,
+                          ),
+                        );
 
-                        di.registerLazySingleton<TippersViewModel>(() =>
-                            TippersViewModel(
-                                configViewModel.createLinkedTipper!));
+                        di.registerLazySingleton<TippersViewModel>(
+                          () => TippersViewModel(
+                            configViewModel.createLinkedTipper!,
+                          ),
+                        );
 
                         return UserAuthPage(
                           configViewModel.minAppVersion,

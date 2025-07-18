@@ -24,11 +24,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Widget> content() {
-    return [
-      TipsTab(),
-      StatsTab(),
-      Profile(),
-    ];
+    return [TipsTab(), StatsTab(), Profile()];
   }
 
   @override
@@ -40,100 +36,107 @@ class _HomePageState extends State<HomePage> {
       child: ChangeNotifierProvider<TippersViewModel>.value(
         value: di<TippersViewModel>(),
         child: Consumer<DAUCompsViewModel>(
-            builder: (context, dauCompsViewModelConsumer, child) {
-          return Consumer<TippersViewModel>(
+          builder: (context, dauCompsViewModelConsumer, child) {
+            return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-            if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
-                _currentIndex == 0) {
-              _currentIndex = 2;
-            }
+                if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
+                    _currentIndex == 0) {
+                  _currentIndex = 2;
+                }
 
-            Widget scaffold = Stack(children: [
-              ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                child: Image.asset(
-                  'assets/teams/grass with scoreboard.png',
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height,
-                  fit: BoxFit.fill,
-                ),
-              ),
-              Scaffold(
-                backgroundColor:
-                    MediaQuery.of(context).platformBrightness != Brightness.dark
-                        ? Colors.white54
-                        : Colors.black54,
-                body: Center(
-                  child: (destinationContent[_currentIndex]),
-                ),
-                bottomNavigationBar: NavigationBar(
-                  indicatorColor: Colors.lightGreen[200],
-                  indicatorShape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  onDestinationSelected: (int index) {
-                    onTabTapped(index);
-                  },
-                  selectedIndex: _currentIndex,
-                  height: 60,
-                  destinations: [
-                    NavigationDestination(
-                      icon: const Icon(Icons.sports_rugby_outlined),
-                      enabled:
-                          !tippersViewModelConsumer.selectedTipper.isAnonymous,
-                      label: MediaQuery.of(context).size.width > 400
-                          ? 'T  I  P  S'
-                          : 'TIPS',
+                Widget scaffold = Stack(
+                  children: [
+                    ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                      child: Image.asset(
+                        'assets/teams/grass with scoreboard.png',
+                        width: MediaQuery.of(context).size.width,
+                        height: MediaQuery.of(context).size.height,
+                        fit: BoxFit.fill,
+                      ),
                     ),
-                    NavigationDestination(
-                      enabled: true,
-                      icon: const Icon(Icons.auto_graph),
-                      label: MediaQuery.of(context).size.width > 400
-                          ? 'S  T  A  T  S'
-                          : 'STATS',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.person),
-                      label: MediaQuery.of(context).size.width > 400
-                          ? 'P  R  O  F  I  L  E'
-                          : 'PROFILE',
+                    Scaffold(
+                      backgroundColor:
+                          MediaQuery.of(context).platformBrightness !=
+                              Brightness.dark
+                          ? Colors.white54
+                          : Colors.black54,
+                      body: Center(child: (destinationContent[_currentIndex])),
+                      bottomNavigationBar: NavigationBar(
+                        indicatorColor: Colors.lightGreen[200],
+                        indicatorShape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        onDestinationSelected: (int index) {
+                          onTabTapped(index);
+                        },
+                        selectedIndex: _currentIndex,
+                        height: 60,
+                        destinations: [
+                          NavigationDestination(
+                            icon: const Icon(Icons.sports_rugby_outlined),
+                            enabled: !tippersViewModelConsumer
+                                .selectedTipper
+                                .isAnonymous,
+                            label: MediaQuery.of(context).size.width > 400
+                                ? 'T  I  P  S'
+                                : 'TIPS',
+                          ),
+                          NavigationDestination(
+                            enabled: true,
+                            icon: const Icon(Icons.auto_graph),
+                            label: MediaQuery.of(context).size.width > 400
+                                ? 'S  T  A  T  S'
+                                : 'STATS',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.person),
+                            label: MediaQuery.of(context).size.width > 400
+                                ? 'P  R  O  F  I  L  E'
+                                : 'PROFILE',
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              )
-            ]);
+                );
 
-            if (tippersViewModelConsumer.inGodMode) {
-              return Banner(
-                message: tippersViewModelConsumer.selectedTipper.name,
-                location: BannerLocation.bottomStart,
-                color: Colors.red,
-                child: Banner(
-                  message: 'God mode',
-                  location: BannerLocation.bottomEnd,
-                  color: Colors.red,
-                  child: scaffold,
-                ),
-              );
-            } else if (!dauCompsViewModelConsumer.isSelectedCompActiveComp()) {
-              String compYear = dauCompsViewModelConsumer.selectedDAUComp!.name;
-              RegExp regExp = RegExp(r'\d{4}');
-              Match? match = regExp.firstMatch(compYear);
-              if (match != null) {
-                compYear = match.group(0)!;
-              }
+                if (tippersViewModelConsumer.inGodMode) {
+                  return Banner(
+                    message: tippersViewModelConsumer.selectedTipper.name,
+                    location: BannerLocation.bottomStart,
+                    color: Colors.red,
+                    child: Banner(
+                      message: 'God mode',
+                      location: BannerLocation.bottomEnd,
+                      color: Colors.red,
+                      child: scaffold,
+                    ),
+                  );
+                } else if (!dauCompsViewModelConsumer
+                    .isSelectedCompActiveComp()) {
+                  String compYear =
+                      dauCompsViewModelConsumer.selectedDAUComp!.name;
+                  RegExp regExp = RegExp(r'\d{4}');
+                  Match? match = regExp.firstMatch(compYear);
+                  if (match != null) {
+                    compYear = match.group(0)!;
+                  }
 
-              return Banner(
-                  message: compYear,
-                  textStyle: const TextStyle(color: Colors.black),
-                  location: BannerLocation.bottomStart,
-                  color: Colors.orange,
-                  child: scaffold);
-            } else {
-              return scaffold;
-            }
-          });
-        }),
+                  return Banner(
+                    message: compYear,
+                    textStyle: const TextStyle(color: Colors.black),
+                    location: BannerLocation.bottomStart,
+                    color: Colors.orange,
+                    child: scaffold,
+                  );
+                } else {
+                  return scaffold;
+                }
+              },
+            );
+          },
+        ),
       ),
     );
   }

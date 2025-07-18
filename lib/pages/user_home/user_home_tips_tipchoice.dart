@@ -35,237 +35,270 @@ class _TipChoiceState extends State<TipChoice> {
 
   void _precalculateChoiceChips() {
     for (var result in GameResult.values) {
-      _choiceChipCache[result] =
-          generateChoiceChip(result, widget.gameTipViewModel, context);
+      _choiceChipCache[result] = generateChoiceChip(
+        result,
+        widget.gameTipViewModel,
+        context,
+      );
     }
   }
 
   void _precalculatePercentStatsChips() {
-    di<StatsViewModel>()
-        .getGamesStatsEntry(widget.gameTipViewModel.game, false);
+    di<StatsViewModel>().getGamesStatsEntry(
+      widget.gameTipViewModel.game,
+      false,
+    );
 
     for (var result in GameResult.values) {
       _choiceChipCache[result] = generatePercentStatsChip(
-          result,
-          widget.gameTipViewModel,
-          di<StatsViewModel>().gamesStatsEntry[widget.gameTipViewModel.game],
-          context);
+        result,
+        widget.gameTipViewModel,
+        di<StatsViewModel>().gamesStatsEntry[widget.gameTipViewModel.game],
+        context,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<StatsViewModel?, GameTipViewModel>(
-        builder: (context, consumerStatsViewModel, gameTipViewModel, child) {
-      if (consumerStatsViewModel == null) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      }
-      return Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
-              child: Row(
+      builder: (context, consumerStatsViewModel, gameTipViewModel, child) {
+        if (consumerStatsViewModel == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    !widget.isPercentStatsPage
+                        ? generateChoiceChip(
+                            GameResult.a,
+                            gameTipViewModel,
+                            context,
+                          )
+                        : generatePercentStatsChip(
+                            GameResult.a,
+                            gameTipViewModel,
+                            consumerStatsViewModel
+                                .gamesStatsEntry[gameTipViewModel.game],
+                            context,
+                          ),
+                    const SizedBox(width: 8),
+                    !widget.isPercentStatsPage
+                        ? generateChoiceChip(
+                            GameResult.b,
+                            gameTipViewModel,
+                            context,
+                          )
+                        : generatePercentStatsChip(
+                            GameResult.b,
+                            gameTipViewModel,
+                            consumerStatsViewModel
+                                .gamesStatsEntry[gameTipViewModel.game],
+                            context,
+                          ),
+                  ],
+                ),
+              ),
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   !widget.isPercentStatsPage
                       ? generateChoiceChip(
-                          GameResult.a, gameTipViewModel, context)
+                          GameResult.c,
+                          gameTipViewModel,
+                          context,
+                        )
                       : generatePercentStatsChip(
-                          GameResult.a,
+                          GameResult.c,
                           gameTipViewModel,
                           consumerStatsViewModel
                               .gamesStatsEntry[gameTipViewModel.game],
-                          context),
+                          context,
+                        ),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  !widget.isPercentStatsPage
+                      ? generateChoiceChip(
+                          GameResult.d,
+                          gameTipViewModel,
+                          context,
+                        )
+                      : generatePercentStatsChip(
+                          GameResult.d,
+                          gameTipViewModel,
+                          consumerStatsViewModel
+                              .gamesStatsEntry[gameTipViewModel.game],
+                          context,
+                        ),
                   const SizedBox(width: 8),
                   !widget.isPercentStatsPage
                       ? generateChoiceChip(
-                          GameResult.b, gameTipViewModel, context)
+                          GameResult.e,
+                          gameTipViewModel,
+                          context,
+                        )
                       : generatePercentStatsChip(
-                          GameResult.b,
+                          GameResult.e,
                           gameTipViewModel,
                           consumerStatsViewModel
                               .gamesStatsEntry[gameTipViewModel.game],
-                          context),
+                          context,
+                        ),
                 ],
               ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.c, gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.c,
-                        gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[gameTipViewModel.game],
-                        context),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.d, gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.d,
-                        gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[gameTipViewModel.game],
-                        context),
-                const SizedBox(width: 8),
-                !widget.isPercentStatsPage
-                    ? generateChoiceChip(
-                        GameResult.e, gameTipViewModel, context)
-                    : generatePercentStatsChip(
-                        GameResult.e,
-                        gameTipViewModel,
-                        consumerStatsViewModel
-                            .gamesStatsEntry[gameTipViewModel.game],
-                        context),
-              ],
-            ),
-          ],
-        ),
-      );
-    });
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  ChoiceChip generateChoiceChip(GameResult option,
-      GameTipViewModel gameTipsViewModel, BuildContext context) {
+  ChoiceChip generateChoiceChip(
+    GameResult option,
+    GameTipViewModel gameTipsViewModel,
+    BuildContext context,
+  ) {
     return ChoiceChip.elevated(
-      label: Text(gameTipsViewModel.game.league == League.afl
-          ? option.afl
-          : option.nrl),
+      label: Text(
+        gameTipsViewModel.game.league == League.afl ? option.afl : option.nrl,
+      ),
       tooltip: gameTipsViewModel.game.league == League.afl
           ? option.aflTooltip
           : option.nrlTooltip,
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
       selectedColor: Colors.lightGreen[500],
       selected:
           gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
-      onSelected: gameTipsViewModel.savingTip ? null : (bool selected) {
-        // ADD THIS CHECK:
-        if (widget.gameTipViewModel.currentTipper.isAnonymous) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: Colors.orange, // Or another appropriate color
-              content: Text(
-                  'Read-only mode: Tipping is disabled for anonymous users.'),
-            ),
-          );
-          return; // Prevent further processing
-        }
-
-        try {
-          if (gameTipsViewModel.allTipsViewModel.tipperViewModel.inGodMode) {
-            // show a modal dialog box to confirm they are tipping in god mode.
-            // if they confirm, then submit the tip
-            // if they cancel, then do nothing
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  icon: const Icon(Icons.warning),
-                  iconColor: Colors.red,
-                  title: const Text('Warning: God Mode'),
-                  content: const Text(
-                      'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change this tip later if needed.'),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Cancel'),
+      onSelected: gameTipsViewModel.savingTip
+          ? null
+          : (bool selected) {
+              // ADD THIS CHECK:
+              if (widget.gameTipViewModel.currentTipper.isAnonymous) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor:
+                        Colors.orange, // Or another appropriate color
+                    content: Text(
+                      'Read-only mode: Tipping is disabled for anonymous users.',
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Tip tip = Tip(
-                          tipper: gameTipsViewModel.currentTipper,
-                          game: gameTipsViewModel.game,
-                          tip: option,
-                          submittedTimeUTC: DateTime.now().toUtc(),
-                        );
-                        //add the god mode tip to the realtime firebase database
-                        gameTipsViewModel.addTip(tip);
-                      },
-                      child: const Text('Submit'),
-                    ),
-                  ],
+                  ),
                 );
-              },
-            );
+                return; // Prevent further processing
+              }
 
-            return;
-          }
+              try {
+                if (gameTipsViewModel
+                    .allTipsViewModel
+                    .tipperViewModel
+                    .inGodMode) {
+                  // show a modal dialog box to confirm they are tipping in god mode.
+                  // if they confirm, then submit the tip
+                  // if they cancel, then do nothing
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        icon: const Icon(Icons.warning),
+                        iconColor: Colors.red,
+                        title: const Text('Warning: God Mode'),
+                        content: const Text(
+                          'You are tipping in God Mode. Are you sure you want to submit this tip? You cannot revert back to no tip, but you can change this tip later if needed.',
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              Tip tip = Tip(
+                                tipper: gameTipsViewModel.currentTipper,
+                                game: gameTipsViewModel.game,
+                                tip: option,
+                                submittedTimeUTC: DateTime.now().toUtc(),
+                              );
+                              //add the god mode tip to the realtime firebase database
+                              gameTipsViewModel.addTip(tip);
+                            },
+                            child: const Text('Submit'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
 
-          // process a normal user tip
-          if (gameTipsViewModel.game.gameState ==
-                  GameState.startedResultKnown ||
-              gameTipsViewModel.game.gameState ==
-                  GameState.startedResultNotKnown) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Tipping for this game has closed.'),
-              ),
-            );
-            return;
-          }
-          if (gameTipsViewModel.tip != null &&
-              gameTipsViewModel.tip!.tip == option) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: Colors.orange,
-                content: Text(
-                    'Your tip [${gameTipsViewModel.game.league == League.afl ? gameTipsViewModel.tip!.tip.aflTooltip : gameTipsViewModel.tip!.tip.nrlTooltip}] has already been submitted.'),
-              ),
-            );
-          } else {
-            Tip tip = Tip(
-              tipper: gameTipsViewModel.currentTipper,
-              game: gameTipsViewModel.game,
-              tip: option,
-              submittedTimeUTC: DateTime.now().toUtc(),
-            );
-            //add the tip to the realtime firebase database
-            gameTipsViewModel.addTip(tip);
-          }
-        } catch (e) {
-          String msg = 'Error submitting tip: $e';
-          log(msg);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: Colors.red,
-              content: Text(msg),
-            ),
-          );
-        }
-      },
+                  return;
+                }
+
+                // process a normal user tip
+                if (gameTipsViewModel.game.gameState ==
+                        GameState.startedResultKnown ||
+                    gameTipsViewModel.game.gameState ==
+                        GameState.startedResultNotKnown) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: Colors.red,
+                      content: Text('Tipping for this game has closed.'),
+                    ),
+                  );
+                  return;
+                }
+                if (gameTipsViewModel.tip != null &&
+                    gameTipsViewModel.tip!.tip == option) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.orange,
+                      content: Text(
+                        'Your tip [${gameTipsViewModel.game.league == League.afl ? gameTipsViewModel.tip!.tip.aflTooltip : gameTipsViewModel.tip!.tip.nrlTooltip}] has already been submitted.',
+                      ),
+                    ),
+                  );
+                } else {
+                  Tip tip = Tip(
+                    tipper: gameTipsViewModel.currentTipper,
+                    game: gameTipsViewModel.game,
+                    tip: option,
+                    submittedTimeUTC: DateTime.now().toUtc(),
+                  );
+                  //add the tip to the realtime firebase database
+                  gameTipsViewModel.addTip(tip);
+                }
+              } catch (e) {
+                String msg = 'Error submitting tip: $e';
+                log(msg);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(backgroundColor: Colors.red, content: Text(msg)),
+                );
+              }
+            },
     );
   }
 
   ChoiceChip generatePercentStatsChip(
-      GameResult option,
-      GameTipViewModel gameTipsViewModel,
-      GameStatsEntry? gameStatsEntry,
-      BuildContext context) {
+    GameResult option,
+    GameTipViewModel gameTipsViewModel,
+    GameStatsEntry? gameStatsEntry,
+    BuildContext context,
+  ) {
     // Generate label based on GameResult option. Switch on option and display percentage tipped.
     String buttonText = '?';
     switch (option) {
@@ -299,8 +332,10 @@ class _TipChoiceState extends State<TipChoice> {
     }
 
     return ChoiceChip.elevated(
-      avatar: gameTipsViewModel.game.scoring
-                  ?.getGameResultCalculated(gameTipsViewModel.game.league) ==
+      avatar:
+          gameTipsViewModel.game.scoring?.getGameResultCalculated(
+                gameTipsViewModel.game.league,
+              ) ==
               option
           ? const Icon(Icons.emoji_events, color: Colors.black)
           : null,
@@ -308,9 +343,7 @@ class _TipChoiceState extends State<TipChoice> {
           ? const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.0,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2.0),
             )
           : Text(buttonText),
       tooltip: gameTipsViewModel.game.league == League.afl
@@ -318,9 +351,7 @@ class _TipChoiceState extends State<TipChoice> {
           : option.nrlTooltip,
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
       selectedColor: Colors.lightGreen[500],
       selected:
