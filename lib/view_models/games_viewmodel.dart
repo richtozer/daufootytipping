@@ -344,15 +344,18 @@ class GamesViewModel extends ChangeNotifier {
       Team opponentTeam;
       int teamScore;
       int opponentScore;
+      bool isHomeGame;
 
       if (game.homeTeam.dbkey == targetTeam.dbkey) {
         opponentTeam = game.awayTeam;
         teamScore = game.scoring!.homeTeamScore!;
         opponentScore = game.scoring!.awayTeamScore!;
+        isHomeGame = true;
       } else {
         opponentTeam = game.homeTeam;
         teamScore = game.scoring!.awayTeamScore!;
         opponentScore = game.scoring!.homeTeamScore!;
+        isHomeGame = false;
       }
 
       String result = _determineResult(game, targetTeam);
@@ -368,8 +371,85 @@ class GamesViewModel extends ChangeNotifier {
           ladderPoints: ladderPoints,
           gameDate: game.startTimeUTC,
           roundNumber: game.fixtureRoundNumber,
+          competitionName: null, // Current year method doesn't have competition name
+          isHomeGame: isHomeGame,
         ),
       );
+    }
+
+    // Sort results by gameDate in descending order
+    historyItems.sort((a, b) => b.gameDate.compareTo(a.gameDate));
+
+    return historyItems;
+  }
+
+  Future<List<TeamGameHistoryItem>> getCompleteTeamGameHistory(
+    Team targetTeam,
+    League league,
+  ) async {
+    await initialLoadComplete;
+    await _teamsViewModel.initialLoadComplete;
+
+    List<TeamGameHistoryItem> historyItems = [];
+    List<DAUComp> allDAUComps = _dauCompsViewModel.daucomps;
+
+    for (DAUComp dauComp in allDAUComps) {
+      if (dauComp.dbkey == null) continue;
+
+      List<Game> gamesFromThisDAUComp = await _fetchGamesForDAUCompKey(
+        dauComp.dbkey!,
+      );
+
+      // Filter games for the target team
+      List<Game> relevantGames = gamesFromThisDAUComp.where((game) {
+        bool isTargetTeamInvolved =
+            game.homeTeam.dbkey == targetTeam.dbkey ||
+            game.awayTeam.dbkey == targetTeam.dbkey;
+        bool isCorrectLeague = game.league == league;
+        bool hasScores =
+            game.scoring != null &&
+            game.scoring!.homeTeamScore != null &&
+            game.scoring!.awayTeamScore != null;
+        return isTargetTeamInvolved && isCorrectLeague && hasScores;
+      }).toList();
+
+      // Process filtered games
+      for (Game game in relevantGames) {
+        Team opponentTeam;
+        int teamScore;
+        int opponentScore;
+        bool isHomeGame;
+
+        if (game.homeTeam.dbkey == targetTeam.dbkey) {
+          opponentTeam = game.awayTeam;
+          teamScore = game.scoring!.homeTeamScore!;
+          opponentScore = game.scoring!.awayTeamScore!;
+          isHomeGame = true;
+        } else {
+          opponentTeam = game.homeTeam;
+          teamScore = game.scoring!.awayTeamScore!;
+          opponentScore = game.scoring!.homeTeamScore!;
+          isHomeGame = false;
+        }
+
+        String result = _determineResult(game, targetTeam);
+        int ladderPoints = _calculateLadderPoints(game, targetTeam, league);
+
+        historyItems.add(
+          TeamGameHistoryItem(
+            opponentName: opponentTeam.name,
+            opponentLogoUri: opponentTeam.logoURI,
+            teamScore: teamScore,
+            opponentScore: opponentScore,
+            result: result,
+            ladderPoints: ladderPoints,
+            gameDate: game.startTimeUTC,
+            roundNumber: game.fixtureRoundNumber,
+            competitionName: dauComp.name, // Add competition name for year grouping
+            isHomeGame: isHomeGame,
+          ),
+        );
+      }
     }
 
     // Sort results by gameDate in descending order

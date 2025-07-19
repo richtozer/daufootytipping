@@ -5,10 +5,12 @@ class TeamGameHistoryItem {
   final String? opponentLogoUri;
   final int teamScore; // Score of the team for whom the history is being viewed
   final int opponentScore;
-  final String result; // "W", "L", "D" (relative to the team)
+  final String result; // "Won", "Lost", "Draw" (relative to the team)
   final int ladderPoints; // Points earned by the team from this game
   final DateTime gameDate;
   final int roundNumber;
+  final String? competitionName; // Name of the competition/year for grouping
+  final bool isHomeGame; // Whether the team was playing at home
 
   TeamGameHistoryItem({
     required this.opponentName,
@@ -19,5 +21,7 @@ class TeamGameHistoryItem {
     required this.ladderPoints,
     required this.gameDate,
     required this.roundNumber,
+    this.competitionName,
+    required this.isHomeGame,
   });
 }
