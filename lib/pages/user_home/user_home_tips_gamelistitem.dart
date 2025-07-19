@@ -295,30 +295,36 @@ class _GameListItemState extends State<GameListItem> {
                             middleRowWidget: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                SvgPicture.asset(
-                                  gameTipsViewModelConsumer
-                                          .game
-                                          .homeTeam
-                                          .logoURI ??
-                                      (gameTipsViewModelConsumer.game.league ==
-                                              League.nrl
-                                          ? League.nrl.logo
-                                          : League.afl.logo),
-                                  width: 25,
-                                  height: 25,
+                                Hero(
+                                  tag: "team_icon_${gameTipsViewModelConsumer.game.homeTeam.dbkey}",
+                                  child: SvgPicture.asset(
+                                    gameTipsViewModelConsumer
+                                            .game
+                                            .homeTeam
+                                            .logoURI ??
+                                        (gameTipsViewModelConsumer.game.league ==
+                                                League.nrl
+                                            ? League.nrl.logo
+                                            : League.afl.logo),
+                                    width: 25,
+                                    height: 25,
+                                  ),
                                 ),
                                 const Text(textAlign: TextAlign.left, ' V '),
-                                SvgPicture.asset(
-                                  gameTipsViewModelConsumer
-                                          .game
-                                          .awayTeam
-                                          .logoURI ??
-                                      (gameTipsViewModelConsumer.game.league ==
-                                              League.nrl
-                                          ? League.nrl.logo
-                                          : League.afl.logo),
-                                  width: 25,
-                                  height: 25,
+                                Hero(
+                                  tag: "team_icon_${gameTipsViewModelConsumer.game.awayTeam.dbkey}",
+                                  child: SvgPicture.asset(
+                                    gameTipsViewModelConsumer
+                                            .game
+                                            .awayTeam
+                                            .logoURI ??
+                                        (gameTipsViewModelConsumer.game.league ==
+                                                League.nrl
+                                            ? League.nrl.logo
+                                            : League.afl.logo),
+                                    width: 25,
+                                    height: 25,
+                                  ),
                                 ),
                               ],
                             ),
@@ -655,7 +661,19 @@ class _TeamVersusDisplay extends StatelessWidget {
           textStyle: teamNameTextStyle,
           rankTextStyle: rankTextStyle,
         ),
-        if (showExtra) middleRowWidget,
+        // Always show middleRowWidget to ensure Hero widgets are present for animation
+        // but make it invisible when showExtra is false
+        showExtra 
+            ? middleRowWidget
+            : Opacity(
+                opacity: 0.0,
+                child: SizedBox(
+                  height: 0,
+                  child: IgnorePointer(
+                    child: middleRowWidget,
+                  ),
+                ),
+              ),
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.awayTeam.name,
           teamRank: showExtra ? displayAwayRank : null,

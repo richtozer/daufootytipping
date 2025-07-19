@@ -198,14 +198,15 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                       : "${widget.league.name.toUpperCase()} Premiership Ladder",
                 )
               : Container(), // Empty container if not in portrait
-          // Add Explanatory Text (conditionally, hide if it's a filtered view)
-          (orientation == Orientation.portrait &&
-                  (widget.teamDbKeysToDisplay == null ||
-                      widget.teamDbKeysToDisplay!.isEmpty))
+          // Add Explanatory Text (conditionally based on filtered vs full view)
+          orientation == Orientation.portrait
               ? Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Text(
-                    "This is the current ${widget.league.name.toUpperCase()} premiership ladder. Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
+                    (widget.teamDbKeysToDisplay != null &&
+                            widget.teamDbKeysToDisplay!.isNotEmpty)
+                        ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
+                        : "This is the current ${widget.league.name.toUpperCase()} premiership ladder. Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
                     textAlign: TextAlign.left,
                   ),
                 )
@@ -405,11 +406,14 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                         padding: const EdgeInsets.only(
                                           right: 6.0,
                                         ),
-                                        child: SvgPicture.asset(
-                                          ladderTeam.logoURI ??
-                                              'assets/images/default_logo.svg',
-                                          width: 28,
-                                          height: 28,
+                                        child: Hero(
+                                          tag: "team_icon_${ladderTeam.dbkey}",
+                                          child: SvgPicture.asset(
+                                            ladderTeam.logoURI ??
+                                                'assets/images/default_logo.svg',
+                                            width: 28,
+                                            height: 28,
+                                          ),
                                         ),
                                       ),
                                       Expanded(
