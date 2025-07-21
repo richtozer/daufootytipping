@@ -209,6 +209,34 @@ class TipsViewModel extends ChangeNotifier {
     return foundTip;
   }
 
+  /// Waits for a specific tip to be updated in the in-memory cache after database changes
+  /// This ensures stats calculations run on current data, not stale cache
+  Future<void> waitForTipUpdate(Tip expectedTip) async {
+    await initialLoadCompleted;
+    
+    // Wait for the database streaming listener to process the change
+    await Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      Tip? foundTip = _listOfTips.firstWhereOrNull(
+        (tip) => tip?.game.dbkey == expectedTip.game.dbkey && 
+                 tip?.tipper.dbkey == expectedTip.tipper.dbkey,
+      );
+      
+      // Continue waiting if tip not found or tip data doesn't match
+      if (foundTip == null) {
+        return true; // Keep waiting
+      }
+      
+      // Check if the tip data matches (comparing key fields)
+      bool tipMatches = foundTip.tip == expectedTip.tip &&
+                       foundTip.submittedTimeUTC.millisecondsSinceEpoch == 
+                       expectedTip.submittedTimeUTC.millisecondsSinceEpoch;
+      
+      return !tipMatches; // Stop waiting when tips match
+    });
+  }
+
   //delete a tip
   Future<void> deleteTip(Tip tip) async {
     await _db

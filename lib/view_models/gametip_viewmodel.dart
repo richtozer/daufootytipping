@@ -307,14 +307,18 @@ class GameTipViewModel extends ChangeNotifier {
       // Log the tip in Firestore
       _addLogOfTipToFirestore(tip);
 
-      // do a mini stats update (asyncronously) for this round and tipper to update tips outstanding counts
+      // Wait for the database change event to update the in-memory cache
+      // This ensures stats calculations use current data, not stale cache
+      await allTipsViewModel.waitForTipUpdate(tip);
+
+      // do a mini stats update
       di<StatsViewModel>().updateStats(
         _currentDAUComp,
         tip.game.getDAURound(_currentDAUComp),
         tip.tipper,
       );
 
-      // if we are in god mode, then also do a gamestats update
+      // if we are in god mode, then also do a gamestats update after main stats complete
       if (di<TippersViewModel>().inGodMode == true) {
         di<StatsViewModel>().getGamesStatsEntry(game, true);
       }
