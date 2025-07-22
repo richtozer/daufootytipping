@@ -10,6 +10,7 @@ import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -311,11 +312,13 @@ class GameTipViewModel extends ChangeNotifier {
       // This ensures stats calculations use current data, not stale cache
       await allTipsViewModel.waitForTipUpdate(tip);
 
-      // do a mini stats update
-      di<StatsViewModel>().updateStats(
-        _currentDAUComp,
-        tip.game.getDAURound(_currentDAUComp),
-        tip.tipper,
+      // Queue a scoring update instead of calling directly to prevent concurrency issues
+      // The queue will deduplicate multiple updates for the same tipper/round
+      ScoringUpdateQueue().queueScoringUpdate(
+        dauComp: _currentDAUComp,
+        round: tip.game.getDAURound(_currentDAUComp),
+        tipper: tip.tipper,
+        priority: 1, // Individual tip updates have lowest priority
       );
 
       // if we are in god mode, then also do a gamestats update after main stats complete
