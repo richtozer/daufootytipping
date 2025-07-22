@@ -3,6 +3,7 @@ import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:provider/provider.dart';
 
 class TeamsListPage extends StatelessWidget {
   final TeamsViewModel teamsViewModel;
@@ -24,60 +25,67 @@ class TeamsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        title: const Text('Admin Teams'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: ListView.builder(
-          itemCount: teamsViewModel.groupedTeams.length,
-          itemBuilder: (BuildContext context, int index) {
-            String league = teamsViewModel.groupedTeams.keys.elementAt(index);
-            List itemsInCategory = teamsViewModel.groupedTeams[league]!;
+    return ChangeNotifierProvider.value(
+      value: teamsViewModel,
+      child: Consumer<TeamsViewModel>(
+        builder: (context, teamsViewModelConsumer, child) {
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              title: const Text('Admin Teams'),
+            ),
+            body: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ListView.builder(
+                itemCount: teamsViewModelConsumer.groupedTeams.length,
+                itemBuilder: (BuildContext context, int index) {
+                  String league = teamsViewModelConsumer.groupedTeams.keys.elementAt(index);
+                  List itemsInCategory = teamsViewModelConsumer.groupedTeams[league]!;
 
-            // Return a widget representing the category and its items
-            return Column(
-              children: [
-                Text(
-                  league.toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const ClampingScrollPhysics(),
-                  itemCount: itemsInCategory.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    Team team = itemsInCategory[index];
-                    // Return a widget representing the item
-                    return ListTile(
-                      dense: true,
-                      leading: team.logoURI != null
-                          ? SvgPicture.asset(
-                              team.logoURI!,
-                              width: 30,
-                              height: 30,
-                            )
-                          : null,
-                      trailing: const Icon(Icons.edit),
-                      title: Text(team.name),
-                      onTap: () async {
-                        // Trigger edit functionality
-                        await _editTeam(team, teamsViewModel, context);
-                      },
-                    );
-                  },
-                ),
-              ],
-            );
-          },
-        ),
+                  // Return a widget representing the category and its items
+                  return Column(
+                    children: [
+                      Text(
+                        league.toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: itemsInCategory.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          Team team = itemsInCategory[index];
+                          // Return a widget representing the item
+                          return ListTile(
+                            dense: true,
+                            leading: team.logoURI != null
+                                ? SvgPicture.asset(
+                                    team.logoURI!,
+                                    width: 30,
+                                    height: 30,
+                                  )
+                                : null,
+                            trailing: const Icon(Icons.edit),
+                            title: Text(team.name),
+                            onTap: () async {
+                              // Trigger edit functionality
+                              await _editTeam(team, teamsViewModel, context);
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          );
+        },
       ),
     );
   }

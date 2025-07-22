@@ -23,6 +23,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
 
   late bool disableBackButton = false;
   late bool disableSaves = true;
+  late bool isSaving = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -40,6 +41,11 @@ class _TeamEditPageState extends State<TeamEditPage> {
   }
 
   void _saveTeam(BuildContext context, Team oldTeam) async {
+    setState(() {
+      isSaving = true;
+      disableBackButton = true;
+    });
+    
     try {
       //create a new temp team object to pass the changes to the viewmodel
       Team teamEdited = Team(
@@ -49,12 +55,16 @@ class _TeamEditPageState extends State<TeamEditPage> {
         logoURI: _teamLogoURIController.text,
       );
 
-      widget.teamsViewModel.editTeam(teamEdited);
+      await widget.teamsViewModel.editTeam(teamEdited);
 
       // navigate to the previous page
       if (context.mounted) Navigator.of(context).pop(true);
-      //}
     } on Exception {
+      setState(() {
+        isSaving = false;
+        disableBackButton = false;
+      });
+      
       if (context.mounted) {
         await showDialog(
           context: context,
@@ -98,24 +108,19 @@ class _TeamEditPageState extends State<TeamEditPage> {
           Builder(
             builder: (BuildContext context) {
               return IconButton(
-                icon: disableSaves
+                icon: isSaving
                     ? const Icon(Icons.hourglass_bottom)
-                    : const Icon(Icons.save),
-                onPressed: disableSaves
+                    : disableSaves
+                    ? const Icon(Icons.save_outlined) // Disabled save icon
+                    : const Icon(Icons.save), // Enabled save icon
+                onPressed: (disableSaves || isSaving)
                     ? null
                     : () async {
                         // Validate will return true if the form is valid, or false if
                         // the form is invalid.
                         final isValid = _formKey.currentState!.validate();
                         if (isValid) {
-                          setState(() {
-                            disableSaves = true;
-                          });
-                          disableBackButton = true;
                           _saveTeam(context, team);
-                          setState(() {
-                            disableSaves = false;
-                          });
                         }
                       },
               );

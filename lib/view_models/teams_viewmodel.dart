@@ -65,7 +65,7 @@ class TeamsViewModel extends ChangeNotifier {
     );
 
     if (originalTeam != null) {
-      _editExistingTeam(originalTeam, updatedTeam);
+      await _editExistingTeam(originalTeam, updatedTeam);
     } else {
       log(
         'Team: ${updatedTeam.dbkey} does not exist in the database, ignoring edit request',
@@ -73,7 +73,9 @@ class TeamsViewModel extends ChangeNotifier {
     }
 
     _savingTeam = false;
-    notifyListeners();
+    notifyListeners(); // Notify about _savingTeam state change
+    // Note: Team data UI update will be triggered by database listener in _listenToTeams()
+    // when the database change event is received
   }
 
   Future<void> _editExistingTeam(Team originalTeam, Team updatedTeam) async {
