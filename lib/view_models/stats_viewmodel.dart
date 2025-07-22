@@ -1411,6 +1411,36 @@ class StatsViewModel extends ChangeNotifier {
     _roundWinners = Map.fromEntries(sortedEntries);
   }
 
+  void sortRoundWinnersByMargins(bool ascending) {
+    var sortedEntries = _roundWinners.entries.toList()
+      ..sort(
+        (a, b) => ascending
+            ? (a.value[0].aflMargins + a.value[0].nrlMargins).compareTo(
+                b.value[0].aflMargins + b.value[0].nrlMargins,
+              )
+            : (b.value[0].aflMargins + b.value[0].nrlMargins).compareTo(
+                a.value[0].aflMargins + a.value[0].nrlMargins,
+              ),
+      );
+
+    _roundWinners = Map.fromEntries(sortedEntries);
+  }
+
+  void sortRoundWinnersByUPS(bool ascending) {
+    var sortedEntries = _roundWinners.entries.toList()
+      ..sort(
+        (a, b) => ascending
+            ? (a.value[0].aflUPS + a.value[0].nrlUPS).compareTo(
+                b.value[0].aflUPS + b.value[0].nrlUPS,
+              )
+            : (b.value[0].aflUPS + b.value[0].nrlUPS).compareTo(
+                a.value[0].aflUPS + a.value[0].nrlUPS,
+              ),
+      );
+
+    _roundWinners = Map.fromEntries(sortedEntries);
+  }
+
   RoundStats getScoringRoundStats(DAURound dauRound, Tipper selectedTipper) {
     if (_allTipperRoundStats.isEmpty) {
       return RoundStats(

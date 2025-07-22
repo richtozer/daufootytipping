@@ -278,13 +278,19 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
+      .asMap()
+      .entries
       .map(
-        (String column) => DataColumn2(
-          fixedWidth: column == 'Name' ? 175 : 70,
-          numeric: column == 'Name' ? false : true,
-          label: Text(softWrap: false, overflow: TextOverflow.fade, column),
-          onSort: onSort,
-        ),
+        (entry) {
+          int index = entry.key;
+          String column = entry.value;
+          return DataColumn2(
+            fixedWidth: column == 'Name' ? 175 : 70,
+            numeric: column == 'Name' ? false : true,
+            label: Text(softWrap: false, overflow: TextOverflow.fade, column),
+            onSort: (columnIndex, ascending) => onSort(index, ascending),
+          );
+        },
       )
       .toList();
 

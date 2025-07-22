@@ -27,6 +27,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   bool isAscending = false;
   int? sortColumnIndex = 0;
   int highestRoundNumber = 0;
+  List<RoundStats>? sortedScores;
 
   final List<String> columns = [
     'Round',
@@ -61,18 +62,24 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           // get scores for the selected tipper
-          List<RoundStats> scores = scoresViewModelConsumer
+          List<RoundStats> rawScores = scoresViewModelConsumer
               .getTipperRoundScoresForComp(widget.statsTipper);
           //do not display scores for rounds higher than the highest round number
-          scores.removeWhere(
+          rawScores.removeWhere(
             (element) => element.roundNumber > highestRoundNumber + 1,
           );
-          scores.sort(
-            (a, b) => b.roundNumber.compareTo(a.roundNumber),
-          ); // Initial sort
+          
+          // If sortedScores is null or data has changed, initialize with default sort
+          if (sortedScores == null || sortedScores!.length != rawScores.length) {
+            sortedScores = List.from(rawScores);
+            sortedScores!.sort(
+              (a, b) => b.roundNumber.compareTo(a.roundNumber),
+            ); // Initial sort - descending by round number
+          }
+          
           return buildScaffold(
             context,
-            scores,
+            sortedScores!,
             MediaQuery.of(context).size.width > 500,
           );
         },
@@ -231,38 +238,39 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   }
 
   void onSort(int columnIndex, bool ascending, List<RoundStats> scores) {
+    if (sortedScores == null) return;
+    
     switch (columnIndex) {
       case 0:
-        scores.sort(
+        sortedScores!.sort(
           (a, b) => ascending
               ? a.roundNumber.compareTo(b.roundNumber)
               : b.roundNumber.compareTo(a.roundNumber),
         );
-
         break;
       case 1:
-        scores.sort(
+        sortedScores!.sort(
           (a, b) => ascending
               ? (a.nrlScore + a.aflScore).compareTo(b.nrlScore + b.aflScore)
               : (b.nrlScore + b.aflScore).compareTo(a.nrlScore + a.aflScore),
         );
         break;
       case 2:
-        scores.sort(
+        sortedScores!.sort(
           (a, b) => ascending
               ? a.nrlScore.compareTo(b.nrlScore)
               : b.nrlScore.compareTo(a.nrlScore),
         );
         break;
       case 3:
-        scores.sort(
+        sortedScores!.sort(
           (a, b) => ascending
               ? a.aflScore.compareTo(b.aflScore)
               : b.aflScore.compareTo(a.aflScore),
         );
         break;
       case 4:
-        scores.sort(
+        sortedScores!.sort(
           (a, b) => ascending
               ? (a.aflMarginTips + a.nrlMarginTips).compareTo(
                   b.aflMarginTips + b.nrlMarginTips,
@@ -273,7 +281,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         );
         break;
       case 5:
-        scores.sort(
+        sortedScores!.sort(
           (a, b) => ascending
               ? (a.aflMarginUPS + a.nrlMarginUPS).compareTo(
                   b.aflMarginUPS + b.nrlMarginUPS,
@@ -293,18 +301,24 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   List<DataColumn> getColumns(List<String> columns, List<RoundStats> scores) =>
       columns
+          .asMap()
+          .entries
           .map(
-            (String column) => DataColumn2(
-              fixedWidth: column == 'Round'
-                  ? 75
-                  : column == 'Total' || column == 'Margins'
-                  ? 75
-                  : 60,
-              numeric: column != 'Round',
-              label: Text(column),
-              onSort: (columnIndex, ascending) =>
-                  onSort(columnIndex, ascending, scores),
-            ),
+            (entry) {
+              int index = entry.key;
+              String column = entry.value;
+              return DataColumn2(
+                fixedWidth: column == 'Round'
+                    ? 75
+                    : column == 'Total' || column == 'Margins'
+                    ? 75
+                    : 60,
+                numeric: column != 'Round',
+                label: Text(column),
+                onSort: (columnIndex, ascending) =>
+                    onSort(index, ascending, scores),
+              );
+            },
           )
           .toList();
 

@@ -340,17 +340,23 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
+      .asMap()
+      .entries
       .map(
-        (String column) => DataColumn2(
-          fixedWidth: column == 'Name'
-              ? 150
-              : column == '#\nrounds\nwon' || column == 'Margins'
-              ? 75
-              : 55,
-          numeric: column == 'Name' ? false : true,
-          label: Text(column),
-          onSort: onSort,
-        ),
+        (entry) {
+          int index = entry.key;
+          String column = entry.value;
+          return DataColumn2(
+            fixedWidth: column == 'Name'
+                ? 150
+                : column == '#\nrounds\nwon' || column == 'Margins'
+                ? 75
+                : 55,
+            numeric: column == 'Name' ? false : true,
+            label: Text(column),
+            onSort: (columnIndex, ascending) => onSort(index, ascending),
+          );
+        },
       )
       .toList();
 

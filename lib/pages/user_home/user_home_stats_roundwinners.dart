@@ -274,59 +274,57 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   }
 
   void onSort(int columnIndex, bool ascending) {
-    if (columnIndex == 0) {
-      // sort by round number
-      scoresViewModel.sortRoundWinnersByRoundNumber(ascending);
-      setState(() {
-        isAscending = ascending;
-        sortColumnIndex = columnIndex;
-      });
-    }
-    if (columnIndex == 1) {
-      // sort by winner
-      scoresViewModel.sortRoundWinnersByWinner(ascending);
-      setState(() {
-        isAscending = ascending;
-        sortColumnIndex = columnIndex;
-      });
-    }
-
-    if (columnIndex == 2) {
-      // sort by total
-      scoresViewModel.sortRoundWinnersByTotal(ascending);
-      setState(() {
-        isAscending = ascending;
-        sortColumnIndex = columnIndex;
-      });
-    }
-
-    if (columnIndex == 3) {
-      // sort by nrl
-      scoresViewModel.sortRoundWinnersByNRL(ascending);
-      setState(() {
-        isAscending = ascending;
-        sortColumnIndex = columnIndex;
-      });
+    switch (columnIndex) {
+      case 0:
+        // sort by round number
+        scoresViewModel.sortRoundWinnersByRoundNumber(ascending);
+        break;
+      case 1:
+        // sort by winner
+        scoresViewModel.sortRoundWinnersByWinner(ascending);
+        break;
+      case 2:
+        // sort by total
+        scoresViewModel.sortRoundWinnersByTotal(ascending);
+        break;
+      case 3:
+        // sort by nrl
+        scoresViewModel.sortRoundWinnersByNRL(ascending);
+        break;
+      case 4:
+        // sort by afl
+        scoresViewModel.sortRoundWinnersByAFL(ascending);
+        break;
+      case 5:
+        // sort by margins
+        scoresViewModel.sortRoundWinnersByMargins(ascending);
+        break;
+      case 6:
+        // sort by ups
+        scoresViewModel.sortRoundWinnersByUPS(ascending);
+        break;
     }
 
-    if (columnIndex == 4) {
-      // sort by afl
-      scoresViewModel.sortRoundWinnersByAFL(ascending);
-      setState(() {
-        isAscending = ascending;
-        sortColumnIndex = columnIndex;
-      });
-    }
+    setState(() {
+      isAscending = ascending;
+      sortColumnIndex = columnIndex;
+    });
   }
 
   List<DataColumn> getColumns(List<String> columns) => columns
+      .asMap()
+      .entries
       .map(
-        (String column) => DataColumn2(
-          fixedWidth: column == 'Winner' ? 150 : 50,
-          numeric: column == 'Winner' || column == 'Round' ? false : true,
-          label: Text(column),
-          onSort: onSort,
-        ),
+        (entry) {
+          int index = entry.key;
+          String column = entry.value;
+          return DataColumn2(
+            fixedWidth: column == 'Winner' ? 150 : 50,
+            numeric: column == 'Winner' || column == 'Round' ? false : true,
+            label: Text(column),
+            onSort: (columnIndex, ascending) => onSort(index, ascending),
+          );
+        },
       )
       .toList();
 

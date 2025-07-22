@@ -384,39 +384,42 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
     setState(() {
       sortColumnIndex = columnIndex;
-      isAscending = ascending;
+      // For the Cng column (index 2), invert the ascending indicator to match the inverted sort
+      isAscending = columnIndex == 2 ? !ascending : ascending;
     });
   }
 
   List<DataColumn> getColumns(List<String> columns) =>
-      columns.map((String column) {
+      columns.asMap().entries.map((entry) {
+        int index = entry.key;
+        String column = entry.value;
         if (column == 'Name') {
           return DataColumn2(
             fixedWidth: 140,
             numeric: false,
             label: Text(column),
-            onSort: onSort,
+            onSort: (columnIndex, ascending) => onSort(index, ascending),
           );
         } else if (column == 'Cng') {
           return DataColumn2(
             fixedWidth: 45,
             numeric: true,
             label: Text(column),
-            onSort: onSort,
+            onSort: (columnIndex, ascending) => onSort(index, !ascending),
           );
         } else if (column == 'Rank') {
           return DataColumn2(
             fixedWidth: 50,
             numeric: true,
             label: Text(column),
-            onSort: onSort,
+            onSort: (columnIndex, ascending) => onSort(index, ascending),
           );
         } else {
           return DataColumn2(
             fixedWidth: 50,
             numeric: true,
             label: Text(column),
-            onSort: onSort,
+            onSort: (columnIndex, ascending) => onSort(index, ascending),
           );
         }
       }).toList();
