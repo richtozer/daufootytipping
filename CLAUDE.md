@@ -113,6 +113,7 @@ Your code must be 100% clean. No exceptions.
 - **Expensive Build methods** Make sure build methods do not wait on expensive methods
 
 ## Implementation Standards
+ Use the "Database-First with Reactive Listeners" pattern for all state changes that need to persist in the database
 
 ### Our code is complete when:
 - ✅ All linters pass with zero issues (`flutter analyze`)
