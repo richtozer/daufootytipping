@@ -229,29 +229,25 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                         left: 0,
                         right: 0,
                         child: Container(
-                          height: 50.0,
                           margin: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).primaryColor.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(8.0),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 4.0,
-                                offset: const Offset(0, 2),
+                          child: Card(
+                            color: Colors.black54,
+                            surfaceTintColor: widget.league.colour,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Center(
+                                child: Text(
+                                  _currentYear,
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white70,
+                                      ),
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              _currentYear,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
                             ),
                           ),
                         ),
@@ -335,7 +331,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            // Result icon and label
+            // 1. Result icon and label (Lost/Won/Draw)
             Column(
               children: [
                 Icon(resultIcon, color: resultColor, size: 24),
@@ -352,9 +348,49 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
             ),
             const SizedBox(width: 12),
 
-            // Round and Home/Away info
+            // 2. Opponent name (v Team B)
+            Expanded(
+              flex: 2,
+              child: Text(
+                'v. ${game.opponentName}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // 3. Opponent logo
+            if (game.opponentLogoUri != null &&
+                game.opponentLogoUri!.isNotEmpty)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: SvgPicture.asset(
+                  game.opponentLogoUri!,
+                  placeholderBuilder: (context) =>
+                      Icon(Icons.shield, size: 20, color: Colors.grey[400]),
+                ),
+              )
+            else
+              Icon(Icons.shield, size: 20, color: Colors.grey[400]),
+            const SizedBox(width: 12),
+
+            // 4. Game score (removed pts underneath)
+            Text(
+              '${game.teamScore} - ${game.opponentScore}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // 5. Round and Home/Away info
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'Round ${game.roundNumber}',
@@ -393,56 +429,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
             ),
             const SizedBox(width: 12),
 
-            // Opponent name
-            Expanded(
-              flex: 2,
-              child: Text(
-                'v. ${game.opponentName}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Opponent logo
-            if (game.opponentLogoUri != null &&
-                game.opponentLogoUri!.isNotEmpty)
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: SvgPicture.asset(
-                  game.opponentLogoUri!,
-                  placeholderBuilder: (context) =>
-                      Icon(Icons.shield, size: 20, color: Colors.grey[400]),
-                ),
-              )
-            else
-              Icon(Icons.shield, size: 20, color: Colors.grey[400]),
-            const SizedBox(width: 12),
-
-            // Score and points
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${game.teamScore} - ${game.opponentScore}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  '${game.ladderPoints} pts',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-
-            // Date
+            // 6. Date
             Text(
               _formatDate(game.gameDate),
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
