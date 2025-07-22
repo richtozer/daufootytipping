@@ -66,101 +66,124 @@ class _TipChoiceState extends State<TipChoice> {
         if (consumerStatsViewModel == null) {
           return const Center(child: CircularProgressIndicator());
         }
-        return Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    !widget.isPercentStatsPage
-                        ? generateChoiceChip(
-                            GameResult.a,
-                            gameTipViewModel,
-                            context,
-                          )
-                        : generatePercentStatsChip(
-                            GameResult.a,
-                            gameTipViewModel,
-                            consumerStatsViewModel
-                                .gamesStatsEntry[gameTipViewModel.game],
-                            context,
-                          ),
-                    const SizedBox(width: 8),
-                    !widget.isPercentStatsPage
-                        ? generateChoiceChip(
-                            GameResult.b,
-                            gameTipViewModel,
-                            context,
-                          )
-                        : generatePercentStatsChip(
-                            GameResult.b,
-                            gameTipViewModel,
-                            consumerStatsViewModel
-                                .gamesStatsEntry[gameTipViewModel.game],
-                            context,
-                          ),
-                  ],
+        return Stack(
+          children: [
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        !widget.isPercentStatsPage
+                            ? generateChoiceChip(
+                                GameResult.a,
+                                gameTipViewModel,
+                                context,
+                              )
+                            : generatePercentStatsChip(
+                                GameResult.a,
+                                gameTipViewModel,
+                                consumerStatsViewModel
+                                    .gamesStatsEntry[gameTipViewModel.game],
+                                context,
+                              ),
+                        const SizedBox(width: 8),
+                        !widget.isPercentStatsPage
+                            ? generateChoiceChip(
+                                GameResult.b,
+                                gameTipViewModel,
+                                context,
+                              )
+                            : generatePercentStatsChip(
+                                GameResult.b,
+                                gameTipViewModel,
+                                consumerStatsViewModel
+                                    .gamesStatsEntry[gameTipViewModel.game],
+                                context,
+                              ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      !widget.isPercentStatsPage
+                          ? generateChoiceChip(
+                              GameResult.c,
+                              gameTipViewModel,
+                              context,
+                            )
+                          : generatePercentStatsChip(
+                              GameResult.c,
+                              gameTipViewModel,
+                              consumerStatsViewModel
+                                  .gamesStatsEntry[gameTipViewModel.game],
+                              context,
+                            ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      !widget.isPercentStatsPage
+                          ? generateChoiceChip(
+                              GameResult.d,
+                              gameTipViewModel,
+                              context,
+                            )
+                          : generatePercentStatsChip(
+                              GameResult.d,
+                              gameTipViewModel,
+                              consumerStatsViewModel
+                                  .gamesStatsEntry[gameTipViewModel.game],
+                              context,
+                            ),
+                      const SizedBox(width: 8),
+                      !widget.isPercentStatsPage
+                          ? generateChoiceChip(
+                              GameResult.e,
+                              gameTipViewModel,
+                              context,
+                            )
+                          : generatePercentStatsChip(
+                              GameResult.e,
+                              gameTipViewModel,
+                              consumerStatsViewModel
+                                  .gamesStatsEntry[gameTipViewModel.game],
+                              context,
+                            ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (gameTipViewModel.savingTip)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3.0,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  !widget.isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.c,
-                          gameTipViewModel,
-                          context,
-                        )
-                      : generatePercentStatsChip(
-                          GameResult.c,
-                          gameTipViewModel,
-                          consumerStatsViewModel
-                              .gamesStatsEntry[gameTipViewModel.game],
-                          context,
-                        ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  !widget.isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.d,
-                          gameTipViewModel,
-                          context,
-                        )
-                      : generatePercentStatsChip(
-                          GameResult.d,
-                          gameTipViewModel,
-                          consumerStatsViewModel
-                              .gamesStatsEntry[gameTipViewModel.game],
-                          context,
-                        ),
-                  const SizedBox(width: 8),
-                  !widget.isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.e,
-                          gameTipViewModel,
-                          context,
-                        )
-                      : generatePercentStatsChip(
-                          GameResult.e,
-                          gameTipViewModel,
-                          consumerStatsViewModel
-                              .gamesStatsEntry[gameTipViewModel.game],
-                          context,
-                        ),
-                ],
-              ),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -173,7 +196,9 @@ class _TipChoiceState extends State<TipChoice> {
   ) {
     return ChoiceChip.elevated(
       label: Text(
-        gameTipsViewModel.game.league == League.afl ? option.afl : option.nrl,
+        gameTipsViewModel.game.league == League.afl
+            ? option.afl
+            : option.nrl,
       ),
       tooltip: gameTipsViewModel.game.league == League.afl
           ? option.aflTooltip
