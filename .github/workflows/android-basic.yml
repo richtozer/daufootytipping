@@ -1,0 +1,78 @@
+name: Android Basic Build
+
+# This is a simplified version that just builds and uploads artifacts
+# Use this if you want to start simple without Firebase/Play Store integration
+
+on:
+  push:
+    branches: [ testing, main ]
+  pull_request:
+    branches: [ testing, main ]
+  workflow_dispatch: # Allow manual triggers
+
+jobs:
+  build:
+    name: Build Android App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Verify the installation
+        run: flutter doctor -v
+
+      - name: Run analyzer
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build APK (Debug) for testing branch
+        if: github.ref == 'refs/heads/testing'
+        run: flutter build apk --debug
+
+      - name: Build APK (Release) for main branch
+        if: github.ref == 'refs/heads/main'
+        run: flutter build apk --release
+
+      - name: Build AAB (Release) for main branch
+        if: github.ref == 'refs/heads/main'
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-${{ github.ref_name }}-${{ github.run_number }}
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Build Summary
+        run: |
+          echo "## Build Summary 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Number**: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Created:" >> $GITHUB_STEP_SUMMARY
+          find build/app/outputs -name "*.apk" -o -name "*.aab" | while read file; do
+            size=$(ls -lh "$file" | awk '{print $5}')
+            echo "- $(basename "$file") ($size)" >> $GITHUB_STEP_SUMMARY
+          done
