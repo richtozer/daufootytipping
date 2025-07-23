@@ -49,10 +49,6 @@ class _GameListItemState extends State<GameListItem> {
   late final GameTipViewModel gameTipsViewModel;
   // LeagueLadder? _calculatedLadder; // Scoped locally to _fetchAndSetLadderRanks
 
-  // State variables for historical data
-  List<HistoricalMatchupUIData>? _historicalData;
-  bool _isLoadingHistoricalData = false;
-  bool _historicalDataError = false;
 
   // New state variables for ladder ranks
   String? _homeOrdinalRankLabel;
@@ -81,29 +77,6 @@ class _GameListItemState extends State<GameListItem> {
     });
   }
 
-  Future<void> _fetchHistoricalData() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoadingHistoricalData = true;
-      _historicalDataError = false;
-    });
-
-    try {
-      final data = await gameTipsViewModel.getFormattedHistoricalMatchups();
-      if (!mounted) return;
-      setState(() {
-        _historicalData = data;
-        _isLoadingHistoricalData = false;
-      });
-    } catch (e) {
-      log('Error fetching historical matchups: $e');
-      if (!mounted) return;
-      setState(() {
-        _historicalDataError = true;
-        _isLoadingHistoricalData = false;
-      });
-    }
-  }
 
   Future<void> _fetchAndSetLadderRanks() async {
     if (!mounted) return;
@@ -347,15 +320,8 @@ class _GameListItemState extends State<GameListItem> {
                           enlargeCenterPage: true,
                           enlargeStrategy: CenterPageEnlargeStrategy.zoom,
                           enableInfiniteScroll: false,
-                          onPageChanged: (index, reason) {
-                            // Start pulling historical data after the first item
-                            if (_historicalData == null &&
-                                !_isLoadingHistoricalData &&
-                                !_historicalDataError &&
-                                index >= 1) {
-                              _fetchHistoricalData();
-                            }
-                          },
+                          // Removed historical data fetching
+                          onPageChanged: (index, reason) {}, // No longer needed
                         ),
                         items: carouselItems(
                           gameTipsViewModelConsumer,
@@ -428,45 +394,7 @@ class _GameListItemState extends State<GameListItem> {
       ), // Game Info card
     ];
 
-    // Add historical matchup cards or loading/error indicators for all game states
-    if (_isLoadingHistoricalData) {
-      cards.add(
-        Card(
-          child: SizedBox(
-            height: 100,
-            child: Center(
-              child: CircularProgressIndicator(color: League.nrl.colour),
-            ),
-          ),
-        ),
-      );
-    } else if (_historicalDataError) {
-      cards.add(
-        Card(
-          child: SizedBox(
-            height: 100,
-            child: Center(child: Text("Error loading history.")),
-          ),
-        ),
-      );
-    } else if (_historicalData != null && _historicalData!.isNotEmpty) {
-      final matchupsToShow = _historicalData!.take(3).toList();
-      int totalMatchupsInList = matchupsToShow.length;
-      for (var entry in matchupsToShow.asMap().entries) {
-        int index = entry.key;
-        HistoricalMatchupUIData matchupData = entry.value;
-        cards.add(
-          _buildSingleHistoricalMatchupCard(
-            matchupData,
-            index,
-            totalMatchupsInList,
-          ),
-        );
-      }
-    } else if (_historicalData != null && _historicalData!.isEmpty) {
-      // Optionally, add a card indicating no historical data found if preferred over silence
-    }
-    // If _historicalData is null (initial state before onPageChanged triggers fetch), no historical cards are added yet.
+    // Historical matchup cards removed - now available in team comparison page
 
     // For games underway or ended, add scoring tile at the start
     if (gameTipsViewModelConsumer.game.gameState ==
@@ -479,69 +407,7 @@ class _GameListItemState extends State<GameListItem> {
     return cards;
   }
 
-  Widget _buildSingleHistoricalMatchupCard(
-    HistoricalMatchupUIData matchupData,
-    int index,
-    int totalMatchupsInList,
-  ) {
-    String outcomeString;
-    if (matchupData.winningTeamName == "Draw") {
-      outcomeString = "Match was a Draw";
-    } else {
-      outcomeString =
-          "${matchupData.winningTeamName} won (${matchupData.winType})";
-    }
-
-    return Card(
-      elevation: 1.0,
-      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-      child: Padding(
-        padding: const EdgeInsets.all(6.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Prev. matchup ${index + 1}/$totalMatchupsInList',
-                style: const TextStyle(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.bold,
-                ),
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2.0),
-              Text(
-                'Date: ${matchupData.isCurrentYear ? matchupData.month : "${matchupData.month} ${matchupData.year}"}',
-                style: const TextStyle(fontSize: 11.0),
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                'Outcome: $outcomeString',
-                style: const TextStyle(fontSize: 11.0),
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                'Venue: ${matchupData.location}',
-                style: const TextStyle(fontSize: 11.0),
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                'Your tip: ${matchupData.userTipTeamName.isNotEmpty ? matchupData.userTipTeamName : "N/A"}',
-                style: const TextStyle(fontSize: 11.0),
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // Historical matchup card builder removed - functionality moved to team comparison page
 
   FutureBuilder<dynamic> scoringTileBuilder(
     GameTipViewModel gameTipsViewModelConsumer,
