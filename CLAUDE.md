@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Development Partnership
 
 We're building production-quality Flutter/Dart code together. Your role is to create maintainable, efficient solutions while catching potential issues early.
@@ -82,6 +86,59 @@ Your code must be 100% clean. No exceptions.
 - [ ] What comes next
 ```
 
+## Codebase Architecture
+
+### Technology Stack
+- **Frontend**: Flutter/Dart (SDK >=3.8.0)
+- **Backend**: Firebase (Realtime Database, Firestore, Cloud Functions, Auth, Analytics, Crashlytics)
+- **State Management**: Provider pattern with ChangeNotifier
+- **Dependency Injection**: watch_it/get_it service locator pattern
+
+### Core Architecture Pattern
+**"Database-First with Reactive Listeners"** - All state changes that persist use Firebase streams with reactive UI updates.
+
+### ViewModel Dependency Tree (from README.md)
+```
+DAUCompsViewModel (root)
+├── GamesViewModel
+├── StatsViewModel  
+├── TipsViewModel
+├── TippersViewModel
+└── FixtureDownloadService
+
+GameTipsViewModel
+├── TipsViewModel
+├── DAUCompsViewModel
+└── ScoringViewModel
+```
+
+### Development Commands
+```bash
+# Development with Firebase emulators
+firebase emulators:start
+
+# Standard Flutter commands
+flutter pub get
+flutter clean
+flutter analyze         # MANDATORY - must pass
+flutter test           # MANDATORY - must pass
+dart format lib/       # MANDATORY - must pass
+
+# Firebase deployment
+firebase deploy --only hosting
+flutter build appbundle
+
+# Video tutorial on Firebase integration:
+# https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
+```
+
+### Current State (See TODO.md)
+- **18 failing tests** - Week 1 priority to fix
+- 26 files with dynamic types needing concrete types
+- 24 unnecessary StatefulWidgets to convert
+- 30+ widgets missing const constructors
+- Large complex widgets need decomposition (650+ lines)
+
 ## Flutter/Dart-Specific Rules
 
 ### FORBIDDEN - NEVER DO THESE:
@@ -113,7 +170,7 @@ Your code must be 100% clean. No exceptions.
 - **Expensive Build methods** Make sure build methods do not wait on expensive methods
 
 ## Implementation Standards
- Use the "Database-First with Reactive Listeners" pattern for all state changes that need to persist in the database
+Use the "Database-First with Reactive Listeners" pattern for all state changes that need to persist in the database
 
 ### Our code is complete when:
 - ✅ All linters pass with zero issues (`flutter analyze`)
