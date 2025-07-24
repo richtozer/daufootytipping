@@ -249,7 +249,7 @@ class StatsViewModel extends ChangeNotifier {
             Map<String, dynamic>.from(entry.value),
           );
           if (game!.scoring == null) {
-            game.scoring = scoring;
+            game.scoring = Scoring(croudSourcedScores: scoring.croudSourcedScores);
           } else {
             game.scoring?.croudSourcedScores = scoring.croudSourcedScores;
           }
