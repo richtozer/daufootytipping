@@ -107,6 +107,12 @@ class GamesViewModel extends ChangeNotifier {
           );
           game.scoring = scoring;
 
+          // If official scores have arrived, delete live scores immediately
+          if (scoring.homeTeamScore != null && scoring.awayTeamScore != null) {
+            // Schedule deletion asynchronously to avoid blocking the main processing
+            Future.microtask(() => di<StatsViewModel>().deleteGameLiveScores(game));
+          }
+
           return game;
         }).toList();
 
@@ -543,6 +549,12 @@ class GamesViewModel extends ChangeNotifier {
                 awayTeam,
               );
               game.scoring = scoring;
+
+              // If official scores have arrived, delete live scores immediately
+              if (scoring.homeTeamScore != null && scoring.awayTeamScore != null) {
+                // Schedule deletion asynchronously to avoid blocking the main processing
+                Future.microtask(() => di<StatsViewModel>().deleteGameLiveScores(game));
+              }
               return game;
             })
             .whereType<Game>()
@@ -636,6 +648,7 @@ class GamesViewModel extends ChangeNotifier {
 
     return relevantGames;
   }
+
 
   @override
   void dispose() {
