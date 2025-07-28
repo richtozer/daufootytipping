@@ -25,10 +25,10 @@ To ensure all changes are safe, robust, and maintainable, the following workflow
 - For state management, adhere to the architectural goals outlined in Section 2.
 
 ### Step 5: Mandatory Verification
-- After any code modification, I must run the following commands and report their results:
-  1.  `flutter test`: To run all unit and widget tests.
-  2.  `flutter analyze`: To check for static analysis warnings, errors, and lints.
-- **A task is not complete until all tests pass and `flutter analyze` reports no issues.** I will not consider my job done until these checks are clean.
+- After any code modification, I must run the following commands in order and report their results:
+  1.  `flutter analyze`: To check for static analysis warnings, errors, and lints first.
+  2.  `flutter test`: To run all unit and widget tests.
+- **A task is not complete until `flutter analyze` reports no issues and all tests pass.** I will not consider my job done until these checks are clean.
 
 ---
 
@@ -82,8 +82,8 @@ watch_it: ^1.4.0
 # Essential Flutter commands
 flutter pub get                    # Install dependencies
 flutter run                       # Run app in development
-flutter test                      # Run all tests (Mandatory after changes)
-flutter analyze                   # Run static analysis (Mandatory after changes)
+flutter analyze                   # Run static analysis (Mandatory before testing)
+flutter test                      # Run all tests (Mandatory after analysis passes)
 flutter clean                     # Clean build cache
 ```
 ---
