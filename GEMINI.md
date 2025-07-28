@@ -76,7 +76,7 @@ lib/
 - **Frontend**: Flutter (Dart SDK >=3.1.5 <4.0.0)
 - **Backend**: Firebase (Realtime Database, Firestore, Authentication, Cloud Functions, Messaging)
 - **State Management**: **Riverpod** (migrating from Provider/get_it/watch_it)
-- **Testing**: Flutter test framework with Mockito
+- **Testing**: Flutter test framework with Mocktail
 
 ### Key Dependencies (Aspirational)
 The goal is to consolidate around the following core packages.

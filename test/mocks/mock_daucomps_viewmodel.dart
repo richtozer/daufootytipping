@@ -1,5 +1,4 @@
-import 'package:mockito/annotations.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 
-@GenerateMocks([DAUCompsViewModel])
-void main() {}
+class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
