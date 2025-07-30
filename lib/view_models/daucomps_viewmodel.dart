@@ -205,17 +205,21 @@ class DAUCompsViewModel extends ChangeNotifier {
     await initialDAUCompLoadComplete;
 
     gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
-    gamesViewModel!.addListener(_otherViewModelUpdated);
 
     //await the TippersViewModel to be initialized
     await di<TippersViewModel>().initialLoadComplete;
 
     await di<TippersViewModel>().isUserLinked;
 
-    di.registerLazySingleton<StatsViewModel>(
-      () => StatsViewModel(_selectedDAUComp!, gamesViewModel),
+    if (di.isRegistered<StatsViewModel>()) {
+      di.unregister<StatsViewModel>();
+    }
+    di.registerSingleton<StatsViewModel>(
+      StatsViewModel(_selectedDAUComp!, gamesViewModel!),
     );
     statsViewModel = di<StatsViewModel>();
+
+    gamesViewModel!.addListener(_otherViewModelUpdated);
     statsViewModel!.addListener(_otherViewModelUpdated);
 
     selectedTipperTipsViewModel = TipsViewModel.forTipper(
@@ -229,8 +233,16 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _initializeAdminViewModels() async {
     gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
+
+    if (di.isRegistered<StatsViewModel>()) {
+      di.unregister<StatsViewModel>();
+    }
+    di.registerSingleton<StatsViewModel>(
+      StatsViewModel(_selectedDAUComp!, gamesViewModel!),
+    );
+    statsViewModel = di<StatsViewModel>();
+
     gamesViewModel!.addListener(_otherViewModelUpdated);
-    statsViewModel = StatsViewModel(_selectedDAUComp!, gamesViewModel);
     statsViewModel!.addListener(_otherViewModelUpdated);
   }
 
