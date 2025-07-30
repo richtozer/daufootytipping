@@ -51,12 +51,7 @@ To ensure all changes are safe, robust, and maintainable, the following workflow
 
 ## 3. Architectural Goals
 
-### State Management Migration: from Provider to Riverpod
-- **Objective**: Incrementally migrate the application's state management from the current `Provider`/`get_it`/`watch_it` stack to **`flutter_riverpod`**.
-- **Strategy**:
-    - **New Features**: All new features (view models, UI pages) **must** be implemented using Riverpod providers.
-    - **Existing Features**: When an existing feature is modified, the associated view models and widgets should be refactored to use Riverpod as part of that task.
-    - **Coexistence**: The old and new state management systems will coexist during the transition.
+TBA
 
 ---
 
