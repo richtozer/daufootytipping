@@ -17,28 +17,70 @@ firebase.json: Firebase configuration file.
 View Model dependancy Tree
 ==========================
 
-DAUCompsViewModel
-├── GamesViewModel
-│   ├── DAUCompsViewModel
-│   ├── StatsViewModel
-│   └── TeamsViewModel
-├── StatsViewModel
-│   ├── DAUCompsViewModel
-│   ├── TipsViewModel
-│   └── TippersViewModel
-├── TipsViewModel
-│   ├── GamesViewModel
-│   └── DAUCompsViewModel
-├── TippersViewModel
-│   ├── FirebaseMessagingService
-│   ├── GoogleSheetService
-│   └── DAUCompsViewModel
-└── FixtureDownloadService
+here's the complete dependency structure between the view models:
 
-GameTipsViewModel
-├── TipsViewModel
-├── DAUCompsViewModel
-└── ScoringViewModel
+  🏗️ View Model Dependencies
+
+  Core Root View Model Tree
+
+  ConfigViewModel (root config)
+  │
+  └── DAUCompsViewModel (DAU competition management)
+      ├── GamesViewModel
+      │   └── TeamsViewModel
+      ├── TipsViewModel
+      │   ├── GamesViewModel (shared)
+      │   └── TippersViewModel
+      └── StatsViewModel
+          ├── GamesViewModel (shared)
+          ├── TippersViewModel (shared)
+          └── TipsViewModel (shared)
+
+  GameTipViewModel Tree
+
+  GameTipViewModel
+  ├── TipsViewModel
+  │   ├── GamesViewModel
+  │   └── TippersViewModel
+  ├── StatsViewModel (via di<TippersViewModel>())
+  └── DAUCompsViewModel (via _currentDAUComp)
+
+  📊 Detailed Dependency Matrix
+
+  | View Model             | Depends On                                               | Key Relationships      |
+  |------------------------|----------------------------------------------------------|-----------------------------------------|
+  | ConfigViewModel ⚙️     | None (root)                                              | Provides app config to others        |
+  | DAUCompsViewModel 🔧   | ConfigViewModel                                          | Creates/competitive loading with others |
+  | GamesViewModel 🏈      | DAUCompsViewModel, TeamsViewModel                        | Depends on teams for game  construction  |
+  | TippersViewModel 👤    | DAUCompsViewModel (in merge operations), ConfigViewModel | Used for user linking      |
+  | TipsViewModel 💡       | GamesViewModel, TippersViewModel, DAUCompsViewModel      | Core game/tip linkage        |
+  | StatsViewModel 📊      | GamesViewModel, TippersViewModel, DAUCompsViewModel      | Calculates scoring across all data        |
+  | TeamsViewModel 📋      | None (data layer)                                        | Provides teams to GamesViewModel        |
+  | GameTipViewModel 🎯    | TipsViewModel + all its dependencies                     | Higher-level tip management        |
+  | SearchQueryProvider 🔍 | None (UI state only)                                     | Independent utility        |
+
+  🔗 Service Registration Patterns
+
+  Service Locator (watch_it) registrations:
+  - ConfigViewModel - Always registered first
+  - TippersViewModel - Registered with Config parameter
+  - DAUCompsViewModel - Registered with Config parameters
+  - StatsViewModel - Dynamically registered by DAUCompsViewModel
+  - GamesViewModel - Created per DAUComp instance
+  - TipsViewModel - Created per DAUComp/Tipper combo
+
+  📈 Data Flow Architecture
+
+  1. Initialization Order:
+  Config → DAUComps → Tippers → (Games, Tips, Stats dynamically)
+  2. Communication Patterns:
+    - Database-driven: Config, Teams, DAUComps from DB
+    - Provider pattern: ChangeNotifier with notifyListeners()
+    - Dependency Injection: watch_it service locator
+  3. Reactivity:
+    - Stream subscriptions for real-time DB updates
+    - ChangeNotifier listeners for UI updates
+    - Cross-model listeners via service locator
 
 External Dependencies
 =====================
