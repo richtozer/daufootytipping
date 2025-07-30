@@ -33,14 +33,8 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     super.initState();
 
     statsViewModel = di<StatsViewModel>();
-    _loadLeaderboard();
-  }
-
-  void _loadLeaderboard() {
-    roundLeaderboard = statsViewModel.getRoundLeaderBoard(
-      widget.roundNumberToDisplay,
-    );
-    onSort(1, false); // Default to descending
+    sortColumnIndex = 1;
+    isAscending = false;
   }
 
   @override
@@ -49,6 +43,10 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
       value: statsViewModel,
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
+          roundLeaderboard = scoresViewModelConsumer.getRoundLeaderBoard(
+            widget.roundNumberToDisplay,
+          );
+          _sortLeaderboard(sortColumnIndex!, isAscending);
           return buildScaffold(
             context,
             scoresViewModelConsumer,
@@ -89,6 +87,16 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                     ),
                   )
                 : Text(name),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'Total tips outstanding across all tippers: ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             orientation == Orientation.portrait
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -97,6 +105,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                     ),
                   )
                 : Container(),
+
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -177,7 +186,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     );
   }
 
-  void onSort(int columnIndex, bool ascending) {
+  void _sortLeaderboard(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       if (ascending) {
         // Sort by tipper.name
@@ -270,29 +279,27 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
     }
+  }
 
+  void onSort(int columnIndex, bool ascending) {
+    _sortLeaderboard(columnIndex, ascending);
     setState(() {
       sortColumnIndex = columnIndex;
       isAscending = ascending;
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .asMap()
-      .entries
-      .map(
-        (entry) {
-          int index = entry.key;
-          String column = entry.value;
-          return DataColumn2(
-            fixedWidth: column == 'Name' ? 175 : 70,
-            numeric: column == 'Name' ? false : true,
-            label: Text(softWrap: false, overflow: TextOverflow.fade, column),
-            onSort: (columnIndex, ascending) => onSort(index, ascending),
-          );
-        },
-      )
-      .toList();
+  List<DataColumn> getColumns(List<String> columns) =>
+      columns.asMap().entries.map((entry) {
+        int index = entry.key;
+        String column = entry.value;
+        return DataColumn2(
+          fixedWidth: column == 'Name' ? 175 : 70,
+          numeric: column == 'Name' ? false : true,
+          label: Text(softWrap: false, overflow: TextOverflow.fade, column),
+          onSort: (columnIndex, ascending) => onSort(index, ascending),
+        );
+      }).toList();
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
