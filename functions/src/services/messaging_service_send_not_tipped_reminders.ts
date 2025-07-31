@@ -2,15 +2,15 @@ import {onSchedule} from "firebase-functions/v2/scheduler";
 import {database} from "firebase-admin";
 import {getMessaging} from "firebase-admin/messaging";
 
-// Schedule: "30 21-8 * 3-9 *"
+// Schedule: "20 21-9 * 3-9 *"
 // Minute 20 Twenty minutes past the hour
-// Hour 21-23,0-8 Every hour from 21:00 UTC to 8:00 UTC
+// Hour 21-23,0-9 Every hour from 21:00 UTC to 9:00 UTC
 // Day of Month * Every day of the month
-// Month 3-9 Only in March to September
+// Month 3-9 March to September only
 // Day of Week * Every day of the week
 
 export const sendHourlyReminders =
-  onSchedule("20 21-23,0-8 * 3-9 *", async () => {
+  onSchedule("20 21-23,0-9 * 3-9 *", async () => {
     const isTestingMode = false; // DOES NOT WORK IN TESTING MODE
     const testTipperId = "-NoGNrrChbi0sETPpJNq";
 
