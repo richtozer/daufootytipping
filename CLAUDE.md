@@ -55,6 +55,7 @@ Say: "I'll spawn agents to tackle different aspects of this problem" whenever a 
 
 This includes:
 - Formatting issues (dart format)
+- Spell check (cspell "**" )
 - Linting violations (flutter analyze)
 - Forbidden patterns (dynamic without justification, missing null safety)
 - ALL other checks
