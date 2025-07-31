@@ -249,9 +249,11 @@ class StatsViewModel extends ChangeNotifier {
             Map<String, dynamic>.from(entry.value),
           );
           if (game!.scoring == null) {
-            game.scoring = Scoring(croudSourcedScores: scoring.croudSourcedScores);
+            game.scoring = Scoring(
+              crowdSourcedScores: scoring.crowdSourcedScores,
+            );
           } else {
-            game.scoring?.croudSourcedScores = scoring.croudSourcedScores;
+            game.scoring?.crowdSourcedScores = scoring.crowdSourcedScores;
           }
 
           _gamesWithLiveScores.add(game);
@@ -277,12 +279,12 @@ class StatsViewModel extends ChangeNotifier {
 
   //  These are the various triggers that can cause an update of the stats for a comp.
   // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
-  // | Trigger                              | Rounds Rescored               | Tippers Rescored        | Description                                                                       |
+  // | Trigger                              | Rounds re-scored               | Tippers re-scored        | Description                                                                       |
   // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
-  // | Admin clicks [Rescore] in UI         | All                           | All                     | Full rescore. Updates all rounds for all tippers.                                |
-  // | User places a tip                    | Only the round that tip is for| Tipper who placed tip   | Partial rescore. Updates margin counts for that user and that round.             |
-  // | Fixture download has new scores      | Only the round with changes   | All                     | Partial rescore. Scoring updates for all tippers for the current round.          |
-  // | User enters a live score             | Only the round with changes   | All                     | Partial rescore. Scoring updates for all tippers for the current round.          |
+  // | Admin clicks 're-score' in UI         | All                           | All                     | Full re-score. Updates all rounds for all tippers.                                |
+  // | User places a tip                    | Only the round that tip is for| Tipper who placed tip   | Partial re-score. Updates margin counts for that user and that round.             |
+  // | Fixture download has new scores      | Only the round with changes   | All                     | Partial re-score. Scoring updates for all tippers for the current round.          |
+  // | User enters a live score             | Only the round with changes   | All                     | Partial re-score. Scoring updates for all tippers for the current round.          |
   // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
 
   Future<String>? _updateStatsInProgress;
@@ -516,7 +518,7 @@ class StatsViewModel extends ChangeNotifier {
     // await for the tips model to load
     await allTipsViewModel!.initialLoadCompleted;
 
-    // initialise or update the game stats entry
+    // init or update the game stats entry
     await _updateGameResultPercentageTipped(
       game,
       allTipsViewModel!,
@@ -996,33 +998,33 @@ class StatsViewModel extends ChangeNotifier {
 
   Future<void> _addMultipleLiveScores(
     Game game,
-    List<CrowdSourcedScore> croudSourcedScores,
+    List<CrowdSourcedScore> crowdSourcedScores,
   ) async {
-    if (croudSourcedScores.isEmpty) return;
+    if (crowdSourcedScores.isEmpty) return;
 
     final oldScoring = game.scoring;
 
     final newScoring = oldScoring?.copyWith(
-      croudSourcedScores: oldScoring.croudSourcedScores == null
-          ? croudSourcedScores
-          : [...oldScoring.croudSourcedScores!, ...croudSourcedScores],
+      crowdSourcedScores: oldScoring.crowdSourcedScores == null
+          ? crowdSourcedScores
+          : [...oldScoring.crowdSourcedScores!, ...crowdSourcedScores],
     );
 
     game.scoring = newScoring;
 
     // Clean up old scores for each team that was updated
     for (final scoreTeam in {ScoringTeam.home, ScoringTeam.away}) {
-      if (croudSourcedScores.any((score) => score.scoreTeam == scoreTeam)) {
-        if (game.scoring?.croudSourcedScores != null &&
-            game.scoring!.croudSourcedScores!
+      if (crowdSourcedScores.any((score) => score.scoreTeam == scoreTeam)) {
+        if (game.scoring?.crowdSourcedScores != null &&
+            game.scoring!.crowdSourcedScores!
                     .where((element) => element.scoreTeam == scoreTeam)
                     .length >
                 3) {
-          game.scoring!.croudSourcedScores!.removeWhere(
+          game.scoring!.crowdSourcedScores!.removeWhere(
             (element) =>
                 element.scoreTeam == scoreTeam &&
                 element.submittedTimeUTC ==
-                    game.scoring!.croudSourcedScores!
+                    game.scoring!.crowdSourcedScores!
                         .where((element) => element.scoreTeam == scoreTeam)
                         .reduce(
                           (value, element) =>
@@ -1144,7 +1146,7 @@ class StatsViewModel extends ChangeNotifier {
       );
     }
 
-    // if we turned the lisnter off, turn it back on
+    // if we turned the listener off, turn it back on
     if (gamesToDelete.isNotEmpty) {
       _liveScoresStream = _db
           .child('$statsPathRoot/${selectedDAUComp.dbkey}/$liveScoresRoot')

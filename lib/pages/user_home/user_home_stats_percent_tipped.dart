@@ -231,7 +231,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
           .daurounds[roundIndex]
           .getGamesForLeague(league);
       if (games.isEmpty) {
-        return DAURound.noGamesCardheight;
+        return DAURound.noGamesCardHeight;
       }
       return games.length * Game.gameCardHeight;
     }

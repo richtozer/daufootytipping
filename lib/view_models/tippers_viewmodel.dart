@@ -169,7 +169,7 @@ class TippersViewModel extends ChangeNotifier {
       return;
     }
 
-    // the Tipper serialisation relies on daucompsviewmodel being ready
+    // the Tipper serialization relies on daucompsviewmodel being ready
     // so we need to wait for it to be ready before we can update the tipper
 
     await di<DAUCompsViewModel>().initialDAUCompLoadComplete;
@@ -474,7 +474,7 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   // mergeTipper method to merge two tippers into one. This is used when a user logs in with a different account
-  // to the one in the the legacty tipping service.
+  // to the one in the the legacy tipping service.
   //
   // inputs are original tipper and target tipper. There are 2 bool flags:
   // mergeLogon - if true, the logon of the original tipper will be copied to the target tipper
@@ -631,7 +631,7 @@ class TippersViewModel extends ChangeNotifier {
     } catch (e) {
       if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
         // reauthenticate the user
-        log('TippersViewModel().deleteAccount() - reauthenticating user');
+        log('TippersViewModel().deleteAccount() - re-authenticating user');
         final String providerId =
             FirebaseAuth.instance.currentUser!.providerData[0].providerId;
 
@@ -642,14 +642,14 @@ class TippersViewModel extends ChangeNotifier {
             await _reauthenticateWithGoogle();
           }
 
-          // Retry account deletion after successful reauthentication
+          // Retry account deletion after successful re-authentication
           await FirebaseAuth.instance.currentUser!.delete();
           return null; // Success
         } catch (reauthError) {
           log(
-            'TippersViewModel().deleteAccount() - reauthentication failed: $reauthError',
+            'TippersViewModel().deleteAccount() - re-authentication failed: $reauthError',
           );
-          return 'Reauthentication failed. Please try again.';
+          return 'Re-authentication failed. Please try again.';
         }
       } else {
         log('TippersViewModel().deleteAccount() - error: $e');
@@ -762,7 +762,7 @@ class TippersViewModel extends ChangeNotifier {
     }
 
     if (newEmail == null || newEmail.isEmpty) {
-      throw 'ipper email cannot be empty';
+      throw 'Tipper email cannot be empty';
     }
 
     if (_tippers.any(

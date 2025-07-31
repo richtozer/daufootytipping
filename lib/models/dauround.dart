@@ -5,7 +5,7 @@ enum RoundState {
   notStarted, // round is in the future
   started, // round is underway
   allGamesEnded, // round has finished and results known
-  noGames, // this is an error state, all DAU combnied rounds should have games
+  noGames, // this is an error state, all DAU combined rounds should have games
 }
 
 class DAURound implements Comparable<DAURound> {
@@ -22,9 +22,9 @@ class DAURound implements Comparable<DAURound> {
 
   static final double leagueHeaderHeight = 103;
   static final double leagueHeaderEndedHeight = 104;
-  static final double noGamesCardheight = 75;
+  static final double noGamesCardHeight = 75;
 
-  // counstructor
+  // constructor
   DAURound({
     required this.dAUroundNumber,
     required this.firstGameKickOffUTC,
@@ -48,12 +48,12 @@ class DAURound implements Comparable<DAURound> {
     );
   }
 
-  // method returns admin overriden round start data if it exists, otherwise the round start date
+  // method returns admin overridden round start data if it exists, otherwise the round start date
   DateTime getRoundStartDate() {
     return adminOverrideRoundStartDate ?? firstGameKickOffUTC;
   }
 
-  // method returns admin overriden round end data if it exists, otherwise the round end date
+  // method returns admin overridden round end data if it exists, otherwise the round end date
   DateTime getRoundEndDate() {
     return adminOverrideRoundEndDate ?? lastGameKickOffUTC;
   }

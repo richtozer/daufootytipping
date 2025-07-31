@@ -37,8 +37,8 @@ class DAUComp implements Comparable<DAUComp> {
   });
 
   // method to return the highest round number where roundEndDate is the past UTC
-  // it does not require gamesviewmodel to fully load all games
-  // tips page calls this method ahead of gamesviewmodel loading all games
+  // it does not require gamesViewModel to fully load all games
+  // tips page calls this method ahead of gamesViewModel loading all games
   // we will add an arbitrary 6 hours to the round end date to ensure the round is considered past
   int latestsCompletedRoundNumber() {
     int highestRoundNumber = 0;
@@ -57,7 +57,7 @@ class DAUComp implements Comparable<DAUComp> {
     return highestRoundNumber;
   }
 
-  int latestRoundWithGamesCompletedorUnderway() {
+  int latestRoundWithGamesCompletedOrUnderway() {
     int roundNumber = 0;
 
     // find lowest round number where roundState is underway
@@ -84,7 +84,7 @@ class DAUComp implements Comparable<DAUComp> {
   }
 
   // method to calculate the pixel height up to the supplied round number
-  // this is used to scroll the listview to the correct position when the tips page is loaded
+  // this is used to scroll the listView to the correct position when the tips page is loaded
   double pixelHeightUpToRound(int roundNumber) {
     double totalHeight = 0;
 
@@ -97,13 +97,13 @@ class DAUComp implements Comparable<DAUComp> {
         // add the height for 2 headers - use DAURound.getGamesForRound to get the games for each league,
         // if league has no games, then use emptyLeagueRoundHeight otherwise use leagueHeaderHeight
         dauround.getGamesForLeague(League.nrl).isEmpty
-            ? totalHeight += DAURound.noGamesCardheight
+            ? totalHeight += DAURound.noGamesCardHeight
             : dauround.roundState == RoundState.allGamesEnded
             ? totalHeight += DAURound.leagueHeaderEndedHeight
             : totalHeight += DAURound.leagueHeaderHeight;
 
         dauround.getGamesForLeague(League.afl).isEmpty
-            ? totalHeight += DAURound.noGamesCardheight
+            ? totalHeight += DAURound.noGamesCardHeight
             : dauround.roundState == RoundState.allGamesEnded
             ? totalHeight += DAURound.leagueHeaderEndedHeight
             : totalHeight += DAURound.leagueHeaderHeight;

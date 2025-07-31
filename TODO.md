@@ -12,7 +12,7 @@
 - [ ] Add missing unit tests for models
 
 ### Critical User Flows for Widget Testing
-- [ ] User authentication flow (login/signup/logout)
+- [ ] User authentication flow (login/sign-up/logout)
 - [ ] Tipping workflow (select game → make tip → submit)
 - [ ] Statistics viewing (navigate to stats, view leaderboards)
 - [ ] Profile management widgets

@@ -27,7 +27,7 @@ class Game implements Comparable<Game> {
   Scoring? scoring; // this should be null until game kickoff
   GameStatsEntry? gameStats;
   static final double gameCardHeight = 128;
-  static final double teamVteamWidth = 135;
+  static final double teamVersusTeamWidth = 135;
   //constructor
   Game({
     required this.dbkey,
@@ -42,7 +42,7 @@ class Game implements Comparable<Game> {
   });
 
   // this getter will return the gamestate based on the current time and the game start time
-  // the possible gamestates are: 'notStarted', 'startingSoon' , 'startedResultNotKnown', 'startedResultKnown'
+  // the possible gameStates are: 'notStarted', 'startingSoon' , 'startedResultNotKnown', 'startedResultKnown'
   GameState get gameState {
     final now = DateTime.now().toUtc();
     if (now.isBefore(startTimeUTC)) {
@@ -127,7 +127,7 @@ class Game implements Comparable<Game> {
     final league = League.values.byName(dbkey.substring(0, 3));
     return Game(
       dbkey:
-          '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, roune number and match number. Pad the numbers so they sort correctly in the firebase console
+          '${league.name}-${data['RoundNumber'].toString().padLeft(2, '0')}-${data['MatchNumber'].toString().padLeft(3, '0')}', //create a unique based on league, round number and match number. Pad the numbers so they sort correctly in the firebase console
       league: league,
       homeTeam: homeTeam,
       awayTeam: awayTeam,
@@ -141,7 +141,7 @@ class Game implements Comparable<Game> {
   @override
   // method used to provide default sort for Games in a List[]
   int compareTo(Game other) {
-    // sort by league decending i.e. NRL first, and then by match number
+    // sort by league descending i.e. NRL first, and then by match number
     // this is to support legacy round sorting
     if (league == other.league) {
       //sort by game start time first, then by match number

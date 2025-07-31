@@ -79,7 +79,7 @@ class FixtureDownloadService {
       BaseOptions(headers: {'Content-Type': 'application/json; charset=UTF-8'}),
     );
 
-    // if we are debuging code? if so, mock the JSON fixture services network call
+    // if we are debugging code? if so, mock the JSON fixture services network call
     /*if (!kReleaseMode) {
       List<Map<String, Object?>> mockdata;
 

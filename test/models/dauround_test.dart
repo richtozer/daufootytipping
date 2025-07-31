@@ -93,7 +93,7 @@ void main() {
       test('should have correct static height values', () {
         expect(DAURound.leagueHeaderHeight, equals(103));
         expect(DAURound.leagueHeaderEndedHeight, equals(104));
-        expect(DAURound.noGamesCardheight, equals(75));
+        expect(DAURound.noGamesCardHeight, equals(75));
       });
 
       test('static heights should be reasonable UI values', () {
@@ -101,8 +101,8 @@ void main() {
         expect(DAURound.leagueHeaderHeight, lessThan(200));
         expect(DAURound.leagueHeaderEndedHeight, greaterThan(50));
         expect(DAURound.leagueHeaderEndedHeight, lessThan(200));
-        expect(DAURound.noGamesCardheight, greaterThan(30));
-        expect(DAURound.noGamesCardheight, lessThan(150));
+        expect(DAURound.noGamesCardHeight, greaterThan(30));
+        expect(DAURound.noGamesCardHeight, lessThan(150));
       });
     });
 

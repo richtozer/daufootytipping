@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+
+# The version of the configuration file format.
+version: "0.2"
+# The locale to use when spell checking. (e.g., en, en-GB, de-DE
+language: en
+
+ignorePaths:
+- 'lib/firebase_options.dart'
+- 'android'
+- 'lib/firebase_options.dart'
+- 'ios'
+- 'test'
+- 'web'
+- 'build'
+- 'pubspec.lock'
+- 'pubspec.yaml'
+- 'node_modules'
+- 'macos'
+- 'windows'
+- 'linux'
+- '*.svg'
+- '*.png'
+- '*.iml'
+- 'functions/lib/services/*.js'
+
+words:
+  - daufootytipping
+  - dau
+  - tipper
+  - dbkey
+  - authuid
+  - tipperid
+  - tipperName
+  - tipperEmail
+  - daucomp
+  - daucomps
+  - dauround
+  - daurounds
+  - godmode
+  - tipperrole
+  - viewmodel
+  - colour
+  - findtipperbyuid
+  - findtipperbydbkey
+  - findtipperbyid
+  - findtipperbyname
+  - findtipperbyemail
+  - findtipperbylogon
+  - gamestate
+  - gamelist
+  - gamejson
+  - roundstats
+  - gamestats
+  - daucompsviewmodel
+  - Matchups
+  - crowdsourcedscore
+  - roundwinners
+  - finalised
+  - mockdata
+  - leagueheader
+  - gametip
+  - livescoring
+  - roundscoresfortipper
+  - roundgamescoresfortipper
+  - gameinfo
+  - Agst
+  - listtile
+  - scoringtile
+  - datetimepickerfield
+  - tipchoice
+  - upgate
+  - adminfunctions
+  - roundleaderboard
+  - compleaderboard
+  - roundmissingtipsstats
+  - gamelistitem
+  - pubspec
+  - Mocktail
+  - Firestore
+  - Firebase
+  - Millis
+  - submittime
+  - tipindex
+  - devicetokens
+  - nottipped
+  - Chbi
+  - appbundle
+  - riverpod
+  - Podfile
+  - predeploy
+
+

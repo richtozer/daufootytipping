@@ -152,7 +152,7 @@ class StatsTab extends StatelessWidget {
                   child: Row(
                     children: [
                       Hero(
-                        tag: 'magifyingglass',
+                        tag: 'magnifyingGlass',
                         child: Icon(Icons.search, size: 40),
                       ),
                       SizedBox(

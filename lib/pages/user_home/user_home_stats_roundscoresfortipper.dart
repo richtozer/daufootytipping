@@ -41,12 +41,12 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   @override
   void initState() {
     super.initState();
-    // is selecteddaucomp is not null then get the scores model
+    // is selected daucomp is not null then get the scores model
     if (di<DAUCompsViewModel>().selectedDAUComp != null) {
       scoresViewModel = di<StatsViewModel>();
     }
 
-    // get the highest round number will Roundstate.allgamesended
+    // get the highest round number will RoundState.allGamesEnded
     // and store that number
     highestRoundNumber = di<DAUCompsViewModel>().selectedDAUComp!
         .latestsCompletedRoundNumber();
@@ -68,15 +68,16 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
           rawScores.removeWhere(
             (element) => element.roundNumber > highestRoundNumber + 1,
           );
-          
+
           // If sortedScores is null or data has changed, initialize with default sort
-          if (sortedScores == null || sortedScores!.length != rawScores.length) {
+          if (sortedScores == null ||
+              sortedScores!.length != rawScores.length) {
             sortedScores = List.from(rawScores);
             sortedScores!.sort(
               (a, b) => b.roundNumber.compareTo(a.roundNumber),
             ); // Initial sort - descending by round number
           }
-          
+
           return buildScaffold(
             context,
             sortedScores!,
@@ -239,7 +240,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   void onSort(int columnIndex, bool ascending, List<RoundStats> scores) {
     if (sortedScores == null) return;
-    
+
     switch (columnIndex) {
       case 0:
         sortedScores!.sort(
@@ -300,27 +301,20 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   }
 
   List<DataColumn> getColumns(List<String> columns, List<RoundStats> scores) =>
-      columns
-          .asMap()
-          .entries
-          .map(
-            (entry) {
-              int index = entry.key;
-              String column = entry.value;
-              return DataColumn2(
-                fixedWidth: column == 'Round'
-                    ? 75
-                    : column == 'Total' || column == 'Margins'
-                    ? 75
-                    : 60,
-                numeric: column != 'Round',
-                label: Text(column),
-                onSort: (columnIndex, ascending) =>
-                    onSort(index, ascending, scores),
-              );
-            },
-          )
-          .toList();
+      columns.asMap().entries.map((entry) {
+        int index = entry.key;
+        String column = entry.value;
+        return DataColumn2(
+          fixedWidth: column == 'Round'
+              ? 75
+              : column == 'Total' || column == 'Margins'
+              ? 75
+              : 60,
+          numeric: column != 'Round',
+          label: Text(column),
+          onSort: (columnIndex, ascending) => onSort(index, ascending, scores),
+        );
+      }).toList();
 
   Widget avatarPic(Tipper tipper) {
     return Hero(

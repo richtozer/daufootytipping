@@ -233,7 +233,7 @@ class TipsTabState extends State<TipsTab> {
           .daurounds[roundIndex]
           .getGamesForLeague(league);
       if (games.isEmpty) {
-        return DAURound.noGamesCardheight;
+        return DAURound.noGamesCardHeight;
       }
       return games.length * Game.gameCardHeight;
     }

@@ -91,7 +91,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedorUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedorUnderway()}. Click a Tipper row below to see the breakdown of their round scores. Click column headings to sort.',
+                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Click a Tipper row below to see the breakdown of their round scores. Click column headings to sort.',
                     ),
                   )
                 : Container(), // Return an empty container in landscape mode

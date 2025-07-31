@@ -18,7 +18,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = kIsWeb
       ? 1
-      : 0; // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the curent round when they first load the app, this should be fixed in the future
+      : 0; // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the current round when they first load the app, this should be fixed in the future
 
   void onTabTapped(int index) {
     setState(() {

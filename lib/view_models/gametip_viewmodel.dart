@@ -104,7 +104,7 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   // this method will delay returning until the game has started,
-  // then use notifiyListeners to trigger the UI to update
+  // then use notifyListeners to trigger the UI to update
   void _gameStartedTrigger() async {
     // if the game has already started, then we don't need to wait , just return
     if ((game.gameState == GameState.startedResultNotKnown ||
@@ -160,7 +160,7 @@ class GameTipViewModel extends ChangeNotifier {
 
     _tip = await allTipsViewModel.findTip(game, currentTipper);
 
-    // flag our intial load as complete
+    // flag our initial load as complete
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
@@ -265,7 +265,7 @@ class GameTipViewModel extends ChangeNotifier {
     await _fetchHistoricalTipStats();
   }
 
-  Future<Tip?> gettip() async {
+  Future<Tip?> getTip() async {
     if (!_initialLoadCompleter.isCompleted) {
       await _initialLoadCompleter.future;
     }
@@ -376,7 +376,7 @@ class GameTipViewModel extends ChangeNotifier {
             'tipSubmittedUTC': timestamp,
             'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
             'appDetails': {
-              'vversion': packageInfo.version,
+              'version': packageInfo.version,
               'buildNumber': packageInfo.buildNumber,
               'installTime': packageInfo.installTime?.toIso8601String(),
               'lastUpdateTime': packageInfo.updateTime?.toIso8601String(),
@@ -487,7 +487,9 @@ class GameTipViewModel extends ChangeNotifier {
         'Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName, Location: ${pastGame.location}',
       );
     }
-    log('Finished formatting ${formattedMatchups.length} historical matchups.');
+    log(
+      'Finished formatting ${formattedMatchups.length} historical match-ups.',
+    );
     return formattedMatchups;
   }
 }

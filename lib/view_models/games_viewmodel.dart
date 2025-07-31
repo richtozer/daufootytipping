@@ -110,7 +110,9 @@ class GamesViewModel extends ChangeNotifier {
           // If official scores have arrived, delete live scores immediately
           if (scoring.homeTeamScore != null && scoring.awayTeamScore != null) {
             // Schedule deletion asynchronously to avoid blocking the main processing
-            Future.microtask(() => di<StatsViewModel>().deleteGameLiveScores(game));
+            Future.microtask(
+              () => di<StatsViewModel>().deleteGameLiveScores(game),
+            );
           }
 
           return game;
@@ -189,7 +191,7 @@ class GamesViewModel extends ChangeNotifier {
             _roundsThatNeedScoringUpdate.add(
               gameToUpdate.getDAURound(selectedDAUComp)!,
             );
-            // also force a gamestats update - in normal processing this should be the initial calcation
+            // also force a gamestats update - in normal processing this should be the initial calculation
             di<StatsViewModel>().getGamesStatsEntry(gameToUpdate, true);
           }
         }
@@ -377,7 +379,8 @@ class GamesViewModel extends ChangeNotifier {
           ladderPoints: ladderPoints,
           gameDate: game.startTimeUTC,
           roundNumber: game.fixtureRoundNumber,
-          competitionName: null, // Current year method doesn't have competition name
+          competitionName:
+              null, // Current year method doesn't have competition name
           isHomeGame: isHomeGame,
         ),
       );
@@ -451,7 +454,8 @@ class GamesViewModel extends ChangeNotifier {
             ladderPoints: ladderPoints,
             gameDate: game.startTimeUTC,
             roundNumber: game.fixtureRoundNumber,
-            competitionName: dauComp.name, // Add competition name for year grouping
+            competitionName:
+                dauComp.name, // Add competition name for year grouping
             isHomeGame: isHomeGame,
           ),
         );
@@ -551,9 +555,12 @@ class GamesViewModel extends ChangeNotifier {
               game.scoring = scoring;
 
               // If official scores have arrived, delete live scores immediately
-              if (scoring.homeTeamScore != null && scoring.awayTeamScore != null) {
+              if (scoring.homeTeamScore != null &&
+                  scoring.awayTeamScore != null) {
                 // Schedule deletion asynchronously to avoid blocking the main processing
-                Future.microtask(() => di<StatsViewModel>().deleteGameLiveScores(game));
+                Future.microtask(
+                  () => di<StatsViewModel>().deleteGameLiveScores(game),
+                );
               }
               return game;
             })
@@ -648,7 +655,6 @@ class GamesViewModel extends ChangeNotifier {
 
     return relevantGames;
   }
-
 
   @override
   void dispose() {

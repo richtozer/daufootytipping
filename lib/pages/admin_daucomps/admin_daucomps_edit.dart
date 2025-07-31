@@ -280,7 +280,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     : const Icon(Icons.arrow_back),
                 onPressed: () async {
                   if (!disableBack) {
-                    // changethe displayed comp back to the active comp
+                    // change the displayed comp back to the active comp
                     await di<DAUCompsViewModel>().changeDisplayedDAUComp(
                       di<DAUCompsViewModel>().activeDAUComp!,
                       false,
@@ -356,7 +356,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           // Form tag is removed from here and now lives in AdminDaucompsEditForm
           child: SingleChildScrollView(
             child: Consumer<DAUCompsViewModel>(
-              builder: (context, dauCompsViewModeconsumer, child) {
+              builder: (context, dauCompsViewModelConsumer, child) {
                 // This is the mainColumn
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,14 +366,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           AdminDaucompsEditFixtureButton(
-                            dauCompsViewModel: dauCompsViewModeconsumer,
+                            dauCompsViewModel: dauCompsViewModelConsumer,
                             daucomp: widget.daucomp,
                             setStateCallback: (fn) => setState(fn),
                             onDisableBack: (bool disabled) =>
                                 setState(() => disableBack = disabled),
                           ),
                           AdminDaucompsEditScoringButton(
-                            dauCompsViewModel: dauCompsViewModeconsumer,
+                            dauCompsViewModel: dauCompsViewModelConsumer,
                             daucomp: widget.daucomp,
                             setStateCallback: (fn) => setState(fn),
                             onDisableBack: (bool disabled) =>
@@ -393,7 +393,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                           widget._nrlRegularCompEndDateController,
                       aflRegularCompEndDateController:
                           widget._aflRegularCompEndDateController,
-                      dauCompsViewModel: dauCompsViewModeconsumer,
+                      dauCompsViewModel: dauCompsViewModelConsumer,
                       onFormInteracted: () {
                         // This existing callback is fine for text field interactions.
                         // Active status changes are handled by onActiveStatusChangedLocally.
@@ -435,9 +435,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       },
                     ),
                     if (widget.daucomp != null) ...[
-                      if (dauCompsViewModeconsumer.unassignedGames.isNotEmpty)
+                      if (dauCompsViewModelConsumer.unassignedGames.isNotEmpty)
                         AdminDaucompsEditWarning(
-                          viewModel: dauCompsViewModeconsumer,
+                          viewModel: dauCompsViewModelConsumer,
                         ),
                       Row(
                         //mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -476,7 +476,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       ),
                       AdminDaucompsEditRoundsTable(
                         rounds:
-                            dauCompsViewModeconsumer.activeDAUComp?.daurounds
+                            dauCompsViewModelConsumer.activeDAUComp?.daurounds
                                 .where((r) => r.games.isNotEmpty)
                                 .toList() ??
                             [],

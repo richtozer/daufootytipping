@@ -78,7 +78,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: null,
           awayTeamScore: null,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.nrl), GameResult.a);
       },
@@ -97,7 +97,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: null,
           awayTeamScore: null,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.nrl), GameResult.e);
       },
@@ -116,7 +116,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: null,
           awayTeamScore: null,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.nrl), GameResult.b);
       },
@@ -133,7 +133,7 @@ void main() {
       final scoring = Scoring(
         homeTeamScore: 10, // Official score suggests GameResult.b
         awayTeamScore: 9,
-        croudSourcedScores: [crowdScore],
+        crowdSourcedScores: [crowdScore],
       );
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.b);
     });
@@ -213,7 +213,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: null,
           awayTeamScore: null,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.afl), GameResult.a);
       },
@@ -232,7 +232,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: null,
           awayTeamScore: null,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.afl), GameResult.e);
       },
@@ -251,7 +251,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: null,
           awayTeamScore: null,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.afl), GameResult.b);
       },
@@ -270,7 +270,7 @@ void main() {
         final scoring = Scoring(
           homeTeamScore: 80, // Official score suggests GameResult.b
           awayTeamScore: 75,
-          croudSourcedScores: [crowdScore],
+          crowdSourcedScores: [crowdScore],
         );
         expect(scoring.getGameResultCalculated(League.afl), GameResult.b);
       },
@@ -289,7 +289,7 @@ void main() {
       final scoring = Scoring(
         homeTeamScore: 12, // Official score
         awayTeamScore: 8,
-        croudSourcedScores: [crowdScore],
+        crowdSourcedScores: [crowdScore],
       );
       expect(scoring.currentScore(ScoringTeam.home), 12);
       expect(scoring.currentScore(ScoringTeam.away), 8);
@@ -313,7 +313,7 @@ void main() {
       final scoring = Scoring(
         homeTeamScore: null,
         awayTeamScore: null,
-        croudSourcedScores: [earlierScore, laterScore],
+        crowdSourcedScores: [earlierScore, laterScore],
       );
       expect(scoring.currentScore(ScoringTeam.home), 15);
       expect(scoring.currentScore(ScoringTeam.away), null);
@@ -323,7 +323,7 @@ void main() {
       final scoring = Scoring(
         homeTeamScore: null,
         awayTeamScore: null,
-        croudSourcedScores: null,
+        crowdSourcedScores: null,
       );
       expect(scoring.currentScore(ScoringTeam.home), null);
       expect(scoring.currentScore(ScoringTeam.away), null);
@@ -340,7 +340,7 @@ void main() {
       final scoring = Scoring(
         homeTeamScore: null,
         awayTeamScore: null,
-        croudSourcedScores: [crowdScore],
+        crowdSourcedScores: [crowdScore],
       );
       expect(scoring.currentScore(ScoringTeam.home), 12);
       expect(scoring.currentScore(ScoringTeam.away), null);

@@ -28,7 +28,7 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
-  // same for async platfrom errors
+  // same for async platform errors
   if (!kDebugMode) {
     FlutterError.onError = (errorDetails) {
       FirebaseCrashlytics.instance.recordFlutterError(errorDetails);
@@ -53,8 +53,6 @@ Future<void> main() async {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.debug,
       appleProvider: AppleProvider.debug,
-      // webProvider: ReCaptchaEnterpriseProvider(
-      //     '6LegwxcqAAAAAEga5YMkA8-ldXP18YytlFTgiJl9'));
       webProvider: ReCaptchaEnterpriseProvider(
         //temporarily use prod key in debug
         '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',

@@ -12,7 +12,7 @@ class AdminDaucompsEditForm extends StatelessWidget {
   final TextEditingController nrlRegularCompEndDateController;
   final TextEditingController aflRegularCompEndDateController;
   final DAUCompsViewModel
-  dauCompsViewModel; // This is the dauCompsViewModeconsumer from parent
+  dauCompsViewModel; // This is the dauCompsViewModelConsumer from parent
   final VoidCallback onFormInteracted;
   final bool isLocallyMarkedActive; // New
   final Function(bool newValue) onActiveStatusChangedLocally; // New

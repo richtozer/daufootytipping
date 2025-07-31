@@ -7,7 +7,7 @@ class LeagueLadder {
 
   LeagueLadder({required this.league, required this.teams});
 
-  // static method to generate oridnal number in string format
+  // static method to generate ordinal number in string format
   static String ordinal(int number) {
     if (number < 1) return '';
     if (number % 100 >= 11 && number % 100 <= 13) {
@@ -35,7 +35,7 @@ class LeagueLadder {
       if (b.percentage.compareTo(a.percentage) != 0) {
         return b.percentage.compareTo(a.percentage);
       }
-      // Tertiary sort by pointsFor (descending) - good for SANFL, WAFL, VFL
+      // Tertiary sort by pointsFor (descending) - good for VFL etc. where percentage is not used
       if (b.pointsFor.compareTo(a.pointsFor) != 0) {
         return b.pointsFor.compareTo(a.pointsFor);
       }

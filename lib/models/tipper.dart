@@ -55,7 +55,7 @@ class Tipper implements Comparable<Tipper> {
   }
 
   bool paidForComp(DAUComp? checkThisComp) {
-    //TODO masive , if thus tipper is anonymous, then say they paid for all comps
+    //TODO massive , if thus tipper is anonymous, then say they paid for all comps
     if (isAnonymous) {
       return true; // anonymous tippers are assumed to have paid for all comps
     }
@@ -72,9 +72,9 @@ class Tipper implements Comparable<Tipper> {
 
     List<Tipper?> tippersList = allTippers.entries.map((entry) {
       String key = entry.key; // Retrieve the Firebase key
-      dynamic tipperasJSON = entry.value;
+      dynamic tipperAsJSON = entry.value;
 
-      return Tipper.fromJson(Map<String, dynamic>.from(tipperasJSON), key);
+      return Tipper.fromJson(Map<String, dynamic>.from(tipperAsJSON), key);
     }).toList();
 
     return tippersList;

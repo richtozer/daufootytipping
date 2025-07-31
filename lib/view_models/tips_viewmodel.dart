@@ -60,7 +60,7 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _update() {
-    notifyListeners(); //notify our consumers that the data may have changed to gamesviewmodel.games data that we have a dependency on
+    notifyListeners(); //notify our consumers that the data may have changed to gamesViewModel.games data that we have a dependency on
   }
 
   void _listenToTips() {
@@ -197,7 +197,7 @@ class TipsViewModel extends ChangeNotifier {
         foundTip == null) {
       foundTip = Tip(
         tip: GameResult.d,
-        // set this tipper time as ephoch,
+        // set this tipper time as epoch,
         // allows us to easily identify tips that were not submitted
         submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true),
         game: game,
@@ -213,26 +213,28 @@ class TipsViewModel extends ChangeNotifier {
   /// This ensures stats calculations run on current data, not stale cache
   Future<void> waitForTipUpdate(Tip expectedTip) async {
     await initialLoadCompleted;
-    
+
     // Wait for the database streaming listener to process the change
     await Future.doWhile(() async {
       await Future.delayed(const Duration(milliseconds: 50));
-      
+
       Tip? foundTip = _listOfTips.firstWhereOrNull(
-        (tip) => tip?.game.dbkey == expectedTip.game.dbkey && 
-                 tip?.tipper.dbkey == expectedTip.tipper.dbkey,
+        (tip) =>
+            tip?.game.dbkey == expectedTip.game.dbkey &&
+            tip?.tipper.dbkey == expectedTip.tipper.dbkey,
       );
-      
+
       // Continue waiting if tip not found or tip data doesn't match
       if (foundTip == null) {
         return true; // Keep waiting
       }
-      
+
       // Check if the tip data matches (comparing key fields)
-      bool tipMatches = foundTip.tip == expectedTip.tip &&
-                       foundTip.submittedTimeUTC.millisecondsSinceEpoch == 
-                       expectedTip.submittedTimeUTC.millisecondsSinceEpoch;
-      
+      bool tipMatches =
+          foundTip.tip == expectedTip.tip &&
+          foundTip.submittedTimeUTC.millisecondsSinceEpoch ==
+              expectedTip.submittedTimeUTC.millisecondsSinceEpoch;
+
       return !tipMatches; // Stop waiting when tips match
     });
   }

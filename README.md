@@ -14,7 +14,7 @@ functions/: Contains Firebase Cloud Functions.
 pubspec.yaml: Defines the project's dependencies and environment settings.
 firebase.json: Firebase configuration file.
 
-View Model dependancy Tree
+View Model dependency Tree
 ==========================
 
 here's the complete dependency structure between the view models:

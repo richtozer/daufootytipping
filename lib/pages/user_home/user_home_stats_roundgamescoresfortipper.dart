@@ -327,7 +327,7 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           FutureBuilder<Tip?>(
-            future: gameTipsViewModel.gettip(),
+            future: gameTipsViewModel.getTip(),
             builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
@@ -343,7 +343,7 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           FutureBuilder<Tip?>(
-            future: gameTipsViewModel.gettip(),
+            future: gameTipsViewModel.getTip(),
             builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');
@@ -358,7 +358,7 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           FutureBuilder<Tip?>(
-            future: gameTipsViewModel.gettip(),
+            future: gameTipsViewModel.getTip(),
             builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Text('loading..');

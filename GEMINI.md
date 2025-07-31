@@ -63,14 +63,14 @@ lib/
 ├── models/              # Data models (games, tips, teams, competitions, etc.)
 ├── pages/               # UI pages organized by functionality
 ├── services/            # Business logic and external service integrations
-├── view_models/         # State management (migrating to Riverpod)
+├── view_models/         # State management (migrating to RiverPod)
 ...
 ```
 
 ### Technology Stack
 - **Frontend**: Flutter (Dart SDK >=3.1.5 <4.0.0)
 - **Backend**: Firebase (Realtime Database, Firestore, Authentication, Cloud Functions, Messaging)
-- **State Management**: **Riverpod** (migrating from Provider/get_it/watch_it)
+- **State Management**: **RiverPod** (migrating from Provider/get_it/watch_it)
 - **Testing**: Flutter test framework with Mocktail
 
 ### Key Dependencies (Aspirational)

@@ -14,7 +14,7 @@ class CrowdSourcedScore {
     this.gameComplete,
   );
 
-  //tojson method
+  //toJson method
   Map<String, dynamic> toJson() {
     return {
       'submittedTimeUTC': submittedTimeUTC.toIso8601String(),
@@ -25,7 +25,7 @@ class CrowdSourcedScore {
     };
   }
 
-  //fromjson method
+  //fromJson method
   factory CrowdSourcedScore.fromJson(Map data) {
     return CrowdSourcedScore(
       DateTime.parse(data['submittedTimeUTC']),

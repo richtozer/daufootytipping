@@ -38,7 +38,9 @@ class ScoringUpdateRequest {
   /// Creates a user-friendly description for logging
   String get description {
     final compName = dauComp.name;
-    final roundDesc = round != null ? 'Round ${round!.dAUroundNumber}' : 'all rounds';
+    final roundDesc = round != null
+        ? 'Round ${round!.dAUroundNumber}'
+        : 'all rounds';
     final tipperDesc = tipper?.name ?? 'all tippers';
     return '$compName - $roundDesc - $tipperDesc';
   }
@@ -60,7 +62,7 @@ class ScoringUpdateQueue {
   ScoringUpdateQueue._internal();
 
   final List<ScoringUpdateRequest> _queue = [];
-  final Map<String, ScoringUpdateRequest> _dedupMap = {};
+  final Map<String, ScoringUpdateRequest> _deduplicateMap = {};
   bool _processingQueue = false;
   Timer? _processingTimer;
 
@@ -85,13 +87,13 @@ class ScoringUpdateQueue {
 
   Future<String> _addRequestToQueue(ScoringUpdateRequest request) async {
     // Check if we already have a pending request with the same deduplication key
-    final existingRequest = _dedupMap[request.deduplicationKey];
+    final existingRequest = _deduplicateMap[request.deduplicationKey];
     if (existingRequest != null) {
       // Complete the old request with a deduped message
       if (!existingRequest.completer.isCompleted) {
         existingRequest.completer.complete('Superseded by newer request');
       }
-      
+
       // Remove the old request from the queue
       _queue.remove(existingRequest);
       log('ScoringUpdateQueue: Deduplicated ${existingRequest.description}');
@@ -99,7 +101,7 @@ class ScoringUpdateQueue {
 
     // Add the new request
     _queue.add(request);
-    _dedupMap[request.deduplicationKey] = request;
+    _deduplicateMap[request.deduplicationKey] = request;
 
     // Sort queue by priority (highest priority first), then by request time
     _queue.sort((a, b) {
@@ -108,7 +110,9 @@ class ScoringUpdateQueue {
       return a.requestedAt.compareTo(b.requestedAt);
     });
 
-    log('ScoringUpdateQueue: Queued ${request.description} (queue size: ${_queue.length})');
+    log(
+      'ScoringUpdateQueue: Queued ${request.description} (queue size: ${_queue.length})',
+    );
 
     // Start processing if not already running
     _scheduleProcessing();
@@ -128,12 +132,14 @@ class ScoringUpdateQueue {
     if (_processingQueue || _queue.isEmpty) return;
 
     _processingQueue = true;
-    log('ScoringUpdateQueue: Starting queue processing (${_queue.length} items)');
+    log(
+      'ScoringUpdateQueue: Starting queue processing (${_queue.length} items)',
+    );
 
     try {
       while (_queue.isNotEmpty) {
         final request = _queue.removeAt(0);
-        _dedupMap.remove(request.deduplicationKey);
+        _deduplicateMap.remove(request.deduplicationKey);
 
         if (request.completer.isCompleted) {
           log('ScoringUpdateQueue: Skipping already completed request');
@@ -143,21 +149,25 @@ class ScoringUpdateQueue {
         try {
           log('ScoringUpdateQueue: Processing ${request.description}');
           final stopwatch = Stopwatch()..start();
-          
+
           final result = await di<StatsViewModel>().updateStats(
             request.dauComp,
             request.round,
             request.tipper,
           );
-          
+
           stopwatch.stop();
-          log('ScoringUpdateQueue: Completed ${request.description} in ${stopwatch.elapsedMilliseconds}ms - $result');
-          
+          log(
+            'ScoringUpdateQueue: Completed ${request.description} in ${stopwatch.elapsedMilliseconds}ms - $result',
+          );
+
           if (!request.completer.isCompleted) {
             request.completer.complete(result);
           }
         } catch (e) {
-          log('ScoringUpdateQueue: Error processing ${request.description}: $e');
+          log(
+            'ScoringUpdateQueue: Error processing ${request.description}: $e',
+          );
           if (!request.completer.isCompleted) {
             request.completer.completeError(e);
           }
@@ -176,26 +186,30 @@ class ScoringUpdateQueue {
   Map<String, dynamic> get queueStatus => {
     'queueLength': _queue.length,
     'processing': _processingQueue,
-    'pendingRequests': _queue.map((r) => {
-      'description': r.description,
-      'priority': r.priority,
-      'requestedAt': r.requestedAt.toIso8601String(),
-    }).toList(),
+    'pendingRequests': _queue
+        .map(
+          (r) => {
+            'description': r.description,
+            'priority': r.priority,
+            'requestedAt': r.requestedAt.toIso8601String(),
+          },
+        )
+        .toList(),
   };
 
   /// Clears the queue (useful for testing or emergency situations)
   void clearQueue() {
     log('ScoringUpdateQueue: Clearing queue (${_queue.length} items)');
-    
+
     // Complete all pending requests with cancellation message
     for (final request in _queue) {
       if (!request.completer.isCompleted) {
         request.completer.complete('Queue cleared');
       }
     }
-    
+
     _queue.clear();
-    _dedupMap.clear();
+    _deduplicateMap.clear();
     _processingTimer?.cancel();
     _processingQueue = false;
   }

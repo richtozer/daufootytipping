@@ -2,7 +2,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:flutter/material.dart';
 
-// this class only supports updating Team records. for referencial
+// this class only supports updating Team records. for referential
 // integrity reasons, we do not allow teams to be deleted
 
 class TeamEditPage extends StatefulWidget {
@@ -45,7 +45,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
       isSaving = true;
       disableBackButton = true;
     });
-    
+
     try {
       //create a new temp team object to pass the changes to the viewmodel
       Team teamEdited = Team(
@@ -64,7 +64,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
         isSaving = false;
         disableBackButton = false;
       });
-      
+
       if (context.mounted) {
         await showDialog(
           context: context,

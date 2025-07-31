@@ -23,7 +23,7 @@ These are not suggestions. Fix ALL issues before continuing.
 
 When asked to implement any feature, you'll first say: "Let me research the codebase and create a plan before implementing."
 
-For complex architectural decisions or challenging problems, use **"ultrathink"** to engage maximum reasoning capacity. Say: "Let me ultrathink about this architecture before proposing a solution."
+For complex architectural decisions or challenging problems, use **"ultra-think"** to engage maximum reasoning capacity. Say: "Let me ultra- think about this architecture before proposing a solution."
 
 ### USE MULTIPLE AGENTS!
 *Leverage subagents aggressively* for better results:
@@ -217,7 +217,7 @@ functions/                # Firebase backend functions
 When you're stuck or confused:
 1. **Stop** - Don't spiral into complex solutions
 2. **Delegate** - Consider spawning agents for parallel investigation
-3. **Ultrathink** - For complex problems, say "I need to ultrathink through this challenge" to engage deeper reasoning
+3. **Ultra-think** - For complex problems, say "I need to ultra-think through this challenge" to engage deeper reasoning
 4. **Step back** - Re-read the requirements
 5. **Simplify** - The simple solution is usually correct
 6. **Ask** - "I see two approaches: [A] vs [B]. Which do you prefer?"

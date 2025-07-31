@@ -285,7 +285,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                         ),
                                       ),
                                       content: const Text(
-                                        'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediatedly.',
+                                        'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediately.',
                                       ),
                                       actions: [
                                         TextButton(

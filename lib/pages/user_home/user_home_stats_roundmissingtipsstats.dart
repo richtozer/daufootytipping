@@ -82,7 +82,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                 ? HeaderWidget(
                     text: name,
                     leadingIconAvatar: const Hero(
-                      tag: 'magifyingglass',
+                      tag: 'magnifyingGlass',
                       child: Icon(Icons.search, size: 50),
                     ),
                   )

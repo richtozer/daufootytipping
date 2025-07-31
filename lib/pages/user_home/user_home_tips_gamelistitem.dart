@@ -49,7 +49,6 @@ class _GameListItemState extends State<GameListItem> {
   late final GameTipViewModel gameTipsViewModel;
   // LeagueLadder? _calculatedLadder; // Scoped locally to _fetchAndSetLadderRanks
 
-
   // New state variables for ladder ranks
   String? _homeOrdinalRankLabel;
   String? _awayOrdinalRankLabel;
@@ -76,7 +75,6 @@ class _GameListItemState extends State<GameListItem> {
       }
     });
   }
-
 
   Future<void> _fetchAndSetLadderRanks() async {
     if (!mounted) return;
@@ -210,7 +208,7 @@ class _GameListItemState extends State<GameListItem> {
                             ),
                           ),
                           child: SizedBox(
-                            width: Game.teamVteamWidth,
+                            width: Game.teamVersusTeamWidth,
                             child: _TeamVersusDisplay(
                               gameTipsViewModelConsumer:
                                   gameTipsViewModelConsumer,
@@ -236,7 +234,7 @@ class _GameListItemState extends State<GameListItem> {
                         ),
                       )
                     : SizedBox(
-                        width: Game.teamVteamWidth,
+                        width: Game.teamVersusTeamWidth,
                         child: GestureDetector(
                           onTap: () {
                             Navigator.push(
@@ -269,13 +267,16 @@ class _GameListItemState extends State<GameListItem> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Hero(
-                                  tag: "team_icon_${gameTipsViewModelConsumer.game.homeTeam.dbkey}",
+                                  tag:
+                                      "team_icon_${gameTipsViewModelConsumer.game.homeTeam.dbkey}",
                                   child: SvgPicture.asset(
                                     gameTipsViewModelConsumer
                                             .game
                                             .homeTeam
                                             .logoURI ??
-                                        (gameTipsViewModelConsumer.game.league ==
+                                        (gameTipsViewModelConsumer
+                                                    .game
+                                                    .league ==
                                                 League.nrl
                                             ? League.nrl.logo
                                             : League.afl.logo),
@@ -285,13 +286,16 @@ class _GameListItemState extends State<GameListItem> {
                                 ),
                                 const Text(textAlign: TextAlign.left, ' V '),
                                 Hero(
-                                  tag: "team_icon_${gameTipsViewModelConsumer.game.awayTeam.dbkey}",
+                                  tag:
+                                      "team_icon_${gameTipsViewModelConsumer.game.awayTeam.dbkey}",
                                   child: SvgPicture.asset(
                                     gameTipsViewModelConsumer
                                             .game
                                             .awayTeam
                                             .logoURI ??
-                                        (gameTipsViewModelConsumer.game.league ==
+                                        (gameTipsViewModelConsumer
+                                                    .game
+                                                    .league ==
                                                 League.nrl
                                             ? League.nrl.logo
                                             : League.afl.logo),
@@ -413,7 +417,7 @@ class _GameListItemState extends State<GameListItem> {
     GameTipViewModel gameTipsViewModelConsumer,
   ) {
     return FutureBuilder<Tip?>(
-      future: gameTipsViewModelConsumer.gettip(),
+      future: gameTipsViewModelConsumer.getTip(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return ScoringTile(
@@ -529,15 +533,13 @@ class _TeamVersusDisplay extends StatelessWidget {
         ),
         // Always show middleRowWidget to ensure Hero widgets are present for animation
         // but make it invisible when showExtra is false
-        showExtra 
+        showExtra
             ? middleRowWidget
             : Opacity(
                 opacity: 0.0,
                 child: SizedBox(
                   height: 0,
-                  child: IgnorePointer(
-                    child: middleRowWidget,
-                  ),
+                  child: IgnorePointer(child: middleRowWidget),
                 ),
               ),
         _TeamDisplayRow(

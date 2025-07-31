@@ -76,20 +76,20 @@ extension GameResultString on GameResult {
 class Scoring {
   int? homeTeamScore; // will be null until official score is downloaded
   int? awayTeamScore; // will be null until official score is downloaded
-  List<CrowdSourcedScore>? croudSourcedScores;
+  List<CrowdSourcedScore>? crowdSourcedScores;
 
   //constructor
-  Scoring({this.homeTeamScore, this.awayTeamScore, this.croudSourcedScores});
+  Scoring({this.homeTeamScore, this.awayTeamScore, this.crowdSourcedScores});
 
   Scoring copyWith({
     int? homeTeamScore,
     int? awayTeamScore,
-    List<CrowdSourcedScore>? croudSourcedScores,
+    List<CrowdSourcedScore>? crowdSourcedScores,
   }) {
     return Scoring(
       homeTeamScore: homeTeamScore ?? this.homeTeamScore,
       awayTeamScore: awayTeamScore ?? this.awayTeamScore,
-      croudSourcedScores: croudSourcedScores ?? this.croudSourcedScores,
+      crowdSourcedScores: crowdSourcedScores ?? this.crowdSourcedScores,
     );
   }
 
@@ -102,9 +102,9 @@ class Scoring {
       return officialScore;
     }
     //if official score is not available, return the latest crowd sourced score
-    if (croudSourcedScores != null && croudSourcedScores!.isNotEmpty) {
+    if (crowdSourcedScores != null && crowdSourcedScores!.isNotEmpty) {
       // find the latest crowd sourced score for the specified team with the most recent submittedTimeUTC timestamp
-      final scores = croudSourcedScores!
+      final scores = crowdSourcedScores!
           .where((element) => element.scoreTeam == team)
           .toList();
       if (scores.isNotEmpty) {
@@ -133,13 +133,13 @@ class Scoring {
     int? homeScore = currentScore(ScoringTeam.home);
     int? awayScore = currentScore(ScoringTeam.away);
 
-    // Handle partial live scores by assuming unscored team has 0
+    // Handle partial live scores by assuming un-scored team has 0
     // This allows proper scoring during live updates until fixture scores are available
-    if (homeScore != null && awayScore == null && croudSourcedScores != null) {
+    if (homeScore != null && awayScore == null && crowdSourcedScores != null) {
       awayScore = 0;
     } else if (awayScore != null &&
         homeScore == null &&
-        croudSourcedScores != null) {
+        crowdSourcedScores != null) {
       homeScore = 0;
     }
 
@@ -174,23 +174,23 @@ class Scoring {
     return GameResult.z;
   }
 
-  // tojson method
+  // toJson method
   Map<String, dynamic> toJson() {
     return {
       'homeTeamScore': homeTeamScore,
       'awayTeamScore': awayTeamScore,
-      'croudSourcedScores': croudSourcedScores?.map((x) => x.toJson()).toList(),
+      'crowdSourcedScores': crowdSourcedScores?.map((x) => x.toJson()).toList(),
     };
   }
 
-  // fromjson method
+  // fromJson method
   factory Scoring.fromJson(Map<String, dynamic> data) {
     return Scoring(
       homeTeamScore: data['homeTeamScore'],
       awayTeamScore: data['awayTeamScore'],
-      croudSourcedScores: data['croudSourcedScores'] != null
+      crowdSourcedScores: data['crowdSourcedScores'] != null
           ? List<CrowdSourcedScore>.from(
-              (data['croudSourcedScores'] as List)
+              (data['crowdSourcedScores'] as List)
                   .where((x) => x != null)
                   .map((x) => CrowdSourcedScore.fromJson(x as Map))
                   .toList(),
