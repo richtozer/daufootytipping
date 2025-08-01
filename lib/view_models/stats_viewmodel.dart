@@ -1443,36 +1443,6 @@ class StatsViewModel extends ChangeNotifier {
     _roundWinners = Map.fromEntries(sortedEntries);
   }
 
-  void removeGameFromLiveScoresList(Game game) {
-    _gamesWithLiveScores.removeWhere((g) => g.dbkey == game.dbkey);
-    log(
-      'StatsViewModel.removeGameFromLiveScoresList() Removed game ${game.dbkey} from live scores list',
-    );
-  }
-
-  Future<void> deleteGameLiveScores(Game game) async {
-    try {
-      // Delete live scores for this specific game from database
-      await _db
-          .child(statsPathRoot)
-          .child(selectedDAUComp.dbkey!)
-          .child(liveScoresRoot)
-          .child(game.dbkey)
-          .remove();
-
-      log(
-        'StatsViewModel.deleteGameLiveScores() Deleted live scores for game ${game.dbkey} as official scores have arrived',
-      );
-
-      // Remove this game from the live scores list
-      removeGameFromLiveScoresList(game);
-    } catch (e) {
-      log(
-        'StatsViewModel.deleteGameLiveScores() Error deleting live scores for game ${game.dbkey}: $e',
-      );
-    }
-  }
-
   RoundStats getScoringRoundStats(DAURound dauRound, Tipper selectedTipper) {
     if (_allTipperRoundStats.isEmpty) {
       return RoundStats(
