@@ -1216,9 +1216,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     // remove listeners if not in admin mode
     if (!_adminMode) {
-      statsViewModel?.removeListener(_otherViewModelUpdated);
-      statsViewModel!.removeListener(_otherViewModelUpdated);
+      selectedTipperTipsViewModel?.removeListener(_otherViewModelUpdated);
     }
+    statsViewModel!.removeListener(_otherViewModelUpdated);
     gamesViewModel?.removeListener(_otherViewModelUpdated);
 
     super.dispose();
