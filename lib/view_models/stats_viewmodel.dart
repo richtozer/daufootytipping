@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io'; // Add this import for IOException, SocketException
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
+import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -1084,13 +1085,20 @@ class StatsViewModel extends ChangeNotifier {
       // Add all scores atomically
       await _addMultipleLiveScores(tip.game, scoresToAdd);
 
+      // Use the scoring update queue
       unawaited(
-        updateStats(
-          selectedDAUComp,
-          tip.game.getDAURound(selectedDAUComp),
-          null,
-        ).then((_) {
+        ScoringUpdateQueue()
+            .queueScoringUpdate(
+          dauComp: selectedDAUComp,
+          round: tip.game.getDAURound(selectedDAUComp),
+          tipper: null, // Score all tippers for the round
+          priority: 2, // Round-wide update
+        )
+            .then((result) {
+          log('Scoring update queued for round, result: $result');
           getGamesStatsEntry(tip.game, true);
+        }).catchError((error) {
+          log('Error queueing scoring update: $error');
         }),
       );
     });
