@@ -1284,10 +1284,18 @@ class DAUCompsViewModel extends ChangeNotifier {
           [];
 
       final LadderCalculationService ladderService = LadderCalculationService();
+      DateTime? cutoffDate;
+      if (league == League.nrl) {
+        cutoffDate = selectedDAUComp!.nrlRegularCompEndDateUTC;
+      } else if (league == League.afl) {
+        cutoffDate = selectedDAUComp!.aflRegularCompEndDateUTC;
+      }
+
       LeagueLadder? calculatedLadder = ladderService.calculateLadder(
         allGames: allGames,
         leagueTeams: leagueTeams,
         league: league,
+        cutoffDate: cutoffDate,
       );
 
       if (calculatedLadder != null) {

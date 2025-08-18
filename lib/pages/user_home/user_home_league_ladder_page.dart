@@ -652,7 +652,12 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                       ),
                                       child: Hero(
                                         tag: "team_icon_${ladderTeam.dbkey}",
-                                        child: _buildTeamLogo(ladderTeam),
+                                        child: SvgPicture.asset(
+                                          ladderTeam.logoURI ??
+                                              'assets/images/default_logo.svg',
+                                          width: 28,
+                                          height: 28,
+                                        ),
                                       ),
                                     ),
                                     Expanded(
@@ -990,23 +995,5 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         ),
       ],
     );
-  }
-
-  Widget _buildTeamLogo(LadderTeam ladderTeam) {
-    if (ladderTeam.logoURI != null &&
-        ladderTeam.logoURI!.isNotEmpty &&
-        !ladderTeam.logoURI!.contains('default_logo')) {
-      return SvgPicture.asset(
-        ladderTeam.logoURI!,
-        width: 28,
-        height: 28,
-        placeholderBuilder: (BuildContext context) => Container(
-            padding: const EdgeInsets.all(4.0),
-            child: const CircularProgressIndicator()),
-      );
-    } else {
-      // Return a placeholder widget
-      return const Icon(Icons.shield, size: 28, color: Colors.grey);
-    }
   }
 }

@@ -12,48 +12,54 @@ class LadderCalculationService {
     required List<Game> allGames,
     required List<Team> leagueTeams,
     required League league,
+    DateTime? cutoffDate,
   }) {
-    // Group games by round number for the specified league
+    // 1. Filter games by cutoff date
+    if (cutoffDate != null) {
+      allGames = allGames
+          .where((game) => game.startTimeUTC.isBefore(cutoffDate))
+          .toList();
+    }
+
+    // 2. Filter out dummy teams
+    final activeTeams =
+        leagueTeams.where((team) => team.name != 'To be announced').toList();
+
+    // 3. Group games by round
     Map<int, List<Game>> gamesByRound = {};
     for (var game in allGames.where((g) => g.league == league)) {
       gamesByRound.putIfAbsent(game.fixtureRoundNumber, () => []).add(game);
     }
 
-    // Identify completed rounds where all games have scores
+    // 4. Identify completed rounds
     final now = DateTime.now().toUtc();
     final completedRoundNumbers = gamesByRound.entries
         .where((entry) {
           if (entry.value.isEmpty) return false;
-
-          // Check 1: All games must have scores
           final allGamesHaveScores = entry.value.every((g) =>
               g.scoring != null &&
               g.scoring!.homeTeamScore != null &&
               g.scoring!.awayTeamScore != null);
           if (!allGamesHaveScores) return false;
-
-          // Check 2: The entire round must be in the past.
-          // Find the latest game start time in the round.
           DateTime lastGameStartTime = entry.value.first.startTimeUTC;
           for (var game in entry.value) {
             if (game.startTimeUTC.isAfter(lastGameStartTime)) {
               lastGameStartTime = game.startTimeUTC;
             }
           }
-          // Consider the round complete only if the last game has finished (e.g., 3 hours after start time).
           return now.isAfter(lastGameStartTime.add(const Duration(hours: 3)));
         })
         .map((entry) => entry.key)
         .toList();
 
-    // Wait until at least 3 rounds are completed before showing ladder
+    // 5. Check for min completed rounds
     if (completedRoundNumbers.length < 3) {
       return null;
     }
 
-    // Initialize LadderTeam objects for each team in the league
+    // 6. Initialize ladder teams
     Map<String, LadderTeam> ladderTeamsMap = {};
-    for (var team in leagueTeams) {
+    for (var team in activeTeams) {
       if (team.league == league) {
         ladderTeamsMap[team.dbkey] = LadderTeam(
           dbkey: team.dbkey,
@@ -63,10 +69,9 @@ class LadderCalculationService {
       }
     }
 
-    // --- Handle Byes (especially for NRL) ---
+    // 7. Handle Byes
     if (league == League.nrl) {
-      final allTeamKeysInLeague = leagueTeams.map((t) => t.dbkey).toSet();
-
+      final allTeamKeysInLeague = activeTeams.map((t) => t.dbkey).toSet();
       for (var roundNumber in completedRoundNumbers) {
         final gamesInRound = gamesByRound[roundNumber] ?? [];
         final teamsThatPlayed = <String>{};
@@ -74,22 +79,19 @@ class LadderCalculationService {
           teamsThatPlayed.add(game.homeTeam.dbkey);
           teamsThatPlayed.add(game.awayTeam.dbkey);
         }
-
-        // Determine teams with a bye for this round
         final teamsWithBye = allTeamKeysInLeague.difference(teamsThatPlayed);
-
         for (var teamKey in teamsWithBye) {
           final ladderTeam = ladderTeamsMap[teamKey];
           if (ladderTeam != null) {
-            ladderTeam.points += 2; // 2 points for a bye
+            ladderTeam.points += 2;
             ladderTeam.byes += 1;
-            ladderTeam.played++; // bye counts as a game played for the team
+            ladderTeam.played++;
           }
         }
       }
     }
 
-    // Filter games for the specified league and where scores are available
+    // 8. Process games
     List<Game> relevantGames = allGames.where((game) {
       return game.league == league &&
           game.scoring != null &&
@@ -97,80 +99,63 @@ class LadderCalculationService {
           game.scoring!.awayTeamScore != null;
     }).toList();
 
-    // Process each relevant game
     for (var game in relevantGames) {
-      // Ensure homeTeam and awayTeam are not null before accessing dbkey
       LadderTeam? homeLadderTeam = ladderTeamsMap[game.homeTeam.dbkey];
       LadderTeam? awayLadderTeam = ladderTeamsMap[game.awayTeam.dbkey];
 
       if (homeLadderTeam == null || awayLadderTeam == null) {
-        // This implies a team played in a game but wasn't in the initial leagueTeams list for that league.
-        log(
-          'Warning: Team data not found in ladderTeamsMap for game ${game.dbkey}. Home: ${game.homeTeam.name}, Away: ${game.awayTeam.name}',
-        );
         continue;
       }
 
-      // Update played count
       homeLadderTeam.played++;
       awayLadderTeam.played++;
 
-      // Update points for and against (scores are checked for nullity in relevantGames filter)
       homeLadderTeam.pointsFor += game.scoring!.homeTeamScore!;
       homeLadderTeam.pointsAgainst += game.scoring!.awayTeamScore!;
       awayLadderTeam.pointsFor += game.scoring!.awayTeamScore!;
       awayLadderTeam.pointsAgainst += game.scoring!.homeTeamScore!;
 
-      // Determine winner and update stats
       if (game.scoring!.homeTeamScore! > game.scoring!.awayTeamScore!) {
-        // Home team wins
         homeLadderTeam.won++;
         awayLadderTeam.lost++;
         if (league == League.afl) {
           homeLadderTeam.points += 4;
         } else {
-          // Assuming NRL or other leagues default to 2 points for a win
           homeLadderTeam.points += 2;
         }
       } else if (game.scoring!.awayTeamScore! > game.scoring!.homeTeamScore!) {
-        // Away team wins
         awayLadderTeam.won++;
         homeLadderTeam.lost++;
         if (league == League.afl) {
           awayLadderTeam.points += 4;
         } else {
-          // Assuming NRL or other leagues default to 2 points for a win
           awayLadderTeam.points += 2;
         }
       } else {
-        // Draw
         homeLadderTeam.drawn++;
         awayLadderTeam.drawn++;
         if (league == League.afl) {
           homeLadderTeam.points += 2;
           awayLadderTeam.points += 2;
         } else {
-          // Assuming NRL or other leagues default to 1 point for a draw
           homeLadderTeam.points += 1;
           awayLadderTeam.points += 1;
         }
       }
     }
 
-    // Calculate percentage for each team
+    // 9. Calculate percentage and sort
     for (var ladderTeam in ladderTeamsMap.values) {
       ladderTeam.calculatePercentage();
     }
 
-    // Create and sort the league ladder
     List<LadderTeam> finalLadderTeams = ladderTeamsMap.values.toList();
     LeagueLadder leagueLadder = LeagueLadder(
       league: league,
       teams: finalLadderTeams,
     );
-    leagueLadder.sortLadder(); // Uses the sortLadder method from LeagueLadder
+    leagueLadder.sortLadder();
 
-    // remove teams with 0 points, 0 played
     leagueLadder.teams.removeWhere(
       (team) => team.points == 0 && team.played == 0,
     );
