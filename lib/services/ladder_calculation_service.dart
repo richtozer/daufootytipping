@@ -13,40 +13,63 @@ class LadderCalculationService {
     required List<Team> leagueTeams,
     required League league,
   }) {
-    // --- Count completed rounds ---
-    // Group games by round number
+    // Group games by round number for the specified league
     Map<int, List<Game>> gamesByRound = {};
     for (var game in allGames.where((g) => g.league == league)) {
       gamesByRound.putIfAbsent(game.fixtureRoundNumber, () => []).add(game);
     }
-    // Count rounds where all games have scores
-    int completedRounds = gamesByRound.values
-        .where(
-          (games) => games.every(
-            (g) =>
+
+    // Identify completed rounds where all games have scores
+    final completedRoundNumbers = gamesByRound.entries
+        .where((entry) =>
+            entry.value.isNotEmpty &&
+            entry.value.every((g) =>
                 g.scoring != null &&
                 g.scoring!.homeTeamScore != null &&
-                g.scoring!.awayTeamScore != null,
-          ),
-        )
-        .length;
+                g.scoring!.awayTeamScore != null))
+        .map((entry) => entry.key)
+        .toList();
 
     // Wait until at least 3 rounds are completed before showing ladder
-    if (completedRounds < 3) {
+    if (completedRoundNumbers.length < 3) {
       return null;
     }
+
     // Initialize LadderTeam objects for each team in the league
     Map<String, LadderTeam> ladderTeamsMap = {};
     for (var team in leagueTeams) {
-      // Ensure we only add teams that are part of the specified league
-      // This check might be redundant if leagueTeams is already filtered,
-      // but it's a good safeguard.
       if (team.league == league) {
         ladderTeamsMap[team.dbkey] = LadderTeam(
           dbkey: team.dbkey,
           teamName: team.name,
           logoURI: team.logoURI,
         );
+      }
+    }
+
+    // --- Handle Byes (especially for NRL) ---
+    if (league == League.nrl) {
+      final allTeamKeysInLeague = leagueTeams.map((t) => t.dbkey).toSet();
+
+      for (var roundNumber in completedRoundNumbers) {
+        final gamesInRound = gamesByRound[roundNumber] ?? [];
+        final teamsThatPlayed = <String>{};
+        for (var game in gamesInRound) {
+          teamsThatPlayed.add(game.homeTeam.dbkey);
+          teamsThatPlayed.add(game.awayTeam.dbkey);
+        }
+
+        // Determine teams with a bye for this round
+        final teamsWithBye = allTeamKeysInLeague.difference(teamsThatPlayed);
+
+        for (var teamKey in teamsWithBye) {
+          final ladderTeam = ladderTeamsMap[teamKey];
+          if (ladderTeam != null) {
+            ladderTeam.points += 2; // 2 points for a bye
+            ladderTeam.byes += 1;
+            ladderTeam.played++; // bye counts as a game played for the team
+          }
+        }
       }
     }
 

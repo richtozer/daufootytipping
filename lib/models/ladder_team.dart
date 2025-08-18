@@ -11,6 +11,7 @@ class LadderTeam {
   int points;
   double percentage;
   int? originalRank; // Made non-final
+  int byes;
 
   LadderTeam({
     required this.dbkey,
@@ -20,6 +21,7 @@ class LadderTeam {
     this.won = 0,
     this.lost = 0,
     this.drawn = 0,
+    this.byes = 0,
     this.pointsFor = 0,
     this.pointsAgainst = 0,
     this.points = 0,

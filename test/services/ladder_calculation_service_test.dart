@@ -288,5 +288,90 @@ void main() {
     });
 
     // Add more tests for percentage edge cases, multiple games, complex sorting scenarios etc.
+    test('should correctly award 2 points for an NRL bye', () {
+      final teamNrlC = _createTeam('nrl-teamC', 'NRL Team C', League.nrl);
+      // 3 rounds of games, where each team has one bye
+      final allGames = [
+        // Round 1 (C has a bye)
+        _createGame(
+            dbkey: 'nrl-1-1',
+            league: League.nrl,
+            homeTeam: teamNrlA,
+            awayTeam: teamNrlB,
+            startTime: DateTime.now().subtract(const Duration(days: 3)),
+            homeScore: 10,
+            awayScore: 0,
+            roundNumber: 1),
+        // Round 2 (B has a bye)
+        _createGame(
+            dbkey: 'nrl-2-1',
+            league: League.nrl,
+            homeTeam: teamNrlA,
+            awayTeam: teamNrlC,
+            startTime: DateTime.now().subtract(const Duration(days: 2)),
+            homeScore: 10,
+            awayScore: 20,
+            roundNumber: 2),
+        // Round 3 (A has a bye)
+        _createGame(
+            dbkey: 'nrl-3-1',
+            league: League.nrl,
+            homeTeam: teamNrlB,
+            awayTeam: teamNrlC,
+            startTime: DateTime.now().subtract(const Duration(days: 1)),
+            homeScore: 10,
+            awayScore: 0,
+            roundNumber: 3),
+      ];
+
+      final ladder = service.calculateLadder(
+        allGames: allGames,
+        leagueTeams: [teamNrlA, teamNrlB, teamNrlC],
+        league: League.nrl,
+      );
+
+      expect(ladder, isNotNull);
+      expect(ladder?.teams.length, 3);
+
+      final ltA = ladder!.teams.firstWhere((t) => t.teamName == 'NRL Team A');
+      final ltB = ladder.teams.firstWhere((t) => t.teamName == 'NRL Team B');
+      final ltC = ladder.teams.firstWhere((t) => t.teamName == 'NRL Team C');
+
+      // Team A: 1 win, 1 loss, 1 bye = 2 + 0 + 2 = 4 points
+      expect(ltA.played, 3);
+      expect(ltA.won, 1);
+      expect(ltA.lost, 1);
+      expect(ltA.drawn, 0);
+      expect(ltA.byes, 1);
+      expect(ltA.points, 4);
+      expect(ltA.pointsFor, 20); // 10 + 10
+      expect(ltA.pointsAgainst, 20); // 0 + 20
+
+      // Team B: 1 win, 1 loss, 1 bye = 2 + 0 + 2 = 4 points
+      expect(ltB.played, 3);
+      expect(ltB.won, 1);
+      expect(ltB.lost, 1);
+      expect(ltB.drawn, 0);
+      expect(ltB.byes, 1);
+      expect(ltB.points, 4);
+      expect(ltB.pointsFor, 10); // 0 + 10
+      expect(ltB.pointsAgainst, 10); // 10 + 0
+
+      // Team C: 1 win, 1 loss, 1 bye = 2 + 0 + 2 = 4 points
+      expect(ltC.played, 3);
+      expect(ltC.won, 1);
+      expect(ltC.lost, 1);
+      expect(ltC.drawn, 0);
+      expect(ltC.byes, 1);
+      expect(ltC.points, 4);
+      expect(ltC.pointsFor, 20); // 20 + 0
+      expect(ltC.pointsAgainst, 20); // 10 + 10
+
+      // All teams have 4 points and 100% percentage.
+      // Sorting should be alphabetical: A, B, C
+      expect(ladder.teams[0].teamName, 'NRL Team A');
+      expect(ladder.teams[1].teamName, 'NRL Team B');
+      expect(ladder.teams[2].teamName, 'NRL Team C');
+    });
   });
 }
