@@ -345,6 +345,11 @@ void main() {
       // Team C: 1 win, 1 loss, 1 bye = 2 + 0 + 2 = 4 points
       expect(ltC.byes, 1);
       expect(ltC.points, 4);
+
+      // Check played count (should not include byes)
+      expect(ltA.played, 2);
+      expect(ltB.played, 2);
+      expect(ltC.played, 2);
     });
 
     test('should not award byes for a round that is not yet fully past', () {
@@ -399,6 +404,7 @@ void main() {
       // Only the bye from round 1 should be counted.
       expect(ltC.byes, 1);
       expect(ltC.points, 4); // 2 from bye, 2 from win
+      expect(ltC.played, 2);
     });
 
     test('should ignore "To be announced" teams in ladder calculation', () {

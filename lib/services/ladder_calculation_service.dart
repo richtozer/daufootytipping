@@ -85,7 +85,6 @@ class LadderCalculationService {
           if (ladderTeam != null) {
             ladderTeam.points += 2;
             ladderTeam.byes += 1;
-            ladderTeam.played++;
           }
         }
       }

@@ -353,13 +353,16 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           case 6: // 'D'
             compareResult = a.drawn.compareTo(b.drawn);
             break;
-          case 7: // 'For'
+          case 7: // 'Byes'
+            compareResult = a.byes.compareTo(b.byes);
+            break;
+          case 8: // 'For'
             compareResult = a.pointsFor.compareTo(b.pointsFor);
             break;
-          case 8: // 'Agst'
+          case 9: // 'Agst'
             compareResult = a.pointsAgainst.compareTo(b.pointsAgainst);
             break;
-          case 9: // '%'
+          case 10: // '%'
             compareResult = a.percentage.compareTo(b.percentage);
             break;
         }
@@ -540,6 +543,14 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                           ),
                           DataColumn(
                             label: const Text(
+                              'Byes',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            onSort: (int columnIndex, bool ascending) =>
+                                _onSort(columnIndex, ascending),
+                          ),
+                          DataColumn(
+                            label: const Text(
                               'For',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
@@ -652,12 +663,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                       ),
                                       child: Hero(
                                         tag: "team_icon_${ladderTeam.dbkey}",
-                                        child: SvgPicture.asset(
-                                          ladderTeam.logoURI ??
-                                              'assets/images/default_logo.svg',
-                                          width: 28,
-                                          height: 28,
-                                        ),
+                                        child: _buildTeamLogo(ladderTeam),
                                       ),
                                     ),
                                     Expanded(
@@ -701,6 +707,13 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                               DataCell(
                                 Text(
                                   ladderTeam.drawn.toString(),
+                                  textAlign: TextAlign.right,
+                                ),
+                                onTap: navigateToHistory,
+                              ),
+                              DataCell(
+                                Text(
+                                  ladderTeam.byes.toString(),
                                   textAlign: TextAlign.right,
                                 ),
                                 onTap: navigateToHistory,
@@ -995,5 +1008,23 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         ),
       ],
     );
+  }
+
+  Widget _buildTeamLogo(LadderTeam ladderTeam) {
+    if (ladderTeam.logoURI != null &&
+        ladderTeam.logoURI!.isNotEmpty &&
+        !ladderTeam.logoURI!.contains('default_logo')) {
+      return SvgPicture.asset(
+        ladderTeam.logoURI!,
+        width: 28,
+        height: 28,
+        placeholderBuilder: (BuildContext context) => Container(
+            padding: const EdgeInsets.all(4.0),
+            child: const CircularProgressIndicator()),
+      );
+    } else {
+      // Return a placeholder widget
+      return const Icon(Icons.shield, size: 28, color: Colors.grey);
+    }
   }
 }
