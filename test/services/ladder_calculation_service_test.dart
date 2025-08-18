@@ -373,5 +373,66 @@ void main() {
       expect(ladder.teams[1].teamName, 'NRL Team B');
       expect(ladder.teams[2].teamName, 'NRL Team C');
     });
+
+    test('should not award byes for a round that is not yet fully past', () {
+      final teamNrlC = _createTeam('nrl-teamC', 'NRL Team C', League.nrl);
+      // 4 rounds of games
+      final allGames = [
+        // Round 1 (Completed)
+        _createGame(
+            dbkey: 'nrl-1-1',
+            league: League.nrl,
+            homeTeam: teamNrlA,
+            awayTeam: teamNrlB,
+            startTime: DateTime.now().subtract(const Duration(days: 10)),
+            homeScore: 10,
+            awayScore: 0,
+            roundNumber: 1),
+        // Round 2 (Completed)
+        _createGame(
+            dbkey: 'nrl-2-1',
+            league: League.nrl,
+            homeTeam: teamNrlA,
+            awayTeam: teamNrlC,
+            startTime: DateTime.now().subtract(const Duration(days: 9)),
+            homeScore: 10,
+            awayScore: 20,
+            roundNumber: 2),
+        // Round 3 (Completed)
+        _createGame(
+            dbkey: 'nrl-3-1',
+            league: League.nrl,
+            homeTeam: teamNrlB,
+            awayTeam: teamNrlC,
+            startTime: DateTime.now().subtract(const Duration(days: 8)),
+            homeScore: 10,
+            awayScore: 0,
+            roundNumber: 3),
+        // Round 4 (Not completed - game is in the future)
+        // Team C has a bye in this round, but it should not be awarded yet.
+        _createGame(
+            dbkey: 'nrl-4-1',
+            league: League.nrl,
+            homeTeam: teamNrlA,
+            awayTeam: teamNrlB,
+            startTime: DateTime.now().add(const Duration(days: 1)),
+            roundNumber: 4),
+      ];
+
+      final ladder = service.calculateLadder(
+        allGames: allGames,
+        leagueTeams: [teamNrlA, teamNrlB, teamNrlC],
+        league: League.nrl,
+      );
+
+      expect(ladder, isNotNull);
+      final ltC = ladder!.teams.firstWhere((t) => t.teamName == 'NRL Team C');
+
+      // Team C has a bye in round 1 (completed) and round 4 (not completed).
+      // Only the bye from round 1 should be counted.
+      expect(ltC.byes, 1);
+      // Points should be: 2 (from bye in R1) + 2 (from win in R2) = 4
+      expect(ltC.points, 4);
+    });
   });
 }

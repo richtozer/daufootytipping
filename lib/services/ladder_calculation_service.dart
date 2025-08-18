@@ -20,13 +20,29 @@ class LadderCalculationService {
     }
 
     // Identify completed rounds where all games have scores
+    final now = DateTime.now().toUtc();
     final completedRoundNumbers = gamesByRound.entries
-        .where((entry) =>
-            entry.value.isNotEmpty &&
-            entry.value.every((g) =>
-                g.scoring != null &&
-                g.scoring!.homeTeamScore != null &&
-                g.scoring!.awayTeamScore != null))
+        .where((entry) {
+          if (entry.value.isEmpty) return false;
+
+          // Check 1: All games must have scores
+          final allGamesHaveScores = entry.value.every((g) =>
+              g.scoring != null &&
+              g.scoring!.homeTeamScore != null &&
+              g.scoring!.awayTeamScore != null);
+          if (!allGamesHaveScores) return false;
+
+          // Check 2: The entire round must be in the past.
+          // Find the latest game start time in the round.
+          DateTime lastGameStartTime = entry.value.first.startTimeUTC;
+          for (var game in entry.value) {
+            if (game.startTimeUTC.isAfter(lastGameStartTime)) {
+              lastGameStartTime = game.startTimeUTC;
+            }
+          }
+          // Consider the round complete only if the last game has finished (e.g., 3 hours after start time).
+          return now.isAfter(lastGameStartTime.add(const Duration(hours: 3)));
+        })
         .map((entry) => entry.key)
         .toList();
 
