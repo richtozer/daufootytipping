@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -22,8 +21,9 @@ class LadderCalculationService {
     }
 
     // 2. Filter out dummy teams
-    final activeTeams =
-        leagueTeams.where((team) => team.name != 'To be announced').toList();
+    final activeTeams = leagueTeams
+        .where((team) => team.name != 'To be announced')
+        .toList();
 
     // 3. Group games by round
     Map<int, List<Game>> gamesByRound = {};
@@ -36,10 +36,12 @@ class LadderCalculationService {
     final completedRoundNumbers = gamesByRound.entries
         .where((entry) {
           if (entry.value.isEmpty) return false;
-          final allGamesHaveScores = entry.value.every((g) =>
-              g.scoring != null &&
-              g.scoring!.homeTeamScore != null &&
-              g.scoring!.awayTeamScore != null);
+          final allGamesHaveScores = entry.value.every(
+            (g) =>
+                g.scoring != null &&
+                g.scoring!.homeTeamScore != null &&
+                g.scoring!.awayTeamScore != null,
+          );
           if (!allGamesHaveScores) return false;
           DateTime lastGameStartTime = entry.value.first.startTimeUTC;
           for (var game in entry.value) {
