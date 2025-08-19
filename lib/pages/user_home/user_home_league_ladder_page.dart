@@ -454,7 +454,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                       (widget.teamDbKeysToDisplay != null &&
                               widget.teamDbKeysToDisplay!.isNotEmpty)
                           ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
-                          : "This is the current ${widget.league.name.toUpperCase()} premiership ladder. Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
+                          : "This is the current ${widget.league.name.toUpperCase()} premiership ladder for the regular season. Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
                       style: Theme.of(
                         context,
                       ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
@@ -1019,8 +1019,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         width: 28,
         height: 28,
         placeholderBuilder: (BuildContext context) => Container(
-            padding: const EdgeInsets.all(4.0),
-            child: const CircularProgressIndicator()),
+          padding: const EdgeInsets.all(4.0),
+          child: const CircularProgressIndicator(),
+        ),
       );
     } else {
       // Return a placeholder widget
