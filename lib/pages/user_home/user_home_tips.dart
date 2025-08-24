@@ -299,7 +299,7 @@ class EndFooter extends StatelessWidget {
           children: [
             Icon(Icons.flag, color: Colors.white70),
             Text(
-              'End of the competition',
+              'End of regular competition',
               style: TextStyle(color: Colors.white70),
             ),
             Icon(Icons.flag, color: Colors.white70),
