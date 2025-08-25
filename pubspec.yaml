@@ -91,7 +91,7 @@ flutter_icons:
   ios: true
   remove_alpha_ios: true
   image_path: "assets/icon/AppIcon.png"
-  min_sdk_android: 21
+  min_sdk_android: 36
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

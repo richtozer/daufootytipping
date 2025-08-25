@@ -31,8 +31,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "coach.interview.daufootytipping"
-    compileSdkVersion 35
-    //compileSdkVersion flutter.compileSdkVersion
+    compileSdkVersion flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -53,7 +52,7 @@ android {
         applicationId "coach.interview.daufootytipping"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdkVersion 23
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
