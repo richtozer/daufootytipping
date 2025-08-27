@@ -17,6 +17,7 @@ import 'package:daufootytipping/services/lock_manager.dart';
 import 'package:daufootytipping/services/timer_scheduler.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
 import 'package:daufootytipping/repositories/daucomps_repository.dart';
+import 'package:daufootytipping/services/rounds_linking_service.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -87,6 +88,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final LockManager _lockManager = const LockManager();
   final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
+  final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
 
   final DauCompsRepository _repo;
 
@@ -824,59 +826,18 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Create a local copy of unassignedGames
-      List<Game> localUnassignedGames = List.from(
-        await gamesViewModel!.getGames(),
-      );
-
+      // Assign round.games via GamesViewModel to keep behavior consistent
       for (var round in allRounds) {
-        // Assign games to the round
         round.games = await gamesViewModel!.getGamesForRound(round);
-
-        // Initialize the round state
-        _initRoundState(round);
-
-        // Remove assigned games from the local unassigned games list
-        localUnassignedGames.removeWhere(
-          (game) =>
-              round.games.any((roundGame) => roundGame.dbkey == game.dbkey),
-        );
-
-        // Remove games that exceed the cutoff time for NRL and AFL
-        if (_selectedDAUComp!.nrlRegularCompEndDateUTC != null) {
-          localUnassignedGames.removeWhere(
-            (game) =>
-                game.league == League.nrl &&
-                game.startTimeUTC.isAfter(
-                  _selectedDAUComp!.nrlRegularCompEndDateUTC!,
-                ),
-          );
-        }
-
-        if (_selectedDAUComp!.aflRegularCompEndDateUTC != null) {
-          localUnassignedGames.removeWhere(
-            (game) =>
-                game.league == League.afl &&
-                game.startTimeUTC.isAfter(
-                  _selectedDAUComp!.aflRegularCompEndDateUTC!,
-                ),
-          );
-        }
-
-        // Update AFL and NRL game counts for the round
-        round.nrlGameCount = round.games
-            .where((game) => game.league == League.nrl)
-            .toList()
-            .length;
-        round.aflGameCount = round.games
-            .where((game) => game.league == League.afl)
-            .toList()
-            .length;
       }
 
-      // Update the shared unassignedGames list after all operations are complete
-      unassignedGames = localUnassignedGames;
-
+      final all = await gamesViewModel!.getGames();
+      unassignedGames = _roundsLinking.finalizeRoundsAndComputeUnassigned(
+        rounds: allRounds,
+        allGames: all,
+        nrlCutoff: _selectedDAUComp!.nrlRegularCompEndDateUTC,
+        aflCutoff: _selectedDAUComp!.aflRegularCompEndDateUTC,
+      );
       log('Unassigned games count: ${unassignedGames.length}');
     } catch (e) {
       log('Error in linkGamesWithRounds(): $e');
