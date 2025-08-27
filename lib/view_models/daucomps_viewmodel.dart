@@ -23,6 +23,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
+import 'package:daufootytipping/services/fixture_update_service.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -90,7 +91,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
   final AnalyticsService _analytics;
   final MessagingService _messaging;
-  final FixtureDownloadService _fixtureDownloader;
+  final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
 
   final DauCompsRepository _repo;
@@ -106,7 +107,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     MessagingService? messaging,
     TippersViewModel Function()? tippers,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
-        _fixtureDownloader = fixtureDownloader ?? FixtureDownloadService(),
+        _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
         _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
         _tippers = tippers ?? (() => di<TippersViewModel>()) {
@@ -644,44 +645,24 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('getNetworkFixtureData() is already downloading');
       return 'Fixture data is already downloading';
     }
-
     await initialDAUCompLoadComplete;
-
-    // acquire lock
-    bool lockAcquired = await _acquireLock(daucompToUpdate);
-
-    if (!lockAcquired) {
-      log(
-        'getNetworkFixtureData() Another instance is already downloading the fixture data. Skipping download.',
-      );
-      return 'Another instance is already downloading the fixture data. Skipping download.';
-    }
-
-    _isDownloading = true;
-    notifyListeners();
-
-    try {
-      return await _fetchAndProcessFixtureData(daucompToUpdate);
-    } catch (e) {
-      log('Error fetching fixture data: $e');
-      rethrow;
-    } finally {
-      _isDownloading = false;
-      // release lock
-      await _releaseLock(daucompToUpdate);
-      notifyListeners();
-    }
+    return _fixtureUpdater.runUpdate(
+      comp: daucompToUpdate,
+      acquireLock: () => _acquireLock(daucompToUpdate),
+      releaseLock: () => _releaseLock(daucompToUpdate),
+      setDownloading: (v) {
+        _isDownloading = v;
+        notifyListeners();
+      },
+      processFetched: (comp, nrl, afl) => _processFetchedFixtures(comp, nrl, afl),
+    );
   }
 
-  Future<String> _fetchAndProcessFixtureData(DAUComp daucompToUpdate) async {
-    Map<String, List<dynamic>> fixtures = await _fixtureDownloader.fetch(
-      daucompToUpdate.nrlFixtureJsonURL,
-      daucompToUpdate.aflFixtureJsonURL,
-      true,
-    );
-    List<dynamic> nrlGames = fixtures['nrlGames']!;
-    List<dynamic> aflGames = fixtures['aflGames']!;
-
+  Future<String> _processFetchedFixtures(
+    DAUComp daucompToUpdate,
+    List<dynamic> nrlGames,
+    List<dynamic> aflGames,
+  ) async {
     await Future.wait(_processGames(nrlGames, aflGames, daucompToUpdate));
     await gamesViewModel!.saveBatchOfGameAttributes();
 
@@ -690,9 +671,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     List<dynamic> allGames = nrlGames + aflGames;
 
-    // do not change round start stop times if we have an existing config for round start/end times
-    // instead admins can adjust in the UI
-    // This mitigates afl cyclone bug from 2025
     if (daucompToUpdate.daurounds.isEmpty) {
       log(
         'DAUCompsViewModel()_fetchAndProcessFixtureData No existing rounds found. Creating $combinedRoundsPath with round start stop times.',
@@ -717,14 +695,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     );
     await saveBatchOfCompAttributes();
 
-    // if nrlRaw and aflRaw are null then store the raw fixture data in the database for future reference
     if ((daucompToUpdate.nrlBaseline == null ||
             daucompToUpdate.nrlBaseline!.isEmpty) &&
         (daucompToUpdate.aflBaseline == null ||
             daucompToUpdate.aflBaseline!.isEmpty)) {
       _saveBaselineFixtureData(
-        fixtures['nrlGames']!,
-        fixtures['aflGames']!,
+        nrlGames,
+        aflGames,
         daucompToUpdate,
       );
     }
