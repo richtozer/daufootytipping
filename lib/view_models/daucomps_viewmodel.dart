@@ -16,6 +16,7 @@ import 'package:daufootytipping/services/fixture_update_policy.dart';
 import 'package:daufootytipping/services/lock_manager.dart';
 import 'package:daufootytipping/services/timer_scheduler.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
+import 'package:daufootytipping/repositories/daucomps_repository.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -87,7 +88,10 @@ class DAUCompsViewModel extends ChangeNotifier {
   final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
 
-  DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode, {bool skipInit = false}) {
+  final DauCompsRepository _repo;
+
+  DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode, {bool skipInit = false, DauCompsRepository? repo})
+      : _repo = repo ?? FirebaseDauCompsRepository() {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -267,7 +271,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   void _listenToDAUComps() {
-    _daucompsStream = _db.child(daucompsPath).onValue.listen(_handleEvent);
+    _daucompsStream = _repo.streamDauComps(daucompsPath).listen(_handleEvent);
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
@@ -914,13 +918,13 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> newDAUComp(DAUComp newDAUComp) async {
     if (newDAUComp.dbkey == null) {
       log('Adding new DAUComp record');
-      DatabaseReference newCompRecordKey = _db.child(daucompsPath).push();
-      updates['$daucompsPath/${newCompRecordKey.key}/name'] = newDAUComp.name;
-      updates['$daucompsPath/${newCompRecordKey.key}/aflFixtureJsonURL'] =
+      final key = await _repo.newCompKey(daucompsPath);
+      updates['$daucompsPath/$key/name'] = newDAUComp.name;
+      updates['$daucompsPath/$key/aflFixtureJsonURL'] =
           newDAUComp.aflFixtureJsonURL.toString();
-      updates['$daucompsPath/${newCompRecordKey.key}/nrlFixtureJsonURL'] =
+      updates['$daucompsPath/$key/nrlFixtureJsonURL'] =
           newDAUComp.nrlFixtureJsonURL.toString();
-      newDAUComp.dbkey = newCompRecordKey.key;
+      newDAUComp.dbkey = key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
     }
@@ -934,7 +938,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
     await initialDAUCompLoadComplete;
     log('Saving batch of ${updates.length} DAUComp database updates');
-    await _db.update(updates);
+    await _repo.update(updates);
     _savingDAUComp = false;
   }
 
