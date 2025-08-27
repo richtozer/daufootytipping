@@ -6,10 +6,16 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
+import 'package:daufootytipping/services/combined_rounds_service.dart';
+import 'package:daufootytipping/services/daucomps_rounds_parser.dart';
+import 'package:daufootytipping/services/combined_rounds_persistence.dart';
+import 'package:daufootytipping/services/fixture_update_policy.dart';
+import 'package:daufootytipping/services/lock_manager.dart';
+import 'package:daufootytipping/services/timer_scheduler.dart';
+import 'package:daufootytipping/services/url_health_checker.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -18,9 +24,7 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
-import 'package:http/http.dart' as http; // Added for _isUriActive
 
 const daucompsPath = '/AllDAUComps';
 const combinedRoundsPath = 'combinedRounds2';
@@ -32,7 +36,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     hours: 24,
   ); // how often we check for fixture updates
 
-  final _db = FirebaseDatabase.instance.ref();
+  // Lazily access database reference to avoid Firebase initialization during pure unit tests
+  DatabaseReference get _db => FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
   final String?
@@ -75,13 +80,35 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   List<Game> unassignedGames = []; // List to store unassigned games
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
+  final DaucompsRoundsParser _roundsParser = const DaucompsRoundsParser();
+  final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
+  final FixtureUpdatePolicy _fixturePolicy = const FixtureUpdatePolicy();
+  final LockManager _lockManager = const LockManager();
+  final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
+  final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
 
-  DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode) {
+  DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode, {bool skipInit = false}) {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
-    _init();
+    if (!skipInit) {
+      _init();
+    }
   }
+
+  // --- Testability additions ---
+  @visibleForTesting
+  void setSelectedCompForTest(DAUComp comp) {
+    _selectedDAUComp = comp;
+  }
+
+  @visibleForTesting
+  void completeOtherViewModelsForTest() {
+    if (!_otherViewModels.isCompleted) {
+      _otherViewModels.complete();
+    }
+  }
+  // --- End Testability additions ---
 
   Future<void> _init() async {
     _listenToDAUComps();
@@ -113,23 +140,17 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   void _startDailyTimer() {
-    // if we are on web, then we don't want to start the daily timer
-    if (kIsWeb) {
+    final role = di<TippersViewModel>().authenticatedTipper?.tipperRole;
+    final shouldStart = _fixturePolicy.shouldStartDailyTimer(
+      isWeb: kIsWeb,
+      isAdminMode: _adminMode,
+      authenticatedRole: role,
+    );
+    if (!shouldStart) {
+      log('DAUCompsViewModel_startDailyTimer() Daily timer not started due to policy.');
       return;
     }
-    // if we are in admin mode, then we don't want to start the daily timer
-    if (_adminMode) {
-      return;
-    }
-    // if role of authenticated tipper is not admin, then we don't want to start the daily timer
-    if (di<TippersViewModel>().authenticatedTipper?.tipperRole !=
-        TipperRole.admin) {
-      log(
-        'DAUCompsViewModel_startDailyTimer() Authenticated tipper is not an admin. Daily timer will not be started.',
-      );
-      return;
-    }
-    _dailyTimer = Timer.periodic(fixtureUpdateTimerDuration, (timer) {
+    _dailyTimer = _timerScheduler.schedulePeriodic(fixtureUpdateTimerDuration, (timer) {
       triggerDailyEvent();
     });
 
@@ -143,13 +164,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     );
     // make sure we are using the current database state for this comp
     _activeDAUComp = await findComp(_activeDAUComp!.dbkey!);
-    // if the last fixture update was more than 24 hours ago, then trigger the fixture update
-    if (_activeDAUComp != null &&
-        _activeDAUComp!.lastFixtureUpdateTimestampUTC != null &&
-        DateTime.now()
-                .difference(_activeDAUComp!.lastFixtureUpdateTimestampUTC!)
-                .inHours >=
-            24) {
+    final shouldTrigger = _fixturePolicy.shouldTriggerFixtureUpdate(
+      activeComp: _activeDAUComp,
+      now: DateTime.now(),
+      threshold: fixtureUpdateTimerDuration,
+    );
+    if (shouldTrigger) {
       log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
       _fixtureUpdate();
     } else {
@@ -334,7 +354,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     dynamic daucompAsJSON,
   ) async {
     // Create a temporary DAUComp from database data for comparison
-    List<DAURound> databaseRounds = _parseRounds(daucompAsJSON);
+    List<DAURound> databaseRounds = _roundsParser.parseRounds(daucompAsJSON, combinedRoundsPath: combinedRoundsPath);
     DAUComp databaseComp = DAUComp.fromJson(
       Map<String, dynamic>.from(daucompAsJSON),
       existingComp.dbkey!,
@@ -342,12 +362,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     );
 
     // Apply cutoff filter to database rounds
-    DateTime? greaterEndDate = _getGreaterEndDate(databaseComp);
-    if (greaterEndDate != null) {
-      databaseComp.daurounds.removeWhere((round) {
-        return round.getRoundStartDate().isAfter(greaterEndDate);
-      });
-    }
+    _roundsParser.applyCutoffFilter(databaseComp);
 
     bool finalFieldsChanged = false;
     bool mutableFieldsChanged = false;
@@ -418,7 +433,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     dynamic daucompAsJSON,
     Map<String, DAUComp> existingDAUCompsMap,
   ) async {
-    List<DAURound> daurounds = _parseRounds(daucompAsJSON);
+    List<DAURound> daurounds = _roundsParser.parseRounds(daucompAsJSON, combinedRoundsPath: combinedRoundsPath);
     DAUComp newComp = DAUComp.fromJson(
       Map<String, dynamic>.from(daucompAsJSON),
       dbKey,
@@ -426,12 +441,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     );
 
     // Apply cutoff filter
-    DateTime? greaterEndDate = _getGreaterEndDate(newComp);
-    if (greaterEndDate != null) {
-      newComp.daurounds.removeWhere((round) {
-        return round.getRoundStartDate().isAfter(greaterEndDate);
-      });
-    }
+    _roundsParser.applyCutoffFilter(newComp);
 
     existingDAUCompsMap[dbKey] = newComp;
     log('Added new DAUComp to memory: $dbKey');
@@ -530,33 +540,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     return roundChanged;
   }
 
-  DateTime? _getGreaterEndDate(DAUComp comp) {
-    if (comp.aflRegularCompEndDateUTC != null &&
-        comp.nrlRegularCompEndDateUTC != null) {
-      return comp.aflRegularCompEndDateUTC!.isAfter(
-            comp.nrlRegularCompEndDateUTC!,
-          )
-          ? comp.aflRegularCompEndDateUTC!
-          : comp.nrlRegularCompEndDateUTC!;
-    }
-    return null;
-  }
-
-  List<DAURound> _parseRounds(dynamic daucompAsJSON) {
-    List<DAURound> daurounds = [];
-    if (daucompAsJSON[combinedRoundsPath] != null) {
-      List<dynamic> combinedRounds = daucompAsJSON[combinedRoundsPath];
-      for (var i = 0; i < combinedRounds.length; i++) {
-        daurounds.add(
-          DAURound.fromJson(
-            Map<String, dynamic>.from(combinedRounds[i]),
-            i + 1,
-          ),
-        );
-      }
-    }
-    return daurounds;
-  }
+  // parsing and cutoff logic is now handled by DaucompsRoundsParser service
 
   void _initRoundState(DAURound round) {
     if (round.games.isEmpty) {
@@ -641,7 +625,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<bool> _acquireLock(DAUComp daucompToUpdate) async {
     DatabaseReference lockRef = _db.child(
-      '$daucompsPath/${daucompToUpdate.dbkey}/downloadLock',
+      _lockManager.lockPathForComp(daucompsPath, daucompToUpdate.dbkey!),
     );
     DataSnapshot snapshot = await lockRef.get();
 
@@ -652,8 +636,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       } else {
         lockTimestamp = null;
       }
-      if (lockTimestamp != null &&
-          DateTime.now().difference(lockTimestamp).inHours < 24) {
+      if (_lockManager.isLockFresh(lockTimestamp, DateTime.now(), const Duration(hours: 24))) {
         return false; // Lock is already held by another instance
       }
     }
@@ -664,7 +647,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   Future<void> _releaseLock(DAUComp daucompToUpdate) async {
     DatabaseReference lockRef = _db.child(
-      '$daucompsPath/${daucompToUpdate.dbkey}/downloadLock',
+      _lockManager.lockPathForComp(daucompsPath, daucompToUpdate.dbkey!),
     );
     await lockRef.set(null);
   }
@@ -793,216 +776,30 @@ class DAUCompsViewModel extends ChangeNotifier {
   ) async {
     await initialDAUCompLoadComplete;
 
-    // Group games by league and round
-    Map<String, List<Map<dynamic, dynamic>>> groups =
-        _groupGamesByLeagueAndRound(rawGames.cast<Map<dynamic, dynamic>>());
+    // Build rounds using a pure service to improve testability
+    final roundsBuilder = CombinedRoundsService();
+    final combined = roundsBuilder.buildCombinedRounds(rawGames);
 
-    // Sort game groups by start time and match number
-    List<Map<String, Object>?> sortedGameGroups =
-        _sortGameGroupsByStartTimeThenMatchNumber(groups);
-
-    // If found, fix any overlapping league game groups
-    List<Map<String, dynamic>> fixedGameGroups =
-        _fixOverlappingLeagueGameGroups(
-          sortedGameGroups.cast<Map<String, dynamic>>(),
-        );
-
-    // Combine game groups into rounds and update the database
-    await _updateCombinedRoundsInDatabase(
-      _combineGameGroupsIntoRounds(fixedGameGroups),
-      daucomp,
-    );
+    // Update the database with calculated rounds
+    await _updateCombinedRoundsInDatabase(combined, daucomp);
   }
 
-  Map<String, List<Map<dynamic, dynamic>>> _groupGamesByLeagueAndRound(
-    List<Map<dynamic, dynamic>> games,
-  ) {
-    return groupBy(
-      games,
-      (Map<dynamic, dynamic> rawGame) =>
-          '${rawGame["league"]}-${rawGame["RoundNumber"]}',
-    );
-  }
-
-  Map<String, DateTime> _calculateStartEndTimes(
-    List<Map<dynamic, dynamic>> rawGames,
-  ) {
-    var minStartTime = rawGames
-        .map((rawGame) => DateTime.parse(rawGame["DateUtc"]))
-        .reduce((a, b) => a.isBefore(b) ? a : b);
-    var maxStartTime = rawGames
-        .map((rawGame) => DateTime.parse(rawGame["DateUtc"]))
-        .reduce((a, b) => a.isAfter(b) ? a : b);
-    return {'minStartTime': minStartTime, 'maxStartTime': maxStartTime};
-  }
-
-  List<Map<String, Object>?> _sortGameGroupsByStartTimeThenMatchNumber(
-    Map<String, List<Map<dynamic, dynamic>>> groups,
-  ) {
-    return groups.entries
-        .map((e) {
-          if (e.value.isEmpty) return null;
-          var times = _calculateStartEndTimes(e.value);
-          return {
-            'league-round': e.key, // Add the key from the passed-in groups
-            'games': e.value,
-            ...times,
-          };
-        })
-        .where((group) => group != null)
-        .toList()
-      ..sort((a, b) {
-        int startTimeCompare = (a!['minStartTime'] as DateTime).compareTo(
-          b!['minStartTime'] as DateTime,
-        );
-        if (startTimeCompare == 0) {
-          return (a['games'] as List<Map>).first['MatchNumber'].compareTo(
-            (b['games'] as List<Map>).first['MatchNumber'],
-          );
-        }
-        return startTimeCompare;
-      });
-  }
-
-  List<Map<String, dynamic>> _fixOverlappingLeagueGameGroups(
-    List<Map<String, dynamic>> sortedGameGroups,
-  ) {
-    // filter on each league i.e 'nrl-*' then 'afl-*'
-    // loop through the groups for that league, if any overlap,
-    // modify the end date of the last group, to be just before the start date of the next group
-    List<Map<String, dynamic>> fixedGameGroups = [];
-    var groupedByLeague = groupBy(sortedGameGroups, (
-      Map<String, dynamic> group,
-    ) {
-      return group['league-round'].toString().split('-')[0];
-    });
-    groupedByLeague.forEach((league, groups) {
-      DateTime lastEndDate = DateTime.fromMillisecondsSinceEpoch(0);
-      for (var group in groups) {
-        DateTime groupStartDate = group['minStartTime'];
-        DateTime groupEndDate = group['maxStartTime'];
-
-        if (groupStartDate.isBefore(lastEndDate)) {
-          // Adjust the end date of the last fixedGameGroup
-          lastEndDate = groupEndDate.subtract(Duration(days: 1, minutes: 1));
-          fixedGameGroups.last['maxStartTime'] = groupStartDate.subtract(
-            Duration(days: 1, minutes: 1),
-          ); // make this special buffer over 3 hours because later we add a standard 3 hours to the start and end times of each round
-          log(
-            'Adjusted end date of last group to: ${fixedGameGroups.last['maxStartTime']}',
-          );
-        } else {
-          lastEndDate = groupEndDate;
-        }
-        fixedGameGroups.add(group);
-      }
-    });
-    // resort the groups by start time
-    fixedGameGroups.sort((a, b) {
-      return (a['minStartTime'] as DateTime).compareTo(
-        b['minStartTime'] as DateTime,
-      );
-    });
-    return fixedGameGroups;
-  }
-
-  List<DAURound> _combineGameGroupsIntoRounds(
-    List<Map<String, dynamic>> sortedGameGroups,
-  ) {
-    List<DAURound> combinedRounds = [];
-    for (var group in sortedGameGroups) {
-      DateTime groupMinStartTime = (group['minStartTime'] as DateTime).toUtc();
-      DateTime groupMaxStartTime = (group['maxStartTime'] as DateTime).toUtc();
-
-      if (combinedRounds.isEmpty) {
-        combinedRounds.add(
-          DAURound(
-            dAUroundNumber: combinedRounds.length + 1,
-            firstGameKickOffUTC: groupMinStartTime,
-            lastGameKickOffUTC: groupMaxStartTime,
-            games: [],
-          ),
-        );
-      } else {
-        DAURound lastCombinedRound = combinedRounds.last;
-        if (groupMinStartTime.isBefore(lastCombinedRound.lastGameKickOffUTC) ||
-            groupMinStartTime.isAtSameMomentAs(
-              lastCombinedRound.lastGameKickOffUTC,
-            )) {
-          // extend the combined round to include the overlapping league
-
-          lastCombinedRound.lastGameKickOffUTC =
-              groupMaxStartTime.isAfter(lastCombinedRound.lastGameKickOffUTC)
-              ? groupMaxStartTime
-              : lastCombinedRound.lastGameKickOffUTC;
-        } else {
-          // start a new round
-          combinedRounds.add(
-            DAURound(
-              dAUroundNumber: combinedRounds.length + 1,
-              firstGameKickOffUTC: groupMinStartTime,
-              lastGameKickOffUTC: groupMaxStartTime,
-              games: [],
-            ),
-          );
-        }
-      }
-    }
-
-    // add a 3 hours buffer to the start and end times of each round - this will cater for minor schedule changes during the year
-    for (var round in combinedRounds) {
-      round.firstGameKickOffUTC = round.firstGameKickOffUTC.subtract(
-        Duration(hours: 3),
-      );
-      round.lastGameKickOffUTC = round.lastGameKickOffUTC.add(
-        Duration(hours: 3),
-      );
-    }
-
-    return combinedRounds;
-  }
 
   Future<void> _updateCombinedRoundsInDatabase(
     List<DAURound> combinedRounds,
     DAUComp daucomp,
   ) async {
     log('In daucompsviewmodel._updateCombinedRoundsInDatabase()');
-
     await initialDAUCompLoadComplete;
 
-    // Update combined rounds in a separate batch
-    for (var i = 0; i < combinedRounds.length; i++) {
-      log(
-        '_updateCombinedRoundsInDatabase() Updating round start date: $combinedRoundsPath/$i/roundStartDate',
-      );
-      updateCompAttribute(
-        daucomp.dbkey!,
-        '$combinedRoundsPath/$i/roundStartDate',
-        '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].firstGameKickOffUTC).toString()}Z',
-      );
-      log(
-        '_updateCombinedRoundsInDatabase() Updating round end date: $combinedRoundsPath/$i/roundEndDate',
-      );
-      updateCompAttribute(
-        daucomp.dbkey!,
-        '$combinedRoundsPath/$i/roundEndDate',
-        '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].lastGameKickOffUTC).toString()}Z',
-      );
-    }
-
+    final batch = _roundsPersistence.buildCombinedRoundsUpdates(
+      daucomp,
+      combinedRounds,
+      daucompsPath: daucompsPath,
+      combinedRoundsPath: combinedRoundsPath,
+    );
+    updates.addAll(batch);
     await saveBatchOfCompAttributes();
-
-    // if daucomp.daurounds.length is greater than combinedRounds.length then we need to remove the extra rounds
-    // from the database
-    if (daucomp.daurounds.length > combinedRounds.length) {
-      for (var i = combinedRounds.length; i < daucomp.daurounds.length; i++) {
-        log(
-          '_updateCombinedRoundsInDatabase() Removing round: $combinedRoundsPath/$i',
-        );
-        updateCompAttribute(daucomp.dbkey!, '$combinedRoundsPath/$i', null);
-      }
-      await saveBatchOfCompAttributes();
-    }
   }
 
   bool _isLinkingGames = false;
@@ -1315,21 +1112,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  // Added for Step 1 of refactoring
-  Future<bool> _isUriActive(String uri) async {
-    try {
-      final response = await http.get(Uri.parse(uri));
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        log('Error checking URL: $uri, status code: ${response.statusCode}');
-        return false;
-      }
-    } catch (e) {
-      log('Exception checking URL: $uri, error: $e');
-      return false;
-    }
-  }
+  // URL health check via service
+  Future<bool> _isUriActive(String uri) async => _urlHealthChecker.isActive(Uri.parse(uri));
 
   Future<Map<String, dynamic>> processAndSaveDauComp({
     required String name,
