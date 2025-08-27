@@ -6,7 +6,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/messaging_service.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
 import 'package:daufootytipping/services/combined_rounds_service.dart';
@@ -23,7 +23,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
@@ -88,6 +88,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   final LockManager _lockManager = const LockManager();
   final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
+  final AnalyticsService _analytics;
+  final MessagingService _messaging;
   final FixtureDownloadService _fixtureDownloader;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
 
@@ -99,8 +101,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     bool skipInit = false,
     DauCompsRepository? repo,
     FixtureDownloadService? fixtureDownloader,
+    AnalyticsService? analytics,
+    MessagingService? messaging,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
-        _fixtureDownloader = fixtureDownloader ?? FixtureDownloadService() {
+        _fixtureDownloader = fixtureDownloader ?? FixtureDownloadService(),
+        _analytics = analytics ?? FirebaseAnalyticsService(),
+        _messaging = messaging ?? FirebaseMessagingServiceAdapter() {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -614,15 +620,11 @@ class DAUCompsViewModel extends ChangeNotifier {
         '_fixtureUpdate() Starting fixture update for comp: ${_activeDAUComp!.name}',
       );
       // create an analytics event to track the fixture update trigger
-      FirebaseAnalytics.instance.logEvent(
-        name: 'fixture_trigger',
-        parameters: {
-          'comp': _activeDAUComp!.name,
-          'tipperHandlingUpdate':
-              di<TippersViewModel>().authenticatedTipper?.name ??
-              'unknown tipper',
-        },
-      );
+      await _analytics.logEvent('fixture_trigger', parameters: {
+        'comp': _activeDAUComp!.name,
+        'tipperHandlingUpdate':
+            di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper',
+      });
       await getNetworkFixtureData(_activeDAUComp!);
     }
     // ignore: avoid_catches_without_on_clauses
@@ -631,9 +633,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
     // use this daily opportunity to delete stale tokens
     // this is done after the fixture update is complete
-    await di<FirebaseMessagingService>().deleteStaleTokens(
-      di<TippersViewModel>(),
-    );
+    await _messaging.deleteStaleTokens(di<TippersViewModel>());
   }
 
   Future<bool> _acquireLock(DAUComp daucompToUpdate) async {
@@ -732,10 +732,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     String res =
         'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
-    FirebaseAnalytics.instance.logEvent(
-      name: 'fixture_download',
-      parameters: {'comp': daucompToUpdate.name, 'result': res},
-    );
+    await _analytics.logEvent('fixture_download',
+        parameters: {'comp': daucompToUpdate.name, 'result': res});
 
     daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
     updateCompAttribute(
