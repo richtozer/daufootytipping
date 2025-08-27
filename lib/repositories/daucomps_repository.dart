@@ -7,7 +7,7 @@ abstract class DauCompsRepository {
 }
 
 class FirebaseDauCompsRepository implements DauCompsRepository {
-  FirebaseDatabase? _db;
+  final FirebaseDatabase? _db;
   FirebaseDauCompsRepository({FirebaseDatabase? db}) : _db = db;
 
   FirebaseDatabase get _database => _db ?? FirebaseDatabase.instance;

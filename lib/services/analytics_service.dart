@@ -5,7 +5,7 @@ abstract class AnalyticsService {
 }
 
 class FirebaseAnalyticsService implements AnalyticsService {
-  FirebaseAnalytics? _analytics;
+  final FirebaseAnalytics? _analytics;
   FirebaseAnalyticsService({FirebaseAnalytics? analytics}) : _analytics = analytics;
 
   @override
