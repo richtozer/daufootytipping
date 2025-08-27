@@ -94,6 +94,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
 
   final DauCompsRepository _repo;
+  final TippersViewModel Function() _tippers;
 
   DAUCompsViewModel(
     this._initDAUCompDbKey,
@@ -103,10 +104,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     FixtureDownloadService? fixtureDownloader,
     AnalyticsService? analytics,
     MessagingService? messaging,
+    TippersViewModel Function()? tippers,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureDownloader = fixtureDownloader ?? FixtureDownloadService(),
         _analytics = analytics ?? FirebaseAnalyticsService(),
-        _messaging = messaging ?? FirebaseMessagingServiceAdapter() {
+        _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
+        _tippers = tippers ?? (() => di<TippersViewModel>()) {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -159,7 +162,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   void _startDailyTimer() {
-    final role = di<TippersViewModel>().authenticatedTipper?.tipperRole;
+    final role = _tippers().authenticatedTipper?.tipperRole;
     final shouldStart = _fixturePolicy.shouldStartDailyTimer(
       isWeb: kIsWeb,
       isAdminMode: _adminMode,
@@ -245,10 +248,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
 
-    //await the TippersViewModel to be initialized
-    await di<TippersViewModel>().initialLoadComplete;
-
-    await di<TippersViewModel>().isUserLinked;
+    // await the TippersViewModel to be initialized
+    await _tippers().initialLoadComplete;
+    await _tippers().isUserLinked;
 
     if (di.isRegistered<StatsViewModel>()) {
       di.unregister<StatsViewModel>();
@@ -262,10 +264,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     statsViewModel!.addListener(_otherViewModelUpdated);
 
     selectedTipperTipsViewModel = TipsViewModel.forTipper(
-      di<TippersViewModel>(),
+      _tippers(),
       _selectedDAUComp!,
       gamesViewModel!,
-      di<TippersViewModel>().selectedTipper,
+      _tippers().selectedTipper,
     );
     selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
   }
@@ -561,33 +563,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   // parsing and cutoff logic is now handled by DaucompsRoundsParser service
 
-  void _initRoundState(DAURound round) {
-    if (round.games.isEmpty) {
-      round.roundState = RoundState.noGames;
-      log(
-        'Round ${round.dAUroundNumber} has no games. Check the fixture data and date ranges for each round.',
-      );
-      return;
-    }
-
-    bool anyGamesStarted = round.games.any(
-      (game) =>
-          game.gameState == GameState.startedResultKnown ||
-          game.gameState == GameState.startedResultNotKnown,
-    );
-    bool allGamesEnded = round.games.every(
-      (game) => game.gameState == GameState.startedResultKnown,
-    );
-
-    if (allGamesEnded) {
-      round.roundState = RoundState.allGamesEnded;
-    } else if (anyGamesStarted) {
-      round.roundState = RoundState.started;
-    } else {
-      round.roundState = RoundState.notStarted;
-    }
-  }
-
   Future<void> _fixtureUpdate() async {
     await initialDAUCompLoadComplete;
     await gamesViewModel!.initialLoadComplete;
@@ -622,8 +597,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       // create an analytics event to track the fixture update trigger
       await _analytics.logEvent('fixture_trigger', parameters: {
         'comp': _activeDAUComp!.name,
-        'tipperHandlingUpdate':
-            di<TippersViewModel>().authenticatedTipper?.name ?? 'unknown tipper',
+        'tipperHandlingUpdate': _tippers().authenticatedTipper?.name ?? 'unknown tipper',
       });
       await getNetworkFixtureData(_activeDAUComp!);
     }
@@ -633,7 +607,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
     // use this daily opportunity to delete stale tokens
     // this is done after the fixture update is complete
-    await _messaging.deleteStaleTokens(di<TippersViewModel>());
+    await _messaging.deleteStaleTokens(_tippers());
   }
 
   Future<bool> _acquireLock(DAUComp daucompToUpdate) async {
