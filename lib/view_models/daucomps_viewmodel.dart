@@ -88,12 +88,19 @@ class DAUCompsViewModel extends ChangeNotifier {
   final LockManager _lockManager = const LockManager();
   final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
+  final FixtureDownloadService _fixtureDownloader;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
 
   final DauCompsRepository _repo;
 
-  DAUCompsViewModel(this._initDAUCompDbKey, this._adminMode, {bool skipInit = false, DauCompsRepository? repo})
-      : _repo = repo ?? FirebaseDauCompsRepository() {
+  DAUCompsViewModel(
+    this._initDAUCompDbKey,
+    this._adminMode, {
+    bool skipInit = false,
+    DauCompsRepository? repo,
+    FixtureDownloadService? fixtureDownloader,
+  })  : _repo = repo ?? FirebaseDauCompsRepository(),
+        _fixtureDownloader = fixtureDownloader ?? FixtureDownloadService() {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -693,8 +700,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<String> _fetchAndProcessFixtureData(DAUComp daucompToUpdate) async {
-    FixtureDownloadService fetcher = FixtureDownloadService();
-    Map<String, List<dynamic>> fixtures = await fetcher.fetch(
+    Map<String, List<dynamic>> fixtures = await _fixtureDownloader.fetch(
       daucompToUpdate.nrlFixtureJsonURL,
       daucompToUpdate.aflFixtureJsonURL,
       true,
