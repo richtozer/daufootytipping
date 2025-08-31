@@ -1,10 +1,11 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class DaucompsRoundsParser {
   const DaucompsRoundsParser();
 
-  List<DAURound> parseRounds(dynamic daucompAsJSON, {String combinedRoundsPath = 'combinedRounds2'}) {
+  List<DAURound> parseRounds(dynamic daucompAsJSON, {String combinedRoundsPath = p.combinedRoundsPath}) {
     final daurounds = <DAURound>[];
     if (daucompAsJSON[combinedRoundsPath] != null) {
       final combinedRounds = daucompAsJSON[combinedRoundsPath] as List<dynamic>;
@@ -37,4 +38,3 @@ class DaucompsRoundsParser {
     comp.daurounds.removeWhere((round) => round.getRoundStartDate().isAfter(greaterEndDate));
   }
 }
-

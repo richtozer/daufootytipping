@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:daufootytipping/models/league.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 typedef LeagueFetcher = Future<List<dynamic>> Function(Uri endpoint, League league);
 
@@ -37,8 +38,8 @@ class FixtureDownloadService {
     bool downloadOnSeparateThread,
   ) async {
     Map<String, dynamic> simpleDAUComp = {
-      'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
-      'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
+      p.nrlFixtureJsonURLKey: nrlFixtureJsonURL.toString(),
+      p.aflFixtureJsonURLKey: aflFixtureJsonURL.toString(),
     };
 
     Map<String, dynamic> result;
@@ -71,14 +72,14 @@ class FixtureDownloadService {
     String errorMessage = '';
 
     try {
-      nrlGames = await _fetcher(Uri.parse(simpleDAUComp['nrlFixtureJsonURL']), League.nrl);
+      nrlGames = await _fetcher(Uri.parse(simpleDAUComp[p.nrlFixtureJsonURLKey]), League.nrl);
     } catch (e) {
       errorMessage = 'Error loading NRL fixture data. Exception was: $e';
     }
 
     if (errorMessage.isEmpty) {
       try {
-        aflGames = await _fetcher(Uri.parse(simpleDAUComp['aflFixtureJsonURL']), League.afl);
+        aflGames = await _fetcher(Uri.parse(simpleDAUComp[p.aflFixtureJsonURLKey]), League.afl);
       } catch (e) {
         errorMessage = 'Error loading AFL fixture data. Exception was: $e';
       }
@@ -103,7 +104,7 @@ Future<Map<String, dynamic>> _fetchFixturesOnIsolate(
 
   try {
     nrlGames = await _defaultLeagueFetch(
-      Uri.parse(simpleDAUComp['nrlFixtureJsonURL']),
+      Uri.parse(simpleDAUComp[p.nrlFixtureJsonURLKey]),
       League.nrl,
     );
   } catch (e) {
@@ -113,7 +114,7 @@ Future<Map<String, dynamic>> _fetchFixturesOnIsolate(
   if (errorMessage.isEmpty) {
     try {
       aflGames = await _defaultLeagueFetch(
-        Uri.parse(simpleDAUComp['aflFixtureJsonURL']),
+        Uri.parse(simpleDAUComp[p.aflFixtureJsonURLKey]),
         League.afl,
       );
     } catch (e) {

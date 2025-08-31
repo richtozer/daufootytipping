@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-
-const configPathRoot = '/AppConfig';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class ConfigViewModel extends ChangeNotifier {
-  final DatabaseReference _db = FirebaseDatabase.instance.ref(configPathRoot);
+  final DatabaseReference _db = FirebaseDatabase.instance.ref(p.configPathRoot);
   late StreamSubscription<DatabaseEvent> _configStream;
 
   String? _activeDAUComp;
@@ -96,22 +95,22 @@ class ConfigViewModel extends ChangeNotifier {
   }
 
   void _processSnapshot(DataSnapshot snapshot) {
-    _activeDAUComp = snapshot.child('currentDAUComp').value.toString();
-    _minAppVersion = snapshot.child('minAppVersion').value.toString();
-    _createLinkedTipper = snapshot.child('createLinkedTipper').value as bool;
-    _googleClientId = snapshot.child('googleClientId').value.toString();
+    _activeDAUComp = snapshot.child(p.currentDAUCompKey).value.toString();
+    _minAppVersion = snapshot.child(p.minAppVersionKey).value.toString();
+    _createLinkedTipper = snapshot.child(p.createLinkedTipperKey).value as bool;
+    _googleClientId = snapshot.child(p.googleClientIdKey).value.toString();
   }
 
   Future<void> setConfigCurrentDAUComp(String value) async {
-    await _db.child('currentDAUComp').set(value);
+    await _db.child(p.currentDAUCompKey).set(value);
   }
 
   Future<void> setConfigMinAppVersion(String value) async {
-    await _db.child('minAppVersion').set(value);
+    await _db.child(p.minAppVersionKey).set(value);
   }
 
   Future<void> setCreateLinkedTipper(bool value) async {
-    await _db.child('createLinkedTipper').set(value);
+    await _db.child(p.createLinkedTipperKey).set(value);
   }
 
   @override

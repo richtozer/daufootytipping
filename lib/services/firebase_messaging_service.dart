@@ -7,8 +7,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io' show Platform;
 import 'package:watch_it/watch_it.dart';
-
-final String tokensPath = '/AllTippersTokens';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class FirebaseMessagingService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -91,7 +90,7 @@ class FirebaseMessagingService {
       int countDeleted = 0;
       final timeNow = DateTime.now().millisecondsSinceEpoch;
       final staleTime = timeNow - tokenExpirationDuration;
-      final snapshot = await databaseReference.child(tokensPath).once();
+      final snapshot = await databaseReference.child(p.tokensPath).once();
       final tokens = snapshot.snapshot.value as Map<dynamic, dynamic>;
       for (final user in tokens.keys) {
         final userTokens = tokens[user] as Map<dynamic, dynamic>;
@@ -100,7 +99,7 @@ class FirebaseMessagingService {
           final tokenTime = DateTime.parse(tokenTimeStr).millisecondsSinceEpoch;
           if (tokenTime < staleTime) {
             await databaseReference
-                .child(tokensPath)
+                .child(p.tokensPath)
                 .child(user)
                 .child(token)
                 .remove();
@@ -130,7 +129,7 @@ class FirebaseMessagingService {
           return;
         }
 
-        await databaseReference.child(tokensPath).child(tipper.dbkey!).update({
+        await databaseReference.child(p.tokensPath).child(tipper.dbkey!).update({
           token: timeNow,
         });
         log(

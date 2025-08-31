@@ -14,9 +14,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
-
-// define  constant for firestore database location
-const tipsPathRoot = '/AllTips';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
@@ -66,14 +64,14 @@ class TipsViewModel extends ChangeNotifier {
   void _listenToTips() {
     if (_tipper != null) {
       _tipsStream = _db
-          .child('$tipsPathRoot/${selectedDAUComp.dbkey}/${_tipper!.dbkey}')
+          .child('${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper!.dbkey}')
           .onValue
           .listen((event) {
             _handleEvent(event);
           });
     } else {
       _tipsStream = _db
-          .child('$tipsPathRoot/${selectedDAUComp.dbkey}')
+          .child('${p.tipsPathRoot}/${selectedDAUComp.dbkey}')
           .onValue
           .listen((event) {
             _handleEvent(event);
@@ -243,7 +241,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> deleteTip(Tip tip) async {
     await _db
         .child(
-          '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
+          '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
         )
         .remove();
   }
@@ -384,7 +382,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> updateTip(Tip tip) async {
     await _db
         .child(
-          '$tipsPathRoot/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
+          '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
         )
         .update(tip.toJson());
   }
@@ -400,7 +398,7 @@ class TipsViewModel extends ChangeNotifier {
     try {
       await _db
           .child(
-            '$tipsPathRoot/${selectedDAUComp.dbkey}/${originalTipper.dbkey}',
+            '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${originalTipper.dbkey}',
           )
           .remove();
     } catch (e) {

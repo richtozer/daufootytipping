@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/constants/paths.dart';
 
 void main() {
   group('FirebaseMessagingService Tests', () {

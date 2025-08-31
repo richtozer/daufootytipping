@@ -28,9 +28,7 @@ import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
-
-const daucompsPath = '/AllDAUComps';
-const combinedRoundsPath = 'combinedRounds2';
+import 'package:daufootytipping/constants/paths.dart';
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
@@ -690,7 +688,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
     updateCompAttribute(
       daucompToUpdate.dbkey!,
-      'lastFixtureUTC',
+      lastFixtureUTCKey,
       daucompToUpdate.lastFixtureUpdateTimestampUTC!.toIso8601String(),
     );
     await saveBatchOfCompAttributes();
@@ -716,10 +714,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     DAUComp daucomp,
   ) {
     DatabaseReference nrlRawRef = _db.child(
-      '$daucompsPath/${daucomp.dbkey}/nrlFixtureBaseline',
+      '$daucompsPath/${daucomp.dbkey}/$nrlFixtureBaselineKey',
     );
     DatabaseReference aflRawRef = _db.child(
-      '$daucompsPath/${daucomp.dbkey}/aflFixtureBaseline',
+      '$daucompsPath/${daucomp.dbkey}/$aflFixtureBaselineKey',
     );
     nrlRawRef.set(nrlGames);
     aflRawRef.set(aflGames);
@@ -835,10 +833,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     if (newDAUComp.dbkey == null) {
       log('Adding new DAUComp record');
       final key = await _repo.newCompKey(daucompsPath);
-      updates['$daucompsPath/$key/name'] = newDAUComp.name;
-      updates['$daucompsPath/$key/aflFixtureJsonURL'] =
+      updates['$daucompsPath/$key/$compNameKey'] = newDAUComp.name;
+      updates['$daucompsPath/$key/$aflFixtureJsonURLKey'] =
           newDAUComp.aflFixtureJsonURL.toString();
-      updates['$daucompsPath/$key/nrlFixtureJsonURL'] =
+      updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] =
           newDAUComp.nrlFixtureJsonURL.toString();
       newDAUComp.dbkey = key;
     } else {
@@ -1088,20 +1086,20 @@ class DAUCompsViewModel extends ChangeNotifier {
           };
         } else {
           // Existing comp
-          updateCompAttribute(existingComp.dbkey!, "name", name);
+          updateCompAttribute(existingComp.dbkey!, compNameKey, name);
           updateCompAttribute(
             existingComp.dbkey!,
-            "aflFixtureJsonURL",
+            aflFixtureJsonURLKey,
             aflFixtureJsonURL,
           );
           updateCompAttribute(
             existingComp.dbkey!,
-            "nrlFixtureJsonURL",
+            nrlFixtureJsonURLKey,
             nrlFixtureJsonURL,
           );
           updateCompAttribute(
             existingComp.dbkey!,
-            "nrlRegularCompEndDateUTC",
+            nrlRegularCompEndDateUTCKey,
             nrlRegularCompEndDateString != null &&
                     nrlRegularCompEndDateString.isNotEmpty
                 ? DateTime.parse(nrlRegularCompEndDateString).toIso8601String()
@@ -1109,7 +1107,7 @@ class DAUCompsViewModel extends ChangeNotifier {
           );
           updateCompAttribute(
             existingComp.dbkey!,
-            "aflRegularCompEndDateUTC",
+            aflRegularCompEndDateUTCKey,
             aflRegularCompEndDateString != null &&
                     aflRegularCompEndDateString.isNotEmpty
                 ? DateTime.parse(aflRegularCompEndDateString).toIso8601String()
@@ -1127,7 +1125,7 @@ class DAUCompsViewModel extends ChangeNotifier {
               updateRoundAttribute(
                 existingComp.dbkey!,
                 round.dAUroundNumber,
-                "adminOverrideRoundStartDate",
+                adminOverrideRoundStartDateKey,
                 round.adminOverrideRoundStartDate!.toUtc().toIso8601String(),
               );
             }
@@ -1135,7 +1133,7 @@ class DAUCompsViewModel extends ChangeNotifier {
               updateRoundAttribute(
                 existingComp.dbkey!,
                 round.dAUroundNumber,
-                "adminOverrideRoundEndDate",
+                adminOverrideRoundEndDateKey,
                 round.adminOverrideRoundEndDate!.toUtc().toIso8601String(),
               );
             }

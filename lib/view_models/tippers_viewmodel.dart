@@ -13,9 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
-
-// define  constant for firestore database locations
-final String tippersPath = '/AllTippers';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
@@ -61,11 +59,11 @@ class TippersViewModel extends ChangeNotifier {
 
   // monitor changes to tippers records in DB and notify listeners of any changes
   void _listenToTippers() {
-    _tippersStream = _db.child(tippersPath).onValue.listen((event) {
+    _tippersStream = _db.child(p.tippersPath).onValue.listen((event) {
       _handleEvent(event);
     });
     log(
-      'TippersViewModel() Tippers db Listener: Listening to tippers in database on path $tippersPath',
+      'TippersViewModel() Tippers db Listener: Listening to tippers in database on path ${p.tippersPath}',
     );
   }
 
@@ -180,7 +178,7 @@ class TippersViewModel extends ChangeNotifier {
         'TippersViewModel() Tipper: $tipperDbKey needs update for attribute $attributeName: $attributeValue',
       );
 
-      updates['$tippersPath/$tipperDbKey/$attributeName'] = attributeValue;
+      updates['${p.tippersPath}/$tipperDbKey/$attributeName'] = attributeValue;
     } else {
       log(
         'TippersViewModel() Tipper: $tipperDbKey already has $attributeName: $attributeValue',
@@ -258,9 +256,9 @@ class TippersViewModel extends ChangeNotifier {
     if (newTipper.dbkey == null) {
       log('TippersViewModel() Adding new Tipper record');
       // add new record to updates Map, create a new db key first
-      DatabaseReference newTipperRecordKey = _db.child(tippersPath).push();
+      DatabaseReference newTipperRecordKey = _db.child(p.tippersPath).push();
       newTipper.dbkey = newTipperRecordKey.key;
-      updates['$tippersPath/${newTipper.dbkey}'] = newTipper.toJson();
+      updates['${p.tippersPath}/${newTipper.dbkey}'] = newTipper.toJson();
     } else {
       throw 'TippersViewModel()._createNewTipper() called with existing Tipper dbkey, should be an update';
     }
@@ -532,7 +530,7 @@ class TippersViewModel extends ChangeNotifier {
       }
 
       // now delete source tipper
-      await _db.child(tippersPath).child(originalTipper.dbkey!).remove();
+      await _db.child(p.tippersPath).child(originalTipper.dbkey!).remove();
       log('TippersViewModel() Tipper ${originalTipper.name} deleted');
 
       // copy over the uid

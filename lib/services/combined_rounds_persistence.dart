@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class CombinedRoundsPersistence {
   const CombinedRoundsPersistence();
@@ -8,14 +9,14 @@ class CombinedRoundsPersistence {
   Map<String, dynamic> buildCombinedRoundsUpdates(
     DAUComp comp,
     List<DAURound> combinedRounds, {
-    String daucompsPath = '/AllDAUComps',
-    String combinedRoundsPath = 'combinedRounds2',
+    String daucompsPath = p.daucompsPath,
+    String combinedRoundsPath = p.combinedRoundsPath,
   }) {
     final updates = <String, dynamic>{};
     for (var i = 0; i < combinedRounds.length; i++) {
-      updates['$daucompsPath/${comp.dbkey}/$combinedRoundsPath/$i/roundStartDate'] =
+      updates['$daucompsPath/${comp.dbkey}/$combinedRoundsPath/$i/${p.roundStartDateKey}'] =
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].firstGameKickOffUTC)}Z';
-      updates['$daucompsPath/${comp.dbkey}/$combinedRoundsPath/$i/roundEndDate'] =
+      updates['$daucompsPath/${comp.dbkey}/$combinedRoundsPath/$i/${p.roundEndDateKey}'] =
           '${DateFormat('yyyy-MM-dd HH:mm:ss').format(combinedRounds[i].lastGameKickOffUTC)}Z';
     }
 
@@ -29,4 +30,3 @@ class CombinedRoundsPersistence {
     return updates;
   }
 }
-
