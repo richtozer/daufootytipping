@@ -228,10 +228,10 @@ class TipsViewModel extends ChangeNotifier {
       }
 
       // Check if the tip data matches (comparing key fields)
-      bool tipMatches =
-          foundTip.tip == expectedTip.tip &&
-          foundTip.submittedTimeUTC.millisecondsSinceEpoch ==
-              expectedTip.submittedTimeUTC.millisecondsSinceEpoch;
+      bool tipMatches = foundTip.tip == expectedTip.tip &&
+          // Compare at second precision to accommodate compact epoch seconds storage
+          (foundTip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000) ==
+              (expectedTip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000);
 
       return !tipMatches; // Stop waiting when tips match
     });
