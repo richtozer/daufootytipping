@@ -17,6 +17,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Patches: File edits are applied via a single focused patch per change set using the CLI’s patch tool.
 - Scope: Changes are surgical; avoid unrelated edits or drive-by refactors.
 - Commits/branches: The agent does not commit or create branches unless explicitly asked.
+- Pre‑flight checks: Always run `flutter analyze` and the relevant `flutter test` scope before and after refactors.
 
 ## Testing & Coverage
 - Use Mocktail for mocking; avoid real Firebase or network in unit tests.
@@ -24,6 +25,8 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Regenerating coverage: Maintainer may request `flutter test --coverage` (agent will ask approval first).
 - Reading coverage: The agent may summarize coverage by file/area from `coverage/lcov.info`.
 - Philosophy: Add small characterization tests before refactors to lock current behavior.
+- Location: Service tests live under `test/services/`; ViewModel tests under `test/view_models/`.
+- Gate: Treat a clean analyzer run and a green test suite as gates before merging further refactors.
 
 ## Flutter/Dart Specifics
 - Formatting: Prefer `dart format` or IDE formatting. The agent won’t run formatters without approval.
@@ -37,6 +40,15 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Invariants: Preserve external behavior and public contracts unless a spec says otherwise.
 - Minimalism: Keep changes minimal and localized. Extract helpers when it reduces complexity.
 - Documentation: Update inline docs or this file if workflows or expectations change.
+
+### DAUCompsViewModel Decomposition (in progress)
+- Current extractions in `lib/services/` with dedicated unit tests:
+  - `FixtureUpdateCoordinator`: decides timer start and whether to trigger fixture updates; unit tested.
+  - `DauCompsSnapshotApplier`: pure merge of Firebase snapshot into in‑memory comps; returns keys needing relink; unit tested.
+  - `FixtureImportApplier`: builds per‑game update ops, tags raw fixture entries with league, and computes combined rounds when missing; unit tested.
+- DI pattern: New services are constructor‑injected with safe defaults. Tests can inject fakes/mocks without touching global DI.
+- Behavior gates: Public APIs on `DAUCompsViewModel` must remain stable. `notifyListeners` semantics and single‑flight guards are preserved.
+- Next extractions: Selection/init coordinator for `_initializeAndResetViewModels`; consider isolating stats aggregation if needed.
 
 ## Safe Command Policy
 The agent may run read-only commands without approval to:
@@ -65,6 +77,7 @@ Current Repo Notes (subject to change)
 - Coverage file: `coverage/lcov.info`.
 - As of last scan, ViewModels had 0% coverage; add tests before refactoring them.
 - DAUCompsViewModel composes Games/Stats/Tips/Tippers ViewModels and FixtureDownloadService; mock these in tests.
+- Snapshot processing and fixture update logic are now delegated to services (see Refactors section); prefer adding tests at the service layer first.
 
 If you want any of these defaults changed, edit this file and the agent will follow it going forward.
 

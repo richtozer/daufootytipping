@@ -1,15 +1,23 @@
 import 'package:test/test.dart';
 
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/fixture_update_policy.dart';
 
 void main() {
-  group('FixtureUpdatePolicy', () {
-    final policy = FixtureUpdatePolicy();
+  group('FixtureUpdatePolicy.shouldStartDailyTimer', () {
+    test('only starts for non-web, non-admin mode, admin role', () {
+      const policy = FixtureUpdatePolicy();
 
-    test('shouldStartDailyTimer false on web or non-admin or admin mode', () {
+      expect(
+        policy.shouldStartDailyTimer(
+          isWeb: false,
+          isAdminMode: false,
+          authenticatedRole: TipperRole.admin,
+        ),
+        isTrue,
+      );
+
       expect(
         policy.shouldStartDailyTimer(
           isWeb: true,
@@ -18,6 +26,7 @@ void main() {
         ),
         isFalse,
       );
+
       expect(
         policy.shouldStartDailyTimer(
           isWeb: false,
@@ -26,53 +35,58 @@ void main() {
         ),
         isFalse,
       );
-      // Non-admin role should not start
-      for (final role in TipperRole.values.where((r) => r != TipperRole.admin)) {
-        expect(
-          policy.shouldStartDailyTimer(
-            isWeb: false,
-            isAdminMode: false,
-            authenticatedRole: role,
-          ),
-          isFalse,
-        );
-      }
+
       expect(
         policy.shouldStartDailyTimer(
           isWeb: false,
           isAdminMode: false,
-          authenticatedRole: TipperRole.admin,
-        ),
-        isTrue,
-      );
-    });
-
-    test('shouldTriggerFixtureUpdate respects threshold and last timestamp', () {
-      final comp = DAUComp(
-        dbkey: 'c',
-        name: 'Comp',
-        aflFixtureJsonURL: Uri.parse('https://afl'),
-        nrlFixtureJsonURL: Uri.parse('https://nrl'),
-        daurounds: <DAURound>[],
-        lastFixtureUpdateTimestampUTC: DateTime.parse('2025-01-01T00:00:00Z'),
-      );
-      final now = DateTime.parse('2025-01-02T00:00:01Z');
-      expect(
-        policy.shouldTriggerFixtureUpdate(
-          activeComp: comp,
-          now: now,
-          threshold: const Duration(hours: 24),
-        ),
-        isTrue,
-      );
-      expect(
-        policy.shouldTriggerFixtureUpdate(
-          activeComp: comp,
-          now: DateTime.parse('2025-01-01T23:00:00Z'),
-          threshold: const Duration(hours: 24),
+          authenticatedRole: TipperRole.tipper,
         ),
         isFalse,
       );
     });
   });
+
+  group('FixtureUpdatePolicy.shouldTriggerFixtureUpdate', () {
+    DAUComp comp() => DAUComp(
+          dbkey: 'c',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: const [],
+        );
+
+    test('requires comp and last update; respects threshold by hours', () {
+      const policy = FixtureUpdatePolicy();
+      final now = DateTime.now().toUtc();
+
+      // No comp
+      expect(
+        policy.shouldTriggerFixtureUpdate(activeComp: null, now: now, threshold: const Duration(hours: 24)),
+        isFalse,
+      );
+
+      // No last update
+      final c1 = comp();
+      expect(
+        policy.shouldTriggerFixtureUpdate(activeComp: c1, now: now, threshold: const Duration(hours: 24)),
+        isFalse,
+      );
+
+      // 23 hours < 24 threshold
+      final c2 = comp()..lastFixtureUpdateTimestampUTC = now.subtract(const Duration(hours: 23));
+      expect(
+        policy.shouldTriggerFixtureUpdate(activeComp: c2, now: now, threshold: const Duration(hours: 24)),
+        isFalse,
+      );
+
+      // 24 hours >= 24 threshold
+      final c3 = comp()..lastFixtureUpdateTimestampUTC = now.subtract(const Duration(hours: 24));
+      expect(
+        policy.shouldTriggerFixtureUpdate(activeComp: c3, now: now, threshold: const Duration(hours: 24)),
+        isTrue,
+      );
+    });
+  });
 }
+

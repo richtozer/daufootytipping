@@ -10,9 +10,9 @@ import 'package:daufootytipping/services/messaging_service.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
 import 'package:daufootytipping/services/combined_rounds_service.dart';
-import 'package:daufootytipping/services/daucomps_rounds_parser.dart';
 import 'package:daufootytipping/services/combined_rounds_persistence.dart';
-import 'package:daufootytipping/services/fixture_update_policy.dart';
+import 'package:daufootytipping/services/daucomps_snapshot_applier.dart';
+import 'package:daufootytipping/services/fixture_update_coordinator.dart';
 import 'package:daufootytipping/services/lock_manager.dart';
 import 'package:daufootytipping/services/timer_scheduler.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
@@ -25,6 +25,8 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:daufootytipping/services/fixture_update_service.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
+import 'package:daufootytipping/services/fixture_import_applier.dart';
+import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
@@ -81,9 +83,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   List<Game> unassignedGames = []; // List to store unassigned games
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
-  final DaucompsRoundsParser _roundsParser = const DaucompsRoundsParser();
   final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
-  final FixtureUpdatePolicy _fixturePolicy = const FixtureUpdatePolicy();
+  final FixtureUpdateCoordinator _fixtureCoordinator;
+  final DauCompsSnapshotApplier _snapshotApplier = const DauCompsSnapshotApplier();
   final LockManager _lockManager = const LockManager();
   final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
@@ -91,6 +93,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   final MessagingService _messaging;
   final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
+  final FixtureImportApplier _importApplier = const FixtureImportApplier();
+  final SelectionInitCoordinator _selectionInit = const SelectionInitCoordinator();
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -104,11 +108,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     AnalyticsService? analytics,
     MessagingService? messaging,
     TippersViewModel Function()? tippers,
+    FixtureUpdateCoordinator? fixtureCoordinator,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
         _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
-        _tippers = tippers ?? (() => di<TippersViewModel>()) {
+        _tippers = tippers ?? (() => di<TippersViewModel>()),
+        _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator() {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -162,7 +168,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   void _startDailyTimer() {
     final role = _tippers().authenticatedTipper?.tipperRole;
-    final shouldStart = _fixturePolicy.shouldStartDailyTimer(
+    final shouldStart = _fixtureCoordinator.shouldStartDailyTimer(
       isWeb: kIsWeb,
       isAdminMode: _adminMode,
       authenticatedRole: role,
@@ -183,20 +189,37 @@ class DAUCompsViewModel extends ChangeNotifier {
     log(
       "DAUCompsViewModel_triggerDailyEvent()  Daily event triggered at ${DateTime.now()}",
     );
-    // make sure we are using the current database state for this comp
-    _activeDAUComp = await findComp(_activeDAUComp!.dbkey!);
-    final shouldTrigger = _fixturePolicy.shouldTriggerFixtureUpdate(
+    final didRun = await _fixtureCoordinator.maybeTriggerUpdate(
       activeComp: _activeDAUComp,
-      now: DateTime.now(),
+      selectedComp: _selectedDAUComp,
       threshold: fixtureUpdateTimerDuration,
+      isSelectedCompActive: isSelectedCompActiveComp,
+      isCompOver: _isCompOver,
+      refreshActiveByKey: (key) async {
+        _activeDAUComp = await findComp(key);
+        return _activeDAUComp;
+      },
+      logAnalytics: (name, params) => _analytics.logEvent(
+        name,
+        parameters: {
+          ...params,
+          'tipperHandlingUpdate': _tippers().authenticatedTipper?.name ?? 'unknown tipper',
+        },
+      ),
+      runFixtureUpdate: (comp) async {
+        // Preserve prior behavior: await games VM load before updating fixtures
+        await gamesViewModel?.initialLoadComplete;
+        return getNetworkFixtureData(comp);
+      },
+      afterUpdate: () => _messaging.deleteStaleTokens(_tippers()),
     );
-    if (shouldTrigger) {
-      log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
-      _fixtureUpdate();
-    } else {
+
+    if (!didRun) {
       log(
-        'DAUCompsViewModel_triggerDailyEvent() Looks like another client did an update in the last ${fixtureUpdateTimerDuration.inHours} hours. Skipping fixture update.',
+        'DAUCompsViewModel_triggerDailyEvent() Looks like another client did an update in the last ${fixtureUpdateTimerDuration.inHours} hours or conditions not met. Skipping fixture update.',
       );
+    } else {
+      log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
     }
   }
 
@@ -245,41 +268,49 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _initializeUserViewModels() async {
     await initialDAUCompLoadComplete;
 
-    gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
+    final res = await _selectionInit.initializeUser(
+      selectedComp: _selectedDAUComp!,
+      createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
+      awaitTippersReady: () async {
+        await _tippers().initialLoadComplete;
+        await _tippers().isUserLinked;
+      },
+      createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
+      createTipsViewModel: (gamesVm) => TipsViewModel.forTipper(
+        _tippers(),
+        _selectedDAUComp!,
+        gamesVm,
+        _tippers().selectedTipper,
+      ),
+    );
 
-    // await the TippersViewModel to be initialized
-    await _tippers().initialLoadComplete;
-    await _tippers().isUserLinked;
-
+    // DI registration for StatsViewModel remains in VM
     if (di.isRegistered<StatsViewModel>()) {
       di.unregister<StatsViewModel>();
     }
-    di.registerSingleton<StatsViewModel>(
-      StatsViewModel(_selectedDAUComp!, gamesViewModel!),
-    );
+    di.registerSingleton<StatsViewModel>(res.statsViewModel);
+
+    gamesViewModel = res.gamesViewModel;
     statsViewModel = di<StatsViewModel>();
+    selectedTipperTipsViewModel = res.tipsViewModel;
 
     gamesViewModel!.addListener(_otherViewModelUpdated);
     statsViewModel!.addListener(_otherViewModelUpdated);
-
-    selectedTipperTipsViewModel = TipsViewModel.forTipper(
-      _tippers(),
-      _selectedDAUComp!,
-      gamesViewModel!,
-      _tippers().selectedTipper,
-    );
     selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
   }
 
   Future<void> _initializeAdminViewModels() async {
-    gamesViewModel = GamesViewModel(_selectedDAUComp!, this);
+    final res = await _selectionInit.initializeAdmin(
+      selectedComp: _selectedDAUComp!,
+      createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
+      createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
+    );
 
     if (di.isRegistered<StatsViewModel>()) {
       di.unregister<StatsViewModel>();
     }
-    di.registerSingleton<StatsViewModel>(
-      StatsViewModel(_selectedDAUComp!, gamesViewModel!),
-    );
+    di.registerSingleton<StatsViewModel>(res.statsViewModel);
+    gamesViewModel = res.gamesViewModel;
     statsViewModel = di<StatsViewModel>();
 
     gamesViewModel!.addListener(_otherViewModelUpdated);
@@ -294,7 +325,29 @@ class DAUCompsViewModel extends ChangeNotifier {
     try {
       log('DAUCompsViewModel_handleEvent()');
       if (event.snapshot.exists) {
-        await _processSnapshot(event.snapshot);
+        final value = event.snapshot.value as dynamic;
+        final databaseMap = Map<String, dynamic>.from(value as Map);
+        final result = _snapshotApplier.apply(
+          databaseValue: databaseMap,
+          currentComps: _daucomps,
+          combinedRoundsPath: combinedRoundsPath,
+        );
+
+        _daucomps = result.comps;
+
+        // Refresh pointers to active/selected comps
+        if (_activeDAUComp != null) {
+          _activeDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _activeDAUComp!.dbkey);
+        }
+        if (_selectedDAUComp != null) {
+          _selectedDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _selectedDAUComp!.dbkey);
+        }
+
+        // If selected comp had rounds changed or was replaced, relink games
+        final selKey = _selectedDAUComp?.dbkey;
+        if (selKey != null && result.compKeysNeedingRelink.contains(selKey)) {
+          await linkGamesWithRounds(_selectedDAUComp!.daurounds);
+        }
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
@@ -311,303 +364,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _processSnapshot(DataSnapshot snapshot) async {
-    final databaseDAUComps = Map<String, dynamic>.from(
-      snapshot.value as dynamic,
-    );
-
-    // Create a map of existing comps for quick lookup
-    Map<String, DAUComp> existingDAUCompsMap = {
-      for (var daucomp in _daucomps) daucomp.dbkey!: daucomp,
-    };
-
-    // Track which database comps we've processed
-    Set<String> processedDbKeys = <String>{};
-
-    // Process each comp from database
-    for (var entry in databaseDAUComps.entries) {
-      String dbKey = entry.key;
-      dynamic daucompAsJSON = entry.value;
-      processedDbKeys.add(dbKey);
-
-      if (existingDAUCompsMap.containsKey(dbKey)) {
-        // Update existing comp incrementally
-        DAUComp? replacementComp = await _updateExistingComp(
-          existingDAUCompsMap[dbKey]!,
-          daucompAsJSON,
-        );
-        if (replacementComp != null) {
-          // Replace the existing comp with the new one (final fields changed)
-          existingDAUCompsMap[dbKey] = replacementComp;
-          log('Replaced DAUComp object due to final field changes: $dbKey');
-
-          // Update references if needed
-          if (dbKey == _activeDAUComp?.dbkey) {
-            _activeDAUComp = replacementComp;
-          }
-          if (dbKey == _selectedDAUComp?.dbkey) {
-            _selectedDAUComp = replacementComp;
-            await linkGamesWithRounds(_selectedDAUComp!.daurounds);
-          }
-        }
-      } else {
-        // Add new comp
-        await _addNewComp(dbKey, daucompAsJSON, existingDAUCompsMap);
-      }
-    }
-
-    // Remove comps that are no longer in database
-    List<String> keysToRemove = existingDAUCompsMap.keys
-        .where((key) => !processedDbKeys.contains(key))
-        .toList();
-
-    for (String keyToRemove in keysToRemove) {
-      existingDAUCompsMap.remove(keyToRemove);
-      log('Removed DAUComp from memory: $keyToRemove');
-    }
-
-    _daucomps = existingDAUCompsMap.values.toList();
-  }
-
-  Future<DAUComp?> _updateExistingComp(
-    DAUComp existingComp,
-    dynamic daucompAsJSON,
-  ) async {
-    // Create a temporary DAUComp from database data for comparison
-    List<DAURound> databaseRounds = _roundsParser.parseRounds(daucompAsJSON, combinedRoundsPath: combinedRoundsPath);
-    DAUComp databaseComp = DAUComp.fromJson(
-      Map<String, dynamic>.from(daucompAsJSON),
-      existingComp.dbkey!,
-      databaseRounds,
-    );
-
-    // Apply cutoff filter to database rounds
-    _roundsParser.applyCutoffFilter(databaseComp);
-
-    bool finalFieldsChanged = false;
-    bool mutableFieldsChanged = false;
-
-    // Check if final fields have changed (these require object replacement)
-    if (existingComp.name != databaseComp.name ||
-        existingComp.aflFixtureJsonURL != databaseComp.aflFixtureJsonURL ||
-        existingComp.nrlFixtureJsonURL != databaseComp.nrlFixtureJsonURL) {
-      finalFieldsChanged = true;
-    }
-
-    // If final fields changed, we need to replace the entire object
-    if (finalFieldsChanged) {
-      log(
-        'Final fields changed for DAUComp ${existingComp.dbkey}, replacing object',
-      );
-      return databaseComp; // Return the new object to replace the existing one
-    }
-
-    // Update mutable fields
-    if (existingComp.aflRegularCompEndDateUTC !=
-        databaseComp.aflRegularCompEndDateUTC) {
-      existingComp.aflRegularCompEndDateUTC =
-          databaseComp.aflRegularCompEndDateUTC;
-      mutableFieldsChanged = true;
-    }
-    if (existingComp.nrlRegularCompEndDateUTC !=
-        databaseComp.nrlRegularCompEndDateUTC) {
-      existingComp.nrlRegularCompEndDateUTC =
-          databaseComp.nrlRegularCompEndDateUTC;
-      mutableFieldsChanged = true;
-    }
-    if (existingComp.lastFixtureUpdateTimestampUTC !=
-        databaseComp.lastFixtureUpdateTimestampUTC) {
-      existingComp.lastFixtureUpdateTimestampUTC =
-          databaseComp.lastFixtureUpdateTimestampUTC;
-      mutableFieldsChanged = true;
-    }
-
-    // Update rounds using CRUD operations
-    bool roundsChanged = await _updateDauRounds(
-      existingComp,
-      databaseComp.daurounds,
-    );
-
-    if (mutableFieldsChanged || roundsChanged) {
-      log('Updated DAUComp attributes from database: ${existingComp.dbkey}');
-
-      // Update active comp reference if it matches
-      if (existingComp.dbkey == _activeDAUComp?.dbkey) {
-        _activeDAUComp = existingComp;
-      }
-
-      // Update selected comp reference and link games if it matches
-      if (existingComp.dbkey == _selectedDAUComp?.dbkey) {
-        _selectedDAUComp = existingComp;
-        if (roundsChanged) {
-          await linkGamesWithRounds(_selectedDAUComp!.daurounds);
-        }
-      }
-    }
-
-    return null; // Return null to indicate no replacement needed
-  }
-
-  Future<void> _addNewComp(
-    String dbKey,
-    dynamic daucompAsJSON,
-    Map<String, DAUComp> existingDAUCompsMap,
-  ) async {
-    List<DAURound> daurounds = _roundsParser.parseRounds(daucompAsJSON, combinedRoundsPath: combinedRoundsPath);
-    DAUComp newComp = DAUComp.fromJson(
-      Map<String, dynamic>.from(daucompAsJSON),
-      dbKey,
-      daurounds,
-    );
-
-    // Apply cutoff filter
-    _roundsParser.applyCutoffFilter(newComp);
-
-    existingDAUCompsMap[dbKey] = newComp;
-    log('Added new DAUComp to memory: $dbKey');
-  }
-
-  Future<bool> _updateDauRounds(
-    DAUComp existingComp,
-    List<DAURound> databaseRounds,
-  ) async {
-    bool roundsChanged = false;
-
-    // Create maps for efficient lookup
-    Map<int, DAURound> existingRoundsMap = {
-      for (var round in existingComp.daurounds) round.dAUroundNumber: round,
-    };
-    Map<int, DAURound> databaseRoundsMap = {
-      for (var round in databaseRounds) round.dAUroundNumber: round,
-    };
-
-    // Update existing rounds and add new ones
-    for (var databaseRound in databaseRounds) {
-      int roundNumber = databaseRound.dAUroundNumber;
-
-      if (existingRoundsMap.containsKey(roundNumber)) {
-        // Update existing round
-        if (await _updateSingleRound(
-          existingRoundsMap[roundNumber]!,
-          databaseRound,
-        )) {
-          roundsChanged = true;
-        }
-      } else {
-        // Add new round
-        existingComp.daurounds.add(databaseRound);
-        roundsChanged = true;
-        log('Added new round $roundNumber to comp ${existingComp.dbkey}');
-      }
-    }
-
-    // Remove rounds that no longer exist in database
-    List<DAURound> roundsToRemove = existingComp.daurounds
-        .where((round) => !databaseRoundsMap.containsKey(round.dAUroundNumber))
-        .toList();
-
-    for (var roundToRemove in roundsToRemove) {
-      existingComp.daurounds.remove(roundToRemove);
-      roundsChanged = true;
-      log(
-        'Removed round ${roundToRemove.dAUroundNumber} from comp ${existingComp.dbkey}',
-      );
-    }
-
-    // Sort rounds by round number
-    if (roundsChanged) {
-      existingComp.daurounds.sort(
-        (a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber),
-      );
-    }
-
-    return roundsChanged;
-  }
-
-  Future<bool> _updateSingleRound(
-    DAURound existingRound,
-    DAURound databaseRound,
-  ) async {
-    bool roundChanged = false;
-
-    // Compare and update round attributes
-    if (existingRound.firstGameKickOffUTC !=
-        databaseRound.firstGameKickOffUTC) {
-      existingRound.firstGameKickOffUTC = databaseRound.firstGameKickOffUTC;
-      roundChanged = true;
-    }
-    if (existingRound.lastGameKickOffUTC != databaseRound.lastGameKickOffUTC) {
-      existingRound.lastGameKickOffUTC = databaseRound.lastGameKickOffUTC;
-      roundChanged = true;
-    }
-    if (existingRound.adminOverrideRoundStartDate !=
-        databaseRound.adminOverrideRoundStartDate) {
-      existingRound.adminOverrideRoundStartDate =
-          databaseRound.adminOverrideRoundStartDate;
-      roundChanged = true;
-    }
-    if (existingRound.adminOverrideRoundEndDate !=
-        databaseRound.adminOverrideRoundEndDate) {
-      existingRound.adminOverrideRoundEndDate =
-          databaseRound.adminOverrideRoundEndDate;
-      roundChanged = true;
-    }
-
-    if (roundChanged) {
-      log('Updated round ${existingRound.dAUroundNumber} attributes');
-    }
-
-    return roundChanged;
-  }
 
   // parsing and cutoff logic is now handled by DaucompsRoundsParser service
 
-  Future<void> _fixtureUpdate() async {
-    await initialDAUCompLoadComplete;
-    await gamesViewModel!.initialLoadComplete;
-
-    if (_activeDAUComp == null) {
-      log(
-        '_fixtureUpdate() Active comp is null. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.',
-      );
-      return;
-    }
-
-    // if selected comp is not the active comp then we don't want to trigger the fixture update
-    if (!isSelectedCompActiveComp()) {
-      log(
-        '_fixtureUpdate() Selected comp ${_selectedDAUComp?.name} is not the active comp. No fixture update will be triggered.',
-      );
-      return;
-    }
-
-    // if we are at the end of the competition, then don't trigger the fixture update
-    if (_isCompOver(_activeDAUComp!)) {
-      log(
-        '_fixtureUpdate() End of competition detected for active comp: ${_activeDAUComp!.name}. Going forward only manual downloads by Admin will trigger an update.',
-      );
-      return;
-    }
-
-    try {
-      log(
-        '_fixtureUpdate() Starting fixture update for comp: ${_activeDAUComp!.name}',
-      );
-      // create an analytics event to track the fixture update trigger
-      await _analytics.logEvent('fixture_trigger', parameters: {
-        'comp': _activeDAUComp!.name,
-        'tipperHandlingUpdate': _tippers().authenticatedTipper?.name ?? 'unknown tipper',
-      });
-      await getNetworkFixtureData(_activeDAUComp!);
-    }
-    // ignore: avoid_catches_without_on_clauses
-    catch (e) {
-      log('_fixtureUpdateTrigger() Error fetching fixture data: $e');
-    }
-    // use this daily opportunity to delete stale tokens
-    // this is done after the fixture update is complete
-    await _messaging.deleteStaleTokens(_tippers());
-  }
+  
 
   Future<bool> _acquireLock(DAUComp daucompToUpdate) async {
     DatabaseReference lockRef = _db.child(
@@ -661,23 +421,35 @@ class DAUCompsViewModel extends ChangeNotifier {
     List<dynamic> nrlGames,
     List<dynamic> aflGames,
   ) async {
-    await Future.wait(_processGames(nrlGames, aflGames, daucompToUpdate));
+    // Build and apply per-game updates
+    final ops = _importApplier.buildGameUpdates(nrlGames, aflGames);
+    final futures = <Future>[];
+    for (final op in ops) {
+      for (final entry in op.attributes.entries) {
+        futures.add(
+          gamesViewModel!.updateGameAttribute(
+            op.dbkey,
+            entry.key,
+            entry.value,
+            op.league,
+          ),
+        );
+      }
+    }
+    await Future.wait(futures);
     await gamesViewModel!.saveBatchOfGameAttributes();
 
-    _tagGamesWithLeague(nrlGames, 'nrl');
-    _tagGamesWithLeague(aflGames, 'afl');
+    // Tag games with league in-place (keeps previous behavior for raw arrays)
+    _importApplier.tagGamesWithLeagueInPlace(nrlGames, 'nrl');
+    _importApplier.tagGamesWithLeagueInPlace(aflGames, 'afl');
 
     List<dynamic> allGames = nrlGames + aflGames;
-
-    if (daucompToUpdate.daurounds.isEmpty) {
-      log(
-        'DAUCompsViewModel()_fetchAndProcessFixtureData No existing rounds found. Creating $combinedRoundsPath with round start stop times.',
-      );
+    final combined = _importApplier.computeCombinedRoundsIfMissing(daucompToUpdate, allGames);
+    if (combined != null) {
+      log('DAUCompsViewModel()_fetchAndProcessFixtureData No existing rounds found. Creating $combinedRoundsPath with round start stop times.');
       await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
     } else {
-      log(
-        'DAUCompsViewModel()_fetchAndProcessFixtureData Existing rounds found. Skipping updating $combinedRoundsPath round start stop time update.',
-      );
+      log('DAUCompsViewModel()_fetchAndProcessFixtureData Existing rounds found. Skipping updating $combinedRoundsPath round start stop time update.');
     }
 
     String res =
@@ -723,11 +495,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     aflRawRef.set(aflGames);
   }
 
-  void _tagGamesWithLeague(List<dynamic> games, String league) {
-    for (var game in games) {
-      game['league'] = league;
-    }
-  }
+  // tagging handled via FixtureImportApplier
 
   Future<void> _updateRoundStartEndTimesBasedOnFixture(
     DAUComp daucomp,
@@ -884,35 +652,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<Future> _processGames(
-    List<dynamic> nrlGames,
-    List<dynamic> aflGames,
-    DAUComp daucomp,
-  ) {
-    List<Future> gamesFuture = [];
-
-    void processGames(List<dynamic> games, League league) {
-      for (var gamejson in games.cast<Map<dynamic, dynamic>>()) {
-        String dbkey =
-            '${league.name}-${gamejson['RoundNumber'].toString().padLeft(2, '0')}-${gamejson['MatchNumber'].toString().padLeft(3, '0')}';
-        for (var attribute in gamejson.keys) {
-          gamesFuture.add(
-            gamesViewModel!.updateGameAttribute(
-              dbkey,
-              attribute,
-              gamejson[attribute],
-              league.name,
-            ),
-          );
-        }
-      }
-    }
-
-    processGames(nrlGames, League.nrl);
-    processGames(aflGames, League.afl);
-
-    return gamesFuture;
-  }
+  // per-game processing handled via FixtureImportApplier
 
   // private method to check if the comp is over i.e. all rounds have been completed and scored
   bool _isCompOver(DAUComp daucomp) {
