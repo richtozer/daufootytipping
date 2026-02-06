@@ -9,6 +9,11 @@ on:
   pull_request:
     branches: [ testing, main ]
   workflow_dispatch: # Allow manual triggers
+    inputs:
+      production:
+        description: "Upload release AAB to Google Play production"
+        required: false
+        default: "false"
 
 jobs:
   build:
@@ -76,3 +81,51 @@ jobs:
             size=$(ls -lh "$file" | awk '{print $5}')
             echo "- $(basename "$file") ($size)" >> $GITHUB_STEP_SUMMARY
           done
+
+  deploy_internal:
+    name: Upload to Google Play (Internal)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/testing'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-build-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/app/outputs/bundle/release
+
+      - name: Upload to Google Play (Internal)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: coach.interview.daufootytipping
+          releaseFiles: build/app/outputs/bundle/release/*.aab
+          track: internal
+          status: completed
+
+  deploy_production:
+    name: Upload to Google Play (Production)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.production == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-build-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/app/outputs/bundle/release
+
+      - name: Upload to Google Play (Production)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: coach.interview.daufootytipping
+          releaseFiles: build/app/outputs/bundle/release/*.aab
+          track: production
+          status: completed
