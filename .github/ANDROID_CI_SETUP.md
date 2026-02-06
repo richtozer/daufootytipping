@@ -53,6 +53,7 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "..."
    ```
 3. Add the copied value as `ANDROID_KEYSTORE_BASE64` in GitHub Actions secrets.
 4. Add the keystore alias and passwords as `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, and `ANDROID_STORE_PASSWORD`.
+5. Create a local `android/key.properties` from `android/key.properties.example`. This file is ignored by Git and should stay local only.
 
 ## 📦 Release Notes Directory (Optional)
 
