@@ -1,4 +1,5 @@
 import 'package:test/test.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/fixture_download_service.dart';
 
 void main() {
@@ -14,7 +15,14 @@ void main() {
     );
 
     setUp(() {
-      service = FixtureDownloadService();
+      // Inject a deterministic failing fetcher to avoid real network
+      service = FixtureDownloadService.test((uri, league) async {
+        // Make NRL fail first to match test expectations; AFL only attempted if NRL succeeds
+        if (league == League.nrl) {
+          throw Exception('NRL network failure');
+        }
+        throw Exception('AFL network failure');
+      });
     });
 
     group('fetch() method - Error scenarios', () {
@@ -101,7 +109,7 @@ void main() {
       });
     });
 
-    group('Method signature validation', () {
+  group('Method signature validation', () {
       test('fetch method should accept correct parameters', () async {
         // This test validates the method signature is correct
         final nrlUri = Uri.parse('https://example.com/nrl');
@@ -149,6 +157,58 @@ void main() {
             ]),
           );
         }
+      });
+    });
+
+    group('Success scenarios', () {
+      test('returns lists for both leagues on success (main thread)', () async {
+        final svc = FixtureDownloadService.test((uri, league) async {
+          if (league == League.nrl) return [1, 2, 3];
+          return ['a'];
+        });
+
+        final result = await svc.fetch(
+          Uri.parse('https://example.com/nrl'),
+          Uri.parse('https://example.com/afl'),
+          false,
+        );
+
+        expect(result['nrlGames'], isA<List<dynamic>>());
+        expect(result['aflGames'], isA<List<dynamic>>());
+        expect(result['nrlGames']!.length, 3);
+        expect(result['aflGames']!.length, 1);
+      });
+
+      test('returns lists for both leagues when isolate requested (test path bypasses isolate)', () async {
+        final svc = FixtureDownloadService.test((uri, league) async {
+          if (league == League.nrl) return [42];
+          return ['ok', 'done'];
+        });
+
+        final result = await svc.fetch(
+          Uri.parse('https://example.com/nrl'),
+          Uri.parse('https://example.com/afl'),
+          true,
+        );
+
+        expect(result['nrlGames']!.length, 1);
+        expect(result['aflGames']!.length, 2);
+      });
+
+      test('throws when AFL fetch fails after successful NRL', () async {
+        final svc = FixtureDownloadService.test((uri, league) async {
+          if (league == League.nrl) return [1];
+          throw Exception('boom');
+        });
+
+        await expectLater(
+          () => svc.fetch(
+            Uri.parse('https://example.com/nrl'),
+            Uri.parse('https://example.com/afl'),
+            false,
+          ),
+          throwsA(isA<Exception>()),
+        );
       });
     });
   });

@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 enum RoundState {
   notStarted, // round is in the future
@@ -37,13 +38,13 @@ class DAURound implements Comparable<DAURound> {
   factory DAURound.fromJson(Map<String, dynamic> data, int roundNumber) {
     return DAURound(
       dAUroundNumber: roundNumber,
-      firstGameKickOffUTC: DateTime.parse(data['roundStartDate']),
-      lastGameKickOffUTC: DateTime.parse(data['roundEndDate']),
-      adminOverrideRoundStartDate: data['adminOverrideRoundStartDate'] != null
-          ? DateTime.parse(data['adminOverrideRoundStartDate'])
+      firstGameKickOffUTC: DateTime.parse(data[p.roundStartDateKey]),
+      lastGameKickOffUTC: DateTime.parse(data[p.roundEndDateKey]),
+      adminOverrideRoundStartDate: data[p.adminOverrideRoundStartDateKey] != null
+          ? DateTime.parse(data[p.adminOverrideRoundStartDateKey])
           : null,
-      adminOverrideRoundEndDate: data['adminOverrideRoundEndDate'] != null
-          ? DateTime.parse(data['adminOverrideRoundEndDate'])
+      adminOverrideRoundEndDate: data[p.adminOverrideRoundEndDateKey] != null
+          ? DateTime.parse(data[p.adminOverrideRoundEndDateKey])
           : null,
     );
   }

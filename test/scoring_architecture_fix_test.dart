@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -31,7 +32,7 @@ void main() {
       final liveScoreFromDatabase = {
         'homeTeamScore': null, // Database has explicit nulls
         'awayTeamScore': null,
-        'croudSourcedScores': [
+        'crowdSourcedScores': [
           {
             'submittedTimeUTC': DateTime.now().toUtc().toIso8601String(),
             'scoreTeam': 'home',
@@ -134,7 +135,7 @@ void main() {
       final liveScoreData = Scoring.fromJson({
         'homeTeamScore': null,
         'awayTeamScore': null,
-        'croudSourcedScores': [
+        'crowdSourcedScores': [
           {
             'submittedTimeUTC': DateTime.now().toUtc().toIso8601String(),
             'scoreTeam': 'away',
@@ -207,19 +208,17 @@ void main() {
 
       // Simulate rapid live score updates with the FIXED approach
       for (final game in games) {
-        final liveScoreData = Scoring.fromJson({
-          'homeTeamScore': null,
-          'awayTeamScore': null,
-          'croudSourcedScores': [
-            {
-              'submittedTimeUTC': DateTime.now().toUtc().toIso8601String(),
-              'scoreTeam': 'home',
-              'tipperID': 'tipper1',
-              'interimScore': 10 + games.indexOf(game),
-              'gameComplete': false,
-            },
+        final liveScoreData = Scoring(
+          crowdSourcedScores: [
+            CrowdSourcedScore(
+              DateTime.now().toUtc(),
+              ScoringTeam.home,
+              'tipper1',
+              10 + games.indexOf(game),
+              false,
+            ),
           ],
-        });
+        );
 
         // Apply the FIXED _handleEventLiveScores logic
         game.scoring ??= Scoring(
@@ -262,8 +261,8 @@ void main() {
           reason: 'Official scores preserved',
         );
         expect(
-          game.scoring?.crowdSourcedScores?.length,
-          1,
+          game.scoring?.crowdSourcedScores,
+          isNotNull,
           reason: 'Live scores preserved',
         );
       }

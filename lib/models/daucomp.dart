@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class DAUComp implements Comparable<DAUComp> {
   String? dbkey;
@@ -140,21 +141,21 @@ class DAUComp implements Comparable<DAUComp> {
   ) {
     return DAUComp(
       dbkey: key,
-      name: data['name'] ?? '',
-      aflFixtureJsonURL: Uri.parse(data['aflFixtureJsonURL']),
-      nrlFixtureJsonURL: Uri.parse(data['nrlFixtureJsonURL']),
+      name: data[p.compNameKey] ?? '',
+      aflFixtureJsonURL: Uri.parse(data[p.aflFixtureJsonURLKey]),
+      nrlFixtureJsonURL: Uri.parse(data[p.nrlFixtureJsonURLKey]),
       daurounds: daurounds,
-      lastFixtureUpdateTimestampUTC: data['lastFixtureUTC'] != null
-          ? DateTime.parse(data['lastFixtureUTC'])
+      lastFixtureUpdateTimestampUTC: data[p.lastFixtureUTCKey] != null
+          ? DateTime.parse(data[p.lastFixtureUTCKey])
           : null,
-      aflRegularCompEndDateUTC: data['aflRegularCompEndDateUTC'] != null
-          ? DateTime.parse(data['aflRegularCompEndDateUTC'])
+      aflRegularCompEndDateUTC: data[p.aflRegularCompEndDateUTCKey] != null
+          ? DateTime.parse(data[p.aflRegularCompEndDateUTCKey])
           : null,
-      nrlRegularCompEndDateUTC: data['nrlRegularCompEndDateUTC'] != null
-          ? DateTime.parse(data['nrlRegularCompEndDateUTC'])
+      nrlRegularCompEndDateUTC: data[p.nrlRegularCompEndDateUTCKey] != null
+          ? DateTime.parse(data[p.nrlRegularCompEndDateUTCKey])
           : null,
-      aflBaseline: data['aflFixtureBaseline'] ?? [],
-      nrlBaseline: data['nrlFixtureBaseline'] ?? [],
+      aflBaseline: data[p.aflFixtureBaselineKey] ?? [],
+      nrlBaseline: data[p.nrlFixtureBaselineKey] ?? [],
     );
   }
 

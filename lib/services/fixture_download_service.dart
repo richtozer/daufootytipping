@@ -3,9 +3,34 @@ import 'dart:developer';
 import 'package:daufootytipping/models/league.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
+
+typedef LeagueFetcher = Future<List<dynamic>> Function(Uri endpoint, League league);
+
+// Default network fetcher used in production code and isolate execution
+Future<List<dynamic>> _defaultLeagueFetch(Uri endpoint, League league) async {
+  final dio = Dio(
+    BaseOptions(headers: {'Content-Type': 'application/json; charset=UTF-8'}),
+  );
+  final response = await dio.get(endpoint.toString());
+  if (response.statusCode == 200) {
+    return response.data as List<dynamic>;
+  }
+  throw Exception(
+    'Could not receive the league fixture list: ${endpoint.toString()}',
+  );
+}
 
 class FixtureDownloadService {
-  FixtureDownloadService();
+  final LeagueFetcher _fetcher;
+  final bool _useIsolateWhenRequested;
+
+  FixtureDownloadService() : _fetcher = _defaultLeagueFetch, _useIsolateWhenRequested = true;
+
+  // Test-only constructor: inject a fetcher and bypass isolate execution for determinism
+  FixtureDownloadService.test(LeagueFetcher fetcher)
+      : _fetcher = fetcher,
+        _useIsolateWhenRequested = false;
 
   Future<Map<String, List<dynamic>>> fetch(
     Uri nrlFixtureJsonURL,
@@ -13,18 +38,20 @@ class FixtureDownloadService {
     bool downloadOnSeparateThread,
   ) async {
     Map<String, dynamic> simpleDAUComp = {
-      'nrlFixtureJsonURL': nrlFixtureJsonURL.toString(),
-      'aflFixtureJsonURL': aflFixtureJsonURL.toString(),
+      p.nrlFixtureJsonURLKey: nrlFixtureJsonURL.toString(),
+      p.aflFixtureJsonURLKey: aflFixtureJsonURL.toString(),
     };
 
     Map<String, dynamic> result;
 
-    if (!downloadOnSeparateThread) {
+    if (downloadOnSeparateThread && _useIsolateWhenRequested) {
+      // Use isolate-safe top-level function which leverages default network fetcher
+      result = await compute(_fetchFixturesOnIsolate, simpleDAUComp);
+      log('Fixture data loaded on BACKGROUND thread.');
+    } else {
+      // Execute on main thread (used in tests and when isolate usage is disabled)
       result = await _fetchFixtures(simpleDAUComp);
       log('Fixture data loaded on MAIN thread.');
-    } else {
-      result = await compute(_fetchFixtures, simpleDAUComp);
-      log('Fixture data loaded on BACKGROUND thread.');
     }
 
     if (result.containsKey('error')) {
@@ -45,20 +72,14 @@ class FixtureDownloadService {
     String errorMessage = '';
 
     try {
-      nrlGames = await FixtureDownloadService._getLeagueFixtureRaw(
-        Uri.parse(simpleDAUComp['nrlFixtureJsonURL']),
-        League.nrl,
-      );
+      nrlGames = await _fetcher(Uri.parse(simpleDAUComp[p.nrlFixtureJsonURLKey]), League.nrl);
     } catch (e) {
       errorMessage = 'Error loading NRL fixture data. Exception was: $e';
     }
 
     if (errorMessage.isEmpty) {
       try {
-        aflGames = await FixtureDownloadService._getLeagueFixtureRaw(
-          Uri.parse(simpleDAUComp['aflFixtureJsonURL']),
-          League.afl,
-        );
+        aflGames = await _fetcher(Uri.parse(simpleDAUComp[p.aflFixtureJsonURLKey]), League.afl);
       } catch (e) {
         errorMessage = 'Error loading AFL fixture data. Exception was: $e';
       }
@@ -71,68 +92,39 @@ class FixtureDownloadService {
     return {'nrlGames': nrlGames, 'aflGames': aflGames};
   }
 
-  static Future<List<dynamic>> _getLeagueFixtureRaw(
-    Uri endpoint,
-    League league,
-  ) async {
-    final dio = Dio(
-      BaseOptions(headers: {'Content-Type': 'application/json; charset=UTF-8'}),
+}
+
+// Isolate entrypoint uses the default network fetcher
+Future<Map<String, dynamic>> _fetchFixturesOnIsolate(
+  Map<String, dynamic> simpleDAUComp,
+) async {
+  List<dynamic> nrlGames = [];
+  List<dynamic> aflGames = [];
+  String errorMessage = '';
+
+  try {
+    nrlGames = await _defaultLeagueFetch(
+      Uri.parse(simpleDAUComp[p.nrlFixtureJsonURLKey]),
+      League.nrl,
     );
-
-    // if we are debugging code? if so, mock the JSON fixture services network call
-    /*if (!kReleaseMode) {
-      List<Map<String, Object?>> mockdata;
-
-      switch (endpoint.toString()) {
-        case 'https://fixturedownload.com/feed/json/afl-2022':
-          mockdata = mockAfl2022Full;
-          log('Using mockAfl2022Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/nrl-2022':
-          mockdata = mockNrl2022Full;
-          log('Using mockNrl2022Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/afl-2023':
-          mockdata = mockAfl2023Full;
-          //mockdata = mockAfl2023Partial;
-          log('Using mockAfl2023Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/nrl-2023':
-          mockdata = mockNrl2023Full;
-          //mockdata = mockNrl2023Partial;
-          log('Using mockNrl2023Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/afl-2024':
-          mockdata = mockAfl2024Full;
-          log('Using mockAfl2024Full fixture data');
-          break;
-        case 'https://fixturedownload.com/feed/json/nrl-2024':
-          mockdata = mockNrl2024Full;
-          log('Using mockNrl2024Full fixture data');
-          break;
-        default:
-          throw Exception('Could not match the endpoint to mock data');
-
-      final dioAdapter = DioAdapter(dio: dio);
-      dioAdapter.onGet(
-        endpoint.toString(),
-        (server) => server.reply(
-          200,
-          mockdata,
-          // simulate real network delay of 1 second before returning data.
-          delay: const Duration(seconds: 1),
-        ),
-      );
-    } */
-
-    final response = await dio.get(endpoint.toString());
-
-    if (response.statusCode == 200) {
-      List<dynamic> res = response.data;
-      return res;
-    }
-    throw Exception(
-      'Could not receive the league fixture list: ${endpoint.toString()}',
-    );
+  } catch (e) {
+    errorMessage = 'Error loading NRL fixture data. Exception was: $e';
   }
+
+  if (errorMessage.isEmpty) {
+    try {
+      aflGames = await _defaultLeagueFetch(
+        Uri.parse(simpleDAUComp[p.aflFixtureJsonURLKey]),
+        League.afl,
+      );
+    } catch (e) {
+      errorMessage = 'Error loading AFL fixture data. Exception was: $e';
+    }
+  }
+
+  if (errorMessage.isNotEmpty) {
+    return {'error': errorMessage};
+  }
+
+  return {'nrlGames': nrlGames, 'aflGames': aflGames};
 }

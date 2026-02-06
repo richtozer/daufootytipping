@@ -5,8 +5,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:json_diff/json_diff.dart';
-
-const teamsPathRoot = '/Teams';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class TeamsViewModel extends ChangeNotifier {
   List<Team> _teams = [];
@@ -26,7 +25,7 @@ class TeamsViewModel extends ChangeNotifier {
   }
 
   void _listenToTeams() {
-    _teamsStream = _db.child(teamsPathRoot).onValue.listen((event) {
+    _teamsStream = _db.child(p.teamsPathRoot).onValue.listen((event) {
       if (event.snapshot.exists) {
         _processTeams(event);
       } else {
@@ -90,7 +89,7 @@ class TeamsViewModel extends ChangeNotifier {
     Map changed = diff.changed;
     changed.keys.toList().forEach((key) {
       if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-        updates['$teamsPathRoot/${updatedTeam.dbkey}/$key'] = changed[key][1];
+        updates['${p.teamsPathRoot}/${updatedTeam.dbkey}/$key'] = changed[key][1];
       }
     });
 
@@ -120,7 +119,7 @@ class TeamsViewModel extends ChangeNotifier {
     final postData = team.toJson();
 
     final Map<String, Map> updates = {};
-    updates['$teamsPathRoot/${team.dbkey.toLowerCase()}'] = postData;
+    updates['${p.teamsPathRoot}/${team.dbkey.toLowerCase()}'] = postData;
 
     await _db.update(updates);
   }

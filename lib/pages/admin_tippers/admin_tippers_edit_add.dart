@@ -346,7 +346,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       const Text('DAU\nAdmin:'),
                       Switch(
                         value: admin,
-                        activeColor: Colors.orange,
+                        thumbColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? Colors.orange
+                              : null,
+                        ),
                         onChanged: (value) {
                           setState(() {
                             admin = value;
@@ -391,7 +395,13 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                         tippersViewModelConsumer
                                                 .selectedTipper ==
                                             tipper),
-                                    activeColor: Colors.red,
+                                    thumbColor:
+                                        WidgetStateProperty.resolveWith(
+                                      (states) => states
+                                              .contains(WidgetState.selected)
+                                          ? Colors.red
+                                          : null,
+                                    ),
                                     onChanged: (value) {
                                       if (value == true) {
                                         // admins cannot god mode themselves - display snackbar if they try

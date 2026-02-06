@@ -14,8 +14,7 @@ import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
-
-const gamesPathRoot = '/DAUCompsGames';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class GamesViewModel extends ChangeNotifier {
   // Properties
@@ -55,7 +54,7 @@ class GamesViewModel extends ChangeNotifier {
   // Database listeners
   void _listenToGames() {
     _gamesStream = _db
-        .child('$gamesPathRoot/${selectedDAUComp.dbkey}')
+        .child('${p.gamesPathRoot}/${selectedDAUComp.dbkey}')
         .onValue
         .listen((event) {
           _handleEvent(event);
@@ -165,7 +164,7 @@ class GamesViewModel extends ChangeNotifier {
         log(
           'Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue',
         );
-        updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
+        updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
         if (attributeName == 'HomeTeamScore' ||
             attributeName == 'AwayTeamScore') {
@@ -191,7 +190,7 @@ class GamesViewModel extends ChangeNotifier {
     } else {
       log('Game: $gameDbKey not found in local list. adding full game record');
       // add new record to updates Map
-      updates['$gamesPathRoot/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
+      updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
           attributeValue;
     }
   }
@@ -507,7 +506,7 @@ class GamesViewModel extends ChangeNotifier {
       await _teamsViewModel
           .initialLoadComplete; // Ensure teams are ready for deserialization
 
-      final event = await _db.child('$gamesPathRoot/$dauCompDbKey').once();
+      final event = await _db.child('${p.gamesPathRoot}/$dauCompDbKey').once();
       if (event.snapshot.exists) {
         final allGamesData = Map<String, dynamic>.from(
           event.snapshot.value as dynamic,

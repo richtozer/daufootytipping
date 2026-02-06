@@ -44,6 +44,12 @@ migrate_working_dir/
 /emulator/
 /test/data/
 
+# Test run artifacts (ephemeral)
+.dart_test_output.txt
+.flutter_test.json
+.full_tests.json
+.full_tests.txt
+
 # Symbolication related
 app.*.symbols
 
