@@ -73,7 +73,7 @@ jobs:
         run: flutter build apk --release
 
       - name: Build AAB (Release)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         run: flutter build appbundle --release
 
       - name: Upload APK artifacts
@@ -85,7 +85,7 @@ jobs:
           retention-days: 30
 
       - name: Upload AAB artifacts
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: android-aab-${{ github.ref_name }}
@@ -93,39 +93,12 @@ jobs:
             build/app/outputs/bundle/release/*.aab
           retention-days: 30
 
-  # Optional: Firebase App Distribution for testing builds
-  distribute:
-    name: Distribute to Firebase
+  # Upload to Google Play Internal Testing for testing/main branches
+  deploy_internal:
+    name: Deploy to Google Play Store (Internal)
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/testing'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-apk-${{ github.ref_name }}
-          path: build/app/outputs/flutter-apk
-
-      - name: Upload to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-          groups: testers
-          file: build/app/outputs/flutter-apk/app-debug.apk
-          releaseNotes: |
-            Build from ${{ github.ref_name }} branch
-            Commit: ${{ github.sha }}
-            
-  # Optional: Google Play Store deployment for main branch
-  deploy:
-    name: Deploy to Google Play Store
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -144,5 +117,3 @@ jobs:
           releaseFiles: build/app/outputs/bundle/release/*.aab
           track: internal
           status: completed
-          inAppUpdatePriority: 2
-          whatsNewDirectory: android/release-notes/

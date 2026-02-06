@@ -56,8 +56,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: flutter build apk --release
 
-      - name: Build AAB (Release) for main branch
-        if: github.ref == 'refs/heads/main'
+      - name: Build AAB (Release) for testing/main branches
+        if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         run: flutter build appbundle --release
 
       - name: Upload APK artifacts
