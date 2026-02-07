@@ -104,7 +104,7 @@ jobs:
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
-          security import "$cert_path" -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path" -q
+          security import "$cert_path" -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
           security list-keychains -d user -s "$keychain_path" login.keychain-db
           security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
 
