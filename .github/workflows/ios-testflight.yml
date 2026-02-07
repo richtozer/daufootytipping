@@ -109,10 +109,15 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          if ! /usr/bin/security cms -D -i "$profile_path" > /dev/null 2>&1; then
+          profile_plist="$RUNNER_TEMP/build_profile.plist"
+          if ! /usr/bin/security cms -D -i "$profile_path" > "$profile_plist" 2>/dev/null; then
             echo "Provisioning profile is not a valid .mobileprovision payload."
             exit 1
           fi
+          profile_name=$(/usr/libexec/PlistBuddy -c 'Print Name' "$profile_plist")
+          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$profile_plist")
+          echo "PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
+          echo "PROFILE_UUID=$profile_uuid" >> "$GITHUB_ENV"
           cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/ci.mobileprovision"
 
       - name: Verify signing assets
@@ -120,9 +125,20 @@ jobs:
           security find-identity -v -p codesigning
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
 
-      - name: Force distribution signing identity in CI
+      - name: Configure manual iOS signing in project
         run: |
-          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' ios/Runner.xcodeproj/project.pbxproj
+          if [ -z "$PROFILE_NAME" ] || [ -z "$PROFILE_UUID" ]; then
+            echo "Missing provisioning profile metadata."
+            exit 1
+          fi
+
+          project_file="ios/Runner.xcodeproj/project.pbxproj"
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' "$project_file"
+          sed -i '' '/DEVELOPMENT_TEAM = /a\
+					CODE_SIGN_STYLE = Manual;\
+					PROVISIONING_PROFILE_SPECIFIER = "'"$PROFILE_NAME"'";\
+					PROVISIONING_PROFILE = "'"$PROFILE_UUID"'";\
+					"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";' "$project_file"
 
       - name: Build iOS IPA
         run: |
