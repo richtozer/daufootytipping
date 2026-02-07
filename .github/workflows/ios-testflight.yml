@@ -58,6 +58,21 @@ jobs:
           IOS_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_BUILD_PROVISION_PROFILE_BASE64 }}
           IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
+          decode_base64_secret() {
+            value="$1"
+            output="$2"
+            if printf "%s" "$value" | base64 --decode > "$output" 2>/dev/null; then
+              return 0
+            fi
+            if printf "%s" "$value" | base64 -d > "$output" 2>/dev/null; then
+              return 0
+            fi
+            if printf "%s" "$value" | base64 -D > "$output" 2>/dev/null; then
+              return 0
+            fi
+            return 1
+          }
+
           missing=0
           for var in IOS_BUILD_CERTIFICATE_BASE64 IOS_P12_PASSWORD IOS_BUILD_PROVISION_PROFILE_BASE64 IOS_KEYCHAIN_PASSWORD; do
             if [ -z "${!var}" ]; then
@@ -73,19 +88,32 @@ jobs:
           profile_path="$RUNNER_TEMP/build_profile.mobileprovision"
           keychain_path="$RUNNER_TEMP/app-signing.keychain-db"
 
-          echo "$IOS_BUILD_CERTIFICATE_BASE64" | base64 --decode > "$cert_path"
-          echo "$IOS_BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > "$profile_path"
+          if ! decode_base64_secret "$IOS_BUILD_CERTIFICATE_BASE64" "$cert_path"; then
+            echo "Failed to decode IOS_BUILD_CERTIFICATE_BASE64. Ensure it is base64 of a .p12 file."
+            exit 1
+          fi
+          if ! decode_base64_secret "$IOS_BUILD_PROVISION_PROFILE_BASE64" "$profile_path"; then
+            echo "Failed to decode IOS_BUILD_PROVISION_PROFILE_BASE64. Ensure it is base64 of a .mobileprovision file."
+            exit 1
+          fi
+          if [ ! -s "$profile_path" ]; then
+            echo "Decoded provisioning profile file is empty."
+            exit 1
+          fi
 
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
-          security import "$cert_path" -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security import "$cert_path" -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path" -q
           security list-keychains -d user -s "$keychain_path" login.keychain-db
           security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          profile_uuid=$(/usr/bin/security cms -D -i "$profile_path" | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin)
-          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
+          if ! /usr/bin/security cms -D -i "$profile_path" > /dev/null 2>&1; then
+            echo "Provisioning profile is not a valid .mobileprovision payload."
+            exit 1
+          fi
+          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/ci.mobileprovision"
 
       - name: Build iOS IPA
         run: |

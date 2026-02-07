@@ -21,6 +21,13 @@ IOS_BUILD_PROVISION_PROFILE_BASE64=<base64 of App Store .mobileprovision>
 IOS_KEYCHAIN_PASSWORD=<random temporary keychain password for CI>
 ```
 
+Generate the base64 values on macOS:
+
+```bash
+base64 -i /path/to/dist-cert.p12 | tr -d '\n' | pbcopy
+base64 -i /path/to/profile.mobileprovision | tr -d '\n' | pbcopy
+```
+
 ### App Store Connect API secrets
 
 ```
