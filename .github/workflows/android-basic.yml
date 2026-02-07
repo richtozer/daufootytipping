@@ -87,13 +87,20 @@ jobs:
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         run: flutter build appbundle --release
 
-      - name: Upload APK artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-build-${{ github.ref_name }}-${{ github.run_number }}
           path: |
             build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Upload AAB Artifact
+        if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/app/outputs/bundle/release/*.aab
           retention-days: 30
 
       - name: Build Summary
@@ -121,8 +128,11 @@ jobs:
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
-          name: android-build-${{ github.ref_name }}-${{ github.run_number }}
-          path: .
+          name: android-aab-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/app/outputs/bundle/release
+
+      - name: Verify downloaded AAB
+        run: ls -la build/app/outputs/bundle/release
 
       - name: Upload to Google Play (Internal)
         uses: r0adkll/upload-google-play@v1
@@ -145,8 +155,11 @@ jobs:
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
-          name: android-build-${{ github.ref_name }}-${{ github.run_number }}
-          path: .
+          name: android-aab-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/app/outputs/bundle/release
+
+      - name: Verify downloaded AAB
+        run: ls -la build/app/outputs/bundle/release
 
       - name: Upload to Google Play (Production)
         uses: r0adkll/upload-google-play@v1
