@@ -5,15 +5,15 @@ This guide explains how to set up the GitHub Actions workflow for automated Andr
 ## 🚀 What the Workflow Does
 
 ### Branches & Triggers
-- **Testing Branch**: Builds debug APK + release AAB, deploys to Google Play Store (Internal Testing)
-- **Main Branch**: Builds release APK + AAB, deploys to Google Play Store (Internal Testing)
+- **android-ci.yml**: Builds and tests on `testing` and `main` (no deploy)
+- **android-basic.yml**: Builds on `testing` and `main` and deploys to Google Play Internal Testing
 - **Pull Requests**: Runs tests and analysis only
 - **Manual**: Can be triggered manually via GitHub UI
 
 ### Build Process
 1. **Test Job**: Runs `flutter analyze` and `flutter test`
 2. **Build Job**: Creates APK (debug/release) and AAB (testing + main)
-3. **Deploy Job**: Uploads AAB builds to Google Play Internal Testing
+3. **Deploy Job**: Runs only in `android-basic.yml` and uploads AAB builds to Google Play Internal Testing
 
 ## 🔧 Required Setup
 
@@ -29,7 +29,7 @@ ANDROID_KEY_PASSWORD=<your-key-password>
 ANDROID_STORE_PASSWORD=<your-keystore-password>
 ```
 
-#### Required for Google Play Store deployment
+#### Required for Google Play Store deployment (android-basic.yml only)
 ```
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "..."}
 ```
@@ -70,9 +70,10 @@ android/
 
 ## 🎯 Getting Started (Minimal Setup)
 
-1. Add all required secrets (`ANDROID_*` and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`)
-2. Push to `testing`
-3. Confirm the workflow builds and uploads to Google Play internal track
+1. Add required signing secrets (`ANDROID_*`)
+2. Push to `testing` and confirm `android-ci.yml` builds and tests
+3. Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` when you are ready for deploys
+4. Run `android-basic.yml` on `testing` to upload to Google Play internal track
 
 ## 🔄 Workflow Status
 

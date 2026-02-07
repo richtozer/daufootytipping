@@ -119,28 +119,3 @@ jobs:
           path: |
             build/app/outputs/bundle/release/*.aab
           retention-days: 30
-
-  # Upload to Google Play Internal Testing for testing/main branches
-  deploy_internal:
-    name: Deploy to Google Play Store (Internal)
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download AAB artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-aab-${{ github.ref_name }}
-          path: build/app/outputs/bundle/release
-
-      - name: Upload to Google Play Store (Internal Testing)
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: coach.interview.daufootytipping
-          releaseFiles: build/app/outputs/bundle/release/*.aab
-          track: internal
-          status: completed
