@@ -133,12 +133,23 @@ jobs:
           fi
 
           project_file="ios/Runner.xcodeproj/project.pbxproj"
-          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' "$project_file"
-          sed -i '' '/DEVELOPMENT_TEAM = /a\
-					CODE_SIGN_STYLE = Manual;\
-					PROVISIONING_PROFILE_SPECIFIER = "'"$PROFILE_NAME"'";\
-					PROVISIONING_PROFILE = "'"$PROFILE_UUID"'";\
-					"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";' "$project_file"
+          ruby <<'RUBY'
+          path = "ios/Runner.xcodeproj/project.pbxproj"
+          content = File.read(path)
+          content.gsub!(
+            "\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Developer\";",
+            "\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";"
+          )
+          content.gsub!("CODE_SIGN_STYLE = Automatic;", "CODE_SIGN_STYLE = Manual;")
+          team_entry = "DEVELOPMENT_TEAM = 3Y769AQHC7;"
+          team_replacement = [
+            team_entry,
+            "                    PROVISIONING_PROFILE_SPECIFIER = \"#{ENV.fetch('PROFILE_NAME')}\";",
+            "                    PROVISIONING_PROFILE = \"#{ENV.fetch('PROFILE_UUID')}\";"
+          ].join("\n")
+          content.gsub!(team_entry, team_replacement)
+          File.write(path, content)
+          RUBY
 
       - name: Build iOS IPA
         run: |
