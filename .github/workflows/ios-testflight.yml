@@ -164,6 +164,7 @@ jobs:
         with:
           name: ios-ipa-${{ github.ref_name }}-${{ github.run_number }}
           path: build/ios/ipa/*.ipa
+          if-no-files-found: error
           retention-days: 30
 
       - name: Install Fastlane
@@ -191,7 +192,13 @@ jobs:
 
           key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
           api_key_json="$RUNNER_TEMP/app_store_api_key.json"
-          ipa_path="$(ls build/ios/ipa/*.ipa | head -n 1)"
+          ipa_path="$(find build/ios -type f -name '*.ipa' | head -n 1)"
+          if [ -z "$ipa_path" ] || [ ! -f "$ipa_path" ]; then
+            echo "No IPA file found under build/ios."
+            echo "Available build outputs:"
+            find build/ios -maxdepth 4 -type f | sort || true
+            exit 1
+          fi
 
           printf "%s" "$APP_STORE_CONNECT_API_KEY_P8" > "$key_path"
           escaped_key=$(ruby -rjson -e 'print JSON.generate(STDIN.read)' < "$key_path")
