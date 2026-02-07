@@ -115,6 +115,15 @@ jobs:
           fi
           cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/ci.mobileprovision"
 
+      - name: Verify signing assets
+        run: |
+          security find-identity -v -p codesigning
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+      - name: Force distribution signing identity in CI
+        run: |
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' ios/Runner.xcodeproj/project.pbxproj
+
       - name: Build iOS IPA
         run: |
           flutter build ipa \
