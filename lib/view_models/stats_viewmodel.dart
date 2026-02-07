@@ -23,14 +23,16 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
 
 // Define constants for Firestore database locations
-const statsFormatVersion = 'v1';
-const statsPathRoot = '/Stats';
-const roundStatsRoot = 'round_stats_$statsFormatVersion';
-const liveScoresRoot = 'live_scores_$statsFormatVersion';
-const gameStatsRoot = 'game_stats_$statsFormatVersion';
+const String statsFormatVersion = 'v1';
+// Use shared root; keep versioned leaves local to file for clarity
+const String statsPathRootLocal = p.statsPathRoot;
+const String roundStatsRoot = 'round_stats_$statsFormatVersion';
+const String liveScoresRoot = 'live_scores_$statsFormatVersion';
+const String gameStatsRoot = 'game_stats_$statsFormatVersion';
 
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
@@ -90,7 +92,7 @@ class StatsViewModel extends ChangeNotifier {
 
   Future<void> _listenToScores() async {
     _allRoundScoresStream = _db
-        .child('$statsPathRoot/${selectedDAUComp.dbkey}/$roundStatsRoot')
+        .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$roundStatsRoot')
         .onValue
         .listen(
           _handleEventRoundScores,
@@ -100,7 +102,7 @@ class StatsViewModel extends ChangeNotifier {
         );
 
     _liveScoresStream = _db
-        .child('$statsPathRoot/${selectedDAUComp.dbkey}/$liveScoresRoot')
+        .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
         .onValue
         .listen(
           _handleEventLiveScores,
@@ -162,7 +164,7 @@ class StatsViewModel extends ChangeNotifier {
       // Update the leaderboard
       await _updateLeaderAndRoundAndRank();
     } catch (e, stackTrace) {
-      log('Error listening to /$statsPathRoot/round_scores: $e');
+      log('Error listening to /$statsPathRootLocal/round_scores: $e');
       _allTipperRoundStats.clear(); // Rollback partial updates
       if (!_initialRoundScoresLoadCompleted.isCompleted) {
         _initialRoundScoresLoadCompleted.completeError(e, stackTrace);
@@ -268,7 +270,7 @@ class StatsViewModel extends ChangeNotifier {
       }
     } catch (e) {
       log(
-        'StatsViewModel._handleEventLiveScores() Error listening to /$statsPathRoot/live_scores: $e',
+        'StatsViewModel._handleEventLiveScores() Error listening to /$statsPathRootLocal/live_scores: $e',
       );
       rethrow;
     } finally {
@@ -560,7 +562,7 @@ class StatsViewModel extends ChangeNotifier {
 
     // Use a transaction to ensure atomic updates
     final gameStatsRef = _db
-        .child(statsPathRoot)
+        .child(statsPathRootLocal)
         .child(daucompToUpdate.dbkey!)
         .child(gameStatsRoot)
         .child(subKey)
@@ -606,7 +608,7 @@ class StatsViewModel extends ChangeNotifier {
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
     var snapshot = await _db
-        .child(statsPathRoot)
+        .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
         .child(gameStatsRoot)
         .child(subKey)
@@ -648,7 +650,7 @@ class StatsViewModel extends ChangeNotifier {
     while (true) {
       try {
         await _db
-            .child(statsPathRoot)
+            .child(statsPathRootLocal)
             .child(dauComp.dbkey!)
             .child(roundStatsRoot)
             .runTransaction((currentData) {
@@ -1116,7 +1118,7 @@ class StatsViewModel extends ChangeNotifier {
       liveScores[game.dbkey] = game.scoring!.toJson();
 
       await _db
-          .child(statsPathRoot)
+          .child(statsPathRootLocal)
           .child(selectedDAUComp.dbkey!)
           .child(liveScoresRoot)
           .update(liveScores);
@@ -1144,7 +1146,7 @@ class StatsViewModel extends ChangeNotifier {
       _gamesWithLiveScores.remove(game);
 
       await _db
-          .child(statsPathRoot)
+          .child(statsPathRootLocal)
           .child(selectedDAUComp.dbkey!)
           .child(liveScoresRoot)
           .child(game.dbkey)
@@ -1157,7 +1159,7 @@ class StatsViewModel extends ChangeNotifier {
     // if we turned the listener off, turn it back on
     if (gamesToDelete.isNotEmpty) {
       _liveScoresStream = _db
-          .child('$statsPathRoot/${selectedDAUComp.dbkey}/$liveScoresRoot')
+          .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
           .onValue
           .listen(
             _handleEventLiveScores,

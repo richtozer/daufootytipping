@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:universal_platform/universal_platform.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 // Helper class to structure historical matchup data for the UI
 class HistoricalMatchupUIData {
@@ -287,7 +288,7 @@ class GameTipViewModel extends ChangeNotifier {
       final tipJson = tip.toJson();
 
       final Map<String, Map> updates = {};
-      updates['$tipsPathRoot/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
+      updates['${p.tipsPathRoot}/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
       await _db.update(updates);
       log('new tip submitted: ${updates.toString()}');

@@ -29,15 +29,36 @@ class Tip implements Comparable<Tip> {
       dbkey: key,
       game: game,
       tipper: tipper,
-      tip: GameResult.values.byName(data['gameResult']),
-      submittedTimeUTC: DateTime.parse(data['submittedTimeUTC']),
+      // Read new short keys first, then fall back to legacy names
+      tip: GameResult.values.byName(
+        (data['r'] ?? data['gameResult']) as String,
+      ),
+      submittedTimeUTC: (() {
+        final dynamic raw = data['t'] ?? data['submittedTimeUTC'];
+        if (raw is int) {
+          // Epoch seconds (compact)
+          return DateTime.fromMillisecondsSinceEpoch(raw * 1000, isUtc: true);
+        } else if (raw is String) {
+          // Try numeric epoch seconds string, else ISO-8601 string
+          final int? asInt = int.tryParse(raw);
+          if (asInt != null) {
+            return DateTime.fromMillisecondsSinceEpoch(asInt * 1000, isUtc: true);
+          }
+          return DateTime.parse(raw);
+        } else {
+          // Fallback: treat as now UTC if unexpected
+          return DateTime.now().toUtc();
+        }
+      })(),
     );
   }
 
-  Map<String, String> toJson() {
+  Map<String, dynamic> toJson() {
     return {
-      'gameResult': tip.name,
-      'submittedTimeUTC': submittedTimeUTC.toString(),
+      // Write using compact field names to conserve database space
+      'r': tip.name,
+      // Store as epoch seconds (int) to reduce size and precision
+      't': submittedTimeUTC.millisecondsSinceEpoch ~/ 1000,
     };
   }
 

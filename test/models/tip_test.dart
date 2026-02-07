@@ -124,7 +124,7 @@ void main() {
     });
 
     group('JSON Serialization', () {
-      test('should create tip from JSON correctly', () {
+      test('should create tip from JSON correctly (legacy keys)', () {
         final jsonData = {
           'gameResult': 'a',
           'submittedTimeUTC': '2024-01-15T14:30:00.000Z',
@@ -154,7 +154,7 @@ void main() {
         }
       });
 
-      test('should convert tip to JSON correctly', () {
+      test('should convert tip to JSON correctly (compact keys)', () {
         final tip = Tip(
           dbkey: 'tip1',
           game: testGame,
@@ -165,8 +165,8 @@ void main() {
 
         final json = tip.toJson();
 
-        expect(json['gameResult'], equals('b'));
-        expect(json['submittedTimeUTC'], equals(testDateTime.toString()));
+        expect(json['r'], equals('b'));
+        expect(json['t'], equals(testDateTime.millisecondsSinceEpoch ~/ 1000));
         expect(json.keys.length, equals(2));
       });
 

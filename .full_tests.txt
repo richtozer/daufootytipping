@@ -1,0 +1,163 @@
+00:00 +0: loading /Users/richardtozer/dev/projects/daufootytipping/test/daucomps_viewmodel_test.dart
+00:00 +0: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_round_state_test.dart: DAUCompsViewModel round state via linkGamesWithRounds allGamesEnded when all games have official scores and >2h past
+00:00 +1: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_round_state_test.dart: DAUCompsViewModel round state via linkGamesWithRounds started when any game started but no official result
+00:00 +2: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_round_state_test.dart: DAUCompsViewModel round state via linkGamesWithRounds noGames when round has no games
+00:00 +3: /Users/richardtozer/dev/projects/daufootytipping/test/tipperrole_test.dart: TipperRole should have correct values
+00:00 +4: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +5: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +6: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +7: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +8: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +9: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +10: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_linking_test.dart: DAUCompsViewModel.linkGamesWithRounds assigns games to rounds and updates unassigned respecting cutoffs
+00:00 +11: /Users/richardtozer/dev/projects/daufootytipping/test/daucomps_viewmodel_test.dart: DAUCompsViewModel _fixOverlappingLeagueGameGroups adjusts overlapping groups correctly within the same league
+00:00 +12: /Users/richardtozer/dev/projects/daufootytipping/test/daucomps_viewmodel_test.dart: DAUCompsViewModel _fixOverlappingLeagueGameGroups handles non-overlapping groups correctly
+00:00 +13: /Users/richardtozer/dev/projects/daufootytipping/test/daucomps_viewmodel_test.dart: DAUCompsViewModel _fixOverlappingLeagueGameGroups handles multiple overlapping groups within the same league
+00:00 +14: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_cutoffs_test.dart: DAUCompsViewModel linkGamesWithRounds per-league cutoffs filters unassigned games beyond respective league cutoffs
+00:01 +15: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_ladder_cache_test.dart: DAUCompsViewModel ladder caching caches calculated ladder and reuses it
+00:01 +16: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_ladder_cache_test.dart: DAUCompsViewModel ladder caching clearLeagueLadderCache invalidates cache
+00:01 +17: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_ladder_cache_test.dart: DAUCompsViewModel ladder caching forceRecalculate bypasses cache
+00:01 +18: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_ladder_cache_test.dart: DAUCompsViewModel ladder caching returns null if fewer than 3 completed rounds
+00:01 +19: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_ladder_cache_test.dart: DAUCompsViewModel ladder caching returns null when selectedDAUComp is null
+00:01 +20: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_ladder_cache_test.dart: DAUCompsViewModel ladder caching returns null when gamesViewModel is null
+00:01 +21: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_characterization_test.dart: DAUCompsViewModel (characterization) groupGamesIntoLeagues splits and sorts games
+00:01 +22: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_characterization_test.dart: DAUCompsViewModel (characterization) updateRoundAttribute writes correct update path
+00:01 +23: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_characterization_test.dart: DAUCompsViewModel (characterization) updateCompAttribute writes correct update path
+00:01 +24: /Users/richardtozer/dev/projects/daufootytipping/test/view_models/daucomps_viewmodel_grouping_test.dart: DAUCompsViewModel.groupGamesIntoLeagues handles single-league rounds and preserves sort
+00:02 +25: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_roundscores_test.dart: RoundScores toJson should return a valid JSON map
+00:02 +26: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Constructor and Properties should create tip with all required properties
+00:02 +27: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Constructor and Properties should create tip with all required properties
+00:02 +28: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_roundscores_test.dart: RoundScores toCsv should return a valid CSV list
+00:02 +29: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Constructor and Properties should create tip with null dbkey
+00:02 +30: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Constructor and Properties should create tip with null dbkey
+00:02 +31: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_roundscores_test.dart: RoundScores hashCode should return the same value for equal RoundScores objects
+00:02 +32: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests isDefaultTip should return true for default tip with epoch zero time
+00:02 +33: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests isDefaultTip should return false for tip with actual submitted time
+00:02 +34: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests isDefaultTip should return false for tip with current time
+00:02 +35: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests JSON Serialization should create tip from JSON correctly
+00:02 +36: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests JSON Serialization should handle all game results in fromJson
+00:02 +37: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests JSON Serialization should convert tip to JSON correctly
+00:02 +38: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests JSON Serialization should handle round-trip JSON conversion
+00:02 +39: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests getGameResultText should return NRL text for NRL game
+00:02 +40: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests getGameResultText should return AFL text for AFL game
+00:02 +41: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Equality and Comparison should be equal when all properties match
+00:02 +42: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Equality and Comparison should not be equal when dbkey differs
+00:02 +43: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Equality and Comparison should not be equal when game result differs
+00:02 +44: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Equality and Comparison should not be equal when submitted time differs
+00:02 +45: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Comparable interface should sort tips by submitted time ascending
+00:02 +46: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Comparable interface should handle tips with same submitted time
+00:02 +47: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Edge Cases should handle tip with null scoring in game
+00:02 +48: /Users/richardtozer/dev/projects/daufootytipping/test/models/tip_test.dart: Tip Model Tests Edge Cases should handle tips with extreme dates
+00:02 +49: /Users/richardtozer/dev/projects/daufootytipping/test/models/daucomp_pixelheight_test.dart: DAUComp.pixelHeightUpToRound calculates height including headers and games
+00:02 +50: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Constructor and Properties should create DAURound with required properties
+00:02 +51: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Constructor and Properties should create DAURound with optional admin override dates
+00:02 +52: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Constructor and Properties should create DAURound with initial games list
+00:02 +53: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Static Constants should have correct static height values
+00:02 +54: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Static Constants static heights should be reasonable UI values
+00:02 +55: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests JSON Factory Constructor should create DAURound from JSON data
+00:02 +56: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests JSON Factory Constructor should handle ISO8601 date formats correctly
+00:02 +57: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests RoundState Enum should have all expected round states
+00:02 +58: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests RoundState Enum should initialize with notStarted state
+00:02 +59: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Comparable Interface should implement Comparable for sorting
+00:02 +60: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Comparable Interface should handle rounds with same round number
+00:02 +61: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Game Counts should initialize game counts to zero
+00:02 +62: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Game Counts should allow modification of game counts
+00:02 +63: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Edge Cases and Validation should handle round where end time is before start time
+00:02 +64: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Edge Cases and Validation should handle extreme round numbers
+00:02 +65: /Users/richardtozer/dev/projects/daufootytipping/test/models/dauround_test.dart: DAURound Model Tests Edge Cases and Validation should handle dates far in the future
+00:03 +66: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_architecture_fix_test.dart: Scoring Architecture Fix Tests FIXED: Live scores never pollute official score fields
+00:03 +67: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_architecture_fix_test.dart: Scoring Architecture Fix Tests COMPARE: Old vs New approach architectural difference
+00:03 +68: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_architecture_fix_test.dart: Scoring Architecture Fix Tests VERIFY: Race condition eliminated by data isolation
+00:03 +69: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.a when homeTeamScore is greater than awayTeamScore + margin
+00:03 +70: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.e when homeTeamScore + margin is less than awayTeamScore
+00:03 +71: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.b when homeTeamScore is greater than awayTeamScore
+00:03 +72: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.d when homeTeamScore is less than awayTeamScore
+00:03 +73: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.c when homeTeamScore equals awayTeamScore
+00:03 +74: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.z when homeTeamScore is null and no crowd-sourced scores
+00:03 +75: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.z when awayTeamScore is null and no crowd-sourced scores
+00:03 +76: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.z when both scores are null
+00:03 +77: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0
+00:03 +78: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0
+00:03 +79: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated returns NRL GameResult.b when homeTeamScore from crowd-sourced wins narrowly
+00:03 +80: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getNRLGameResultCalculated prefers official scores over crowd-sourced when both available
+00:03 +81: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.a when homeTeamScore is greater than awayTeamScore + margin
+00:03 +82: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.e when homeTeamScore + margin is less than awayTeamScore
+00:03 +83: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.b when homeTeamScore is greater than awayTeamScore
+00:03 +84: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.d when homeTeamScore is less than awayTeamScore
+00:03 +85: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.c when homeTeamScore equals awayTeamScore
+00:03 +86: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.z when homeTeamScore is null and no crowd-sourced scores
+00:03 +87: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.z when awayTeamScore is null and no crowd-sourced scores
+00:03 +88: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.z when both scores are null
+00:03 +89: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0
+00:03 +90: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0
+00:03 +91: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated returns AFL GameResult.b when homeTeamScore from crowd-sourced wins narrowly
+00:03 +92: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getAFLGameResultCalculated prefers official AFL scores over crowd-sourced when both available
+00:03 +93: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: currentScore with crowd-sourced scores returns official score when available, ignoring crowd-sourced
+00:03 +94: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: currentScore with crowd-sourced scores returns latest crowd-sourced score when official not available
+00:03 +95: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: currentScore with crowd-sourced scores returns null when no scores available
+00:03 +96: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: currentScore with crowd-sourced scores returns null when no crowd-sourced scores for specified team
+00:03 +97: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getTipScoreCalculated NRL Tip was A, result was A, score should be 4
+00:03 +98: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getTipScoreCalculated NRL Tip was E, result was A, score should be -2
+00:03 +99: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getTipScoreCalculated NRL Tip was C, result was C, score should be 50
+00:03 +100: /Users/richardtozer/dev/projects/daufootytipping/test/game_scoring_test.dart: getTipScoreCalculated AFL Tip was C, result was C, score should be 50
+00:03 +101: /Users/richardtozer/dev/projects/daufootytipping/test/game_gamestate_test.dart: Game.gameState notStarted when start in future (>14h)
+00:03 +102: /Users/richardtozer/dev/projects/daufootytipping/test/game_gamestate_test.dart: Game.gameState startingSoon when within 14 hours
+00:03 +103: /Users/richardtozer/dev/projects/daufootytipping/test/game_gamestate_test.dart: Game.gameState startedResultNotKnown when started but missing official scores
+00:03 +104: /Users/richardtozer/dev/projects/daufootytipping/test/game_gamestate_test.dart: Game.gameState startedResultKnown when >2h past start and official scores exist
+00:04 +105: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_race_condition_test.dart: Scoring Race Condition Tests SHOULD FAIL: Live scores arriving first should not prevent official score priority
+00:04 +106: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_race_condition_test.dart: Scoring Race Condition Tests SHOULD FAIL: Live scores should not pollute official score fields
+00:04 +107: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_race_condition_test.dart: Scoring Race Condition Tests SHOULD FAIL: Official scores arriving first should not be overwritten by live scores
+00:04 +108: /Users/richardtozer/dev/projects/daufootytipping/test/scoring_race_condition_test.dart: Scoring Race Condition Tests SHOULD FAIL: Data isolation - live and official scores should be completely independent
+00:04 +109: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_persistence_test.dart: CombinedRoundsPersistence buildCombinedRoundsUpdates creates start/end updates and removals
+00:04 +110: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should return null if no games are provided
+00:04 +111: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should return null if no games are provided
+00:04 +112: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_update_policy_test.dart: FixtureUpdatePolicy shouldTriggerFixtureUpdate respects threshold and last timestamp
+00:04 +113: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_update_policy_test.dart: FixtureUpdatePolicy shouldTriggerFixtureUpdate respects threshold and last timestamp
+00:04 +114: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should correctly calculate NRL ladder for multiple rounds
+00:04 +115: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should correctly calculate AFL ladder for multiple rounds with wins and draws
+00:04 +116: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should return null when requesting ladder for different league
+00:04 +117: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should return null when games have no scores
+00:04 +118: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should correctly award 2 points for an NRL bye
+00:04 +119: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should not award byes for a round that is not yet fully past
+00:04 +120: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should ignore "To be announced" teams in ladder calculation
+00:04 +121: /Users/richardtozer/dev/projects/daufootytipping/test/services/ladder_calculation_service_test.dart: LadderCalculationService Tests should exclude games after the cutoff date
+00:04 +122: /Users/richardtozer/dev/projects/daufootytipping/test/services/lock_manager_test.dart: LockManager lockPathForComp builds expected path
+00:04 +123: /Users/richardtozer/dev/projects/daufootytipping/test/services/lock_manager_test.dart: LockManager isLockFresh checks TTL correctly
+00:05 +124: /Users/richardtozer/dev/projects/daufootytipping/test/services/daucomps_rounds_parser_test.dart: DaucompsRoundsParser parseRounds builds rounds from JSON array
+00:05 +125: /Users/richardtozer/dev/projects/daufootytipping/test/services/daucomps_rounds_parser_test.dart: DaucompsRoundsParser computeGreaterEndDate returns later of AFL/NRL cutoff
+00:05 +126: /Users/richardtozer/dev/projects/daufootytipping/test/services/daucomps_rounds_parser_test.dart: DaucompsRoundsParser applyCutoffFilter removes rounds after cutoff
+00:05 +127: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_download_service_test.dart: FixtureDownloadService Tests fetch() method - Error scenarios should throw exception when NRL download fails
+00:05 +128: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns true for 200 responses
+00:05 +129: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns true for 200 responses
+00:05 +130: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns true for 200 responses
+00:05 +131: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns true for 200 responses
+00:05 +132: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns true for 200 responses
+00:05 +133: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns true for 200 responses
+00:05 +134: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_download_service_test.dart: FixtureDownloadService Tests Service instantiation should handle multiple service instances
+00:05 +135: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns false for non-200 status
+00:05 +136: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns false for non-200 status
+00:05 +137: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_download_service_test.dart: FixtureDownloadService Tests Method signature validation fetch method should return correct type structure on success
+00:05 +138: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns false on exception
+00:05 +139: /Users/richardtozer/dev/projects/daufootytipping/test/services/url_health_checker_test.dart: UrlHealthChecker returns false on exception
+00:05 +140: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_download_service_test.dart: FixtureDownloadService Tests Success scenarios returns lists for both leagues on success (main thread)
+00:05 +141: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_download_service_test.dart: FixtureDownloadService Tests Success scenarios returns lists for both leagues when isolate requested (test path bypasses isolate)
+00:05 +142: /Users/richardtozer/dev/projects/daufootytipping/test/services/fixture_download_service_test.dart: FixtureDownloadService Tests Success scenarios throws when AFL fetch fails after successful NRL
+00:05 +143: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Constants and static values should have correct tokensPath
+00:05 +144: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Constants and static values should have correct token expiration duration
+00:05 +145: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Token age calculation logic should calculate stale time correctly
+00:05 +146: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Token age calculation logic should identify stale vs fresh tokens correctly
+00:05 +147: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Token age calculation logic should handle edge case of exactly 30 days old token
+00:05 +148: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Token time string parsing should handle ISO8601 format correctly
+00:05 +149: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Token time string parsing should handle round-trip conversion correctly
+00:05 +150: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Service structure validation should have required method signatures available
+00:05 +151: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Service structure validation should have correct module-level constants
+00:05 +152: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Business logic validation should use milliseconds for time calculations
+00:05 +153: /Users/richardtozer/dev/projects/daufootytipping/test/services/firebase_messaging_service_test.dart: FirebaseMessagingService Tests Business logic validation should have reasonable token path structure
+00:05 +154: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_service_test.dart: CombinedRoundsService groupGamesByLeagueAndRound groups by league and round
+00:06 +155: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_service_test.dart: CombinedRoundsService sortGameGroupsByStartTimeThenMatchNumber sorts as expected
+00:06 +156: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_service_test.dart: CombinedRoundsService sortGameGroupsByStartTimeThenMatchNumber tiebreaks by MatchNumber
+00:06 +157: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_service_test.dart: CombinedRoundsService combineGameGroupsIntoRounds merges overlapping groups and buffers times
+00:06 +158: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_service_test.dart: CombinedRoundsService fixOverlappingLeagueGameGroups adjusts overlapping league end times
+00:06 +159: /Users/richardtozer/dev/projects/daufootytipping/test/services/combined_rounds_service_test.dart: CombinedRoundsService buildCombinedRounds end-to-end
+00:06 +160: /Users/richardtozer/dev/projects/daufootytipping/test/admin_games_viewmodel_test.dart: AdminGamesViewModel Tests placeholder test until admin_games_viewmodel is implemented
+00:06 +161: All tests passed!
