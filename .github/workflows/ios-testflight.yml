@@ -159,11 +159,24 @@ jobs:
             --build-name "${{ steps.app_version.outputs.build_name }}" \
             --build-number "${{ steps.app_version.outputs.build_number }}"
 
+      - name: Locate IPA output
+        id: ipa_output
+        run: |
+          ipa_path="$(find build/ios -type f -name '*.ipa' | head -n 1)"
+          if [ -z "$ipa_path" ] || [ ! -f "$ipa_path" ]; then
+            echo "No IPA file found under build/ios after flutter build ipa."
+            echo "Available build outputs:"
+            find build/ios -maxdepth 6 -type f | sort || true
+            exit 1
+          fi
+          echo "ipa_path=$ipa_path" >> "$GITHUB_OUTPUT"
+          echo "Detected IPA: $ipa_path"
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa-${{ github.ref_name }}-${{ github.run_number }}
-          path: build/ios/ipa/*.ipa
+          path: ${{ steps.ipa_output.outputs.ipa_path }}
           if-no-files-found: error
           retention-days: 30
 
@@ -192,11 +205,9 @@ jobs:
 
           key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
           api_key_json="$RUNNER_TEMP/app_store_api_key.json"
-          ipa_path="$(find build/ios -type f -name '*.ipa' | head -n 1)"
+          ipa_path="${{ steps.ipa_output.outputs.ipa_path }}"
           if [ -z "$ipa_path" ] || [ ! -f "$ipa_path" ]; then
-            echo "No IPA file found under build/ios."
-            echo "Available build outputs:"
-            find build/ios -maxdepth 4 -type f | sort || true
+            echo "Resolved IPA path is missing: $ipa_path"
             exit 1
           fi
 
