@@ -231,11 +231,11 @@ jobs:
           retention-days: 30
 
       - name: Install Fastlane
-        if: inputs.upload_to_testflight != false
+        if: github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight == true
         run: gem install fastlane --no-document
 
       - name: Upload to TestFlight
-        if: inputs.upload_to_testflight != false
+        if: github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight == true
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
