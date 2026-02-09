@@ -1,12 +1,12 @@
 # iOS TestFlight GitHub Actions Setup
 
-This guide covers the manual iOS TestFlight workflow in `.github/workflows/ios-testflight.yml`.
+This guide covers the iOS TestFlight workflow in `.github/workflows/ios-testflight.yml`.
 
 ## What it does
 
 1. Builds an iOS IPA on a GitHub macOS runner.
 2. Uses `pubspec.yaml` as the version/build source (`version: x.y.z+N`).
-3. Optionally uploads the IPA to TestFlight.
+3. Uploads the IPA to TestFlight when configured to do so.
 
 ## Required GitHub Secrets
 
@@ -38,6 +38,16 @@ APP_STORE_CONNECT_API_KEY_P8=<full contents of AuthKey_XXXXXX.p8>
 
 ## How to run
 
+### Automatic (recommended)
+
+1. Bump app build number in `pubspec.yaml`:
+   - `scripts/bump_build_number.sh`
+2. Commit and push to `testing`.
+3. Workflow runs automatically on `testing` push.
+4. Check TestFlight build processing in App Store Connect.
+
+### Manual
+
 1. Open GitHub `Actions`.
 2. Select `iOS TestFlight Build`.
 3. Click `Run workflow`.
@@ -48,6 +58,15 @@ APP_STORE_CONNECT_API_KEY_P8=<full contents of AuthKey_XXXXXX.p8>
 
 ## Notes
 
-- The workflow is manual only (`workflow_dispatch`) to avoid accidental uploads.
+- The workflow runs automatically on `testing` pushes and also supports manual `workflow_dispatch`.
+- The runner is pinned to `macos-26` and enforces Xcode/iOS SDK 26.
 - Build number and version are pulled from `pubspec.yaml`.
 - Keep Xcode Cloud release/upload workflows disabled if you want one release pipeline.
+
+## iOS Release Runbook
+
+1. Run `scripts/bump_build_number.sh`.
+2. Commit the `pubspec.yaml` change.
+3. Push to `testing`.
+4. In GitHub Actions, verify `iOS TestFlight Build` succeeded.
+5. In App Store Connect, verify the new build appears in TestFlight and finishes processing.

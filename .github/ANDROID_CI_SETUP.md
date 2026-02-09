@@ -5,15 +5,18 @@ This guide explains how to set up the GitHub Actions workflow for automated Andr
 ## 🚀 What the Workflow Does
 
 ### Branches & Triggers
-- **android-ci.yml**: Builds and tests on `testing` and `main` (no deploy)
-- **android-basic.yml**: Builds on `testing` and `main` and deploys to Google Play Internal Testing
-- **Pull Requests**: Runs tests and analysis only
-- **Manual**: Can be triggered manually via GitHub UI
+- **android-ci.yml**: Manual only. Runs tests and build jobs. No Play deploy.
+- **android-basic.yml**: Manual only. Builds artifacts and can deploy to Play tracks.
+- **No push/PR auto triggers**: Android workflows are intentionally manual to control GitHub Actions usage.
 
 ### Build Process
-1. **Test Job**: Runs `flutter analyze` and `flutter test`
-2. **Build Job**: Creates APK (debug/release) and AAB (testing + main)
-3. **Deploy Job**: Runs only in `android-basic.yml` and uploads AAB builds to Google Play Internal Testing
+1. **android-ci.yml**:
+   - Test Job: Runs `flutter analyze` and `flutter test`
+   - Build Job: Creates APK/AAB artifacts
+2. **android-basic.yml**:
+   - Build job: Creates APK/AAB artifacts
+   - Deploy internal: Uploads to Play Internal when run on `testing`
+   - Deploy production: Uploads to Play Production only when manually run on `main` with `production=true`
 
 ## 🔧 Required Setup
 
@@ -71,7 +74,7 @@ android/
 ## 🎯 Getting Started (Minimal Setup)
 
 1. Add required signing secrets (`ANDROID_*`)
-2. Push to `testing` and confirm `android-ci.yml` builds and tests
+2. Run `android-ci.yml` manually from GitHub Actions and confirm it builds/tests
 3. Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` when you are ready for deploys
 4. Run `android-basic.yml` on `testing` to upload to Google Play internal track
 
