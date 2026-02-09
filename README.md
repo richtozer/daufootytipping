@@ -134,17 +134,16 @@ iOS release runbook
 3. Confirm `iOS TestFlight Build` passes in GitHub Actions.
 4. Confirm build appears and finishes processing in TestFlight.
 
-Android (`.github/workflows/android-ci.yml`, `.github/workflows/android-basic.yml`)
--------------------------------------------------------------------------------------
+Android (`.github/workflows/android-basic.yml`)
+------------------------------------------------
 - Trigger:
-  - Manual only (`workflow_dispatch`) for both workflows
-- `android-ci.yml`:
-  - Test and build focused
-  - No Play deploy
-- `android-basic.yml`:
-  - Build artifacts
-  - Play Internal deploy when run on `testing`
-  - Optional Play Production deploy when run on `main` with `production=true`
+  - Manual only (`workflow_dispatch`)
+- Workflow behavior:
+  - Runs analyzer/tests and builds APK/AAB artifacts
+  - Optional Play deploy controlled by `deploy_track` input:
+    - `none`
+    - `internal` (testing branch only)
+    - `production` (main branch only)
 - Versioning:
   - Build name/build number also come from `pubspec.yaml`
 

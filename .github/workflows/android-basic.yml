@@ -1,19 +1,39 @@
-name: Android Basic Build
-
-# This is a simplified version that just builds and uploads artifacts
-# Use this if you want to start simple without Firebase/Play Store integration
+name: Android Build and Deploy
 
 on:
-  workflow_dispatch: # Manual only to reduce CI usage
+  workflow_dispatch:
     inputs:
-      production:
-        description: "Upload release AAB to Google Play production"
-        required: false
-        default: "false"
+      deploy_track:
+        description: "Play track for AAB deployment"
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - none
+          - internal
+          - production
 
 jobs:
+  validate_dispatch:
+    name: Validate Dispatch Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch/track combination
+        run: |
+          track="${{ inputs.deploy_track }}"
+          ref="${{ github.ref }}"
+          if [ "$track" = "internal" ] && [ "$ref" != "refs/heads/testing" ]; then
+            echo "Internal deploy is only allowed from testing branch."
+            exit 1
+          fi
+          if [ "$track" = "production" ] && [ "$ref" != "refs/heads/main" ]; then
+            echo "Production deploy is only allowed from main branch."
+            exit 1
+          fi
+
   build:
-    name: Build Android App
+    name: Test and Build Android
+    needs: validate_dispatch
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -22,18 +42,27 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.1'
-          channel: 'stable'
+          flutter-version: "3.35.1"
+          channel: "stable"
           cache: true
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Verify installation
+        run: flutter doctor -v
+
+      - name: Run analyzer
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
 
       - name: Read app version from pubspec
         id: app_version
@@ -75,17 +104,8 @@ jobs:
             "$ANDROID_KEY_ALIAS" \
             > android/key.properties
 
-      - name: Verify the installation
-        run: flutter doctor -v
-
-      - name: Run analyzer
-        run: flutter analyze
-
-      - name: Run tests
-        run: flutter test
-
-      - name: Build APK (Debug) for testing branch
-        if: github.ref == 'refs/heads/testing'
+      - name: Build APK (Debug) for non-main branches
+        if: github.ref != 'refs/heads/main'
         run: flutter build apk --debug --build-name "${{ steps.app_version.outputs.build_name }}" --build-number "${{ steps.app_version.outputs.build_number }}"
 
       - name: Build APK (Release) for main branch
@@ -96,15 +116,14 @@ jobs:
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         run: flutter build appbundle --release --build-name "${{ steps.app_version.outputs.build_name }}" --build-number "${{ steps.app_version.outputs.build_number }}"
 
-      - name: Upload Build Artifacts
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-build-${{ github.ref_name }}-${{ github.run_number }}
-          path: |
-            build/app/outputs/flutter-apk/*.apk
+          name: android-apk-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/*.apk
           retention-days: 30
 
-      - name: Upload AAB Artifact
+      - name: Upload AAB artifact
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
@@ -112,28 +131,12 @@ jobs:
           path: build/app/outputs/bundle/release/*.aab
           retention-days: 30
 
-      - name: Build Summary
-        run: |
-          echo "## Build Summary 🚀" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build Number**: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Artifacts Created:" >> $GITHUB_STEP_SUMMARY
-          find build/app/outputs -name "*.apk" -o -name "*.aab" | while read file; do
-            size=$(ls -lh "$file" | awk '{print $5}')
-            echo "- $(basename "$file") ($size)" >> $GITHUB_STEP_SUMMARY
-          done
-
   deploy_internal:
     name: Upload to Google Play (Internal)
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/testing'
+    if: inputs.deploy_track == 'internal' && github.ref == 'refs/heads/testing'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
@@ -156,11 +159,8 @@ jobs:
     name: Upload to Google Play (Production)
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.production == 'true'
+    if: inputs.deploy_track == 'production' && github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
