@@ -40,6 +40,20 @@ jobs:
           xcodebuild -version
           xcrun --show-sdk-version || true
 
+      - name: Ensure iOS 26 platform is installed
+        run: |
+          if xcodebuild -showsdks | grep -E "iphoneos26|iOS 26" >/dev/null; then
+            echo "iOS 26 SDK already available."
+            exit 0
+          fi
+          if ! xcodebuild -h 2>&1 | grep -q "downloadPlatform"; then
+            echo "Xcode does not support downloading platforms on this runner."
+            exit 1
+          fi
+          echo "iOS 26 SDK not installed; attempting download..."
+          sudo xcodebuild -downloadPlatform iOS || xcodebuild -downloadPlatform iOS
+          xcodebuild -showsdks
+
       - name: Enforce iOS 26 SDK
         run: |
           sdk_version="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
@@ -144,41 +158,17 @@ jobs:
             exit 1
           fi
           profile_name=$(/usr/libexec/PlistBuddy -c 'Print Name' "$profile_plist")
-          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$profile_plist")
+          if [ -z "$profile_name" ]; then
+            echo "Provisioning profile Name is missing."
+            exit 1
+          fi
           echo "PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
-          echo "PROFILE_UUID=$profile_uuid" >> "$GITHUB_ENV"
           cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/ci.mobileprovision"
 
       - name: Verify signing assets
         run: |
           security find-identity -v -p codesigning
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
-
-      - name: Configure manual iOS signing in project
-        run: |
-          if [ -z "$PROFILE_NAME" ] || [ -z "$PROFILE_UUID" ]; then
-            echo "Missing provisioning profile metadata."
-            exit 1
-          fi
-
-          project_file="ios/Runner.xcodeproj/project.pbxproj"
-          ruby <<'RUBY'
-          path = "ios/Runner.xcodeproj/project.pbxproj"
-          content = File.read(path)
-          content.gsub!(
-            "\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Developer\";",
-            "\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";"
-          )
-          content.gsub!("CODE_SIGN_STYLE = Automatic;", "CODE_SIGN_STYLE = Manual;")
-          team_entry = "DEVELOPMENT_TEAM = 3Y769AQHC7;"
-          team_replacement = [
-            team_entry,
-            "                    PROVISIONING_PROFILE_SPECIFIER = \"#{ENV.fetch('PROFILE_NAME')}\";",
-            "                    PROVISIONING_PROFILE = \"#{ENV.fetch('PROFILE_UUID')}\";"
-          ].join("\n")
-          content.gsub!(team_entry, team_replacement)
-          File.write(path, content)
-          RUBY
 
       - name: Build iOS IPA
         run: |

@@ -4,11 +4,7 @@ name: Android Basic Build
 # Use this if you want to start simple without Firebase/Play Store integration
 
 on:
-  push:
-    branches: [ testing, main ]
-  pull_request:
-    branches: [ testing, main ]
-  workflow_dispatch: # Allow manual triggers
+  workflow_dispatch: # Manual only to reduce CI usage
     inputs:
       production:
         description: "Upload release AAB to Google Play production"
