@@ -186,7 +186,8 @@ jobs:
             --release \
             --export-method app-store \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
-            --build-number "${{ steps.app_version.outputs.build_number }}"
+            --build-number "${{ steps.app_version.outputs.build_number }}" \
+            --xcargs "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=Apple Distribution PROVISIONING_PROFILE_SPECIFIER=${PROFILE_NAME} DEVELOPMENT_TEAM=3Y769AQHC7"
 
       - name: Export IPA from archive
         run: |
