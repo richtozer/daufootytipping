@@ -159,6 +159,54 @@ jobs:
             --build-name "${{ steps.app_version.outputs.build_name }}" \
             --build-number "${{ steps.app_version.outputs.build_number }}"
 
+      - name: Export IPA from archive
+        run: |
+          archive_path="build/ios/archive/Runner.xcarchive"
+          if [ ! -d "$archive_path" ]; then
+            echo "Expected archive not found at $archive_path"
+            exit 1
+          fi
+
+          bundle_id="$(awk -F' = ' '/PRODUCT_BUNDLE_IDENTIFIER/ && $2 !~ /RunnerTests/ { gsub(/;$/, "", $2); print $2; exit }' ios/Runner.xcodeproj/project.pbxproj)"
+          if [ -z "$bundle_id" ]; then
+            echo "Unable to determine bundle identifier from project file."
+            exit 1
+          fi
+          if [ -z "$PROFILE_NAME" ]; then
+            echo "Missing PROFILE_NAME for export options."
+            exit 1
+          fi
+
+          export_plist="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$export_plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>3Y769AQHC7</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$bundle_id</key>
+              <string>$PROFILE_NAME</string>
+            </dict>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath "$archive_path" \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist "$export_plist"
+
       - name: Locate IPA output
         id: ipa_output
         run: |
