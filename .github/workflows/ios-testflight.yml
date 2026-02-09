@@ -19,43 +19,24 @@ on:
 jobs:
   build_ios:
     name: Build iOS IPA
-    runs-on: macos-latest
+    runs-on: macos-26
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode 26
-        run: |
-          if [ -d "/Applications/Xcode_26.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_26.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_26.0.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
-          else
-            echo "Xcode 26 not found on runner."
-          fi
-
       - name: Show Xcode version
         run: |
           xcodebuild -version
-          xcrun --show-sdk-version || true
-
-      - name: Ensure iOS 26 platform is installed
-        run: |
-          if xcodebuild -showsdks | grep -E "iphoneos26|iOS 26" >/dev/null; then
-            echo "iOS 26 SDK already available."
-            exit 0
-          fi
-          if ! xcodebuild -h 2>&1 | grep -q "downloadPlatform"; then
-            echo "Xcode does not support downloading platforms on this runner."
-            exit 1
-          fi
-          echo "iOS 26 SDK not installed; attempting download..."
-          sudo xcodebuild -downloadPlatform iOS || xcodebuild -downloadPlatform iOS
           xcodebuild -showsdks
 
       - name: Enforce iOS 26 SDK
         run: |
+          xcode_version="$(xcodebuild -version | awk '/Xcode/{print $2; exit}')"
+          case "$xcode_version" in
+            26.*) echo "Xcode $xcode_version OK" ;;
+            *) echo "Xcode $xcode_version is too old; need 26.x" ; exit 1 ;;
+          esac
           sdk_version="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
           if [ -z "$sdk_version" ]; then
             echo "Unable to determine iOS SDK version."
