@@ -1,4 +1,4 @@
-name: Android Build and Deploy
+name: Android Play Build and Deploy
 
 on:
   workflow_dispatch:

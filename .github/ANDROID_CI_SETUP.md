@@ -5,7 +5,7 @@ This guide explains how to set up the GitHub Actions workflow for Android builds
 ## 🚀 What the Workflow Does
 
 ### Branches & Triggers
-- **android-basic.yml**: Single manual workflow for Android.
+- **android-play.yml**: Single manual workflow for Android.
 - **No push/PR auto triggers**: Workflow is intentionally manual to control GitHub Actions usage.
 
 ### Build Process
@@ -33,7 +33,7 @@ ANDROID_KEY_PASSWORD=<your-key-password>
 ANDROID_STORE_PASSWORD=<your-keystore-password>
 ```
 
-#### Required for Google Play Store deployment (android-basic.yml only)
+#### Required for Google Play Store deployment (android-play.yml only)
 ```
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "..."}
 ```
@@ -75,10 +75,10 @@ android/
 ## 🎯 Getting Started (Minimal Setup)
 
 1. Add required signing secrets (`ANDROID_*`)
-2. Run `android-basic.yml` manually with `deploy_track=none` and confirm build/tests
+2. Run `android-play.yml` manually with `deploy_track=none` and confirm build/tests
 3. Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` when you are ready for deploys
-4. Run `android-basic.yml` on `testing` with `deploy_track=internal`
-5. Run `android-basic.yml` on `main` with `deploy_track=production` for production releases
+4. Run `android-play.yml` on `testing` with `deploy_track=internal`
+5. Run `android-play.yml` on `main` with `deploy_track=production` for production releases
 
 ## 🔄 Workflow Status
 

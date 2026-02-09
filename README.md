@@ -134,8 +134,8 @@ iOS release runbook
 3. Confirm `iOS TestFlight Build` passes in GitHub Actions.
 4. Confirm build appears and finishes processing in TestFlight.
 
-Android (`.github/workflows/android-basic.yml`)
-------------------------------------------------
+Android (`.github/workflows/android-play.yml`)
+-----------------------------------------------
 - Trigger:
   - Manual only (`workflow_dispatch`)
 - Workflow behavior:
