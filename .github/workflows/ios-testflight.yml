@@ -25,6 +25,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Select Xcode 26
+        run: |
+          if [ -d "/Applications/Xcode_26.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_26.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_26.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+          else
+            echo "Xcode 26 not found on runner."
+          fi
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcrun --show-sdk-version || true
+
+      - name: Enforce iOS 26 SDK
+        run: |
+          sdk_version="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
+          if [ -z "$sdk_version" ]; then
+            echo "Unable to determine iOS SDK version."
+            exit 1
+          fi
+          case "$sdk_version" in
+            26.*) echo "iOS SDK $sdk_version OK" ;;
+            *) echo "iOS SDK $sdk_version is too old; need 26.x" ; exit 1 ;;
+          esac
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
