@@ -1,22 +1,23 @@
 # Android CI/CD Setup Guide
 
-This guide explains how to set up the GitHub Actions workflow for automated Android builds.
+This guide explains how to set up the GitHub Actions workflow for Android builds and optional Google Play deployment.
 
 ## 🚀 What the Workflow Does
 
 ### Branches & Triggers
-- **android-ci.yml**: Manual only. Runs tests and build jobs. No Play deploy.
-- **android-basic.yml**: Manual only. Builds artifacts and can deploy to Play tracks.
-- **No push/PR auto triggers**: Android workflows are intentionally manual to control GitHub Actions usage.
+- **android-play.yml**: Single manual workflow for Android.
+- **No push/PR auto triggers**: Workflow is intentionally manual to control GitHub Actions usage.
 
 ### Build Process
-1. **android-ci.yml**:
-   - Test Job: Runs `flutter analyze` and `flutter test`
-   - Build Job: Creates APK/AAB artifacts
-2. **android-basic.yml**:
-   - Build job: Creates APK/AAB artifacts
-   - Deploy internal: Uploads to Play Internal when run on `testing`
-   - Deploy production: Uploads to Play Production only when manually run on `main` with `production=true`
+1. **Validate dispatch**:
+   - Ensures `deploy_track` matches branch policy:
+   - `internal` only from `testing`
+   - `production` only from `main`
+2. **Build job**:
+   - Runs `flutter analyze` and `flutter test`
+   - Builds APK and AAB artifacts
+3. **Deploy jobs**:
+   - Optional Play upload based on `deploy_track` input (`none`, `internal`, `production`)
 
 ## 🔧 Required Setup
 
@@ -32,7 +33,7 @@ ANDROID_KEY_PASSWORD=<your-key-password>
 ANDROID_STORE_PASSWORD=<your-keystore-password>
 ```
 
-#### Required for Google Play Store deployment (android-basic.yml only)
+#### Required for Google Play Store deployment (android-play.yml only)
 ```
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "..."}
 ```
@@ -74,9 +75,10 @@ android/
 ## 🎯 Getting Started (Minimal Setup)
 
 1. Add required signing secrets (`ANDROID_*`)
-2. Run `android-ci.yml` manually from GitHub Actions and confirm it builds/tests
+2. Run `android-play.yml` manually with `deploy_track=none` and confirm build/tests
 3. Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` when you are ready for deploys
-4. Run `android-basic.yml` on `testing` to upload to Google Play internal track
+4. Run `android-play.yml` on `testing` with `deploy_track=internal`
+5. Run `android-play.yml` on `main` with `deploy_track=production` for production releases
 
 ## 🔄 Workflow Status
 
