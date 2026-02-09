@@ -108,6 +108,51 @@ Set up Firebase:
 Add your Firebase configuration files (google-services.json for Android and GoogleService-Info.plist for iOS) to the respective platform directories.
 Run the application:
 
+GitHub Build and Release Workflows
+==================================
+
+This project uses GitHub Actions for both iOS and Android builds.
+
+iOS (`.github/workflows/ios-testflight.yml`)
+---------------------------------------------
+- Trigger:
+  - Automatic on push to `testing`
+  - Manual via `workflow_dispatch`
+- Runner:
+  - `macos-26` with enforced Xcode/iOS SDK 26 checks
+- Output:
+  - IPA artifact upload
+  - TestFlight upload (unless manual run sets `upload_to_testflight=false`)
+- Versioning:
+  - Build name and build number come from `pubspec.yaml` (`version: x.y.z+N`)
+
+iOS release runbook
+-------------------
+1. Bump build number:
+   - `scripts/bump_build_number.sh`
+2. Commit and push to `testing`.
+3. Confirm `iOS TestFlight Build` passes in GitHub Actions.
+4. Confirm build appears and finishes processing in TestFlight.
+
+Android (`.github/workflows/android-ci.yml`, `.github/workflows/android-basic.yml`)
+-------------------------------------------------------------------------------------
+- Trigger:
+  - Manual only (`workflow_dispatch`) for both workflows
+- `android-ci.yml`:
+  - Test and build focused
+  - No Play deploy
+- `android-basic.yml`:
+  - Build artifacts
+  - Play Internal deploy when run on `testing`
+  - Optional Play Production deploy when run on `main` with `production=true`
+- Versioning:
+  - Build name/build number also come from `pubspec.yaml`
+
+Common build/version command
+----------------------------
+- Increment build number in `pubspec.yaml` from any working directory:
+  - `scripts/bump_build_number.sh`
+
 Common Terminal Commands
 ========================
 
