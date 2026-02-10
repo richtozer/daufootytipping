@@ -77,8 +77,22 @@ android/
 1. Add required signing secrets (`ANDROID_*`)
 2. Run `android-play.yml` manually with `deploy_track=none` and confirm build/tests
 3. Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` when you are ready for deploys
-4. Run `android-play.yml` on `testing` with `deploy_track=internal`
-5. Run `android-play.yml` on `main` with `deploy_track=production` for production releases
+4. Promote changes from `development` to `testing` with:
+   - `scripts/promote-to-testing.sh`
+5. Push both branches:
+   - `git push origin testing development`
+6. Run `android-play.yml` on `testing` with `deploy_track=internal`
+7. Run `android-play.yml` on `main` with `deploy_track=production` for production releases
+
+## 🔁 Branch Promotion Script
+
+- Script: `scripts/promote-to-testing.sh`
+- Run from `development` only, with a clean working tree.
+- It will:
+  - merge `development` into `testing`
+  - switch back to `development`
+  - bump `pubspec.yaml` build number
+  - commit the bump on `development`
 
 ## 🔄 Workflow Status
 

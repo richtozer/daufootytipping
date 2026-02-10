@@ -128,9 +128,10 @@ iOS (`.github/workflows/ios-testflight.yml`)
 
 iOS release runbook
 -------------------
-1. Bump build number:
-   - `scripts/bump_build_number.sh`
-2. Commit and push to `testing`.
+1. From `development` with a clean working tree, run:
+   - `scripts/promote-to-testing.sh`
+2. Push both branches:
+   - `git push origin testing development`
 3. Confirm `iOS TestFlight Build` passes in GitHub Actions.
 4. Confirm build appears and finishes processing in TestFlight.
 
@@ -149,8 +150,22 @@ Android (`.github/workflows/android-play.yml`)
 
 Common build/version command
 ----------------------------
-- Increment build number in `pubspec.yaml` from any working directory:
+- Promote `development` to `testing`, then bump and commit the next development build number:
+  - `scripts/promote-to-testing.sh`
+- Increment build number only (if needed) from any working directory:
   - `scripts/bump_build_number.sh`
+
+Promotion script behavior
+-------------------------
+- Script: `scripts/promote-to-testing.sh`
+- Preconditions:
+  - Must be run from `development`
+  - Working tree must be clean (including untracked files)
+- Actions:
+  - Merges `development` into `testing`
+  - Switches back to `development`
+  - Runs `scripts/bump_build_number.sh`
+  - Commits updated `pubspec.yaml` on `development`
 
 Common Terminal Commands
 ========================
