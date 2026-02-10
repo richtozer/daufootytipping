@@ -29,5 +29,10 @@ linter:
 
 
 dart_code_metrics:
-  extends:
-    - recommended
+  # Presets (for example `recommended`) are plan-gated in DCM.
+  # Keep configuration explicit and local for compatibility.
+  rules:
+    - avoid-assignments-as-conditions
+    - avoid-empty-spread
+    - avoid-misused-set-literals
+    - avoid-self-assignment
