@@ -48,6 +48,7 @@ class UserAuthPageState extends State<UserAuthPage> {
   bool _isRegisterMode = false;
   bool _isAuthInProgress = false;
   String? _authError;
+  Future<void>? _googleSignInInitFuture;
 
   @override
   void initState() {
@@ -209,6 +210,11 @@ class UserAuthPageState extends State<UserAuthPage> {
       defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.macOS;
 
+  Future<void> _ensureGoogleSignInInitialized() {
+    _googleSignInInitFuture ??= GoogleSignIn.instance.initialize();
+    return _googleSignInInitFuture!;
+  }
+
   Future<void> _signInWithGoogle() async {
     if (_isAuthInProgress) {
       return;
@@ -222,19 +228,29 @@ class UserAuthPageState extends State<UserAuthPage> {
       if (kIsWeb) {
         await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
       } else {
-        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-        if (googleUser == null) {
-          return;
+        await _ensureGoogleSignInInitialized();
+        final GoogleSignInAccount googleUser = await GoogleSignIn
+            .instance
+            .authenticate();
+        final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+        final String? idToken = googleAuth.idToken;
+        if (idToken == null) {
+          throw FirebaseAuthException(
+            code: 'google-missing-id-token',
+            message: 'Google sign-in did not return an ID token.',
+          );
         }
 
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-
         final OAuthCredential credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
+          idToken: idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
+      }
+    } on GoogleSignInException catch (e) {
+      if (e.code != GoogleSignInExceptionCode.canceled) {
+        setState(() {
+          _authError = 'Google sign-in failed.';
+        });
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
