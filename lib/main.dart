@@ -42,18 +42,18 @@ Future<void> main() async {
 
   if (!kDebugMode) {
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.playIntegrity,
-      appleProvider: AppleProvider.appAttest,
-      webProvider: ReCaptchaEnterpriseProvider(
+      providerAndroid: const AndroidPlayIntegrityProvider(),
+      providerApple: const AppleAppAttestProvider(),
+      providerWeb: ReCaptchaEnterpriseProvider(
         '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
       ),
     );
     log('FirebaseAppCheck activated');
   } else {
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-      appleProvider: AppleProvider.debug,
-      webProvider: ReCaptchaEnterpriseProvider(
+      providerAndroid: const AndroidDebugProvider(),
+      providerApple: const AppleDebugProvider(),
+      providerWeb: ReCaptchaEnterpriseProvider(
         //temporarily use prod key in debug
         '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
       ),

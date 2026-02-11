@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:developer';
+import 'dart:math' as math;
 import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
@@ -6,15 +8,16 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_ui_auth/firebase_ui_auth.dart' as firebase_ui_auth;
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
-import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
-import 'package:firebase_ui_oauth_google/firebase_ui_oauth_google.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart'
+    as sign_in_with_apple;
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatefulWidget {
@@ -40,10 +43,23 @@ class UserAuthPage extends StatefulWidget {
 class UserAuthPageState extends State<UserAuthPage> {
   final PackageInfoService packageInfoService =
       GetIt.instance<PackageInfoService>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isRegisterMode = false;
+  bool _isAuthInProgress = false;
+  String? _authError;
+  Future<void>? _googleSignInInitFuture;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   Future<bool> isClientVersionOutOfDate() async {
@@ -190,6 +206,480 @@ class UserAuthPageState extends State<UserAuthPage> {
     );
   }
 
+  bool get _supportsAppleSignIn =>
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  Future<void> _ensureGoogleSignInInitialized() {
+    _googleSignInInitFuture ??= GoogleSignIn.instance.initialize();
+    return _googleSignInInitFuture!;
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_isAuthInProgress) {
+      return;
+    }
+    setState(() {
+      _isAuthInProgress = true;
+      _authError = null;
+    });
+
+    try {
+      if (kIsWeb) {
+        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+      } else {
+        await _ensureGoogleSignInInitialized();
+        final GoogleSignInAccount googleUser = await GoogleSignIn
+            .instance
+            .authenticate();
+        final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+        final String? idToken = googleAuth.idToken;
+        if (idToken == null) {
+          throw FirebaseAuthException(
+            code: 'google-missing-id-token',
+            message: 'Google sign-in did not return an ID token.',
+          );
+        }
+
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          idToken: idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      }
+    } on GoogleSignInException catch (e) {
+      if (e.code != GoogleSignInExceptionCode.canceled) {
+        setState(() {
+          _authError = 'Google sign-in failed.';
+        });
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _authError = e.message ?? 'Google sign-in failed.';
+      });
+    } catch (_) {
+      setState(() {
+        _authError = 'Google sign-in failed.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAuthInProgress = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    if (_isAuthInProgress) {
+      return;
+    }
+    setState(() {
+      _isAuthInProgress = true;
+      _authError = null;
+    });
+
+    try {
+      if (kIsWeb) {
+        final AppleAuthProvider provider = AppleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('name');
+        await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        final String rawNonce = _generateNonce();
+        final String nonce = _sha256OfString(rawNonce);
+        final AuthorizationCredentialAppleID credential =
+            await SignInWithApple.getAppleIDCredential(
+              scopes: <AppleIDAuthorizationScopes>[
+                AppleIDAuthorizationScopes.email,
+                AppleIDAuthorizationScopes.fullName,
+              ],
+              nonce: nonce,
+            );
+
+        final OAuthCredential oauthCredential = OAuthProvider(
+          'apple.com',
+        ).credential(idToken: credential.identityToken, rawNonce: rawNonce);
+
+        await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+      }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code != AuthorizationErrorCode.canceled) {
+        setState(() {
+          _authError = 'Apple sign-in failed.';
+        });
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _authError = e.message ?? 'Apple sign-in failed.';
+      });
+    } catch (_) {
+      setState(() {
+        _authError = 'Apple sign-in failed.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAuthInProgress = false;
+        });
+      }
+    }
+  }
+
+  String _generateNonce([int length = 32]) {
+    const String charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final math.Random random = math.Random.secure();
+    return List<String>.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
+  String _sha256OfString(String input) {
+    final List<int> bytes = utf8.encode(input);
+    final Digest digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  Widget _buildGoogleAuthButton() {
+    const double buttonHeight = 56;
+    final double fontSize = buttonHeight * 0.43;
+    final double iconSlotWidth = buttonHeight * (28 / 44);
+
+    final Widget button = SizedBox(
+      height: buttonHeight,
+      child: ElevatedButton(
+        onPressed: _signInWithGoogle,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF5F6368),
+          elevation: 3,
+          shadowColor: Colors.black26,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFDADCE0)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: iconSlotWidth,
+              child: Center(
+                child: Image.asset(
+                  'assets/google_logo.png',
+                  width: fontSize,
+                  height: fontSize,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return CircleAvatar(
+                      radius: fontSize / 2,
+                      backgroundColor: Colors.white,
+                      child: Text(
+                        'G',
+                        style: TextStyle(
+                          fontSize: fontSize * 0.75,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF4285F4),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'Sign in with Google',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF5F6368),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(width: iconSlotWidth),
+          ],
+        ),
+      ),
+    );
+
+    if (!_isAuthInProgress) {
+      return button;
+    }
+    return Opacity(opacity: 0.6, child: IgnorePointer(child: button));
+  }
+
+  Widget _buildAppleAuthButton() {
+    final Widget button = SizedBox(
+      height: 56,
+      child: SignInWithAppleButton(
+        onPressed: _signInWithApple,
+        text: 'Sign in with Apple',
+        style: SignInWithAppleButtonStyle.black,
+        iconAlignment: sign_in_with_apple.IconAlignment.left,
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
+        height: 56,
+      ),
+    );
+
+    if (!_isAuthInProgress) {
+      return button;
+    }
+    return Opacity(opacity: 0.6, child: IgnorePointer(child: button));
+  }
+
+  Future<void> _signInOrRegisterWithEmail() async {
+    if (_isAuthInProgress) {
+      return;
+    }
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _authError = 'Email and password are required.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isAuthInProgress = true;
+      _authError = null;
+    });
+
+    try {
+      if (_isRegisterMode) {
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } else {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _authError = e.message ?? 'Email authentication failed.';
+      });
+    } catch (_) {
+      setState(() {
+        _authError = 'Email authentication failed.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAuthInProgress = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _authError = 'Enter your email above to reset password.';
+      });
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password reset email sent.')),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _authError = e.message ?? 'Failed to send password reset email.';
+      });
+    }
+  }
+
+  Widget _buildSignInForm(BuildContext context) {
+    final subtitle = _isRegisterMode
+        ? 'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.'
+        : 'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.\n\nOptionally, you can sign in with your email and password.';
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15.0),
+                  child: Image.asset(
+                    'assets/icon/AppIcon.png',
+                    height: 110,
+                    width: 110,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(subtitle, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              if (_authError != null)
+                Card(
+                  color: Colors.red.shade100,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Text(
+                      _authError!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.red.shade900),
+                    ),
+                  ),
+                ),
+              _buildGoogleAuthButton(),
+              if (_supportsAppleSignIn) ...[
+                const SizedBox(height: 8),
+                _buildAppleAuthButton(),
+              ],
+              const SizedBox(height: 12),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('or'),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _isAuthInProgress
+                    ? null
+                    : _signInOrRegisterWithEmail,
+                child: Text(
+                  _isRegisterMode
+                      ? 'Register with Email'
+                      : 'Sign in with Email',
+                ),
+              ),
+              if (!_isRegisterMode)
+                TextButton(
+                  onPressed: _isAuthInProgress ? null : _sendPasswordReset,
+                  child: const Text('Forgot password?'),
+                ),
+              TextButton(
+                onPressed: _isAuthInProgress
+                    ? null
+                    : () {
+                        setState(() {
+                          _isRegisterMode = !_isRegisterMode;
+                          _authError = null;
+                        });
+                      },
+                child: Text(
+                  _isRegisterMode
+                      ? 'Already have an account? Sign in'
+                      : 'Need an account? Register',
+                ),
+              ),
+              if (kIsWeb)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: TextButton(
+                    onPressed: _isAuthInProgress
+                        ? null
+                        : () async {
+                            try {
+                              await FirebaseAuth.instance.signInAnonymously();
+                              log('Signed in anonymously via text link');
+                            } catch (e) {
+                              log(
+                                'Error signing in anonymously via text link: $e',
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Anonymous sign-in failed: ${e.toString()}',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    child: Text(
+                      'Click here to view Stats',
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text(
+                        'Loading...',
+                        style: TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  } else if (snapshot.hasError) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text(
+                        'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: Unknown',
+                        style: TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  } else {
+                    final packageInfo = snapshot.data!;
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                        style: const TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
@@ -285,117 +775,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                 );
               }
               if (!authSnapshot.hasData) {
-                return SignInScreen(
-                  providers: [
-                    GoogleProvider(clientId: widget.googleClientId),
-                    AppleProvider(),
-                    //firebase_ui_auth.PhoneAuthProvider(),
-                    firebase_ui_auth.EmailAuthProvider(),
-                    // firebase_ui_auth.AnonymousAuthProvider(), // Removed this line
-                  ],
-                  headerBuilder: (context, constraints, shrinkOffset) {
-                    return Padding(
-                      padding: EdgeInsets.all(20),
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15.0),
-                          child: Image.asset('assets/icon/AppIcon.png'),
-                        ),
-                      ),
-                    );
-                  },
-                  subtitleBuilder: (context, action) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: action == AuthAction.signIn
-                          ? const Text(
-                              'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.\n\nOptionally, you can sign in with your email and password.',
-                            )
-                          : const Text(
-                              'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.',
-                            ),
-                    );
-                  },
-                  footerBuilder: (context, action) {
-                    return Column(
-                      // Wrapped in Column
-                      children: [
-                        if (kIsWeb) //TODO hack - remove
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: TextButton(
-                              onPressed: () async {
-                                try {
-                                  await FirebaseAuth.instance
-                                      .signInAnonymously();
-                                  log("Signed in anonymously via text link");
-                                } catch (e) {
-                                  log(
-                                    "Error signing in anonymously via text link: $e",
-                                  );
-                                  if (context.mounted) {
-                                    // Ensure widget is still in tree
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          "Anonymous sign-in failed: ${e.toString()}",
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              child: Text(
-                                'Click here to view Stats',
-                                style: TextStyle(
-                                  decoration: TextDecoration.underline,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary, // Or a specific blue
-                                ),
-                              ),
-                            ),
-                          ),
-                        FutureBuilder<PackageInfo>(
-                          // Original footer content
-                          future: PackageInfo.fromPlatform(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Padding(
-                                padding: EdgeInsets.only(top: 16),
-                                child: Text(
-                                  'Loading...',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              );
-                            } else if (snapshot.hasError) {
-                              return const Padding(
-                                padding: EdgeInsets.only(top: 16),
-                                child: Text(
-                                  'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
-                                  'App Version: Unknown',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              );
-                            } else {
-                              final packageInfo = snapshot.data!;
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 16),
-                                child: Text(
-                                  'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\n'
-                                  'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                );
+                return _buildSignInForm(context);
               }
 
               User? authenticatedFirebaseUser = authSnapshot.data;
