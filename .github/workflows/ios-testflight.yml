@@ -59,39 +59,8 @@ jobs:
         with:
           ruby-version: "3.2"
 
-      - name: Install CocoaPods gems for configured Ruby
-        run: |
-          set -euo pipefail
-          gem install cocoapods xcodeproj --no-document
-          gem_bin="$(ruby -e 'print Gem.bindir')"
-          echo "$gem_bin" >> "$GITHUB_PATH"
-          echo "Using pod from: $gem_bin/pod"
-          "$gem_bin/pod" --version
-
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Resolve iOS pods (retry)
-        working-directory: ios
-        run: |
-          set -euo pipefail
-          pod_bin="$(ruby -e 'print Gem.bindir')/pod"
-          if [ ! -x "$pod_bin" ]; then
-            pod_bin="$(command -v pod)"
-          fi
-          echo "Using pod executable: $pod_bin"
-
-          for attempt in 1 2 3; do
-            echo "pod install attempt $attempt/3"
-            if "$pod_bin" install --repo-update; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "pod install failed after 3 attempts."
-              exit 1
-            fi
-            sleep 20
-          done
 
       - name: Read app version from pubspec
         id: app_version
