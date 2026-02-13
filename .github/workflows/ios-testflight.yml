@@ -54,6 +54,11 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Enable Swift Package Manager integration
+        run: |
+          flutter config --enable-swift-package-manager
+          flutter config --list | grep "enable-swift-package-manager"
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
