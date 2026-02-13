@@ -67,6 +67,22 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Align generated SPM iOS deployment target
+        run: |
+          set -euo pipefail
+          package_swift="ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift"
+          if [ ! -f "$package_swift" ]; then
+            echo "Expected generated package file not found: $package_swift"
+            exit 1
+          fi
+
+          # Flutter currently generates iOS 13.0 here; Firebase packages require iOS 15+.
+          sed -i.bak 's/\.iOS("13\.0")/.iOS("15.0")/g' "$package_swift"
+          rm -f "${package_swift}.bak"
+
+          echo "Generated package platform line:"
+          grep -n '\.iOS("' "$package_swift"
+
       - name: Read app version from pubspec
         id: app_version
         run: |
