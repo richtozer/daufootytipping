@@ -83,6 +83,33 @@ jobs:
           echo "Generated package platform line:"
           grep -n '\.iOS("' "$package_swift"
 
+      - name: Resolve Swift package graph (retry)
+        run: |
+          set -euo pipefail
+          source_packages="$RUNNER_TEMP/SourcePackages"
+
+          # Avoid stale state if Xcode package resolution crashed in a previous attempt.
+          rm -rf "$source_packages"
+
+          for attempt in 1 2 3; do
+            echo "xcodebuild package resolution attempt $attempt/3"
+            if xcodebuild \
+              -resolvePackageDependencies \
+              -project ios/Runner.xcodeproj \
+              -scheme Runner \
+              -clonedSourcePackagesDirPath "$source_packages"; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Swift package resolution failed after 3 attempts."
+              exit 1
+            fi
+
+            rm -rf "$source_packages"
+            sleep 15
+          done
+
       - name: Read app version from pubspec
         id: app_version
         run: |
