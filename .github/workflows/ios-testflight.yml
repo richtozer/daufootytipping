@@ -87,9 +87,13 @@ jobs:
         run: |
           set -euo pipefail
           source_packages="$RUNNER_TEMP/SourcePackages"
+          derived_data="$RUNNER_TEMP/DerivedData"
 
           # Avoid stale state if Xcode package resolution crashed in a previous attempt.
           rm -rf "$source_packages"
+          rm -rf "$derived_data"
+          rm -f ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          rm -f ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
           for attempt in 1 2 3; do
             echo "xcodebuild package resolution attempt $attempt/3"
@@ -97,7 +101,14 @@ jobs:
               -resolvePackageDependencies \
               -project ios/Runner.xcodeproj \
               -scheme Runner \
-              -clonedSourcePackagesDirPath "$source_packages"; then
+              -clonedSourcePackagesDirPath "$source_packages" \
+              -derivedDataPath "$derived_data"; then
+              # Keep both lockfile locations aligned; mixed state can crash Xcode's
+              # package group refresh on subsequent commands.
+              if [ -f ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved ]; then
+                mkdir -p ios/Runner.xcworkspace/xcshareddata/swiftpm
+                cp ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved
+              fi
               exit 0
             fi
 
@@ -107,6 +118,7 @@ jobs:
             fi
 
             rm -rf "$source_packages"
+            rm -rf "$derived_data"
             sleep 15
           done
 
@@ -199,14 +211,33 @@ jobs:
           security find-identity -v -p codesigning
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
 
-      - name: Build iOS IPA
+      - name: Prepare iOS archive configuration
         run: |
-          flutter build ipa \
+          flutter build ios \
             --release \
-            --export-method app-store \
+            --no-pub \
+            --config-only \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
             --build-number "${{ steps.app_version.outputs.build_number }}" \
             --no-codesign
+
+      - name: Archive iOS app
+        run: |
+          source_packages="$RUNNER_TEMP/SourcePackages"
+          derived_data="$RUNNER_TEMP/DerivedData"
+
+          xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -scheme Runner \
+            -configuration Release \
+            -destination generic/platform=iOS \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -derivedDataPath "$derived_data" \
+            -clonedSourcePackagesDirPath "$source_packages" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            archive
 
       - name: Export IPA from archive
         run: |
