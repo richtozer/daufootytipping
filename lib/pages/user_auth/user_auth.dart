@@ -296,9 +296,23 @@ class UserAuthPageState extends State<UserAuthPage> {
               nonce: nonce,
             );
 
-        final OAuthCredential oauthCredential = OAuthProvider(
-          'apple.com',
-        ).credential(idToken: credential.identityToken, rawNonce: rawNonce);
+        final String? identityToken = credential.identityToken;
+        if (identityToken == null || identityToken.isEmpty) {
+          throw FirebaseAuthException(
+            code: 'missing-identity-token',
+            message: 'Apple sign-in did not return an identity token.',
+          );
+        }
+
+        final OAuthCredential oauthCredential =
+            AppleAuthProvider.credentialWithIDToken(
+              identityToken,
+              rawNonce,
+              AppleFullPersonName(
+                givenName: credential.givenName,
+                familyName: credential.familyName,
+              ),
+            );
 
         await FirebaseAuth.instance.signInWithCredential(oauthCredential);
       }
@@ -309,6 +323,9 @@ class UserAuthPageState extends State<UserAuthPage> {
         });
       }
     } on FirebaseAuthException catch (e) {
+      log(
+        'Apple sign-in FirebaseAuthException: code=${e.code}, message=${e.message}',
+      );
       setState(() {
         _authError = e.message ?? 'Apple sign-in failed.';
       });
