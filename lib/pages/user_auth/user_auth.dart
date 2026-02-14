@@ -208,7 +208,8 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   bool get _supportsAppleSignIn =>
       defaultTargetPlatform == TargetPlatform.iOS ||
-      defaultTargetPlatform == TargetPlatform.macOS;
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.android;
 
   Future<void> _ensureGoogleSignInInitialized() {
     _googleSignInInitFuture ??= GoogleSignIn.instance.initialize();
@@ -284,6 +285,11 @@ class UserAuthPageState extends State<UserAuthPage> {
         provider.addScope('email');
         provider.addScope('name');
         await FirebaseAuth.instance.signInWithPopup(provider);
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
+        final AppleAuthProvider provider = AppleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('name');
+        await FirebaseAuth.instance.signInWithProvider(provider);
       } else {
         final String rawNonce = _generateNonce();
         final String nonce = _sha256OfString(rawNonce);
@@ -574,10 +580,18 @@ class UserAuthPageState extends State<UserAuthPage> {
                     ),
                   ),
                 ),
-              _buildGoogleAuthButton(),
-              if (_supportsAppleSignIn) ...[
-                const SizedBox(height: 8),
-                _buildAppleAuthButton(),
+              if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                if (_supportsAppleSignIn) ...[
+                  _buildAppleAuthButton(),
+                  const SizedBox(height: 8),
+                ],
+                _buildGoogleAuthButton(),
+              ] else ...[
+                _buildGoogleAuthButton(),
+                if (_supportsAppleSignIn) ...[
+                  const SizedBox(height: 8),
+                  _buildAppleAuthButton(),
+                ],
               ],
               const SizedBox(height: 12),
               const Row(
