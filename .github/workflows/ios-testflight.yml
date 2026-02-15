@@ -249,8 +249,10 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=3Y769AQHC7 \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
 
       - name: Export IPA from archive
