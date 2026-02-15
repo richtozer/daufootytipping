@@ -16,6 +16,9 @@ on:
         default: ""
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   build_ios:
     name: Build iOS IPA
@@ -24,6 +27,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Show Xcode version
         run: |
@@ -221,6 +226,16 @@ jobs:
             --build-number "${{ steps.app_version.outputs.build_number }}" \
             --no-codesign
 
+      - name: Show effective Runner signing settings
+        run: |
+          xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -target Runner \
+            -configuration Release \
+            -showBuildSettings | \
+            egrep "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_ENTITLEMENTS|APS_ENVIRONMENT" | \
+            sort -u
+
       - name: Archive iOS app
         run: |
           source_packages="$RUNNER_TEMP/SourcePackages"
@@ -235,6 +250,7 @@ jobs:
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=3Y769AQHC7 \
             archive
 
@@ -383,3 +399,21 @@ jobs:
               --ipa "$ipa_path" \
               --skip_waiting_for_build_processing true
           fi
+
+      - name: Tag successful iOS upload
+        if: github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight == true
+        env:
+          TAG_NAME: ios-${{ steps.app_version.outputs.build_name }}+${{ steps.app_version.outputs.build_number }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch --tags origin
+          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "Tag $TAG_NAME already exists; skipping."
+            exit 0
+          fi
+
+          git tag "$TAG_NAME" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG_NAME"
