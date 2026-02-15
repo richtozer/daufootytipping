@@ -225,10 +225,6 @@ jobs:
         run: |
           source_packages="$RUNNER_TEMP/SourcePackages"
           derived_data="$RUNNER_TEMP/DerivedData"
-          if [ -z "$PROFILE_NAME" ]; then
-            echo "Missing PROFILE_NAME for archive signing."
-            exit 1
-          fi
 
           xcodebuild \
             -project ios/Runner.xcodeproj \
@@ -238,10 +234,9 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=3Y769AQHC7 \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             archive
 
       - name: Export IPA from archive
