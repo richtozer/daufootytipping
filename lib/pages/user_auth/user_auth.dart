@@ -329,12 +329,8 @@ class UserAuthPageState extends State<UserAuthPage> {
       );
       if (e.code != AuthorizationErrorCode.canceled) {
         setState(() {
-          if (kDebugMode) {
-            _authError =
-                'Apple sign-in failed (${e.code.name}): ${e.message}';
-          } else {
-            _authError = 'Apple sign-in failed.';
-          }
+          _authError =
+              'Apple sign-in failed (${e.code.name}): ${e.message}';
         });
       }
     } on FirebaseAuthException catch (e) {
@@ -342,20 +338,13 @@ class UserAuthPageState extends State<UserAuthPage> {
         'Apple sign-in FirebaseAuthException: code=${e.code}, message=${e.message}',
       );
       setState(() {
-        if (kDebugMode) {
-          _authError = 'Apple sign-in failed (${e.code}): ${e.message ?? 'no message'}';
-        } else {
-          _authError = e.message ?? 'Apple sign-in failed.';
-        }
+        _authError =
+            'Apple sign-in failed (${e.code}): ${e.message ?? 'no message'}';
       });
     } catch (e, stackTrace) {
       log('Apple sign-in unexpected exception: $e', stackTrace: stackTrace);
       setState(() {
-        if (kDebugMode) {
-          _authError = 'Apple sign-in failed: $e';
-        } else {
-          _authError = 'Apple sign-in failed.';
-        }
+        _authError = 'Apple sign-in failed: $e';
       });
     } finally {
       if (mounted) {
