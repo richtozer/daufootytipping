@@ -46,6 +46,7 @@ class UserAuthPageState extends State<UserAuthPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isRegisterMode = false;
+  bool _isEmailAuthExpanded = false;
   bool _isAuthInProgress = false;
   String? _authError;
   Future<void>? _googleSignInInitFuture;
@@ -544,8 +545,14 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   Widget _buildSignInForm(BuildContext context) {
     final subtitle = _isRegisterMode
-        ? 'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.\n\nAlternatively, you can register with your email and password.'
-        : 'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.\n\nOptionally, you can sign in with your email and password.';
+        ? 'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.'
+        : 'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.';
+    final emailAuthDescription = _isRegisterMode
+        ? 'Optionally, you can register with your email and password.'
+        : 'Optionally, you can sign in with your email and password.';
+    final emailAuthToggleText = _isEmailAuthExpanded
+        ? 'Hide email sign-in options'
+        : "Don't have an Apple or Google account? Click here to sign in with email.";
 
     return Center(
       child: SingleChildScrollView(
@@ -594,63 +601,77 @@ class UserAuthPageState extends State<UserAuthPage> {
                 ],
               ],
               const SizedBox(height: 12),
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('or'),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _isAuthInProgress
-                    ? null
-                    : _signInOrRegisterWithEmail,
-                child: Text(
-                  _isRegisterMode
-                      ? 'Register with Email'
-                      : 'Sign in with Email',
-                ),
-              ),
-              if (!_isRegisterMode)
-                TextButton(
-                  onPressed: _isAuthInProgress ? null : _sendPasswordReset,
-                  child: const Text('Forgot password?'),
-                ),
               TextButton(
                 onPressed: _isAuthInProgress
                     ? null
                     : () {
                         setState(() {
-                          _isRegisterMode = !_isRegisterMode;
+                          _isEmailAuthExpanded = !_isEmailAuthExpanded;
                           _authError = null;
                         });
                       },
-                child: Text(
-                  _isRegisterMode
-                      ? 'Already have an account? Sign in'
-                      : 'Need an account? Register',
+                child: Text(emailAuthToggleText, textAlign: TextAlign.center),
+              ),
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 200),
+                crossFadeState: _isEmailAuthExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: const SizedBox.shrink(),
+                secondChild: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(emailAuthDescription, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _isAuthInProgress
+                          ? null
+                          : _signInOrRegisterWithEmail,
+                      child: Text(
+                        _isRegisterMode
+                            ? 'Register with Email'
+                            : 'Sign in with Email',
+                      ),
+                    ),
+                    if (!_isRegisterMode)
+                      TextButton(
+                        onPressed: _isAuthInProgress ? null : _sendPasswordReset,
+                        child: const Text('Forgot password?'),
+                      ),
+                    TextButton(
+                      onPressed: _isAuthInProgress
+                          ? null
+                          : () {
+                              setState(() {
+                                _isRegisterMode = !_isRegisterMode;
+                                _authError = null;
+                              });
+                            },
+                      child: Text(
+                        _isRegisterMode
+                            ? 'Already have an account? Sign in'
+                            : 'Need an account? Register',
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (kIsWeb)
