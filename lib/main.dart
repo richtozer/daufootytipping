@@ -21,6 +21,15 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:universal_html/js.dart' as js;
 
 Future<void> main() async {
+  const bool useFirebaseEmulators = bool.fromEnvironment(
+    'USE_FIREBASE_EMULATORS',
+    defaultValue: false,
+  );
+  const String firebaseEmulatorHost = String.fromEnvironment(
+    'FIREBASE_EMULATOR_HOST',
+    defaultValue: 'localhost',
+  );
+
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -72,9 +81,9 @@ Future<void> main() async {
   }
 
   FirebaseDatabase database = FirebaseDatabase.instance;
-  if (kDebugMode) {
-    database.useDatabaseEmulator('localhost', 8000);
-    log('Database emulator started');
+  if (kDebugMode && useFirebaseEmulators) {
+    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    log('Database emulator started on $firebaseEmulatorHost:8000');
   } else {
     if (!kIsWeb) {
       database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
@@ -84,9 +93,9 @@ Future<void> main() async {
   }
 
   // use emulator for firestore document collection when in debug mode
-  if (kDebugMode) {
-    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8081);
-    log('Firestore emulator started');
+  if (kDebugMode && useFirebaseEmulators) {
+    FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8081);
+    log('Firestore emulator started on $firebaseEmulatorHost:8081');
   }
 
   di.allowReassignment = true;
