@@ -250,7 +250,6 @@ jobs:
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=3Y769AQHC7 \
             archive
 
