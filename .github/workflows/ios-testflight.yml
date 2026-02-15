@@ -225,6 +225,10 @@ jobs:
         run: |
           source_packages="$RUNNER_TEMP/SourcePackages"
           derived_data="$RUNNER_TEMP/DerivedData"
+          if [ -z "$PROFILE_NAME" ]; then
+            echo "Missing PROFILE_NAME for archive signing."
+            exit 1
+          fi
 
           xcodebuild \
             -project ios/Runner.xcodeproj \
@@ -234,9 +238,10 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=3Y769AQHC7 \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
 
       - name: Export IPA from archive
@@ -299,6 +304,33 @@ jobs:
           fi
           echo "ipa_path=$ipa_path" >> "$GITHUB_OUTPUT"
           echo "Detected IPA: $ipa_path"
+
+      - name: Verify IPA entitlements
+        run: |
+          set -euo pipefail
+          ipa_path="${{ steps.ipa_output.outputs.ipa_path }}"
+          unzip_dir="$RUNNER_TEMP/ipa_unzipped"
+          rm -rf "$unzip_dir"
+          mkdir -p "$unzip_dir"
+          /usr/bin/unzip -q "$ipa_path" -d "$unzip_dir"
+
+          app_path="$(find "$unzip_dir/Payload" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+          if [ -z "$app_path" ] || [ ! -d "$app_path" ]; then
+            echo "Unable to locate .app inside IPA payload."
+            exit 1
+          fi
+
+          entitlements_path="$RUNNER_TEMP/ipa-entitlements.plist"
+          /usr/bin/codesign -d --entitlements :- "$app_path" > "$entitlements_path"
+          echo "Exported app entitlements:"
+          /usr/bin/plutil -p "$entitlements_path"
+
+          /usr/libexec/PlistBuddy -c "Print :com.apple.developer.applesignin:0" "$entitlements_path"
+          aps_env=$(/usr/libexec/PlistBuddy -c "Print :aps-environment" "$entitlements_path")
+          if [ "$aps_env" != "production" ]; then
+            echo "Expected aps-environment=production, got '$aps_env'"
+            exit 1
+          fi
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
