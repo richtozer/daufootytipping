@@ -211,27 +211,6 @@ jobs:
           echo "PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
           cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/ci.mobileprovision"
 
-      - name: DEBUG - Inspect Provisioning Profile Entitlements
-        env:
-          IOS_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_BUILD_PROVISION_PROFILE_BASE64 }}
-        run: |
-          echo "--- Decoding and inspecting provisioning profile ---"
-          profile_path="$RUNNER_TEMP/debug_profile.mobileprovision"
-          
-          # Use the same decoding logic as the main script
-          if ! printf "%s" "$IOS_BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > "$profile_path" 2>/dev/null; then
-            if ! printf "%s" "$IOS_BUILD_PROVISION_PROFILE_BASE64" | base64 -d > "$profile_path" 2>/dev/null; then
-              if ! printf "%s" "$IOS_BUILD_PROVISION_PROFILE_BASE64" | base64 -D > "$profile_path" 2>/dev/null; then
-                echo "Failed to decode provisioning profile secret."
-                exit 1
-              fi
-            fi
-          fi
-          
-          echo "--- Profile Details (from secret) ---"
-          security cms -D -i "$profile_path"
-          echo "--- End of Profile Details ---"
-
       - name: Verify signing assets
         run: |
           security find-identity -v -p codesigning
@@ -270,9 +249,11 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=3Y769AQHC7 \
+            # The project is incorrectly configured to use a "Development" identity
+            # for Release builds. We override it here to force "Distribution".
+            # We let the project use its default "Automatic" signing style.
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM=3Y769AQHC7 \
             archive
 
       - name: Export IPA from archive
