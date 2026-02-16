@@ -13,7 +13,7 @@ on:
       - ".github/workflows/ios-testflight.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build_and_upload:
@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -57,6 +59,18 @@ jobs:
 
           echo "build_name=$build_name" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+
+      - name: Abort if build number already has a successful iOS tag
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+
+          tag_name="ios-testflight-build-${{ steps.app_version.outputs.build_number }}"
+          if git rev-parse -q --verify "refs/tags/$tag_name" >/dev/null; then
+            echo "Build number ${{ steps.app_version.outputs.build_number }} has already been marked successful ($tag_name)."
+            echo "Bump pubspec build number before rerunning."
+            exit 1
+          fi
 
       - name: Validate required secrets
         env:
@@ -229,3 +243,19 @@ jobs:
             --file "${{ steps.ipa.outputs.path }}" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Tag successful iOS TestFlight build
+        run: |
+          set -euo pipefail
+          tag_name="ios-testflight-build-${{ steps.app_version.outputs.build_number }}"
+          tag_message="iOS TestFlight success ${{ steps.app_version.outputs.build_name }}+${{ steps.app_version.outputs.build_number }}"
+
+          if git rev-parse -q --verify "refs/tags/$tag_name" >/dev/null; then
+            echo "Tag $tag_name already exists; skipping create."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag_name" -m "$tag_message"
+          git push origin "$tag_name"
