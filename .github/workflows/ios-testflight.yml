@@ -129,6 +129,13 @@ jobs:
           echo "bundle_id=$bundle_id" >> "$GITHUB_OUTPUT"
 
           cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+          echo "Using provisioning profile:"
+          echo "  Name: $name"
+          echo "  UUID: $uuid"
+          echo "  Team: $team_id"
+          echo "  Bundle: $bundle_id"
+          echo "  Entitlements:"
+          /usr/libexec/PlistBuddy -c 'Print :Entitlements' "$profile_plist"
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
 
       - name: Show signing identities
@@ -180,7 +187,7 @@ jobs:
             <key>provisioningProfiles</key>
             <dict>
               <key>${{ steps.profile.outputs.bundle_id }}</key>
-              <string>${{ steps.profile.outputs.uuid }}</string>
+              <string>${{ steps.profile.outputs.name }}</string>
             </dict>
             <key>stripSwiftSymbols</key>
             <true/>
@@ -217,6 +224,25 @@ jobs:
           fi
           echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
           ls -lh "$ipa_path"
+
+      - name: Validate exported IPA entitlements
+        run: |
+          set -euo pipefail
+
+          ipa_path="${{ steps.ipa.outputs.path }}"
+          work_dir="$RUNNER_TEMP/ipa_entitlements_check"
+          rm -rf "$work_dir"
+          mkdir -p "$work_dir"
+          unzip -q "$ipa_path" -d "$work_dir"
+
+          executable="$work_dir/Payload/Runner.app/Runner"
+          entitlements_plist="$work_dir/entitlements.plist"
+          codesign -d --entitlements :- "$executable" > "$entitlements_plist" 2>/dev/null || true
+
+          echo "Exported app entitlements:"
+          cat "$entitlements_plist"
+
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
