@@ -91,6 +91,7 @@ jobs:
           p12-password: ${{ secrets.IOS_P12_PASSWORD }}
 
       - name: Install provisioning profile
+        id: profile
         env:
           IOS_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_BUILD_PROVISION_PROFILE_BASE64 }}
         run: |
@@ -99,17 +100,75 @@ jobs:
           profile_path="$RUNNER_TEMP/ci.mobileprovision"
           echo "$IOS_BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > "$profile_path"
 
-          uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<<"$(security cms -D -i "$profile_path")")
+          profile_plist="$RUNNER_TEMP/ci.mobileprovision.plist"
+          security cms -D -i "$profile_path" > "$profile_plist"
+
+          uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$profile_plist")
+          name=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$profile_plist")
+          team_id=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")
+          app_identifier=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist")
+          bundle_id="${app_identifier#*.}"
+
+          echo "uuid=$uuid" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "team_id=$team_id" >> "$GITHUB_OUTPUT"
+          echo "bundle_id=$bundle_id" >> "$GITHUB_OUTPUT"
+
           cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
 
-      - name: Build iOS IPA
+      - name: Build iOS archive (no codesign)
         run: |
           flutter build ipa \
             --release \
+            --no-codesign \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
             --build-number "${{ steps.app_version.outputs.build_number }}" \
             --export-method app-store
+
+      - name: Create export options plist
+        id: export_options
+        run: |
+          export_options="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$export_options" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${{ steps.profile.outputs.team_id }}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${{ steps.profile.outputs.bundle_id }}</key>
+              <string>${{ steps.profile.outputs.name }}</string>
+            </dict>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          echo "path=$export_options" >> "$GITHUB_OUTPUT"
+          cat "$export_options"
+
+      - name: Export signed IPA from archive
+        run: |
+          archive_path="build/ios/archive/Runner.xcarchive"
+          if [ ! -d "$archive_path" ]; then
+            echo "Archive not found at $archive_path"
+            find build/ios -maxdepth 5 -type d | sort || true
+            exit 1
+          fi
+
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath "$archive_path" \
+            -exportPath "build/ios/ipa" \
+            -exportOptionsPlist "${{ steps.export_options.outputs.path }}"
 
       - name: Find generated IPA
         id: ipa
