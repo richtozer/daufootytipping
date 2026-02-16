@@ -1,56 +1,28 @@
-name: iOS TestFlight Build
+name: iOS TestFlight Build and Upload
 
 on:
-  push:
-    branches: [ testing ]
   workflow_dispatch:
-    inputs:
-      upload_to_testflight:
-        description: "Upload the built IPA to TestFlight"
-        required: true
-        default: true
-        type: boolean
-      changelog:
-        description: "Optional TestFlight changelog"
-        required: false
-        default: ""
-        type: string
+  push:
+    branches:
+      - testing
+    paths:
+      - "lib/**"
+      - "ios/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/ios-testflight.yml"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build_ios:
-    name: Build iOS IPA
-    runs-on: macos-26
+  build_and_upload:
+    name: Build iOS IPA and Upload to TestFlight
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Show Xcode version
-        run: |
-          xcodebuild -version
-          xcodebuild -showsdks
-
-      - name: Enforce iOS 26 SDK
-        run: |
-          xcode_version="$(xcodebuild -version | awk '/Xcode/{print $2; exit}')"
-          case "$xcode_version" in
-            26.*) echo "Xcode $xcode_version OK" ;;
-            *) echo "Xcode $xcode_version is too old; need 26.x" ; exit 1 ;;
-          esac
-          sdk_version="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
-          if [ -z "$sdk_version" ]; then
-            echo "Unable to determine iOS SDK version."
-            exit 1
-          fi
-          case "$sdk_version" in
-            26.*) echo "iOS SDK $sdk_version OK" ;;
-            *) echo "iOS SDK $sdk_version is too old; need 26.x" ; exit 1 ;;
-          esac
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -59,73 +31,13 @@ jobs:
           channel: "stable"
           cache: true
 
-      - name: Enable Swift Package Manager integration
+      - name: Show tool versions
         run: |
-          flutter config --enable-swift-package-manager
-          flutter config --list | grep "enable-swift-package-manager"
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2"
+          flutter --version
+          xcodebuild -version
 
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Align generated SPM iOS deployment target
-        run: |
-          set -euo pipefail
-          package_swift="ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift"
-          if [ ! -f "$package_swift" ]; then
-            echo "Expected generated package file not found: $package_swift"
-            exit 1
-          fi
-
-          # Flutter currently generates iOS 13.0 here; Firebase packages require iOS 15+.
-          sed -i.bak 's/\.iOS("13\.0")/.iOS("15.0")/g' "$package_swift"
-          rm -f "${package_swift}.bak"
-
-          echo "Generated package platform line:"
-          grep -n '\.iOS("' "$package_swift"
-
-      - name: Resolve Swift package graph (retry)
-        run: |
-          set -euo pipefail
-          source_packages="$RUNNER_TEMP/SourcePackages"
-          derived_data="$RUNNER_TEMP/DerivedData"
-
-          # Avoid stale state if Xcode package resolution crashed in a previous attempt.
-          rm -rf "$source_packages"
-          rm -rf "$derived_data"
-          rm -f ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved
-          rm -f ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
-
-          for attempt in 1 2 3; do
-            echo "xcodebuild package resolution attempt $attempt/3"
-            if xcodebuild \
-              -resolvePackageDependencies \
-              -project ios/Runner.xcodeproj \
-              -scheme Runner \
-              -clonedSourcePackagesDirPath "$source_packages" \
-              -derivedDataPath "$derived_data"; then
-              # Keep both lockfile locations aligned; mixed state can crash Xcode's
-              # package group refresh on subsequent commands.
-              if [ -f ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved ]; then
-                mkdir -p ios/Runner.xcworkspace/xcshareddata/swiftpm
-                cp ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved
-              fi
-              exit 0
-            fi
-
-            if [ "$attempt" -eq 3 ]; then
-              echo "Swift package resolution failed after 3 attempts."
-              exit 1
-            fi
-
-            rm -rf "$source_packages"
-            rm -rf "$derived_data"
-            sleep 15
-          done
 
       - name: Read app version from pubspec
         id: app_version
@@ -135,35 +47,34 @@ jobs:
             echo "Failed to read version from pubspec.yaml"
             exit 1
           fi
+
           build_name="${pubspec_version%%+*}"
           build_number="${pubspec_version##*+}"
+          if [ "$build_name" = "$build_number" ]; then
+            echo "pubspec version must include build number, e.g. 1.2.3+456"
+            exit 1
+          fi
+
           echo "build_name=$build_name" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
 
-      - name: Configure iOS signing assets
+      - name: Validate required secrets
         env:
           IOS_BUILD_CERTIFICATE_BASE64: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
           IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
           IOS_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_BUILD_PROVISION_PROFILE_BASE64 }}
-          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
         run: |
-          decode_base64_secret() {
-            value="$1"
-            output="$2"
-            if printf "%s" "$value" | base64 --decode > "$output" 2>/dev/null; then
-              return 0
-            fi
-            if printf "%s" "$value" | base64 -d > "$output" 2>/dev/null; then
-              return 0
-            fi
-            if printf "%s" "$value" | base64 -D > "$output" 2>/dev/null; then
-              return 0
-            fi
-            return 1
-          }
-
           missing=0
-          for var in IOS_BUILD_CERTIFICATE_BASE64 IOS_P12_PASSWORD IOS_BUILD_PROVISION_PROFILE_BASE64 IOS_KEYCHAIN_PASSWORD; do
+          for var in \
+            IOS_BUILD_CERTIFICATE_BASE64 \
+            IOS_P12_PASSWORD \
+            IOS_BUILD_PROVISION_PROFILE_BASE64 \
+            APP_STORE_CONNECT_ISSUER_ID \
+            APP_STORE_CONNECT_KEY_ID \
+            APP_STORE_CONNECT_API_KEY_P8; do
             if [ -z "${!var}" ]; then
               echo "Missing required secret: $var"
               missing=1
@@ -173,251 +84,67 @@ jobs:
             exit 1
           fi
 
-          cert_path="$RUNNER_TEMP/build_certificate.p12"
-          profile_path="$RUNNER_TEMP/build_profile.mobileprovision"
-          keychain_path="$RUNNER_TEMP/app-signing.keychain-db"
+      - name: Install signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
 
-          if ! decode_base64_secret "$IOS_BUILD_CERTIFICATE_BASE64" "$cert_path"; then
-            echo "Failed to decode IOS_BUILD_CERTIFICATE_BASE64. Ensure it is base64 of a .p12 file."
-            exit 1
-          fi
-          if ! decode_base64_secret "$IOS_BUILD_PROVISION_PROFILE_BASE64" "$profile_path"; then
-            echo "Failed to decode IOS_BUILD_PROVISION_PROFILE_BASE64. Ensure it is base64 of a .mobileprovision file."
-            exit 1
-          fi
-          if [ ! -s "$profile_path" ]; then
-            echo "Decoded provisioning profile file is empty."
-            exit 1
-          fi
-
-          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
-          security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
-          security import "$cert_path" -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
-          security list-keychains -d user -s "$keychain_path" login.keychain-db
-          security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" "$keychain_path"
-
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          profile_plist="$RUNNER_TEMP/build_profile.plist"
-          if ! /usr/bin/security cms -D -i "$profile_path" > "$profile_plist" 2>/dev/null; then
-            echo "Provisioning profile is not a valid .mobileprovision payload."
-            exit 1
-          fi
-          profile_name=$(/usr/libexec/PlistBuddy -c 'Print Name' "$profile_plist")
-          if [ -z "$profile_name" ]; then
-            echo "Provisioning profile Name is missing."
-            exit 1
-          fi
-          echo "PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
-          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/ci.mobileprovision"
-
-      - name: Verify signing assets
-        run: |
-          security find-identity -v -p codesigning
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
-
-      - name: Prepare iOS archive configuration
-        run: |
-          flutter build ios \
-            --release \
-            --no-pub \
-            --config-only \
-            --build-name "${{ steps.app_version.outputs.build_name }}" \
-            --build-number "${{ steps.app_version.outputs.build_number }}" \
-            --no-codesign
-
-      - name: Show effective Runner signing settings
-        run: |
-          xcodebuild \
-            -project ios/Runner.xcodeproj \
-            -target Runner \
-            -configuration Release \
-            -showBuildSettings | \
-            egrep "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_ENTITLEMENTS|APS_ENVIRONMENT" | \
-            sort -u
-
-      - name: Archive iOS app
-        run: |
-          source_packages="$RUNNER_TEMP/SourcePackages"
-          derived_data="$RUNNER_TEMP/DerivedData"
-
-          xcodebuild \
-            -project ios/Runner.xcodeproj \
-            -scheme Runner \
-            -configuration Release \
-            -destination generic/platform=iOS \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            -derivedDataPath "$derived_data" \
-            -clonedSourcePackagesDirPath "$source_packages" \
-            # The project wants to automatically sign with a "Development" identity.
-            # This conflicts with our need for a "Distribution" identity.
-            # As per the error message, we switch to Manual signing and specify
-            # the correct identity.
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM=3Y769AQHC7 \
-            archive
-
-      - name: Export IPA from archive
-        run: |
-          archive_path="build/ios/archive/Runner.xcarchive"
-          if [ ! -d "$archive_path" ]; then
-            echo "Expected archive not found at $archive_path"
-            exit 1
-          fi
-
-          bundle_id="$(awk -F' = ' '/PRODUCT_BUNDLE_IDENTIFIER/ && $2 !~ /RunnerTests/ { gsub(/;$/, "", $2); print $2; exit }' ios/Runner.xcodeproj/project.pbxproj)"
-          if [ -z "$bundle_id" ]; then
-            echo "Unable to determine bundle identifier from project file."
-            exit 1
-          fi
-          if [ -z "$PROFILE_NAME" ]; then
-            echo "Missing PROFILE_NAME for export options."
-            exit 1
-          fi
-
-          export_plist="$RUNNER_TEMP/ExportOptions.plist"
-          cat > "$export_plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>3Y769AQHC7</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>$bundle_id</key>
-              <string>$PROFILE_NAME</string>
-            </dict>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
-
-          xcodebuild -exportArchive \
-            -archivePath "$archive_path" \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist "$export_plist"
-
-      - name: Locate IPA output
-        id: ipa_output
-        run: |
-          ipa_path="$(find build/ios -type f -name '*.ipa' | head -n 1)"
-          if [ -z "$ipa_path" ] || [ ! -f "$ipa_path" ]; then
-            echo "No IPA file found under build/ios after flutter build ipa."
-            echo "Available build outputs:"
-            find build/ios -maxdepth 6 -type f | sort || true
-            exit 1
-          fi
-          echo "ipa_path=$ipa_path" >> "$GITHUB_OUTPUT"
-          echo "Detected IPA: $ipa_path"
-
-      - name: Verify IPA entitlements
+      - name: Install provisioning profile
+        env:
+          IOS_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_BUILD_PROVISION_PROFILE_BASE64 }}
         run: |
           set -euo pipefail
-          ipa_path="${{ steps.ipa_output.outputs.ipa_path }}"
-          unzip_dir="$RUNNER_TEMP/ipa_unzipped"
-          rm -rf "$unzip_dir"
-          mkdir -p "$unzip_dir"
-          /usr/bin/unzip -q "$ipa_path" -d "$unzip_dir"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          profile_path="$RUNNER_TEMP/ci.mobileprovision"
+          echo "$IOS_BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > "$profile_path"
 
-          app_path="$(find "$unzip_dir/Payload" -maxdepth 1 -type d -name '*.app' | head -n 1)"
-          if [ -z "$app_path" ] || [ ! -d "$app_path" ]; then
-            echo "Unable to locate .app inside IPA payload."
+          uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<<"$(security cms -D -i "$profile_path")")
+          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+      - name: Build iOS IPA
+        run: |
+          flutter build ipa \
+            --release \
+            --build-name "${{ steps.app_version.outputs.build_name }}" \
+            --build-number "${{ steps.app_version.outputs.build_number }}" \
+            --export-method app-store
+
+      - name: Find generated IPA
+        id: ipa
+        run: |
+          ipa_path="$(find build/ios -type f -name '*.ipa' | head -n 1)"
+          if [ -z "$ipa_path" ]; then
+            echo "No IPA file found under build/ios after flutter build ipa."
+            find build/ios -maxdepth 5 -type f | sort || true
             exit 1
           fi
-
-          entitlements_path="$RUNNER_TEMP/ipa-entitlements.plist"
-          /usr/bin/codesign -d --entitlements - "$app_path" > "$entitlements_path"
-          echo "Exported app entitlements:"
-          /usr/bin/plutil -p "$entitlements_path"
-
-          /usr/libexec/PlistBuddy -c "Print :com.apple.developer.applesignin:0" "$entitlements_path"
-          aps_env=$(/usr/libexec/PlistBuddy -c "Print :aps-environment" "$entitlements_path")
-          if [ "$aps_env" != "production" ]; then
-            echo "Expected aps-environment=production, got '$aps_env'"
-            exit 1
-          fi
+          echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
+          ls -lh "$ipa_path"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa-${{ github.ref_name }}-${{ github.run_number }}
-          path: ${{ steps.ipa_output.outputs.ipa_path }}
+          path: ${{ steps.ipa.outputs.path }}
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Install Fastlane
-        if: github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight == true
-        run: gem install fastlane --no-document
+          retention-days: 14
 
       - name: Upload to TestFlight
-        if: github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight == true
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
-          TESTFLIGHT_CHANGELOG: ${{ inputs.changelog }}
         run: |
-          missing=0
-          for var in APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_API_KEY_P8; do
-            if [ -z "${!var}" ]; then
-              echo "Missing required secret: $var"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            exit 1
-          fi
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          key_path="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" > "$key_path"
+          chmod 600 "$key_path"
 
-          key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
-          api_key_json="$RUNNER_TEMP/app_store_api_key.json"
-          ipa_path="${{ steps.ipa_output.outputs.ipa_path }}"
-          if [ -z "$ipa_path" ] || [ ! -f "$ipa_path" ]; then
-            echo "Resolved IPA path is missing: $ipa_path"
-            exit 1
-          fi
-
-          printf "%s" "$APP_STORE_CONNECT_API_KEY_P8" > "$key_path"
-          escaped_key=$(ruby -rjson -e 'print JSON.generate(STDIN.read)' < "$key_path")
-          cat > "$api_key_json" <<EOF
-          {"key_id":"$APP_STORE_CONNECT_KEY_ID","issuer_id":"$APP_STORE_CONNECT_ISSUER_ID","key":$escaped_key,"in_house":false}
-          EOF
-
-          if [ -n "$TESTFLIGHT_CHANGELOG" ]; then
-            fastlane pilot upload \
-              --api_key_path "$api_key_json" \
-              --ipa "$ipa_path" \
-              --changelog "$TESTFLIGHT_CHANGELOG" \
-              --skip_waiting_for_build_processing true
-          else
-            fastlane pilot upload \
-              --api_key_path "$api_key_json" \
-              --ipa "$ipa_path" \
-              --skip_waiting_for_build_processing true
-          fi
-
-      - name: Tag successful iOS upload
-        if: github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight == true
-        env:
-          TAG_NAME: ios-${{ steps.app_version.outputs.build_name }}+${{ steps.app_version.outputs.build_number }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git fetch --tags origin
-          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-            echo "Tag $TAG_NAME already exists; skipping."
-            exit 0
-          fi
-
-          git tag "$TAG_NAME" "$GITHUB_SHA"
-          git push origin "refs/tags/$TAG_NAME"
+          xcrun altool \
+            --upload-app \
+            --type ios \
+            --file "${{ steps.ipa.outputs.path }}" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
