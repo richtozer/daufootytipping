@@ -249,8 +249,12 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             -derivedDataPath "$derived_data" \
             -clonedSourcePackagesDirPath "$source_packages" \
-            # Signing settings will be read from the Xcode project itself.
-            # Ensure the project's Release configuration is correct.
+            # The project wants to automatically sign with a "Development" identity.
+            # This conflicts with our need for a "Distribution" identity.
+            # As per the error message, we switch to Manual signing and specify
+            # the correct identity.
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=3Y769AQHC7 \
             archive
 
