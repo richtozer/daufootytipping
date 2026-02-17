@@ -232,8 +232,7 @@ class UserAuthPageState extends State<UserAuthPage> {
         await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
       } else {
         await _ensureGoogleSignInInitialized();
-        final GoogleSignInAccount googleUser = await GoogleSignIn
-            .instance
+        final GoogleSignInAccount googleUser = await GoogleSignIn.instance
             .authenticate();
         final GoogleSignInAuthentication googleAuth = googleUser.authentication;
         final String? idToken = googleAuth.idToken;
@@ -370,6 +369,58 @@ class UserAuthPageState extends State<UserAuthPage> {
     return digest.toString();
   }
 
+  String _mapEmailAuthException(
+    FirebaseAuthException e, {
+    required bool isRegisterMode,
+  }) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+      case 'invalid-login-credentials':
+        return 'Incorrect email or password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again.';
+      case 'operation-not-allowed':
+        return isRegisterMode
+            ? 'Email/password registration is not enabled.'
+            : 'Email/password sign-in is not enabled.';
+      case 'email-already-in-use':
+        return 'An account already exists with this email.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      default:
+        return isRegisterMode
+            ? 'Could not create your account. Please try again.'
+            : 'Could not sign in. Please try again.';
+    }
+  }
+
+  String _mapPasswordResetException(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-not-found':
+        return 'No account was found for that email address.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'operation-not-allowed':
+        return 'Password reset is not enabled for this project.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again.';
+      default:
+        return 'Failed to send password reset email.';
+    }
+  }
+
   Widget _buildGoogleAuthButton() {
     const double buttonHeight = 56;
     final double fontSize = buttonHeight * 0.43;
@@ -494,7 +545,10 @@ class UserAuthPageState extends State<UserAuthPage> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _emailAuthError = e.message ?? 'Email authentication failed.';
+        _emailAuthError = _mapEmailAuthException(
+          e,
+          isRegisterMode: _isRegisterMode,
+        );
       });
     } catch (_) {
       setState(() {
@@ -517,17 +571,45 @@ class UserAuthPageState extends State<UserAuthPage> {
       });
       return;
     }
+
+    setState(() {
+      _isAuthInProgress = true;
+      _emailAuthError = null;
+    });
+
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (mounted) {
+        setState(() {
+          _emailAuthError =
+              'If an account exists for this email, a password reset link has been sent to your inbox.';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset email sent.')),
+          const SnackBar(
+            content: Text(
+              'If an account exists for this email, a password reset link has been sent to your inbox.',
+            ),
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
+      log(
+        'Password reset FirebaseAuthException: code=${e.code}, message=${e.message}',
+      );
       setState(() {
-        _emailAuthError = e.message ?? 'Failed to send password reset email.';
+        _emailAuthError = _mapPasswordResetException(e);
       });
+    } catch (e, stackTrace) {
+      log('Password reset unexpected exception: $e', stackTrace: stackTrace);
+      setState(() {
+        _emailAuthError = 'Could not send password reset email.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAuthInProgress = false;
+        });
+      }
     }
   }
 
@@ -629,6 +711,15 @@ class UserAuthPageState extends State<UserAuthPage> {
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textCapitalization: TextCapitalization.none,
+                      autofillHints: const <String>[
+                        AutofillHints.email,
+                        AutofillHints.username,
+                      ],
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         border: OutlineInputBorder(),
@@ -638,6 +729,13 @@ class UserAuthPageState extends State<UserAuthPage> {
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
+                      autofillHints: const <String>[AutofillHints.password],
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        if (!_isAuthInProgress) {
+                          _signInOrRegisterWithEmail();
+                        }
+                      },
                       decoration: const InputDecoration(
                         labelText: 'Password',
                         border: OutlineInputBorder(),
@@ -648,9 +746,12 @@ class UserAuthPageState extends State<UserAuthPage> {
                       alignment: Alignment.centerRight,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,
@@ -663,14 +764,14 @@ class UserAuthPageState extends State<UserAuthPage> {
                         onPressed: _isAuthInProgress
                             ? null
                             : _signInOrRegisterWithEmail,
-                        child: Text(
-                          _isRegisterMode ? 'Register' : 'Sign In',
-                        ),
+                        child: Text(_isRegisterMode ? 'Register' : 'Sign In'),
                       ),
                     ),
                     if (!_isRegisterMode)
                       TextButton(
-                        onPressed: _isAuthInProgress ? null : _sendPasswordReset,
+                        onPressed: _isAuthInProgress
+                            ? null
+                            : _sendPasswordReset,
                         child: const Text('Forgot password?'),
                       ),
                     TextButton(
