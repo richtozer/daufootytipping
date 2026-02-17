@@ -47,9 +47,11 @@ class UserAuthPageState extends State<UserAuthPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isRegisterMode = false;
   bool _isEmailAuthExpanded = false;
+  bool _isPasswordResetMode = false;
   bool _isAuthInProgress = false;
   String? _socialAuthError;
   String? _emailAuthError;
+  String? _emailAuthInfo;
   Future<void>? _googleSignInInitFuture;
 
   @override
@@ -522,6 +524,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     if (email.isEmpty || password.isEmpty) {
       setState(() {
         _emailAuthError = 'Email and password are required.';
+        _emailAuthInfo = null;
       });
       return;
     }
@@ -529,6 +532,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     setState(() {
       _isAuthInProgress = true;
       _emailAuthError = null;
+      _emailAuthInfo = null;
     });
 
     try {
@@ -549,10 +553,12 @@ class UserAuthPageState extends State<UserAuthPage> {
           e,
           isRegisterMode: _isRegisterMode,
         );
+        _emailAuthInfo = null;
       });
     } catch (_) {
       setState(() {
         _emailAuthError = 'Email authentication failed.';
+        _emailAuthInfo = null;
       });
     } finally {
       if (mounted) {
@@ -567,7 +573,8 @@ class UserAuthPageState extends State<UserAuthPage> {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
       setState(() {
-        _emailAuthError = 'Enter your email above to reset password.';
+        _emailAuthError = 'Enter your email below to reset password.';
+        _emailAuthInfo = null;
       });
       return;
     }
@@ -575,13 +582,14 @@ class UserAuthPageState extends State<UserAuthPage> {
     setState(() {
       _isAuthInProgress = true;
       _emailAuthError = null;
+      _emailAuthInfo = null;
     });
 
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (mounted) {
         setState(() {
-          _emailAuthError =
+          _emailAuthInfo =
               'If an account exists for this email, a password reset link has been sent to your inbox.';
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -598,11 +606,13 @@ class UserAuthPageState extends State<UserAuthPage> {
       );
       setState(() {
         _emailAuthError = _mapPasswordResetException(e);
+        _emailAuthInfo = null;
       });
     } catch (e, stackTrace) {
       log('Password reset unexpected exception: $e', stackTrace: stackTrace);
       setState(() {
         _emailAuthError = 'Could not send password reset email.';
+        _emailAuthInfo = null;
       });
     } finally {
       if (mounted) {
@@ -619,10 +629,18 @@ class UserAuthPageState extends State<UserAuthPage> {
         : 'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.';
     final emailAuthDescription = _isRegisterMode
         ? 'Optionally, you can register with your email and password.'
+        : _isPasswordResetMode
+        ? 'Enter your email below and tap Reset to request a password reset link.'
         : 'Optionally, you can sign in with your email and password.';
     final emailAuthToggleText = _isEmailAuthExpanded
         ? 'Hide email sign-in options'
         : "Don't have an Apple or Google account? Click here to sign in with email.";
+    final isPasswordResetMode = !_isRegisterMode && _isPasswordResetMode;
+    final emailPrimaryActionText = _isRegisterMode
+        ? 'Register'
+        : isPasswordResetMode
+        ? 'Reset'
+        : 'Sign In';
 
     return Center(
       child: SingleChildScrollView(
@@ -678,6 +696,8 @@ class UserAuthPageState extends State<UserAuthPage> {
                         setState(() {
                           _isEmailAuthExpanded = !_isEmailAuthExpanded;
                           _emailAuthError = null;
+                          _emailAuthInfo = null;
+                          _isPasswordResetMode = false;
                         });
                       },
                 child: Text(emailAuthToggleText, textAlign: TextAlign.center),
@@ -692,21 +712,6 @@ class UserAuthPageState extends State<UserAuthPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(emailAuthDescription, textAlign: TextAlign.center),
-                    if (_emailAuthError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Card(
-                          color: Colors.red.shade100,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10.0),
-                            child: Text(
-                              _emailAuthError!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.red.shade900),
-                            ),
-                          ),
-                        ),
-                      ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _emailController,
@@ -718,29 +723,41 @@ class UserAuthPageState extends State<UserAuthPage> {
                         AutofillHints.email,
                         AutofillHints.username,
                       ],
-                      textInputAction: TextInputAction.next,
-                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                      textInputAction: isPasswordResetMode
+                          ? TextInputAction.done
+                          : TextInputAction.next,
+                      onSubmitted: (_) {
+                        if (isPasswordResetMode) {
+                          if (!_isAuthInProgress) {
+                            _sendPasswordReset();
+                          }
+                        } else {
+                          FocusScope.of(context).nextFocus();
+                        }
+                      },
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      autofillHints: const <String>[AutofillHints.password],
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) {
-                        if (!_isAuthInProgress) {
-                          _signInOrRegisterWithEmail();
-                        }
-                      },
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
+                    if (!isPasswordResetMode) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        autofillHints: const <String>[AutofillHints.password],
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) {
+                          if (!_isAuthInProgress) {
+                            _signInOrRegisterWithEmail();
+                          }
+                        },
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerRight,
@@ -763,16 +780,80 @@ class UserAuthPageState extends State<UserAuthPage> {
                         ),
                         onPressed: _isAuthInProgress
                             ? null
+                            : isPasswordResetMode
+                            ? _sendPasswordReset
                             : _signInOrRegisterWithEmail,
-                        child: Text(_isRegisterMode ? 'Register' : 'Sign In'),
+                        child: Text(emailPrimaryActionText),
                       ),
                     ),
-                    if (!_isRegisterMode)
+                    if (_emailAuthError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Card(
+                          color: Colors.red.shade100,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Text(
+                              _emailAuthError!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.red.shade900),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_emailAuthInfo != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Card(
+                          color: const Color(0xFFE8F0FE),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Text(
+                              _emailAuthInfo!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Color(0xFF1A73E8)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (!_isRegisterMode && !isPasswordResetMode)
                       TextButton(
                         onPressed: _isAuthInProgress
                             ? null
-                            : _sendPasswordReset,
+                            : () {
+                                setState(() {
+                                  _isPasswordResetMode = true;
+                                  _emailAuthError = null;
+                                  _emailAuthInfo = null;
+                                });
+                              },
                         child: const Text('Forgot password?'),
+                      ),
+                    if (!_isRegisterMode && isPasswordResetMode)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: GestureDetector(
+                            onTap: _isAuthInProgress
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _isPasswordResetMode = false;
+                                      _emailAuthError = null;
+                                      _emailAuthInfo = null;
+                                    });
+                                  },
+                            child: Text(
+                              'Back to sign in',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     TextButton(
                       onPressed: _isAuthInProgress
@@ -781,6 +862,8 @@ class UserAuthPageState extends State<UserAuthPage> {
                               setState(() {
                                 _isRegisterMode = !_isRegisterMode;
                                 _emailAuthError = null;
+                                _emailAuthInfo = null;
+                                _isPasswordResetMode = false;
                               });
                             },
                       child: Text(
