@@ -263,14 +263,8 @@ jobs:
             exit 1
           fi
 
-          runner_entitlements_src="ios/Runner/Runner.entitlements"
           runner_entitlements="$work_dir/Runner.resign.entitlements"
-          app_identifier_prefix="${{ steps.profile.outputs.team_id }}."
-
-          sed \
-            -e "s/\\\$(APS_ENVIRONMENT)/production/g" \
-            -e "s#\\\$(AppIdentifierPrefix)#$app_identifier_prefix#g" \
-            "$runner_entitlements_src" > "$runner_entitlements"
+          /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$embedded_profile_plist" > "$runner_entitlements"
 
           signing_identity="$(security find-identity -v -p codesigning | awk -F'\"' '/Apple Distribution/{print $2; exit}')"
           if [ -z "$signing_identity" ]; then
@@ -286,6 +280,7 @@ jobs:
           codesign -d --entitlements :- "$executable" > "$entitlements_plist" 2>/dev/null || true
           echo "Exported app entitlements:"
           cat "$entitlements_plist"
+          /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$entitlements_plist" >/dev/null
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null
 
           (
