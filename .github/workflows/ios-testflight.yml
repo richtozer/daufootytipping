@@ -243,7 +243,7 @@ jobs:
           echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
           ls -lh "$ipa_path"
 
-      - name: Re-sign and validate exported IPA entitlements
+      - name: Validate exported IPA entitlements
         run: |
           set -euo pipefail
 
@@ -279,6 +279,21 @@ jobs:
             exit 1
           fi
 
+          codesign -d --entitlements :- "$executable" > "$entitlements_plist" 2>/dev/null || true
+          echo "Exported app entitlements:"
+          cat "$entitlements_plist"
+
+          has_app_identifier=0
+          has_apple_signin=0
+          /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$entitlements_plist" >/dev/null 2>&1 && has_app_identifier=1
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null 2>&1 && has_apple_signin=1
+
+          if [ "$has_app_identifier" -eq 1 ] && [ "$has_apple_signin" -eq 1 ]; then
+            echo "Exported IPA entitlements are valid. No re-sign required."
+            exit 0
+          fi
+
+          echo "Entitlements incomplete after export. Applying re-sign fallback..."
           /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$embedded_profile_plist" > "$runner_entitlements"
 
           signing_identity="$(security find-identity -v -p codesigning | awk -F'\"' '/Apple Distribution/{print $2; exit}')"
@@ -293,7 +308,7 @@ jobs:
           codesign --verify --deep --strict "$app_path"
 
           codesign -d --entitlements :- "$executable" > "$entitlements_plist" 2>/dev/null || true
-          echo "Exported app entitlements:"
+          echo "Re-signed app entitlements:"
           cat "$entitlements_plist"
           /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$entitlements_plist" >/dev/null
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null
