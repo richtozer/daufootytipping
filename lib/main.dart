@@ -23,12 +23,17 @@ import 'package:universal_html/js.dart' as js;
 Future<void> main() async {
   const bool useFirebaseEmulators = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
-    defaultValue: false,
+    defaultValue: true,
   );
-  const String firebaseEmulatorHost = String.fromEnvironment(
+  const String configuredFirebaseEmulatorHost = String.fromEnvironment(
     'FIREBASE_EMULATOR_HOST',
-    defaultValue: 'localhost',
+    defaultValue: '',
   );
+  final String firebaseEmulatorHost = configuredFirebaseEmulatorHost.isNotEmpty
+      ? configuredFirebaseEmulatorHost
+      : (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+      ? '10.0.2.2'
+      : 'localhost';
 
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +89,10 @@ Future<void> main() async {
   if (kDebugMode && useFirebaseEmulators) {
     database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
     log('Database emulator started on $firebaseEmulatorHost:8000');
+  } else if (kDebugMode) {
+    log(
+      'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
+    );
   } else {
     if (!kIsWeb) {
       database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
@@ -96,6 +105,10 @@ Future<void> main() async {
   if (kDebugMode && useFirebaseEmulators) {
     FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8081);
     log('Firestore emulator started on $firebaseEmulatorHost:8081');
+  } else if (kDebugMode) {
+    log(
+      'Firestore emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
+    );
   }
 
   di.allowReassignment = true;
