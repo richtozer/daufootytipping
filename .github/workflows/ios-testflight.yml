@@ -26,6 +26,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          selected_xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "$selected_xcode" ]; then
+            echo "Xcode 26.x is required but was not found on the runner."
+            echo "Installed Xcode versions:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          echo "Using $selected_xcode"
+          echo "DEVELOPER_DIR=$selected_xcode/Contents/Developer" >> "$GITHUB_ENV"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -37,6 +50,7 @@ jobs:
         run: |
           flutter --version
           xcodebuild -version
+          xcodebuild -showsdks | grep -E "iphoneos|iOS" || true
 
       - name: Get dependencies
         run: flutter pub get
@@ -236,16 +250,18 @@ jobs:
           ipa_path="${{ steps.ipa.outputs.path }}"
           work_dir="$RUNNER_TEMP/ipa_entitlements_check"
           resigned_ipa="$RUNNER_TEMP/resigned.ipa"
+          entitlements_plist="$RUNNER_TEMP/exported.entitlements.plist"
+          embedded_profile_plist="$RUNNER_TEMP/embedded.mobileprovision.plist"
+          runner_entitlements="$RUNNER_TEMP/Runner.resign.entitlements"
           rm -rf "$work_dir"
           rm -f "$resigned_ipa"
+          rm -f "$entitlements_plist" "$embedded_profile_plist" "$runner_entitlements"
           mkdir -p "$work_dir"
           unzip -q "$ipa_path" -d "$work_dir"
 
           app_path="$work_dir/Payload/Runner.app"
           executable="$work_dir/Payload/Runner.app/Runner"
-          entitlements_plist="$work_dir/entitlements.plist"
           embedded_profile="$work_dir/Payload/Runner.app/embedded.mobileprovision"
-          embedded_profile_plist="$work_dir/embedded.mobileprovision.plist"
 
           if [ ! -f "$embedded_profile" ]; then
             echo "Exported app missing embedded.mobileprovision"
@@ -263,7 +279,6 @@ jobs:
             exit 1
           fi
 
-          runner_entitlements="$work_dir/Runner.resign.entitlements"
           /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$embedded_profile_plist" > "$runner_entitlements"
 
           signing_identity="$(security find-identity -v -p codesigning | awk -F'\"' '/Apple Distribution/{print $2; exit}')"
@@ -285,7 +300,13 @@ jobs:
 
           (
             cd "$work_dir"
-            zip -qry "$resigned_ipa" .
+            zip -qry "$resigned_ipa" Payload
+            if [ -d SwiftSupport ]; then
+              zip -qry "$resigned_ipa" SwiftSupport
+            fi
+            if [ -d Symbols ]; then
+              zip -qry "$resigned_ipa" Symbols
+            fi
           )
           mv "$resigned_ipa" "$ipa_path"
 
