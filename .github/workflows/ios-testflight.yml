@@ -229,21 +229,23 @@ jobs:
           echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
           ls -lh "$ipa_path"
 
-      - name: Validate exported IPA entitlements
+      - name: Re-sign and validate exported IPA entitlements
         run: |
           set -euo pipefail
 
           ipa_path="${{ steps.ipa.outputs.path }}"
           work_dir="$RUNNER_TEMP/ipa_entitlements_check"
+          resigned_ipa="$RUNNER_TEMP/resigned.ipa"
           rm -rf "$work_dir"
+          rm -f "$resigned_ipa"
           mkdir -p "$work_dir"
           unzip -q "$ipa_path" -d "$work_dir"
 
+          app_path="$work_dir/Payload/Runner.app"
           executable="$work_dir/Payload/Runner.app/Runner"
           entitlements_plist="$work_dir/entitlements.plist"
           embedded_profile="$work_dir/Payload/Runner.app/embedded.mobileprovision"
           embedded_profile_plist="$work_dir/embedded.mobileprovision.plist"
-          codesign -d --entitlements :- "$executable" > "$entitlements_plist" 2>/dev/null || true
 
           if [ ! -f "$embedded_profile" ]; then
             echo "Exported app missing embedded.mobileprovision"
@@ -261,10 +263,36 @@ jobs:
             exit 1
           fi
 
+          runner_entitlements_src="ios/Runner/Runner.entitlements"
+          runner_entitlements="$work_dir/Runner.resign.entitlements"
+          app_identifier_prefix="${{ steps.profile.outputs.team_id }}."
+
+          sed \
+            -e "s/\\\$(APS_ENVIRONMENT)/production/g" \
+            -e "s#\\\$(AppIdentifierPrefix)#$app_identifier_prefix#g" \
+            "$runner_entitlements_src" > "$runner_entitlements"
+
+          signing_identity="$(security find-identity -v -p codesigning | awk -F'\"' '/Apple Distribution/{print $2; exit}')"
+          if [ -z "$signing_identity" ]; then
+            echo "Apple Distribution signing identity not found in keychain."
+            security find-identity -v -p codesigning || true
+            exit 1
+          fi
+
+          echo "Re-signing app with identity: $signing_identity"
+          codesign --force --sign "$signing_identity" --entitlements "$runner_entitlements" --generate-entitlement-der "$app_path"
+          codesign --verify --deep --strict "$app_path"
+
+          codesign -d --entitlements :- "$executable" > "$entitlements_plist" 2>/dev/null || true
           echo "Exported app entitlements:"
           cat "$entitlements_plist"
-
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null
+
+          (
+            cd "$work_dir"
+            zip -qry "$resigned_ipa" .
+          )
+          mv "$resigned_ipa" "$ipa_path"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
