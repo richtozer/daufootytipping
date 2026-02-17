@@ -46,6 +46,9 @@ class GameListItem extends StatefulWidget {
 }
 
 class _GameListItemState extends State<GameListItem> {
+  static const String _loadingRankLabel = '--';
+  static const String _noRankLabel = '';
+
   late final GameTipViewModel gameTipsViewModel;
   // LeagueLadder? _calculatedLadder; // Scoped locally to _fetchAndSetLadderRanks
 
@@ -91,8 +94,8 @@ class _GameListItemState extends State<GameListItem> {
         if (!mounted) return;
         setState(() {
           _isLoadingLadderRank = false;
-          _homeOrdinalRankLabel = '--';
-          _awayOrdinalRankLabel = '--';
+          _homeOrdinalRankLabel = _noRankLabel;
+          _awayOrdinalRankLabel = _noRankLabel;
         });
         return;
       }
@@ -105,8 +108,8 @@ class _GameListItemState extends State<GameListItem> {
         if (!mounted) return;
         setState(() {
           _isLoadingLadderRank = false;
-          _homeOrdinalRankLabel = '--';
-          _awayOrdinalRankLabel = '--';
+          _homeOrdinalRankLabel = _noRankLabel;
+          _awayOrdinalRankLabel = _noRankLabel;
         });
         return;
       }
@@ -134,8 +137,8 @@ class _GameListItemState extends State<GameListItem> {
         league: gameTipsViewModel.game.league,
       );
 
-      String calculatedHomeLabel = '--';
-      String calculatedAwayLabel = '--';
+      String calculatedHomeLabel = _noRankLabel;
+      String calculatedAwayLabel = _noRankLabel;
 
       if (calculatedLadder != null) {
         final homeIdx = calculatedLadder.teams.indexWhere(
@@ -144,7 +147,7 @@ class _GameListItemState extends State<GameListItem> {
         final homeRank = (homeIdx == -1) ? null : homeIdx + 1;
         calculatedHomeLabel = homeRank != null
             ? LeagueLadder.ordinal(homeRank)
-            : '--';
+            : _noRankLabel;
 
         final awayIdx = calculatedLadder.teams.indexWhere(
           (t) => t.dbkey == gameTipsViewModel.game.awayTeam.dbkey,
@@ -152,7 +155,7 @@ class _GameListItemState extends State<GameListItem> {
         final awayRank = (awayIdx == -1) ? null : awayIdx + 1;
         calculatedAwayLabel = awayRank != null
             ? LeagueLadder.ordinal(awayRank)
-            : '--';
+            : _noRankLabel;
       }
 
       if (!mounted) return;
@@ -180,9 +183,13 @@ class _GameListItemState extends State<GameListItem> {
         builder: (context, gameTipsViewModelConsumer, child) {
           // Use new state variables for rank labels
           final String displayHomeRank =
-              _homeOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+              _isLoadingLadderRank
+                  ? _loadingRankLabel
+                  : (_homeOrdinalRankLabel ?? _noRankLabel);
           final String displayAwayRank =
-              _awayOrdinalRankLabel ?? (_isLoadingLadderRank ? '' : '--');
+              _isLoadingLadderRank
+                  ? _loadingRankLabel
+                  : (_awayOrdinalRankLabel ?? _noRankLabel);
 
           // Reference to the game for easier access in onTap
           final Game game = gameTipsViewModelConsumer.game;
@@ -467,6 +474,7 @@ class _TeamDisplayRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (teamRank != null &&
+            teamRank!.isNotEmpty &&
             (gameState == GameState.notStarted ||
                 gameState == GameState.startingSoon)) ...[
           Text(
