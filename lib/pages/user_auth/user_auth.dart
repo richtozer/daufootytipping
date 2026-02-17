@@ -48,7 +48,8 @@ class UserAuthPageState extends State<UserAuthPage> {
   bool _isRegisterMode = false;
   bool _isEmailAuthExpanded = false;
   bool _isAuthInProgress = false;
-  String? _authError;
+  String? _socialAuthError;
+  String? _emailAuthError;
   Future<void>? _googleSignInInitFuture;
 
   @override
@@ -223,7 +224,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     }
     setState(() {
       _isAuthInProgress = true;
-      _authError = null;
+      _socialAuthError = null;
     });
 
     try {
@@ -251,16 +252,16 @@ class UserAuthPageState extends State<UserAuthPage> {
     } on GoogleSignInException catch (e) {
       if (e.code != GoogleSignInExceptionCode.canceled) {
         setState(() {
-          _authError = 'Google sign-in failed.';
+          _socialAuthError = 'Google sign-in failed.';
         });
       }
     } on FirebaseAuthException catch (_) {
       setState(() {
-        _authError = 'Google sign-in failed.';
+        _socialAuthError = 'Google sign-in failed.';
       });
     } catch (_) {
       setState(() {
-        _authError = 'Google sign-in failed.';
+        _socialAuthError = 'Google sign-in failed.';
       });
     } finally {
       if (mounted) {
@@ -277,7 +278,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     }
     setState(() {
       _isAuthInProgress = true;
-      _authError = null;
+      _socialAuthError = null;
     });
 
     try {
@@ -329,7 +330,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       );
       if (e.code != AuthorizationErrorCode.canceled) {
         setState(() {
-          _authError = 'Apple sign-in failed.';
+          _socialAuthError = 'Apple sign-in failed.';
         });
       }
     } on FirebaseAuthException catch (e) {
@@ -337,12 +338,12 @@ class UserAuthPageState extends State<UserAuthPage> {
         'Apple sign-in FirebaseAuthException: code=${e.code}, message=${e.message}',
       );
       setState(() {
-        _authError = 'Apple sign-in failed.';
+        _socialAuthError = 'Apple sign-in failed.';
       });
     } catch (e, stackTrace) {
       log('Apple sign-in unexpected exception: $e', stackTrace: stackTrace);
       setState(() {
-        _authError = 'Apple sign-in failed.';
+        _socialAuthError = 'Apple sign-in failed.';
       });
     } finally {
       if (mounted) {
@@ -469,14 +470,14 @@ class UserAuthPageState extends State<UserAuthPage> {
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
-        _authError = 'Email and password are required.';
+        _emailAuthError = 'Email and password are required.';
       });
       return;
     }
 
     setState(() {
       _isAuthInProgress = true;
-      _authError = null;
+      _emailAuthError = null;
     });
 
     try {
@@ -493,11 +494,11 @@ class UserAuthPageState extends State<UserAuthPage> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _authError = e.message ?? 'Email authentication failed.';
+        _emailAuthError = e.message ?? 'Email authentication failed.';
       });
     } catch (_) {
       setState(() {
-        _authError = 'Email authentication failed.';
+        _emailAuthError = 'Email authentication failed.';
       });
     } finally {
       if (mounted) {
@@ -512,7 +513,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
       setState(() {
-        _authError = 'Enter your email above to reset password.';
+        _emailAuthError = 'Enter your email above to reset password.';
       });
       return;
     }
@@ -525,7 +526,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _authError = e.message ?? 'Failed to send password reset email.';
+        _emailAuthError = e.message ?? 'Failed to send password reset email.';
       });
     }
   }
@@ -562,18 +563,6 @@ class UserAuthPageState extends State<UserAuthPage> {
               const SizedBox(height: 20),
               Text(subtitle, textAlign: TextAlign.center),
               const SizedBox(height: 16),
-              if (_authError != null)
-                Card(
-                  color: Colors.red.shade100,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Text(
-                      _authError!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.red.shade900),
-                    ),
-                  ),
-                ),
               if (defaultTargetPlatform == TargetPlatform.iOS) ...[
                 if (_supportsAppleSignIn) ...[
                   _buildAppleAuthButton(),
@@ -587,6 +576,18 @@ class UserAuthPageState extends State<UserAuthPage> {
                   _buildAppleAuthButton(),
                 ],
               ],
+              if (_socialAuthError != null)
+                Card(
+                  color: Colors.red.shade100,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Text(
+                      _socialAuthError!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.red.shade900),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: _isAuthInProgress
@@ -594,7 +595,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     : () {
                         setState(() {
                           _isEmailAuthExpanded = !_isEmailAuthExpanded;
-                          _authError = null;
+                          _emailAuthError = null;
                         });
                       },
                 child: Text(emailAuthToggleText, textAlign: TextAlign.center),
@@ -609,6 +610,21 @@ class UserAuthPageState extends State<UserAuthPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(emailAuthDescription, textAlign: TextAlign.center),
+                    if (_emailAuthError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Card(
+                          color: Colors.red.shade100,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Text(
+                              _emailAuthError!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.red.shade900),
+                            ),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _emailController,
@@ -628,14 +644,28 @@ class UserAuthPageState extends State<UserAuthPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _isAuthInProgress
-                          ? null
-                          : _signInOrRegisterWithEmail,
-                      child: Text(
-                        _isRegisterMode
-                            ? 'Register with Email'
-                            : 'Sign in with Email',
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 38),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _isAuthInProgress
+                            ? null
+                            : _signInOrRegisterWithEmail,
+                        child: Text(
+                          _isRegisterMode ? 'Register' : 'Sign In',
+                        ),
                       ),
                     ),
                     if (!_isRegisterMode)
@@ -649,13 +679,13 @@ class UserAuthPageState extends State<UserAuthPage> {
                           : () {
                               setState(() {
                                 _isRegisterMode = !_isRegisterMode;
-                                _authError = null;
+                                _emailAuthError = null;
                               });
                             },
                       child: Text(
                         _isRegisterMode
                             ? 'Already have an account? Sign in'
-                            : 'Need an account? Register',
+                            : 'Need an email account? Register',
                       ),
                     ),
                   ],
