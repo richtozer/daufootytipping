@@ -2,8 +2,8 @@
   "rules": {
     ".read": "true",
     ".write": "true",
-    "Tippers": {
-      ".indexOn": ["authuid", "email"]
+    "AllTippers": {
+      ".indexOn": ["authuid", "email", "logon"]
     },
     "DAUCompsGames": {
       "$compDBKey": {
