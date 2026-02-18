@@ -3,6 +3,7 @@
 
 # Security
 *.p8
+ios-backup/
 
 # Miscellaneous
 *.jks
