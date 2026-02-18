@@ -107,6 +107,109 @@ class TippersViewModel extends ChangeNotifier {
     _tippers = sortedEntries;
   }
 
+  void _upsertTipperInCache(Tipper tipper) {
+    final int existingIndex = _tippers.indexWhere(
+      (existingTipper) => existingTipper.dbkey == tipper.dbkey,
+    );
+    if (existingIndex >= 0) {
+      _tippers[existingIndex] = tipper;
+      return;
+    }
+    _tippers.add(tipper);
+  }
+
+  Future<Tipper?> _findTipperByFieldInDb(
+    String fieldName,
+    String fieldValue,
+  ) async {
+    if (fieldValue.isEmpty) {
+      return null;
+    }
+
+    final DatabaseEvent event = await _db
+        .child(p.tippersPath)
+        .orderByChild(fieldName)
+        .equalTo(fieldValue)
+        .limitToFirst(1)
+        .once();
+
+    if (!event.snapshot.exists || event.snapshot.value == null) {
+      return null;
+    }
+
+    final Map<dynamic, dynamic> matches = Map<dynamic, dynamic>.from(
+      event.snapshot.value as dynamic,
+    );
+    if (matches.isEmpty) {
+      return null;
+    }
+
+    final MapEntry<dynamic, dynamic> firstMatch = matches.entries.first;
+    final Tipper tipper = Tipper.fromJson(
+      Map<String, dynamic>.from(firstMatch.value as dynamic),
+      firstMatch.key.toString(),
+    );
+
+    _upsertTipperInCache(tipper);
+    return tipper;
+  }
+
+  Future<Tipper?> _findTipperByDbKeyInDb(String tipperDbKey) async {
+    if (tipperDbKey.isEmpty) {
+      return null;
+    }
+
+    final DataSnapshot snapshot = (await _db
+            .child(p.tippersPath)
+            .child(tipperDbKey)
+            .once())
+        .snapshot;
+    if (!snapshot.exists || snapshot.value == null) {
+      return null;
+    }
+
+    final Tipper tipper = Tipper.fromJson(
+      Map<String, dynamic>.from(snapshot.value as dynamic),
+      snapshot.key,
+    );
+    _upsertTipperInCache(tipper);
+    return tipper;
+  }
+
+  dynamic _readTipperAttributeValue(Tipper tipper, String attributeName) {
+    switch (attributeName) {
+      case 'authuid':
+        return tipper.authuid;
+      case 'email':
+        return tipper.email;
+      case 'logon':
+        return tipper.logon;
+      case 'name':
+        return tipper.name;
+      case 'tipperRole':
+        return tipper.tipperRole.name;
+      case 'photoURL':
+        return tipper.photoURL;
+      case 'compsParticipatedIn':
+        return tipper.compsPaidFor.map((comp) => comp.dbkey).toList();
+      case 'acctCreatedUTC':
+        return tipper.acctCreatedUTC?.toIso8601String();
+      case 'acctLoggedOnUTC':
+        return tipper.acctLoggedOnUTC?.toIso8601String();
+      case 'isAnonymous':
+        return tipper.isAnonymous;
+      default:
+        return tipper.toJson()[attributeName];
+    }
+  }
+
+  bool _attributeValuesEqual(dynamic a, dynamic b) {
+    if (a is Iterable && b is Iterable) {
+      return const DeepCollectionEquality().equals(a.toList(), b.toList());
+    }
+    return a == b;
+  }
+
   // method to set or update tipper name. Make sure name is unique in the _tippers list, if not, throw an error
   // Save any changes to the database using updateTipperAttribute
   Future<void> setTipperName(String tipperDbKey, String? newName) async {
@@ -151,15 +254,7 @@ class TippersViewModel extends ChangeNotifier {
     String attributeName,
     dynamic attributeValue,
   ) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial Tipper load to complete, updateTipperAttribute()',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, updateTipperAttribute()');
-    }
-
-    //find the Tipper in the local list. if it's there, compare the attribute value and update if different
+    // Find the tipper from local cache first, then by direct lookup if needed.
     Tipper? tipperToUpdate = await findTipper(tipperDbKey);
 
     if (tipperToUpdate == null) {
@@ -167,13 +262,11 @@ class TippersViewModel extends ChangeNotifier {
       return;
     }
 
-    // the Tipper serialization relies on daucompsviewmodel being ready
-    // so we need to wait for it to be ready before we can update the tipper
-
-    await di<DAUCompsViewModel>().initialDAUCompLoadComplete;
-
-    dynamic oldValue = tipperToUpdate.toJson()[attributeName];
-    if (attributeValue != oldValue) {
+    final dynamic oldValue = _readTipperAttributeValue(
+      tipperToUpdate,
+      attributeName,
+    );
+    if (!_attributeValuesEqual(attributeValue, oldValue)) {
       log(
         'TippersViewModel() Tipper: $tipperDbKey needs update for attribute $attributeName: $attributeValue',
       );
@@ -188,14 +281,8 @@ class TippersViewModel extends ChangeNotifier {
 
   Future<void> saveBatchOfTipperChangesToDb() async {
     try {
-      if (!_initialLoadCompleter.isCompleted) {
-        log(
-          'TippersViewModel() Waiting for initial Tipper load to complete, saveBatchOfTipperAttributes()',
-        );
-        await _initialLoadCompleter.future;
-        log(
-          'TippersViewModel() tipper load complete, saveBatchOfTipperAttributes()',
-        );
+      if (updates.isEmpty) {
+        return;
       }
       await _db.update(updates);
     } finally {
@@ -205,54 +292,51 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<Tipper?> findTipperByUid(String authuid) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial tipper load to complete, findtipperbyuid($authuid)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findtipperbyuid($authuid)');
+    final Tipper? localMatch = _tippers.firstWhereOrNull(
+      (tipper) => tipper.authuid == authuid,
+    );
+    if (localMatch != null) {
+      return localMatch;
     }
 
-    return _tippers.firstWhereOrNull((tipper) => tipper.authuid == authuid);
+    return _findTipperByFieldInDb('authuid', authuid);
   }
 
   Future<Tipper?> _findTipperByEmail(String email) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial tipper load to complete, findtipperbyemail($email)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findtipperbyemail($email)');
+    final Tipper? localMatch = _tippers.firstWhereOrNull(
+      (tipper) => tipper.email == email,
+    );
+    if (localMatch != null) {
+      return localMatch;
     }
-    return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
+
+    return _findTipperByFieldInDb('email', email);
   }
 
   Future<Tipper?> _findTipperByLogon(String logon) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial tipper load to complete, findtipperbylogon($logon)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findtipperbylogon($logon)');
+    final Tipper? localMatch = _tippers.firstWhereOrNull(
+      (tipper) => tipper.logon == logon,
+    );
+    if (localMatch != null) {
+      return localMatch;
     }
-    return _tippers.firstWhereOrNull((tipper) => tipper.logon == logon);
+
+    return _findTipperByFieldInDb('logon', logon);
   }
 
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
   Future<Tipper?> findTipper(String tipperDbKey) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial Tipper load to complete in findTipper($tipperDbKey)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findTipper($tipperDbKey)');
+    final Tipper? localMatch = _tippers.firstWhereOrNull(
+      (tipper) => tipper.dbkey == tipperDbKey,
+    );
+    if (localMatch != null) {
+      return localMatch;
     }
-    return _tippers.firstWhereOrNull((tipper) => tipper.dbkey == tipperDbKey);
+
+    return _findTipperByDbKeyInDb(tipperDbKey);
   }
 
   Future<void> _createNewTipper(Tipper newTipper) async {
-    await _initialLoadCompleter.future;
-
     if (newTipper.dbkey == null) {
       log('TippersViewModel() Adding new Tipper record');
       // add new record to updates Map, create a new db key first

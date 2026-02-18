@@ -33,30 +33,26 @@ class TipsTabState extends State<TipsTab> {
     log('TipsPageBody.constructor()');
     super.initState();
 
-    if (daucompsViewModel.selectedDAUComp == null) {
+    focusNode = FocusNode();
+    scrollController = ScrollController();
+
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null) {
       log('TipsPageBody.initState() selectedDAUComp is null');
       return;
     }
 
-    latestRoundNumber = daucompsViewModel.selectedDAUComp!
-        .latestsCompletedRoundNumber();
+    latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
     log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
 
-    focusNode = FocusNode();
-
     final initialOffset =
-        daucompsViewModel.selectedDAUComp!.pixelHeightUpToRound(
-          latestRoundNumber,
-        ) +
-        initialScrollOffset;
+        selectedComp.pixelHeightUpToRound(latestRoundNumber) + initialScrollOffset;
 
-    scrollController = ScrollController();
-
-    // Wait until the first frame is rendered, then jump to the offset
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        scrollController.jumpTo(initialOffset);
+      if (!mounted || !scrollController.hasClients) {
+        return;
       }
+      scrollController.jumpTo(initialOffset);
     });
   }
 
@@ -91,32 +87,10 @@ class TipsTabState extends State<TipsTab> {
     log('TipsPageBody.build()');
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log(
-        'TipsPageBody.build() selectedDAUComp is null. Trying to change to active comp',
+      log('TipsPageBody.build() selectedDAUComp is null; waiting for load');
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.orange),
       );
-      daucompsViewModel.changeDisplayedDAUComp(
-        daucompsViewModel.activeDAUComp!,
-        false,
-      );
-      if (daucompsViewModel.selectedDAUComp == null) {
-        return Center(
-          child: SizedBox(
-            height: 75,
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              color: Colors.black38,
-              child: Center(
-                child: Text(
-                  'Nothing to see here.\nContact support: https://interview.coach/tipping.',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
-          ),
-        );
-      }
     }
 
     return KeyboardListener(
