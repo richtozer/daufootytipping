@@ -49,9 +49,11 @@ class UserAuthPageState extends State<UserAuthPage> {
   bool _isEmailAuthExpanded = false;
   bool _isPasswordResetMode = false;
   bool _isAuthInProgress = false;
+  bool _isExitActionStarted = false;
   String? _socialAuthError;
   String? _emailAuthError;
   String? _emailAuthInfo;
+  String? _exitActionError;
   Future<void>? _googleSignInInitFuture;
 
   @override
@@ -110,8 +112,58 @@ class UserAuthPageState extends State<UserAuthPage> {
     return await tippersViewModel.updateOrCreateTipper(name, tipper);
   }
 
-  void signOut() async {
+  Future<void> signOut() async {
     await FirebaseAuth.instance.signOut();
+  }
+
+  void _navigateToAppRoot() {
+    if (!mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (BuildContext context) => const MyApp()),
+        (Route<dynamic> route) => false,
+      );
+    });
+  }
+
+  Future<void> _startExitActionIfNeeded() async {
+    if (_isExitActionStarted) {
+      return;
+    }
+    _isExitActionStarted = true;
+
+    if (widget.isUserLoggingOut) {
+      try {
+        await signOut();
+        log('UserAuthPage - user signed out');
+        _navigateToAppRoot();
+      } catch (e) {
+        log('UserAuthPage - sign out failed: $e');
+        if (mounted) {
+          setState(() {
+            _exitActionError = 'Sign out failed. Please try again.';
+          });
+        }
+      }
+      return;
+    }
+
+    if (widget.isUserDeletingAccount) {
+      final result = await di<TippersViewModel>().deleteAccount();
+      if (result == null) {
+        log('UserAuthPage - user deleted account');
+        _navigateToAppRoot();
+      } else if (mounted) {
+        setState(() {
+          _exitActionError = result;
+        });
+      }
+    }
   }
 
   void _initializeFirebaseMessagingService() {
@@ -953,36 +1005,19 @@ class UserAuthPageState extends State<UserAuthPage> {
   @override
   Widget build(BuildContext context) {
     log('UserAuthPage.build()');
-    if (widget.isUserLoggingOut) {
-      signOut();
-      log('UserAuthPage.build() - user signed out');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (BuildContext context) => const MyApp()),
-          (Route<dynamic> route) => false,
+    if (widget.isUserLoggingOut || widget.isUserDeletingAccount) {
+      _startExitActionIfNeeded();
+
+      if (_exitActionError != null) {
+        return LoginIssueScreen(
+          message: _exitActionError!,
+          displaySignOutButton: false,
         );
-      });
-    }
-    if (widget.isUserDeletingAccount) {
-      di<TippersViewModel>().deleteAccount().then((result) {
-        if (result == null) {
-          log('UserAuthPage.build() - user deleted account');
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (BuildContext context) => const MyApp(),
-              ),
-              (Route<dynamic> route) => false,
-            );
-          });
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(result)));
-          }
-        }
-      });
+      }
+
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Colors.orange)),
+      );
     }
 
     return Scaffold(
