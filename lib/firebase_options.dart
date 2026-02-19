@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAdZVs0quoE0w4lc8AsJ3q86bLylnZ1pag',
+    apiKey: 'AIzaSyAr66sIpSZ8ett52LbTOHa9zDxhcClUcMs',
     appId: '1:1008137398618:ios:30530140c0051760d6ab63',
     messagingSenderId: '1008137398618',
     projectId: 'dau-footy-tipping-f8a42',
@@ -81,7 +81,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAdZVs0quoE0w4lc8AsJ3q86bLylnZ1pag',
+    apiKey: 'AIzaSyAr66sIpSZ8ett52LbTOHa9zDxhcClUcMs',
     appId: '1:1008137398618:ios:f5b2ad52ed9d93e8d6ab63',
     messagingSenderId: '1008137398618',
     projectId: 'dau-footy-tipping-f8a42',
