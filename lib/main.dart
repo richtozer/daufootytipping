@@ -38,6 +38,17 @@ Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
+  // On web, the App Check debug token must be set before Firebase is initialized.
+  if (kIsWeb) {
+    if (kDebugMode) {
+      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = true;
+      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to true');
+    } else {
+      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = false;
+      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to false');
+    }
+  }
+
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -64,24 +75,26 @@ Future<void> main() async {
     );
     log('FirebaseAppCheck activated');
   } else {
-    await FirebaseAppCheck.instance.activate(
-      providerAndroid: const AndroidDebugProvider(),
-      providerApple: const AppleDebugProvider(),
-      providerWeb: ReCaptchaEnterpriseProvider(
-        //temporarily use prod key in debug
-        '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
-      ),
-    );
-    log('FirebaseAppCheck activated in debug mode');
-  }
-
-  if (kIsWeb) {
-    if (kDebugMode) {
-      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = true;
-      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to true');
-    } else {
-      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = false;
-      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to false');
+    try {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: const AndroidDebugProvider(),
+        providerApple: const AppleDebugProvider(),
+        providerWeb: ReCaptchaEnterpriseProvider(
+          //temporarily use prod key in debug
+          '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
+        ),
+      );
+      log('FirebaseAppCheck activated in debug mode');
+    } catch (error, stackTrace) {
+      if (kIsWeb) {
+        log(
+          'FirebaseAppCheck debug activation failed on web; continuing for local debug.',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      } else {
+        rethrow;
+      }
     }
   }
 
