@@ -138,8 +138,45 @@ Future<void> main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  String? _registeredActiveCompKey;
+  bool? _registeredCreateLinkedTipper;
+
+  bool _hasRequiredBootstrapConfig(ConfigViewModel configViewModel) {
+    return configViewModel.activeDAUComp != null &&
+        configViewModel.createLinkedTipper != null;
+  }
+
+  void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
+    final String activeCompKey = configViewModel.activeDAUComp!;
+    final bool createLinkedTipper = configViewModel.createLinkedTipper!;
+    final bool needsRegistration =
+        !di.isRegistered<DAUCompsViewModel>() ||
+        !di.isRegistered<TippersViewModel>() ||
+        _registeredActiveCompKey != activeCompKey ||
+        _registeredCreateLinkedTipper != createLinkedTipper;
+
+    if (!needsRegistration) {
+      return;
+    }
+
+    _registeredActiveCompKey = activeCompKey;
+    _registeredCreateLinkedTipper = createLinkedTipper;
+
+    di.registerLazySingleton<TippersViewModel>(
+      () => TippersViewModel(createLinkedTipper),
+    );
+    di.registerLazySingleton<DAUCompsViewModel>(
+      () => DAUCompsViewModel(activeCompKey, false),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,8 +212,8 @@ class MyApp extends StatelessWidget {
                         );
                       }
 
-                      // if config is null display error
-                      if (configViewModel.activeDAUComp == null) {
+                      // if required config is missing, display error
+                      if (!_hasRequiredBootstrapConfig(configViewModel)) {
                         // display LoginErrorScreen
                         return LoginIssueScreen(
                           message:
@@ -184,18 +221,7 @@ class MyApp extends StatelessWidget {
                           displaySignOutButton: false,
                         );
                       } else {
-                        di.registerLazySingleton<DAUCompsViewModel>(
-                          () => DAUCompsViewModel(
-                            configViewModel.activeDAUComp!,
-                            false,
-                          ),
-                        );
-
-                        di.registerLazySingleton<TippersViewModel>(
-                          () => TippersViewModel(
-                            configViewModel.createLinkedTipper!,
-                          ),
-                        );
+                        _registerCoreViewModelsIfNeeded(configViewModel);
 
                         return UserAuthPage(
                           configViewModel.minAppVersion,

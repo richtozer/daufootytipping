@@ -225,9 +225,11 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   void _initializeFirebaseMessagingService() {
     if (!kIsWeb) {
-      di.registerLazySingleton<FirebaseMessagingService>(
-        () => FirebaseMessagingService(),
-      );
+      if (!di.isRegistered<FirebaseMessagingService>()) {
+        di.registerLazySingleton<FirebaseMessagingService>(
+          () => FirebaseMessagingService(),
+        );
+      }
       di<FirebaseMessagingService>().initializeFirebaseMessaging();
     }
   }

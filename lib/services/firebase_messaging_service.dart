@@ -11,6 +11,7 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 
 class FirebaseMessagingService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  Future<void>? _initializationFuture;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -23,34 +24,44 @@ class FirebaseMessagingService {
 
   static const tokenExpirationDuration = 60 * 60 * 1000 * 24 * 30; // 30 days
 
-  Future<void> initializeFirebaseMessaging() async {
-    log('Initializing Firebase messaging');
+  Future<void> initializeFirebaseMessaging() {
+    _initializationFuture ??= _initializeFirebaseMessagingInternal();
+    return _initializationFuture!;
+  }
 
-    if (Platform.isIOS) {
-      await _requestIOSNotificationPermission();
+  Future<void> _initializeFirebaseMessagingInternal() async {
+    try {
+      log('Initializing Firebase messaging');
+
+      if (Platform.isIOS) {
+        await _requestIOSNotificationPermission();
+      }
+
+      await _retrieveToken();
+
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+
+      // Listening for token refresh events
+      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+        log('New messaging token received, updating database: $newToken');
+        _fbmToken = newToken;
+        await _saveTokenToDatabase(newToken);
+      });
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        log('Received a message while in the foreground: ${message.messageId}');
+        // Handle the message
+      });
+
+      // Handle background messages
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
     }
-
-    await _retrieveToken();
-
-    if (!_initialLoadCompleter.isCompleted) {
-      _initialLoadCompleter.complete();
-    }
-
-    // Listening for token refresh events
-    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-      log('New messaging token received, updating database: $newToken');
-      _fbmToken = newToken;
-      await _saveTokenToDatabase(newToken);
-    });
-
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      log('Received a message while in the foreground: ${message.messageId}');
-      // Handle the message
-    });
-
-    // Handle background messages
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
 
   Future<void> _retrieveToken() async {

@@ -95,10 +95,49 @@ class ConfigViewModel extends ChangeNotifier {
   }
 
   void _processSnapshot(DataSnapshot snapshot) {
-    _activeDAUComp = snapshot.child(p.currentDAUCompKey).value.toString();
-    _minAppVersion = snapshot.child(p.minAppVersionKey).value.toString();
-    _createLinkedTipper = snapshot.child(p.createLinkedTipperKey).value as bool;
-    _googleClientId = snapshot.child(p.googleClientIdKey).value.toString();
+    _activeDAUComp = _parseOptionalString(
+      snapshot.child(p.currentDAUCompKey).value,
+    );
+    _minAppVersion = _parseOptionalString(
+      snapshot.child(p.minAppVersionKey).value,
+    );
+    _createLinkedTipper = _parseOptionalBool(
+      snapshot.child(p.createLinkedTipperKey).value,
+    );
+    _googleClientId = _parseOptionalString(
+      snapshot.child(p.googleClientIdKey).value,
+    );
+  }
+
+  String? _parseOptionalString(Object? value) {
+    if (value is! String) {
+      return null;
+    }
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'null') {
+      return null;
+    }
+    return trimmed;
+  }
+
+  bool? _parseOptionalBool(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    if (value is String) {
+      switch (value.trim().toLowerCase()) {
+        case 'true':
+        case '1':
+          return true;
+        case 'false':
+        case '0':
+          return false;
+      }
+    }
+    return null;
   }
 
   Future<void> setConfigCurrentDAUComp(String value) async {
