@@ -357,6 +357,21 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
       log('DAUCompsViewModel_handleEvent()');
+      final bool isFirstLoad = !_initialDAUCompLoadCompleter.isCompleted;
+      final Stopwatch processingStopwatch = Stopwatch()..start();
+      final dynamic rawValue = event.snapshot.value;
+      final int entryCount = rawValue is Map ? rawValue.length : 0;
+      final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
+      StartupProfiling.instant(
+        'startup.daucomps_snapshot_received',
+        arguments: <String, Object?>{
+          'exists': event.snapshot.exists,
+          'entryCount': entryCount,
+          'payloadBytes': payloadBytes ?? -1,
+          'firstLoad': isFirstLoad,
+        },
+      );
+
       if (event.snapshot.exists) {
         final value = event.snapshot.value as dynamic;
         final databaseMap = Map<String, dynamic>.from(value as Map);
@@ -390,6 +405,15 @@ class DAUCompsViewModel extends ChangeNotifier {
         _initialDAUCompLoadCompleter.complete();
       }
 
+      processingStopwatch.stop();
+      StartupProfiling.instant(
+        'startup.daucomps_snapshot_processed',
+        arguments: <String, Object?>{
+          'elapsedMs': processingStopwatch.elapsedMilliseconds,
+          'daucompsCount': _daucomps.length,
+          'firstLoad': isFirstLoad,
+        },
+      );
       notifyListeners();
     } catch (e) {
       log('Error listening to $daucompsPath: $e');

@@ -69,6 +69,21 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
+    final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
+    final Stopwatch processingStopwatch = Stopwatch()..start();
+    final dynamic rawValue = event.snapshot.value;
+    final int entryCount = rawValue is Map ? rawValue.length : 0;
+    final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
+    StartupProfiling.instant(
+      'startup.tippers_snapshot_received',
+      arguments: <String, Object?>{
+        'exists': event.snapshot.exists,
+        'entryCount': entryCount,
+        'payloadBytes': payloadBytes ?? -1,
+        'firstLoad': isFirstLoad,
+      },
+    );
+
     if (event.snapshot.exists) {
       log('TippersViewModel() Tippers db Listener called');
       List<Tipper?> tippersList = Tipper.fromJsonList(event.snapshot.value);
@@ -92,6 +107,15 @@ class TippersViewModel extends ChangeNotifier {
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
+    processingStopwatch.stop();
+    StartupProfiling.instant(
+      'startup.tippers_snapshot_processed',
+      arguments: <String, Object?>{
+        'elapsedMs': processingStopwatch.elapsedMilliseconds,
+        'tippersCount': _tippers.length,
+        'firstLoad': isFirstLoad,
+      },
+    );
     notifyListeners();
   }
 

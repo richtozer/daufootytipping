@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -21,6 +22,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:universal_html/js.dart' as js;
 
 Future<void> main() async {
+  StartupProfiling.instant('startup.main_entered');
   const bool useFirebaseEmulators = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
     defaultValue: true,
@@ -136,6 +138,7 @@ Future<void> main() async {
       child: MyApp(),
     ),
   );
+  StartupProfiling.instant('startup.run_app_called');
 }
 
 class MyApp extends StatefulWidget {

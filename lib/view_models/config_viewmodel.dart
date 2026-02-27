@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
@@ -43,6 +44,19 @@ class ConfigViewModel extends ChangeNotifier {
   void _listenToConfigChanges() {
     _configStream = _db.onValue.listen(
       (event) {
+        final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
+        final Stopwatch processingStopwatch = Stopwatch()..start();
+        final dynamic rawValue = event.snapshot.value;
+        final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
+        StartupProfiling.instant(
+          'startup.config_snapshot_received',
+          arguments: <String, Object?>{
+            'exists': event.snapshot.exists,
+            'payloadBytes': payloadBytes ?? -1,
+            'firstLoad': isFirstLoad,
+          },
+        );
+
         if (event.snapshot.exists) {
           _processSnapshot(event.snapshot);
         } else {
@@ -54,6 +68,14 @@ class ConfigViewModel extends ChangeNotifier {
         if (!_initialLoadCompleter.isCompleted) {
           _initialLoadCompleter.complete();
         }
+        processingStopwatch.stop();
+        StartupProfiling.instant(
+          'startup.config_snapshot_processed',
+          arguments: <String, Object?>{
+            'elapsedMs': processingStopwatch.elapsedMilliseconds,
+            'firstLoad': isFirstLoad,
+          },
+        );
         notifyListeners();
       },
       onError: (error) {

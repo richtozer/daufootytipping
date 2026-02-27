@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/foundation.dart';
 
@@ -99,5 +100,20 @@ class StartupProfiling {
         '[startup-profile] $name epochMs=$epochMs args=$arguments';
     log(message);
     debugPrint(message);
+  }
+
+  /// Estimates payload size for JSON-like objects while profiling is enabled.
+  static int? estimatePayloadBytes(dynamic payload) {
+    if (!enabled || payload == null) {
+      return null;
+    }
+    try {
+      if (payload is String) {
+        return payload.length;
+      }
+      return utf8.encode(jsonEncode(payload)).length;
+    } catch (_) {
+      return null;
+    }
   }
 }
