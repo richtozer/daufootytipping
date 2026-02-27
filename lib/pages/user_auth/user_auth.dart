@@ -1080,8 +1080,10 @@ class UserAuthPageState extends State<UserAuthPage> {
     return Scaffold(
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
+        initialData: FirebaseAuth.instance.currentUser,
         builder: (context, authSnapshot) {
-          final User? authenticatedFirebaseUser = authSnapshot.data;
+          final User? authenticatedFirebaseUser =
+              authSnapshot.data ?? FirebaseAuth.instance.currentUser;
           if (authenticatedFirebaseUser == null) {
             _resetAuthFlowFutures();
           } else {
@@ -1138,6 +1140,12 @@ class UserAuthPageState extends State<UserAuthPage> {
                       ),
                     ],
                   ),
+                );
+              }
+              if (authenticatedFirebaseUser == null &&
+                  authSnapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                  child: CircularProgressIndicator(color: Colors.orange),
                 );
               }
               if (!authSnapshot.hasData) {
