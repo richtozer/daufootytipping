@@ -145,6 +145,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      restorationScopeId: 'app',
       theme: FlexThemeData.light(scheme: FlexScheme.green),
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
