@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -15,19 +16,34 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  int _currentIndex = kIsWeb
-      ? 1
-      : 0; // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the current round when they first load the app, this should be fixed in the future
+class _HomePageState extends State<HomePage> with RestorationMixin {
+  late final RestorableInt _currentIndex = RestorableInt(
+    kIsWeb ? 1 : 0,
+  ); // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the current round when they first load the app, this should be fixed in the future
+  bool _startupReadyMarked = false;
+
+  @override
+  String? get restorationId => 'home_page';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_currentIndex, 'current_tab_index');
+  }
 
   void onTabTapped(int index) {
     setState(() {
-      _currentIndex = index;
+      _currentIndex.value = index;
     });
   }
 
   List<Widget> content() {
     return [TipsTab(), StatsTab(), Profile()];
+  }
+
+  @override
+  void dispose() {
+    _currentIndex.dispose();
+    super.dispose();
   }
 
   @override
@@ -42,9 +58,25 @@ class _HomePageState extends State<HomePage> {
           builder: (context, dauCompsViewModelConsumer, child) {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
+                if (!_startupReadyMarked &&
+                    dauCompsViewModelConsumer.gamesViewModel != null &&
+                    dauCompsViewModelConsumer.selectedTipperTipsViewModel != null) {
+                  _startupReadyMarked = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    StartupProfiling.instant(
+                      'startup.home_models_ready',
+                      arguments: <String, Object?>{
+                        'compDbKey':
+                            dauCompsViewModelConsumer.selectedDAUComp?.dbkey ??
+                            'unknown',
+                      },
+                    );
+                  });
+                }
+
                 if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
-                    _currentIndex == 0) {
-                  _currentIndex = 2;
+                    _currentIndex.value == 0) {
+                  _currentIndex.value = 2;
                 }
 
                 Widget scaffold = Stack(
@@ -64,7 +96,9 @@ class _HomePageState extends State<HomePage> {
                               Brightness.dark
                           ? Colors.white54
                           : Colors.black54,
-                      body: Center(child: (destinationContent[_currentIndex])),
+                      body: Center(
+                        child: destinationContent[_currentIndex.value],
+                      ),
                       bottomNavigationBar: NavigationBar(
                         indicatorColor: Colors.lightGreen[200],
                         indicatorShape: RoundedRectangleBorder(
@@ -73,7 +107,7 @@ class _HomePageState extends State<HomePage> {
                         onDestinationSelected: (int index) {
                           onTabTapped(index);
                         },
-                        selectedIndex: _currentIndex,
+                        selectedIndex: _currentIndex.value,
                         height: 60,
                         destinations: [
                           NavigationDestination(

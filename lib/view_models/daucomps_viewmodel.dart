@@ -27,6 +27,7 @@ import 'package:daufootytipping/services/fixture_update_service.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
@@ -266,37 +267,69 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _initializeUserViewModels() async {
-    await initialDAUCompLoadComplete;
+    await StartupProfiling.trackAsync(
+      'startup.initialize_user_view_models',
+      () async {
+        await initialDAUCompLoadComplete;
 
-    final res = await _selectionInit.initializeUser(
-      selectedComp: _selectedDAUComp!,
-      createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
-      awaitTippersReady: () async {
-        // Do not block startup on loading the full tippers list.
-        await _tippers().isUserLinked;
+        final res = await StartupProfiling.trackAsync(
+          'startup.selection_init_initialize_user',
+          () => _selectionInit.initializeUser(
+            selectedComp: _selectedDAUComp!,
+            createGamesViewModel: () => StartupProfiling.trackSync(
+              'startup.create_games_view_model',
+              () => GamesViewModel(_selectedDAUComp!, this),
+            ),
+            awaitTippersReady: () async {
+              // Do not block startup on loading the full tippers list.
+              await StartupProfiling.trackAsync(
+                'startup.await_user_linked',
+                () => _tippers().isUserLinked,
+              );
+            },
+            createStatsViewModel: (comp, gamesVm) => StartupProfiling.trackSync(
+              'startup.create_stats_view_model',
+              () => StatsViewModel(comp, gamesVm),
+            ),
+            createTipsViewModel: (gamesVm) => StartupProfiling.trackSync(
+              'startup.create_tips_view_model',
+              () => TipsViewModel.forTipper(
+                _tippers(),
+                _selectedDAUComp!,
+                gamesVm,
+                _tippers().selectedTipper,
+              ),
+            ),
+          ),
+          arguments: <String, Object?>{
+            'compDbKey': _selectedDAUComp?.dbkey ?? 'unknown',
+          },
+        );
+
+        // DI registration for StatsViewModel remains in VM
+        if (di.isRegistered<StatsViewModel>()) {
+          di.unregister<StatsViewModel>();
+        }
+        di.registerSingleton<StatsViewModel>(res.statsViewModel);
+
+        gamesViewModel = res.gamesViewModel;
+        statsViewModel = di<StatsViewModel>();
+        selectedTipperTipsViewModel = res.tipsViewModel;
+
+        gamesViewModel!.addListener(_otherViewModelUpdated);
+        statsViewModel!.addListener(_otherViewModelUpdated);
+        selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
+        StartupProfiling.instant(
+          'startup.user_view_models_ready',
+          arguments: <String, Object?>{
+            'compDbKey': _selectedDAUComp?.dbkey ?? 'unknown',
+          },
+        );
       },
-      createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
-      createTipsViewModel: (gamesVm) => TipsViewModel.forTipper(
-        _tippers(),
-        _selectedDAUComp!,
-        gamesVm,
-        _tippers().selectedTipper,
-      ),
+      arguments: <String, Object?>{
+        'compDbKey': _selectedDAUComp?.dbkey ?? 'unknown',
+      },
     );
-
-    // DI registration for StatsViewModel remains in VM
-    if (di.isRegistered<StatsViewModel>()) {
-      di.unregister<StatsViewModel>();
-    }
-    di.registerSingleton<StatsViewModel>(res.statsViewModel);
-
-    gamesViewModel = res.gamesViewModel;
-    statsViewModel = di<StatsViewModel>();
-    selectedTipperTipsViewModel = res.tipsViewModel;
-
-    gamesViewModel!.addListener(_otherViewModelUpdated);
-    statsViewModel!.addListener(_otherViewModelUpdated);
-    selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
   }
 
   Future<void> _initializeAdminViewModels() async {

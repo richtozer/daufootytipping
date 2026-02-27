@@ -47,7 +47,8 @@
       "postDebugTask": "stop firebase emulator",
       "toolArgs": [
         "--dart-define=USE_FIREBASE_EMULATORS=true",
-        "--dart-define=FIREBASE_EMULATOR_HOST=localhost"
+        "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
+        "--dart-define=DEBUG_APPCHECK_TOKEN=0f7a815b-f18d-437b-ad93-1c216ab8548b"
       ]
     }
   ]
