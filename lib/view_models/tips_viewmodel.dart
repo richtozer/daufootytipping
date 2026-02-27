@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
@@ -124,6 +125,13 @@ class TipsViewModel extends ChangeNotifier {
           log(
             'Single tipper tip loading completed in ${stopwatch.elapsedMilliseconds}ms for ${_listOfTips.length} tips',
           );
+          StartupProfiling.instant(
+            'startup.single_tipper_tips_loaded',
+            arguments: <String, Object?>{
+              'elapsedMs': stopwatch.elapsedMilliseconds,
+              'tipCount': _listOfTips.length,
+            },
+          );
         }
       } else {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
@@ -131,6 +139,13 @@ class TipsViewModel extends ChangeNotifier {
     } finally {
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.complete();
+        StartupProfiling.instant(
+          'startup.tips_initial_load_complete',
+          arguments: <String, Object?>{
+            'tipperScoped': _tipper != null,
+            'tipCount': _listOfTips.length,
+          },
+        );
       }
       notifyListeners();
     }

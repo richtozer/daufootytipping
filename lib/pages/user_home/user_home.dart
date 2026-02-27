@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -19,6 +20,7 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = kIsWeb
       ? 1
       : 0; // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the current round when they first load the app, this should be fixed in the future
+  bool _startupReadyMarked = false;
 
   void onTabTapped(int index) {
     setState(() {
@@ -42,6 +44,22 @@ class _HomePageState extends State<HomePage> {
           builder: (context, dauCompsViewModelConsumer, child) {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
+                if (!_startupReadyMarked &&
+                    dauCompsViewModelConsumer.gamesViewModel != null &&
+                    dauCompsViewModelConsumer.selectedTipperTipsViewModel != null) {
+                  _startupReadyMarked = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    StartupProfiling.instant(
+                      'startup.home_models_ready',
+                      arguments: <String, Object?>{
+                        'compDbKey':
+                            dauCompsViewModelConsumer.selectedDAUComp?.dbkey ??
+                            'unknown',
+                      },
+                    );
+                  });
+                }
+
                 if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
                     _currentIndex == 0) {
                   _currentIndex = 2;

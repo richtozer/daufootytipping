@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -111,6 +112,10 @@ class GamesViewModel extends ChangeNotifier {
 
         gamesList.sort();
         _games = gamesList;
+        StartupProfiling.instant(
+          'startup.games_snapshot_deserialized',
+          arguments: <String, Object?>{'gameCount': _games.length},
+        );
         log(
           'GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}',
         );
@@ -120,6 +125,13 @@ class GamesViewModel extends ChangeNotifier {
 
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.complete();
+        StartupProfiling.instant(
+          'startup.games_initial_load_complete',
+          arguments: <String, Object?>{
+            'gameCount': _games.length,
+            'compDbKey': selectedDAUComp.dbkey ?? 'unknown',
+          },
+        );
       }
 
       // Link games with rounds

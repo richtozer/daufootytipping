@@ -5,6 +5,7 @@ import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -138,8 +139,20 @@ class UserAuthPageState extends State<UserAuthPage> {
       _linkOrCreateTipperKey = null;
       _newTipperDialogShown = false;
       _authFlowUid = authenticatedFirebaseUser.uid;
+      StartupProfiling.instant(
+        'startup.auth_state_authenticated',
+        arguments: <String, Object?>{
+          'isAnonymous': authenticatedFirebaseUser.isAnonymous,
+        },
+      );
     }
-    _existingTipperFuture ??= _linkUserToTipper();
+    _existingTipperFuture ??= StartupProfiling.trackAsync(
+      'startup.link_user_to_tipper',
+      _linkUserToTipper,
+      arguments: <String, Object?>{
+        'isAnonymous': authenticatedFirebaseUser.isAnonymous,
+      },
+    );
   }
 
   Future<bool> _ensureLinkOrCreateTipperFuture({
@@ -149,7 +162,13 @@ class UserAuthPageState extends State<UserAuthPage> {
   }) {
     if (_linkOrCreateTipperFuture == null || _linkOrCreateTipperKey != key) {
       _linkOrCreateTipperKey = key;
-      _linkOrCreateTipperFuture = _updateOrCreateTipper(name, tipper);
+      _linkOrCreateTipperFuture = StartupProfiling.trackAsync(
+        'startup.update_or_create_tipper',
+        () => _updateOrCreateTipper(name, tipper),
+        arguments: <String, Object?>{
+          'hasExistingTipper': tipper != null,
+        },
+      );
     }
     return _linkOrCreateTipperFuture!;
   }
