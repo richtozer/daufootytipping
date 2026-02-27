@@ -27,8 +27,6 @@ const String nrlFixtureJsonURLKey = 'nrlFixtureJsonURL';
 const String lastFixtureUTCKey = 'lastFixtureUTC';
 const String aflRegularCompEndDateUTCKey = 'aflRegularCompEndDateUTC';
 const String nrlRegularCompEndDateUTCKey = 'nrlRegularCompEndDateUTC';
-const String aflFixtureBaselineKey = 'aflFixtureBaseline';
-const String nrlFixtureBaselineKey = 'nrlFixtureBaseline';
 
 /// Other RTDB roots.
 const String tokensPath = '/AllTippersTokens';

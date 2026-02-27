@@ -13,8 +13,6 @@ class DAUComp implements Comparable<DAUComp> {
   final Uri aflFixtureJsonURL;
   final Uri nrlFixtureJsonURL;
   List<DAURound> daurounds;
-  final List<dynamic>? aflBaseline;
-  final List<dynamic>? nrlBaseline;
 
   DateTime? lastFixtureUpdateTimestampUTC;
   DateTime?
@@ -33,8 +31,6 @@ class DAUComp implements Comparable<DAUComp> {
     this.lastFixtureUpdateTimestampUTC,
     this.aflRegularCompEndDateUTC,
     this.nrlRegularCompEndDateUTC,
-    this.aflBaseline,
-    this.nrlBaseline,
   });
 
   // method to return the highest round number where roundEndDate is the past UTC
@@ -154,8 +150,6 @@ class DAUComp implements Comparable<DAUComp> {
       nrlRegularCompEndDateUTC: data[p.nrlRegularCompEndDateUTCKey] != null
           ? DateTime.parse(data[p.nrlRegularCompEndDateUTCKey])
           : null,
-      aflBaseline: data[p.aflFixtureBaselineKey] ?? [],
-      nrlBaseline: data[p.nrlFixtureBaselineKey] ?? [],
     );
   }
 
@@ -195,9 +189,7 @@ class DAUComp implements Comparable<DAUComp> {
         other.lastFixtureUpdateTimestampUTC == lastFixtureUpdateTimestampUTC &&
         other.aflRegularCompEndDateUTC == aflRegularCompEndDateUTC &&
         other.nrlRegularCompEndDateUTC == nrlRegularCompEndDateUTC &&
-        const DeepCollectionEquality().equals(other.daurounds, daurounds) &&
-        const DeepCollectionEquality().equals(other.nrlBaseline, nrlBaseline) &&
-        const DeepCollectionEquality().equals(other.aflBaseline, aflBaseline);
+        const DeepCollectionEquality().equals(other.daurounds, daurounds);
   }
 
   @override

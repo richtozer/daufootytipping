@@ -522,34 +522,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     );
     await saveBatchOfCompAttributes();
 
-    if ((daucompToUpdate.nrlBaseline == null ||
-            daucompToUpdate.nrlBaseline!.isEmpty) &&
-        (daucompToUpdate.aflBaseline == null ||
-            daucompToUpdate.aflBaseline!.isEmpty)) {
-      _saveBaselineFixtureData(
-        nrlGames,
-        aflGames,
-        daucompToUpdate,
-      );
-    }
-
     return res;
-  }
-
-  //store the baseline fixture data in the database - we will use it later to compare
-  void _saveBaselineFixtureData(
-    List<dynamic> nrlGames,
-    List<dynamic> aflGames,
-    DAUComp daucomp,
-  ) {
-    DatabaseReference nrlRawRef = _db.child(
-      '$daucompsPath/${daucomp.dbkey}/$nrlFixtureBaselineKey',
-    );
-    DatabaseReference aflRawRef = _db.child(
-      '$daucompsPath/${daucomp.dbkey}/$aflFixtureBaselineKey',
-    );
-    nrlRawRef.set(nrlGames);
-    aflRawRef.set(aflGames);
   }
 
   // tagging handled via FixtureImportApplier
