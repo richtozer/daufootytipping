@@ -339,19 +339,65 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
         run: |
+          set -euo pipefail
           mkdir -p "$HOME/.appstoreconnect/private_keys"
           key_path="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
           printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" > "$key_path"
           chmod 600 "$key_path"
 
-          xcrun altool \
-            --upload-app \
-            --type ios \
-            --file "${{ steps.ipa.outputs.path }}" \
-            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+          max_attempts=5
+          attempt=1
+          ipa_path="${{ steps.ipa.outputs.path }}"
+
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "Starting TestFlight upload attempt $attempt/$max_attempts..."
+
+            set +e
+            upload_output="$(xcrun altool \
+              --upload-app \
+              --type ios \
+              --file "$ipa_path" \
+              --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+              --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" 2>&1)"
+            upload_status=$?
+            set -e
+
+            echo "$upload_output"
+
+            has_failure_markers=0
+            if echo "$upload_output" | grep -Eqi \
+              'UPLOAD FAILED|Failed to upload package|Error uploading|did not receive a response|The Internet connection appears to be offline|The network connection was lost'; then
+              has_failure_markers=1
+            fi
+
+            if [ "$upload_status" -eq 0 ] && [ "$has_failure_markers" -eq 0 ]; then
+              echo "TestFlight upload completed successfully."
+              exit 0
+            fi
+
+            is_transient_network_error=0
+            if echo "$upload_output" | grep -Eqi \
+              'NSURLErrorDomain Code=-1009|NSURLErrorDomain Code=-1005|kCFErrorDomainCFNetwork error -1009|kCFErrorDomainCFNetwork error -1005|No network route|did not receive a response|The Internet connection appears to be offline|The network connection was lost'; then
+              is_transient_network_error=1
+            fi
+
+            if [ "$is_transient_network_error" -eq 1 ] && [ "$attempt" -lt "$max_attempts" ]; then
+              backoff_seconds=$((attempt * 30))
+              echo "::warning::Transient network failure during TestFlight upload. Retrying in ${backoff_seconds}s (attempt $attempt/$max_attempts)."
+              sleep "$backoff_seconds"
+              attempt=$((attempt + 1))
+              continue
+            fi
+
+            echo "::error::TestFlight upload failed (attempt $attempt/$max_attempts)."
+            exit 1
+          done
+
+          echo "::error::TestFlight upload failed after $max_attempts attempts."
+          exit 1
 
       - name: Tag successful iOS TestFlight build
+        if: ${{ success() }}
         run: |
           set -euo pipefail
           tag_name="ios-testflight-build-${{ steps.app_version.outputs.build_number }}"
