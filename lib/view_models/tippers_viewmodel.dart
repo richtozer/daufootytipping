@@ -18,6 +18,10 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
   List<Tipper> get tippers => _tippers;
+  final Map<String, Tipper> _tippersByDbKey = {};
+  final Map<String, Tipper> _tippersByUid = {};
+  final Map<String, Tipper> _tippersByEmail = {};
+  final Map<String, Tipper> _tippersByLogon = {};
 
   late Tipper _selectedTipper;
   Tipper get selectedTipper => _selectedTipper;
@@ -79,6 +83,7 @@ class TippersViewModel extends ChangeNotifier {
 
       // do a default sort by login date
       _sortTippersByLogin(false);
+      _rebuildIndexes();
 
       log(
         'TippersViewModel() Tipper db Listener: ${_tippers.length} tippers found in database',
@@ -107,15 +112,46 @@ class TippersViewModel extends ChangeNotifier {
     _tippers = sortedEntries;
   }
 
+  String _normalizedLookupKey(String? value) {
+    return value?.trim().toLowerCase() ?? '';
+  }
+
+  void _rebuildIndexes() {
+    _tippersByDbKey.clear();
+    _tippersByUid.clear();
+    _tippersByEmail.clear();
+    _tippersByLogon.clear();
+
+    for (final tipper in _tippers) {
+      final String? dbkey = tipper.dbkey;
+      if (dbkey != null && dbkey.isNotEmpty) {
+        _tippersByDbKey[dbkey] = tipper;
+      }
+      if (tipper.authuid.isNotEmpty) {
+        _tippersByUid[tipper.authuid] = tipper;
+      }
+      final String normalizedEmail = _normalizedLookupKey(tipper.email);
+      if (normalizedEmail.isNotEmpty) {
+        _tippersByEmail[normalizedEmail] = tipper;
+      }
+      final String normalizedLogon = _normalizedLookupKey(tipper.logon);
+      if (normalizedLogon.isNotEmpty) {
+        _tippersByLogon[normalizedLogon] = tipper;
+      }
+    }
+  }
+
   void _upsertTipperInCache(Tipper tipper) {
     final int existingIndex = _tippers.indexWhere(
       (existingTipper) => existingTipper.dbkey == tipper.dbkey,
     );
     if (existingIndex >= 0) {
       _tippers[existingIndex] = tipper;
+      _rebuildIndexes();
       return;
     }
     _tippers.add(tipper);
+    _rebuildIndexes();
   }
 
   Future<Tipper?> _findTipperByFieldInDb(
@@ -292,9 +328,7 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<Tipper?> findTipperByUid(String authuid) async {
-    final Tipper? localMatch = _tippers.firstWhereOrNull(
-      (tipper) => tipper.authuid == authuid,
-    );
+    final Tipper? localMatch = _tippersByUid[authuid];
     if (localMatch != null) {
       return localMatch;
     }
@@ -302,33 +336,9 @@ class TippersViewModel extends ChangeNotifier {
     return _findTipperByFieldInDb('authuid', authuid);
   }
 
-  Future<Tipper?> _findTipperByEmail(String email) async {
-    final Tipper? localMatch = _tippers.firstWhereOrNull(
-      (tipper) => tipper.email == email,
-    );
-    if (localMatch != null) {
-      return localMatch;
-    }
-
-    return _findTipperByFieldInDb('email', email);
-  }
-
-  Future<Tipper?> _findTipperByLogon(String logon) async {
-    final Tipper? localMatch = _tippers.firstWhereOrNull(
-      (tipper) => tipper.logon == logon,
-    );
-    if (localMatch != null) {
-      return localMatch;
-    }
-
-    return _findTipperByFieldInDb('logon', logon);
-  }
-
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
   Future<Tipper?> findTipper(String tipperDbKey) async {
-    final Tipper? localMatch = _tippers.firstWhereOrNull(
-      (tipper) => tipper.dbkey == tipperDbKey,
-    );
+    final Tipper? localMatch = _tippersByDbKey[tipperDbKey];
     if (localMatch != null) {
       return localMatch;
     }
@@ -415,13 +425,36 @@ class TippersViewModel extends ChangeNotifier {
       );
       return null; // Anonymous users won't have an existing Tipper
     }
-    Tipper? foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
+    final String uid = authenticatedFirebaseUser.uid;
+    final String? email = authenticatedFirebaseUser.email;
 
-    foundTipper ??= await _findTipperByLogon(authenticatedFirebaseUser.email!);
+    final Tipper? localByUid = _tippersByUid[uid];
+    if (localByUid != null) {
+      return localByUid;
+    }
 
-    foundTipper ??= await _findTipperByEmail(authenticatedFirebaseUser.email!);
+    if (email != null && email.isNotEmpty) {
+      final String normalizedEmail = _normalizedLookupKey(email);
+      final Tipper? localByLogon = _tippersByLogon[normalizedEmail];
+      if (localByLogon != null) {
+        return localByLogon;
+      }
+      final Tipper? localByEmail = _tippersByEmail[normalizedEmail];
+      if (localByEmail != null) {
+        return localByEmail;
+      }
+    }
 
-    return foundTipper;
+    final List<Future<Tipper?>> lookupFutures = [
+      _findTipperByFieldInDb('authuid', uid),
+    ];
+    if (email != null && email.isNotEmpty) {
+      lookupFutures.add(_findTipperByFieldInDb('logon', email));
+      lookupFutures.add(_findTipperByFieldInDb('email', email));
+    }
+
+    final List<Tipper?> matches = await Future.wait(lookupFutures);
+    return matches.firstWhereOrNull((tipper) => tipper != null);
   }
 
   Future<void> _updateExistingTipper(

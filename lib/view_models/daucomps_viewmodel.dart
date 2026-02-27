@@ -272,7 +272,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       selectedComp: _selectedDAUComp!,
       createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
       awaitTippersReady: () async {
-        await _tippers().initialLoadComplete;
+        // Do not block startup on loading the full tippers list.
         await _tippers().isUserLinked;
       },
       createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),

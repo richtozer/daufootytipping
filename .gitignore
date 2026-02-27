@@ -51,6 +51,9 @@ migrate_working_dir/
 .full_tests.json
 .full_tests.txt
 
+# Playwright CLI artifacts and local browser profiles
+/.playwright-cli/
+
 # Symbolication related
 app.*.symbols
 

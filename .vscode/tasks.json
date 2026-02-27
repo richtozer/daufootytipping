@@ -35,17 +35,53 @@
       ]
     },
     {
+      "label": "start firebase emulators (web debug seeded)",
+      "type": "shell",
+      "isBackground": true,
+      // Starts function TypeScript watch mode and Firebase emulators for local app debugging.
+      "command": "npm --prefix ./functions run build -- -w & firebase emulators:start --inspect-functions",
+      "presentation": { "reveal": "silent", "close": true },
+      "problemMatcher": [
+        {
+          "pattern": [
+            {
+              "regexp": ".",
+              "file": 1,
+              "line": 1,
+              "column": 1,
+              "message": 1
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": { "regexp": "." },
+            "endsPattern": { "regexp": ".*All emulators ready.*" }
+          }
+        }
+      ]
+    },
+    {
+      "label": "seed firebase rtdb emulator from extract",
+      "type": "shell",
+      "dependsOn": ["start firebase emulators (web debug seeded)"],
+      "dependsOrder": "sequence",
+      // Replaces the emulator RTDB contents with the selected JSON extract.
+      "command": "bash ./scripts/seed_rtdb_emulator.sh \"${workspaceFolder}/${input:rtdbExtractPath}\"",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
       "label": "stop firebase emulator",
-      "command": "echo ${input:terminate}",
-      "type": "shell"
+      "type": "shell",
+      "command": "bash ./scripts/stop_firebase_emulators_vscode.sh",
+      "presentation": { "reveal": "silent", "panel": "shared" }
     }
   ],
   "inputs": [
     {
-      "id": "terminate",
-      "type": "command",
-      "command": "workbench.action.tasks.terminate",
-      "args": "terminateAll"
+      "id": "rtdbExtractPath",
+      "type": "promptString",
+      "description": "Relative path to the RTDB JSON extract to seed into the emulator",
+      "default": "test/data/dau-footy-tipping-f8a42-default-rtdb-export-end-of-comp-2025.json"
     }
   ]
 }
