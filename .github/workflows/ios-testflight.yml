@@ -55,6 +55,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Ensure App.framework minimum iOS version
+        run: |
+          set -euo pipefail
+          app_framework_plist="ios/Flutter/AppFrameworkInfo.plist"
+          if [ ! -f "$app_framework_plist" ]; then
+            echo "Missing $app_framework_plist"
+            exit 1
+          fi
+
+          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 15.0" "$app_framework_plist" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 15.0" "$app_framework_plist"
+
+          echo "App.framework MinimumOSVersion:"
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$app_framework_plist"
+
       - name: Read app version from pubspec
         id: app_version
         run: |
