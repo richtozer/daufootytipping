@@ -55,10 +55,17 @@ class UserAuthPageState extends State<UserAuthPage> {
   String? _emailAuthInfo;
   String? _exitActionError;
   Future<void>? _googleSignInInitFuture;
+  Future<bool>? _clientVersionOutOfDateFuture;
+  Future<Tipper?>? _existingTipperFuture;
+  Future<bool>? _linkOrCreateTipperFuture;
+  String? _authFlowUid;
+  String? _linkOrCreateTipperKey;
+  bool _newTipperDialogShown = false;
 
   @override
   void initState() {
     super.initState();
+    _clientVersionOutOfDateFuture = isClientVersionOutOfDate();
   }
 
   @override
@@ -114,6 +121,37 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   Future<void> signOut() async {
     await FirebaseAuth.instance.signOut();
+  }
+
+  void _resetAuthFlowFutures() {
+    _existingTipperFuture = null;
+    _linkOrCreateTipperFuture = null;
+    _authFlowUid = null;
+    _linkOrCreateTipperKey = null;
+    _newTipperDialogShown = false;
+  }
+
+  void _ensureAuthFlowForUser(User authenticatedFirebaseUser) {
+    if (_authFlowUid != authenticatedFirebaseUser.uid) {
+      _existingTipperFuture = null;
+      _linkOrCreateTipperFuture = null;
+      _linkOrCreateTipperKey = null;
+      _newTipperDialogShown = false;
+      _authFlowUid = authenticatedFirebaseUser.uid;
+    }
+    _existingTipperFuture ??= _linkUserToTipper();
+  }
+
+  Future<bool> _ensureLinkOrCreateTipperFuture({
+    required String key,
+    required String? name,
+    required Tipper? tipper,
+  }) {
+    if (_linkOrCreateTipperFuture == null || _linkOrCreateTipperKey != key) {
+      _linkOrCreateTipperKey = key;
+      _linkOrCreateTipperFuture = _updateOrCreateTipper(name, tipper);
+    }
+    return _linkOrCreateTipperFuture!;
   }
 
   void _navigateToAppRoot() {
@@ -1024,12 +1062,16 @@ class UserAuthPageState extends State<UserAuthPage> {
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, authSnapshot) {
-          if (authSnapshot.hasData && authSnapshot.data != null) {
+          final User? authenticatedFirebaseUser = authSnapshot.data;
+          if (authenticatedFirebaseUser == null) {
+            _resetAuthFlowFutures();
+          } else {
+            _ensureAuthFlowForUser(authenticatedFirebaseUser);
             _initializeFirebaseMessagingService();
           }
 
           return FutureBuilder<bool>(
-            future: isClientVersionOutOfDate(),
+            future: _clientVersionOutOfDateFuture,
             builder: (context, versionSnapshot) {
               if (versionSnapshot.connectionState == ConnectionState.waiting) {
                 return Center(
@@ -1083,7 +1125,6 @@ class UserAuthPageState extends State<UserAuthPage> {
                 return _buildSignInForm(context);
               }
 
-              User? authenticatedFirebaseUser = authSnapshot.data;
               if (authenticatedFirebaseUser == null) {
                 return const LoginIssueScreen(
                   message:
@@ -1110,7 +1151,7 @@ class UserAuthPageState extends State<UserAuthPage> {
               );
 
               return FutureBuilder<Tipper?>(
-                future: _linkUserToTipper(),
+                future: _existingTipperFuture,
                 builder: (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
@@ -1126,10 +1167,11 @@ class UserAuthPageState extends State<UserAuthPage> {
                     if (authenticatedFirebaseUser.isAnonymous) {
                       // For new anonymous users, bypass edit name dialog
                       return FutureBuilder<bool>(
-                        future: _updateOrCreateTipper(
-                          null,
-                          null,
-                        ), // Pass null to let ViewModel handle name
+                        future: _ensureLinkOrCreateTipperFuture(
+                          key: 'anonymous-user',
+                          name: null,
+                          tipper: null,
+                        ),
                         builder: (BuildContext context, AsyncSnapshot<bool> updateSnapshot) {
                           if (updateSnapshot.connectionState ==
                               ConnectionState.waiting) {
@@ -1163,17 +1205,21 @@ class UserAuthPageState extends State<UserAuthPage> {
                       );
                     } else {
                       // For new non-anonymous users, show edit name dialog as before
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _showEditNameDialog(context, null);
-                      });
+                      if (!_newTipperDialogShown) {
+                        _newTipperDialogShown = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _showEditNameDialog(context, null);
+                        });
+                      }
                       return Container(); // Return an empty container while waiting for user input
                     }
                   } else {
                     // Existing tipper found
                     return FutureBuilder<bool>(
-                      future: _updateOrCreateTipper(
-                        snapshot.data!.name,
-                        snapshot.data!,
+                      future: _ensureLinkOrCreateTipperFuture(
+                        key: snapshot.data!.dbkey ?? snapshot.data!.authuid,
+                        name: snapshot.data!.name,
+                        tipper: snapshot.data!,
                       ),
                       builder:
                           (
