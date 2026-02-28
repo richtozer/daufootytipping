@@ -33,10 +33,18 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late bool admin;
   late TippersViewModel tippersViewModel;
 
-  late bool changesNeedSaving = false;
-  late bool disableSaves = true;
-  late int changes = 0;
-  List<DAUComp> comps = [];
+  late String _originalName;
+  late String _originalEmail;
+  late String _originalLogon;
+  late bool _originalAdmin;
+
+  bool _hasDraftChanges = false;
+  bool _manualSaveInProgress = false;
+  bool _paidForAutoSaveInProgress = false;
+  bool _allowPop = false;
+
+  bool get _isBusy => _manualSaveInProgress || _paidForAutoSaveInProgress;
+  bool get _canSave => _hasDraftChanges && !_isBusy;
 
   @override
   void initState() {
@@ -44,21 +52,124 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     tipper = widget.tipper;
 
     tippersViewModel = widget.tippersViewModel;
-    admin = (tipper.tipperRole == TipperRole.admin) ? true : false;
+    admin = tipper.tipperRole == TipperRole.admin;
     _tipperNameController = TextEditingController(text: tipper.name);
-    _tipperEmailController = TextEditingController(text: tipper.email);
-    _tipperLogonController = TextEditingController(text: tipper.logon);
+    _tipperEmailController = TextEditingController(text: tipper.email ?? '');
+    _tipperLogonController = TextEditingController(text: tipper.logon ?? '');
+
+    _originalName = tipper.name;
+    _originalEmail = tipper.email ?? '';
+    _originalLogon = tipper.logon ?? '';
+    _originalAdmin = admin;
   }
 
   @override
   void dispose() {
     _tipperNameController.dispose();
     _tipperEmailController.dispose();
+    _tipperLogonController.dispose();
     _emailFocusNode.dispose();
     super.dispose();
   }
 
-  void _saveTipper(BuildContext context) async {
+  void _refreshDraftState() {
+    final bool hasChanges =
+        _tipperNameController.text != _originalName ||
+        _tipperEmailController.text != _originalEmail ||
+        _tipperLogonController.text != _originalLogon ||
+        admin != _originalAdmin;
+
+    if (_hasDraftChanges == hasChanges) return;
+    setState(() {
+      _hasDraftChanges = hasChanges;
+    });
+  }
+
+  Future<bool> _confirmDiscardDraftChanges(BuildContext context) async {
+    if (!_hasDraftChanges) return true;
+    final bool? discard = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        content: const Text(
+          'You have unsaved changes. Do you really want to discard them?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return discard ?? false;
+  }
+
+  void _setCompPaidForState(DAUComp comp, bool isPaid) {
+    final bool isAlreadyPaid = tipper.compsPaidFor.any(
+      (paidComp) => paidComp.dbkey == comp.dbkey,
+    );
+
+    if (isPaid && !isAlreadyPaid) {
+      tipper.compsPaidFor.add(comp);
+    }
+
+    if (!isPaid && isAlreadyPaid) {
+      tipper.compsPaidFor.removeWhere((paidComp) => paidComp.dbkey == comp.dbkey);
+    }
+  }
+
+  Future<void> _savePaidCompSelection(DAUComp comp, bool isPaid) async {
+    if (_isBusy || tipper.dbkey == null) return;
+
+    final bool previousValue = tipper.paidForComp(comp);
+    if (previousValue == isPaid) return;
+
+    setState(() {
+      _setCompPaidForState(comp, isPaid);
+      _paidForAutoSaveInProgress = true;
+    });
+
+    bool saveFailed = false;
+    try {
+      await tippersViewModel.updateTipperAttribute(
+        tipper.dbkey!,
+        "compsParticipatedIn",
+        tipper.compsPaidFor.map((paidComp) => paidComp.dbkey).toList(),
+      );
+      await tippersViewModel.saveBatchOfTipperChangesToDb();
+    } on Exception catch (e) {
+      log('Failed to auto-save paid competitions change for ${tipper.dbkey}: $e');
+      saveFailed = true;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      if (saveFailed) {
+        _setCompPaidForState(comp, previousValue);
+      }
+      _paidForAutoSaveInProgress = false;
+    });
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 2),
+        backgroundColor: saveFailed ? Colors.red : Colors.green,
+        content: Text(
+          saveFailed
+              ? 'Could not save paid status change. Please try again.'
+              : 'Paid status saved.',
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _saveTipper(BuildContext context) async {
     try {
       // make sure the email and logon are not assigned to another tipper
       Tipper? tipperWithDupEmail = await tippersViewModel
@@ -86,8 +197,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             ),
           );
         }
-        // stay on this page
-        return;
+        return false;
+      }
+
+      if (tipper.dbkey == null) {
+        return false;
       }
 
       await tippersViewModel.updateTipperAttribute(
@@ -121,12 +235,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
       await tippersViewModel.saveBatchOfTipperChangesToDb();
 
-      // navigate to the previous page
-      if (context.mounted) Navigator.of(context).pop(true);
-      //}
-    } on Exception {
+      return true;
+    } on Exception catch (e) {
+      log('Failed to update tipper ${tipper.dbkey}: $e');
       if (context.mounted) {
-        showDialog(
+        await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
             content: const Text('Failed to update Tipper record'),
@@ -141,78 +254,101 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           ),
         );
       }
+      return false;
+    }
+  }
+
+  Future<void> _onSavePressed(BuildContext context) async {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) return;
+
+    setState(() {
+      _manualSaveInProgress = true;
+    });
+
+    final bool didSave = await _saveTipper(context);
+    if (!mounted) return;
+
+    setState(() {
+      _manualSaveInProgress = false;
+    });
+
+    if (didSave && context.mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: changesNeedSaving
-                  ? const ImageIcon(
-                      null,
-                    ) // dont show anything clickable while saving is in progress
-                  : const Icon(Icons.arrow_back),
-              onPressed: changesNeedSaving
-                  ? null
-                  : () {
-                      Navigator.maybePop(context);
-                    },
-            );
-          },
-        ),
-        actions: <Widget>[
-          Builder(
+    return PopScope(
+      canPop: !_isBusy && (_allowPop || !_hasDraftChanges),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || !mounted || _isBusy) return;
+        final navigator = Navigator.of(context);
+        final bool shouldPop = await _confirmDiscardDraftChanges(context);
+        if (!shouldPop || !mounted) return;
+        setState(() {
+          _allowPop = true;
+        });
+        navigator.pop(result);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: Builder(
             builder: (BuildContext context) {
               return IconButton(
-                icon: disableSaves
-                    ? const ImageIcon(null) //show nothing if they cant save
-                    : const Icon(Icons.save),
-                onPressed: disableSaves
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _isBusy
                     ? null
-                    : () async {
-                        // Validate will return true if the form is valid, or false if
-                        // the form is invalid.
-                        final isValid = _formKey.currentState!.validate();
-                        if (isValid) {
-                          setState(() {
-                            disableSaves = true;
-                          });
-                          changesNeedSaving = true;
-                          CircularProgressIndicator(color: League.nrl.colour);
-
-                          _saveTipper(context);
-
-                          setState(() {
-                            changesNeedSaving = false;
-                            disableSaves = false;
-                          });
-                        }
+                    : () {
+                        Navigator.maybePop(context);
                       },
               );
             },
           ),
-        ],
-        title: const Text('Edit Tipper'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
+          actions: <Widget>[
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton.icon(
+                onPressed: _canSave ? () => _onSavePressed(context) : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                icon: _manualSaveInProgress
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: League.nrl.colour,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _manualSaveInProgress ? 'Saving...' : 'Save',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+          title: const Text('Edit Tipper'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
                   Row(
                     children: [
                       const Text('Name:'),
                       Expanded(
                         child: TextFormField(
-                          enabled: !changesNeedSaving,
+                          enabled: !_isBusy,
                           controller: _tipperNameController,
                           decoration: const InputDecoration(
                             hintText: 'Tipper name',
@@ -227,28 +363,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             }
                             return null;
                           },
-                          onChanged: (String value) {
-                            if (tipper.name != value) {
-                              //something has changed, maybe allow saves
-                              setState(() {
-                                changes++; //increment the number of changes
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            } else {
-                              setState(() {
-                                changes--; //decrement the number of changes, maybe stop saves
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            }
-                          },
+                          onChanged: (_) => _refreshDraftState(),
                         ),
                       ),
                     ],
@@ -259,7 +374,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       const Text('Email:'),
                       Expanded(
                         child: TextFormField(
-                          enabled: !changesNeedSaving,
+                          enabled: !_isBusy,
                           controller: _tipperEmailController,
                           decoration: const InputDecoration(
                             hintText: 'Email for communications',
@@ -271,28 +386,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             }
                             return null;
                           },
-                          onChanged: (String value) {
-                            if (tipper.email != value) {
-                              //something has changed, maybe allow saves
-                              setState(() {
-                                changes++; //increment the number of changes
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            } else {
-                              setState(() {
-                                changes--; //decrement the number of changes, maybe stop saves
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            }
-                          },
+                          onChanged: (_) => _refreshDraftState(),
                         ),
                       ),
                     ],
@@ -302,7 +396,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       const Text('Logon:'),
                       Expanded(
                         child: TextFormField(
-                          enabled: !changesNeedSaving,
+                          enabled: !_isBusy,
                           controller: _tipperLogonController,
                           decoration: const InputDecoration(
                             hintText: 'Email for logon',
@@ -314,28 +408,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             }
                             return null;
                           },
-                          onChanged: (String value) {
-                            if (tipper.logon != value) {
-                              //something has changed, maybe allow saves
-                              setState(() {
-                                changes++; //increment the number of changes
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            } else {
-                              setState(() {
-                                changes--; //decrement the number of changes, maybe stop saves
-                                if (changes == 0) {
-                                  disableSaves = true;
-                                } else {
-                                  disableSaves = false;
-                                }
-                              });
-                            }
-                          },
+                          onChanged: (_) => _refreshDraftState(),
                         ),
                       ),
                     ],
@@ -354,30 +427,12 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                         onChanged: (value) {
                           setState(() {
                             admin = value;
+                            _hasDraftChanges =
+                                _tipperNameController.text != _originalName ||
+                                _tipperEmailController.text != _originalEmail ||
+                                _tipperLogonController.text != _originalLogon ||
+                                admin != _originalAdmin;
                           });
-
-                          if (tipper.tipperRole.index.isEven
-                              ? false
-                              : true == value) {
-                            //something has changed, maybe allow saves
-                            setState(() {
-                              changes++; //increment the number of changes
-                              if (changes == 0) {
-                                disableSaves = true;
-                              } else {
-                                disableSaves = false;
-                              }
-                            });
-                          } else {
-                            setState(() {
-                              changes--; //decrement the number of changes, maybe stop saves
-                              if (changes == 0) {
-                                disableSaves = true;
-                              } else {
-                                disableSaves = false;
-                              }
-                            });
-                          }
                         },
                       ),
                       // if selectedDAUComp is not null then offer god mode
@@ -481,7 +536,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           if (!snapshot.hasData || snapshot.data!.isEmpty) {
                             return const Text('No Records');
                           } else {
-                            comps = snapshot.data!;
+                            final List<DAUComp> comps = snapshot.data!;
                             // sort the comps by name descending
                             comps.sort(
                               (a, b) => b.name.toLowerCase().compareTo(
@@ -490,8 +545,24 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             );
                             return Column(
                               children: [
-                                const Text(
-                                  'Select the competitions this tipper has paid for:',
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      'Select the competitions this tipper has paid for:',
+                                    ),
+                                    if (_paidForAutoSaveInProgress)
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 8),
+                                        child: SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 DataTable(
                                   sortColumnIndex: 1,
@@ -507,26 +578,13 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                             DataCell(
                                               Checkbox(
                                                 value: tipper.paidForComp(comp),
-                                                onChanged: (bool? value) {
-                                                  log(
-                                                    'Checkbox changed to $value',
-                                                  );
-                                                  setState(() {
-                                                    if (value == true) {
-                                                      widget.tipper.compsPaidFor
-                                                          .add(comp);
-                                                    } else {
-                                                      widget.tipper.compsPaidFor
-                                                          .remove(comp);
-                                                    }
-                                                    changes++; //increment the number of changes
-                                                    if (changes == 0) {
-                                                      disableSaves = true;
-                                                    } else {
-                                                      disableSaves = false;
-                                                    }
-                                                  });
-                                                },
+                                                onChanged: _isBusy
+                                                    ? null
+                                                    : (bool? value) {
+                                                        log('Checkbox changed to $value');
+                                                        if (value == null) return;
+                                                        _savePaidCompSelection(comp, value);
+                                                      },
                                               ),
                                             ),
                                             DataCell(Text(comp.name)),
@@ -542,25 +600,27 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   ),
                 ],
               ),
-            ),
-            Spacer(),
-            ElevatedButton(
-              onPressed: () {
-                // Trigger edit functionality
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AdminTipperMergeEditPage(
-                      widget.tippersViewModel,
-                      tipper,
-                    ),
-                  ),
-                );
-              },
-              child: const Text('Merge...'),
-            ),
-            Spacer(),
-          ],
+              ),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: _isBusy
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AdminTipperMergeEditPage(
+                              widget.tippersViewModel,
+                              tipper,
+                            ),
+                          ),
+                        );
+                      },
+                child: const Text('Merge...'),
+              ),
+              const Spacer(),
+            ],
+          ),
         ),
       ),
     );
