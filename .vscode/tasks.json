@@ -81,7 +81,7 @@
       "id": "rtdbExtractPath",
       "type": "promptString",
       "description": "Relative path to the RTDB JSON extract to seed into the emulator",
-      "default": "test/data/dau-footy-tipping-f8a42-default-rtdb-export-end-of-comp-2025.json"
+      "default": "test/data/dau-footy-tipping-f8a42-default-rtdb-export-3.json"
     }
   ]
 }
