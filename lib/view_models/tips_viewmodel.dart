@@ -275,12 +275,32 @@ class TipsViewModel extends ChangeNotifier {
     }).length;
   }
 
+  int _numberOfTipsSubmittedForGames(Iterable<Game> games) {
+    final gameDbKeys = games.map((game) => game.dbkey).toSet();
+    return _listOfTips.where((tip) => tip != null && gameDbKeys.contains(tip.game.dbkey)).length;
+  }
+
   // method to return count of outstanding tips for the supplied round and league
   int numberOfOutstandingTipsForRoundAndLeague(DAURound round, League league) {
     // Calculate the number of tips outstanding for this league round
     int totalGames = round.getGamesForLeague(league).length;
     int tipsSubmitted = _numberOfTipsSubmittedForRoundAndLeague(round, league);
     return totalGames - tipsSubmitted;
+  }
+
+  // Outstanding tips for games that have not started yet (includes startingSoon).
+  int numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+    DAURound round,
+    League league,
+  ) {
+    final gamesToTip = round.getGamesForLeague(league).where(
+      (game) =>
+          game.gameState == GameState.notStarted ||
+          game.gameState == GameState.startingSoon,
+    );
+    final tipsSubmitted = _numberOfTipsSubmittedForGames(gamesToTip);
+    final outstanding = gamesToTip.length - tipsSubmitted;
+    return outstanding > 0 ? outstanding : 0;
   }
 
   // method to return the number of margin tips for the supplied round and league

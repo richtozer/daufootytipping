@@ -110,15 +110,31 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                         selectedIndex: _currentIndex.value,
                         height: 60,
                         destinations: [
-                          NavigationDestination(
-                            icon: const Icon(Icons.sports_rugby_outlined),
-                            enabled: !tippersViewModelConsumer
-                                .selectedTipper
-                                .isAnonymous,
-                            label: MediaQuery.of(context).size.width > 400
-                                ? 'T  I  P  S'
-                                : 'TIPS',
-                          ),
+                          (() {
+                            final isAnonymous =
+                                tippersViewModelConsumer.selectedTipper.isAnonymous;
+                            final outstandingTips = isAnonymous
+                                ? 0
+                                : dauCompsViewModelConsumer
+                                      .currentRoundOutstandingTipsCount();
+                            final tipsIcon = outstandingTips > 0
+                                ? Badge.count(
+                                    count: outstandingTips,
+                                    child: const Icon(
+                                      Icons.sports_rugby_outlined,
+                                    ),
+                                  )
+                                : const Icon(Icons.sports_rugby_outlined);
+
+                            return NavigationDestination(
+                              icon: tipsIcon,
+                              selectedIcon: tipsIcon,
+                              enabled: !isAnonymous,
+                              label: MediaQuery.of(context).size.width > 400
+                                  ? 'T  I  P  S'
+                                  : 'TIPS',
+                            );
+                          })(),
                           NavigationDestination(
                             enabled: true,
                             icon: const Icon(Icons.auto_graph),

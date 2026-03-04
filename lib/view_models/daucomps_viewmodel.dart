@@ -678,6 +678,36 @@ class DAUCompsViewModel extends ChangeNotifier {
     return {League.nrl: nrlGames, League.afl: aflGames};
   }
 
+  int currentRoundOutstandingTipsCount() {
+    final comp = _selectedDAUComp;
+    final tipsViewModel = selectedTipperTipsViewModel;
+    if (comp == null || tipsViewModel == null || comp.daurounds.isEmpty) {
+      return 0;
+    }
+
+    final roundNumber = comp.firstNotEndedRoundNumber();
+    if (roundNumber < 1 || roundNumber > comp.daurounds.length) {
+      return 0;
+    }
+    final currentRound = comp.daurounds[roundNumber - 1];
+    if (currentRound.roundState != RoundState.started &&
+        currentRound.roundState != RoundState.notStarted) {
+      return 0;
+    }
+
+    final outstanding =
+        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          currentRound,
+          League.nrl,
+        ) +
+        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          currentRound,
+          League.afl,
+        );
+
+    return outstanding > 0 ? outstanding : 0;
+  }
+
   void _otherViewModelUpdated() {
     notifyListeners();
   }
