@@ -27,6 +27,7 @@ class TipsTabState extends State<TipsTab> {
   late ScrollController scrollController;
   late FocusNode focusNode;
   int initialScrollOffset = -150;
+  bool _scrollSetupDone = false;
 
   @override
   void initState() {
@@ -35,15 +36,26 @@ class TipsTabState extends State<TipsTab> {
 
     focusNode = FocusNode();
     scrollController = ScrollController();
+    daucompsViewModel.addListener(_onDAUCompsChanged);
+    _setupInitialScroll();
+  }
 
+  void _onDAUCompsChanged() {
+    if (!mounted) return;
+    setState(_setupInitialScroll);
+  }
+
+  void _setupInitialScroll() {
+    if (_scrollSetupDone) return;
     final selectedComp = daucompsViewModel.selectedDAUComp;
     if (selectedComp == null) {
-      log('TipsPageBody.initState() selectedDAUComp is null');
+      log('TipsPageBody._setupInitialScroll() selectedDAUComp is null');
       return;
     }
 
+    _scrollSetupDone = true;
     latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
-    log('TipsPageBody.initState() latestRoundNumber: $latestRoundNumber');
+    log('TipsPageBody._setupInitialScroll() latestRoundNumber: $latestRoundNumber');
 
     final initialOffset =
         selectedComp.pixelHeightUpToRound(latestRoundNumber) + initialScrollOffset;
@@ -250,6 +262,7 @@ class TipsTabState extends State<TipsTab> {
 
   @override
   void dispose() {
+    daucompsViewModel.removeListener(_onDAUCompsChanged);
     focusNode.dispose();
     scrollController.dispose();
     super.dispose();
