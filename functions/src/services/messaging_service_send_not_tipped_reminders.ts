@@ -105,6 +105,7 @@ export const sendHourlyReminders =
               if (Object.prototype.hasOwnProperty.call(tokens, tokenKey)) {
                 reminders.push({
                   tipperId: tipperId,
+                  tipperName: tipperName,
                   token: tokenKey,
                   homeTeam: homeTeam,
                   awayTeam: awayTeam,
@@ -129,7 +130,7 @@ export const sendHourlyReminders =
             title: "Tipping closing soon!",
             body:
             `Game ${reminder.homeTeam} v ${reminder.awayTeam} starts soon. ` +
-            "You have not yet tipped. Get your tip in now.",
+            `You have not yet tipped. Get your tip in now, ${reminder.tipperName}!`,
           },
           token: reminder.token,
           apns: {
@@ -173,6 +174,7 @@ export const sendHourlyReminders =
 
 interface Reminder {
   tipperId: string;
+  tipperName: string;
   token: string;
   homeTeam: string;
   awayTeam: string;
