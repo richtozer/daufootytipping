@@ -1243,40 +1243,22 @@ class UserAuthPageState extends State<UserAuthPage> {
                       return Container(); // Return an empty container while waiting for user input
                     }
                   } else {
-                    // Existing tipper found
-                    return FutureBuilder<bool>(
-                      future: _ensureLinkOrCreateTipperFuture(
-                        key: snapshot.data!.dbkey ?? snapshot.data!.authuid,
-                        name: snapshot.data!.name,
-                        tipper: snapshot.data!,
-                      ),
-                      builder:
-                          (
-                            BuildContext context,
-                            AsyncSnapshot<bool> updateSnapshot,
-                          ) {
-                            if (updateSnapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.orange,
-                                ),
-                              );
-                            } else if (updateSnapshot.hasError) {
-                              return LoginIssueScreen(
-                                message:
-                                    'Unexpected error ${updateSnapshot.error}. Contact support: https://interview.coach/tipping',
-                              );
-                            } else if (updateSnapshot.data == false) {
-                              return LoginIssueScreen(
-                                message:
-                                    'Failed to create or update tipper. Contact support: https://interview.coach/tipping',
-                              );
-                            } else {
-                              return const HomePage();
-                            }
-                          },
+                    // Existing tipper found — set the authenticated tipper
+                    // immediately so HomePage can render without waiting for
+                    // the background DB metadata update to complete.
+                    final Tipper existingTipper = snapshot.data!;
+                    di<TippersViewModel>().setAuthenticatedTipper(
+                      existingTipper,
                     );
+                    _ensureLinkOrCreateTipperFuture(
+                      key: existingTipper.dbkey ?? existingTipper.authuid,
+                      name: existingTipper.name,
+                      tipper: existingTipper,
+                    ).catchError((Object e) {
+                      log('Background tipper update failed: $e');
+                      return false;
+                    }).ignore();
+                    return const HomePage();
                   }
                 },
               );

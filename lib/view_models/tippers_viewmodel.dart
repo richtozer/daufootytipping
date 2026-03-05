@@ -301,6 +301,21 @@ class TippersViewModel extends ChangeNotifier {
     return regex.hasMatch(email);
   }
 
+  /// Sets the authenticated tipper immediately after lookup, before the
+  /// background DB metadata update completes, so the UI can navigate to
+  /// [HomePage] without blocking on Firebase writes.
+  void setAuthenticatedTipper(Tipper tipper) {
+    _authenticatedTipper = tipper;
+    _selectedTipper = tipper;
+    if (!_isUserLinked.isCompleted) {
+      _isUserLinked.complete();
+      if (!kIsWeb) {
+        unawaited(_registerLinkedTipperForMessaging());
+      }
+    }
+    notifyListeners();
+  }
+
   Future<Tipper?> findExistingTipper() async {
     User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
     Tipper? foundTipper;
