@@ -41,9 +41,7 @@ class Tipper implements Comparable<Tipper> {
           ? TipperRole.values.byName(data['tipperRole'])
           : TipperRole.tipper,
       photoURL: data['photoURL'],
-      compsPaidFor: data['compsParticipatedIn'] != null
-          ? DAUComp.fromJsonList(data['compsParticipatedIn'])
-          : [],
+      compsPaidFor: [],
       acctCreatedUTC: data['acctCreatedUTC'] != null
           ? DateTime.parse(data['acctCreatedUTC'])
           : null,
@@ -52,6 +50,16 @@ class Tipper implements Comparable<Tipper> {
           : null,
       isAnonymous: data['isAnonymous'] ?? false,
     );
+  }
+
+  /// Populates [compsPaidFor] from raw JSON data. Must be called after
+  /// construction since [DAUComp.fromJsonList] is async.
+  Future<void> loadCompsPaidFor(dynamic compsParticipatedIn) async {
+    if (compsParticipatedIn != null) {
+      compsPaidFor = await DAUComp.fromJsonList(
+        compsParticipatedIn as List,
+      );
+    }
   }
 
   bool paidForComp(DAUComp? checkThisComp) {
@@ -67,15 +75,18 @@ class Tipper implements Comparable<Tipper> {
     ); //check if the tipper has paid for this comp
   }
 
-  static List<Tipper?> fromJsonList(dynamic json) {
+  static Future<List<Tipper?>> fromJsonList(dynamic json) async {
     final allTippers = Map<String, dynamic>.from(json as dynamic);
 
-    List<Tipper?> tippersList = allTippers.entries.map((entry) {
-      String key = entry.key; // Retrieve the Firebase key
-      dynamic tipperAsJSON = entry.value;
-
-      return Tipper.fromJson(Map<String, dynamic>.from(tipperAsJSON), key);
-    }).toList();
+    List<Tipper?> tippersList = [];
+    for (final entry in allTippers.entries) {
+      final String key = entry.key;
+      final dynamic tipperAsJSON = entry.value;
+      final Map<String, dynamic> data = Map<String, dynamic>.from(tipperAsJSON);
+      final Tipper tipper = Tipper.fromJson(data, key);
+      await tipper.loadCompsPaidFor(data['compsParticipatedIn']);
+      tippersList.add(tipper);
+    }
 
     return tippersList;
   }

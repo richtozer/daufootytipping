@@ -153,21 +153,17 @@ class DAUComp implements Comparable<DAUComp> {
     );
   }
 
-  static List<DAUComp> fromJsonList(List compDbKeys) {
-    // find each DAUComp based on the compDbKeys
+  static Future<List<DAUComp>> fromJsonList(List compDbKeys) async {
     List<DAUComp> daucompList = [];
     for (var compDbKey in compDbKeys) {
-      di<DAUCompsViewModel>().findComp(compDbKey).then((daucomp) {
-        if (daucomp == null) {
-          log('DAUComp.fromJsonList: compDbKey not found: $compDbKey');
-        } else {
-          if (daucomp.dbkey == compDbKey) {
-            daucompList.add(daucomp);
-          }
-        }
-      });
+      final DAUComp? daucomp =
+          await di<DAUCompsViewModel>().findComp(compDbKey);
+      if (daucomp == null) {
+        log('DAUComp.fromJsonList: compDbKey not found: $compDbKey');
+      } else if (daucomp.dbkey == compDbKey) {
+        daucompList.add(daucomp);
+      }
     }
-
     return daucompList;
   }
 

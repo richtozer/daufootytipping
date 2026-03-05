@@ -86,7 +86,8 @@ class TippersViewModel extends ChangeNotifier {
 
     if (event.snapshot.exists) {
       log('TippersViewModel() Tippers db Listener called');
-      List<Tipper?> tippersList = Tipper.fromJsonList(event.snapshot.value);
+      List<Tipper?> tippersList =
+          await Tipper.fromJsonList(event.snapshot.value);
 
       _tippers = tippersList
           .where((tipper) => tipper != null)
