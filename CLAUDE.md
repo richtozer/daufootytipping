@@ -98,20 +98,27 @@ Your code must be 100% clean. No exceptions.
 ### Core Architecture Pattern
 **"Database-First with Reactive Listeners"** - All state changes that persist use Firebase streams with reactive UI updates.
 
-### ViewModel Dependency Tree (from README.md)
+### ViewModel Dependency Tree
 ```
-DAUCompsViewModel (root)
-├── GamesViewModel
-├── StatsViewModel  
-├── TipsViewModel
-├── TippersViewModel
-└── FixtureDownloadService
+ConfigViewModel (root)
+└── DAUCompsViewModel
+    ├── GamesViewModel
+    │   └── TeamsViewModel
+    ├── TipsViewModel
+    │   ├── GamesViewModel (shared)
+    │   └── TippersViewModel
+    └── StatsViewModel
+        ├── GamesViewModel (shared)
+        ├── TippersViewModel (shared)
+        └── TipsViewModel (shared)
 
-GameTipsViewModel
-├── TipsViewModel
-├── DAUCompsViewModel
-└── ScoringViewModel
+GameTipViewModel
+├── TipsViewModel (+ its dependencies)
+├── StatsViewModel (via di<TippersViewModel>())
+└── DAUCompsViewModel
 ```
+
+Service locator (watch_it) registration order: Config → DAUComps → Tippers → (Games, Tips, Stats dynamically)
 
 ### Development Commands
 ```bash
@@ -121,17 +128,30 @@ firebase emulators:start
 # Standard Flutter commands
 flutter pub get
 flutter clean
-flutter analyze         # MANDATORY - must pass
-flutter test           # MANDATORY - must pass
-dart format lib/       # MANDATORY - must pass
+flutter analyze                          # MANDATORY - must pass
+flutter test                             # MANDATORY - must pass
+flutter test test/path/to/test_file.dart # Run a single test file
+dart format lib/                         # MANDATORY - must pass
 
 # Firebase deployment
 firebase deploy --only hosting
 flutter build appbundle
-
-# Video tutorial on Firebase integration:
-# https://youtu.be/sXBJZD0fBa4?si=o1z2fTJzgsRhw5jw
 ```
+
+### Branch Workflow & Releases
+- Active development happens on `development` branch
+- `testing` branch triggers the iOS TestFlight build via GitHub Actions
+- `main` is the production branch
+
+```bash
+# Promote development → testing, then bump build number on development:
+scripts/promote-to-testing.sh
+
+# Increment build number only (updates pubspec.yaml version):
+scripts/bump_build_number.sh
+```
+
+Precondition for `promote-to-testing.sh`: must be on `development` with a clean working tree.
 
 ### Current State (See TODO.md)
 - **18 failing tests** - Week 1 priority to fix
