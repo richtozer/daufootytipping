@@ -130,7 +130,8 @@ export const sendHourlyReminders =
             title: "Tipping closing soon!",
             body:
             `Game ${reminder.homeTeam} v ${reminder.awayTeam} starts soon. ` +
-            `You have not yet tipped. Get your tip in now, ${reminder.tipperName}!`,
+            "You have not yet tipped. " +
+            `Get your tip in now, ${reminder.tipperName}!`,
           },
           token: reminder.token,
           apns: {
