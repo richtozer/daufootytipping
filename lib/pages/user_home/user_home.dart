@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -86,10 +85,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
 
                 Widget scaffold = Stack(
                   children: [
-                    ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                    RepaintBoundary(
                       child: Image.asset(
-                        'assets/teams/grass with scoreboard.png',
+                        'assets/teams/grass_background_blurred.webp',
                         width: MediaQuery.of(context).size.width,
                         height: MediaQuery.of(context).size.height,
                         fit: BoxFit.fill,
