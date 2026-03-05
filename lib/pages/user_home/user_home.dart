@@ -49,6 +49,11 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   @override
   Widget build(BuildContext context) {
     List<Widget> destinationContent = content();
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final navIndicatorColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
 
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
       value: di<DAUCompsViewModel>(),
@@ -92,15 +97,12 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                     ),
                     Scaffold(
                       backgroundColor:
-                          MediaQuery.of(context).platformBrightness !=
-                              Brightness.dark
-                          ? Colors.white54
-                          : Colors.black54,
+                          !isDarkMode ? Colors.white54 : Colors.black54,
                       body: Center(
                         child: destinationContent[_currentIndex.value],
                       ),
                       bottomNavigationBar: NavigationBar(
-                        indicatorColor: Colors.lightGreen[200],
+                        indicatorColor: navIndicatorColor,
                         indicatorShape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8.0),
                         ),
