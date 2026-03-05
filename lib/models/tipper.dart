@@ -80,6 +80,47 @@ class Tipper implements Comparable<Tipper> {
     return tippersList;
   }
 
+  /// Serializes for local cache. Includes [dbkey] and omits
+  /// [compsPaidFor] (which requires DAUCompsViewModel to deserialize).
+  Map<String, dynamic> toCacheJson() {
+    return {
+      'dbkey': dbkey,
+      'authuid': authuid,
+      'email': email,
+      'logon': logon,
+      'name': name,
+      'tipperRole': tipperRole.name,
+      'photoURL': photoURL,
+      'acctCreatedUTC': acctCreatedUTC?.toIso8601String(),
+      'acctLoggedOnUTC': acctLoggedOnUTC?.toIso8601String(),
+      'isAnonymous': isAnonymous,
+    };
+  }
+
+  /// Restores a [Tipper] from local cache. [compsPaidFor] starts
+  /// empty and is populated once the Firebase stream arrives.
+  factory Tipper.fromCacheJson(Map<String, dynamic> data) {
+    return Tipper(
+      dbkey: data['dbkey'] as String?,
+      authuid: data['authuid'] as String,
+      email: data['email'] as String?,
+      logon: data['logon'] as String?,
+      name: (data['name'] as String?) ?? '',
+      tipperRole: data['tipperRole'] != null
+          ? TipperRole.values.byName(data['tipperRole'] as String)
+          : TipperRole.tipper,
+      photoURL: data['photoURL'] as String?,
+      compsPaidFor: [],
+      acctCreatedUTC: data['acctCreatedUTC'] != null
+          ? DateTime.parse(data['acctCreatedUTC'] as String)
+          : null,
+      acctLoggedOnUTC: data['acctLoggedOnUTC'] != null
+          ? DateTime.parse(data['acctLoggedOnUTC'] as String)
+          : null,
+      isAnonymous: (data['isAnonymous'] as bool?) ?? false,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       "authuid": authuid,

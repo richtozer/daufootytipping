@@ -96,6 +96,11 @@ class TippersViewModel extends ChangeNotifier {
       // do a default sort by login date
       _sortTippersByLogin(false);
 
+      // Keep _authenticatedTipper and _selectedTipper in sync with the
+      // fresh Tipper objects from the stream. Without this, these
+      // references go stale after every Firebase update.
+      _refreshAuthenticatedTipperReference();
+
       log(
         'TippersViewModel() Tipper db Listener: ${_tippers.length} tippers found in database',
       );
@@ -130,6 +135,27 @@ class TippersViewModel extends ChangeNotifier {
                 ),
       );
     _tippers = sortedEntries;
+  }
+
+  /// Updates [_authenticatedTipper] and [_selectedTipper] to point at the
+  /// matching objects in the freshly rebuilt [_tippers] list, so that
+  /// fields like [compsPaidFor] stay current after Firebase stream updates.
+  void _refreshAuthenticatedTipperReference() {
+    if (_authenticatedTipper == null) return;
+    final String? authDbKey = _authenticatedTipper!.dbkey;
+    if (authDbKey == null) return;
+
+    final Tipper? freshTipper = _tippers.firstWhereOrNull(
+      (t) => t.dbkey == authDbKey,
+    );
+    if (freshTipper == null) return;
+
+    final bool isInGodMode =
+        _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
+    _authenticatedTipper = freshTipper;
+    if (!isInGodMode) {
+      _selectedTipper = freshTipper;
+    }
   }
 
   // method to set or update tipper name. Make sure name is unique in the _tippers list, if not, throw an error

@@ -19,6 +19,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart'
     as sign_in_with_apple;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserAuthPage extends StatefulWidget {
@@ -106,13 +107,69 @@ class UserAuthPageState extends State<UserAuthPage> {
     return false;
   }
 
+  static const String _cachedTipperKey = 'cached_tipper';
+
   Future<Tipper?> _linkUserToTipper() async {
     User? authenticatedFirebaseUser = FirebaseAuth.instance.currentUser;
     if (authenticatedFirebaseUser == null) {
       return null;
     }
+
+    // Fast path: return cached tipper if uid matches, so the
+    // FutureBuilder resolves instantly on jetsam restarts.
+    final Tipper? cached = await _loadCachedTipper(
+      authenticatedFirebaseUser.uid,
+    );
+    if (cached != null) {
+      log('UserAuthPage: using cached tipper ${cached.name}');
+      return cached;
+    }
+
     TippersViewModel tippersViewModel = di<TippersViewModel>();
     return await tippersViewModel.findExistingTipper();
+  }
+
+  Future<Tipper?> _loadCachedTipper(String currentUid) async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+      final String? json = prefs.getString(_cachedTipperKey);
+      if (json == null) return null;
+
+      final Map<String, dynamic> data =
+          Map<String, dynamic>.from(
+            jsonDecode(json) as Map,
+          );
+      if (data['authuid'] != currentUid) return null;
+
+      return Tipper.fromCacheJson(data);
+    } catch (e) {
+      log('UserAuthPage: failed to load cached tipper: $e');
+      return null;
+    }
+  }
+
+  Future<void> _saveCachedTipper(Tipper tipper) async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+      await prefs.setString(
+        _cachedTipperKey,
+        jsonEncode(tipper.toCacheJson()),
+      );
+    } catch (e) {
+      log('UserAuthPage: failed to cache tipper: $e');
+    }
+  }
+
+  Future<void> _clearCachedTipper() async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+      await prefs.remove(_cachedTipperKey);
+    } catch (e) {
+      log('UserAuthPage: failed to clear cached tipper: $e');
+    }
   }
 
   Future<bool> _updateOrCreateTipper(String? name, Tipper? tipper) async {
@@ -130,6 +187,7 @@ class UserAuthPageState extends State<UserAuthPage> {
     _authFlowUid = null;
     _linkOrCreateTipperKey = null;
     _newTipperDialogShown = false;
+    _clearCachedTipper();
   }
 
   void _ensureAuthFlowForUser(User authenticatedFirebaseUser) {
@@ -1245,6 +1303,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     di<TippersViewModel>().setAuthenticatedTipper(
                       existingTipper,
                     );
+                    _saveCachedTipper(existingTipper);
                     _ensureLinkOrCreateTipperFuture(
                       key: existingTipper.dbkey ?? existingTipper.authuid,
                       name: existingTipper.name,

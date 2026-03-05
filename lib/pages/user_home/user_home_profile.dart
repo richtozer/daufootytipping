@@ -22,30 +22,6 @@ class Profile extends StatelessWidget with WatchItMixin {
   Widget build(BuildContext context) {
     DAUComp? selectedDAUComp = watch(di<DAUCompsViewModel>()).selectedDAUComp;
 
-    Tipper? authenticatedTipper = di<TippersViewModel>().authenticatedTipper;
-
-    // create a list of comps. In the list include the comps the tipper
-    // is a paid member of. if the list does not include the active comp, then
-    // add it to the list
-    List<DAUComp> compsForDropdown = [];
-    if (authenticatedTipper != null) {
-      compsForDropdown.addAll(authenticatedTipper.compsPaidFor);
-      DAUComp? activeDAUComp = di<DAUCompsViewModel>().activeDAUComp;
-      if (activeDAUComp != null && !compsForDropdown.contains(activeDAUComp)) {
-        compsForDropdown.add(activeDAUComp);
-      }
-    }
-
-    // Sort the compsForDropdown list by the name property in descending order
-    compsForDropdown.sort((a, b) => b.name.compareTo(a.name));
-
-    // Automatically show the edit tipper name modal if the tipper does not have a profile name
-    if (authenticatedTipper != null && (authenticatedTipper.name.isEmpty)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showEditNameDialog(context, authenticatedTipper);
-      });
-    }
-
     return ChangeNotifierProvider<TippersViewModel>.value(
       value: di<TippersViewModel>(),
       child: Column(
@@ -53,6 +29,33 @@ class Profile extends StatelessWidget with WatchItMixin {
         children: <Widget>[
           Consumer<TippersViewModel>(
             builder: (context, tippersViewModelConsumer, child) {
+              Tipper? authenticatedTipper =
+                  tippersViewModelConsumer.authenticatedTipper;
+
+              // Build the comp dropdown from the live authenticated
+              // tipper so it updates when Firebase refreshes
+              // compsPaidFor after a cached-tipper cold start.
+              List<DAUComp> compsForDropdown = [];
+              if (authenticatedTipper != null) {
+                compsForDropdown.addAll(authenticatedTipper.compsPaidFor);
+                DAUComp? activeDAUComp =
+                    di<DAUCompsViewModel>().activeDAUComp;
+                if (activeDAUComp != null &&
+                    !compsForDropdown.contains(activeDAUComp)) {
+                  compsForDropdown.add(activeDAUComp);
+                }
+              }
+              compsForDropdown.sort(
+                (a, b) => b.name.compareTo(a.name),
+              );
+
+              if (authenticatedTipper != null &&
+                  authenticatedTipper.name.isEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _showEditNameDialog(context, authenticatedTipper);
+                });
+              }
+
               Tipper profileTipper = tippersViewModelConsumer.tippers
                   .firstWhere((t) => t.dbkey == authenticatedTipper!.dbkey);
               return Column(
