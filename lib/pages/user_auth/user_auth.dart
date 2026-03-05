@@ -1096,11 +1096,6 @@ class UserAuthPageState extends State<UserAuthPage> {
           return FutureBuilder<bool>(
             future: _clientVersionOutOfDateFuture,
             builder: (context, versionSnapshot) {
-              if (versionSnapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: CircularProgressIndicator(color: Colors.orange),
-                );
-              }
               if (versionSnapshot.data == true) {
                 return const Center(
                   child: Column(

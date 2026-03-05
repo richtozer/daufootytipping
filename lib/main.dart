@@ -179,6 +179,10 @@ class _MyAppState extends State<MyApp> {
     di.registerLazySingleton<DAUCompsViewModel>(
       () => DAUCompsViewModel(activeCompKey, false),
     );
+    // Eagerly instantiate to start Firebase listeners before the widget tree
+    // accesses them, so cache data is ready sooner.
+    di<TippersViewModel>();
+    di<DAUCompsViewModel>();
   }
 
   @override
