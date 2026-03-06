@@ -24,7 +24,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   Map<Tipper, RoundStats> roundLeaderboard = {};
 
   bool isAscending = true;
-  int? sortColumnIndex = 0;
+  int? sortColumnIndex = 1;
 
   final List<String> columns = [
     'Name',
@@ -60,9 +60,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     roundLeaderboard = statsViewModel.getRoundLeaderBoard(
       widget.roundNumberToDisplay,
     );
-    _sortLeaderboard(1, true);
-    sortColumnIndex = 1;
-    isAscending = true;
+    _sortLeaderboard(sortColumnIndex ?? 1, isAscending);
   }
 
   @override

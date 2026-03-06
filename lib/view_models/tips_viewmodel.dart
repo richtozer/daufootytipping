@@ -17,6 +17,13 @@ import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
+class _CachedCrossCompTip {
+  const _CachedCrossCompTip({required this.tip, required this.cachedAtUtc});
+
+  final Tip? tip;
+  final DateTime cachedAtUtc;
+}
+
 class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
   final DatabaseReference _db;
@@ -153,6 +160,7 @@ class TipsViewModel extends ChangeNotifier {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
       }
     } finally {
+      _crossCompTipCache.clear();
       if (!_initialLoadCompleter.isCompleted) {
         _completeInitialLoadIfNeeded();
         StartupProfiling.instant(
@@ -267,7 +275,8 @@ class TipsViewModel extends ChangeNotifier {
     return false;
   }
 
-  final Map<String, Tip?> _crossCompTipCache = {};
+  static const Duration _crossCompTipCacheTtl = Duration(minutes: 5);
+  final Map<String, _CachedCrossCompTip> _crossCompTipCache = {};
 
   String _crossCompCacheKey(String compDbKey, Game game, Tipper tipper) {
     return '$compDbKey|${tipper.dbkey}|${game.dbkey}|${game.startTimeUTC.toUtc().millisecondsSinceEpoch}';
@@ -300,11 +309,15 @@ class TipsViewModel extends ChangeNotifier {
 
       final cacheKey = _crossCompCacheKey(compDbKey, game, tipper);
       if (_crossCompTipCache.containsKey(cacheKey)) {
-        final cachedTip = _crossCompTipCache[cacheKey];
-        if (cachedTip != null) {
-          return cachedTip;
+        final cachedEntry = _crossCompTipCache[cacheKey]!;
+        final cacheAge = DateTime.now().toUtc().difference(cachedEntry.cachedAtUtc);
+        if (cacheAge <= _crossCompTipCacheTtl) {
+          if (cachedEntry.tip != null) {
+            return cachedEntry.tip;
+          }
+          continue;
         }
-        continue;
+        _crossCompTipCache.remove(cacheKey);
       }
 
       final snapshot = await _db
@@ -321,7 +334,10 @@ class TipsViewModel extends ChangeNotifier {
         );
       }
 
-      _crossCompTipCache[cacheKey] = loadedTip;
+      _crossCompTipCache[cacheKey] = _CachedCrossCompTip(
+        tip: loadedTip,
+        cachedAtUtc: DateTime.now().toUtc(),
+      );
 
       if (loadedTip != null) {
         return loadedTip;

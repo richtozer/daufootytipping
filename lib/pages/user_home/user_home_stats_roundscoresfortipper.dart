@@ -22,7 +22,7 @@ class StatRoundScoresForTipper extends StatefulWidget {
 }
 
 class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
-  late StatsViewModel scoresViewModel;
+  StatsViewModel? scoresViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
   int highestRoundNumber = 0;
@@ -40,11 +40,11 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   @override
   void initState() {
     super.initState();
-    // is selected daucomp is not null then get the scores model
-    if (di<DAUCompsViewModel>().selectedDAUComp != null) {
-      scoresViewModel = di<StatsViewModel>();
+    if (di<DAUCompsViewModel>().selectedDAUComp == null) {
+      return;
     }
-    scoresViewModel.addListener(_handleScoresChanged);
+    scoresViewModel = di<StatsViewModel>();
+    scoresViewModel!.addListener(_handleScoresChanged);
     _refreshScores();
   }
 
@@ -58,7 +58,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   @override
   void dispose() {
-    scoresViewModel.removeListener(_handleScoresChanged);
+    scoresViewModel?.removeListener(_handleScoresChanged);
     super.dispose();
   }
 
@@ -68,13 +68,19 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   }
 
   void _refreshScores() {
-    highestRoundNumber = di<DAUCompsViewModel>().selectedDAUComp!
-        .latestsCompletedRoundNumber();
+    final selectedComp = di<DAUCompsViewModel>().selectedDAUComp;
+    final localScoresViewModel = scoresViewModel;
+    if (selectedComp == null || localScoresViewModel == null) {
+      sortedScores = const <RoundStats>[];
+      return;
+    }
+
+    highestRoundNumber = selectedComp.latestsCompletedRoundNumber();
     log(
       'StatRoundScoresForTipper() highest round number is $highestRoundNumber',
     );
 
-    final rawScores = scoresViewModel.getTipperRoundScoresForComp(
+    final rawScores = localScoresViewModel.getTipperRoundScoresForComp(
       widget.statsTipper,
     )..removeWhere(
         (element) => element.roundNumber > highestRoundNumber + 1,

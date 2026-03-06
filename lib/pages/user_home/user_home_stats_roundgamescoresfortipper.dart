@@ -1,4 +1,5 @@
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -32,7 +33,8 @@ class StatRoundGameScoresForTipper extends StatefulWidget {
 class _StatRoundGameScoresForTipperState
     extends State<StatRoundGameScoresForTipper> {
   late DAUCompsViewModel dauCompsViewModel;
-  late TipsViewModel allTipsViewModel;
+  TipsViewModel? allTipsViewModel;
+  String? _allTipsViewModelCompDbKey;
   Map<League, List<Game>> games = {
     League.nrl: const <Game>[],
     League.afl: const <Game>[],
@@ -52,28 +54,47 @@ class _StatRoundGameScoresForTipperState
   void initState() {
     super.initState();
     dauCompsViewModel = di<DAUCompsViewModel>();
-    allTipsViewModel = TipsViewModel.forTipper(
-      di<TippersViewModel>(),
-      dauCompsViewModel.selectedDAUComp!,
-      dauCompsViewModel.gamesViewModel!,
-      widget.statsTipper,
-    );
     dauCompsViewModel.addListener(_refreshTableData);
-    allTipsViewModel.addListener(_refreshTableData);
     _refreshTableData();
   }
 
   @override
   void dispose() {
     dauCompsViewModel.removeListener(_refreshTableData);
-    allTipsViewModel.removeListener(_refreshTableData);
-    allTipsViewModel.dispose();
+    allTipsViewModel?.removeListener(_refreshTableData);
+    allTipsViewModel?.dispose();
     super.dispose();
+  }
+
+  void _ensureTipsViewModelForComp(DAUComp selectedComp) {
+    if (_allTipsViewModelCompDbKey == selectedComp.dbkey &&
+        allTipsViewModel != null) {
+      return;
+    }
+
+    allTipsViewModel?.removeListener(_refreshTableData);
+    allTipsViewModel?.dispose();
+
+    allTipsViewModel = TipsViewModel.forTipper(
+      di<TippersViewModel>(),
+      selectedComp,
+      dauCompsViewModel.gamesViewModel!,
+      widget.statsTipper,
+    );
+    _allTipsViewModelCompDbKey = selectedComp.dbkey;
+    allTipsViewModel!.addListener(_refreshTableData);
   }
 
   Future<void> _refreshTableData() async {
     final selectedComp = dauCompsViewModel.selectedDAUComp;
-    if (!mounted || selectedComp == null) {
+    final gamesViewModel = dauCompsViewModel.gamesViewModel;
+    if (!mounted || selectedComp == null || gamesViewModel == null) {
+      return;
+    }
+
+    _ensureTipsViewModelForComp(selectedComp);
+    final localTipsViewModel = allTipsViewModel;
+    if (localTipsViewModel == null) {
       return;
     }
 
@@ -93,11 +114,17 @@ class _StatRoundGameScoresForTipperState
       );
     });
 
-    await allTipsViewModel.initialLoadCompleted;
+    await localTipsViewModel.initialLoadCompleted;
+    if (!mounted ||
+        selectedComp.dbkey != dauCompsViewModel.selectedDAUComp?.dbkey ||
+        localTipsViewModel != allTipsViewModel) {
+      return;
+    }
+
     final tipsByGameKey = <String, Tip?>{};
     for (final leagueGames in filteredGames.values) {
       for (final game in leagueGames) {
-        tipsByGameKey[game.dbkey] = await allTipsViewModel.findTip(
+        tipsByGameKey[game.dbkey] = await localTipsViewModel.findTip(
           game,
           widget.statsTipper,
         );
