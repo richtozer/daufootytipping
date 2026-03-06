@@ -7,7 +7,6 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundLeaderboard extends StatefulWidget {
@@ -42,36 +41,41 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     super.initState();
 
     statsViewModel = di<StatsViewModel>();
+    statsViewModel.addListener(_handleLeaderboardChanged);
     _loadLeaderboard();
+  }
+
+  @override
+  void dispose() {
+    statsViewModel.removeListener(_handleLeaderboardChanged);
+    super.dispose();
+  }
+
+  void _handleLeaderboardChanged() {
+    if (!mounted) return;
+    setState(_loadLeaderboard);
   }
 
   void _loadLeaderboard() {
     roundLeaderboard = statsViewModel.getRoundLeaderBoard(
       widget.roundNumberToDisplay,
     );
-    onSort(1, true);
+    _sortLeaderboard(1, true);
+    sortColumnIndex = 1;
+    isAscending = true;
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<StatsViewModel>.value(
-      value: statsViewModel,
-      child: Consumer<StatsViewModel>(
-        builder: (context, scoresViewModelConsumer, child) {
-          return buildScaffold(
-            context,
-            scoresViewModelConsumer,
-            'Round ${widget.roundNumberToDisplay} Leaderboard',
-            Colors.blue,
-          );
-        },
-      ),
+    return buildScaffold(
+      context,
+      'Round ${widget.roundNumberToDisplay} Leaderboard',
+      Colors.blue,
     );
   }
 
   Widget buildScaffold(
     BuildContext context,
-    StatsViewModel scoresViewModelConsumer,
     String name,
     Color color,
   ) {
@@ -197,7 +201,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     );
   }
 
-  void onSort(int columnIndex, bool ascending) {
+  void _sortLeaderboard(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       // Sort by tipper.name
       var sortedEntries = roundLeaderboard.entries.toList()
@@ -333,7 +337,11 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       }
     }
 
+  }
+
+  void onSort(int columnIndex, bool ascending) {
     setState(() {
+      _sortLeaderboard(columnIndex, ascending);
       sortColumnIndex = columnIndex;
       isAscending = ascending;
     });

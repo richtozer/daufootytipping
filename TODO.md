@@ -46,6 +46,13 @@
 - [ ] Extract expensive operations from build methods
 - [ ] Implement proper null safety patterns (52 files with ! operator)
 
+### Provider To Listener Cleanup
+- [ ] `lib/pages/user_home/user_home_stats_roundwinners.dart` - likely same pattern as the other stats tables: derive local state from `StatsViewModel` listeners instead of rebuilding through `ChangeNotifierProvider`/`Consumer`.
+- [ ] `lib/pages/user_home/user_home_profile.dart` - dropdown/small derived UI state could be refreshed from direct `DAUCompsViewModel` and `TippersViewModel` listeners instead of nested providers.
+- [ ] `lib/pages/user_home/user_home_tips.dart` - main tips shell still uses provider wiring for view models that may be simpler as listener-driven page state.
+- [ ] `lib/pages/user_home/user_home_tips_gamelistitem.dart` - `GameTipViewModel` still flows through `ChangeNotifierProvider`/`Consumer`; could be flattened to direct listeners now that the scoring tile no longer needs a `FutureBuilder`.
+- [ ] `lib/pages/user_home/user_home_tips_scoringtile.dart` - inner `GameTipViewModel` provider wrapper could likely become a plain listener/`AnimatedBuilder` style widget.
+
 ### Widget Design Issues (Week 4)
 - [ ] Break down large complex widgets (650+ lines)
 - [ ] Convert function-based widgets to proper StatelessWidget classes

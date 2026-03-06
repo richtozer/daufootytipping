@@ -5,7 +5,6 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart';
@@ -420,22 +419,16 @@ class _GameListItemState extends State<GameListItem> {
 
   // Historical matchup card builder removed - functionality moved to team comparison page
 
-  FutureBuilder<dynamic> scoringTileBuilder(
-    GameTipViewModel gameTipsViewModelConsumer,
-  ) {
-    return FutureBuilder<Tip?>(
-      future: gameTipsViewModelConsumer.getTip(),
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return ScoringTile(
-            tip: snapshot.data!,
-            gameTipsViewModel: gameTipsViewModelConsumer,
-            selectedDAUComp: widget.currentDAUComp,
-          );
-        } else {
-          return CircularProgressIndicator(color: League.nrl.colour);
-        }
-      },
+  Widget scoringTileBuilder(GameTipViewModel gameTipsViewModelConsumer) {
+    final tip = gameTipsViewModelConsumer.tip;
+    if (tip == null) {
+      return CircularProgressIndicator(color: League.nrl.colour);
+    }
+
+    return ScoringTile(
+      tip: tip,
+      gameTipsViewModel: gameTipsViewModelConsumer,
+      selectedDAUComp: widget.currentDAUComp,
     );
   }
 
