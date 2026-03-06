@@ -34,6 +34,7 @@ class StatRoundGameScoresForTipper extends StatefulWidget {
 class _StatRoundGameScoresForTipperState
     extends State<StatRoundGameScoresForTipper> {
   late DAUCompsViewModel dauCompsViewModel;
+  late TipsViewModel allTipsViewModel;
   late Map<League, List<Game>> games;
   bool isAscending = true;
   int? sortColumnIndex = 1;
@@ -56,6 +57,18 @@ class _StatRoundGameScoresForTipperState
     roundToDisplay = dauCompsViewModel
         .selectedDAUComp!
         .daurounds[widget.roundNumberToDisplay - 1];
+    allTipsViewModel = TipsViewModel.forTipper(
+      di<TippersViewModel>(),
+      dauCompsViewModel.selectedDAUComp!,
+      dauCompsViewModel.gamesViewModel!,
+      widget.statsTipper,
+    );
+  }
+
+  @override
+  void dispose() {
+    allTipsViewModel.dispose();
+    super.dispose();
   }
 
   @override
@@ -100,13 +113,6 @@ class _StatRoundGameScoresForTipperState
     bool isLargeScreen,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
-
-    TipsViewModel allTips = TipsViewModel.forTipper(
-      di<TippersViewModel>(),
-      di<DAUCompsViewModel>().selectedDAUComp!,
-      di<DAUCompsViewModel>().gamesViewModel!,
-      widget.statsTipper,
-    );
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -215,7 +221,11 @@ class _StatRoundGameScoresForTipperState
                             ...List<DataRow>.generate(nrlGames!.length, (
                               index,
                             ) {
-                              return buildDataRow(nrlGames, index, allTips);
+                              return buildDataRow(
+                                nrlGames,
+                                index,
+                                allTipsViewModel,
+                              );
                             }),
                             DataRow(
                               cells: [
@@ -273,7 +283,11 @@ class _StatRoundGameScoresForTipperState
                             ...List<DataRow>.generate(aflGames!.length, (
                               index,
                             ) {
-                              return buildDataRow(aflGames, index, allTips);
+                              return buildDataRow(
+                                aflGames,
+                                index,
+                                allTipsViewModel,
+                              );
                             }),
                           ],
                         );

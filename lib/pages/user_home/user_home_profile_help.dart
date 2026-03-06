@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-Future<Widget> help(BuildContext context) async {
+Widget helpButton() {
   return OutlinedButton(
     child: const Text('Help ...'),
     onPressed: () {

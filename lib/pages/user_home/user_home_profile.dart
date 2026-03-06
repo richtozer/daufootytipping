@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_help.dart';
+import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
@@ -18,6 +19,9 @@ import 'package:watch_it/watch_it.dart';
 
 class Profile extends StatelessWidget with WatchItMixin {
   const Profile({super.key});
+
+  static final Future<PackageInfo> _packageInfoFuture =
+      di<PackageInfoService>().packageInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -234,41 +238,9 @@ class Profile extends StatelessWidget with WatchItMixin {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            FutureBuilder<Widget>(
-                              future: help(context),
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    AsyncSnapshot<Widget> snapshot,
-                                  ) {
-                                    if (snapshot.connectionState ==
-                                        ConnectionState.done) {
-                                      return snapshot.data!;
-                                    } else {
-                                      return CircularProgressIndicator(
-                                        color: League.afl.colour,
-                                      );
-                                    }
-                                  },
-                            ),
+                            helpButton(),
                             const SizedBox(width: 10),
-                            FutureBuilder<Widget>(
-                              future: faq(context),
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    AsyncSnapshot<Widget> snapshot,
-                                  ) {
-                                    if (snapshot.connectionState ==
-                                        ConnectionState.done) {
-                                      return snapshot.data!;
-                                    } else {
-                                      return CircularProgressIndicator(
-                                        color: League.afl.colour,
-                                      );
-                                    }
-                                  },
-                            ),
+                            faqButton(),
                           ],
                         ),
                         Row(
@@ -349,7 +321,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             FutureBuilder<PackageInfo>(
-                              future: PackageInfo.fromPlatform(),
+                              future: _packageInfoFuture,
                               builder: (context, snapshot) {
                                 if (snapshot.connectionState ==
                                     ConnectionState.waiting) {
