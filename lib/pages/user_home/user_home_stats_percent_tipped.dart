@@ -25,6 +25,8 @@ class StatPercentTippedState extends State<StatPercentTipped> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   int latestRoundNumber = 0;
+  String? _lastScrolledCompDbKey;
+  bool _selectingActiveComp = false;
   late ScrollController scrollController;
   late FocusNode focusNode;
   int initialScrollOffset = -150;
@@ -34,24 +36,70 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     log('StatPercentTipped.constructor()');
     super.initState();
 
-    if (daucompsViewModel.selectedDAUComp == null) {
-      log('StatPercentTipped.initState() selectedDAUComp is null');
+    focusNode = FocusNode();
+    scrollController = ScrollController();
+    daucompsViewModel.addListener(_handleDAUCompsUpdated);
+    _syncSelectedCompState();
+    _ensureSelectedComp();
+  }
+
+  void _handleDAUCompsUpdated() {
+    if (!mounted) return;
+    _syncSelectedCompState();
+    _ensureSelectedComp();
+  }
+
+  void _syncSelectedCompState() {
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null) {
       return;
     }
 
-    latestRoundNumber = daucompsViewModel.selectedDAUComp!
-        .latestsCompletedRoundNumber();
-    log('StatPercentTipped.initState() latestRoundNumber: $latestRoundNumber');
-
-    focusNode = FocusNode();
-
-    scrollController = ScrollController(
-      initialScrollOffset:
-          daucompsViewModel.selectedDAUComp!.pixelHeightUpToRound(
-            latestRoundNumber,
-          ) +
-          initialScrollOffset,
+    final nextLatestRoundNumber = selectedComp.latestsCompletedRoundNumber();
+    log(
+      'StatPercentTipped._syncSelectedCompState() latestRoundNumber: $nextLatestRoundNumber',
     );
+
+    if (latestRoundNumber != nextLatestRoundNumber && mounted) {
+      setState(() {
+        latestRoundNumber = nextLatestRoundNumber;
+      });
+    } else {
+      latestRoundNumber = nextLatestRoundNumber;
+    }
+
+    if (_lastScrolledCompDbKey != selectedComp.dbkey) {
+      _lastScrolledCompDbKey = selectedComp.dbkey;
+      final targetOffset =
+          selectedComp.pixelHeightUpToRound(nextLatestRoundNumber) +
+          initialScrollOffset;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !scrollController.hasClients) {
+          return;
+        }
+
+        final clampedOffset = targetOffset.clamp(
+          0.0,
+          scrollController.position.maxScrollExtent,
+        );
+        scrollController.jumpTo(clampedOffset);
+      });
+    }
+  }
+
+  void _ensureSelectedComp() {
+    if (_selectingActiveComp ||
+        daucompsViewModel.selectedDAUComp != null ||
+        daucompsViewModel.activeDAUComp == null) {
+      return;
+    }
+
+    _selectingActiveComp = true;
+    daucompsViewModel
+        .changeDisplayedDAUComp(daucompsViewModel.activeDAUComp!, false)
+        .whenComplete(() {
+          _selectingActiveComp = false;
+        });
   }
 
   void _handleKeyEvent(KeyEvent event, BuildContext context) {
@@ -87,32 +135,23 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     Orientation orientation = MediaQuery.of(context).orientation;
 
     if (daucompsViewModel.selectedDAUComp == null) {
-      log(
-        'StatPercentTipped.build() selectedDAUComp is null. Trying to change to active comp',
-      );
-      daucompsViewModel.changeDisplayedDAUComp(
-        daucompsViewModel.activeDAUComp!,
-        false,
-      );
-      if (daucompsViewModel.selectedDAUComp == null) {
-        return Center(
-          child: SizedBox(
-            height: 75,
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              color: Colors.black38,
-              child: Center(
-                child: Text(
-                  'Nothing to see here.\nContact support: https://interview.coach/tipping.',
-                  style: TextStyle(color: Colors.white70),
-                ),
+      return Center(
+        child: SizedBox(
+          height: 75,
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            color: Colors.black38,
+            child: Center(
+              child: Text(
+                'Nothing to see here.\nContact support: https://interview.coach/tipping.',
+                style: TextStyle(color: Colors.white70),
               ),
             ),
           ),
-        );
-      }
+        ),
+      );
     }
 
     return KeyboardListener(
@@ -274,6 +313,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
 
   @override
   void dispose() {
+    daucompsViewModel.removeListener(_handleDAUCompsUpdated);
     focusNode.dispose();
     scrollController.dispose();
     super.dispose();

@@ -16,10 +16,25 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with RestorationMixin {
+  final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
+  final TippersViewModel _tippersViewModel = di<TippersViewModel>();
   late final RestorableInt _currentIndex = RestorableInt(
     kIsWeb ? 1 : 0,
   ); // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the current round when they first load the app, this should be fixed in the future
   bool _startupReadyMarked = false;
+  int _outstandingTipsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _dauCompsViewModel.addListener(_handleHomeViewModelsUpdated);
+    _tippersViewModel.addListener(_handleHomeViewModelsUpdated);
+    _outstandingTipsCount = _calculateOutstandingTipsCount();
+    if (_tippersViewModel.selectedTipper.isAnonymous &&
+        _currentIndex.value == 0) {
+      _currentIndex.value = 2;
+    }
+  }
 
   @override
   String? get restorationId => 'home_page';
@@ -37,8 +52,38 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
 
   List<Widget> content() => const [TipsTab(), StatsTab(), Profile()];
 
+  int _calculateOutstandingTipsCount() {
+    if (_tippersViewModel.selectedTipper.isAnonymous) {
+      return 0;
+    }
+
+    return _dauCompsViewModel.currentRoundOutstandingTipsCount();
+  }
+
+  void _handleHomeViewModelsUpdated() {
+    if (!mounted) return;
+
+    final nextOutstandingTipsCount = _calculateOutstandingTipsCount();
+    final shouldSwitchToProfile =
+        _tippersViewModel.selectedTipper.isAnonymous && _currentIndex.value == 0;
+
+    if (nextOutstandingTipsCount == _outstandingTipsCount &&
+        !shouldSwitchToProfile) {
+      return;
+    }
+
+    setState(() {
+      _outstandingTipsCount = nextOutstandingTipsCount;
+      if (shouldSwitchToProfile) {
+        _currentIndex.value = 2;
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _dauCompsViewModel.removeListener(_handleHomeViewModelsUpdated);
+    _tippersViewModel.removeListener(_handleHomeViewModelsUpdated);
     _currentIndex.dispose();
     super.dispose();
   }
@@ -76,11 +121,6 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                   });
                 }
 
-                if (tippersViewModelConsumer.selectedTipper.isAnonymous &&
-                    _currentIndex.value == 0) {
-                  _currentIndex.value = 2;
-                }
-
                 Widget scaffold = Stack(
                   children: [
                     RepaintBoundary(
@@ -111,13 +151,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                           (() {
                             final isAnonymous =
                                 tippersViewModelConsumer.selectedTipper.isAnonymous;
-                            final outstandingTips = isAnonymous
-                                ? 0
-                                : dauCompsViewModelConsumer
-                                      .currentRoundOutstandingTipsCount();
-                            final tipsIcon = outstandingTips > 0
+                            final tipsIcon = _outstandingTipsCount > 0
                                 ? Badge.count(
-                                    count: outstandingTips,
+                                    count: _outstandingTipsCount,
                                     child: const Icon(
                                       Icons.sports_rugby_outlined,
                                     ),
