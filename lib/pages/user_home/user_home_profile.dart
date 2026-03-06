@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -32,12 +33,19 @@ class Profile extends StatelessWidget with WatchItMixin {
               Tipper? authenticatedTipper =
                   tippersViewModelConsumer.authenticatedTipper;
 
-              // Build the comp dropdown from the live authenticated
-              // tipper so it updates when Firebase refreshes
-              // compsPaidFor after a cached-tipper cold start.
+              // Use the tipper from the tippers list (always fresh from
+              // the Firebase stream with populated compsPaidFor) rather
+              // than authenticatedTipper which may be a stale cached copy.
+              Tipper? profileTipper = authenticatedTipper != null
+                  ? tippersViewModelConsumer.tippers.firstWhereOrNull(
+                      (t) => t.dbkey == authenticatedTipper.dbkey,
+                    )
+                  : null;
+              profileTipper ??= authenticatedTipper;
+
               List<DAUComp> compsForDropdown = [];
-              if (authenticatedTipper != null) {
-                compsForDropdown.addAll(authenticatedTipper.compsPaidFor);
+              if (profileTipper != null) {
+                compsForDropdown.addAll(profileTipper.compsPaidFor);
                 DAUComp? activeDAUComp =
                     di<DAUCompsViewModel>().activeDAUComp;
                 if (activeDAUComp != null &&
@@ -49,22 +57,29 @@ class Profile extends StatelessWidget with WatchItMixin {
                 (a, b) => b.name.compareTo(a.name),
               );
 
-              if (authenticatedTipper != null &&
-                  authenticatedTipper.name.isEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _showEditNameDialog(context, authenticatedTipper);
-                });
+              if (profileTipper == null) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
               }
 
-              Tipper profileTipper = tippersViewModelConsumer.tippers
-                  .firstWhere((t) => t.dbkey == authenticatedTipper!.dbkey);
+              // Local non-nullable reference for use in closures
+              // (Dart can't promote the nullable profileTipper across
+              // closure boundaries).
+              final Tipper tipper = profileTipper;
+
+              if (tipper.name.isEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _showEditNameDialog(context, tipper);
+                });
+              }
               return Column(
                 children: [
                   Row(
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(5.0),
-                        child: avatarPic(profileTipper),
+                        child: avatarPic(tipper),
                       ),
                       Expanded(
                         child: Padding(
@@ -75,7 +90,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      (profileTipper.name),
+                                      (tipper.name),
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         letterSpacing: 5,
@@ -89,12 +104,12 @@ class Profile extends StatelessWidget with WatchItMixin {
                                       padding: const EdgeInsets.all(5),
                                       minimumSize: Size(50, 30),
                                     ),
-                                    onPressed: profileTipper.isAnonymous
+                                    onPressed: tipper.isAnonymous
                                         ? null
                                         : () {
                                             _showEditNameDialog(
                                               context,
-                                              profileTipper,
+                                              tipper,
                                             );
                                           },
                                     child: const Text(
@@ -113,7 +128,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                   ),
                                   Expanded(
                                     child: Text(
-                                      profileTipper.logon ?? '',
+                                      tipper.logon ?? '',
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontSize: 16),
                                     ),
@@ -152,7 +167,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                   Card(
                     child: Column(
                       children: [
-                        profileTipper.tipperRole == TipperRole.admin
+                        tipper.tipperRole == TipperRole.admin
                             ? const Center(child: AdminFunctionsWidget())
                             : const SizedBox.shrink(),
                         const SizedBox(height: 20),

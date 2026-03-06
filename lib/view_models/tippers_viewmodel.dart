@@ -331,7 +331,19 @@ class TippersViewModel extends ChangeNotifier {
   /// Sets the authenticated tipper immediately after lookup, before the
   /// background DB metadata update completes, so the UI can navigate to
   /// [HomePage] without blocking on Firebase writes.
+  ///
+  /// When [tipper] is a cached copy (empty [compsPaidFor]) but the
+  /// Firebase stream has already populated [_tippers], this method
+  /// promotes to the fresh object so downstream consumers see full data.
   void setAuthenticatedTipper(Tipper tipper) {
+    if (_initialLoadCompleter.isCompleted && tipper.dbkey != null) {
+      final Tipper? freshTipper = _tippers.firstWhereOrNull(
+        (t) => t.dbkey == tipper.dbkey,
+      );
+      if (freshTipper != null) {
+        tipper = freshTipper;
+      }
+    }
     _authenticatedTipper = tipper;
     _selectedTipper = tipper;
     if (!_isUserLinked.isCompleted) {
