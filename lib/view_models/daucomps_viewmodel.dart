@@ -84,6 +84,10 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   List<Game> unassignedGames = []; // List to store unassigned games
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
+  DAURound? _cachedGroupedGamesRound;
+  List<Game>? _cachedGroupedGamesSource;
+  int? _cachedGroupedGamesCount;
+  Map<League, List<Game>>? _cachedGroupedGames;
   final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
   final FixtureUpdateCoordinator _fixtureCoordinator;
   final DauCompsSnapshotApplier _snapshotApplier = const DauCompsSnapshotApplier();
@@ -128,6 +132,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   @visibleForTesting
   void setSelectedCompForTest(DAUComp comp) {
     _selectedDAUComp = comp;
+    _clearGroupedGamesCache();
   }
 
   @visibleForTesting
@@ -229,6 +234,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     bool changingActiveComp,
   ) async {
     _selectedDAUComp = changeToDAUComp;
+    _clearGroupedGamesCache();
 
     if (changingActiveComp) {
       _activeDAUComp = _selectedDAUComp;
@@ -392,6 +398,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         if (_selectedDAUComp != null) {
           _selectedDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _selectedDAUComp!.dbkey);
         }
+        _clearGroupedGamesCache();
 
         // If selected comp had rounds changed or was replaced, relink games
         final selKey = _selectedDAUComp?.dbkey;
@@ -579,6 +586,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _clearGroupedGamesCache();
       // Assign round.games via GamesViewModel to keep behavior consistent
       for (var round in allRounds) {
         round.games = await gamesViewModel!.getGamesForRound(round);
@@ -661,11 +669,31 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _daucomps;
   }
 
-  Map<League, List<Game>> groupGamesIntoLeagues(DAURound combinedRound) {
-    List<Game> nrlGames = [];
-    List<Game> aflGames = [];
+  void _clearGroupedGamesCache() {
+    _cachedGroupedGamesRound = null;
+    _cachedGroupedGamesSource = null;
+    _cachedGroupedGamesCount = null;
+    _cachedGroupedGames = null;
+  }
 
-    List<Game> allGamesInRound = combinedRound.games;
+  Map<League, List<Game>> _copyGroupedGames(Map<League, List<Game>> grouped) {
+    return {
+      League.nrl: List<Game>.from(grouped[League.nrl] ?? const <Game>[]),
+      League.afl: List<Game>.from(grouped[League.afl] ?? const <Game>[]),
+    };
+  }
+
+  Map<League, List<Game>> groupGamesIntoLeagues(DAURound combinedRound) {
+    final List<Game> allGamesInRound = combinedRound.games;
+    if (_cachedGroupedGames != null &&
+        identical(_cachedGroupedGamesRound, combinedRound) &&
+        identical(_cachedGroupedGamesSource, allGamesInRound) &&
+        _cachedGroupedGamesCount == allGamesInRound.length) {
+      return _copyGroupedGames(_cachedGroupedGames!);
+    }
+
+    final List<Game> nrlGames = [];
+    final List<Game> aflGames = [];
     for (var game in allGamesInRound) {
       if (game.league == League.nrl) {
         nrlGames.add(game);
@@ -677,7 +705,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     nrlGames.sort();
     aflGames.sort();
 
-    return {League.nrl: nrlGames, League.afl: aflGames};
+    _cachedGroupedGamesRound = combinedRound;
+    _cachedGroupedGamesSource = allGamesInRound;
+    _cachedGroupedGamesCount = allGamesInRound.length;
+    _cachedGroupedGames = {
+      League.nrl: List<Game>.unmodifiable(nrlGames),
+      League.afl: List<Game>.unmodifiable(aflGames),
+    };
+
+    return _copyGroupedGames(_cachedGroupedGames!);
   }
 
   int currentRoundOutstandingTipsCount() {
@@ -711,6 +747,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   void _otherViewModelUpdated() {
+    _clearGroupedGamesCache();
     notifyListeners();
   }
 

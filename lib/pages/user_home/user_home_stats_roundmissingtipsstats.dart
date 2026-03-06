@@ -6,7 +6,6 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class RoundMissingTipsStats extends StatefulWidget {
@@ -35,32 +34,47 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     statsViewModel = di<StatsViewModel>();
     sortColumnIndex = 1;
     isAscending = false;
+    statsViewModel.addListener(_handleStatsChanged);
+    _refreshLeaderboard();
+  }
+
+  @override
+  void didUpdateWidget(covariant RoundMissingTipsStats oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.roundNumberToDisplay != widget.roundNumberToDisplay) {
+      _refreshLeaderboard();
+    }
+  }
+
+  @override
+  void dispose() {
+    statsViewModel.removeListener(_handleStatsChanged);
+    super.dispose();
+  }
+
+  void _handleStatsChanged() {
+    if (!mounted) return;
+    setState(_refreshLeaderboard);
+  }
+
+  void _refreshLeaderboard() {
+    roundLeaderboard = statsViewModel.getRoundLeaderBoard(
+      widget.roundNumberToDisplay,
+    );
+    _sortLeaderboard(sortColumnIndex!, isAscending);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<StatsViewModel>.value(
-      value: statsViewModel,
-      child: Consumer<StatsViewModel>(
-        builder: (context, scoresViewModelConsumer, child) {
-          roundLeaderboard = scoresViewModelConsumer.getRoundLeaderBoard(
-            widget.roundNumberToDisplay,
-          );
-          _sortLeaderboard(sortColumnIndex!, isAscending);
-          return buildScaffold(
-            context,
-            scoresViewModelConsumer,
-            'Round ${widget.roundNumberToDisplay} - missing tips',
-            Colors.blue,
-          );
-        },
-      ),
+    return buildScaffold(
+      context,
+      'Round ${widget.roundNumberToDisplay} - missing tips',
+      Colors.blue,
     );
   }
 
   Widget buildScaffold(
     BuildContext context,
-    StatsViewModel scoresViewModelConsumer,
     String name,
     Color color,
   ) {

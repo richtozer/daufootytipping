@@ -78,6 +78,38 @@ void main() {
       expect(grouped[League.afl]![1].fixtureMatchNumber, 2);
     });
 
+    test('groupGamesIntoLeagues returns defensive copies for cached results', () {
+      final vm = DAUCompsViewModel(null, false, skipInit: true);
+
+      final nrlHome = Team(dbkey: 'nrl-home', name: 'NRL Home', league: League.nrl);
+      final nrlAway = Team(dbkey: 'nrl-away', name: 'NRL Away', league: League.nrl);
+
+      final round = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: DateTime.parse('2025-01-01T00:00:00Z'),
+        lastGameKickOffUTC: DateTime.parse('2025-01-03T00:00:00Z'),
+        games: [
+          Game(
+            dbkey: 'nrl-01-001',
+            league: League.nrl,
+            homeTeam: nrlHome,
+            awayTeam: nrlAway,
+            location: 'Suncorp',
+            startTimeUTC: DateTime.parse('2025-01-01T10:00:00Z'),
+            fixtureRoundNumber: 1,
+            fixtureMatchNumber: 1,
+          ),
+        ],
+      );
+
+      final firstGrouped = vm.groupGamesIntoLeagues(round);
+      firstGrouped[League.nrl]!.clear();
+
+      final secondGrouped = vm.groupGamesIntoLeagues(round);
+
+      expect(secondGrouped[League.nrl]!.length, 1);
+    });
+
     test('updateRoundAttribute writes correct update path', () {
       final vm = DAUCompsViewModel(null, false, skipInit: true);
 
@@ -99,4 +131,3 @@ void main() {
     });
   });
 }
-
