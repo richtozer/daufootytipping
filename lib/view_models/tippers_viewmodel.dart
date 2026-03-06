@@ -35,7 +35,8 @@ class TippersViewModel extends ChangeNotifier {
 
   bool get inGodMode => _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
 
-  final _db = FirebaseDatabase.instance.ref();
+  // Lazily access database reference to avoid Firebase initialization in pure unit tests.
+  DatabaseReference get _db => FirebaseDatabase.instance.ref();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
 
@@ -53,9 +54,11 @@ class TippersViewModel extends ChangeNotifier {
   final Map<String, dynamic> updates = {};
 
   //constructor
-  TippersViewModel(this._createLinkedTipper) {
+  TippersViewModel(this._createLinkedTipper, {bool skipInit = false}) {
     log('TippersViewModel() constructor called');
-    _listenToTippers();
+    if (!skipInit) {
+      _listenToTippers();
+    }
   }
 
   // monitor changes to tippers records in DB and notify listeners of any changes
@@ -328,6 +331,82 @@ class TippersViewModel extends ChangeNotifier {
     return regex.hasMatch(email);
   }
 
+  Tipper _promoteToFreshTipperReference(Tipper tipper) {
+    if (!_initialLoadCompleter.isCompleted || tipper.dbkey == null) {
+      return tipper;
+    }
+
+    final Tipper? freshTipper = _tippers.firstWhereOrNull(
+      (t) => t.dbkey == tipper.dbkey,
+    );
+    return freshTipper ?? tipper;
+  }
+
+  Future<void> _completeIsUserLinkedWhenReady({
+    required bool awaitMessagingRegistration,
+  }) async {
+    if (_isUserLinked.isCompleted) {
+      return;
+    }
+
+    if (_initialLoadCompleter.isCompleted) {
+      _isUserLinked.complete();
+      if (!kIsWeb) {
+        if (awaitMessagingRegistration) {
+          await _registerLinkedTipperForMessaging();
+        } else {
+          unawaited(_registerLinkedTipperForMessaging());
+        }
+      }
+      return;
+    }
+
+    unawaited(
+      _initialLoadCompleter.future.then((_) async {
+        if (_isUserLinked.isCompleted) {
+          return;
+        }
+        _isUserLinked.complete();
+        if (!kIsWeb) {
+          if (awaitMessagingRegistration) {
+            await _registerLinkedTipperForMessaging();
+          } else {
+            unawaited(_registerLinkedTipperForMessaging());
+          }
+        }
+      }),
+    );
+  }
+
+  @visibleForTesting
+  bool get isUserLinkedCompletedForTest => _isUserLinked.isCompleted;
+
+  @visibleForTesting
+  void setLinkedTippersForTest(Tipper tipper) {
+    _authenticatedTipper = tipper;
+    _selectedTipper = tipper;
+  }
+
+  @visibleForTesting
+  Future<void> completeIsUserLinkedWhenReadyForTest({
+    required bool awaitMessagingRegistration,
+  }) {
+    return _completeIsUserLinkedWhenReady(
+      awaitMessagingRegistration: awaitMessagingRegistration,
+    );
+  }
+
+  @visibleForTesting
+  void applyTippersSnapshotForTest(List<Tipper> tippers) {
+    _tippers = List<Tipper>.from(tippers);
+    _sortTippersByLogin(false);
+    _refreshAuthenticatedTipperReference();
+    if (!_initialLoadCompleter.isCompleted) {
+      _initialLoadCompleter.complete();
+    }
+    notifyListeners();
+  }
+
   /// Sets the authenticated tipper immediately after lookup, before the
   /// background DB metadata update completes, so the UI can navigate to
   /// [HomePage] without blocking on Firebase writes.
@@ -336,41 +415,14 @@ class TippersViewModel extends ChangeNotifier {
   /// Firebase stream has already populated [_tippers], this method
   /// promotes to the fresh object so downstream consumers see full data.
   void setAuthenticatedTipper(Tipper tipper) {
-    if (_initialLoadCompleter.isCompleted && tipper.dbkey != null) {
-      final Tipper? freshTipper = _tippers.firstWhereOrNull(
-        (t) => t.dbkey == tipper.dbkey,
-      );
-      if (freshTipper != null) {
-        tipper = freshTipper;
-      }
-    }
+    tipper = _promoteToFreshTipperReference(tipper);
     _authenticatedTipper = tipper;
     _selectedTipper = tipper;
-    if (!_isUserLinked.isCompleted) {
-      if (_initialLoadCompleter.isCompleted) {
-        // Stream already loaded — complete immediately so downstream
-        // consumers (e.g. StatsViewModel) see fully populated data.
-        _isUserLinked.complete();
-        if (!kIsWeb) {
-          unawaited(_registerLinkedTipperForMessaging());
-        }
-      } else {
-        // Cached tipper with empty compsPaidFor — defer isUserLinked
-        // until the Firebase stream arrives and _refreshAuthenticatedTipperReference
-        // updates references with fully populated tippers. This prevents
-        // StatsViewModel from computing with wrong paid status.
-        unawaited(
-          _initialLoadCompleter.future.then((_) {
-            if (!_isUserLinked.isCompleted) {
-              _isUserLinked.complete();
-              if (!kIsWeb) {
-                unawaited(_registerLinkedTipperForMessaging());
-              }
-            }
-          }),
-        );
-      }
-    }
+    // Cached tipper with empty compsPaidFor should not unblock stats until
+    // the Firebase tippers stream has populated fresh references.
+    unawaited(
+      _completeIsUserLinkedWhenReady(awaitMessagingRegistration: false),
+    );
     notifyListeners();
   }
 
@@ -410,15 +462,14 @@ class TippersViewModel extends ChangeNotifier {
       }
 
       if (userIsLinked) {
-        _authenticatedTipper = foundTipper ?? _authenticatedTipper;
-        _selectedTipper = foundTipper ?? _authenticatedTipper!;
-        if (!_isUserLinked.isCompleted) {
-          _isUserLinked.complete();
-
-          if (!kIsWeb) {
-            await _registerLinkedTipperForMessaging();
-          }
-        }
+        final Tipper tipperToUse = foundTipper != null
+            ? _promoteToFreshTipperReference(foundTipper)
+            : _authenticatedTipper!;
+        _authenticatedTipper = tipperToUse;
+        _selectedTipper = tipperToUse;
+        await _completeIsUserLinkedWhenReady(
+          awaitMessagingRegistration: true,
+        );
       }
 
       return userIsLinked;
