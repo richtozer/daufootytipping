@@ -21,6 +21,8 @@ These are not suggestions. Fix ALL issues before continuing.
 2. **Plan**: Create a detailed implementation plan and verify it with me  
 3. **Implement**: Execute the plan with validation checkpoints
 
+During the research phase, prefer the `jcodemunch` MCP when available for symbol-level code exploration and targeted source retrieval. Use it for `search_symbols`, `get_symbol`, `get_file_outline`, and `get_repo_outline`. Keep using `rg` and direct file reads for exact string matches, literals, config values, and cases where the index may be missing or stale.
+
 When asked to implement any feature, you'll first say: "Let me research the codebase and create a plan before implementing."
 
 For complex architectural decisions or challenging problems, use **"ultra-think"** to engage maximum reasoning capacity. Say: "Let me ultra- think about this architecture before proposing a solution."

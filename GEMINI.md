@@ -11,6 +11,7 @@ To ensure all changes are safe, robust, and maintainable, the following workflow
 ### Step 1: Analyze the Request & Existing Code
 - Thoroughly understand the user's goal.
 - Investigate the relevant sections of the codebase, including view models, services, and UI pages.
+- When available, prefer the `jcodemunch` MCP for symbol-level exploration and targeted source retrieval (`search_symbols`, `get_symbol`, `get_file_outline`, `get_repo_outline`). Continue to use direct text search and raw file reads for exact string matches, literals, config values, and cases where the MCP index is missing or stale.
 
 ### Step 2: Assess Test Coverage
 - Before modifying code, locate the corresponding test file (e.g., for `lib/services/foo.dart`, examine `test/services/foo_test.dart`).

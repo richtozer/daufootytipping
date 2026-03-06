@@ -18,6 +18,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Scope: Changes are surgical; avoid unrelated edits or drive-by refactors.
 - Commits/branches: The agent does not commit or create branches unless explicitly asked.
 - Pre‑flight checks: Always run `flutter analyze` and the relevant `flutter test` scope before and after refactors.
+- Repo exploration: When `jcodemunch` MCP is available, prefer it for symbol-level exploration (`search_symbols`, `get_symbol`, `get_file_outline`, `get_repo_outline`). Keep using `rg` and direct file reads for exact text matches, literals, config values, and when the MCP index is missing or stale.
 
 ## Testing & Coverage
 - Use Mocktail for mocking; avoid real Firebase or network in unit tests.
