@@ -347,9 +347,28 @@ class TippersViewModel extends ChangeNotifier {
     _authenticatedTipper = tipper;
     _selectedTipper = tipper;
     if (!_isUserLinked.isCompleted) {
-      _isUserLinked.complete();
-      if (!kIsWeb) {
-        unawaited(_registerLinkedTipperForMessaging());
+      if (_initialLoadCompleter.isCompleted) {
+        // Stream already loaded — complete immediately so downstream
+        // consumers (e.g. StatsViewModel) see fully populated data.
+        _isUserLinked.complete();
+        if (!kIsWeb) {
+          unawaited(_registerLinkedTipperForMessaging());
+        }
+      } else {
+        // Cached tipper with empty compsPaidFor — defer isUserLinked
+        // until the Firebase stream arrives and _refreshAuthenticatedTipperReference
+        // updates references with fully populated tippers. This prevents
+        // StatsViewModel from computing with wrong paid status.
+        unawaited(
+          _initialLoadCompleter.future.then((_) {
+            if (!_isUserLinked.isCompleted) {
+              _isUserLinked.complete();
+              if (!kIsWeb) {
+                unawaited(_registerLinkedTipperForMessaging());
+              }
+            }
+          }),
+        );
       }
     }
     notifyListeners();
