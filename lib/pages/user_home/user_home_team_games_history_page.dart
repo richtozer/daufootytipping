@@ -25,6 +25,8 @@ class TeamGamesHistoryPage extends StatefulWidget {
 class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   bool _isLoading = true;
   List<TeamGameHistoryItem> _gameHistory = [];
+  Map<String, List<TeamGameHistoryItem>> _groupedGames = {};
+  List<String> _sortedYears = [];
   String? _error;
   final ScrollController _scrollController = ScrollController();
   String _currentYear = '';
@@ -82,30 +84,44 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         widget.team,
         widget.league,
       );
+      final groupedGames = _groupGamesByYear(history);
+      final sortedYears = groupedGames.keys.toList()
+        ..sort((a, b) => b.compareTo(a));
+      final currentYear =
+          history.isNotEmpty ? history.first.gameDate.year.toString() : '';
+      final yearPositions = _calculateYearPositions(groupedGames, sortedYears);
       if (mounted) {
         setState(() {
           _gameHistory = history;
+          _groupedGames = groupedGames;
+          _sortedYears = sortedYears;
+          _yearPositions
+            ..clear()
+            ..addAll(yearPositions);
           _isLoading = false;
-          if (history.isNotEmpty) {
-            _currentYear = history.first.gameDate.year.toString();
-            _calculateYearPositions();
-          }
+          _currentYear = currentYear;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _error = e.toString();
+          _groupedGames = {};
+          _sortedYears = [];
+          _yearPositions.clear();
+          _currentYear = '';
           _isLoading = false;
         });
       }
     }
   }
 
-  Map<String, List<TeamGameHistoryItem>> _groupGamesByYear() {
+  Map<String, List<TeamGameHistoryItem>> _groupGamesByYear(
+    List<TeamGameHistoryItem> history,
+  ) {
     final Map<String, List<TeamGameHistoryItem>> groupedGames = {};
 
-    for (final item in _gameHistory) {
+    for (final item in history) {
       final year = item.gameDate.year.toString();
       if (!groupedGames.containsKey(year)) {
         groupedGames[year] = [];
@@ -116,11 +132,11 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
     return groupedGames;
   }
 
-  void _calculateYearPositions() {
-    final groupedGames = _groupGamesByYear();
-    final sortedYears = groupedGames.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
-
+  Map<String, double> _calculateYearPositions(
+    Map<String, List<TeamGameHistoryItem>> groupedGames,
+    List<String> sortedYears,
+  ) {
+    final Map<String, double> yearPositions = {};
     double currentPosition = 0.0;
     const double gameCardHeight = 80.0; // Approximate game card height
     const double spacing = 8.0; // Spacing between cards
@@ -133,7 +149,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
       final year = sortedYears[index];
       final isFirstYear = index == 0;
 
-      _yearPositions[year] = currentPosition;
+      yearPositions[year] = currentPosition;
       final gameCount = groupedGames[year]!.length;
 
       if (isFirstYear) {
@@ -150,14 +166,13 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
             sectionSpacing;
       }
     }
+
+    return yearPositions;
   }
 
   @override
   Widget build(BuildContext context) {
     final orientation = MediaQuery.of(context).orientation;
-    final groupedGames = _groupGamesByYear();
-    final sortedYears = groupedGames.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -218,8 +233,8 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: _buildYearSections(
-                            groupedGames,
-                            sortedYears,
+                            _groupedGames,
+                            _sortedYears,
                           ),
                         ),
                       ),

@@ -9,7 +9,6 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundScoresForTipper extends StatefulWidget {
@@ -45,46 +44,109 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     if (di<DAUCompsViewModel>().selectedDAUComp != null) {
       scoresViewModel = di<StatsViewModel>();
     }
+    scoresViewModel.addListener(_handleScoresChanged);
+    _refreshScores();
+  }
 
-    // get the highest round number will RoundState.allGamesEnded
-    // and store that number
+  @override
+  void didUpdateWidget(covariant StatRoundScoresForTipper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.statsTipper != widget.statsTipper) {
+      _refreshScores();
+    }
+  }
+
+  @override
+  void dispose() {
+    scoresViewModel.removeListener(_handleScoresChanged);
+    super.dispose();
+  }
+
+  void _handleScoresChanged() {
+    if (!mounted) return;
+    setState(_refreshScores);
+  }
+
+  void _refreshScores() {
     highestRoundNumber = di<DAUCompsViewModel>().selectedDAUComp!
         .latestsCompletedRoundNumber();
     log(
       'StatRoundScoresForTipper() highest round number is $highestRoundNumber',
     );
+
+    final rawScores = scoresViewModel.getTipperRoundScoresForComp(
+      widget.statsTipper,
+    )..removeWhere(
+        (element) => element.roundNumber > highestRoundNumber + 1,
+      );
+
+    sortedScores = List<RoundStats>.from(rawScores);
+    _sortScores(sortColumnIndex!, isAscending);
+  }
+
+  void _sortScores(int columnIndex, bool ascending) {
+    if (sortedScores == null) return;
+
+    switch (columnIndex) {
+      case 0:
+        sortedScores!.sort(
+          (a, b) => ascending
+              ? a.roundNumber.compareTo(b.roundNumber)
+              : b.roundNumber.compareTo(a.roundNumber),
+        );
+        break;
+      case 1:
+        sortedScores!.sort(
+          (a, b) => ascending
+              ? (a.nrlScore + a.aflScore).compareTo(b.nrlScore + b.aflScore)
+              : (b.nrlScore + b.aflScore).compareTo(a.nrlScore + a.aflScore),
+        );
+        break;
+      case 2:
+        sortedScores!.sort(
+          (a, b) => ascending
+              ? a.nrlScore.compareTo(b.nrlScore)
+              : b.nrlScore.compareTo(a.nrlScore),
+        );
+        break;
+      case 3:
+        sortedScores!.sort(
+          (a, b) => ascending
+              ? a.aflScore.compareTo(b.aflScore)
+              : b.aflScore.compareTo(a.aflScore),
+        );
+        break;
+      case 4:
+        sortedScores!.sort(
+          (a, b) => ascending
+              ? (a.aflMarginTips + a.nrlMarginTips).compareTo(
+                  b.aflMarginTips + b.nrlMarginTips,
+                )
+              : (b.aflMarginTips + b.nrlMarginTips).compareTo(
+                  a.aflMarginTips + a.nrlMarginTips,
+                ),
+        );
+        break;
+      case 5:
+        sortedScores!.sort(
+          (a, b) => ascending
+              ? (a.aflMarginUPS + a.nrlMarginUPS).compareTo(
+                  b.aflMarginUPS + b.nrlMarginUPS,
+                )
+              : (b.aflMarginUPS + b.nrlMarginUPS).compareTo(
+                  a.aflMarginUPS + a.nrlMarginUPS,
+                ),
+        );
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<StatsViewModel>.value(
-      value: scoresViewModel,
-      child: Consumer<StatsViewModel>(
-        builder: (context, scoresViewModelConsumer, child) {
-          // get scores for the selected tipper
-          List<RoundStats> rawScores = scoresViewModelConsumer
-              .getTipperRoundScoresForComp(widget.statsTipper);
-          //do not display scores for rounds higher than the highest round number
-          rawScores.removeWhere(
-            (element) => element.roundNumber > highestRoundNumber + 1,
-          );
-
-          // If sortedScores is null or data has changed, initialize with default sort
-          if (sortedScores == null ||
-              sortedScores!.length != rawScores.length) {
-            sortedScores = List.from(rawScores);
-            sortedScores!.sort(
-              (a, b) => b.roundNumber.compareTo(a.roundNumber),
-            ); // Initial sort - descending by round number
-          }
-
-          return buildScaffold(
-            context,
-            sortedScores!,
-            MediaQuery.of(context).size.width > 500,
-          );
-        },
-      ),
+    return buildScaffold(
+      context,
+      sortedScores ?? const <RoundStats>[],
+      MediaQuery.of(context).size.width > 500,
     );
   }
 
@@ -239,62 +301,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
   }
 
   void onSort(int columnIndex, bool ascending, List<RoundStats> scores) {
-    if (sortedScores == null) return;
-
-    switch (columnIndex) {
-      case 0:
-        sortedScores!.sort(
-          (a, b) => ascending
-              ? a.roundNumber.compareTo(b.roundNumber)
-              : b.roundNumber.compareTo(a.roundNumber),
-        );
-        break;
-      case 1:
-        sortedScores!.sort(
-          (a, b) => ascending
-              ? (a.nrlScore + a.aflScore).compareTo(b.nrlScore + b.aflScore)
-              : (b.nrlScore + b.aflScore).compareTo(a.nrlScore + a.aflScore),
-        );
-        break;
-      case 2:
-        sortedScores!.sort(
-          (a, b) => ascending
-              ? a.nrlScore.compareTo(b.nrlScore)
-              : b.nrlScore.compareTo(a.nrlScore),
-        );
-        break;
-      case 3:
-        sortedScores!.sort(
-          (a, b) => ascending
-              ? a.aflScore.compareTo(b.aflScore)
-              : b.aflScore.compareTo(a.aflScore),
-        );
-        break;
-      case 4:
-        sortedScores!.sort(
-          (a, b) => ascending
-              ? (a.aflMarginTips + a.nrlMarginTips).compareTo(
-                  b.aflMarginTips + b.nrlMarginTips,
-                )
-              : (b.aflMarginTips + b.nrlMarginTips).compareTo(
-                  a.aflMarginTips + a.nrlMarginTips,
-                ),
-        );
-        break;
-      case 5:
-        sortedScores!.sort(
-          (a, b) => ascending
-              ? (a.aflMarginUPS + a.nrlMarginUPS).compareTo(
-                  b.aflMarginUPS + b.nrlMarginUPS,
-                )
-              : (b.aflMarginUPS + b.nrlMarginUPS).compareTo(
-                  a.aflMarginUPS + a.nrlMarginUPS,
-                ),
-        );
-        break;
-    }
-
     setState(() {
+      _sortScores(columnIndex, ascending);
       sortColumnIndex = columnIndex;
       isAscending = ascending;
     });
