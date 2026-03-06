@@ -17,7 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class Profile extends StatelessWidget with WatchItMixin {
-  Profile({super.key});
+  const Profile({super.key});
 
   @override
   Widget build(BuildContext context) {

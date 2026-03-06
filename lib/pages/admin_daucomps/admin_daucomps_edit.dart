@@ -15,31 +15,7 @@ import 'package:watch_it/watch_it.dart';
 class DAUCompsEditPage extends StatefulWidget {
   final DAUComp? daucomp;
 
-  late final TextEditingController _daucompNameController;
-  late final TextEditingController _daucompAflJsonURLController;
-  late final TextEditingController _daucompNrlJsonURLController;
-  late final TextEditingController _nrlRegularCompEndDateController;
-  late final TextEditingController _aflRegularCompEndDateController;
-
-  DAUCompsEditPage(this.daucomp, {super.key}) {
-    _daucompNameController = TextEditingController(text: daucomp?.name);
-    _daucompAflJsonURLController = TextEditingController(
-      text: daucomp?.aflFixtureJsonURL.toString(),
-    );
-    _daucompNrlJsonURLController = TextEditingController(
-      text: daucomp?.nrlFixtureJsonURL.toString(),
-    );
-    _nrlRegularCompEndDateController = TextEditingController(
-      text: daucomp?.nrlRegularCompEndDateUTC != null
-          ? DateFormat('yyyy-MM-dd').format(daucomp!.nrlRegularCompEndDateUTC!)
-          : '',
-    );
-    _aflRegularCompEndDateController = TextEditingController(
-      text: daucomp?.aflRegularCompEndDateUTC != null
-          ? DateFormat('yyyy-MM-dd').format(daucomp!.aflRegularCompEndDateUTC!)
-          : '',
-    );
-  }
+  const DAUCompsEditPage(this.daucomp, {super.key});
 
   @override
   State<DAUCompsEditPage> createState() => _DAUCompsEditPageState();
@@ -50,6 +26,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   bool disableBack = false;
   bool _localActiveCompState = false;
   // Initial value, will be correctly set in initState
+  late final TextEditingController _daucompNameController;
+  late final TextEditingController _daucompAflJsonURLController;
+  late final TextEditingController _daucompNrlJsonURLController;
+  late final TextEditingController _nrlRegularCompEndDateController;
+  late final TextEditingController _aflRegularCompEndDateController;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -58,6 +39,27 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   void initState() {
     super.initState();
+    _daucompNameController = TextEditingController(text: widget.daucomp?.name);
+    _daucompAflJsonURLController = TextEditingController(
+      text: widget.daucomp?.aflFixtureJsonURL.toString(),
+    );
+    _daucompNrlJsonURLController = TextEditingController(
+      text: widget.daucomp?.nrlFixtureJsonURL.toString(),
+    );
+    _nrlRegularCompEndDateController = TextEditingController(
+      text: widget.daucomp?.nrlRegularCompEndDateUTC != null
+          ? DateFormat(
+              'yyyy-MM-dd',
+            ).format(widget.daucomp!.nrlRegularCompEndDateUTC!)
+          : '',
+    );
+    _aflRegularCompEndDateController = TextEditingController(
+      text: widget.daucomp?.aflRegularCompEndDateUTC != null
+          ? DateFormat(
+              'yyyy-MM-dd',
+            ).format(widget.daucomp!.aflRegularCompEndDateUTC!)
+          : '',
+    );
     // Correct initialization of _localActiveCompState
     if (widget.daucomp != null) {
       final globalDauCompsVM =
@@ -84,24 +86,25 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     // for (var controller in _endDateControllers.values) { // Removed
     //   controller.dispose();
     // }
-    widget._daucompNameController.removeListener(_updateSaveButtonState);
-    widget._daucompAflJsonURLController.removeListener(_updateSaveButtonState);
-    widget._daucompNrlJsonURLController.removeListener(_updateSaveButtonState);
-    widget._nrlRegularCompEndDateController.removeListener(
-      _updateSaveButtonState,
-    );
-    widget._aflRegularCompEndDateController.removeListener(
-      _updateSaveButtonState,
-    );
+    _daucompNameController.removeListener(_updateSaveButtonState);
+    _daucompAflJsonURLController.removeListener(_updateSaveButtonState);
+    _daucompNrlJsonURLController.removeListener(_updateSaveButtonState);
+    _nrlRegularCompEndDateController.removeListener(_updateSaveButtonState);
+    _aflRegularCompEndDateController.removeListener(_updateSaveButtonState);
+    _daucompNameController.dispose();
+    _daucompAflJsonURLController.dispose();
+    _daucompNrlJsonURLController.dispose();
+    _nrlRegularCompEndDateController.dispose();
+    _aflRegularCompEndDateController.dispose();
     super.dispose();
   }
 
   void _initTextControllersListeners() {
-    widget._daucompNameController.addListener(_updateSaveButtonState);
-    widget._daucompAflJsonURLController.addListener(_updateSaveButtonState);
-    widget._daucompNrlJsonURLController.addListener(_updateSaveButtonState);
-    widget._nrlRegularCompEndDateController.addListener(_updateSaveButtonState);
-    widget._aflRegularCompEndDateController.addListener(_updateSaveButtonState);
+    _daucompNameController.addListener(_updateSaveButtonState);
+    _daucompAflJsonURLController.addListener(_updateSaveButtonState);
+    _daucompNrlJsonURLController.addListener(_updateSaveButtonState);
+    _nrlRegularCompEndDateController.addListener(_updateSaveButtonState);
+    _aflRegularCompEndDateController.addListener(_updateSaveButtonState);
   }
 
   // _initializeRoundControllers() removed
@@ -118,9 +121,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
     if (widget.daucomp == null) {
       shouldEnableSave =
-          widget._daucompNameController.text.isNotEmpty &&
-          widget._daucompAflJsonURLController.text.isNotEmpty &&
-          widget._daucompNrlJsonURLController.text.isNotEmpty;
+          _daucompNameController.text.isNotEmpty &&
+          _daucompAflJsonURLController.text.isNotEmpty &&
+          _daucompNrlJsonURLController.text.isNotEmpty;
       // For new comps, also consider if _localActiveCompState is true (if we allow setting new comp as active immediately)
       // Based on current logic, new comp is only set active on save, so _localActiveCompState change might not enable save alone.
       // However, if other fields are filled, and user toggles active, it should be saveable.
@@ -132,18 +135,18 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
       // which then calls this. So, we just need to ensure the condition includes active state change.
     } else {
       shouldEnableSave =
-          (widget._daucompNameController.text != widget.daucomp!.name ||
-              widget._daucompAflJsonURLController.text !=
+          (_daucompNameController.text != widget.daucomp!.name ||
+              _daucompAflJsonURLController.text !=
                   widget.daucomp!.aflFixtureJsonURL.toString() ||
-              widget._daucompNrlJsonURLController.text !=
+              _daucompNrlJsonURLController.text !=
                   widget.daucomp!.nrlFixtureJsonURL.toString() ||
-              widget._nrlRegularCompEndDateController.text !=
+              _nrlRegularCompEndDateController.text !=
                   (widget.daucomp!.nrlRegularCompEndDateUTC != null
                       ? DateFormat(
                           'yyyy-MM-dd',
                         ).format(widget.daucomp!.nrlRegularCompEndDateUTC!)
                       : '') ||
-              widget._aflRegularCompEndDateController.text !=
+              _aflRegularCompEndDateController.text !=
                   (widget.daucomp!.aflRegularCompEndDateUTC != null
                       ? DateFormat(
                           'yyyy-MM-dd',
@@ -171,11 +174,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   ) async {
     try {
       // Prepare data for the ViewModel call
-      String name = widget._daucompNameController.text;
-      String aflUrl = widget._daucompAflJsonURLController.text;
-      String nrlUrl = widget._daucompNrlJsonURLController.text;
-      String? nrlEndDate = widget._nrlRegularCompEndDateController.text;
-      String? aflEndDate = widget._aflRegularCompEndDateController.text;
+      String name = _daucompNameController.text;
+      String aflUrl = _daucompAflJsonURLController.text;
+      String nrlUrl = _daucompNrlJsonURLController.text;
+      String? nrlEndDate = _nrlRegularCompEndDateController.text;
+      String? aflEndDate = _aflRegularCompEndDateController.text;
 
       // Call the ViewModel method
       var result = await dauCompsViewModel.processAndSaveDauComp(
@@ -384,15 +387,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     AdminDaucompsEditForm(
                       formKey: _formKey,
                       daucomp: widget.daucomp,
-                      daucompNameController: widget._daucompNameController,
+                      daucompNameController: _daucompNameController,
                       daucompAflJsonURLController:
-                          widget._daucompAflJsonURLController,
+                          _daucompAflJsonURLController,
                       daucompNrlJsonURLController:
-                          widget._daucompNrlJsonURLController,
+                          _daucompNrlJsonURLController,
                       nrlRegularCompEndDateController:
-                          widget._nrlRegularCompEndDateController,
+                          _nrlRegularCompEndDateController,
                       aflRegularCompEndDateController:
-                          widget._aflRegularCompEndDateController,
+                          _aflRegularCompEndDateController,
                       dauCompsViewModel: dauCompsViewModelConsumer,
                       onFormInteracted: () {
                         // This existing callback is fine for text field interactions.

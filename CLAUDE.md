@@ -156,10 +156,10 @@ scripts/bump_build_number.sh
 Precondition for `promote-to-testing.sh`: must be on `development` with a clean working tree.
 
 ### Current State (See TODO.md)
-- **18 failing tests** - Week 1 priority to fix
+- Test suite currently passes (`flutter test --no-pub`)
 - 26 files with dynamic types needing concrete types
 - 24 unnecessary StatefulWidgets to convert
-- 30+ widgets missing const constructors
+- Widget const constructor cleanup is complete; keep new widgets const by default
 - Large complex widgets need decomposition (650+ lines)
 
 ## Flutter/Dart-Specific Rules

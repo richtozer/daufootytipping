@@ -10,9 +10,9 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
   const DAUCompsListPage({super.key});
 
   Future<void> _addDAUComp(BuildContext context) async {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => DAUCompsEditPage(null)));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const DAUCompsEditPage(null)),
+    );
   }
 
   Future<void> _editDAUComp(DAUComp daucomp, BuildContext context) async {

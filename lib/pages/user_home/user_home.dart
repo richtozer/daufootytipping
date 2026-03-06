@@ -35,9 +35,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     });
   }
 
-  List<Widget> content() {
-    return [TipsTab(), StatsTab(), Profile()];
-  }
+  List<Widget> content() => const [TipsTab(), StatsTab(), Profile()];
 
   @override
   void dispose() {
