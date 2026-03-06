@@ -11,6 +11,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/scoring_update_queue.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -428,9 +429,10 @@ class GameTipViewModel extends ChangeNotifier {
       }
 
       // a. Get user's tip for the past game
-      final Tip? pastTip = await allTipsViewModel.findTip(
+      final Tip? pastTip = await allTipsViewModel.findTipAcrossCompetitions(
         pastGame,
         currentTipper,
+        di<DAUCompsViewModel>().daucomps,
       );
 
       // b. Determine winning team and winType

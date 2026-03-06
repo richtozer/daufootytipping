@@ -200,9 +200,10 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
             final tippersViewModel = di<TippersViewModel>();
             final allTips = dauCompsViewModel.selectedTipperTipsViewModel;
             await allTips!.initialLoadCompleted;
-            final tip = await allTips.findTip(
+            final tip = await allTips.findTipAcrossCompetitions(
               game,
               tippersViewModel.selectedTipper,
+              dauCompsViewModel.daucomps,
             );
 
             if (tip != null && !tip.isDefaultTip()) {
