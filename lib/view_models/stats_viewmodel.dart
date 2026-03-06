@@ -1396,8 +1396,12 @@ class StatsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (di.isRegistered<TippersViewModel>()) {
+      di<TippersViewModel>().removeListener(_updateLeaderAndRoundAndRank);
+    }
     _allRoundScoresStream.cancel();
     _liveScoresStream.cancel();
+    _allTipperRoundStats.clear();
     super.dispose();
   }
 

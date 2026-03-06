@@ -267,6 +267,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _initializeUserViewModels() async {
+    _disposeChildViewModels();
     await StartupProfiling.trackAsync(
       'startup.initialize_user_view_models',
       () async {
@@ -333,6 +334,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _initializeAdminViewModels() async {
+    _disposeChildViewModels();
     final res = await _selectionInit.initializeAdmin(
       selectedComp: _selectedDAUComp!,
       createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
@@ -712,6 +714,22 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Disposes child ViewModels (games, stats, tips) before re-initialization
+  /// to prevent leaked Firebase stream subscriptions and listeners.
+  void _disposeChildViewModels() {
+    gamesViewModel?.removeListener(_otherViewModelUpdated);
+    gamesViewModel?.dispose();
+    gamesViewModel = null;
+
+    statsViewModel?.removeListener(_otherViewModelUpdated);
+    statsViewModel?.dispose();
+    statsViewModel = null;
+
+    selectedTipperTipsViewModel?.removeListener(_otherViewModelUpdated);
+    selectedTipperTipsViewModel?.dispose();
+    selectedTipperTipsViewModel = null;
+  }
+
   // per-game processing handled via FixtureImportApplier
 
   // private method to check if the comp is over i.e. all rounds have been completed and scored
@@ -728,14 +746,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   void dispose() {
     _dailyTimer?.cancel();
     _daucompsStream.cancel();
-
-    // remove listeners if not in admin mode
-    if (!_adminMode) {
-      selectedTipperTipsViewModel?.removeListener(_otherViewModelUpdated);
-    }
-    statsViewModel!.removeListener(_otherViewModelUpdated);
-    gamesViewModel?.removeListener(_otherViewModelUpdated);
-
+    _disposeChildViewModels();
     super.dispose();
   }
 
