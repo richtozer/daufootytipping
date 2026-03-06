@@ -8,12 +8,10 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundGameScoresForTipper extends StatefulWidget {
@@ -35,10 +33,11 @@ class _StatRoundGameScoresForTipperState
     extends State<StatRoundGameScoresForTipper> {
   late DAUCompsViewModel dauCompsViewModel;
   late TipsViewModel allTipsViewModel;
-  late Map<League, List<Game>> games;
-  bool isAscending = true;
-  int? sortColumnIndex = 1;
-  int initialRound = 1;
+  Map<League, List<Game>> games = {
+    League.nrl: const <Game>[],
+    League.afl: const <Game>[],
+  };
+  final Map<String, Tip?> _tipsByGameKey = {};
   late DAURound roundToDisplay;
 
   final List<String> columns = [
@@ -53,56 +52,77 @@ class _StatRoundGameScoresForTipperState
   void initState() {
     super.initState();
     dauCompsViewModel = di<DAUCompsViewModel>();
-
-    roundToDisplay = dauCompsViewModel
-        .selectedDAUComp!
-        .daurounds[widget.roundNumberToDisplay - 1];
     allTipsViewModel = TipsViewModel.forTipper(
       di<TippersViewModel>(),
       dauCompsViewModel.selectedDAUComp!,
       dauCompsViewModel.gamesViewModel!,
       widget.statsTipper,
     );
+    dauCompsViewModel.addListener(_refreshTableData);
+    allTipsViewModel.addListener(_refreshTableData);
+    _refreshTableData();
   }
 
   @override
   void dispose() {
+    dauCompsViewModel.removeListener(_refreshTableData);
+    allTipsViewModel.removeListener(_refreshTableData);
     allTipsViewModel.dispose();
     super.dispose();
   }
 
+  Future<void> _refreshTableData() async {
+    final selectedComp = dauCompsViewModel.selectedDAUComp;
+    if (!mounted || selectedComp == null) {
+      return;
+    }
+
+    roundToDisplay = selectedComp.daurounds[widget.roundNumberToDisplay - 1];
+
+    final groupedGames = dauCompsViewModel.groupGamesIntoLeagues(roundToDisplay);
+    final filteredGames = <League, List<Game>>{
+      League.nrl: List<Game>.from(groupedGames[League.nrl] ?? const <Game>[]),
+      League.afl: List<Game>.from(groupedGames[League.afl] ?? const <Game>[]),
+    };
+
+    filteredGames.forEach((league, gameList) {
+      gameList.retainWhere(
+        (game) =>
+            game.gameState == GameState.startedResultNotKnown ||
+            game.gameState == GameState.startedResultKnown,
+      );
+    });
+
+    await allTipsViewModel.initialLoadCompleted;
+    final tipsByGameKey = <String, Tip?>{};
+    for (final leagueGames in filteredGames.values) {
+      for (final game in leagueGames) {
+        tipsByGameKey[game.dbkey] = await allTipsViewModel.findTip(
+          game,
+          widget.statsTipper,
+        );
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      games = filteredGames;
+      _tipsByGameKey
+        ..clear()
+        ..addAll(tipsByGameKey);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<DAUCompsViewModel>.value(
-      value: dauCompsViewModel,
-      builder: (context, snapshot) {
-        return Consumer<DAUCompsViewModel>(
-          builder: (context, dauCompsViewModelConsumer, child) {
-            games = dauCompsViewModelConsumer.groupGamesIntoLeagues(
-              roundToDisplay,
-            );
-
-            //filter out games that have not started - we do not want to expose tips to other tippers until tipping is closed
-            games.forEach((league, gameList) {
-              gameList.retainWhere(
-                (game) =>
-                    game.gameState == GameState.startedResultNotKnown ||
-                    game.gameState == GameState.startedResultKnown,
-              );
-            });
-
-            List<Game>? nrlGames = games[League.nrl];
-            List<Game>? aflGames = games[League.afl];
-
-            return buildScaffold(
-              context,
-              aflGames,
-              nrlGames,
-              MediaQuery.of(context).size.width > 500,
-            );
-          },
-        );
-      },
+    return buildScaffold(
+      context,
+      games[League.afl],
+      games[League.nrl],
+      MediaQuery.of(context).size.width > 500,
     );
   }
 
@@ -142,158 +162,29 @@ class _StatRoundGameScoresForTipperState
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
-                child: ChangeNotifierProvider<DAUCompsViewModel>.value(
-                  value: dauCompsViewModel,
-                  builder: (context, snapshot) {
-                    return Consumer<DAUCompsViewModel>(
-                      builder: (context, dauCompsViewModelConsumer, child) {
-                        return DataTable2(
-                          border: TableBorder.all(
-                            width: 1.0,
-                            color: Colors.grey.shade300,
-                          ),
-                          //sortColumnIndex: sortColumnIndex,
-                          //sortAscending: isAscending,
-                          columnSpacing: 0,
-                          horizontalMargin: 0,
-                          minWidth: 800,
-                          fixedTopRows: 1,
-                          // fixedLeftColumns:
-                          //     orientation == Orientation.portrait ? 1 : 0,
-                          showCheckboxColumn: false,
-                          isHorizontalScrollBarVisible: false,
-                          isVerticalScrollBarVisible: true,
-                          columns: getColumns(columns),
-                          rows: [
-                            DataRow(
-                              cells: [
-                                DataCell(
-                                  Row(
-                                    children: [
-                                      SvgPicture.asset(
-                                        League.nrl.logo,
-                                        width: 20,
-                                        height: 20,
-                                      ),
-                                      Text(
-                                        'NRL',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleLarge,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            ...List<DataRow>.generate(nrlGames!.length, (
-                              index,
-                            ) {
-                              return buildDataRow(
-                                nrlGames,
-                                index,
-                                allTipsViewModel,
-                              );
-                            }),
-                            DataRow(
-                              cells: [
-                                DataCell(
-                                  Row(
-                                    children: [
-                                      SvgPicture.asset(
-                                        League.afl.logo,
-                                        width: 20,
-                                        height: 20,
-                                      ),
-                                      Text(
-                                        'AFL',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleLarge,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            ...List<DataRow>.generate(aflGames!.length, (
-                              index,
-                            ) {
-                              return buildDataRow(
-                                aflGames,
-                                index,
-                                allTipsViewModel,
-                              );
-                            }),
-                          ],
-                        );
-                      },
-                    );
-                  },
+                child: DataTable2(
+                  border: TableBorder.all(
+                    width: 1.0,
+                    color: Colors.grey.shade300,
+                  ),
+                  columnSpacing: 0,
+                  horizontalMargin: 0,
+                  minWidth: 800,
+                  fixedTopRows: 1,
+                  showCheckboxColumn: false,
+                  isHorizontalScrollBarVisible: false,
+                  isVerticalScrollBarVisible: true,
+                  columns: getColumns(columns),
+                  rows: [
+                    _buildLeagueHeaderRow(context, League.nrl),
+                    ...List<DataRow>.generate(nrlGames?.length ?? 0, (index) {
+                      return buildDataRow(nrlGames!, index);
+                    }),
+                    _buildLeagueHeaderRow(context, League.afl),
+                    ...List<DataRow>.generate(aflGames?.length ?? 0, (index) {
+                      return buildDataRow(aflGames!, index);
+                    }),
+                  ],
                 ),
               ),
             ),
@@ -304,13 +195,29 @@ class _StatRoundGameScoresForTipperState
     );
   }
 
-  DataRow buildDataRow(List<Game> games, int index, TipsViewModel allTips) {
-    GameTipViewModel gameTipsViewModel = GameTipViewModel(
-      widget.statsTipper,
-      di<DAUCompsViewModel>().selectedDAUComp!,
-      games[index],
-      allTips,
+  DataRow _buildLeagueHeaderRow(BuildContext context, League league) {
+    return DataRow(
+      cells: [
+        DataCell(
+          Row(
+            children: [
+              SvgPicture.asset(league.logo, width: 20, height: 20),
+              Text(league.name.toUpperCase(), style: Theme.of(context).textTheme.titleLarge),
+            ],
+          ),
+        ),
+        ...List<DataCell>.generate(
+          columns.length - 1,
+          (_) => DataCell(Text('', style: Theme.of(context).textTheme.titleLarge)),
+        ),
+      ],
     );
+  }
+
+  DataRow buildDataRow(List<Game> games, int index) {
+    final game = games[index];
+    final tip = _tipsByGameKey[game.dbkey];
+    final gameResult = game.scoring!.getGameResultCalculated(game.league);
     return DataRow(
       cells: [
         DataCell(
@@ -319,13 +226,13 @@ class _StatRoundGameScoresForTipperState
             children: [
               Center(
                 child: Text(
-                  '${gameTipsViewModel.game.homeTeam.name} v ${gameTipsViewModel.game.awayTeam.name}',
+                  '${game.homeTeam.name} v ${game.awayTeam.name}',
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Center(
                 child: Text(
-                  '${gameTipsViewModel.game.scoring!.homeTeamScore ?? ''} - ${gameTipsViewModel.game.scoring!.awayTeamScore ?? ''}',
+                  '${game.scoring!.homeTeamScore ?? ''} - ${game.scoring!.awayTeamScore ?? ''}',
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -334,56 +241,25 @@ class _StatRoundGameScoresForTipperState
         ),
         DataCell(
           Text(
-            games[index].league == League.afl
-                ? '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).afl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})'
-                : '${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).nrl} (${gameTipsViewModel.game.scoring!.getGameResultCalculated(games[index].league).name})',
+            game.league == League.afl
+                ? '${gameResult.afl} (${gameResult.name})'
+                : '${gameResult.nrl} (${gameResult.name})',
           ),
         ),
         DataCell(
-          FutureBuilder<Tip?>(
-            future: gameTipsViewModel.getTip(),
-            builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Text('loading..');
-              } else {
-                return Text(
-                  snapshot.data?.game.league == League.afl
-                      ? '${snapshot.data?.tip.afl} (${snapshot.data?.tip.name})'
-                      : '${snapshot.data?.tip.nrl} (${snapshot.data?.tip.name})',
-                );
-              }
-            },
+          Text(
+            tip == null
+                ? 'loading..'
+                : game.league == League.afl
+                ? '${tip.tip.afl} (${tip.tip.name})'
+                : '${tip.tip.nrl} (${tip.tip.name})',
           ),
         ),
         DataCell(
-          FutureBuilder<Tip?>(
-            future: gameTipsViewModel.getTip(),
-            builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Text('loading..');
-              } else {
-                return Text(
-                  snapshot.data?.getTipScoreCalculated().toString() ??
-                      'No data',
-                );
-              }
-            },
-          ),
+          Text(tip?.getTipScoreCalculated().toString() ?? 'loading..'),
         ),
         DataCell(
-          FutureBuilder<Tip?>(
-            future: gameTipsViewModel.getTip(),
-            builder: (BuildContext context, AsyncSnapshot<Tip?> snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Text('loading..');
-              } else {
-                return Text(
-                  snapshot.data?.getMaxScoreCalculated().toString() ??
-                      'No data',
-                );
-              }
-            },
-          ),
+          Text(tip?.getMaxScoreCalculated().toString() ?? 'loading..'),
         ),
       ],
     );
