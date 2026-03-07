@@ -144,16 +144,36 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   void _gamesViewModelUpdated() async {
-    // we may have new game data, notify listeners
+    final previousGame = game;
+    final previousHomeScore = previousGame.scoring?.currentScore(
+      ScoringTeam.home,
+    );
+    final previousAwayScore = previousGame.scoring?.currentScore(
+      ScoringTeam.away,
+    );
+    final previousGameState = previousGame.gameState;
+
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     _tip?.game.scoring = game.scoring; //update the tip scoring
-    log(
-      'GameTipsViewModel._gamesViewModelUpdated() called for game ${game.dbkey}, ${game.gameState}. Notify listeners',
-    );
 
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
 
+    final scoresChanged =
+        previousHomeScore != _homeTeamScore ||
+        previousAwayScore != _awayTeamScore;
+    final gameStateChanged = previousGameState != game.gameState;
+
+    if (!scoresChanged && !gameStateChanged) {
+      log(
+        'GameTipsViewModel._gamesViewModelUpdated() no-op for game ${game.dbkey}; scores and state unchanged.',
+      );
+      return;
+    }
+
+    log(
+      'GameTipsViewModel._gamesViewModelUpdated() called for game ${game.dbkey}, ${game.gameState}. Notify listeners',
+    );
     notifyListeners();
   }
 
