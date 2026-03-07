@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -12,6 +13,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+
+class TipsTabItemExtentCache {
+  const TipsTabItemExtentCache._();
+
+  static List<double> buildExtents(DAUComp selectedComp) {
+    final extents = <double>[WelcomeHeader.height];
+
+    for (final dauRound in selectedComp.daurounds) {
+      extents.add(_leagueHeaderExtent(dauRound, League.nrl));
+      extents.add(_leagueGamesExtent(dauRound, League.nrl));
+      extents.add(_leagueHeaderExtent(dauRound, League.afl));
+      extents.add(_leagueGamesExtent(dauRound, League.afl));
+    }
+
+    extents.add(EndFooter.height);
+    return extents;
+  }
+
+  static double _leagueHeaderExtent(DAURound dauRound, League league) {
+    final games = dauRound.getGamesForLeague(league);
+    if (games.isEmpty) {
+      return DAURound.leagueHeaderHeight;
+    }
+    if (dauRound.roundState == RoundState.allGamesEnded) {
+      return DAURound.leagueHeaderEndedHeight;
+    }
+    return DAURound.leagueHeaderHeight;
+  }
+
+  static double _leagueGamesExtent(DAURound dauRound, League league) {
+    final games = dauRound.getGamesForLeague(league);
+    if (games.isEmpty) {
+      return DAURound.noGamesCardHeight;
+    }
+    return games.length * Game.gameCardHeight;
+  }
+}
 
 class TipsTab extends StatefulWidget {
   const TipsTab({super.key});
@@ -28,6 +66,8 @@ class TipsTabState extends State<TipsTab> {
   late FocusNode focusNode;
   int initialScrollOffset = -150;
   bool _scrollSetupDone = false;
+  String? _itemExtentCacheKey;
+  List<double> _cachedItemExtents = const [];
 
   @override
   void initState() {
@@ -105,6 +145,8 @@ class TipsTabState extends State<TipsTab> {
       );
     }
 
+    _ensureItemExtentCache(daucompsViewModel.selectedDAUComp!);
+
     return KeyboardListener(
       focusNode: focusNode,
       autofocus: true,
@@ -128,33 +170,9 @@ class TipsTabState extends State<TipsTab> {
                 slivers: [
                   SliverVariedExtentList.builder(
                     itemExtentBuilder: (index, dimensions) {
-                      if (index == 0) {
-                        return WelcomeHeader.height;
-                      } else if (index ==
-                          (daucompsViewmodelConsumer
-                                      .selectedDAUComp!
-                                      .daurounds
-                                      .length *
-                                  4) +
-                              1) {
-                        return EndFooter.height;
-                      }
-                      final roundIndex = (index - 1) ~/ 4;
-                      final itemIndex = (index - 1) % 4;
-                      return _getItemExtent(
-                        daucompsViewmodelConsumer,
-                        roundIndex,
-                        itemIndex,
-                      );
+                      return _cachedItemExtents[index];
                     },
-                    itemCount:
-                        (daucompsViewmodelConsumer
-                                .selectedDAUComp!
-                                .daurounds
-                                .length *
-                            4) +
-                        1 +
-                        1,
+                    itemCount: _cachedItemExtents.length,
                     itemBuilder: (context, index) {
                       log('building index: $index');
                       if (index == 0) {
@@ -191,39 +209,30 @@ class TipsTabState extends State<TipsTab> {
     );
   }
 
-  double? _getItemExtent(
-    DAUCompsViewModel daucompsViewmodelConsumer,
-    int roundIndex,
-    int itemIndex,
-  ) {
-    if (itemIndex == 0 || itemIndex == 2) {
-      final league = itemIndex == 0 ? League.nrl : League.afl;
-      final games = daucompsViewmodelConsumer
-          .selectedDAUComp!
-          .daurounds[roundIndex]
-          .getGamesForLeague(league);
-      if (games.isEmpty) {
-        return DAURound.leagueHeaderHeight;
-      } else if (daucompsViewmodelConsumer
-              .selectedDAUComp!
-              .daurounds[roundIndex]
-              .roundState ==
-          RoundState.allGamesEnded) {
-        return DAURound.leagueHeaderEndedHeight;
-      }
-      return DAURound.leagueHeaderHeight;
-    } else if (itemIndex == 1 || itemIndex == 3) {
-      final league = itemIndex == 1 ? League.nrl : League.afl;
-      final games = daucompsViewmodelConsumer
-          .selectedDAUComp!
-          .daurounds[roundIndex]
-          .getGamesForLeague(league);
-      if (games.isEmpty) {
-        return DAURound.noGamesCardHeight;
-      }
-      return games.length * Game.gameCardHeight;
+  void _ensureItemExtentCache(DAUComp selectedComp) {
+    final nextKey = _buildItemExtentCacheKey(selectedComp);
+    if (_itemExtentCacheKey == nextKey) {
+      return;
     }
-    return null;
+
+    _itemExtentCacheKey = nextKey;
+    _cachedItemExtents = TipsTabItemExtentCache.buildExtents(selectedComp);
+  }
+
+  String _buildItemExtentCacheKey(DAUComp selectedComp) {
+    final buffer = StringBuffer('${selectedComp.dbkey}|');
+    for (final dauRound in selectedComp.daurounds) {
+      buffer
+        ..write(dauRound.dAUroundNumber)
+        ..write(':')
+        ..write(dauRound.roundState.index)
+        ..write(':')
+        ..write(dauRound.getGamesForLeague(League.nrl).length)
+        ..write(':')
+        ..write(dauRound.getGamesForLeague(League.afl).length)
+        ..write(';');
+    }
+    return buffer.toString();
   }
 
   Widget _buildItem(
