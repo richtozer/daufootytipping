@@ -61,11 +61,10 @@ class TipsTab extends StatefulWidget {
 class TipsTabState extends State<TipsTab> {
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
-  int latestRoundNumber = 0;
   late ScrollController scrollController;
   late FocusNode focusNode;
   int initialScrollOffset = -150;
-  bool _scrollSetupDone = false;
+  String? _lastScrollSignature;
   String? _itemExtentCacheKey;
   List<double> _cachedItemExtents = const [];
 
@@ -77,25 +76,53 @@ class TipsTabState extends State<TipsTab> {
     focusNode = FocusNode();
     scrollController = ScrollController();
     daucompsViewModel.addListener(_onDAUCompsChanged);
-    _setupInitialScroll();
+    _syncSelectedCompState();
   }
 
   void _onDAUCompsChanged() {
     if (!mounted) return;
-    setState(_setupInitialScroll);
-  }
-
-  void _setupInitialScroll() {
-    if (_scrollSetupDone) return;
     final selectedComp = daucompsViewModel.selectedDAUComp;
     if (selectedComp == null) {
-      log('TipsPageBody._setupInitialScroll() selectedDAUComp is null');
+      if (_itemExtentCacheKey != null || _cachedItemExtents.isNotEmpty) {
+        setState(() {
+          _itemExtentCacheKey = null;
+          _cachedItemExtents = const [];
+          _lastScrollSignature = null;
+        });
+      }
       return;
     }
 
-    _scrollSetupDone = true;
-    latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
-    log('TipsPageBody._setupInitialScroll() latestRoundNumber: $latestRoundNumber');
+    final nextItemExtentKey = _buildItemExtentCacheKey(selectedComp);
+    final shouldRebuild = _itemExtentCacheKey != nextItemExtentKey;
+    if (shouldRebuild) {
+      setState(() {
+        _itemExtentCacheKey = nextItemExtentKey;
+        _cachedItemExtents = TipsTabItemExtentCache.buildExtents(selectedComp);
+      });
+    }
+
+    _syncSelectedCompState();
+  }
+
+  void _syncSelectedCompState() {
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null) {
+      log('TipsPageBody._syncSelectedCompState() selectedDAUComp is null');
+      return;
+    }
+
+    final nextScrollSignature =
+        '${selectedComp.dbkey}:${selectedComp.daurounds.length}';
+    if (_lastScrollSignature == nextScrollSignature) {
+      return;
+    }
+
+    _lastScrollSignature = nextScrollSignature;
+    final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
+    log(
+      'TipsPageBody._syncSelectedCompState() latestRoundNumber: $latestRoundNumber',
+    );
 
     final initialOffset =
         selectedComp.pixelHeightUpToRound(latestRoundNumber) + initialScrollOffset;
@@ -174,7 +201,6 @@ class TipsTabState extends State<TipsTab> {
                     },
                     itemCount: _cachedItemExtents.length,
                     itemBuilder: (context, index) {
-                      log('building index: $index');
                       if (index == 0) {
                         return WelcomeHeader(
                           daucompsViewmodelConsumer: daucompsViewmodelConsumer,
