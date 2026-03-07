@@ -133,6 +133,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   void setSelectedCompForTest(DAUComp comp) {
     _selectedDAUComp = comp;
     _clearGroupedGamesCache();
+    clearLeagueLadderCache();
   }
 
   @visibleForTesting
@@ -235,6 +236,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   ) async {
     _selectedDAUComp = changeToDAUComp;
     _clearGroupedGamesCache();
+    clearLeagueLadderCache();
 
     if (changingActiveComp) {
       _activeDAUComp = _selectedDAUComp;

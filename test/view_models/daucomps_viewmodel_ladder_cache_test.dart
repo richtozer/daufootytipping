@@ -121,6 +121,57 @@ void main() {
       verify(() => mockGamesVM.getGames()).called(2);
     });
 
+    test('switching selected comp clears cached ladders', () async {
+      final now = DateTime.now().toUtc();
+      final a = t('nrl-a');
+      final b = t('nrl-b');
+      final cT = t('nrl-c');
+      final dT = t('nrl-d');
+      final teams = [a, b, cT, dT];
+
+      final comp1Games = <Game>[
+        g('nrl-01-001', a, b, 1, now.subtract(const Duration(hours: 24)), 1, 0),
+        g('nrl-01-002', cT, dT, 1, now.subtract(const Duration(hours: 23)), 2, 3),
+        g('nrl-02-001', a, cT, 2, now.subtract(const Duration(hours: 22)), 4, 1),
+        g('nrl-02-002', b, dT, 2, now.subtract(const Duration(hours: 21)), 1, 2),
+        g('nrl-03-001', a, dT, 3, now.subtract(const Duration(hours: 20)), 2, 2),
+        g('nrl-03-002', b, cT, 3, now.subtract(const Duration(hours: 19)), 2, 1),
+      ];
+
+      final comp2Games = <Game>[
+        g('nrl-01-001', b, a, 1, now.subtract(const Duration(hours: 24)), 3, 0),
+        g('nrl-01-002', dT, cT, 1, now.subtract(const Duration(hours: 23)), 6, 1),
+        g('nrl-02-001', b, dT, 2, now.subtract(const Duration(hours: 22)), 2, 0),
+        g('nrl-02-002', a, cT, 2, now.subtract(const Duration(hours: 21)), 1, 3),
+        g('nrl-03-001', b, cT, 3, now.subtract(const Duration(hours: 20)), 4, 2),
+        g('nrl-03-002', a, dT, 3, now.subtract(const Duration(hours: 19)), 0, 5),
+      ];
+
+      when(() => mockTeamsVM.groupedTeams).thenReturn({'nrl': teams});
+      var getGamesCallCount = 0;
+      when(() => mockGamesVM.getGames()).thenAnswer((_) async {
+        getGamesCallCount++;
+        return getGamesCallCount == 1 ? comp1Games : comp2Games;
+      });
+
+      final l1 = await vm.getOrCalculateLeagueLadder(League.nrl);
+      expect(l1, isNotNull);
+
+      final comp2 = DAUComp(
+        dbkey: 'c2',
+        name: 'Comp 2',
+        aflFixtureJsonURL: Uri.parse('https://afl-2'),
+        nrlFixtureJsonURL: Uri.parse('https://nrl-2'),
+        daurounds: <DAURound>[],
+      );
+      vm.setSelectedCompForTest(comp2);
+
+      final l2 = await vm.getOrCalculateLeagueLadder(League.nrl);
+      expect(l2, isNotNull);
+      expect(l2, isNot(same(l1)));
+      verify(() => mockGamesVM.getGames()).called(2);
+    });
+
     test('forceRecalculate bypasses cache', () async {
       final now = DateTime.now().toUtc();
       final a = t('nrl-a');
@@ -196,4 +247,3 @@ void main() {
     });
   });
 }
-

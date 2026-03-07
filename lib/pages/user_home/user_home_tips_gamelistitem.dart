@@ -4,10 +4,8 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
-import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
-import 'package:daufootytipping/services/ladder_calculation_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
@@ -48,93 +46,66 @@ class _GameListItemState extends State<GameListItem> {
   static const String _loadingRankLabel = '--';
   static const String _noRankLabel = '';
 
-  late final GameTipViewModel gameTipsViewModel;
-  // LeagueLadder? _calculatedLadder; // Scoped locally to _fetchAndSetLadderRanks
+  GameTipViewModel? _ownedGameTipsViewModel;
+  GameTipViewModel get gameTipsViewModel =>
+      widget.gameTipViewModel ?? _ownedGameTipsViewModel!;
 
   // New state variables for ladder ranks
   String? _homeOrdinalRankLabel;
   String? _awayOrdinalRankLabel;
   bool _isLoadingLadderRank = false;
+  int _ladderRequestVersion = 0;
 
   @override
   void initState() {
     super.initState();
-    gameTipsViewModel =
-        widget.gameTipViewModel ??
-        GameTipViewModel(
-          widget.currentTipper,
-          widget.currentDAUComp,
-          widget.game,
-          widget.allTipsViewModel,
-        );
+    _syncGameTipViewModel();
+    _scheduleLadderRankFetch();
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted &&
-          _homeOrdinalRankLabel == null &&
-          _awayOrdinalRankLabel == null &&
-          !_isLoadingLadderRank) {
-        _fetchAndSetLadderRanks();
-      }
-    });
+  @override
+  void didUpdateWidget(covariant GameListItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final bool compChanged = widget.currentDAUComp != oldWidget.currentDAUComp;
+    final bool gameChanged = widget.game.dbkey != oldWidget.game.dbkey;
+    final bool tipperChanged = widget.currentTipper != oldWidget.currentTipper;
+    final bool tipsViewModelChanged =
+        widget.allTipsViewModel != oldWidget.allTipsViewModel;
+    final bool injectedViewModelChanged =
+        widget.gameTipViewModel != oldWidget.gameTipViewModel;
+
+    if (compChanged ||
+        gameChanged ||
+        tipperChanged ||
+        tipsViewModelChanged ||
+        injectedViewModelChanged) {
+      _syncGameTipViewModel(
+        recreateOwned:
+            compChanged ||
+            gameChanged ||
+            tipperChanged ||
+            tipsViewModelChanged ||
+            injectedViewModelChanged,
+      );
+    }
+
+    if (compChanged || gameChanged || injectedViewModelChanged) {
+      _resetLadderRanks();
+      _scheduleLadderRankFetch();
+    }
   }
 
   Future<void> _fetchAndSetLadderRanks() async {
     if (!mounted) return;
+    final int requestVersion = ++_ladderRequestVersion;
     setState(() {
       _isLoadingLadderRank = true;
     });
 
     try {
-      final dauCompsViewModel = di<DAUCompsViewModel>();
-      if (dauCompsViewModel.selectedDAUComp == null) {
-        log(
-          'Selected DAUComp is null in _fetchAndSetLadderRanks. Cannot calculate ladder.',
-        );
-        if (!mounted) return;
-        setState(() {
-          _isLoadingLadderRank = false;
-          _homeOrdinalRankLabel = _noRankLabel;
-          _awayOrdinalRankLabel = _noRankLabel;
-        });
-        return;
-      }
-
-      final gamesViewModel = dauCompsViewModel.gamesViewModel;
-      if (gamesViewModel == null) {
-        log(
-          'GamesViewModel is null in _fetchAndSetLadderRanks. Cannot calculate ladder.',
-        );
-        if (!mounted) return;
-        setState(() {
-          _isLoadingLadderRank = false;
-          _homeOrdinalRankLabel = _noRankLabel;
-          _awayOrdinalRankLabel = _noRankLabel;
-        });
-        return;
-      }
-
-      await gamesViewModel.initialLoadComplete;
-
-      final teamsViewModel = gamesViewModel.teamsViewModel;
-      await teamsViewModel.initialLoadComplete;
-
-      final ladderService = LadderCalculationService();
-
-      List<Game> allGames = await gamesViewModel.getGames();
-      List<Team> leagueTeams =
-          teamsViewModel
-              .groupedTeams[gameTipsViewModel.game.league.name.toLowerCase()]
-              ?.cast<Team>() ??
-          [];
-
-      // Yield control before heavy ladder calculation
-      await Future.microtask(() {});
-
-      LeagueLadder? calculatedLadder = ladderService.calculateLadder(
-        allGames: allGames,
-        leagueTeams: leagueTeams,
-        league: gameTipsViewModel.game.league,
-      );
+      final calculatedLadder = await di<DAUCompsViewModel>()
+          .getOrCalculateLeagueLadder(gameTipsViewModel.game.league);
 
       String calculatedHomeLabel = _noRankLabel;
       String calculatedAwayLabel = _noRankLabel;
@@ -157,7 +128,7 @@ class _GameListItemState extends State<GameListItem> {
             : _noRankLabel;
       }
 
-      if (!mounted) return;
+      if (!mounted || requestVersion != _ladderRequestVersion) return;
       setState(() {
         _homeOrdinalRankLabel = calculatedHomeLabel;
         _awayOrdinalRankLabel = calculatedAwayLabel;
@@ -165,13 +136,68 @@ class _GameListItemState extends State<GameListItem> {
       });
     } catch (e) {
       log('Error fetching and setting ladder ranks: $e');
-      if (!mounted) return;
+      if (!mounted || requestVersion != _ladderRequestVersion) return;
       setState(() {
         _homeOrdinalRankLabel = 'N/A'; // Error indicator
         _awayOrdinalRankLabel = 'N/A'; // Error indicator
         _isLoadingLadderRank = false;
       });
     }
+  }
+
+  void _syncGameTipViewModel({bool recreateOwned = false}) {
+    if (widget.gameTipViewModel != null) {
+      _disposeOwnedGameTipViewModel();
+      return;
+    }
+
+    if (_ownedGameTipsViewModel == null || recreateOwned) {
+      _disposeOwnedGameTipViewModel();
+      _ownedGameTipsViewModel = GameTipViewModel(
+        widget.currentTipper,
+        widget.currentDAUComp,
+        widget.game,
+        widget.allTipsViewModel,
+      );
+    }
+  }
+
+  void _scheduleLadderRankFetch() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          _homeOrdinalRankLabel == null &&
+          _awayOrdinalRankLabel == null &&
+          !_isLoadingLadderRank) {
+        _fetchAndSetLadderRanks();
+      }
+    });
+  }
+
+  void _resetLadderRanks() {
+    _ladderRequestVersion++;
+    if (!mounted) {
+      _homeOrdinalRankLabel = null;
+      _awayOrdinalRankLabel = null;
+      _isLoadingLadderRank = false;
+      return;
+    }
+    setState(() {
+      _homeOrdinalRankLabel = null;
+      _awayOrdinalRankLabel = null;
+      _isLoadingLadderRank = false;
+    });
+  }
+
+  void _disposeOwnedGameTipViewModel() {
+    _ownedGameTipsViewModel?.dispose();
+    _ownedGameTipsViewModel = null;
+  }
+
+  @override
+  void dispose() {
+    _ladderRequestVersion++;
+    _disposeOwnedGameTipViewModel();
+    super.dispose();
   }
 
   @override
