@@ -134,13 +134,28 @@ class GameTipViewModel extends ChangeNotifier {
     // we may have new data lets check if we need to update our tip
     Tip? newTip = (await allTipsViewModel.findTip(game, currentTipper));
     // if the tip has changed, then update the tip and notify listeners
-    if (newTip != _tip) {
+    if (!_isEquivalentTip(newTip, _tip)) {
       _tip = newTip;
       log(
         'GameTipsViewModel._tipsUpdated() Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. ',
       );
       notifyListeners();
     }
+  }
+
+  bool _isEquivalentTip(Tip? a, Tip? b) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a == null || b == null) {
+      return a == b;
+    }
+
+    return a.game.dbkey == b.game.dbkey &&
+        a.tipper.dbkey == b.tipper.dbkey &&
+        a.tip == b.tip &&
+        (a.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000) ==
+            (b.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000);
   }
 
   void _gamesViewModelUpdated() async {

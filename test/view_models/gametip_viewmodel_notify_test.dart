@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
@@ -30,6 +31,7 @@ void main() {
     late Team homeTeam;
     late Team awayTeam;
     late VoidCallback gamesListener;
+    late VoidCallback tipsListener;
 
     Game buildGame({
       required DateTime startTimeUTC,
@@ -65,7 +67,9 @@ void main() {
       mockGamesViewModel = MockGamesViewModel();
       mockDb = MockDatabaseReference();
 
-      when(() => mockTipsViewModel.addListener(any())).thenReturn(null);
+      when(() => mockTipsViewModel.addListener(any())).thenAnswer((invocation) {
+        tipsListener = invocation.positionalArguments[0] as VoidCallback;
+      });
       when(() => mockTipsViewModel.removeListener(any())).thenReturn(null);
       when(() => mockGamesViewModel.removeListener(any())).thenReturn(null);
       when(() => mockGamesViewModel.addListener(any())).thenAnswer((invocation) {
@@ -181,5 +185,68 @@ void main() {
 
       vm.dispose();
     });
+
+    test(
+      'does not notify when the streamed tip only differs by dbkey or milliseconds',
+      () async {
+        final currentGame = buildGame(
+          startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+          homeScore: 0,
+          awayScore: 0,
+        );
+        final optimisticTipTime = DateTime.now().toUtc();
+        final optimisticTip = Tip(
+          game: currentGame,
+          tipper: tipper,
+          tip: GameResult.b,
+          submittedTimeUTC: optimisticTipTime,
+        );
+        final streamedTip = Tip(
+          dbkey: currentGame.dbkey,
+          game: currentGame,
+          tipper: tipper,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.fromMillisecondsSinceEpoch(
+            (optimisticTipTime.millisecondsSinceEpoch ~/ 1000) * 1000,
+            isUtc: true,
+          ),
+        );
+
+        when(
+          () => mockGamesViewModel.findGame(currentGame.dbkey),
+        ).thenAnswer((_) async => currentGame);
+        when(
+          () => mockTipsViewModel.findTip(any(), any()),
+        ).thenAnswer((_) async => optimisticTip);
+
+        final vm = GameTipViewModel(
+          tipper,
+          currentComp,
+          currentGame,
+          mockTipsViewModel,
+          database: mockDb,
+        );
+        var notifications = 0;
+        vm.addListener(() {
+          notifications++;
+        });
+
+        await settleAsyncWork();
+        expect(await vm.getTip(), optimisticTip);
+        notifications = 0;
+
+        when(
+          () => mockTipsViewModel.findTip(any(), any()),
+        ).thenAnswer((_) async => streamedTip);
+
+        tipsListener();
+        await settleAsyncWork();
+
+        expect(notifications, 0);
+        expect(await vm.getTip(), optimisticTip);
+
+        vm.dispose();
+      },
+    );
   });
 }
