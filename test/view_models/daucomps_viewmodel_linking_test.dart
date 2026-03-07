@@ -113,9 +113,8 @@ void main() {
       expect(vm.unassignedGames.map((g) => g.dbkey), contains('nrl-02-001'));
       expect(vm.unassignedGames.map((g) => g.dbkey), isNot(contains('afl-02-001')));
 
-      // Should notify at least twice (start and end of linking)
-      expect(notifyCount >= 2, isTrue);
+      // Linking now emits a single completion notification.
+      expect(notifyCount, 1);
     });
   });
 }
-
