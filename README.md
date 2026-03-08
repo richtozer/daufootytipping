@@ -163,6 +163,7 @@ Promotion script behavior
   - Working tree must be clean (including untracked files)
 - Actions:
   - Merges `development` into `testing`
+  - Deploys Firebase Hosting preview channel `test-web` from `testing`
   - Switches back to `development`
   - Runs `scripts/bump_build_number.sh`
   - Commits updated `pubspec.yaml` on `development`
