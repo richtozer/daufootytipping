@@ -31,6 +31,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   LeagueLadder? _leagueLadder;
   bool _isLoading = true;
   String? _error;
+  String? _emptyMessage;
   int? _sortColumnIndex;
   bool _sortAscending = true;
   String? _comparisonTeamNamesText;
@@ -51,6 +52,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _emptyMessage = null;
     });
 
     try {
@@ -64,6 +66,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
 
       LeagueLadder? calculatedLadder = await dauCompsViewModel
           .getOrCalculateLeagueLadder(widget.league);
+      final ladderAvailability = dauCompsViewModel.getLeagueLadderAvailability(
+        widget.league,
+      );
 
       // Create a new LeagueLadder instance if filtering is needed to avoid modifying the cached version.
       if (calculatedLadder != null &&
@@ -92,6 +97,13 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
       if (mounted) {
         setState(() {
           // _leagueLadder is already set above
+          if (_leagueLadder == null &&
+              ladderAvailability == LeagueLadderAvailability.insufficientData) {
+            _emptyMessage =
+                'Ladder will be available after Round 1 ends.';
+          } else {
+            _emptyMessage = 'No ladder data available.';
+          }
           _isLoading = false;
         });
       }
@@ -349,7 +361,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                 : _error != null
                 ? Center(child: Text('Error: $_error'))
                 : _leagueLadder == null || _leagueLadder!.teams.isEmpty
-                ? const Center(child: Text('No ladder data available.'))
+                ? _buildEmptyStateCard(context)
                 : SingleChildScrollView(
                     // Horizontal scroll only
                     scrollDirection: Axis.horizontal,
@@ -642,6 +654,31 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         backgroundColor: Colors.lightGreen[200],
         foregroundColor: Colors.white70,
         child: const Icon(Icons.arrow_back),
+      ),
+    );
+  }
+
+  Widget _buildEmptyStateCard(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+        child: SizedBox(
+          width: 320,
+          child: Card(
+            color: Colors.black38,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Text(
+                _emptyMessage ?? 'No ladder data available.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

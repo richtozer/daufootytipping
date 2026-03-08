@@ -33,6 +33,13 @@ import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart';
 
+enum LeagueLadderAvailability {
+  unknown,
+  ready,
+  insufficientData,
+  unavailable,
+}
+
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   List<DAUComp> get daucomps => _daucomps;
@@ -84,6 +91,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   List<Game> unassignedGames = []; // List to store unassigned games
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
+  final Map<League, Future<LeagueLadder?>> _inFlightLadderCalculations = {};
+  final Map<League, LeagueLadderAvailability> _cachedLadderAvailability = {};
   DAURound? _cachedGroupedGamesRound;
   List<Game>? _cachedGroupedGamesSource;
   int? _cachedGroupedGamesCount;
@@ -792,12 +801,20 @@ class DAUCompsViewModel extends ChangeNotifier {
   void clearLeagueLadderCache({League? league}) {
     if (league != null) {
       _cachedLadders.remove(league);
+      _inFlightLadderCalculations.remove(league);
+      _cachedLadderAvailability.remove(league);
       log('DAUCompsViewModel: Cleared ladder cache for ${league.name}');
     } else {
       _cachedLadders.clear();
+      _inFlightLadderCalculations.clear();
+      _cachedLadderAvailability.clear();
       log('DAUCompsViewModel: Cleared all ladder caches');
     }
     // notifyListeners(); // Consider if UI needs to react to cache clearing directly
+  }
+
+  LeagueLadderAvailability getLeagueLadderAvailability(League league) {
+    return _cachedLadderAvailability[league] ?? LeagueLadderAvailability.unknown;
   }
 
   Future<LeagueLadder?> getOrCalculateLeagueLadder(
@@ -817,11 +834,28 @@ class DAUCompsViewModel extends ChangeNotifier {
       return _cachedLadders[league]!;
     }
 
+    if (_cachedLadderAvailability[league] ==
+        LeagueLadderAvailability.insufficientData) {
+      log(
+        'DAUCompsViewModel: Cached insufficient ladder data for ${league.name}.',
+      );
+      return null;
+    }
+
+    final inFlightCalculation = _inFlightLadderCalculations[league];
+    if (inFlightCalculation != null) {
+      log(
+        'DAUCompsViewModel: Reusing in-flight ladder calculation for ${league.name}.',
+      );
+      return inFlightCalculation;
+    }
+
     log(
       'DAUCompsViewModel: Cache miss for ${league.name} ladder. Proceeding to calculate.',
     );
 
     if (selectedDAUComp == null) {
+      _cachedLadderAvailability[league] = LeagueLadderAvailability.unavailable;
       log(
         'DAUCompsViewModel: Cannot calculate ladder, selectedDAUComp is null.',
       );
@@ -830,6 +864,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     // Use the class member gamesViewModel directly, which is initialized with selectedDAUComp
     if (gamesViewModel == null) {
+      _cachedLadderAvailability[league] = LeagueLadderAvailability.unavailable;
       log(
         'DAUCompsViewModel: Cannot calculate ladder, gamesViewModel is null for DAUComp ${selectedDAUComp?.name}.',
       );
@@ -839,20 +874,45 @@ class DAUCompsViewModel extends ChangeNotifier {
     // gamesViewModel.getGames() already awaits initialLoadComplete within itself.
     // gamesViewModel.teamsViewModel.initialLoadComplete is also handled within gamesViewModel init.
 
+    final currentComp = selectedDAUComp!;
+    final currentGamesViewModel = gamesViewModel!;
+    final calculationFuture = _calculateAndCacheLeagueLadder(
+      league: league,
+      selectedComp: currentComp,
+      currentGamesViewModel: currentGamesViewModel,
+    );
+    _inFlightLadderCalculations[league] = calculationFuture;
+
     try {
-      List<Game> allGames = await gamesViewModel!.getGames();
+      return await calculationFuture;
+    } finally {
+      if (identical(_inFlightLadderCalculations[league], calculationFuture)) {
+        _inFlightLadderCalculations.remove(league);
+      }
+    }
+  }
+
+  Future<LeagueLadder?> _calculateAndCacheLeagueLadder({
+    required League league,
+    required DAUComp selectedComp,
+    required GamesViewModel currentGamesViewModel,
+  }) async {
+    try {
+      List<Game> allGames = await currentGamesViewModel.getGames();
       // Accessing teamsViewModel through the initialized gamesViewModel instance
       List<Team> leagueTeams =
-          gamesViewModel!.teamsViewModel.groupedTeams[league.name.toLowerCase()]
+          currentGamesViewModel
+              .teamsViewModel
+              .groupedTeams[league.name.toLowerCase()]
               ?.cast<Team>() ??
           [];
 
       final LadderCalculationService ladderService = LadderCalculationService();
       DateTime? cutoffDate;
       if (league == League.nrl) {
-        cutoffDate = selectedDAUComp!.nrlRegularCompEndDateUTC;
+        cutoffDate = selectedComp.nrlRegularCompEndDateUTC;
       } else if (league == League.afl) {
-        cutoffDate = selectedDAUComp!.aflRegularCompEndDateUTC;
+        cutoffDate = selectedComp.aflRegularCompEndDateUTC;
       }
 
       LeagueLadder? calculatedLadder = ladderService.calculateLadder(
@@ -863,14 +923,41 @@ class DAUCompsViewModel extends ChangeNotifier {
       );
 
       if (calculatedLadder != null) {
-        _cachedLadders[league] = calculatedLadder;
-        log(
-          'DAUCompsViewModel: Calculated and cached ladder for ${league.name}. Teams count: ${calculatedLadder.teams.length}',
-        );
+        final bool sameCompStillSelected =
+            identical(_selectedDAUComp, selectedComp) ||
+            _selectedDAUComp?.dbkey == selectedComp.dbkey;
+        final bool sameGamesViewModelStillActive =
+            identical(gamesViewModel, currentGamesViewModel);
+
+        if (sameCompStillSelected && sameGamesViewModelStillActive) {
+          _cachedLadders[league] = calculatedLadder;
+          _cachedLadderAvailability[league] = LeagueLadderAvailability.ready;
+          log(
+            'DAUCompsViewModel: Calculated and cached ladder for ${league.name}. Teams count: ${calculatedLadder.teams.length}',
+          );
+        } else {
+          log(
+            'DAUCompsViewModel: Calculated ladder for ${league.name} but skipped caching because the selected comp changed.',
+          );
+        }
       } else {
-        log(
-          'DAUCompsViewModel: Ladder calculation returned null for ${league.name}.',
-        );
+        final bool sameCompStillSelected =
+            identical(_selectedDAUComp, selectedComp) ||
+            _selectedDAUComp?.dbkey == selectedComp.dbkey;
+        final bool sameGamesViewModelStillActive =
+            identical(gamesViewModel, currentGamesViewModel);
+
+        if (sameCompStillSelected && sameGamesViewModelStillActive) {
+          _cachedLadderAvailability[league] =
+              LeagueLadderAvailability.insufficientData;
+          log(
+            'DAUCompsViewModel: Insufficient completed rounds to calculate ladder for ${league.name}.',
+          );
+        } else {
+          log(
+            'DAUCompsViewModel: Ladder calculation returned null for ${league.name} after selected comp changed.',
+          );
+        }
       }
       return calculatedLadder;
     } catch (e) {

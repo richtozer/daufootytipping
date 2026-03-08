@@ -24,6 +24,9 @@ class LadderCalculationService {
     final activeTeams = leagueTeams
         .where((team) => team.name != 'To be announced')
         .toList();
+    if (activeTeams.isEmpty) {
+      return null;
+    }
 
     // 3. Group games by round
     Map<int, List<Game>> gamesByRound = {};
@@ -54,8 +57,8 @@ class LadderCalculationService {
         .map((entry) => entry.key)
         .toList();
 
-    // 5. Check for min completed rounds
-    if (completedRoundNumbers.length < 3) {
+    // 5. Require at least one completed round before showing the ladder.
+    if (completedRoundNumbers.isEmpty) {
       return null;
     }
 

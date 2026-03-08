@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
@@ -201,16 +203,46 @@ void main() {
       verify(() => mockGamesVM.getGames()).called(2);
     });
 
-    test('returns null if fewer than 3 completed rounds', () async {
+    test('reuses in-flight ladder calculation for concurrent callers', () async {
+      final now = DateTime.now().toUtc();
+      final a = t('nrl-a');
+      final b = t('nrl-b');
+      final cT = t('nrl-c');
+      final dT = t('nrl-d');
+      final teams = [a, b, cT, dT];
+      final games = <Game>[
+        g('nrl-01-001', a, b, 1, now.subtract(const Duration(hours: 24)), 1, 0),
+        g('nrl-01-002', cT, dT, 1, now.subtract(const Duration(hours: 23)), 2, 3),
+        g('nrl-02-001', a, cT, 2, now.subtract(const Duration(hours: 22)), 4, 1),
+        g('nrl-02-002', b, dT, 2, now.subtract(const Duration(hours: 21)), 1, 2),
+        g('nrl-03-001', a, dT, 3, now.subtract(const Duration(hours: 20)), 2, 2),
+        g('nrl-03-002', b, cT, 3, now.subtract(const Duration(hours: 19)), 2, 1),
+      ];
+      final completer = Completer<List<Game>>();
+
+      when(() => mockTeamsVM.groupedTeams).thenReturn({'nrl': teams});
+      when(() => mockGamesVM.getGames()).thenAnswer((_) => completer.future);
+
+      final future1 = vm.getOrCalculateLeagueLadder(League.nrl);
+      final future2 = vm.getOrCalculateLeagueLadder(League.nrl);
+
+      completer.complete(games);
+
+      final results = await Future.wait([future1, future2]);
+      expect(results[0], isNotNull);
+      expect(results[1], same(results[0]));
+      verify(() => mockGamesVM.getGames()).called(1);
+    });
+
+    test('returns null if there are no completed rounds yet', () async {
       final now = DateTime.now().toUtc();
       final a = t('nrl-a');
       final b = t('nrl-b');
       final teams = [a, b];
 
-      // Only 2 rounds completed
+      // No rounds completed yet because the only round is still within the grace window.
       final games = <Game>[
-        g('nrl-01-001', a, b, 1, now.subtract(const Duration(hours: 24)), 10, 8),
-        g('nrl-02-001', b, a, 2, now.subtract(const Duration(hours: 23)), 12, 4),
+        g('nrl-01-001', a, b, 1, now.subtract(const Duration(hours: 2)), 10, 8),
       ];
 
       when(() => mockGamesVM.getGames()).thenAnswer((_) async => games);
@@ -218,6 +250,14 @@ void main() {
 
       final ladder = await vm.getOrCalculateLeagueLadder(League.nrl);
       expect(ladder, isNull);
+      expect(
+        vm.getLeagueLadderAvailability(League.nrl),
+        LeagueLadderAvailability.insufficientData,
+      );
+
+      final ladder2 = await vm.getOrCalculateLeagueLadder(League.nrl);
+      expect(ladder2, isNull);
+      verify(() => mockGamesVM.getGames()).called(1);
     });
 
     test('returns null when selectedDAUComp is null', () async {
