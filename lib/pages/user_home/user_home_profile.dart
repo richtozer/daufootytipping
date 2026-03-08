@@ -482,7 +482,7 @@ class Profile extends StatelessWidget with WatchItMixin {
 
   Widget avatarPic(Tipper tipper) {
     return Hero(
-      tag: tipper.dbkey!,
+      tag: tipper.dbkey ?? 'anonymous-avatar',
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,
         text: tipper.name,

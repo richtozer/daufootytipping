@@ -6,6 +6,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dar
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -16,10 +17,18 @@ class StatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dauCompsVM = context.watch<DAUCompsViewModel>();
+    final selectedComp = dauCompsVM.selectedDAUComp;
+    if (selectedComp == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.orange),
+      );
+    }
+
     Orientation orientation = MediaQuery.of(context).orientation;
 
     bool paidTipper = di<TippersViewModel>().selectedTipper.paidForComp(
-      di<DAUCompsViewModel>().selectedDAUComp,
+      selectedComp,
     );
 
     return Column(
@@ -143,8 +152,7 @@ class StatsTab extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => RoundMissingTipsStats(
-                          di<DAUCompsViewModel>().selectedDAUComp!
-                              .firstNotEndedRoundNumber(),
+                          selectedComp.firstNotEndedRoundNumber(),
                         ),
                       ),
                     );
@@ -161,7 +169,7 @@ class StatsTab extends StatelessWidget {
                       ), // Add some spacing between the icon and the text
                       Expanded(
                         child: Text(
-                          'Missing Tips - Round ${di<DAUCompsViewModel>().selectedDAUComp!.firstNotEndedRoundNumber()}',
+                          'Missing Tips - Round ${selectedComp.firstNotEndedRoundNumber()}',
                         ),
                       ),
                       Icon(Icons.arrow_forward),

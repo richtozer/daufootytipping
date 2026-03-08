@@ -515,15 +515,8 @@ class UserAuthPageState extends State<UserAuthPage> {
                                   'Failed to create anonymous user. Contact support.',
                             );
                           } else {
-                            // Successfully created anonymous user, navigate to home
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(
-                                  builder: (context) => const HomePage(),
-                                ),
-                              );
-                            });
-                            return Container(); // Show loading or empty container while navigating
+                            // Successfully created anonymous user
+                            return const HomePage();
                           }
                         },
                       );

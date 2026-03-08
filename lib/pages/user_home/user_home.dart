@@ -27,10 +27,10 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     _dauCompsViewModel.addListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.addListener(_handleHomeViewModelsUpdated);
     _outstandingTipsCount = _calculateOutstandingTipsCount();
-    if (_tippersViewModel.selectedTipper.isAnonymous &&
-        _currentIndex.value == 0) {
-      _currentIndex.value = 2;
-    }
+    // Do NOT access _currentIndex.value here — the RestorableInt's
+    // internal value is only initialised after registerForRestoration()
+    // in restoreState(). Accessing it before that causes:
+    // TypeError: null is not a subtype of type 'int' (dart2js).
   }
 
   @override
@@ -39,6 +39,11 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   @override
   void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
     registerForRestoration(_currentIndex, 'current_tab_index');
+    // _currentIndex.value is now safe to access.
+    if (_tippersViewModel.selectedTipper.isAnonymous &&
+        _currentIndex.value == 0) {
+      _currentIndex.value = 1; // Anonymous users see Stats tab
+    }
   }
 
   void onTabTapped(int index) {
@@ -61,19 +66,19 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     if (!mounted) return;
 
     final nextOutstandingTipsCount = _calculateOutstandingTipsCount();
-    final shouldSwitchToProfile =
+    final shouldSwitchToStats =
         _tippersViewModel.selectedTipper.isAnonymous &&
         _currentIndex.value == 0;
 
     if (nextOutstandingTipsCount == _outstandingTipsCount &&
-        !shouldSwitchToProfile) {
+        !shouldSwitchToStats) {
       return;
     }
 
     setState(() {
       _outstandingTipsCount = nextOutstandingTipsCount;
-      if (shouldSwitchToProfile) {
-        _currentIndex.value = 2;
+      if (shouldSwitchToStats) {
+        _currentIndex.value = 1; // Anonymous users see Stats tab
       }
     });
   }
@@ -201,8 +206,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       child: scaffold,
                     ),
                   );
-                } else if (!dauCompsViewModelConsumer
-                    .isSelectedCompActiveComp()) {
+                } else if (dauCompsViewModelConsumer.selectedDAUComp !=
+                        null &&
+                    !dauCompsViewModelConsumer.isSelectedCompActiveComp()) {
                   String compYear =
                       dauCompsViewModelConsumer.selectedDAUComp!.name;
                   RegExp regExp = RegExp(r'\d{4}');
