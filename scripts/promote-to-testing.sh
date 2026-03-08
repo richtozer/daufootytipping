@@ -20,6 +20,11 @@ if ! git remote | grep -qx "origin"; then
   exit 1
 fi
 
+if ! command -v firebase >/dev/null 2>&1; then
+  echo "Error: firebase CLI is not installed or not on PATH."
+  exit 1
+fi
+
 if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
   echo "Error: working tree is not clean. Commit/stash all changes (including untracked files) first."
   git status --short
@@ -76,19 +81,22 @@ fi
 
 git merge --no-edit development
 
-echo "Step 4: Switching back to development..."
+echo "Step 4: Deploying Firebase Hosting preview channel 'test-web'..."
+firebase hosting:channel:deploy test-web
+
+echo "Step 5: Switching back to development..."
 git checkout development
 switched_to_testing=0
 
-echo "Step 5: Bumping build number..."
+echo "Step 6: Bumping build number..."
 "$repo_root/scripts/bump_build_number.sh"
 
 new_version="$(awk '/^version:/{print $2; exit}' "$repo_root/pubspec.yaml")"
 
-echo "Step 6: Committing bumped version..."
+echo "Step 7: Committing bumped version..."
 git add "$repo_root/pubspec.yaml"
 git commit -m "chore(version): bump build number to ${new_version}"
 
-echo "Step 7: Done."
-echo "Merged development -> testing, returned to development, and committed version ${new_version}."
+echo "Step 8: Done."
+echo "Merged development -> testing, deployed preview channel 'test-web', returned to development, and committed version ${new_version}."
 echo "Remember to push both branches: git push origin testing development"
