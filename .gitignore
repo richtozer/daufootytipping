@@ -5,6 +5,7 @@
 *.p8
 
 # Miscellaneous
+.playwright-cli/
 *.jks
 *.class
 *.log
