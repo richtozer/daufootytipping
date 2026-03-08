@@ -64,8 +64,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
       setState(() {
         latestRoundNumber = nextLatestRoundNumber;
       });
-    } else {
-      latestRoundNumber = nextLatestRoundNumber;
     }
 
     if (_lastScrolledCompDbKey != selectedComp.dbkey) {
