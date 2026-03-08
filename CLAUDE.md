@@ -146,7 +146,7 @@ flutter build appbundle
 - `main` is the production branch
 
 ```bash
-# Promote development → testing, then bump build number on development:
+# Promote development → testing, deploy test web, bump build number on development, and push both branches:
 scripts/promote-to-testing.sh
 
 # Increment build number only (updates pubspec.yaml version):

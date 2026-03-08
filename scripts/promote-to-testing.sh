@@ -97,6 +97,8 @@ echo "Step 7: Committing bumped version..."
 git add "$repo_root/pubspec.yaml"
 git commit -m "chore(version): bump build number to ${new_version}"
 
-echo "Step 8: Done."
-echo "Merged development -> testing, deployed preview channel 'test-web', returned to development, and committed version ${new_version}."
-echo "Remember to push both branches: git push origin testing development"
+echo "Step 8: Pushing testing and development to origin..."
+git push origin testing development
+
+echo "Step 9: Done."
+echo "Merged development -> testing, deployed preview channel 'test-web', returned to development, committed version ${new_version}, and pushed both branches."
