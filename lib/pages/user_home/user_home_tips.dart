@@ -59,6 +59,7 @@ class TipsTab extends StatefulWidget {
 }
 
 class TipsTabState extends State<TipsTab> {
+  static const int _maxStartupScrollRetries = 120;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   late ScrollController scrollController;
@@ -67,6 +68,10 @@ class TipsTabState extends State<TipsTab> {
   String? _lastScrollSignature;
   String? _itemExtentCacheKey;
   List<double> _cachedItemExtents = const [];
+  double _pendingStartupOffset = 0;
+  bool _startupScrollPending = false;
+  bool _startupScrollSettled = false;
+  int _startupScrollRetryCount = 0;
 
   @override
   void initState() {
@@ -90,6 +95,7 @@ class TipsTabState extends State<TipsTab> {
           _lastScrollSignature = null;
         });
       }
+      _resetStartupScrollState();
       return;
     }
 
@@ -112,27 +118,60 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
+    final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
     final nextScrollSignature =
-        '${selectedComp.dbkey}:${selectedComp.daurounds.length}';
-    if (_lastScrollSignature == nextScrollSignature) {
+        '${selectedComp.dbkey}:$latestRoundNumber:${_buildItemExtentCacheKey(selectedComp)}';
+    if (_lastScrollSignature != nextScrollSignature) {
+      _lastScrollSignature = nextScrollSignature;
+      _startupScrollSettled = false;
+      _startupScrollRetryCount = 0;
+    }
+    if (_startupScrollSettled || _startupScrollPending) {
       return;
     }
-
-    _lastScrollSignature = nextScrollSignature;
-    final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
     log(
       'TipsPageBody._syncSelectedCompState() latestRoundNumber: $latestRoundNumber',
     );
 
-    final initialOffset =
+    _pendingStartupOffset =
         selectedComp.pixelHeightUpToRound(latestRoundNumber) + initialScrollOffset;
 
+    _scheduleStartupScrollAttempt();
+  }
+
+  void _scheduleStartupScrollAttempt() {
+    _startupScrollPending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startupScrollPending = false;
       if (!mounted || !scrollController.hasClients) {
         return;
       }
-      scrollController.jumpTo(initialOffset);
+
+      final maxScrollExtent = scrollController.position.maxScrollExtent;
+      final clampedOffset = _pendingStartupOffset.clamp(0.0, maxScrollExtent);
+      scrollController.jumpTo(clampedOffset);
+
+      final canReachTarget = maxScrollExtent + 8 >= _pendingStartupOffset;
+      final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
+      if (canReachTarget && hitTarget) {
+        _startupScrollSettled = true;
+        return;
+      }
+
+      if (_startupScrollRetryCount >= _maxStartupScrollRetries) {
+        return;
+      }
+
+      _startupScrollRetryCount += 1;
+      _scheduleStartupScrollAttempt();
     });
+  }
+
+  void _resetStartupScrollState() {
+    _pendingStartupOffset = 0;
+    _startupScrollPending = false;
+    _startupScrollSettled = false;
+    _startupScrollRetryCount = 0;
   }
 
   void _handleKeyEvent(KeyEvent event) {
