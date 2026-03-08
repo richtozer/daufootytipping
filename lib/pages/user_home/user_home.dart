@@ -4,7 +4,6 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -18,9 +17,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with RestorationMixin {
   final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
   final TippersViewModel _tippersViewModel = di<TippersViewModel>();
-  late final RestorableInt _currentIndex = RestorableInt(
-    kIsWeb ? 1 : 0,
-  ); // Set to 1 for web, 0 otherwise - TODO this is to get around the bug where web users dont jump to the current round when they first load the app, this should be fixed in the future
+  late final RestorableInt _currentIndex = RestorableInt(0);
   bool _startupReadyMarked = false;
   int _outstandingTipsCount = 0;
 
@@ -65,7 +62,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
 
     final nextOutstandingTipsCount = _calculateOutstandingTipsCount();
     final shouldSwitchToProfile =
-        _tippersViewModel.selectedTipper.isAnonymous && _currentIndex.value == 0;
+        _tippersViewModel.selectedTipper.isAnonymous &&
+        _currentIndex.value == 0;
 
     if (nextOutstandingTipsCount == _outstandingTipsCount &&
         !shouldSwitchToProfile) {
@@ -107,7 +105,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
               builder: (context, tippersViewModelConsumer, child) {
                 if (!_startupReadyMarked &&
                     dauCompsViewModelConsumer.gamesViewModel != null &&
-                    dauCompsViewModelConsumer.selectedTipperTipsViewModel != null) {
+                    dauCompsViewModelConsumer.selectedTipperTipsViewModel !=
+                        null) {
                   _startupReadyMarked = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     StartupProfiling.instant(
@@ -132,8 +131,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       ),
                     ),
                     Scaffold(
-                      backgroundColor:
-                          !isDarkMode ? Colors.white54 : Colors.black54,
+                      backgroundColor: !isDarkMode
+                          ? Colors.white54
+                          : Colors.black54,
                       body: Center(
                         child: destinationContent[_currentIndex.value],
                       ),
@@ -149,8 +149,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                         height: 60,
                         destinations: [
                           (() {
-                            final isAnonymous =
-                                tippersViewModelConsumer.selectedTipper.isAnonymous;
+                            final isAnonymous = tippersViewModelConsumer
+                                .selectedTipper
+                                .isAnonymous;
                             final tipsIcon = _outstandingTipsCount > 0
                                 ? Badge.count(
                                     count: _outstandingTipsCount,
