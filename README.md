@@ -9,7 +9,7 @@ The project is organized into the following main directories and files:
 Key Directories and Files
 lib/: Contains the main Dart code for the application, including models, view models, and UI components.
 assets/: Stores static assets such as images and fonts.
-android/, ios/, linux/, macos/, web/, windows/: Platform-specific code and configurations.
+android/, ios/, linux/, web/, windows/: Platform-specific code and configurations.
 functions/: Contains Firebase Cloud Functions.
 pubspec.yaml: Defines the project's dependencies and environment settings.
 firebase.json: Firebase configuration file.
