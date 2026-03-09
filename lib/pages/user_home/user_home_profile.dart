@@ -446,10 +446,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                         newName,
                       );
 
-                      // update the name on the tipper object
-                      tipper.name =
-                          newName; //TODO Hack -  state changes should go through database first
-
                       // if the tipper is new then navigate to the home page,
                       // otherwise just close the dialog
                       if (isNewTipper) {

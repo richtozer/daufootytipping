@@ -198,6 +198,15 @@ class TippersViewModel extends ChangeNotifier {
     await updateTipperAttribute(tipperDbKey, "name", newName);
     await saveBatchOfTipperChangesToDb();
 
+    tipperToUpdate.name = newName;
+    if (_authenticatedTipper?.dbkey == tipperDbKey) {
+      _authenticatedTipper = tipperToUpdate;
+    }
+    if (_selectedTipper.dbkey == tipperDbKey) {
+      _selectedTipper = tipperToUpdate;
+    }
+    notifyListeners();
+
     log('TippersViewModel() Tipper: $tipperDbKey name updated to: $newName');
   }
 
@@ -480,10 +489,9 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   Future<Tipper?> _findExistingTipper(User authenticatedFirebaseUser) async {
-    //TODO hack, if anonymous user, then dont try to find by email or logon
     if (authenticatedFirebaseUser.isAnonymous) {
       log(
-        'TippersViewModel().linkUserToTipper() User is anonymous, not looking for existing tipper by email or logon',
+        'TippersViewModel().linkUserToTipper() User is anonymous, not looking for an existing tipper by email or logon',
       );
       return null; // Anonymous users won't have an existing Tipper
     }
@@ -540,7 +548,6 @@ class TippersViewModel extends ChangeNotifier {
     Tipper foundTipper,
     User authenticatedFirebaseUser,
   ) async {
-    // TODO skip of anonymous user
     if (authenticatedFirebaseUser.isAnonymous) {
       log(
         'TippersViewModel().linkUserToTipper() User is anonymous, not updating photoURL or timestamps',
@@ -615,11 +622,11 @@ class TippersViewModel extends ChangeNotifier {
       acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
     );
 
-    // add the new tipper to the database
-    // only if not anonymous user // TODO this is a hack, need to fix this
+    // Anonymous users stay local-only. They can browse in read-only mode
+    // without creating a persisted tipper record.
     if (!authenticatedFirebaseUser.isAnonymous) {
       log(
-        'TippersViewModel().linkUserToTipper() User is anonymous, not creating a new tipper',
+        'TippersViewModel().linkUserToTipper() User is not anonymous, creating a persisted tipper',
       );
 
       await _createNewTipper(newTipper);
