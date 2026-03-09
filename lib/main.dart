@@ -108,15 +108,17 @@ Future<void> main() async {
   if (kDebugMode && useFirebaseEmulators) {
     database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
     log('Database emulator started on $firebaseEmulatorHost:8000');
-  } else if (kDebugMode) {
-    log(
-      'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
-    );
   } else {
     if (!kIsWeb) {
-      database.setPersistenceCacheSizeBytes(20 * 1024 * 1024); // 20 MB
+      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
       database.setPersistenceEnabled(true);
-      log('Database persistence enabled');
+      log('Database persistence enabled (100 MB cache)');
+    }
+
+    if (kDebugMode) {
+      log(
+        'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
+      );
     }
   }
 
