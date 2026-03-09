@@ -102,3 +102,4 @@ git push origin testing development
 
 echo "Step 9: Done."
 echo "Merged development -> testing, deployed preview channel 'test-web', returned to development, committed version ${new_version}, and pushed both branches."
+echo "The testing push will now trigger the Android Play workflow and deploy the testing build to the Google Play internal track."

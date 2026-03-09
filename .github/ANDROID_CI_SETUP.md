@@ -5,8 +5,9 @@ This guide explains how to set up the GitHub Actions workflow for Android builds
 ## 🚀 What the Workflow Does
 
 ### Branches & Triggers
-- **android-play.yml**: Single manual workflow for Android.
-- **No push/PR auto triggers**: Workflow is intentionally manual to control GitHub Actions usage.
+- **android-play.yml**: Runs automatically on pushes to `testing` and also supports manual dispatch.
+- **Automatic testing deploys**: A push to `testing` builds Android and uploads the AAB to the Play `internal` track.
+- **Manual deploys**: Use `workflow_dispatch` for `none`, `internal`, or `production` when you need to run it explicitly.
 
 ### Build Process
 1. **Validate dispatch**:
@@ -79,10 +80,8 @@ android/
 3. Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` when you are ready for deploys
 4. Promote changes from `development` to `testing` with:
    - `scripts/promote-to-testing.sh`
-5. Push both branches:
-   - `git push origin testing development`
-6. Run `android-play.yml` on `testing` with `deploy_track=internal`
-7. Run `android-play.yml` on `main` with `deploy_track=production` for production releases
+5. The script pushes `testing`, which triggers the automatic Android internal deploy
+6. Run `android-play.yml` on `main` with `deploy_track=production` for production releases
 
 ## 🔁 Branch Promotion Script
 
@@ -90,6 +89,7 @@ android/
 - Run from `development` only, with a clean working tree.
 - It will:
   - merge `development` into `testing`
+  - trigger the Android GitHub Actions workflow via the resulting `testing` push
   - switch back to `development`
   - bump `pubspec.yaml` build number
   - commit the bump on `development`

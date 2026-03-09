@@ -12,15 +12,29 @@ on:
           - none
           - internal
           - production
+  push:
+    branches:
+      - testing
 
 jobs:
   validate_dispatch:
-    name: Validate Dispatch Inputs
+    name: Resolve and Validate Deployment Target
     runs-on: ubuntu-latest
+    outputs:
+      deploy_track: ${{ steps.resolve_track.outputs.deploy_track }}
     steps:
+      - name: Resolve deployment target
+        id: resolve_track
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "deploy_track=internal" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy_track=${{ inputs.deploy_track }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Validate branch/track combination
         run: |
-          track="${{ inputs.deploy_track }}"
+          track="${{ steps.resolve_track.outputs.deploy_track }}"
           ref="${{ github.ref }}"
           if [ "$track" = "internal" ] && [ "$ref" != "refs/heads/testing" ]; then
             echo "Internal deploy is only allowed from testing branch."
@@ -133,9 +147,11 @@ jobs:
 
   deploy_internal:
     name: Upload to Google Play (Internal)
-    needs: build
+    needs:
+      - validate_dispatch
+      - build
     runs-on: ubuntu-latest
-    if: inputs.deploy_track == 'internal' && github.ref == 'refs/heads/testing'
+    if: needs.validate_dispatch.outputs.deploy_track == 'internal' && github.ref == 'refs/heads/testing'
     steps:
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
@@ -157,9 +173,11 @@ jobs:
 
   deploy_production:
     name: Upload to Google Play (Production)
-    needs: build
+    needs:
+      - validate_dispatch
+      - build
     runs-on: ubuntu-latest
-    if: inputs.deploy_track == 'production' && github.ref == 'refs/heads/main'
+    if: needs.validate_dispatch.outputs.deploy_track == 'production' && github.ref == 'refs/heads/main'
     steps:
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
