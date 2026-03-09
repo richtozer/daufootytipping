@@ -1,7 +1,6 @@
 import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
@@ -11,6 +10,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/config_loading_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -217,11 +217,7 @@ class _MyAppState extends State<MyApp> {
                     future: configViewModel.initialLoadComplete,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
-                        return Center(
-                          child: CircularProgressIndicator(
-                            color: League.afl.colour,
-                          ),
-                        );
+                        return const ConfigLoadingScreen();
                       }
 
                       if (snapshot.hasError) {

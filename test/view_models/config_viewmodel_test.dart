@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockDatabaseReference extends Mock implements DatabaseReference {}
 
@@ -17,6 +19,7 @@ void main() {
   late StreamController<DatabaseEvent> controller;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
     mockDb = MockDatabaseReference();
     controller = StreamController<DatabaseEvent>.broadcast();
     when(() => mockDb.onValue).thenAnswer((_) => controller.stream);
@@ -146,6 +149,31 @@ void main() {
         ),
       ),
     );
+
+    viewModel.dispose();
+  });
+
+  test('initial load can complete from cached bootstrap config', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'cached_app_config_v1': jsonEncode(<String, Object?>{
+        p.currentDAUCompKey: 'comp-cached',
+        p.createLinkedTipperKey: true,
+        p.minAppVersionKey: '1.2.3',
+        p.googleClientIdKey: 'cached-client-id',
+      }),
+    });
+
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+    );
+
+    await viewModel.initialLoadComplete;
+
+    expect(viewModel.activeDAUComp, 'comp-cached');
+    expect(viewModel.createLinkedTipper, isTrue);
+    expect(viewModel.minAppVersion, '1.2.3');
+    expect(viewModel.googleClientId, 'cached-client-id');
 
     viewModel.dispose();
   });
