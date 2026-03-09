@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -18,7 +20,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
   final TippersViewModel _tippersViewModel = di<TippersViewModel>();
   late final RestorableInt _currentIndex = RestorableInt(0);
-  bool _startupReadyMarked = false;
+  bool _homeModelsReadyLogged = false;
+  bool _tipsContentReadyTrackingStarted = false;
   int _outstandingTipsCount = 0;
 
   @override
@@ -27,6 +30,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     _dauCompsViewModel.addListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.addListener(_handleHomeViewModelsUpdated);
     _outstandingTipsCount = _calculateOutstandingTipsCount();
+    _trackStartupMilestones();
     // Do NOT access _currentIndex.value here — the RestorableInt's
     // internal value is only initialised after registerForRestoration()
     // in restoreState(). Accessing it before that causes:
@@ -70,6 +74,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         _tippersViewModel.selectedTipper.isAnonymous &&
         _currentIndex.value == 0;
 
+    _trackStartupMilestones();
+
     if (nextOutstandingTipsCount == _outstandingTipsCount &&
         !shouldSwitchToStats) {
       return;
@@ -81,6 +87,60 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         _currentIndex.value = 1; // Anonymous users see Stats tab
       }
     });
+  }
+
+  void _trackStartupMilestones() {
+    if (!mounted) {
+      return;
+    }
+
+    if (!_homeModelsReadyLogged &&
+        _dauCompsViewModel.gamesViewModel != null &&
+        _dauCompsViewModel.selectedTipperTipsViewModel != null) {
+      _homeModelsReadyLogged = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        StartupProfiling.instant(
+          'startup.home_models_ready',
+          arguments: <String, Object?>{
+            'compDbKey': _dauCompsViewModel.selectedDAUComp?.dbkey ?? 'unknown',
+          },
+        );
+      });
+    }
+
+    _trackTipsContentReadyIfNeeded();
+  }
+
+  void _trackTipsContentReadyIfNeeded() {
+    if (_tipsContentReadyTrackingStarted) {
+      return;
+    }
+
+    final gamesViewModel = _dauCompsViewModel.gamesViewModel;
+    final tipsViewModel = _dauCompsViewModel.selectedTipperTipsViewModel;
+    if (gamesViewModel == null || tipsViewModel == null) {
+      return;
+    }
+
+    _tipsContentReadyTrackingStarted = true;
+    unawaited(
+      () async {
+        await gamesViewModel.initialLoadComplete;
+        await tipsViewModel.initialLoadCompleted;
+        if (!mounted) {
+          return;
+        }
+        StartupProfiling.end(
+          'startup.tips_content_ready',
+          arguments: <String, Object?>{
+            'compDbKey': _dauCompsViewModel.selectedDAUComp?.dbkey ?? 'unknown',
+          },
+        );
+      }(),
+    );
   }
 
   @override
@@ -108,23 +168,6 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
           builder: (context, dauCompsViewModelConsumer, child) {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-                if (!_startupReadyMarked &&
-                    dauCompsViewModelConsumer.gamesViewModel != null &&
-                    dauCompsViewModelConsumer.selectedTipperTipsViewModel !=
-                        null) {
-                  _startupReadyMarked = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    StartupProfiling.instant(
-                      'startup.home_models_ready',
-                      arguments: <String, Object?>{
-                        'compDbKey':
-                            dauCompsViewModelConsumer.selectedDAUComp?.dbkey ??
-                            'unknown',
-                      },
-                    );
-                  });
-                }
-
                 Widget scaffold = Stack(
                   children: [
                     RepaintBoundary(

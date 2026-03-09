@@ -35,7 +35,6 @@ class TeamsViewModel extends ChangeNotifier {
       if (!_initialLoadCompleter.isCompleted) {
         _initialLoadCompleter.complete();
       }
-
       notifyListeners();
     });
   }

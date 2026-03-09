@@ -33,13 +33,16 @@ class StartupProfiling {
       return;
     }
     final Stopwatch? stopwatch = _stopwatches.remove(phase);
+    final TimelineTask? task = _tasks.remove(phase);
+    if (stopwatch == null && task == null) {
+      return;
+    }
     final int? elapsedMs = stopwatch?.elapsedMilliseconds;
     final Map<String, Object?> timelineArgs = <String, Object?>{
       'elapsedMs': elapsedMs,
       ...arguments,
     };
 
-    final TimelineTask? task = _tasks.remove(phase);
     if (task != null) {
       task.finish(arguments: timelineArgs);
     } else {

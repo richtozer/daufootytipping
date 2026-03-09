@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
+import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -155,6 +156,7 @@ class TipsTabState extends State<TipsTab> {
       final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
       if (canReachTarget && hitTarget) {
         _startupScrollSettled = true;
+        StartupProfiling.end('startup.tips_page_stable');
         return;
       }
 

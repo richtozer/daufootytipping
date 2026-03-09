@@ -9,6 +9,7 @@ import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
+import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -24,6 +25,8 @@ import 'package:universal_html/js.dart' as js;
 
 Future<void> main() async {
   StartupProfiling.instant('startup.main_entered');
+  StartupProfiling.start('startup.tips_page_stable');
+  StartupProfiling.start('startup.tips_content_ready');
   const bool useFirebaseEmulators = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
     defaultValue: true,
@@ -156,25 +159,33 @@ class _MyAppState extends State<MyApp> {
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
     final bool createLinkedTipper = configViewModel.createLinkedTipper!;
+
+    if (!di.isRegistered<TeamsViewModel>()) {
+      di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
+    }
+
     final bool needsRegistration =
         !di.isRegistered<DAUCompsViewModel>() ||
         !di.isRegistered<TippersViewModel>() ||
         _registeredActiveCompKey != activeCompKey ||
         _registeredCreateLinkedTipper != createLinkedTipper;
 
-    if (!needsRegistration) {
-      return;
+    if (needsRegistration) {
+      _registeredActiveCompKey = activeCompKey;
+      _registeredCreateLinkedTipper = createLinkedTipper;
+
+      di.registerLazySingleton<TippersViewModel>(
+        () => TippersViewModel(createLinkedTipper),
+      );
+      di.registerLazySingleton<DAUCompsViewModel>(
+        () => DAUCompsViewModel(activeCompKey, false),
+      );
     }
 
-    _registeredActiveCompKey = activeCompKey;
-    _registeredCreateLinkedTipper = createLinkedTipper;
-
-    di.registerLazySingleton<TippersViewModel>(
-      () => TippersViewModel(createLinkedTipper),
-    );
-    di.registerLazySingleton<DAUCompsViewModel>(
-      () => DAUCompsViewModel(activeCompKey, false),
-    );
+    // Warm the realtime listeners while auth/cache work is still in flight.
+    di<TeamsViewModel>();
+    di<TippersViewModel>();
+    di<DAUCompsViewModel>();
   }
 
   @override

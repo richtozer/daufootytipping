@@ -28,6 +28,7 @@ class GamesViewModel extends ChangeNotifier {
 
   DAUComp selectedDAUComp;
   late TeamsViewModel _teamsViewModel;
+  final bool _ownsTeamsViewModel;
   TeamsViewModel get teamsViewModel => _teamsViewModel;
 
   final List<DAURound> _roundsThatNeedScoringUpdate = [];
@@ -37,8 +38,17 @@ class GamesViewModel extends ChangeNotifier {
   bool _isUpdating = false;
 
   // Constructor
-  GamesViewModel(this.selectedDAUComp, this._dauCompsViewModel) {
-    _teamsViewModel = TeamsViewModel();
+  GamesViewModel(
+    this.selectedDAUComp,
+    this._dauCompsViewModel, {
+    TeamsViewModel? teamsViewModel,
+  }) : _ownsTeamsViewModel =
+           teamsViewModel == null && !di.isRegistered<TeamsViewModel>() {
+    _teamsViewModel =
+        teamsViewModel ??
+        (di.isRegistered<TeamsViewModel>()
+            ? di<TeamsViewModel>()
+            : TeamsViewModel());
     _initialize();
   }
 
@@ -69,6 +79,20 @@ class GamesViewModel extends ChangeNotifier {
     }
     _isUpdating = true;
     try {
+      final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
+      final dynamic rawValue = event.snapshot.value;
+      final int entryCount = rawValue is Map ? rawValue.length : 0;
+      final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
+      StartupProfiling.instant(
+        'startup.games_snapshot_received',
+        arguments: <String, Object?>{
+          'exists': event.snapshot.exists,
+          'entryCount': entryCount,
+          'payloadBytes': payloadBytes ?? -1,
+          'firstLoad': isFirstLoad,
+          'compDbKey': selectedDAUComp.dbkey ?? 'unknown',
+        },
+      );
       if (event.snapshot.exists) {
         final allGames = Map<String, dynamic>.from(
           event.snapshot.value as dynamic,
@@ -112,10 +136,6 @@ class GamesViewModel extends ChangeNotifier {
 
         gamesList.sort();
         _games = gamesList;
-        StartupProfiling.instant(
-          'startup.games_snapshot_deserialized',
-          arguments: <String, Object?>{'gameCount': _games.length},
-        );
         log(
           'GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}',
         );
@@ -653,6 +673,9 @@ class GamesViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _gamesStream.cancel(); // stop listening to stream
+    if (_ownsTeamsViewModel) {
+      _teamsViewModel.dispose();
+    }
     super.dispose();
   }
 

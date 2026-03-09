@@ -50,6 +50,17 @@
         "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
         "--dart-define=DEBUG_APPCHECK_TOKEN=0f7a815b-f18d-437b-ad93-1c216ab8548b"
       ]
+    },
+    {
+      "name": "Flutter iPhone 16 Pro + Startup Profiling",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "deviceId": "05EC8C12-11FF-4BEB-9016-B613947116A9",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=STARTUP_PROFILING=true"
+      ]
     }
   ]
 }
