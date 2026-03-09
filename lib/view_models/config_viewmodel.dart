@@ -6,8 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
 class ConfigViewModel extends ChangeNotifier {
-  final DatabaseReference _db = FirebaseDatabase.instance.ref(p.configPathRoot);
+  final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _configStream;
+  final Duration _initialLoadTimeout;
 
   String? _activeDAUComp;
   String? get activeDAUComp => _activeDAUComp;
@@ -24,20 +25,25 @@ class ConfigViewModel extends ChangeNotifier {
   final Completer<void> _initialLoadCompleter = Completer<void>();
 
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
+  bool get hasRequiredBootstrapConfig =>
+      _activeDAUComp != null && _createLinkedTipper != null;
 
-  ConfigViewModel() {
+  ConfigViewModel({
+    DatabaseReference? db,
+    Duration initialLoadTimeout = const Duration(seconds: 10),
+  }) : _db = db ?? FirebaseDatabase.instance.ref(p.configPathRoot),
+       _initialLoadTimeout = initialLoadTimeout {
     _listenToConfigChanges();
     // Add a timeout for initial load
-    _initialLoadCompleter.future.timeout(const Duration(seconds: 10)).catchError((
-      _,
-    ) {
-      // If timeout occurs and not completed, complete with error
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.completeError(
-          'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.',
-        );
-        notifyListeners();
+    _initialLoadCompleter.future.timeout(_initialLoadTimeout).catchError((_) {
+      if (_initialLoadCompleter.isCompleted) {
+        return;
       }
+
+      _initialLoadCompleter.completeError(
+        'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.',
+      );
+      notifyListeners();
     });
   }
 
@@ -65,7 +71,7 @@ class ConfigViewModel extends ChangeNotifier {
           );
         }
 
-        if (!_initialLoadCompleter.isCompleted) {
+        if (!_initialLoadCompleter.isCompleted && hasRequiredBootstrapConfig) {
           _initialLoadCompleter.complete();
         }
         processingStopwatch.stop();
@@ -74,6 +80,7 @@ class ConfigViewModel extends ChangeNotifier {
           arguments: <String, Object?>{
             'elapsedMs': processingStopwatch.elapsedMilliseconds,
             'firstLoad': isFirstLoad,
+            'bootstrapReady': hasRequiredBootstrapConfig,
           },
         );
         notifyListeners();

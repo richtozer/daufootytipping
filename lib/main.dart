@@ -153,11 +153,6 @@ class _MyAppState extends State<MyApp> {
   String? _registeredActiveCompKey;
   bool? _registeredCreateLinkedTipper;
 
-  bool _hasRequiredBootstrapConfig(ConfigViewModel configViewModel) {
-    return configViewModel.activeDAUComp != null &&
-        configViewModel.createLinkedTipper != null;
-  }
-
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
     final bool createLinkedTipper = configViewModel.createLinkedTipper!;
@@ -208,7 +203,7 @@ class _MyAppState extends State<MyApp> {
                   return FutureBuilder<void>(
                     future: configViewModel.initialLoadComplete,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                      if (snapshot.connectionState != ConnectionState.done) {
                         return Center(
                           child: CircularProgressIndicator(
                             color: League.afl.colour,
@@ -216,8 +211,16 @@ class _MyAppState extends State<MyApp> {
                         );
                       }
 
+                      if (snapshot.hasError) {
+                        return LoginIssueScreen(
+                          message:
+                              'Unexpected startup error. ${snapshot.error}',
+                          displaySignOutButton: false,
+                        );
+                      }
+
                       // if required config is missing, display error
-                      if (!_hasRequiredBootstrapConfig(configViewModel)) {
+                      if (!configViewModel.hasRequiredBootstrapConfig) {
                         // display LoginErrorScreen
                         return LoginIssueScreen(
                           message:
