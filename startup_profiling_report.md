@@ -83,6 +83,29 @@ Retained:
 
 Temporary high-noise instrumentation for teams/games breakdown was added during diagnosis and then removed after identifying the key bottleneck.
 
+### 5. Increased RTDB persistence cache for non-emulator mobile runs
+
+File:
+
+- `lib/main.dart`
+
+Changes:
+
+- Realtime Database persistence cache increased from `20 MB` to `100 MB`
+- persistence now applies to mobile runs whenever the app is not using the RTDB emulator
+
+Effective behavior:
+
+- `debug + emulator`: no RTDB persistence
+- `debug + real device`: RTDB persistence enabled, `100 MB` cache
+- `release + real device`: RTDB persistence enabled, `100 MB` cache
+
+Rationale:
+
+- startup profiling on emulator identified teams/games listener timing, but emulator runs do not exercise RTDB persistence
+- on real devices, the previous `20 MB` cache cap looked conservative relative to the breadth of RTDB trees this app touches over time
+- this change is intended to improve warm-start behavior and reduce cache eviction pressure on returning users
+
 ## Experiments Run
 
 ### A. Cached tipper only, before relaxed gate experiment
@@ -165,6 +188,7 @@ What likely matters now:
 
 - first game snapshot arrival latency
 - general realtime listener first-emission latency
+- cache retention quality on real-device non-emulator runs, now that RTDB persistence uses a larger `100 MB` cap
 
 What does **not** appear to be the main issue anymore:
 
@@ -209,6 +233,9 @@ Another agent should specifically check:
 - `lib/pages/user_home/user_home.dart`
 - `lib/pages/user_home/user_home_tips.dart`
 - `lib/view_models/games_viewmodel.dart`
+- `lib/services/startup_profiling.dart`
+- `lib/view_models/teams_viewmodel.dart`
+- `startup_profiling_report.md`
 
 ## Suggested Validation For Another Agent
 
@@ -223,10 +250,13 @@ Another agent should specifically check:
    - comp switching
    - admin team editing
    - any code paths that instantiate `GamesViewModel` outside the normal startup flow
+5. Validate warm-start behavior on a real mobile device with:
+   - `USE_FIREBASE_EMULATORS=false`
+   - repeated launches or relaunches after initial cache population
+   - comparison before/after the `100 MB` cache increase
 
 ## Verification Run During This Work
 
 - `flutter analyze` passed after each final patch state
 - focused regression test used earlier in the session:
   - `test/view_models/tippers_viewmodel_cached_link_regression_test.dart`
-
