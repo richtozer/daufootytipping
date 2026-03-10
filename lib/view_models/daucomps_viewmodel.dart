@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
@@ -30,6 +31,7 @@ import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart';
 
@@ -41,6 +43,7 @@ enum LeagueLadderAvailability {
 }
 
 class DAUCompsViewModel extends ChangeNotifier {
+  static const String _cachedDauCompsKey = 'cached_daucomps_v1';
   List<DAUComp> _daucomps = [];
   List<DAUComp> get daucomps => _daucomps;
   final fixtureUpdateTimerDuration = Duration(
@@ -112,6 +115,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
+  final Future<SharedPreferences> Function() _prefsFactory;
+  bool _hasReceivedRemoteSnapshot = false;
 
   DAUCompsViewModel(
     this._initDAUCompDbKey,
@@ -123,16 +128,19 @@ class DAUCompsViewModel extends ChangeNotifier {
     MessagingService? messaging,
     TippersViewModel Function()? tippers,
     FixtureUpdateCoordinator? fixtureCoordinator,
+    Future<SharedPreferences> Function()? prefsFactory,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
         _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
         _tippers = tippers ?? (() => di<TippersViewModel>()),
-        _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator() {
+        _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
+        _prefsFactory = prefsFactory ?? SharedPreferences.getInstance {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
     if (!skipInit) {
+      unawaited(_restoreCachedDauComps());
       _init();
     }
   }
@@ -376,6 +384,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _handleEvent(DatabaseEvent event) async {
     try {
       log('DAUCompsViewModel_handleEvent()');
+      _hasReceivedRemoteSnapshot = true;
       final bool isFirstLoad = !_initialDAUCompLoadCompleter.isCompleted;
       final Stopwatch processingStopwatch = Stopwatch()..start();
       final dynamic rawValue = event.snapshot.value;
@@ -394,28 +403,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       if (event.snapshot.exists) {
         final value = event.snapshot.value as dynamic;
         final databaseMap = Map<String, dynamic>.from(value as Map);
-        final result = _snapshotApplier.apply(
-          databaseValue: databaseMap,
-          currentComps: _daucomps,
-          combinedRoundsPath: combinedRoundsPath,
-        );
-
-        _daucomps = result.comps;
-
-        // Refresh pointers to active/selected comps
-        if (_activeDAUComp != null) {
-          _activeDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _activeDAUComp!.dbkey);
-        }
-        if (_selectedDAUComp != null) {
-          _selectedDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _selectedDAUComp!.dbkey);
-        }
-        _clearGroupedGamesCache();
-
-        // If selected comp had rounds changed or was replaced, relink games
-        final selKey = _selectedDAUComp?.dbkey;
-        if (selKey != null && result.compKeysNeedingRelink.contains(selKey)) {
-          await linkGamesWithRounds(_selectedDAUComp!.daurounds);
-        }
+        await _applyDatabaseMap(databaseMap);
+        unawaited(_cacheCurrentDauComps(databaseMap));
       } else {
         log('No DAUComps found at database location: $daucompsPath');
         _daucomps = [];
@@ -438,6 +427,79 @@ class DAUCompsViewModel extends ChangeNotifier {
     } catch (e) {
       log('Error listening to $daucompsPath: $e');
       rethrow;
+    }
+  }
+
+  Future<void> _restoreCachedDauComps() async {
+    try {
+      final SharedPreferences prefs = await _prefsFactory();
+      final String? cachedDauCompsJson = prefs.getString(_cachedDauCompsKey);
+      if (cachedDauCompsJson == null || _hasReceivedRemoteSnapshot) {
+        return;
+      }
+
+      final Map<String, dynamic> cachedDauComps = Map<String, dynamic>.from(
+        jsonDecode(cachedDauCompsJson) as Map,
+      );
+      await _applyDatabaseMap(cachedDauComps);
+      StartupProfiling.instant(
+        'startup.daucomps_cache_loaded',
+        arguments: <String, Object?>{
+          'daucompsCount': _daucomps.length,
+          'bootstrapReady': _daucomps.isNotEmpty,
+        },
+      );
+      if (!_initialDAUCompLoadCompleter.isCompleted) {
+        _initialDAUCompLoadCompleter.complete();
+      }
+      notifyListeners();
+    } catch (error, stackTrace) {
+      log(
+        'DAUCompsViewModel._restoreCachedDauComps() Error restoring cache: $error',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _cacheCurrentDauComps(Map<String, dynamic> databaseMap) async {
+    try {
+      final SharedPreferences prefs = await _prefsFactory();
+      await prefs.setString(
+        _cachedDauCompsKey,
+        jsonEncode(databaseMap),
+      );
+    } catch (error, stackTrace) {
+      log(
+        'DAUCompsViewModel._cacheCurrentDauComps() Error caching DAUComps: $error',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _applyDatabaseMap(Map<String, dynamic> databaseMap) async {
+    final result = _snapshotApplier.apply(
+      databaseValue: databaseMap,
+      currentComps: _daucomps,
+      combinedRoundsPath: combinedRoundsPath,
+    );
+
+    _daucomps = result.comps;
+
+    if (_activeDAUComp != null) {
+      _activeDAUComp = _daucomps.firstWhereOrNull(
+        (c) => c.dbkey == _activeDAUComp!.dbkey,
+      );
+    }
+    if (_selectedDAUComp != null) {
+      _selectedDAUComp = _daucomps.firstWhereOrNull(
+        (c) => c.dbkey == _selectedDAUComp!.dbkey,
+      );
+    }
+    _clearGroupedGamesCache();
+
+    final selKey = _selectedDAUComp?.dbkey;
+    if (selKey != null && result.compKeysNeedingRelink.contains(selKey)) {
+      await linkGamesWithRounds(_selectedDAUComp!.daurounds);
     }
   }
 
