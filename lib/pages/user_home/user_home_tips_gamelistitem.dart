@@ -4,11 +4,13 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
@@ -463,11 +465,89 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return TipChoice(gameTipsViewModelConsumer, true);
+    return Consumer<StatsViewModel?>(
+      builder: (context, statsViewModel, child) {
+        return _PercentStatsTipChoice(
+          gameTipViewModel: gameTipsViewModelConsumer,
+          statsViewModel: statsViewModel,
+        );
+      },
+    );
   }
 
   // _initLeagueLadder is now _fetchAndSetLadderRanks
   // _buildNewHistoricalMatchupsCard has been removed.
+}
+
+class _PercentStatsTipChoice extends StatefulWidget {
+  const _PercentStatsTipChoice({
+    required this.gameTipViewModel,
+    required this.statsViewModel,
+  });
+
+  final GameTipViewModel gameTipViewModel;
+  final StatsViewModel? statsViewModel;
+
+  @override
+  State<_PercentStatsTipChoice> createState() => _PercentStatsTipChoiceState();
+}
+
+class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
+  String? _requestedGameKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPercentStatsIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PercentStatsTipChoice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool gameChanged =
+        oldWidget.gameTipViewModel.game.dbkey != widget.gameTipViewModel.game.dbkey;
+    final bool statsViewModelChanged =
+        oldWidget.statsViewModel != widget.statsViewModel;
+
+    if (gameChanged) {
+      _requestedGameKey = null;
+    }
+
+    if (gameChanged || statsViewModelChanged) {
+      _requestPercentStatsIfNeeded();
+    }
+  }
+
+  void _requestPercentStatsIfNeeded() {
+    final statsViewModel = widget.statsViewModel;
+    if (statsViewModel == null) {
+      return;
+    }
+
+    final gameKey = widget.gameTipViewModel.game.dbkey;
+    if (_requestedGameKey == gameKey) {
+      return;
+    }
+
+    _requestedGameKey = gameKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _requestedGameKey != gameKey) {
+        return;
+      }
+      statsViewModel.getGamesStatsEntry(widget.gameTipViewModel.game, false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final GameStatsEntry? gameStatsEntry =
+        widget.statsViewModel?.gamesStatsEntry[widget.gameTipViewModel.game];
+    return TipChoice(
+      widget.gameTipViewModel,
+      true,
+      gameStatsEntry: gameStatsEntry,
+    );
+  }
 }
 
 class _TeamDisplayRow extends StatelessWidget {
