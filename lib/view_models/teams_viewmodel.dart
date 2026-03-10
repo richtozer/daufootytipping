@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
@@ -5,14 +6,18 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:json_diff/json_diff.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
 class TeamsViewModel extends ChangeNotifier {
+  static const String _cachedTeamsKey = 'cached_teams_v1';
   List<Team> _teams = [];
-  final _db = FirebaseDatabase.instance.ref();
+  final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _teamsStream;
+  final Future<SharedPreferences> Function() _prefsFactory;
   bool _savingTeam = false;
   final Completer<void> _initialLoadCompleter = Completer<void>();
+  bool _hasReceivedRemoteSnapshot = false;
   Map _groupedTeams = {};
 
   bool get savingTeam => _savingTeam;
@@ -20,14 +25,21 @@ class TeamsViewModel extends ChangeNotifier {
   Map get groupedTeams => _groupedTeams;
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
-  TeamsViewModel() {
+  TeamsViewModel({
+    DatabaseReference? db,
+    Future<SharedPreferences> Function()? prefsFactory,
+  }) : _db = db ?? FirebaseDatabase.instance.ref(),
+       _prefsFactory = prefsFactory ?? SharedPreferences.getInstance {
+    unawaited(_restoreCachedTeams());
     _listenToTeams();
   }
 
   void _listenToTeams() {
     _teamsStream = _db.child(p.teamsPathRoot).onValue.listen((event) {
+      _hasReceivedRemoteSnapshot = true;
       if (event.snapshot.exists) {
         _processTeams(event);
+        unawaited(_cacheCurrentTeams());
       } else {
         log('No teams found in database');
       }
@@ -40,7 +52,54 @@ class TeamsViewModel extends ChangeNotifier {
   }
 
   void _processTeams(DatabaseEvent event) {
-    final allTeams = Map<String, dynamic>.from(event.snapshot.value as dynamic);
+    _applyTeamsMap(Map<String, dynamic>.from(event.snapshot.value as dynamic));
+  }
+
+  Future<void> _restoreCachedTeams() async {
+    try {
+      final SharedPreferences prefs = await _prefsFactory();
+      final String? cachedTeamsJson = prefs.getString(_cachedTeamsKey);
+      if (cachedTeamsJson == null || _hasReceivedRemoteSnapshot) {
+        return;
+      }
+
+      final Map<String, dynamic> cachedTeams = Map<String, dynamic>.from(
+        jsonDecode(cachedTeamsJson) as Map,
+      );
+      _applyTeamsMap(cachedTeams);
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
+      notifyListeners();
+    } catch (error, stackTrace) {
+      log(
+        'TeamsViewModel._restoreCachedTeams() Error restoring cache: $error',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _cacheCurrentTeams() async {
+    try {
+      final SharedPreferences prefs = await _prefsFactory();
+      final Map<String, Map<String, String?>> teamMap = <String, Map<String, String?>>{
+        for (final team in _teams) team.dbkey: team.toJson(),
+      };
+      await prefs.setString(_cachedTeamsKey, jsonEncode(teamMap));
+    } catch (error, stackTrace) {
+      log(
+        'TeamsViewModel._cacheCurrentTeams() Error caching teams: $error',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  void _applyTeamsMap(Map<String, dynamic> allTeams) {
+    if (allTeams.isEmpty) {
+      _teams = [];
+      _groupedTeams = {};
+      return;
+    }
 
     _teams = allTeams.entries.map((entry) {
       String key = entry.key;
