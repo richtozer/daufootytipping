@@ -58,6 +58,43 @@ Future<void> main() async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Configure Realtime Database immediately after Firebase init so persistence
+  // is set before any downstream code can create references/listeners.
+  final FirebaseDatabase database = FirebaseDatabase.instance;
+  if (kDebugMode && useFirebaseEmulators) {
+    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    log('Database emulator started on $firebaseEmulatorHost:8000');
+    StartupProfiling.instant(
+      'startup.database_configured',
+      arguments: <String, Object?>{
+        'mode': 'emulator',
+        'persistenceEnabled': false,
+        'cacheMb': 0,
+      },
+    );
+  } else {
+    if (!kIsWeb) {
+      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
+      database.setPersistenceEnabled(true);
+      log('Database persistence enabled (100 MB cache)');
+    }
+
+    if (kDebugMode) {
+      log(
+        'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
+      );
+    }
+
+    StartupProfiling.instant(
+      'startup.database_configured',
+      arguments: <String, Object?>{
+        'mode': kIsWeb ? 'web' : 'live',
+        'persistenceEnabled': !kIsWeb,
+        'cacheMb': kIsWeb ? 0 : 100,
+      },
+    );
+  }
+
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   // same for async platform errors
   if (!kDebugMode) {
@@ -101,24 +138,6 @@ Future<void> main() async {
       } else {
         rethrow;
       }
-    }
-  }
-
-  FirebaseDatabase database = FirebaseDatabase.instance;
-  if (kDebugMode && useFirebaseEmulators) {
-    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
-    log('Database emulator started on $firebaseEmulatorHost:8000');
-  } else {
-    if (!kIsWeb) {
-      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
-      database.setPersistenceEnabled(true);
-      log('Database persistence enabled (100 MB cache)');
-    }
-
-    if (kDebugMode) {
-      log(
-        'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
-      );
     }
   }
 
