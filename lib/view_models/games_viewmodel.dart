@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
@@ -14,14 +15,19 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
 class GamesViewModel extends ChangeNotifier {
+  static const String _cachedActiveGamesCompKey = 'cached_active_games_comp_v1';
+  static const String _cachedActiveGamesPayloadKey = 'cached_active_games_payload_v1';
   // Properties
   List<Game> _games = [];
-  final _db = FirebaseDatabase.instance.ref();
-  late StreamSubscription<DatabaseEvent> _gamesStream;
+  final DatabaseReference _db;
+  StreamSubscription<DatabaseEvent>? _gamesStream;
+  final Future<SharedPreferences> Function() _prefsFactory;
+  bool _hasReceivedRemoteSnapshot = false;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -42,8 +48,12 @@ class GamesViewModel extends ChangeNotifier {
     this.selectedDAUComp,
     this._dauCompsViewModel, {
     TeamsViewModel? teamsViewModel,
+    DatabaseReference? db,
+    Future<SharedPreferences> Function()? prefsFactory,
   }) : _ownsTeamsViewModel =
-           teamsViewModel == null && !di.isRegistered<TeamsViewModel>() {
+           teamsViewModel == null && !di.isRegistered<TeamsViewModel>(),
+       _db = db ?? FirebaseDatabase.instance.ref(),
+       _prefsFactory = prefsFactory ?? SharedPreferences.getInstance {
     _teamsViewModel =
         teamsViewModel ??
         (di.isRegistered<TeamsViewModel>()
@@ -58,6 +68,7 @@ class GamesViewModel extends ChangeNotifier {
     await _teamsViewModel.initialLoadComplete;
     // await dauComps load to complete
     await _dauCompsViewModel.initialDAUCompLoadComplete;
+    unawaited(_restoreCachedGamesForActiveComp());
     // Listen to the games in the selected DAUComp
     _listenToGames();
   }
@@ -79,6 +90,7 @@ class GamesViewModel extends ChangeNotifier {
     }
     _isUpdating = true;
     try {
+      _hasReceivedRemoteSnapshot = true;
       final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
       final dynamic rawValue = event.snapshot.value;
       final int entryCount = rawValue is Map ? rawValue.length : 0;
@@ -97,62 +109,18 @@ class GamesViewModel extends ChangeNotifier {
         final allGames = Map<String, dynamic>.from(
           event.snapshot.value as dynamic,
         );
-
-        // Deserialize the games
-        List<Game> gamesList = allGames.entries.map((entry) {
-          String dbKey = entry.key; // Retrieve the Firebase key
-          String league = dbKey.split('-').first;
-          dynamic gameAsJSON = entry.value;
-
-          // Find and deserialize the home and away teams
-          Team? homeTeam = _teamsViewModel.findTeam(
-            '$league-${gameAsJSON['HomeTeam']}',
-          );
-          Team? awayTeam = _teamsViewModel.findTeam(
-            '$league-${gameAsJSON['AwayTeam']}',
-          );
-
-          if (homeTeam == null || awayTeam == null) {
-            throw Exception(
-              'Error in GamesViewModel_handleEvent: homeTeam or awayTeam is null',
-            );
-          }
-
-          Scoring? scoring = Scoring(
-            homeTeamScore: gameAsJSON['HomeTeamScore'],
-            awayTeamScore: gameAsJSON['AwayTeamScore'],
-          );
-
-          Game game = Game.fromJson(
-            dbKey,
-            Map<String, dynamic>.from(gameAsJSON),
-            homeTeam,
-            awayTeam,
-          );
-          game.scoring = scoring;
-
-          return game;
-        }).toList();
-
-        gamesList.sort();
-        _games = gamesList;
+        _games = _deserializeGames(allGames);
         log(
           'GamesViewModel_handleEvent: ${_games.length} games found for DAUComp ${selectedDAUComp.name}',
         );
+        if (_shouldUseActiveCompCache()) {
+          unawaited(_cacheActiveCompGames(allGames));
+        }
       } else {
         log('No games found for DAUComp ${selectedDAUComp.name}');
       }
 
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-        StartupProfiling.instant(
-          'startup.games_initial_load_complete',
-          arguments: <String, Object?>{
-            'gameCount': _games.length,
-            'compDbKey': selectedDAUComp.dbkey ?? 'unknown',
-          },
-        );
-      }
+      _completeInitialLoadIfNeeded();
 
       // Link games with rounds
       await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
@@ -165,6 +133,118 @@ class GamesViewModel extends ChangeNotifier {
       log('GamesViewModel_handleEvent: notifyListeners()');
       _isUpdating = false;
     }
+  }
+
+  bool _shouldUseActiveCompCache() {
+    final String? selectedKey = selectedDAUComp.dbkey;
+    final String? activeKey = _dauCompsViewModel.activeDAUComp?.dbkey;
+    return selectedKey != null && selectedKey == activeKey;
+  }
+
+  Future<void> _restoreCachedGamesForActiveComp() async {
+    if (!_shouldUseActiveCompCache()) {
+      return;
+    }
+
+    try {
+      final SharedPreferences prefs = await _prefsFactory();
+      final String? cachedCompKey = prefs.getString(_cachedActiveGamesCompKey);
+      final String? cachedGamesJson = prefs.getString(_cachedActiveGamesPayloadKey);
+      if (_hasReceivedRemoteSnapshot ||
+          cachedCompKey != selectedDAUComp.dbkey ||
+          cachedGamesJson == null) {
+        return;
+      }
+
+      final Map<String, dynamic> cachedGames = Map<String, dynamic>.from(
+        jsonDecode(cachedGamesJson) as Map,
+      );
+      _games = _deserializeGames(cachedGames);
+      StartupProfiling.instant(
+        'startup.games_cache_loaded',
+        arguments: <String, Object?>{
+          'gameCount': _games.length,
+          'compDbKey': selectedDAUComp.dbkey ?? 'unknown',
+        },
+      );
+      _completeInitialLoadIfNeeded();
+      notifyListeners();
+    } catch (error, stackTrace) {
+      log(
+        'GamesViewModel._restoreCachedGamesForActiveComp() Error restoring cache: $error',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _cacheActiveCompGames(Map<String, dynamic> allGames) async {
+    try {
+      final SharedPreferences prefs = await _prefsFactory();
+      await prefs.setString(_cachedActiveGamesCompKey, selectedDAUComp.dbkey!);
+      await prefs.setString(
+        _cachedActiveGamesPayloadKey,
+        jsonEncode(allGames),
+      );
+    } catch (error, stackTrace) {
+      log(
+        'GamesViewModel._cacheActiveCompGames() Error caching games: $error',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  List<Game> _deserializeGames(Map<String, dynamic> allGames) {
+    final List<Game> gamesList = allGames.entries.map((entry) {
+      final String dbKey = entry.key;
+      final String league = dbKey.split('-').first;
+      final dynamic gameAsJSON = entry.value;
+
+      final Team? homeTeam = _teamsViewModel.findTeam(
+        '$league-${gameAsJSON['HomeTeam']}',
+      );
+      final Team? awayTeam = _teamsViewModel.findTeam(
+        '$league-${gameAsJSON['AwayTeam']}',
+      );
+
+      if (homeTeam == null || awayTeam == null) {
+        throw Exception(
+          'Error in GamesViewModel: homeTeam or awayTeam is null for game $dbKey',
+        );
+      }
+
+      final Scoring scoring = Scoring(
+        homeTeamScore: gameAsJSON['HomeTeamScore'],
+        awayTeamScore: gameAsJSON['AwayTeamScore'],
+      );
+
+      final Game game = Game.fromJson(
+        dbKey,
+        Map<String, dynamic>.from(gameAsJSON),
+        homeTeam,
+        awayTeam,
+      );
+      game.scoring = scoring;
+
+      return game;
+    }).toList();
+
+    gamesList.sort();
+    return gamesList;
+  }
+
+  void _completeInitialLoadIfNeeded() {
+    if (_initialLoadCompleter.isCompleted) {
+      return;
+    }
+
+    _initialLoadCompleter.complete();
+    StartupProfiling.instant(
+      'startup.games_initial_load_complete',
+      arguments: <String, Object?>{
+        'gameCount': _games.length,
+        'compDbKey': selectedDAUComp.dbkey ?? 'unknown',
+      },
+    );
   }
 
   final Map<String, dynamic> updates = {};
@@ -238,7 +318,7 @@ class GamesViewModel extends ChangeNotifier {
       }
       await initialLoadComplete;
       // turn off listeners
-      _gamesStream.cancel();
+      await _gamesStream?.cancel();
       await _db.update(updates);
       // turn listeners back on
       _listenToGames();
@@ -672,7 +752,7 @@ class GamesViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _gamesStream.cancel(); // stop listening to stream
+    _gamesStream?.cancel(); // stop listening to stream
     if (_ownsTeamsViewModel) {
       _teamsViewModel.dispose();
     }
