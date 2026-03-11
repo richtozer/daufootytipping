@@ -74,8 +74,19 @@ Future<void> main() async {
     );
   } else {
     if (!kIsWeb) {
-      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
+      // WORKAROUND for firebase_database Flutter plugin bug (iOS):
+      // FLTFirebaseDatabasePlugin.setPersistenceEnabled silently does nothing if
+      // the native database instance is already cached. getDatabaseFromPigeonApp
+      // caches the instance on first call, so whichever of setPersistenceEnabled
+      // or setPersistenceCacheSizeBytes runs first wins — the second is a no-op.
+      // Calling setPersistenceCacheSizeBytes first (old order) meant persistence
+      // was never enabled on iOS.
+      //
+      // Fix: call setPersistenceEnabled first so the instance is cached with
+      // persistence already enabled. setPersistenceCacheSizeBytes is then a
+      // no-op on iOS (default 10 MB cache applies), but Android is unaffected.
       database.setPersistenceEnabled(true);
+      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
       log('Database persistence enabled (100 MB cache)');
     }
 
