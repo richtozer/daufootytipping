@@ -1,3 +1,4 @@
+import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -18,14 +19,7 @@ Future<Widget> aboutDialog(BuildContext context) async {
     onPressed: () {
       showAboutDialog(
         context: context,
-        applicationIcon: ClipRRect(
-          borderRadius: BorderRadius.circular(15.0),
-          child: SizedBox(
-            width: 75.0, // Set the width
-            height: 75.0, // Set the height
-            child: Image.asset('assets/icon/AppIcon.png'),
-          ),
-        ),
+        applicationIcon: const AppIcon(size: 75),
         applicationName: appName,
         applicationVersion: '$version\nbuild $buildNumber',
         children: aboutBoxChildren,

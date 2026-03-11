@@ -1,4 +1,5 @@
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 
 class LoginIssueScreen extends StatelessWidget {
@@ -25,11 +26,7 @@ class LoginIssueScreen extends StatelessWidget {
             const SizedBox(height: 50),
             const Padding(
               padding: EdgeInsets.all(20),
-              child: Image(
-                height: 110,
-                width: 110,
-                image: AssetImage('assets/icon/AppIcon.png'),
-              ),
+              child: AppIcon(),
             ),
             const SizedBox(height: 20),
             SizedBox(

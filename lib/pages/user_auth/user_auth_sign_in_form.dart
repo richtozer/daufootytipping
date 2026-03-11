@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide IconAlignment;
 import 'package:google_sign_in/google_sign_in.dart';
@@ -479,16 +480,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(15.0),
-                  child: Image.asset(
-                    'assets/icon/AppIcon.png',
-                    height: 110,
-                    width: 110,
-                  ),
-                ),
-              ),
+              const Center(child: AppIcon()),
               const SizedBox(height: 20),
               Text(subtitle, textAlign: TextAlign.center),
               const SizedBox(height: 16),
