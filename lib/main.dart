@@ -236,10 +236,8 @@ class _MyAppState extends State<MyApp> {
                     future: configViewModel.initialLoadComplete,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
-                        return Center(
-                          child: CircularProgressIndicator(
-                            color: League.afl.colour,
-                          ),
+                        return _StartupLoadingScreen(
+                          spinnerColor: League.afl.colour,
                         );
                       }
 
@@ -278,6 +276,25 @@ class _MyAppState extends State<MyApp> {
           );
         },
       ),
+    );
+  }
+}
+
+class _StartupLoadingScreen extends StatelessWidget {
+  const _StartupLoadingScreen({required this.spinnerColor});
+
+  final Color spinnerColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset('assets/grass_background_blurred.webp', fit: BoxFit.cover),
+        Center(
+          child: CircularProgressIndicator(color: spinnerColor),
+        ),
+      ],
     );
   }
 }

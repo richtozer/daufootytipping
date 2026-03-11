@@ -198,7 +198,7 @@ class StatsTab extends StatelessWidget {
                         tag: "nrl_league_logo_hero", // Updated tag
                         child: SvgPicture.asset(
                           // Replaced Icon with SvgPicture
-                          'assets/teams/nrl.svg',
+                          'assets/nrl.svg',
                           width: 30,
                           height: 40,
                         ),
@@ -232,7 +232,7 @@ class StatsTab extends StatelessWidget {
                       Hero(
                         tag: "afl_league_logo_hero", // Updated tag
                         child: SvgPicture.asset(
-                          'assets/teams/afl.svg',
+                          'assets/afl.svg',
                           width: 30,
                           height: 40,
                         ),

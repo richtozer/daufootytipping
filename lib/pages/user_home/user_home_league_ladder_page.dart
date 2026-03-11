@@ -284,8 +284,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                       "${widget.league.name.toLowerCase()}_league_logo_hero",
                                   child: SvgPicture.asset(
                                     widget.league == League.nrl
-                                        ? 'assets/teams/nrl.svg'
-                                        : 'assets/teams/afl.svg',
+                                        ? 'assets/nrl.svg'
+                                        : 'assets/afl.svg',
                                     width: 40,
                                     height: 40,
                                   ),
@@ -329,8 +329,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                 "${widget.league.name.toLowerCase()}_league_logo_hero",
                             child: SvgPicture.asset(
                               widget.league == League.nrl
-                                  ? 'assets/teams/nrl.svg'
-                                  : 'assets/teams/afl.svg',
+                                  ? 'assets/nrl.svg'
+                                  : 'assets/afl.svg',
                               width: 35,
                               height: 35,
                             ),
