@@ -78,34 +78,41 @@ void main() {
   ) async {
     await pumpEditPage(tester);
 
-    final Finder logonFieldFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is TextField &&
-          widget.controller?.text == 'login@example.com',
+    final Finder logonFieldFinder = find.byKey(
+      TipperAdminEditPage.logonFieldKey,
     );
-    final Finder lastLoginFieldFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is TextField &&
-          widget.controller?.text ==
-              DateFormat(
-                'dd MMM yy HH:mm',
-              ).format(tipper.acctLoggedOnUTC!.toLocal()),
+    final Finder lastLoginFieldFinder = find.byKey(
+      TipperAdminEditPage.lastLoginFieldKey,
+    );
+    final TextField logonField = tester.widget<TextField>(
+      find.descendant(of: logonFieldFinder, matching: find.byType(TextField)),
+    );
+    final TextField lastLoginField = tester.widget<TextField>(
+      find.descendant(
+        of: lastLoginFieldFinder,
+        matching: find.byType(TextField),
+      ),
     );
 
     expect(logonFieldFinder, findsOneWidget);
     expect(lastLoginFieldFinder, findsOneWidget);
-    expect(tester.widget<TextField>(logonFieldFinder).readOnly, isTrue);
+    expect(logonField.controller?.text, 'login@example.com');
     expect(
-      tester.widget<TextField>(logonFieldFinder).decoration?.border,
+      lastLoginField.controller?.text,
+      DateFormat('dd MMM yy HH:mm').format(tipper.acctLoggedOnUTC!.toLocal()),
+    );
+    expect(logonField.readOnly, isTrue);
+    expect(
+      logonField.decoration?.border,
       InputBorder.none,
     );
     expect(
-      tester.widget<TextField>(lastLoginFieldFinder).decoration?.border,
+      lastLoginField.decoration?.border,
       InputBorder.none,
     );
     expect(find.text('Linked login email is read-only here'), findsNothing);
-    expect(find.byIcon(Icons.info_outline), findsNothing);
-    expect(find.widgetWithText(TextButton, 'View Tip History'), findsOneWidget);
+    expect(find.byKey(TipperAdminEditPage.emailInfoButtonKey), findsNothing);
+    expect(find.byKey(TipperAdminEditPage.tipHistoryButtonKey), findsOneWidget);
   });
 
   testWidgets(
@@ -125,17 +132,13 @@ void main() {
       await pumpEditPage(tester);
 
       expect(find.text('Logon:'), findsNothing);
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is TextField &&
-              widget.controller?.text == 'same@example.com',
-        ),
-        findsOneWidget,
+      final TextFormField emailField = tester.widget<TextFormField>(
+        find.byKey(TipperAdminEditPage.emailFieldKey),
       );
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(emailField.controller?.text, 'same@example.com');
+      expect(find.byKey(TipperAdminEditPage.emailInfoButtonKey), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.info_outline));
+      await tester.tap(find.byKey(TipperAdminEditPage.emailInfoButtonKey));
       await tester.pumpAndSettle();
 
       expect(
@@ -150,11 +153,16 @@ void main() {
     await pumpEditPage(tester);
 
     await tester.enterText(
-      find.byType(TextFormField).at(1),
+      find.byKey(TipperAdminEditPage.emailFieldKey),
       'updated@example.com',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    expect(
+      tester.widget<FilledButton>(find.byKey(TipperAdminEditPage.saveButtonKey))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(TipperAdminEditPage.saveButtonKey));
     await tester.pumpAndSettle();
 
     verify(

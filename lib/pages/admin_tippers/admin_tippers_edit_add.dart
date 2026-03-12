@@ -14,6 +14,18 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class TipperAdminEditPage extends StatefulWidget {
+  static const Key nameFieldKey = ValueKey('tipper-admin-name-field');
+  static const Key emailFieldKey = ValueKey('tipper-admin-email-field');
+  static const Key logonFieldKey = ValueKey('tipper-admin-logon-field');
+  static const Key lastLoginFieldKey = ValueKey('tipper-admin-last-login-field');
+  static const Key saveButtonKey = ValueKey('tipper-admin-save-button');
+  static const Key tipHistoryButtonKey = ValueKey(
+    'tipper-admin-tip-history-button',
+  );
+  static const Key emailInfoButtonKey = ValueKey(
+    'tipper-admin-email-info-button',
+  );
+
   final TippersViewModel tippersViewModel;
   final Tipper tipper;
 
@@ -329,6 +341,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: FilledButton.icon(
+                key: TipperAdminEditPage.saveButtonKey,
                 onPressed: _canSave ? () => _onSavePressed(context) : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.green,
@@ -371,6 +384,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextFormField(
+                          key: TipperAdminEditPage.nameFieldKey,
                           enabled: !_isBusy,
                           controller: _tipperNameController,
                           decoration: const InputDecoration(
@@ -470,12 +484,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextFormField(
+                          key: TipperAdminEditPage.emailFieldKey,
                           enabled: !_isBusy,
                           controller: _tipperEmailController,
                           decoration: InputDecoration(
                             hintText: 'Email for communications',
                             suffixIcon: _shouldCollapseLogon
                                 ? IconButton(
+                                    key: TipperAdminEditPage.emailInfoButtonKey,
                                     icon: const Icon(
                                       Icons.info_outline,
                                       size: 18,
@@ -526,6 +542,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                         ),
                         Expanded(
                           child: TextFormField(
+                            key: TipperAdminEditPage.logonFieldKey,
                             enabled: !_isBusy,
                             readOnly: true,
                             controller: _tipperLogonController,
@@ -549,6 +566,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextFormField(
+                          key: TipperAdminEditPage.lastLoginFieldKey,
                           enabled: !_isBusy,
                           readOnly: true,
                           controller: _tipperLastLoginController,
@@ -566,6 +584,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
+                      key: TipperAdminEditPage.tipHistoryButtonKey,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
