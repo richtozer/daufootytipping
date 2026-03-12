@@ -4,7 +4,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tipper_merge.dart';
-import 'package:daufootytipping/pages/tipper_tip_history_page.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -19,9 +18,6 @@ class TipperAdminEditPage extends StatefulWidget {
   static const Key logonFieldKey = ValueKey('tipper-admin-logon-field');
   static const Key lastLoginFieldKey = ValueKey('tipper-admin-last-login-field');
   static const Key saveButtonKey = ValueKey('tipper-admin-save-button');
-  static const Key tipHistoryButtonKey = ValueKey(
-    'tipper-admin-tip-history-button',
-  );
   static const Key emailInfoButtonKey = ValueKey(
     'tipper-admin-email-info-button',
   );
@@ -580,22 +576,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                         ),
                       ),
                     ],
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      key: TipperAdminEditPage.tipHistoryButtonKey,
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (BuildContext context) =>
-                                TipperTipHistoryPage(tipper: tipper),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.history),
-                      label: const Text('View Tip History'),
-                    ),
                   ),
                   // add a row for 'Paid Comps', display a list of all DAUComps
                   // if the tipper is a paid up member, then show a tick
