@@ -65,12 +65,16 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.38.9"
-          channel: "stable"
-          cache: true
+      - name: Install Flutter SDK
+        env:
+          FLUTTER_VERSION: "3.38.9"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$HOME/flutter"
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/flutter/bin:$PATH"
+          flutter config --no-analytics
+          flutter --version
 
       - name: Get dependencies
         run: flutter pub get
@@ -165,9 +169,11 @@ jobs:
       - name: Download AAB artifact
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p build/app/outputs/bundle/release
           gh run download "${{ github.run_id }}" \
+            --repo "$GH_REPO" \
             --name "android-aab-${{ github.ref_name }}-${{ github.run_number }}" \
             --dir build/app/outputs/bundle/release
 
@@ -197,9 +203,11 @@ jobs:
       - name: Download AAB artifact
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p build/app/outputs/bundle/release
           gh run download "${{ github.run_id }}" \
+            --repo "$GH_REPO" \
             --name "android-aab-${{ github.ref_name }}-${{ github.run_number }}" \
             --dir build/app/outputs/bundle/release
 
