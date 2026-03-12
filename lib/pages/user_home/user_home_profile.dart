@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_help.dart';
-import 'package:daufootytipping/pages/tipper_tip_history_page.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -162,25 +161,6 @@ class Profile extends StatelessWidget with WatchItMixin {
                                     },
                                   ),
                                 ],
-                              ),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  onPressed: tipper.dbkey == null
-                                      ? null
-                                      : () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (BuildContext context) =>
-                                                  TipperTipHistoryPage(
-                                                    tipper: tipper,
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                  icon: const Icon(Icons.history),
-                                  label: const Text('Tip History'),
-                                ),
                               ),
                             ],
                           ),

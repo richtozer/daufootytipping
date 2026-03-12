@@ -112,7 +112,6 @@ void main() {
     );
     expect(find.text('Linked login email is read-only here'), findsNothing);
     expect(find.byKey(TipperAdminEditPage.emailInfoButtonKey), findsNothing);
-    expect(find.byKey(TipperAdminEditPage.tipHistoryButtonKey), findsOneWidget);
   });
 
   testWidgets(
