@@ -137,16 +137,21 @@ List<Widget> buildRoundLeagueSectionSlivers({
           ignoring: hideInlineHeaderVisual,
           child: SizedBox(
             height: section.headerExtent,
-            child: Opacity(
-              opacity: hideInlineHeaderVisual ? 0 : 1,
-              child: roundLeagueHeaderListTile(
-                league,
-                50,
-                50,
-                dauRound,
-                dauCompsViewModel,
-                currentTipper,
-                isPercentStatsPage,
+            child: Visibility(
+              visible: !hideInlineHeaderVisual,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: RepaintBoundary(
+                child: RoundLeagueHeaderListTile(
+                  league: league,
+                  logoWidth: 50,
+                  logoHeight: 50,
+                  dauRound: dauRound,
+                  dauCompsViewModel: dauCompsViewModel,
+                  selectedTipper: currentTipper,
+                  isPercentStatsPage: isPercentStatsPage,
+                ),
               ),
             ),
           ),
@@ -174,13 +179,15 @@ List<Widget> buildRoundLeagueSectionSlivers({
         itemExtent: Game.gameCardHeight,
         delegate: SliverChildBuilderDelegate((context, index) {
           final game = leagueGames[index];
-          return GameListItem(
-            key: ValueKey(game.dbkey),
-            game: game,
-            currentTipper: currentTipper,
-            currentDAUComp: selectedComp,
-            allTipsViewModel: tipsViewModel,
-            isPercentStatsPage: isPercentStatsPage,
+          return RepaintBoundary(
+            child: GameListItem(
+              key: ValueKey(game.dbkey),
+              game: game,
+              currentTipper: currentTipper,
+              currentDAUComp: selectedComp,
+              allTipsViewModel: tipsViewModel,
+              isPercentStatsPage: isPercentStatsPage,
+            ),
           );
         }, childCount: leagueGames.length),
       ),
@@ -214,19 +221,21 @@ class TipsStickyHeader extends StatelessWidget {
       padding: EdgeInsets.only(top: topPadding),
       child: SizedBox(
         height: section.headerExtent,
-        child: roundLeagueHeaderListTile(
-          section.league,
-          50,
-          50,
-          dauRound,
-          dauCompsViewModel,
-          currentTipper,
-          isPercentStatsPage,
-          backgroundColor:
-              backgroundColor ??
-              (isPercentStatsPage
-                  ? Colors.white12
-                  : Colors.black.withValues(alpha: 0.62)),
+        child: RepaintBoundary(
+          child: RoundLeagueHeaderListTile(
+            league: section.league,
+            logoWidth: 50,
+            logoHeight: 50,
+            dauRound: dauRound,
+            dauCompsViewModel: dauCompsViewModel,
+            selectedTipper: currentTipper,
+            isPercentStatsPage: isPercentStatsPage,
+            backgroundColor:
+                backgroundColor ??
+                (isPercentStatsPage
+                    ? Colors.white12
+                    : Colors.black.withValues(alpha: 0.62)),
+          ),
         ),
       ),
     );
