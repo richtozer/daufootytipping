@@ -3,7 +3,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -78,7 +78,7 @@ void main() {
       expect(
         extents,
         [
-          WelcomeHeader.height,
+          kTipsWelcomeHeaderHeight,
           DAURound.leagueHeaderEndedHeight,
           Game.gameCardHeight,
           DAURound.leagueHeaderEndedHeight,
@@ -87,7 +87,7 @@ void main() {
           DAURound.noGamesCardHeight,
           DAURound.leagueHeaderHeight,
           DAURound.noGamesCardHeight,
-          EndFooter.height,
+          kTipsEndFooterHeight,
         ],
       );
     });

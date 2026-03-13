@@ -1,10 +1,7 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -14,43 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
-
-class TipsTabItemExtentCache {
-  const TipsTabItemExtentCache._();
-
-  static List<double> buildExtents(DAUComp selectedComp) {
-    final extents = <double>[WelcomeHeader.height];
-
-    for (final dauRound in selectedComp.daurounds) {
-      extents.add(_leagueHeaderExtent(dauRound, League.nrl));
-      extents.add(_leagueGamesExtent(dauRound, League.nrl));
-      extents.add(_leagueHeaderExtent(dauRound, League.afl));
-      extents.add(_leagueGamesExtent(dauRound, League.afl));
-    }
-
-    extents.add(EndFooter.height);
-    return extents;
-  }
-
-  static double _leagueHeaderExtent(DAURound dauRound, League league) {
-    final games = dauRound.getGamesForLeague(league);
-    if (games.isEmpty) {
-      return DAURound.leagueHeaderHeight;
-    }
-    if (dauRound.roundState == RoundState.allGamesEnded) {
-      return DAURound.leagueHeaderEndedHeight;
-    }
-    return DAURound.leagueHeaderHeight;
-  }
-
-  static double _leagueGamesExtent(DAURound dauRound, League league) {
-    final games = dauRound.getGamesForLeague(league);
-    if (games.isEmpty) {
-      return DAURound.noGamesCardHeight;
-    }
-    return games.length * Game.gameCardHeight;
-  }
-}
 
 class TipsTab extends StatefulWidget {
   const TipsTab({super.key});
@@ -67,12 +27,12 @@ class TipsTabState extends State<TipsTab> {
   late FocusNode focusNode;
   int initialScrollOffset = -150;
   String? _lastScrollSignature;
-  String? _itemExtentCacheKey;
-  List<double> _cachedItemExtents = const [];
   double _pendingStartupOffset = 0;
   bool _startupScrollPending = false;
   bool _startupScrollSettled = false;
   int _startupScrollRetryCount = 0;
+  int _activeSectionIndex = 0;
+  bool _showLoadingPlaceholder = true;
 
   @override
   void initState() {
@@ -81,7 +41,9 @@ class TipsTabState extends State<TipsTab> {
 
     focusNode = FocusNode();
     scrollController = ScrollController();
+    scrollController.addListener(_handleScrollChanged);
     daucompsViewModel.addListener(_onDAUCompsChanged);
+    _showLoadingPlaceholder = daucompsViewModel.selectedDAUComp == null;
     _syncSelectedCompState();
   }
 
@@ -89,27 +51,24 @@ class TipsTabState extends State<TipsTab> {
     if (!mounted) return;
     final selectedComp = daucompsViewModel.selectedDAUComp;
     if (selectedComp == null) {
-      if (_itemExtentCacheKey != null || _cachedItemExtents.isNotEmpty) {
+      _lastScrollSignature = null;
+      _resetStartupScrollState();
+      _activeSectionIndex = 0;
+      if (!_showLoadingPlaceholder) {
         setState(() {
-          _itemExtentCacheKey = null;
-          _cachedItemExtents = const [];
-          _lastScrollSignature = null;
+          _showLoadingPlaceholder = true;
         });
       }
-      _resetStartupScrollState();
       return;
     }
 
-    final nextItemExtentKey = _buildItemExtentCacheKey(selectedComp);
-    final shouldRebuild = _itemExtentCacheKey != nextItemExtentKey;
-    if (shouldRebuild) {
+    _syncActiveSectionIndex();
+    _syncSelectedCompState();
+    if (_showLoadingPlaceholder) {
       setState(() {
-        _itemExtentCacheKey = nextItemExtentKey;
-        _cachedItemExtents = TipsTabItemExtentCache.buildExtents(selectedComp);
+        _showLoadingPlaceholder = false;
       });
     }
-
-    _syncSelectedCompState();
   }
 
   void _syncSelectedCompState() {
@@ -154,13 +113,17 @@ class TipsTabState extends State<TipsTab> {
 
       final canReachTarget = maxScrollExtent + 8 >= _pendingStartupOffset;
       final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
-      if (canReachTarget && hitTarget) {
+      final hitScrollBoundary =
+          (clampedOffset - maxScrollExtent).abs() <= 8 ||
+          clampedOffset.abs() <= 8;
+      if (hitTarget && (canReachTarget || hitScrollBoundary)) {
         _startupScrollSettled = true;
         StartupProfiling.end('startup.tips_page_stable');
         return;
       }
 
       if (_startupScrollRetryCount >= _maxStartupScrollRetries) {
+        _startupScrollSettled = true;
         return;
       }
 
@@ -174,6 +137,37 @@ class TipsTabState extends State<TipsTab> {
     _startupScrollPending = false;
     _startupScrollSettled = false;
     _startupScrollRetryCount = 0;
+  }
+
+  void _handleScrollChanged() {
+    if (!mounted) {
+      return;
+    }
+    _syncActiveSectionIndex();
+  }
+
+  void _syncActiveSectionIndex() {
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null) {
+      return;
+    }
+
+    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
+    if (sections.isEmpty) {
+      return;
+    }
+
+    final nextIndex = activeTipsLeagueSectionIndex(
+      sections: sections,
+      scrollOffset: scrollController.hasClients ? scrollController.offset : 0,
+      leadingExtent: WelcomeHeader.height,
+    );
+
+    if (_activeSectionIndex != nextIndex) {
+      setState(() {
+        _activeSectionIndex = nextIndex;
+      });
+    }
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -206,14 +200,12 @@ class TipsTabState extends State<TipsTab> {
   Widget build(BuildContext context) {
     log('TipsPageBody.build()');
 
-    if (daucompsViewModel.selectedDAUComp == null) {
+    if (_showLoadingPlaceholder || daucompsViewModel.selectedDAUComp == null) {
       log('TipsPageBody.build() selectedDAUComp is null; waiting for load');
       return const Center(
         child: CircularProgressIndicator(color: Colors.orange),
       );
     }
-
-    _ensureItemExtentCache(daucompsViewModel.selectedDAUComp!);
 
     return KeyboardListener(
       focusNode: focusNode,
@@ -232,41 +224,59 @@ class TipsTabState extends State<TipsTab> {
           data: myTheme,
           child: Consumer<DAUCompsViewModel>(
             builder: (context, daucompsViewmodelConsumer, client) {
+              final sections = buildTipsLeagueSections(
+                selectedComp: daucompsViewmodelConsumer.selectedDAUComp!,
+              );
+              if (sections.isEmpty) {
+                return CustomScrollView(
+                  controller: scrollController,
+                  restorationId: 'tipsListView',
+                  slivers: const [
+                    SliverToBoxAdapter(child: EndFooter()),
+                  ],
+                );
+              }
+              final stickySection = sections[_activeSectionIndex.clamp(
+                0,
+                sections.length - 1,
+              )];
+              final topSafeInset = MediaQuery.paddingOf(context).top;
+
               return CustomScrollView(
                 controller: scrollController,
                 restorationId: 'tipsListView',
                 slivers: [
-                  SliverVariedExtentList.builder(
-                    itemExtentBuilder: (index, dimensions) {
-                      return _cachedItemExtents[index];
-                    },
-                    itemCount: _cachedItemExtents.length,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return WelcomeHeader(
-                          daucompsViewmodelConsumer: daucompsViewmodelConsumer,
-                        );
-                      }
-                      if (index ==
-                          (daucompsViewmodelConsumer
-                                      .selectedDAUComp!
-                                      .daurounds
-                                      .length *
-                                  4) +
-                              1) {
-                        return const EndFooter();
-                      }
-
-                      final roundIndex = (index - 1) ~/ 4;
-                      final itemIndex = (index - 1) % 4;
-
-                      return _buildItem(
-                        daucompsViewmodelConsumer,
-                        roundIndex,
-                        itemIndex,
-                      );
-                    },
+                  SliverToBoxAdapter(
+                    child: WelcomeHeader(
+                      daucompsViewmodelConsumer: daucompsViewmodelConsumer,
+                    ),
                   ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: TipsStickyHeaderDelegate(
+                      extent: stickySection.headerExtent,
+                      topPadding: topSafeInset,
+                      child: TipsStickyHeader(
+                        section: stickySection,
+                        dauCompsViewModel: daucompsViewmodelConsumer,
+                        currentTipper: di<TippersViewModel>().selectedTipper,
+                        isPercentStatsPage: false,
+                        topPadding: topSafeInset,
+                      ),
+                    ),
+                  ),
+                  for (var sectionIndex = 0; sectionIndex < sections.length; sectionIndex++)
+                    ...buildRoundLeagueSectionSlivers(
+                      section: sections[sectionIndex],
+                      roundIndex: sections[sectionIndex].roundIndex,
+                      league: sections[sectionIndex].league,
+                      dauCompsViewModel: daucompsViewmodelConsumer,
+                      currentTipper: di<TippersViewModel>().selectedTipper,
+                      isPercentStatsPage: false,
+                      showInlineHeader: sectionIndex != 0,
+                      hideInlineHeaderVisual: sectionIndex == _activeSectionIndex,
+                    ),
+                  const SliverToBoxAdapter(child: EndFooter()),
                 ],
               );
             },
@@ -274,16 +284,6 @@ class TipsTabState extends State<TipsTab> {
         ),
       ),
     );
-  }
-
-  void _ensureItemExtentCache(DAUComp selectedComp) {
-    final nextKey = _buildItemExtentCacheKey(selectedComp);
-    if (_itemExtentCacheKey == nextKey) {
-      return;
-    }
-
-    _itemExtentCacheKey = nextKey;
-    _cachedItemExtents = TipsTabItemExtentCache.buildExtents(selectedComp);
   }
 
   String _buildItemExtentCacheKey(DAUComp selectedComp) {
@@ -302,43 +302,10 @@ class TipsTabState extends State<TipsTab> {
     return buffer.toString();
   }
 
-  Widget _buildItem(
-    DAUCompsViewModel daucompsViewmodelConsumer,
-    int roundIndex,
-    int itemIndex,
-  ) {
-    final dauRound =
-        daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
-
-    if (itemIndex == 0 || itemIndex == 2) {
-      final league = itemIndex == 0 ? League.nrl : League.afl;
-      return roundLeagueHeaderListTile(
-        league,
-        50,
-        50,
-        dauRound,
-        daucompsViewmodelConsumer,
-        di<TippersViewModel>().selectedTipper,
-        false,
-      );
-    } else if (itemIndex == 1 || itemIndex == 3) {
-      final league = itemIndex == 1 ? League.nrl : League.afl;
-      return GameListBuilder(
-        currentTipper: di<TippersViewModel>().selectedTipper,
-        roundIndex: roundIndex,
-        league: league,
-        tipperTipsViewModel:
-            daucompsViewmodelConsumer.selectedTipperTipsViewModel,
-        dauCompsViewModel: daucompsViewmodelConsumer,
-        isPercentStatsPage: false,
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
   @override
   void dispose() {
     daucompsViewModel.removeListener(_onDAUCompsChanged);
+    scrollController.removeListener(_handleScrollChanged);
     focusNode.dispose();
     scrollController.dispose();
     super.dispose();
@@ -348,7 +315,7 @@ class TipsTabState extends State<TipsTab> {
 class EndFooter extends StatelessWidget {
   const EndFooter({super.key});
 
-  static const double height = 75;
+  static const double height = kTipsEndFooterHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -378,7 +345,7 @@ class WelcomeHeader extends StatelessWidget {
 
   final DAUCompsViewModel daucompsViewmodelConsumer;
 
-  static const double height = 200;
+  static const double height = kTipsWelcomeHeaderHeight;
 
   @override
   Widget build(BuildContext context) {
