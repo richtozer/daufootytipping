@@ -1,10 +1,6 @@
 import 'dart:developer';
-import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -169,6 +165,15 @@ class StatPercentTippedState extends State<StatPercentTipped> {
           data: myTheme,
           child: Consumer<DAUCompsViewModel>(
             builder: (context, daucompsViewmodelConsumer, client) {
+              final selectedComp = daucompsViewmodelConsumer.selectedDAUComp;
+              if (selectedComp == null) {
+                return const SizedBox.shrink();
+              }
+              final sections = buildTipsLeagueSections(
+                selectedComp: selectedComp,
+                roundCount: latestRoundNumber,
+              );
+
               return Scaffold(
                 floatingActionButton: FloatingActionButton(
                   backgroundColor: Colors.lightGreen[200],
@@ -204,29 +209,17 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                         controller: scrollController,
                         restorationId: 'statsPercentTippedView',
                         slivers: [
-                          SliverVariedExtentList.builder(
-                            itemExtentBuilder: (index, dimensions) {
-                              final roundIndex = (index) ~/ 4;
-                              final itemIndex = (index) % 4;
-                              return _getItemExtent(
-                                daucompsViewmodelConsumer,
-                                roundIndex,
-                                itemIndex,
-                              );
-                            },
-                            itemCount: (latestRoundNumber * 4),
-                            itemBuilder: (context, index) {
-                              log('StatPercentTipped building index: $index');
-                              final roundIndex = (index) ~/ 4;
-                              final itemIndex = (index) % 4;
-
-                              return _buildItem(
-                                daucompsViewmodelConsumer,
-                                roundIndex,
-                                itemIndex,
-                              );
-                            },
-                          ),
+                          for (var sectionIndex = 0; sectionIndex < sections.length; sectionIndex++)
+                            ...buildRoundLeagueSectionSlivers(
+                              section: sections[sectionIndex],
+                              roundIndex: sections[sectionIndex].roundIndex,
+                              league: sections[sectionIndex].league,
+                              dauCompsViewModel: daucompsViewmodelConsumer,
+                              currentTipper: di<TippersViewModel>().selectedTipper,
+                              isPercentStatsPage: true,
+                              showInlineHeader: true,
+                              hideInlineHeaderVisual: false,
+                            ),
                         ],
                       ),
                     ),
@@ -238,75 +231,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
         ),
       ),
     );
-  }
-
-  double? _getItemExtent(
-    DAUCompsViewModel daucompsViewmodelConsumer,
-    int roundIndex,
-    int itemIndex,
-  ) {
-    if (itemIndex == 0 || itemIndex == 2) {
-      final league = itemIndex == 0 ? League.nrl : League.afl;
-      final games = daucompsViewmodelConsumer
-          .selectedDAUComp!
-          .daurounds[roundIndex]
-          .getGamesForLeague(league);
-      if (games.isEmpty) {
-        return DAURound.leagueHeaderHeight;
-      } else if (daucompsViewmodelConsumer
-              .selectedDAUComp!
-              .daurounds[roundIndex]
-              .roundState ==
-          RoundState.allGamesEnded) {
-        return DAURound.leagueHeaderEndedHeight;
-      }
-      return DAURound.leagueHeaderHeight;
-    } else if (itemIndex == 1 || itemIndex == 3) {
-      final league = itemIndex == 1 ? League.nrl : League.afl;
-      final games = daucompsViewmodelConsumer
-          .selectedDAUComp!
-          .daurounds[roundIndex]
-          .getGamesForLeague(league);
-      if (games.isEmpty) {
-        return DAURound.noGamesCardHeight;
-      }
-      return games.length * Game.gameCardHeight;
-    }
-    return null;
-  }
-
-  Widget _buildItem(
-    DAUCompsViewModel daucompsViewmodelConsumer,
-    int roundIndex,
-    int itemIndex,
-  ) {
-    final dauRound =
-        daucompsViewmodelConsumer.selectedDAUComp!.daurounds[roundIndex];
-
-    if (itemIndex == 0 || itemIndex == 2) {
-      final league = itemIndex == 0 ? League.nrl : League.afl;
-      return roundLeagueHeaderListTile(
-        league,
-        50,
-        50,
-        dauRound,
-        daucompsViewmodelConsumer,
-        di<TippersViewModel>().selectedTipper,
-        true,
-      );
-    } else if (itemIndex == 1 || itemIndex == 3) {
-      final league = itemIndex == 1 ? League.nrl : League.afl;
-      return GameListBuilder(
-        currentTipper: di<TippersViewModel>().selectedTipper,
-        roundIndex: roundIndex,
-        league: league,
-        tipperTipsViewModel:
-            daucompsViewmodelConsumer.selectedTipperTipsViewModel!,
-        dauCompsViewModel: daucompsViewmodelConsumer,
-        isPercentStatsPage: true,
-      );
-    }
-    return const SizedBox.shrink();
   }
 
   @override

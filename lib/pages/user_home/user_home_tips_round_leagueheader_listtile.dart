@@ -17,7 +17,10 @@ Widget roundLeagueHeaderListTile(
   DAURound dauRound,
   DAUCompsViewModel daucompsViewModel,
   Tipper selectedTipper,
-  bool isPercentStatsPage,
+  bool isPercentStatsPage, {
+  EdgeInsetsGeometry margin = const EdgeInsets.all(4.0),
+  Color? backgroundColor,
+}
 ) {
   // Calculate the number of days until the first game starts for this league round
   List<Game> gamesForLeague = dauRound.getGamesForLeague(leagueHeader);
@@ -40,7 +43,10 @@ Widget roundLeagueHeaderListTile(
       .numberOfMarginTipsSubmittedForRoundAndLeague(dauRound, leagueHeader);
 
   return Card(
-    color: !isPercentStatsPage ? Colors.black54 : Colors.white10,
+    margin: margin,
+    color:
+        backgroundColor ??
+        (!isPercentStatsPage ? Colors.black54 : Colors.white10),
     surfaceTintColor: !isPercentStatsPage
         ? League.nrl.colour
         : League.nrl.colour,
@@ -50,10 +56,9 @@ Widget roundLeagueHeaderListTile(
         Padding(
           padding: const EdgeInsets.all(10.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Flexible(
-                flex: 1,
+              SizedBox(
+                width: 86,
                 child: Column(
                   children: [
                     Text(
@@ -83,9 +88,8 @@ Widget roundLeagueHeaderListTile(
               ),
               // if the league round has no games then display an empty container, otherwise display the column of stats
               gamesForLeague.isEmpty
-                  ? const SizedBox.shrink()
-                  : Flexible(
-                      flex: 2,
+                  ? const Expanded(child: SizedBox.shrink())
+                  : Expanded(
                       child: Consumer<StatsViewModel?>(
                         builder: (context, statsViewModel, child) {
                           if (statsViewModel == null) {
@@ -204,12 +208,17 @@ Widget roundLeagueHeaderListTile(
                         },
                       ),
                     ),
-              Flexible(
-                flex: 1,
-                child: SvgPicture.asset(
-                  leagueHeader.logo,
-                  width: logoWidth,
-                  height: logoHeight,
+              SizedBox(
+                width: 86,
+                child: Center(
+                  child: SizedBox(
+                    width: logoWidth,
+                    height: logoHeight,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: SvgPicture.asset(leagueHeader.logo),
+                    ),
+                  ),
                 ),
               ),
             ],

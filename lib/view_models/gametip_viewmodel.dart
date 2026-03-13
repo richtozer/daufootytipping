@@ -63,6 +63,8 @@ class GameTipViewModel extends ChangeNotifier {
   int? get awayTeamScore => _awayTeamScore;
 
   final DatabaseReference _db;
+  bool _disposed = false;
+  late final bool _listensToGamesViewModel;
 
   bool _savingTip = false;
   bool get savingTip => _savingTip;
@@ -90,10 +92,12 @@ class GameTipViewModel extends ChangeNotifier {
     this.allTipsViewModel, {
     DatabaseReference? database,
   }) : _db = database ?? FirebaseDatabase.instance.ref() {
+    _listensToGamesViewModel =
+        _currentDAUComp.latestsCompletedRoundNumber() <
+        _currentDAUComp.daurounds.length;
     allTipsViewModel.addListener(_tipsUpdated); // Restored listener for tips
     // only monitor gamesViewModel if the comp still has active rounds
-    if (_currentDAUComp.latestsCompletedRoundNumber() <
-        _currentDAUComp.daurounds.length) {
+    if (_listensToGamesViewModel) {
       allTipsViewModel.gamesViewModel.addListener(_gamesViewModelUpdated);
     } else {
       log(
@@ -123,23 +127,30 @@ class GameTipViewModel extends ChangeNotifier {
     // wait for the game to start before updating the UI
     await Future.delayed(timeUntilGameStarts);
 
+    if (_disposed) {
+      return;
+    }
+
     // now that the game has started, trigger the UI to update
     log(
       'GameTipsViewModel._gameStartedTrigger()  Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}.',
     );
-    notifyListeners();
+    _notifyListenersIfAlive();
   }
 
   void _tipsUpdated() async {
     // we may have new data lets check if we need to update our tip
     Tip? newTip = (await allTipsViewModel.findTip(game, currentTipper));
+    if (_disposed) {
+      return;
+    }
     // if the tip has changed, then update the tip and notify listeners
     if (!_isEquivalentTip(newTip, _tip)) {
       _tip = newTip;
       log(
         'GameTipsViewModel._tipsUpdated() Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. ',
       );
-      notifyListeners();
+      _notifyListenersIfAlive();
     }
   }
 
@@ -169,6 +180,9 @@ class GameTipViewModel extends ChangeNotifier {
     final previousGameState = previousGame.gameState;
 
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
+    if (_disposed) {
+      return;
+    }
     _tip?.game.scoring = game.scoring; //update the tip scoring
 
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
@@ -189,20 +203,26 @@ class GameTipViewModel extends ChangeNotifier {
     log(
       'GameTipsViewModel._gamesViewModelUpdated() called for game ${game.dbkey}, ${game.gameState}. Notify listeners',
     );
-    notifyListeners();
+    _notifyListenersIfAlive();
   }
 
   void _findTip() async {
     await allTipsViewModel.initialLoadCompleted;
+    if (_disposed) {
+      return;
+    }
 
     _tip = await allTipsViewModel.findTip(game, currentTipper);
+    if (_disposed) {
+      return;
+    }
 
     // flag our initial load as complete
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
     }
 
-    notifyListeners();
+    _notifyListenersIfAlive();
 
     // Fetch historical stats after the main tip is found and initial load is complete
     if (_initialLoadCompleter.isCompleted) {
@@ -228,7 +248,7 @@ class GameTipViewModel extends ChangeNotifier {
 
     if (tipperPastTips.isEmpty) {
       historicalInsightsString = "No past tips for this team combination.";
-      notifyListeners();
+      _notifyListenersIfAlive();
       return;
     }
 
@@ -294,7 +314,7 @@ class GameTipViewModel extends ChangeNotifier {
       historicalInsightsString =
           "Previously on this matchup ($historicalTotalTipsOnCombination games): $historicalWinsOnCombination Wins, $historicalLossesOnCombination Losses, $historicalDrawsOnCombination Draws.";
     }
-    notifyListeners();
+    _notifyListenersIfAlive();
   }
 
   // Test hook for unit tests
@@ -318,7 +338,7 @@ class GameTipViewModel extends ChangeNotifier {
       );
 
       _savingTip = true;
-      notifyListeners();
+      _notifyListenersIfAlive();
 
       // create a json representation of the tip
       final tipJson = tip.toJson();
@@ -368,8 +388,15 @@ class GameTipViewModel extends ChangeNotifier {
       rethrow;
     } finally {
       _savingTip = false;
-      notifyListeners();
+      _notifyListenersIfAlive();
     }
+  }
+
+  void _notifyListenersIfAlive() {
+    if (_disposed) {
+      return;
+    }
+    notifyListeners();
   }
 
   Future<void> _addLogOfTipToFirestore(Tip tip) async {
@@ -431,7 +458,10 @@ class GameTipViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    allTipsViewModel.gamesViewModel.removeListener(_gamesViewModelUpdated);
+    _disposed = true;
+    if (_listensToGamesViewModel) {
+      allTipsViewModel.gamesViewModel.removeListener(_gamesViewModelUpdated);
+    }
     allTipsViewModel.removeListener(_tipsUpdated);
     super.dispose();
   }

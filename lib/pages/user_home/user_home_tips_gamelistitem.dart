@@ -626,7 +626,7 @@ class _TeamVersusDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool showExtra = shouldShowTextTeamInfo(context);
     return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.homeTeam.name,
