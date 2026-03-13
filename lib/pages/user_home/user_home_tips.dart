@@ -37,6 +37,7 @@ class TipsTabState extends State<TipsTab> {
   bool _showLoadingPlaceholder = true;
   bool _stickyHeaderVisible = false;
   double _topSafeInset = 0;
+  List<TipsLeagueSection> _cachedSections = const [];
 
   @override
   void initState() {
@@ -67,6 +68,7 @@ class TipsTabState extends State<TipsTab> {
       _resetStartupScrollState();
       _activeSectionIndex = 0;
       _stickyHeaderVisible = false;
+      _cachedSections = const [];
       if (!_showLoadingPlaceholder) {
         setState(() {
           _showLoadingPlaceholder = true;
@@ -75,6 +77,7 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
+    _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
     _syncActiveSectionIndex();
     _syncSelectedCompState();
     if (_showLoadingPlaceholder) {
@@ -106,7 +109,8 @@ class TipsTabState extends State<TipsTab> {
       'TipsPageBody._syncSelectedCompState() latestRoundNumber: $latestRoundNumber',
     );
 
-    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
+    _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
+    final sections = _cachedSections;
     final isCompComplete =
         latestRoundNumber >= selectedComp.daurounds.length &&
         sections.isNotEmpty;
@@ -193,8 +197,11 @@ class TipsTabState extends State<TipsTab> {
     if (!mounted) {
       return;
     }
-    _syncStickyHeaderVisibility();
-    _syncActiveSectionIndex();
+    final visibilityChanged = _updateStickyHeaderVisibility();
+    final sectionChanged = _updateActiveSectionIndex();
+    if (visibilityChanged || sectionChanged) {
+      setState(() {});
+    }
   }
 
   int _targetStartupSectionIndex(
@@ -249,31 +256,30 @@ class TipsTabState extends State<TipsTab> {
     return (offset - stickyOverlayExtent).clamp(0.0, double.infinity);
   }
 
-  void _syncStickyHeaderVisibility({double? scrollOffsetOverride}) {
+  bool _updateStickyHeaderVisibility({double? scrollOffsetOverride}) {
     final scrollOffset =
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
     final nextVisibility = scrollOffset >= _welcomeSliverHeight;
-    if (_stickyHeaderVisible != nextVisibility) {
-      setState(() {
-        _stickyHeaderVisible = nextVisibility;
-      });
+    if (_stickyHeaderVisible == nextVisibility) {
+      return false;
+    }
+    _stickyHeaderVisible = nextVisibility;
+    return true;
+  }
+
+  void _syncStickyHeaderVisibility({double? scrollOffsetOverride}) {
+    if (_updateStickyHeaderVisibility(
+      scrollOffsetOverride: scrollOffsetOverride,
+    )) {
+      setState(() {});
     }
   }
 
-  void _syncActiveSectionIndex({
-    DAUComp? selectedCompOverride,
-    double? scrollOffsetOverride,
-  }) {
-    final selectedComp =
-        selectedCompOverride ?? daucompsViewModel.selectedDAUComp;
-    if (selectedComp == null) {
-      return;
-    }
-
-    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
+  bool _updateActiveSectionIndex({double? scrollOffsetOverride}) {
+    final sections = _cachedSections;
     if (sections.isEmpty) {
-      return;
+      return false;
     }
 
     final baseScrollOffset =
@@ -299,10 +305,16 @@ class TipsTabState extends State<TipsTab> {
       leadingExtent: _welcomeSliverHeight,
     );
 
-    if (_activeSectionIndex != nextIndex) {
-      setState(() {
-        _activeSectionIndex = nextIndex;
-      });
+    if (_activeSectionIndex == nextIndex) {
+      return false;
+    }
+    _activeSectionIndex = nextIndex;
+    return true;
+  }
+
+  void _syncActiveSectionIndex({double? scrollOffsetOverride}) {
+    if (_updateActiveSectionIndex(scrollOffsetOverride: scrollOffsetOverride)) {
+      setState(() {});
     }
   }
 
@@ -360,9 +372,7 @@ class TipsTabState extends State<TipsTab> {
           data: myTheme,
           child: Consumer<DAUCompsViewModel>(
             builder: (context, daucompsViewmodelConsumer, client) {
-              final sections = buildTipsLeagueSections(
-                selectedComp: daucompsViewmodelConsumer.selectedDAUComp!,
-              );
+              final sections = _cachedSections;
               if (sections.isEmpty) {
                 return CustomScrollView(
                   controller: scrollController,
