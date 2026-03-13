@@ -25,7 +25,7 @@ class TipsTabState extends State<TipsTab> {
 
   late ScrollController scrollController;
   late FocusNode focusNode;
-  int initialScrollOffset = -150;
+  int initialScrollOffset = 0;
   String? _lastScrollSignature;
   double _pendingStartupOffset = 0;
   bool _startupScrollPending = false;
@@ -95,6 +95,10 @@ class TipsTabState extends State<TipsTab> {
 
     _pendingStartupOffset =
         selectedComp.pixelHeightUpToRound(latestRoundNumber) + initialScrollOffset;
+    _syncActiveSectionIndex(
+      selectedCompOverride: selectedComp,
+      scrollOffsetOverride: _pendingStartupOffset,
+    );
 
     _scheduleStartupScrollAttempt();
   }
@@ -146,8 +150,11 @@ class TipsTabState extends State<TipsTab> {
     _syncActiveSectionIndex();
   }
 
-  void _syncActiveSectionIndex() {
-    final selectedComp = daucompsViewModel.selectedDAUComp;
+  void _syncActiveSectionIndex({
+    DAUComp? selectedCompOverride,
+    double? scrollOffsetOverride,
+  }) {
+    final selectedComp = selectedCompOverride ?? daucompsViewModel.selectedDAUComp;
     if (selectedComp == null) {
       return;
     }
@@ -159,7 +166,9 @@ class TipsTabState extends State<TipsTab> {
 
     final nextIndex = activeTipsLeagueSectionIndex(
       sections: sections,
-      scrollOffset: scrollController.hasClients ? scrollController.offset : 0,
+      scrollOffset:
+          scrollOffsetOverride ??
+          (scrollController.hasClients ? scrollController.offset : 0),
       leadingExtent: WelcomeHeader.height,
     );
 
