@@ -11,6 +11,7 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -372,9 +373,7 @@ class UserAuthPageState extends State<UserAuthPage> {
         );
       }
 
-      return Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Colors.orange)),
-      );
+      return const _AuthLoadingScreen();
     }
 
     return Scaffold(
@@ -402,11 +401,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                       SizedBox(height: 50),
                       Padding(
                         padding: EdgeInsets.all(20),
-                        child: Image(
-                          height: 110,
-                          width: 110,
-                          image: AssetImage('assets/icon/AppIcon.png'),
-                        ),
+                        child: AppIcon(),
                       ),
                       SizedBox(height: 20),
                       SizedBox(
@@ -439,9 +434,7 @@ class UserAuthPageState extends State<UserAuthPage> {
               }
               if (authenticatedFirebaseUser == null &&
                   authSnapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: CircularProgressIndicator(color: Colors.orange),
-                );
+                return const _AuthLoadingScreen();
               }
               if (!authSnapshot.hasData) {
                 return UserAuthSignInForm(
@@ -478,9 +471,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                 future: _existingTipperFuture,
                 builder: (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(color: Colors.orange),
-                    );
+                    return const _AuthLoadingScreen();
                   } else if (snapshot.hasError) {
                     return LoginIssueScreen(
                       message:
@@ -499,11 +490,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                         builder: (BuildContext context, AsyncSnapshot<bool> updateSnapshot) {
                           if (updateSnapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.orange,
-                              ),
-                            );
+                            return const _AuthLoadingScreen();
                           } else if (updateSnapshot.hasError) {
                             return LoginIssueScreen(
                               message:
@@ -555,6 +542,23 @@ class UserAuthPageState extends State<UserAuthPage> {
           );
         },
       ),
+    );
+  }
+}
+
+class _AuthLoadingScreen extends StatelessWidget {
+  const _AuthLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset('assets/grass_background_blurred.webp', fit: BoxFit.cover),
+        const Center(
+          child: CircularProgressIndicator(color: Colors.orange),
+        ),
+      ],
     );
   }
 }

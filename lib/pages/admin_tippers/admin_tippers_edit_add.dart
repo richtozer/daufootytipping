@@ -8,10 +8,20 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 class TipperAdminEditPage extends StatefulWidget {
+  static const Key nameFieldKey = ValueKey('tipper-admin-name-field');
+  static const Key emailFieldKey = ValueKey('tipper-admin-email-field');
+  static const Key logonFieldKey = ValueKey('tipper-admin-logon-field');
+  static const Key lastLoginFieldKey = ValueKey('tipper-admin-last-login-field');
+  static const Key saveButtonKey = ValueKey('tipper-admin-save-button');
+  static const Key emailInfoButtonKey = ValueKey(
+    'tipper-admin-email-info-button',
+  );
+
   final TippersViewModel tippersViewModel;
   final Tipper tipper;
 
@@ -27,6 +37,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late TextEditingController _tipperNameController;
   late TextEditingController _tipperEmailController;
   late TextEditingController _tipperLogonController;
+  late TextEditingController _tipperLastLoginController;
 
   final FocusNode _emailFocusNode = FocusNode();
   late Tipper tipper;
@@ -45,6 +56,23 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
   bool get _isBusy => _manualSaveInProgress || _paidForAutoSaveInProgress;
   bool get _canSave => _hasDraftChanges && !_isBusy;
+  bool get _shouldCollapseLogon =>
+      _sameEmail(_tipperEmailController.text, _tipperLogonController.text);
+
+  String _formatLastLogin(DateTime? dateTime) {
+    if (dateTime == null) {
+      return 'Never';
+    }
+    return DateFormat('dd MMM yy HH:mm').format(dateTime.toLocal());
+  }
+
+  bool _sameEmail(String? firstEmail, String? secondEmail) {
+    final String normalizedFirstEmail = firstEmail?.trim().toLowerCase() ?? '';
+    final String normalizedSecondEmail =
+        secondEmail?.trim().toLowerCase() ?? '';
+    return normalizedFirstEmail.isNotEmpty &&
+        normalizedFirstEmail == normalizedSecondEmail;
+  }
 
   @override
   void initState() {
@@ -56,6 +84,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     _tipperNameController = TextEditingController(text: tipper.name);
     _tipperEmailController = TextEditingController(text: tipper.email ?? '');
     _tipperLogonController = TextEditingController(text: tipper.logon ?? '');
+    _tipperLastLoginController = TextEditingController(
+      text: _formatLastLogin(tipper.acctLoggedOnUTC),
+    );
 
     _originalName = tipper.name;
     _originalEmail = tipper.email ?? '';
@@ -68,18 +99,19 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     _tipperNameController.dispose();
     _tipperEmailController.dispose();
     _tipperLogonController.dispose();
+    _tipperLastLoginController.dispose();
     _emailFocusNode.dispose();
     super.dispose();
   }
 
-  void _refreshDraftState() {
+  void _refreshDraftState({bool forceRebuild = false}) {
     final bool hasChanges =
         _tipperNameController.text != _originalName ||
         _tipperEmailController.text != _originalEmail ||
         _tipperLogonController.text != _originalLogon ||
         admin != _originalAdmin;
 
-    if (_hasDraftChanges == hasChanges) return;
+    if (_hasDraftChanges == hasChanges && !forceRebuild) return;
     setState(() {
       _hasDraftChanges = hasChanges;
     });
@@ -216,11 +248,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       );
       await tippersViewModel.updateTipperAttribute(
         tipper.dbkey!,
-        "logon",
-        _tipperLogonController.text,
-      );
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
         "tipperRole",
         admin == true
             ? TipperRole.admin.toString().split('.').last
@@ -310,6 +337,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: FilledButton.icon(
+                key: TipperAdminEditPage.saveButtonKey,
                 onPressed: _canSave ? () => _onSavePressed(context) : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.green,
@@ -345,9 +373,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   children: <Widget>[
                   Row(
                     children: [
-                      const Text('Name:'),
+                      const Text(
+                        'Name:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: TextFormField(
+                          key: TipperAdminEditPage.nameFieldKey,
                           enabled: !_isBusy,
                           controller: _tipperNameController,
                           decoration: const InputDecoration(
@@ -366,80 +399,15 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           onChanged: (_) => _refreshDraftState(),
                         ),
                       ),
-                    ],
-                  ),
-
-                  Row(
-                    children: [
-                      const Text('Email:'),
-                      Expanded(
-                        child: TextFormField(
-                          enabled: !_isBusy,
-                          controller: _tipperEmailController,
-                          decoration: const InputDecoration(
-                            hintText: 'Email for communications',
-                          ),
-                          validator: (String? value) {
-                            if (value == null ||
-                                !EmailValidator.validate(value)) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
-                          onChanged: (_) => _refreshDraftState(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('Logon:'),
-                      Expanded(
-                        child: TextFormField(
-                          enabled: !_isBusy,
-                          controller: _tipperLogonController,
-                          decoration: const InputDecoration(
-                            hintText: 'Email for logon',
-                          ),
-                          validator: (String? value) {
-                            if (value == null ||
-                                !EmailValidator.validate(value)) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
-                          onChanged: (_) => _refreshDraftState(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    //mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('DAU\nAdmin:'),
-                      Switch(
-                        value: admin,
-                        thumbColor: WidgetStateProperty.resolveWith(
-                          (states) => states.contains(WidgetState.selected)
-                              ? Colors.orange
-                              : null,
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            admin = value;
-                            _hasDraftChanges =
-                                _tipperNameController.text != _originalName ||
-                                _tipperEmailController.text != _originalEmail ||
-                                _tipperLogonController.text != _originalLogon ||
-                                admin != _originalAdmin;
-                          });
-                        },
-                      ),
-                      // if selectedDAUComp is not null then offer god mode
                       if (di<DAUCompsViewModel>().selectedDAUComp != null)
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('God\nmode: '),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'God\nmode: ',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             ChangeNotifierProvider<TippersViewModel>.value(
                               value: di<TippersViewModel>(),
                               child: Consumer<TippersViewModel>(
@@ -447,19 +415,15 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                   return Switch(
                                     value:
                                         (tippersViewModelConsumer.inGodMode &&
-                                        tippersViewModelConsumer
-                                                .selectedTipper ==
+                                        tippersViewModelConsumer.selectedTipper ==
                                             tipper),
-                                    thumbColor:
-                                        WidgetStateProperty.resolveWith(
-                                      (states) => states
-                                              .contains(WidgetState.selected)
+                                    thumbColor: WidgetStateProperty.resolveWith(
+                                      (states) => states.contains(WidgetState.selected)
                                           ? Colors.red
                                           : null,
                                     ),
                                     onChanged: (value) {
                                       if (value == true) {
-                                        // admins cannot god mode themselves - display snackbar if they try
                                         if (tippersViewModelConsumer
                                                 .authenticatedTipper ==
                                             tipper) {
@@ -475,11 +439,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           );
                                           return;
                                         }
-                                        // if godmode is already turned on for another tipper
-                                        // then continue with this change, but display a snackbar
-                                        // saying we turned it off for tipper A, and turned it on here for tipper B
-                                        if (tippersViewModelConsumer
-                                            .inGodMode) {
+                                        if (tippersViewModelConsumer.inGodMode) {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
@@ -492,17 +452,13 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           );
                                         }
 
-                                        tippersViewModelConsumer
-                                                .selectedTipper =
+                                        tippersViewModelConsumer.selectedTipper =
                                             tipper;
                                       } else {
-                                        tippersViewModelConsumer
-                                                .selectedTipper =
+                                        tippersViewModelConsumer.selectedTipper =
                                             tippersViewModelConsumer
                                                 .authenticatedTipper!;
                                       }
-                                      // reset the other view models in daucompsviewmodel to reflect
-                                      // any changes in the selected tipper
                                       di<DAUCompsViewModel>()
                                           .selectedTipperChanged();
                                     },
@@ -515,6 +471,112 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     ],
                   ),
 
+                  Row(
+                    children: [
+                      const Text(
+                        'Email:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          key: TipperAdminEditPage.emailFieldKey,
+                          enabled: !_isBusy,
+                          controller: _tipperEmailController,
+                          decoration: InputDecoration(
+                            hintText: 'Email for communications',
+                            suffixIcon: _shouldCollapseLogon
+                                ? IconButton(
+                                    key: TipperAdminEditPage.emailInfoButtonKey,
+                                    icon: const Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                    ),
+                                    tooltip: 'Email info',
+                                    onPressed: () {
+                                      showDialog<void>(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return AlertDialog(
+                                            content: const Text(
+                                              'Login and communications emails are the same',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                },
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    },
+                                  )
+                                : null,
+                          ),
+                          validator: (String? value) {
+                            if (value == null ||
+                                !EmailValidator.validate(value)) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                          onChanged: (_) =>
+                              _refreshDraftState(forceRebuild: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!_shouldCollapseLogon)
+                    Row(
+                      children: [
+                        const Text(
+                          'Logon:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            key: TipperAdminEditPage.logonFieldKey,
+                            enabled: !_isBusy,
+                            readOnly: true,
+                            controller: _tipperLogonController,
+                            decoration: const InputDecoration(
+                              hintText: 'Email for logon',
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Last\nLogin:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          key: TipperAdminEditPage.lastLoginFieldKey,
+                          enabled: !_isBusy,
+                          readOnly: true,
+                          controller: _tipperLastLoginController,
+                          decoration: const InputDecoration(
+                            hintText: 'Last login time',
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   // add a row for 'Paid Comps', display a list of all DAUComps
                   // if the tipper is a paid up member, then show a tick
                   // allow the admin to edit which comps this tipper has paid for
@@ -550,6 +612,9 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                   children: [
                                     const Text(
                                       'Select the competitions this tipper has paid for:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     if (_paidForAutoSaveInProgress)
                                       const Padding(
@@ -602,21 +667,48 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
               ),
               ),
               const Spacer(),
-              ElevatedButton(
-                onPressed: _isBusy
-                    ? null
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AdminTipperMergeEditPage(
-                              widget.tippersViewModel,
-                              tipper,
-                            ),
-                          ),
-                        );
-                      },
-                child: const Text('Merge...'),
+              Row(
+                children: [
+                  const Text(
+                    'DAU\nAdmin:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Switch(
+                    value: admin,
+                    thumbColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? Colors.orange
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        admin = value;
+                        _hasDraftChanges =
+                            _tipperNameController.text != _originalName ||
+                            _tipperEmailController.text != _originalEmail ||
+                            _tipperLogonController.text != _originalLogon ||
+                            admin != _originalAdmin;
+                      });
+                    },
+                  ),
+                  const Spacer(),
+                  ElevatedButton(
+                    onPressed: _isBusy
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AdminTipperMergeEditPage(
+                                  widget.tippersViewModel,
+                                  tipper,
+                                ),
+                              ),
+                            );
+                          },
+                    child: const Text('Merge...'),
+                  ),
+                ],
               ),
               const Spacer(),
             ],

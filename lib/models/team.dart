@@ -33,8 +33,8 @@ class Team implements Comparable<Team> {
       game.homeTeam.logoURI != null
           ? game.homeTeam.logoURI!
           : league == League.nrl
-          ? 'assets/teams/nrl.svg'
-          : 'assets/teams/afl.svg', //assign the league logo if the team logo is not available
+          ? 'assets/nrl.svg'
+          : 'assets/afl.svg', //assign the league logo if the team logo is not available
       height: 20,
       width: 20,
     );
@@ -45,8 +45,8 @@ class Team implements Comparable<Team> {
       game.awayTeam.logoURI != null
           ? game.awayTeam.logoURI!
           : league == League.nrl
-          ? 'assets/teams/nrl.svg'
-          : 'assets/teams/afl.svg', //assign the league logo if the team logo is not available
+          ? 'assets/nrl.svg'
+          : 'assets/afl.svg', //assign the league logo if the team logo is not available
       height: 20,
       width: 20,
     );

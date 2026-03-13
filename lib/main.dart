@@ -58,6 +58,54 @@ Future<void> main() async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Configure Realtime Database immediately after Firebase init so persistence
+  // is set before any downstream code can create references/listeners.
+  final FirebaseDatabase database = FirebaseDatabase.instance;
+  if (kDebugMode && useFirebaseEmulators) {
+    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    log('Database emulator started on $firebaseEmulatorHost:8000');
+    StartupProfiling.instant(
+      'startup.database_configured',
+      arguments: <String, Object?>{
+        'mode': 'emulator',
+        'persistenceEnabled': false,
+        'cacheMb': 0,
+      },
+    );
+  } else {
+    if (!kIsWeb) {
+      // WORKAROUND for firebase_database Flutter plugin bug (iOS):
+      // FLTFirebaseDatabasePlugin.setPersistenceEnabled silently does nothing if
+      // the native database instance is already cached. getDatabaseFromPigeonApp
+      // caches the instance on first call, so whichever of setPersistenceEnabled
+      // or setPersistenceCacheSizeBytes runs first wins — the second is a no-op.
+      // Calling setPersistenceCacheSizeBytes first (old order) meant persistence
+      // was never enabled on iOS.
+      //
+      // Fix: call setPersistenceEnabled first so the instance is cached with
+      // persistence already enabled. setPersistenceCacheSizeBytes is then a
+      // no-op on iOS (default 10 MB cache applies), but Android is unaffected.
+      database.setPersistenceEnabled(true);
+      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
+      log('Database persistence enabled (100 MB cache)');
+    }
+
+    if (kDebugMode) {
+      log(
+        'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
+      );
+    }
+
+    StartupProfiling.instant(
+      'startup.database_configured',
+      arguments: <String, Object?>{
+        'mode': kIsWeb ? 'web' : 'live',
+        'persistenceEnabled': !kIsWeb,
+        'cacheMb': kIsWeb ? 0 : 100,
+      },
+    );
+  }
+
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   // same for async platform errors
   if (!kDebugMode) {
@@ -101,24 +149,6 @@ Future<void> main() async {
       } else {
         rethrow;
       }
-    }
-  }
-
-  FirebaseDatabase database = FirebaseDatabase.instance;
-  if (kDebugMode && useFirebaseEmulators) {
-    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
-    log('Database emulator started on $firebaseEmulatorHost:8000');
-  } else {
-    if (!kIsWeb) {
-      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
-      database.setPersistenceEnabled(true);
-      log('Database persistence enabled (100 MB cache)');
-    }
-
-    if (kDebugMode) {
-      log(
-        'Database emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
-      );
     }
   }
 

@@ -172,7 +172,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                   children: [
                     RepaintBoundary(
                       child: Image.asset(
-                        'assets/teams/grass_background_blurred.webp',
+                        'assets/grass_background_blurred.webp',
                         width: MediaQuery.of(context).size.width,
                         height: MediaQuery.of(context).size.height,
                         fit: BoxFit.fill,

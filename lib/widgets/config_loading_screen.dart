@@ -11,7 +11,7 @@ class ConfigLoadingScreen extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/teams/grass_background_blurred.webp',
+          'assets/grass_background_blurred.webp',
           fit: BoxFit.cover,
         ),
         DecoratedBox(
