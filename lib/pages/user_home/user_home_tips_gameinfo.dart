@@ -36,14 +36,18 @@ class GameInfo extends StatelessWidget {
       locationText,
       fixtureText,
     ].join(' 🏉 ');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(
-          infoParagraph,
-          style: Theme.of(context).textTheme.labelSmall,
-          textAlign: TextAlign.center,
-          softWrap: true,
+    return SizedBox.expand(
+      child: Card(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              infoParagraph,
+              style: Theme.of(context).textTheme.labelSmall,
+              textAlign: TextAlign.center,
+              softWrap: true,
+            ),
+          ),
         ),
       ),
     );
