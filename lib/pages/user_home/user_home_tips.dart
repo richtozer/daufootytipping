@@ -6,6 +6,7 @@ import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,14 +26,17 @@ class TipsTabState extends State<TipsTab> {
 
   late ScrollController scrollController;
   late FocusNode focusNode;
-  int initialScrollOffset = 0;
   String? _lastScrollSignature;
   double _pendingStartupOffset = 0;
   bool _startupScrollPending = false;
   bool _startupScrollSettled = false;
   int _startupScrollRetryCount = 0;
+  double _lastStartupMaxScrollExtent = -1;
+  int? _startupTargetSectionIndex;
   int _activeSectionIndex = 0;
   bool _showLoadingPlaceholder = true;
+  bool _stickyHeaderVisible = false;
+  double _topSafeInset = 0;
 
   @override
   void initState() {
@@ -47,6 +51,14 @@ class TipsTabState extends State<TipsTab> {
     _syncSelectedCompState();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _topSafeInset = MediaQuery.paddingOf(context).top;
+  }
+
+  double get _welcomeSliverHeight => WelcomeHeader.height + _topSafeInset;
+
   void _onDAUCompsChanged() {
     if (!mounted) return;
     final selectedComp = daucompsViewModel.selectedDAUComp;
@@ -54,6 +66,7 @@ class TipsTabState extends State<TipsTab> {
       _lastScrollSignature = null;
       _resetStartupScrollState();
       _activeSectionIndex = 0;
+      _stickyHeaderVisible = false;
       if (!_showLoadingPlaceholder) {
         setState(() {
           _showLoadingPlaceholder = true;
@@ -93,12 +106,30 @@ class TipsTabState extends State<TipsTab> {
       'TipsPageBody._syncSelectedCompState() latestRoundNumber: $latestRoundNumber',
     );
 
-    _pendingStartupOffset =
-        selectedComp.pixelHeightUpToRound(latestRoundNumber) + initialScrollOffset;
-    _syncActiveSectionIndex(
-      selectedCompOverride: selectedComp,
-      scrollOffsetOverride: _pendingStartupOffset,
-    );
+    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
+    final isCompComplete =
+        latestRoundNumber >= selectedComp.daurounds.length &&
+        sections.isNotEmpty;
+    if (isCompComplete) {
+      _pendingStartupOffset = _endFooterStartupOffset(sections);
+      _startupTargetSectionIndex = sections.length - 1;
+      _activeSectionIndex = _startupTargetSectionIndex!;
+      _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
+    } else {
+      final targetSectionIndex = _targetStartupSectionIndex(
+        selectedComp,
+        sections,
+      );
+      _startupTargetSectionIndex = targetSectionIndex;
+      _pendingStartupOffset = _startupScrollOffset(
+        sections: sections,
+        targetSectionIndex: targetSectionIndex,
+      );
+      if (_activeSectionIndex != targetSectionIndex) {
+        _activeSectionIndex = targetSectionIndex;
+      }
+      _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
+    }
 
     _scheduleStartupScrollAttempt();
   }
@@ -114,13 +145,25 @@ class TipsTabState extends State<TipsTab> {
       final maxScrollExtent = scrollController.position.maxScrollExtent;
       final clampedOffset = _pendingStartupOffset.clamp(0.0, maxScrollExtent);
       scrollController.jumpTo(clampedOffset);
+      _syncStickyHeaderVisibility(scrollOffsetOverride: clampedOffset);
+      if (_startupTargetSectionIndex != null &&
+          (_pendingStartupOffset - clampedOffset).abs() <= 8) {
+        final targetSectionIndex = _startupTargetSectionIndex!;
+        if (_activeSectionIndex != targetSectionIndex) {
+          setState(() {
+            _activeSectionIndex = targetSectionIndex;
+          });
+        }
+      } else {
+        _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
+      }
 
-      final canReachTarget = maxScrollExtent + 8 >= _pendingStartupOffset;
       final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
-      final hitScrollBoundary =
-          (clampedOffset - maxScrollExtent).abs() <= 8 ||
-          clampedOffset.abs() <= 8;
-      if (hitTarget && (canReachTarget || hitScrollBoundary)) {
+      final targetBeyondCurrentMax =
+          _pendingStartupOffset > maxScrollExtent + 8;
+      final maxScrollExtentStable =
+          (_lastStartupMaxScrollExtent - maxScrollExtent).abs() <= 8;
+      if (hitTarget && (!targetBeyondCurrentMax || maxScrollExtentStable)) {
         _startupScrollSettled = true;
         StartupProfiling.end('startup.tips_page_stable');
         return;
@@ -132,6 +175,7 @@ class TipsTabState extends State<TipsTab> {
       }
 
       _startupScrollRetryCount += 1;
+      _lastStartupMaxScrollExtent = maxScrollExtent;
       _scheduleStartupScrollAttempt();
     });
   }
@@ -141,20 +185,88 @@ class TipsTabState extends State<TipsTab> {
     _startupScrollPending = false;
     _startupScrollSettled = false;
     _startupScrollRetryCount = 0;
+    _lastStartupMaxScrollExtent = -1;
+    _startupTargetSectionIndex = null;
   }
 
   void _handleScrollChanged() {
     if (!mounted) {
       return;
     }
+    _syncStickyHeaderVisibility();
     _syncActiveSectionIndex();
+  }
+
+  int _targetStartupSectionIndex(
+    DAUComp selectedComp,
+    List<TipsLeagueSection> sections,
+  ) {
+    if (sections.isEmpty) {
+      return 0;
+    }
+
+    final latestCompletedRoundNumber = selectedComp
+        .latestsCompletedRoundNumber();
+    final targetRoundIndex = latestCompletedRoundNumber.clamp(
+      0,
+      selectedComp.daurounds.length - 1,
+    );
+    final targetSectionIndex = sections.indexWhere(
+      (section) =>
+          section.roundIndex == targetRoundIndex &&
+          section.league == League.nrl,
+    );
+    return targetSectionIndex == -1 ? 0 : targetSectionIndex;
+  }
+
+  double _startupScrollOffset({
+    required List<TipsLeagueSection> sections,
+    required int targetSectionIndex,
+  }) {
+    var offset = _welcomeSliverHeight;
+    for (var index = 0; index < targetSectionIndex; index++) {
+      if (index != 0) {
+        offset += sections[index].headerExtent;
+      }
+      offset += sections[index].bodyExtent;
+    }
+    return targetSectionIndex == 0
+        ? offset
+        : (offset - _topSafeInset).clamp(0.0, double.infinity);
+  }
+
+  double _endFooterStartupOffset(List<TipsLeagueSection> sections) {
+    if (sections.isEmpty) {
+      return 0;
+    }
+
+    var offset = _welcomeSliverHeight + sections.first.bodyExtent;
+    for (var index = 1; index < sections.length; index++) {
+      offset += sections[index].headerExtent + sections[index].bodyExtent;
+    }
+
+    final stickyOverlayExtent = sections.last.headerExtent + _topSafeInset;
+    return (offset - stickyOverlayExtent).clamp(0.0, double.infinity);
+  }
+
+  void _syncStickyHeaderVisibility({double? scrollOffsetOverride}) {
+    final scrollOffset =
+        scrollOffsetOverride ??
+        (scrollController.hasClients ? scrollController.offset : 0);
+    final nextVisibility = scrollOffset >= _welcomeSliverHeight;
+    if (_stickyHeaderVisible != nextVisibility) {
+      setState(() {
+        _stickyHeaderVisible = nextVisibility;
+      });
+    }
   }
 
   void _syncActiveSectionIndex({
     DAUComp? selectedCompOverride,
     double? scrollOffsetOverride,
   }) {
-    final selectedComp = selectedCompOverride ?? daucompsViewModel.selectedDAUComp;
+    final selectedComp =
+        selectedCompOverride ?? daucompsViewModel.selectedDAUComp;
     if (selectedComp == null) {
       return;
     }
@@ -164,12 +276,27 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
+    final baseScrollOffset =
+        scrollOffsetOverride ??
+        (scrollController.hasClients ? scrollController.offset : 0);
+    final baseIndex = activeTipsLeagueSectionIndex(
+      sections: sections,
+      scrollOffset: baseScrollOffset,
+      leadingExtent: _welcomeSliverHeight,
+    );
+    final stickyVisible = scrollOffsetOverride != null
+        ? baseScrollOffset >= _welcomeSliverHeight
+        : _stickyHeaderVisible;
+    final referenceIndex = baseIndex.clamp(0, sections.length - 1);
+    final overlayAdjustedOffset =
+        baseScrollOffset +
+        (stickyVisible
+            ? sections[referenceIndex].headerExtent + _topSafeInset
+            : 0);
     final nextIndex = activeTipsLeagueSectionIndex(
       sections: sections,
-      scrollOffset:
-          scrollOffsetOverride ??
-          (scrollController.hasClients ? scrollController.offset : 0),
-      leadingExtent: WelcomeHeader.height,
+      scrollOffset: overlayAdjustedOffset,
+      leadingExtent: _welcomeSliverHeight,
     );
 
     if (_activeSectionIndex != nextIndex) {
@@ -240,52 +367,70 @@ class TipsTabState extends State<TipsTab> {
                 return CustomScrollView(
                   controller: scrollController,
                   restorationId: 'tipsListView',
-                  slivers: const [
-                    SliverToBoxAdapter(child: EndFooter()),
-                  ],
+                  slivers: const [SliverToBoxAdapter(child: EndFooter())],
                 );
               }
-              final stickySection = sections[_activeSectionIndex.clamp(
-                0,
-                sections.length - 1,
-              )];
-              final topSafeInset = MediaQuery.paddingOf(context).top;
+              final stickySection =
+                  sections[_activeSectionIndex.clamp(0, sections.length - 1)];
 
-              return CustomScrollView(
-                controller: scrollController,
-                restorationId: 'tipsListView',
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: WelcomeHeader(
-                      daucompsViewmodelConsumer: daucompsViewmodelConsumer,
-                    ),
+              return Stack(
+                children: [
+                  CustomScrollView(
+                    controller: scrollController,
+                    restorationId: 'tipsListView',
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: _welcomeSliverHeight,
+                          child: Column(
+                            children: [
+                              SizedBox(height: _topSafeInset),
+                              Expanded(
+                                child: WelcomeHeader(
+                                  daucompsViewmodelConsumer:
+                                      daucompsViewmodelConsumer,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      for (
+                        var sectionIndex = 0;
+                        sectionIndex < sections.length;
+                        sectionIndex++
+                      )
+                        ...buildRoundLeagueSectionSlivers(
+                          section: sections[sectionIndex],
+                          roundIndex: sections[sectionIndex].roundIndex,
+                          league: sections[sectionIndex].league,
+                          dauCompsViewModel: daucompsViewmodelConsumer,
+                          currentTipper: di<TippersViewModel>().selectedTipper,
+                          isPercentStatsPage: false,
+                          showInlineHeader:
+                              sectionIndex != 0 || !_stickyHeaderVisible,
+                          hideInlineHeaderVisual:
+                              _stickyHeaderVisible &&
+                              sectionIndex == _activeSectionIndex,
+                        ),
+                      const SliverToBoxAdapter(child: EndFooter()),
+                    ],
                   ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: TipsStickyHeaderDelegate(
-                      extent: stickySection.headerExtent,
-                      topPadding: topSafeInset,
-                      child: TipsStickyHeader(
-                        section: stickySection,
-                        dauCompsViewModel: daucompsViewmodelConsumer,
-                        currentTipper: di<TippersViewModel>().selectedTipper,
-                        isPercentStatsPage: false,
-                        topPadding: topSafeInset,
+                  if (_stickyHeaderVisible)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: TipsStickyHeader(
+                          section: stickySection,
+                          dauCompsViewModel: daucompsViewmodelConsumer,
+                          currentTipper: di<TippersViewModel>().selectedTipper,
+                          isPercentStatsPage: false,
+                          topPadding: _topSafeInset,
+                        ),
                       ),
                     ),
-                  ),
-                  for (var sectionIndex = 0; sectionIndex < sections.length; sectionIndex++)
-                    ...buildRoundLeagueSectionSlivers(
-                      section: sections[sectionIndex],
-                      roundIndex: sections[sectionIndex].roundIndex,
-                      league: sections[sectionIndex].league,
-                      dauCompsViewModel: daucompsViewmodelConsumer,
-                      currentTipper: di<TippersViewModel>().selectedTipper,
-                      isPercentStatsPage: false,
-                      showInlineHeader: sectionIndex != 0,
-                      hideInlineHeaderVisual: sectionIndex == _activeSectionIndex,
-                    ),
-                  const SliverToBoxAdapter(child: EndFooter()),
                 ],
               );
             },
@@ -330,20 +475,10 @@ class EndFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: height,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-        color: Colors.black38,
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Icon(Icons.flag, color: Colors.white70),
-            Text(
-              'End of regular competition',
-              style: TextStyle(color: Colors.white70),
-            ),
-            Icon(Icons.flag, color: Colors.white70),
-          ],
-        ),
+      child: const _CompBoundaryCard(
+        iconSize: 46,
+        title: 'End of regular competition',
+        body: 'Hope to see you again next year.',
       ),
     );
   }
@@ -358,42 +493,82 @@ class WelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-        color: Colors.black38,
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Spacer(),
-              const Spacer(),
-              const Spacer(),
-              const Spacer(),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  const Icon(Icons.sports_rugby, color: Colors.white70),
-                  Text(
-                    'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
-                    style: const TextStyle(color: Colors.white70),
-                    softWrap: true,
-                  ),
-                  const Icon(Icons.sports_rugby, color: Colors.white70),
-                ],
-              ),
-              const Spacer(),
-              const Text(
-                'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
-                style: TextStyle(color: Colors.white70),
-                softWrap: true,
-              ),
-              const Spacer(),
-            ],
-          ),
+    return _CompBoundaryCard(
+      iconSize: 64,
+      title:
+          'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
+      body:
+          'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
+    );
+  }
+}
+
+class _CompBoundaryCard extends StatelessWidget {
+  const _CompBoundaryCard({
+    required this.iconSize,
+    required this.title,
+    this.body,
+  });
+
+  final double iconSize;
+  final String title;
+  final String? body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+      color: Colors.black38,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: iconSize + 8,
+              child: Center(child: AppIcon(size: iconSize, borderRadius: 12)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: body == null
+                  ? Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 18,
+                      ),
+                      textAlign: TextAlign.center,
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 17,
+                          ),
+                          softWrap: true,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              body!,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 15,
+                              ),
+                              softWrap: true,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
         ),
       ),
     );
