@@ -6,12 +6,10 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-const double kTipsWelcomeHeaderHeight = 200;
-const double kTipsEndFooterHeight = 75;
+const double kTipsWelcomeHeaderHeight = 175;
+const double kTipsEndFooterHeight = 100;
 
 class TipsLeagueSection {
   const TipsLeagueSection({
@@ -82,7 +80,10 @@ List<TipsLeagueSection> buildTipsLeagueSections({
             dauRound,
             league,
           ),
-          bodyExtent: TipsTabItemExtentCache.leagueGamesExtent(dauRound, league),
+          bodyExtent: TipsTabItemExtentCache.leagueGamesExtent(
+            dauRound,
+            league,
+          ),
         ),
       );
     }
@@ -138,17 +139,17 @@ List<Widget> buildRoundLeagueSectionSlivers({
             height: section.headerExtent,
             child: Opacity(
               opacity: hideInlineHeaderVisual ? 0 : 1,
-            child: roundLeagueHeaderListTile(
-              league,
-              50,
-              50,
-              dauRound,
-              dauCompsViewModel,
-              currentTipper,
-              isPercentStatsPage,
+              child: roundLeagueHeaderListTile(
+                league,
+                50,
+                50,
+                dauRound,
+                dauCompsViewModel,
+                currentTipper,
+                isPercentStatsPage,
+              ),
             ),
           ),
-        ),
         ),
       ),
     if (dauCompsViewModel.gamesViewModel == null ||
@@ -157,16 +158,15 @@ List<Widget> buildRoundLeagueSectionSlivers({
       SliverToBoxAdapter(
         child: SizedBox(
           height: bodyExtent,
-          child: Center(
-            child: CircularProgressIndicator(color: league.colour),
-          ),
+          child: Center(child: CircularProgressIndicator(color: league.colour)),
         ),
       )
     else if (leagueGames.isEmpty)
       SliverToBoxAdapter(
         child: _NoGamesCard(
           league: league,
-          gamesLoadComplete: dauCompsViewModel.gamesViewModel!.initialLoadComplete,
+          gamesLoadComplete:
+              dauCompsViewModel.gamesViewModel!.initialLoadComplete,
         ),
       )
     else
@@ -207,7 +207,8 @@ class TipsStickyHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dauRound = dauCompsViewModel.selectedDAUComp!.daurounds[section.roundIndex];
+    final dauRound =
+        dauCompsViewModel.selectedDAUComp!.daurounds[section.roundIndex];
 
     return Padding(
       padding: EdgeInsets.only(top: topPadding),
@@ -229,40 +230,6 @@ class TipsStickyHeader extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class TipsStickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  TipsStickyHeaderDelegate({
-    required this.extent,
-    required this.child,
-    this.topPadding = 0,
-  });
-
-  final double extent;
-  final Widget child;
-  final double topPadding;
-
-  @override
-  double get minExtent => extent + topPadding;
-
-  @override
-  double get maxExtent => extent + topPadding;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox.expand(child: child);
-  }
-
-  @override
-  bool shouldRebuild(covariant TipsStickyHeaderDelegate oldDelegate) {
-    return extent != oldDelegate.extent ||
-        topPadding != oldDelegate.topPadding ||
-        child != oldDelegate.child;
   }
 }
 
@@ -298,114 +265,6 @@ class _NoGamesCard extends StatelessWidget {
               ),
             ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class GameListBuilder extends StatefulWidget {
-  const GameListBuilder({
-    super.key,
-    required this.currentTipper,
-    required this.roundIndex,
-    required this.league,
-    required this.tipperTipsViewModel,
-    required this.dauCompsViewModel,
-    required this.isPercentStatsPage,
-  });
-
-  final Tipper currentTipper;
-  final int roundIndex;
-  final League league;
-  final TipsViewModel? tipperTipsViewModel;
-  final DAUCompsViewModel dauCompsViewModel;
-  final bool isPercentStatsPage;
-
-  @override
-  State<GameListBuilder> createState() => _GameListBuilderState();
-}
-
-class _GameListBuilderState extends State<GameListBuilder> {
-  late List<Game>? leagueGames;
-  late Map<League, List<Game>> allGames;
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<DAUCompsViewModel>(
-      builder: (context, dauCompsViewModelConsumer, _) {
-        // Defensive: If gamesViewModel is null, show loading
-        if (dauCompsViewModelConsumer.gamesViewModel == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (dauCompsViewModelConsumer.isLinkingGames) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        // Get fresh round data from the view model
-        final dauRound = dauCompsViewModelConsumer
-            .selectedDAUComp!
-            .daurounds[widget.roundIndex];
-
-        // Now it's safe to group games
-        final allGames = dauCompsViewModelConsumer.groupGamesIntoLeagues(
-          dauRound,
-        );
-        final leagueGames = allGames[widget.league];
-
-        if (leagueGames == null || leagueGames.isEmpty) {
-          // Check if games are still loading before showing "No games" message
-          return FutureBuilder<void>(
-            future:
-                dauCompsViewModelConsumer.gamesViewModel!.initialLoadComplete,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                // Games are still loading, show spinner
-                return const Center(child: CircularProgressIndicator());
-              } else {
-                // Games are loaded but this round/league truly has no games
-                return SizedBox(
-                  height: 75,
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    color: Colors.white70,
-                    child: Center(
-                      child: Text(
-                        'No ${widget.league.name.toUpperCase()} games this round',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                  ),
-                );
-              }
-            },
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(0),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: leagueGames.length,
-          itemBuilder: (context, index) {
-            var game = leagueGames[index];
-            if (widget.tipperTipsViewModel == null) {
-              return Center(
-                child: CircularProgressIndicator(color: League.nrl.colour),
-              );
-            }
-            return GameListItem(
-              key: ValueKey(game.dbkey),
-              game: game,
-              currentTipper: widget.currentTipper,
-              currentDAUComp: widget.dauCompsViewModel.selectedDAUComp!,
-              allTipsViewModel: widget.tipperTipsViewModel!,
-              isPercentStatsPage: widget.isPercentStatsPage,
-            );
-          },
         );
       },
     );
