@@ -455,9 +455,28 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
 
   @override
   Widget build(BuildContext context) {
-    final Color footerTextColor = Theme.of(
-      context,
-    ).colorScheme.onSurface.withValues(alpha: 0.82);
+    final bool isDarkMode =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final Color bodyTextColor = colorScheme.onSurface;
+    final Color footerTextColor = colorScheme.onSurface.withValues(alpha: 0.82);
+    final Color inputTextColor =
+        isDarkMode ? Colors.white : colorScheme.onSurface;
+    final Color inputLabelColor =
+        isDarkMode
+            ? Colors.white.withValues(alpha: 0.9)
+            : colorScheme.onSurface.withValues(alpha: 0.76);
+    final Color inputBorderColor =
+        isDarkMode
+            ? Colors.white.withValues(alpha: 0.55)
+            : colorScheme.outline.withValues(alpha: 0.72);
+    final Color inputFillColor =
+        isDarkMode ? const Color(0xFF1E2A1F) : colorScheme.surface;
+    final TextStyle inputTextStyle = TextStyle(color: inputTextColor);
+    final TextStyle linkTextStyle = TextStyle(
+      color: bodyTextColor,
+      decoration: TextDecoration.underline,
+    );
     final String subtitle = _isRegisterMode
         ? 'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.'
         : 'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.';
@@ -486,7 +505,11 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
             children: [
               const Center(child: AppIcon()),
               const SizedBox(height: 20),
-              Text(subtitle, textAlign: TextAlign.center),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: bodyTextColor),
+              ),
               const SizedBox(height: 16),
               if (defaultTargetPlatform == TargetPlatform.iOS) ...[
                 if (_supportsAppleSignIn) ...[
@@ -525,7 +548,11 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                           _isPasswordResetMode = false;
                         });
                       },
-                child: Text(emailAuthToggleText, textAlign: TextAlign.center),
+                child: Text(
+                  emailAuthToggleText,
+                  textAlign: TextAlign.center,
+                  style: linkTextStyle,
+                ),
               ),
               AnimatedCrossFade(
                 duration: const Duration(milliseconds: 200),
@@ -536,7 +563,11 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                 secondChild: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(emailAuthDescription, textAlign: TextAlign.center),
+                    Text(
+                      emailAuthDescription,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: bodyTextColor),
+                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _emailController,
@@ -560,9 +591,23 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                           FocusScope.of(context).nextFocus();
                         }
                       },
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
+                      style: inputTextStyle,
+                      cursorColor: colorScheme.primary,
+                      decoration: InputDecoration(
+                        hintText: 'Email',
+                        hintStyle: TextStyle(color: inputLabelColor),
+                        filled: true,
+                        fillColor: inputFillColor,
+                        border: const OutlineInputBorder(),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: inputBorderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: colorScheme.primary,
+                            width: 2,
+                          ),
+                        ),
                       ),
                     ),
                     if (!isPasswordResetMode) ...[
@@ -577,9 +622,23 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                             _signInOrRegisterWithEmail();
                           }
                         },
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          border: OutlineInputBorder(),
+                        style: inputTextStyle,
+                        cursorColor: colorScheme.primary,
+                        decoration: InputDecoration(
+                          hintText: 'Password',
+                          hintStyle: TextStyle(color: inputLabelColor),
+                          filled: true,
+                          fillColor: inputFillColor,
+                          border: const OutlineInputBorder(),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: inputBorderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 2,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -652,7 +711,10 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                                   _emailAuthInfo = null;
                                 });
                               },
-                        child: const Text('Forgot password?'),
+                        child: Text(
+                          'Forgot password?',
+                          style: linkTextStyle,
+                        ),
                       ),
                     if (!_isRegisterMode && isPasswordResetMode)
                       Padding(
@@ -673,7 +735,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                               'Back to sign in',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey.shade700,
+                                color: bodyTextColor,
                                 decoration: TextDecoration.underline,
                               ),
                             ),
@@ -695,6 +757,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                         _isRegisterMode
                             ? 'Already have an account? Sign in'
                             : 'Need an email account? Register',
+                        style: linkTextStyle,
                       ),
                     ),
                   ],
@@ -729,7 +792,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                       'Click here to view Stats',
                       style: TextStyle(
                         decoration: TextDecoration.underline,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: bodyTextColor,
                       ),
                     ),
                   ),
@@ -740,7 +803,10 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                     _isHelpExpanded = !_isHelpExpanded;
                   });
                 },
-                child: const Text('Need help? Click here.'),
+                child: Text(
+                  'Need help? Click here.',
+                  style: linkTextStyle,
+                ),
               ),
               if (_isHelpExpanded)
                 FutureBuilder<PackageInfo>(
