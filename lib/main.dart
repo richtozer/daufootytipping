@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
+import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
+    as firebase_app_check_debug_token;
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -21,7 +23,6 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:universal_html/js.dart' as js;
 
 Future<void> main() async {
   StartupProfiling.instant('startup.main_entered');
@@ -46,13 +47,13 @@ Future<void> main() async {
 
   // On web, the App Check debug token must be set before Firebase is initialized.
   if (kIsWeb) {
-    if (kDebugMode) {
-      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = true;
-      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to true');
-    } else {
-      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = false;
-      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to false');
-    }
+    final bool appCheckDebugTokenEnabled = kDebugMode;
+    firebase_app_check_debug_token.setFirebaseAppCheckDebugToken(
+      appCheckDebugTokenEnabled,
+    );
+    log(
+      'FIREBASE_APPCHECK_DEBUG_TOKEN set to $appCheckDebugTokenEnabled',
+    );
   }
 
   // Initialize Firebase
