@@ -5,6 +5,7 @@ import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_sign_in_form.dart';
+import 'package:daufootytipping/pages/user_auth/user_auth_background.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
@@ -377,170 +378,179 @@ class UserAuthPageState extends State<UserAuthPage> {
     }
 
     return Scaffold(
-      body: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        initialData: FirebaseAuth.instance.currentUser,
-        builder: (context, authSnapshot) {
-          final User? authenticatedFirebaseUser =
-              authSnapshot.data ?? FirebaseAuth.instance.currentUser;
-          if (authenticatedFirebaseUser == null) {
-            _resetAuthFlowFutures();
-          } else {
-            _ensureAuthFlowForUser(authenticatedFirebaseUser);
-            _initializeFirebaseMessagingService();
-          }
+      body: UserAuthBackground(
+        child: StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          initialData: FirebaseAuth.instance.currentUser,
+          builder: (context, authSnapshot) {
+            final User? authenticatedFirebaseUser =
+                authSnapshot.data ?? FirebaseAuth.instance.currentUser;
+            if (authenticatedFirebaseUser == null) {
+              _resetAuthFlowFutures();
+            } else {
+              _ensureAuthFlowForUser(authenticatedFirebaseUser);
+              _initializeFirebaseMessagingService();
+            }
 
-          return FutureBuilder<bool>(
-            future: _clientVersionOutOfDateFuture,
-            builder: (context, versionSnapshot) {
-              if (versionSnapshot.data == true) {
-                return const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 50),
-                      Padding(
-                        padding: EdgeInsets.all(20),
-                        child: AppIcon(),
-                      ),
-                      SizedBox(height: 20),
-                      SizedBox(
-                        width: 300,
-                        child: Center(
-                          child: Card(
-                            //color: Colors.white10,
-                            child: Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    "This version of the app is no longer supported, please update the app from the app store.",
-                                    //style: TextStyle(color: Colors.white),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.all(10.0),
-                                    child: UpdateAppLink(),
-                                  ),
-                                ],
+            return FutureBuilder<bool>(
+              future: _clientVersionOutOfDateFuture,
+              builder: (context, versionSnapshot) {
+                if (versionSnapshot.data == true) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 50),
+                        Padding(
+                          padding: EdgeInsets.all(20),
+                          child: AppIcon(),
+                        ),
+                        SizedBox(height: 20),
+                        SizedBox(
+                          width: 300,
+                          child: Center(
+                            child: Card(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      "This version of the app is no longer supported, please update the app from the app store.",
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.all(10.0),
+                                      child: UpdateAppLink(),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  );
+                }
+                if (authenticatedFirebaseUser == null &&
+                    authSnapshot.connectionState == ConnectionState.waiting) {
+                  return const _AuthLoadingScreen();
+                }
+                if (!authSnapshot.hasData) {
+                  return UserAuthSignInForm(
+                    googleClientId: widget.googleClientId,
+                  );
+                }
+
+                if (authenticatedFirebaseUser == null) {
+                  return const LoginIssueScreen(
+                    message:
+                        'No user context found. Please try signing in again.',
+                  );
+                }
+
+                if (authenticatedFirebaseUser.emailVerified == false &&
+                    !authenticatedFirebaseUser.isAnonymous) {
+                  // Also check for non-anonymous user
+                  authenticatedFirebaseUser.sendEmailVerification();
+
+                  return const LoginIssueScreen(
+                    message:
+                        'Your email is not verified. Please check your inbox or junk/spam and verify your email first. Then try log in again',
+                    msgColor: Colors.green,
+                  );
+                }
+
+                FirebaseAnalytics.instance.logLogin(
+                  loginMethod: authenticatedFirebaseUser.providerData.isNotEmpty
+                      ? authenticatedFirebaseUser.providerData[0].providerId
+                      : 'unknown',
                 );
-              }
-              if (authenticatedFirebaseUser == null &&
-                  authSnapshot.connectionState == ConnectionState.waiting) {
-                return const _AuthLoadingScreen();
-              }
-              if (!authSnapshot.hasData) {
-                return UserAuthSignInForm(
-                  googleClientId: widget.googleClientId,
-                );
-              }
 
-              if (authenticatedFirebaseUser == null) {
-                return const LoginIssueScreen(
-                  message:
-                      'No user context found. Please try signing in again.',
-                );
-              }
-
-              if (authenticatedFirebaseUser.emailVerified == false &&
-                  !authenticatedFirebaseUser.isAnonymous) {
-                // Also check for non-anonymous user
-                authenticatedFirebaseUser.sendEmailVerification();
-
-                return const LoginIssueScreen(
-                  message:
-                      'Your email is not verified. Please check your inbox or junk/spam and verify your email first. Then try log in again',
-                  msgColor: Colors.green,
-                );
-              }
-
-              FirebaseAnalytics.instance.logLogin(
-                loginMethod: authenticatedFirebaseUser.providerData.isNotEmpty
-                    ? authenticatedFirebaseUser.providerData[0].providerId
-                    : 'unknown',
-              );
-
-              return FutureBuilder<Tipper?>(
-                future: _existingTipperFuture,
-                builder: (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const _AuthLoadingScreen();
-                  } else if (snapshot.hasError) {
-                    return LoginIssueScreen(
-                      message:
-                          'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping',
-                    );
-                  } else if (snapshot.data == null) {
-                    // This means no existing Tipper record
-                    if (authenticatedFirebaseUser.isAnonymous) {
-                      // For new anonymous users, bypass edit name dialog
-                      return FutureBuilder<bool>(
-                        future: _ensureLinkOrCreateTipperFuture(
-                          key: 'anonymous-user',
-                          name: null,
-                          tipper: null,
-                        ),
-                        builder: (BuildContext context, AsyncSnapshot<bool> updateSnapshot) {
-                          if (updateSnapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const _AuthLoadingScreen();
-                          } else if (updateSnapshot.hasError) {
-                            return LoginIssueScreen(
-                              message:
-                                  'Error creating anonymous user: ${updateSnapshot.error}. Contact support.',
-                            );
-                          } else if (updateSnapshot.data == false) {
-                            return LoginIssueScreen(
-                              message:
-                                  'Failed to create anonymous user. Contact support.',
+                return FutureBuilder<Tipper?>(
+                  future: _existingTipperFuture,
+                  builder:
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<Tipper?> snapshot,
+                      ) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const _AuthLoadingScreen();
+                        } else if (snapshot.hasError) {
+                          return LoginIssueScreen(
+                            message:
+                                'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping',
+                          );
+                        } else if (snapshot.data == null) {
+                          // This means no existing Tipper record
+                          if (authenticatedFirebaseUser.isAnonymous) {
+                            // For new anonymous users, bypass edit name dialog
+                            return FutureBuilder<bool>(
+                              future: _ensureLinkOrCreateTipperFuture(
+                                key: 'anonymous-user',
+                                name: null,
+                                tipper: null,
+                              ),
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    AsyncSnapshot<bool> updateSnapshot,
+                                  ) {
+                                    if (updateSnapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const _AuthLoadingScreen();
+                                    } else if (updateSnapshot.hasError) {
+                                      return LoginIssueScreen(
+                                        message:
+                                            'Error creating anonymous user: ${updateSnapshot.error}. Contact support.',
+                                      );
+                                    } else if (updateSnapshot.data == false) {
+                                      return LoginIssueScreen(
+                                        message:
+                                            'Failed to create anonymous user. Contact support.',
+                                      );
+                                    } else {
+                                      // Successfully created anonymous user
+                                      return const HomePage();
+                                    }
+                                  },
                             );
                           } else {
-                            // Successfully created anonymous user
-                            return const HomePage();
+                            // For new non-anonymous users, show edit name dialog as before
+                            if (!_newTipperDialogShown) {
+                              _newTipperDialogShown = true;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                _showEditNameDialog(context, null);
+                              });
+                            }
+                            return Container(); // Return an empty container while waiting for user input
                           }
-                        },
-                      );
-                    } else {
-                      // For new non-anonymous users, show edit name dialog as before
-                      if (!_newTipperDialogShown) {
-                        _newTipperDialogShown = true;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _showEditNameDialog(context, null);
-                        });
-                      }
-                      return Container(); // Return an empty container while waiting for user input
-                    }
-                  } else {
-                    // Existing tipper found — set the authenticated tipper
-                    // immediately so HomePage can render without waiting for
-                    // the background DB metadata update to complete.
-                    final Tipper existingTipper = snapshot.data!;
-                    di<TippersViewModel>().setAuthenticatedTipper(
-                      existingTipper,
-                    );
-                    _saveCachedTipper(existingTipper);
-                    _ensureLinkOrCreateTipperFuture(
-                      key: existingTipper.dbkey ?? existingTipper.authuid,
-                      name: existingTipper.name,
-                      tipper: existingTipper,
-                    ).catchError((Object e) {
-                      log('Background tipper update failed: $e');
-                      return false;
-                    }).ignore();
-                    return const HomePage();
-                  }
-                },
-              );
-            },
-          );
-        },
+                        } else {
+                          // Existing tipper found — set the authenticated tipper
+                          // immediately so HomePage can render without waiting for
+                          // the background DB metadata update to complete.
+                          final Tipper existingTipper = snapshot.data!;
+                          di<TippersViewModel>().setAuthenticatedTipper(
+                            existingTipper,
+                          );
+                          _saveCachedTipper(existingTipper);
+                          _ensureLinkOrCreateTipperFuture(
+                            key: existingTipper.dbkey ?? existingTipper.authuid,
+                            name: existingTipper.name,
+                            tipper: existingTipper,
+                          ).catchError((Object e) {
+                            log('Background tipper update failed: $e');
+                            return false;
+                          }).ignore();
+                          return const HomePage();
+                        }
+                      },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -551,14 +561,11 @@ class _AuthLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset('assets/grass_background_blurred.webp', fit: BoxFit.cover),
-        const Center(
-          child: CircularProgressIndicator(color: Colors.orange),
-        ),
-      ],
+    return const UserAuthBackground(
+      overlayColor: Colors.transparent,
+      child: Center(
+        child: CircularProgressIndicator(color: Colors.orange),
+      ),
     );
   }
 }
