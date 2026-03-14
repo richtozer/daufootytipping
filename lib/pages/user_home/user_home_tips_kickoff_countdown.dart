@@ -22,6 +22,14 @@ class KickoffCountdownState extends State<KickoffCountdown> {
   }
 
   @override
+  void didUpdateWidget(covariant KickoffCountdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kickoffDate != widget.kickoffDate) {
+      _updateCountdown();
+    }
+  }
+
+  @override
   void dispose() {
     _timer.cancel();
     super.dispose();
@@ -42,6 +50,8 @@ class KickoffCountdownState extends State<KickoffCountdown> {
         countdownText = 'Kickoff: ${difference.inDays} days';
       } else if (difference.inHours > 0) {
         countdownText = 'Kickoff: ${difference.inHours} hours';
+      } else {
+        countdownText = 'Kickoff: soon';
       }
     });
   }
