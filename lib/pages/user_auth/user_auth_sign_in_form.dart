@@ -26,6 +26,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
   bool _isRegisterMode = false;
   bool _isEmailAuthExpanded = false;
   bool _isPasswordResetMode = false;
+  bool _isHelpExpanded = false;
   bool _isAuthInProgress = false;
   String? _socialAuthError;
   String? _emailAuthError;
@@ -454,6 +455,9 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
 
   @override
   Widget build(BuildContext context) {
+    final Color footerTextColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.82);
     final String subtitle = _isRegisterMode
         ? 'Welcome to DAU Footy Tipping, please register with your Apple or Google account before signing in.'
         : 'Welcome to DAU Footy Tipping. Sign in with your Apple or Google account to continue.';
@@ -730,40 +734,49 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                     ),
                   ),
                 ),
-              FutureBuilder<PackageInfo>(
-                future: PackageInfo.fromPlatform(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: Text(
-                        'Loading...',
-                        style: TextStyle(color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  } else if (snapshot.hasError) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: Text(
-                        'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: Unknown',
-                        style: TextStyle(color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  } else {
-                    final PackageInfo packageInfo = snapshot.data!;
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                        style: const TextStyle(color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  }
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isHelpExpanded = !_isHelpExpanded;
+                  });
                 },
+                child: const Text('Need help? Click here.'),
               ),
+              if (_isHelpExpanded)
+                FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Loading...',
+                          style: TextStyle(color: footerTextColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    } else if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: Unknown',
+                          style: TextStyle(color: footerTextColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    } else {
+                      final PackageInfo packageInfo = snapshot.data!;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                          style: TextStyle(color: footerTextColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    }
+                  },
+                ),
             ],
           ),
         ),
