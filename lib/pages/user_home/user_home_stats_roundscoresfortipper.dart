@@ -82,9 +82,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
     final rawScores = localScoresViewModel.getTipperRoundScoresForComp(
       widget.statsTipper,
-    )..removeWhere(
-        (element) => element.roundNumber > highestRoundNumber + 1,
-      );
+    )..removeWhere((element) => element.roundNumber > highestRoundNumber + 1);
 
     sortedScores = List<RoundStats>.from(rawScores);
     _sortScores(sortColumnIndex!, isAscending);
@@ -186,7 +184,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      'Click a row to see ${widget.statsTipper.name}\'s tips for that round.',
+                      'Tap a row to see ${widget.statsTipper.name}\'s tips for that round.',
                     ),
                   )
                 : Container(),

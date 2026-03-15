@@ -56,7 +56,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   }
 
   void _refreshLeaderboard() {
-    sortedLeaderboard = List<LeaderboardEntry>.from(scoresViewModel.compLeaderboard);
+    sortedLeaderboard = List<LeaderboardEntry>.from(
+      scoresViewModel.compLeaderboard,
+    );
     _sortLeaderboard(sortColumnIndex!, isAscending);
   }
 
@@ -65,13 +67,18 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       case 0:
         sortedLeaderboard.sort(
           (a, b) => ascending
-              ? a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase())
-              : b.tipper.name.toLowerCase().compareTo(a.tipper.name.toLowerCase()),
+              ? a.tipper.name.toLowerCase().compareTo(
+                  b.tipper.name.toLowerCase(),
+                )
+              : b.tipper.name.toLowerCase().compareTo(
+                  a.tipper.name.toLowerCase(),
+                ),
         );
         break;
       case 1:
         sortedLeaderboard.sort(
-          (a, b) => ascending ? a.rank.compareTo(b.rank) : b.rank.compareTo(a.rank),
+          (a, b) =>
+              ascending ? a.rank.compareTo(b.rank) : b.rank.compareTo(a.rank),
         );
         break;
       case 2:
@@ -83,7 +90,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         break;
       case 3:
         sortedLeaderboard.sort(
-          (a, b) => ascending ? a.total.compareTo(b.total) : b.total.compareTo(a.total),
+          (a, b) => ascending
+              ? a.total.compareTo(b.total)
+              : b.total.compareTo(a.total),
         );
         break;
       case 4:
@@ -133,11 +142,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     );
   }
 
-  Widget buildScaffold(
-    BuildContext context,
-    String dbkey,
-    Color color,
-  ) {
+  Widget buildScaffold(BuildContext context, String dbkey, Color color) {
     Orientation orientation = MediaQuery.of(context).orientation;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -165,7 +170,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ? Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Click a Tipper row below to see the breakdown of their round scores. Click column headings to sort.',
+                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a Tipper row below to see the breakdown of their round scores. Tap column headings to sort.',
                     ),
                   )
                 : Container(), // Return an empty container in landscape mode
@@ -191,9 +196,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                   rows: List<DataRow>.generate(
                     sortedLeaderboard.length,
                     (index) => DataRow(
-                      color:
-                          sortedLeaderboard[index].tipper.dbkey ==
-                              dbkey
+                      color: sortedLeaderboard[index].tipper.dbkey == dbkey
                           ? WidgetStateProperty.resolveWith((states) => color)
                           : WidgetStateProperty.resolveWith(
                               (states) => Colors.transparent,
@@ -236,7 +239,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                           onTap: () => onTipperTapped(context, index),
                         ),
                         DataCell(
-                          Text(sortedLeaderboard[index].numRoundsWon.toString()),
+                          Text(
+                            sortedLeaderboard[index].numRoundsWon.toString(),
+                          ),
                           onTap: () => onTipperTapped(context, index),
                         ),
                         DataCell(
@@ -267,16 +272,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     );
   }
 
-  void onTipperTapped(
-    BuildContext context,
-    int index,
-  ) {
+  void onTipperTapped(BuildContext context, int index) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StatRoundScoresForTipper(
-          sortedLeaderboard[index].tipper,
-        ),
+        builder: (context) =>
+            StatRoundScoresForTipper(sortedLeaderboard[index].tipper),
       ),
     );
   }

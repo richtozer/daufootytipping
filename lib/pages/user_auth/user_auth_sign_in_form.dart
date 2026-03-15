@@ -460,18 +460,18 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final Color bodyTextColor = colorScheme.onSurface;
     final Color footerTextColor = colorScheme.onSurface.withValues(alpha: 0.82);
-    final Color inputTextColor =
-        isDarkMode ? Colors.white : colorScheme.onSurface;
-    final Color inputLabelColor =
-        isDarkMode
-            ? Colors.white.withValues(alpha: 0.9)
-            : colorScheme.onSurface.withValues(alpha: 0.76);
-    final Color inputBorderColor =
-        isDarkMode
-            ? Colors.white.withValues(alpha: 0.55)
-            : colorScheme.outline.withValues(alpha: 0.72);
-    final Color inputFillColor =
-        isDarkMode ? const Color(0xFF1E2A1F) : colorScheme.surface;
+    final Color inputTextColor = isDarkMode
+        ? Colors.white
+        : colorScheme.onSurface;
+    final Color inputLabelColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.9)
+        : colorScheme.onSurface.withValues(alpha: 0.76);
+    final Color inputBorderColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.55)
+        : colorScheme.outline.withValues(alpha: 0.72);
+    final Color inputFillColor = isDarkMode
+        ? const Color(0xFF1E2A1F)
+        : colorScheme.surface;
     final TextStyle inputTextStyle = TextStyle(color: inputTextColor);
     final TextStyle linkTextStyle = TextStyle(
       color: bodyTextColor,
@@ -487,7 +487,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
         : 'Optionally, you can sign in with your email and password.';
     final String emailAuthToggleText = _isEmailAuthExpanded
         ? 'Hide email sign-in options'
-        : "Don't have an Apple or Google account? Click here to sign in with email.";
+        : "Don't have an Apple or Google account? Tap here to sign in with email.";
     final bool isPasswordResetMode = !_isRegisterMode && _isPasswordResetMode;
     final String emailPrimaryActionText = _isRegisterMode
         ? 'Register'
@@ -711,10 +711,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                                   _emailAuthInfo = null;
                                 });
                               },
-                        child: Text(
-                          'Forgot password?',
-                          style: linkTextStyle,
-                        ),
+                        child: Text('Forgot password?', style: linkTextStyle),
                       ),
                     if (!_isRegisterMode && isPasswordResetMode)
                       Padding(
@@ -789,7 +786,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                             }
                           },
                     child: Text(
-                      'Click here to view Stats',
+                      'Tap here to view Stats',
                       style: TextStyle(
                         decoration: TextDecoration.underline,
                         color: bodyTextColor,
@@ -803,10 +800,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                     _isHelpExpanded = !_isHelpExpanded;
                   });
                 },
-                child: Text(
-                  'Need help? Click here.',
-                  style: linkTextStyle,
-                ),
+                child: Text('Need help? Tap here.', style: linkTextStyle),
               ),
               if (_isHelpExpanded)
                 FutureBuilder<PackageInfo>(
