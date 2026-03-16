@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -81,8 +82,11 @@ class TipsTabState extends State<TipsTab> {
     }
 
     _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
-    _syncActiveSectionIndex();
     _syncSelectedCompState();
+    if (!_startupScrollPending) {
+      _syncActiveSectionIndex();
+      _syncStickyHeaderPushUp();
+    }
     if (_showLoadingPlaceholder) {
       setState(() {
         _showLoadingPlaceholder = false;
@@ -98,8 +102,11 @@ class TipsTabState extends State<TipsTab> {
     }
 
     final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
+    final tipsLoaded =
+        daucompsViewModel.selectedTipperTipsViewModel?.isInitialLoadComplete ??
+        false;
     final nextScrollSignature =
-        '${selectedComp.dbkey}:$latestRoundNumber:${_buildItemExtentCacheKey(selectedComp)}';
+        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:${_buildItemExtentCacheKey(selectedComp)}';
     if (_lastScrollSignature != nextScrollSignature) {
       _lastScrollSignature = nextScrollSignature;
       _startupScrollSettled = false;
@@ -129,6 +136,10 @@ class TipsTabState extends State<TipsTab> {
       );
       _startupTargetSectionIndex = targetSectionIndex;
       _pendingStartupOffset = _startupScrollOffset(
+        sections: sections,
+        targetSectionIndex: targetSectionIndex,
+      ) + _intraRoundScrollRefinement(
+        selectedComp: selectedComp,
         sections: sections,
         targetSectionIndex: targetSectionIndex,
       );
@@ -248,6 +259,69 @@ class TipsTabState extends State<TipsTab> {
         : (offset - _topSafeInset).clamp(0.0, double.infinity);
   }
 
+  /// Returns an additional scroll offset within the target round to position
+  /// at the first untipped game, or the first [GameState.startedResultNotKnown]
+  /// game if all games are tipped. Returns 0 if neither condition applies.
+  double _intraRoundScrollRefinement({
+    required DAUComp selectedComp,
+    required List<TipsLeagueSection> sections,
+    required int targetSectionIndex,
+  }) {
+    final tipsViewModel = daucompsViewModel.selectedTipperTipsViewModel;
+    if (tipsViewModel == null || !tipsViewModel.isInitialLoadComplete) {
+      return 0;
+    }
+
+    final tipper = di<TippersViewModel>().selectedTipper;
+    final section = sections[targetSectionIndex];
+    final dauRound = selectedComp.daurounds[section.roundIndex];
+    final nrlGames = dauRound.getGamesForLeague(League.nrl);
+    final aflGames = dauRound.getGamesForLeague(League.afl);
+
+    // Find the AFL section for this round (immediately follows the NRL section).
+    final aflSectionIndex = sections.indexWhere(
+      (s) => s.roundIndex == section.roundIndex && s.league == League.afl,
+    );
+
+    // First pass: find first untipped game across NRL then AFL.
+    final nrlUntippedIndex = tipsViewModel.firstUntippedGameIndex(
+      nrlGames,
+      tipper,
+    );
+    if (nrlUntippedIndex >= 0) {
+      return nrlUntippedIndex * Game.gameCardHeight;
+    }
+
+    final aflUntippedIndex = tipsViewModel.firstUntippedGameIndex(
+      aflGames,
+      tipper,
+    );
+    if (aflUntippedIndex >= 0 && aflSectionIndex >= 0) {
+      final aflSection = sections[aflSectionIndex];
+      return section.bodyExtent +
+          aflSection.headerExtent +
+          aflUntippedIndex * Game.gameCardHeight;
+    }
+
+    // Second pass: find first startedResultNotKnown game.
+    final allGames = [...nrlGames, ...aflGames];
+    for (var i = 0; i < allGames.length; i++) {
+      if (allGames[i].gameState == GameState.startedResultNotKnown) {
+        if (i < nrlGames.length) {
+          return i * Game.gameCardHeight;
+        }
+        if (aflSectionIndex >= 0) {
+          final aflSection = sections[aflSectionIndex];
+          return section.bodyExtent +
+              aflSection.headerExtent +
+              (i - nrlGames.length) * Game.gameCardHeight;
+        }
+      }
+    }
+
+    return 0;
+  }
+
   double _endFooterStartupOffset(List<TipsLeagueSection> sections) {
     if (sections.isEmpty) {
       return 0;
@@ -292,6 +366,8 @@ class TipsTabState extends State<TipsTab> {
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
     final stickyVisible = scrollOffset >= _welcomeSliverHeight;
+    final referenceOffset =
+        scrollOffset + (stickyVisible ? _topSafeInset : 0);
 
     var nextIndex = 0;
     for (var index = 1; index < sections.length; index++) {
@@ -300,7 +376,7 @@ class TipsTabState extends State<TipsTab> {
             stickyVisible: stickyVisible,
             sections: sections,
           ) <=
-          scrollOffset) {
+          referenceOffset) {
         nextIndex = index;
       } else {
         break;
@@ -355,16 +431,17 @@ class TipsTabState extends State<TipsTab> {
     final scrollOffset =
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
-    final stickyExtent = sections[_activeSectionIndex].headerExtent + _topSafeInset;
+    final stickyHeight = sections[_activeSectionIndex].headerExtent;
     final nextHeaderTop = _sectionHeaderTopOffset(
       _activeSectionIndex + 1,
       stickyVisible: true,
       sections: sections,
     );
-    final distanceToNextHeader = nextHeaderTop - scrollOffset;
-    final nextPushUp = (stickyExtent - distanceToNextHeader).clamp(
+    final distanceToNextHeader =
+        nextHeaderTop - (scrollOffset + _topSafeInset);
+    final nextPushUp = (stickyHeight - distanceToNextHeader).clamp(
       0.0,
-      stickyExtent,
+      stickyHeight,
     );
 
     if ((_stickyHeaderPushUpOffset.value - nextPushUp).abs() <= 0.5) {
@@ -496,9 +573,15 @@ class TipsTabState extends State<TipsTab> {
                         child: ValueListenableBuilder<double>(
                           valueListenable: _stickyHeaderPushUpOffset,
                           builder: (context, pushUpOffset, child) {
-                            return Transform.translate(
-                              offset: Offset(0, -pushUpOffset),
-                              child: child,
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(height: _topSafeInset),
+                                Transform.translate(
+                                  offset: Offset(0, -pushUpOffset),
+                                  child: child,
+                                ),
+                              ],
                             );
                           },
                           child: TipsStickyHeader(
@@ -506,7 +589,7 @@ class TipsTabState extends State<TipsTab> {
                             dauCompsViewModel: daucompsViewmodelConsumer,
                             currentTipper: di<TippersViewModel>().selectedTipper,
                             isPercentStatsPage: false,
-                            topPadding: _topSafeInset,
+                            topPadding: 0,
                           ),
                         ),
                       ),
