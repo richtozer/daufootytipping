@@ -1188,11 +1188,19 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
-  // method to delete any live scores for games that have a gamestate of startedResultKnown
+  /// Deletes crowd-sourced live scores for games that have official fixture
+  /// scores. Uses explicit fixture score checks rather than gameState, which
+  /// bundles a 2-hour time delay that is irrelevant to cleanup safety.
+  /// Crowd-sourced scores are only removed once official scores are present,
+  /// ensuring getGameResultCalculated() never loses its score source.
   Future<void> _deleteStaleLiveScores() async {
     List<Game> gamesToDelete = [];
     for (var game in _gamesWithLiveScores) {
-      if (game.gameState == GameState.startedResultKnown) {
+      final hasFixtureScores =
+          game.scoring != null &&
+          game.scoring!.homeTeamScore != null &&
+          game.scoring!.awayTeamScore != null;
+      if (hasFixtureScores) {
         gamesToDelete.add(game);
       }
     }
