@@ -38,6 +38,8 @@ class TipsTabState extends State<TipsTab> {
   bool _stickyHeaderVisible = false;
   double _topSafeInset = 0;
   List<TipsLeagueSection> _cachedSections = const [];
+  final ValueNotifier<double> _stickyHeaderPushUpOffset =
+      ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -69,6 +71,7 @@ class TipsTabState extends State<TipsTab> {
       _activeSectionIndex = 0;
       _stickyHeaderVisible = false;
       _cachedSections = const [];
+      _stickyHeaderPushUpOffset.value = 0;
       if (!_showLoadingPlaceholder) {
         setState(() {
           _showLoadingPlaceholder = true;
@@ -134,6 +137,7 @@ class TipsTabState extends State<TipsTab> {
       }
       _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
     }
+    _syncStickyHeaderPushUp(scrollOffsetOverride: _pendingStartupOffset);
 
     _scheduleStartupScrollAttempt();
   }
@@ -161,6 +165,7 @@ class TipsTabState extends State<TipsTab> {
       } else {
         _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
       }
+      _syncStickyHeaderPushUp(scrollOffsetOverride: clampedOffset);
 
       final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
       final targetBeyondCurrentMax =
@@ -199,6 +204,7 @@ class TipsTabState extends State<TipsTab> {
     }
     final visibilityChanged = _updateStickyHeaderVisibility();
     final sectionChanged = _updateActiveSectionIndex();
+    _updateStickyHeaderPushUp();
     if (visibilityChanged || sectionChanged) {
       setState(() {});
     }
@@ -282,28 +288,24 @@ class TipsTabState extends State<TipsTab> {
       return false;
     }
 
-    final baseScrollOffset =
+    final scrollOffset =
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
-    final baseIndex = activeTipsLeagueSectionIndex(
-      sections: sections,
-      scrollOffset: baseScrollOffset,
-      leadingExtent: _welcomeSliverHeight,
-    );
-    final stickyVisible = scrollOffsetOverride != null
-        ? baseScrollOffset >= _welcomeSliverHeight
-        : _stickyHeaderVisible;
-    final referenceIndex = baseIndex.clamp(0, sections.length - 1);
-    final overlayAdjustedOffset =
-        baseScrollOffset +
-        (stickyVisible
-            ? sections[referenceIndex].headerExtent + _topSafeInset
-            : 0);
-    final nextIndex = activeTipsLeagueSectionIndex(
-      sections: sections,
-      scrollOffset: overlayAdjustedOffset,
-      leadingExtent: _welcomeSliverHeight,
-    );
+    final stickyVisible = scrollOffset >= _welcomeSliverHeight;
+
+    var nextIndex = 0;
+    for (var index = 1; index < sections.length; index++) {
+      if (_sectionHeaderTopOffset(
+            index,
+            stickyVisible: stickyVisible,
+            sections: sections,
+          ) <=
+          scrollOffset) {
+        nextIndex = index;
+      } else {
+        break;
+      }
+    }
 
     if (_activeSectionIndex == nextIndex) {
       return false;
@@ -316,6 +318,65 @@ class TipsTabState extends State<TipsTab> {
     if (_updateActiveSectionIndex(scrollOffsetOverride: scrollOffsetOverride)) {
       setState(() {});
     }
+  }
+
+  bool _showsInlineHeaderForSection(int index, {required bool stickyVisible}) {
+    return index != 0 || !stickyVisible;
+  }
+
+  double _sectionHeaderTopOffset(
+    int targetSectionIndex, {
+    required bool stickyVisible,
+    List<TipsLeagueSection>? sections,
+  }) {
+    final activeSections = sections ?? _cachedSections;
+    var offset = _welcomeSliverHeight;
+    for (var index = 0; index < targetSectionIndex; index++) {
+      if (_showsInlineHeaderForSection(index, stickyVisible: stickyVisible)) {
+        offset += activeSections[index].headerExtent;
+      }
+      offset += activeSections[index].bodyExtent;
+    }
+    return offset;
+  }
+
+  bool _updateStickyHeaderPushUp({double? scrollOffsetOverride}) {
+    final sections = _cachedSections;
+    if (!_stickyHeaderVisible ||
+        sections.isEmpty ||
+        _activeSectionIndex >= sections.length - 1) {
+      if (_stickyHeaderPushUpOffset.value == 0) {
+        return false;
+      }
+      _stickyHeaderPushUpOffset.value = 0;
+      return true;
+    }
+
+    final scrollOffset =
+        scrollOffsetOverride ??
+        (scrollController.hasClients ? scrollController.offset : 0);
+    final stickyExtent = sections[_activeSectionIndex].headerExtent + _topSafeInset;
+    final nextHeaderTop = _sectionHeaderTopOffset(
+      _activeSectionIndex + 1,
+      stickyVisible: true,
+      sections: sections,
+    );
+    final distanceToNextHeader = nextHeaderTop - scrollOffset;
+    final nextPushUp = (stickyExtent - distanceToNextHeader).clamp(
+      0.0,
+      stickyExtent,
+    );
+
+    if ((_stickyHeaderPushUpOffset.value - nextPushUp).abs() <= 0.5) {
+      return false;
+    }
+
+    _stickyHeaderPushUpOffset.value = nextPushUp;
+    return true;
+  }
+
+  void _syncStickyHeaderPushUp({double? scrollOffsetOverride}) {
+    _updateStickyHeaderPushUp(scrollOffsetOverride: scrollOffsetOverride);
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -432,12 +493,21 @@ class TipsTabState extends State<TipsTab> {
                       left: 0,
                       right: 0,
                       child: IgnorePointer(
-                        child: TipsStickyHeader(
-                          section: stickySection,
-                          dauCompsViewModel: daucompsViewmodelConsumer,
-                          currentTipper: di<TippersViewModel>().selectedTipper,
-                          isPercentStatsPage: false,
-                          topPadding: _topSafeInset,
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: _stickyHeaderPushUpOffset,
+                          builder: (context, pushUpOffset, child) {
+                            return Transform.translate(
+                              offset: Offset(0, -pushUpOffset),
+                              child: child,
+                            );
+                          },
+                          child: TipsStickyHeader(
+                            section: stickySection,
+                            dauCompsViewModel: daucompsViewmodelConsumer,
+                            currentTipper: di<TippersViewModel>().selectedTipper,
+                            isPercentStatsPage: false,
+                            topPadding: _topSafeInset,
+                          ),
                         ),
                       ),
                     ),
@@ -470,6 +540,7 @@ class TipsTabState extends State<TipsTab> {
   void dispose() {
     daucompsViewModel.removeListener(_onDAUCompsChanged);
     scrollController.removeListener(_handleScrollChanged);
+    _stickyHeaderPushUpOffset.dispose();
     focusNode.dispose();
     scrollController.dispose();
     super.dispose();
