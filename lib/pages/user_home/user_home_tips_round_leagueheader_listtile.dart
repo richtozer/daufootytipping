@@ -57,6 +57,16 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
         ?.firstNotEndedRoundNumber();
     final bool showOutstandingBadge =
         currentRoundNumber == dauRound.dAUroundNumber && tipsOutstanding > 0;
+    const double badgeRoom = 12;
+    final double renderedLogoWidth = league == League.afl
+        ? logoWidth + 10
+        : logoWidth;
+    final double renderedLogoHeight = league == League.afl
+        ? logoHeight + 10
+        : logoHeight;
+    final Offset badgeOffset = league == League.afl
+        ? const Offset(-7, -4)
+        : const Offset(4, -4);
 
     final int marginTipsSubmitted = dauCompsViewModel
         .selectedTipperTipsViewModel!
@@ -219,10 +229,8 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                   width: 86,
                   child: Center(
                     child: SizedBox(
-                      width: showOutstandingBadge ? logoWidth + 12 : logoWidth,
-                      height: showOutstandingBadge
-                          ? logoHeight + 12
-                          : logoHeight,
+                      width: renderedLogoWidth + badgeRoom,
+                      height: renderedLogoHeight + badgeRoom,
                       child: showOutstandingBadge
                           ? Align(
                               alignment: Alignment.center,
@@ -234,7 +242,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                   horizontal: 7,
                                   vertical: 2,
                                 ),
-                                offset: const Offset(4, -4),
+                                offset: badgeOffset,
                                 textStyle: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -242,14 +250,18 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                 ),
                                 child: SvgPicture.asset(
                                   league.logo,
-                                  width: logoWidth,
-                                  height: logoHeight,
+                                  width: renderedLogoWidth,
+                                  height: renderedLogoHeight,
                                 ),
                               ),
                             )
-                          : FittedBox(
-                              fit: BoxFit.contain,
-                              child: SvgPicture.asset(league.logo),
+                          : Align(
+                              alignment: Alignment.center,
+                              child: SvgPicture.asset(
+                                league.logo,
+                                width: renderedLogoWidth,
+                                height: renderedLogoHeight,
+                              ),
                             ),
                     ),
                   ),
