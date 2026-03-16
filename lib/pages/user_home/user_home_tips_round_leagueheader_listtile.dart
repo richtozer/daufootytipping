@@ -53,6 +53,10 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
 
     final int tipsOutstanding = dauCompsViewModel.selectedTipperTipsViewModel!
         .numberOfOutstandingTipsForRoundAndLeague(dauRound, league);
+    final int? currentRoundNumber = dauCompsViewModel.selectedDAUComp
+        ?.firstNotEndedRoundNumber();
+    final bool showOutstandingBadge =
+        currentRoundNumber == dauRound.dAUroundNumber && tipsOutstanding > 0;
 
     final int marginTipsSubmitted = dauCompsViewModel
         .selectedTipperTipsViewModel!
@@ -148,16 +152,6 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                             kickoffDate: firstGameStart!,
                                           ),
                                           Text(
-                                            'Tips Outstanding: $tipsOutstanding',
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            softWrap: false,
-                                            overflow: TextOverflow.ellipsis,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          Text(
                                             style: const TextStyle(
                                               color: Colors.white70,
                                               fontWeight: FontWeight.bold,
@@ -225,12 +219,38 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                   width: 86,
                   child: Center(
                     child: SizedBox(
-                      width: logoWidth,
-                      height: logoHeight,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: SvgPicture.asset(league.logo),
-                      ),
+                      width: showOutstandingBadge ? logoWidth + 12 : logoWidth,
+                      height: showOutstandingBadge
+                          ? logoHeight + 12
+                          : logoHeight,
+                      child: showOutstandingBadge
+                          ? Align(
+                              alignment: Alignment.center,
+                              child: Badge.count(
+                                count: tipsOutstanding,
+                                backgroundColor: Colors.red[800],
+                                largeSize: 20,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                offset: const Offset(4, -4),
+                                textStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                child: SvgPicture.asset(
+                                  league.logo,
+                                  width: logoWidth,
+                                  height: logoHeight,
+                                ),
+                              ),
+                            )
+                          : FittedBox(
+                              fit: BoxFit.contain,
+                              child: SvgPicture.asset(league.logo),
+                            ),
                     ),
                   ),
                 ),

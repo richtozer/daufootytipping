@@ -200,14 +200,30 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                             final isAnonymous = tippersViewModelConsumer
                                 .selectedTipper
                                 .isAnonymous;
+                            const tipsTabIcon = SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Center(
+                                child: Icon(Icons.sports_rugby_outlined),
+                              ),
+                            );
                             final tipsIcon = _outstandingTipsCount > 0
                                 ? Badge.count(
                                     count: _outstandingTipsCount,
-                                    child: const Icon(
-                                      Icons.sports_rugby_outlined,
+                                    backgroundColor: Colors.red[800],
+                                    largeSize: 20,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
                                     ),
+                                    textStyle: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    child: tipsTabIcon,
                                   )
-                                : const Icon(Icons.sports_rugby_outlined);
+                                : tipsTabIcon;
 
                             return NavigationDestination(
                               icon: tipsIcon,
