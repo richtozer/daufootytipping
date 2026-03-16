@@ -36,6 +36,9 @@
       "preLaunchTask": "start firebase emulator",
       "postDebugTask": "stop firebase emulator"
     },
+    // WEB_APP_CHECK_DEBUG_TOKEN is read from the VS Code process environment.
+    // A local .env file is not loaded automatically for Dart/Flutter launches.
+    // Start VS Code from a shell that has exported the variable, or set it in your shell profile.
     {
       "name": "Flutter Web (Chrome) + Firebase emulators (seed RTDB)",
       "type": "dart",
