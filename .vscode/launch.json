@@ -55,7 +55,7 @@
       ]
     },
     {
-      "name": "Flutter Web (Chrome) with fixed App Check token",
+      "name": "Flutter Web (Chrome) + Firebase emulators (already running)",
       "type": "dart",
       "request": "launch",
       "flutterMode": "debug",
