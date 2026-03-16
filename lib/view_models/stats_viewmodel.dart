@@ -423,7 +423,11 @@ class StatsViewModel extends ChangeNotifier {
           }
         }
 
-        await _writeAllRoundScoresToDb(_allTipperRoundStats, daucompToUpdate);
+        await _writeScopedRoundScoresToDb(
+          dauRoundsEdited,
+          tippersToUpdate,
+          daucompToUpdate,
+        );
 
         String res =
             'Completed updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
@@ -624,23 +628,52 @@ class StatsViewModel extends ChangeNotifier {
     }
   }
 
-  // In _writeAllRoundScoresToDb, wrap the database operation in try-catch and handle network errors
-  Future<void> _writeAllRoundScoresToDb(
-    Map<int, Map<Tipper, RoundStats>> updatedTipperRoundStats,
+  /// Writes only the recalculated rounds and tippers to the database.
+  ///
+  /// Unlike the previous _writeAllRoundScoresToDb which wrote all rounds and
+  /// all tippers on every update, this method only writes the specific
+  /// rounds/tippers that were recalculated. Inside the transaction, it merges
+  /// at the tipper level within each round, preserving other tippers' data
+  /// even on transaction retry.
+  Future<void> _writeScopedRoundScoresToDb(
+    List<DAURound> roundsUpdated,
+    List<Tipper> tippersUpdated,
     DAUComp dauComp,
   ) async {
     log(
-      'StatsViewModel._writeAllRoundScoresToDb() Writing all round scores to DB for ${updatedTipperRoundStats.length} rounds',
+      'StatsViewModel._writeScopedRoundScoresToDb() Writing scores for '
+      '${roundsUpdated.length} rounds, ${tippersUpdated.length} tippers',
     );
 
-    // convert updatedTipperRoundStats to a Map<String, dynamic> for writing to the database
-    Map<String, dynamic> updatedTipperRoundStatsJson = {};
-    for (var roundIndex in updatedTipperRoundStats.keys) {
-      updatedTipperRoundStatsJson[roundIndex.toString()] = {};
-      for (var tipper in updatedTipperRoundStats[roundIndex]!.keys) {
-        updatedTipperRoundStatsJson[roundIndex.toString()][tipper.dbkey!] =
-            updatedTipperRoundStats[roundIndex]![tipper]!.toJson();
+    // Build a map of only the rounds/tippers that were recalculated
+    final Set<int> roundIndices = {
+      for (final round in roundsUpdated) round.dAUroundNumber - 1,
+    };
+    final Set<String> tipperDbKeys = {
+      for (final tipper in tippersUpdated)
+        if (tipper.dbkey != null) tipper.dbkey!,
+    };
+
+    // Pre-compute the tipper-level data to write for each round
+    Map<String, Map<String, dynamic>> scopedUpdates = {};
+    for (var roundIndex in roundIndices) {
+      final roundData = _allTipperRoundStats[roundIndex];
+      if (roundData == null) continue;
+
+      Map<String, dynamic> tipperUpdates = {};
+      for (var entry in roundData.entries) {
+        if (tipperDbKeys.contains(entry.key.dbkey)) {
+          tipperUpdates[entry.key.dbkey!] = entry.value.toJson();
+        }
       }
+      if (tipperUpdates.isNotEmpty) {
+        scopedUpdates[roundIndex.toString()] = tipperUpdates;
+      }
+    }
+
+    if (scopedUpdates.isEmpty) {
+      log('StatsViewModel._writeScopedRoundScoresToDb() No updates to write');
+      return;
     }
 
     int retryCount = 0;
@@ -654,24 +687,50 @@ class StatsViewModel extends ChangeNotifier {
             .child(dauComp.dbkey!)
             .child(roundStatsRoot)
             .runTransaction((currentData) {
-              // Merge the new data with the existing data
-              if (currentData != null) {
-                final existingData = currentData is Map
-                    ? Map<String, dynamic>.from(currentData)
-                    : <String, dynamic>{};
-                updatedTipperRoundStatsJson.forEach((key, value) {
-                  existingData[key] = value;
-                });
-                return Transaction.success(
-                  existingData,
-                ); // Return the merged data
+              // Firebase RTDB returns sequential numeric keys (0, 1, 2...)
+              // as a List, not a Map. Convert either shape to a uniform
+              // Map<String, dynamic> keyed by round index string so we can
+              // merge safely without losing untouched rounds.
+              final Map<String, dynamic> existingData;
+              if (currentData is Map) {
+                existingData = Map<String, dynamic>.from(currentData);
+              } else if (currentData is List) {
+                existingData = <String, dynamic>{};
+                for (var i = 0; i < currentData.length; i++) {
+                  if (currentData[i] != null) {
+                    existingData[i.toString()] = currentData[i];
+                  }
+                }
               } else {
-                return Transaction.success(
-                  updatedTipperRoundStatsJson,
-                ); // Return the new data
+                existingData = <String, dynamic>{};
               }
+
+              // Merge at the tipper level within each round
+              for (var roundEntry in scopedUpdates.entries) {
+                final roundKey = roundEntry.key;
+                final tipperData = roundEntry.value;
+
+                // Get or create the round map from existing server data,
+                // handling both Map and List shapes from RTDB
+                final existingRoundRaw = existingData[roundKey];
+                final Map<String, dynamic> existingRound;
+                if (existingRoundRaw is Map) {
+                  existingRound = Map<String, dynamic>.from(existingRoundRaw);
+                } else {
+                  existingRound = <String, dynamic>{};
+                }
+
+                // Merge only the tippers we recalculated
+                for (var tipperEntry in tipperData.entries) {
+                  existingRound[tipperEntry.key] = tipperEntry.value;
+                }
+
+                existingData[roundKey] = existingRound;
+              }
+
+              return Transaction.success(existingData);
             });
-        break; // Success, exit the loop
+        break;
       } on SocketException catch (e) {
         log('Network error (SocketException) while writing round scores: $e');
         if (retryCount < maxRetries) {
@@ -1091,17 +1150,18 @@ class StatsViewModel extends ChangeNotifier {
       unawaited(
         ScoringUpdateQueue()
             .queueScoringUpdate(
-          dauComp: selectedDAUComp,
-          round: tip.game.getDAURound(selectedDAUComp),
-          tipper: null, // Score all tippers for the round
-          priority: 2, // Round-wide update
-        )
+              dauComp: selectedDAUComp,
+              round: tip.game.getDAURound(selectedDAUComp),
+              tipper: null, // Score all tippers for the round
+              priority: 2, // Round-wide update
+            )
             .then((result) {
-          log('Scoring update queued for round, result: $result');
-          getGamesStatsEntry(tip.game, true);
-        }).catchError((error) {
-          log('Error queueing scoring update: $error');
-        }),
+              log('Scoring update queued for round, result: $result');
+              getGamesStatsEntry(tip.game, true);
+            })
+            .catchError((error) {
+              log('Error queueing scoring update: $error');
+            }),
       );
     });
   }

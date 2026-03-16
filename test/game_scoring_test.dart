@@ -347,6 +347,123 @@ void main() {
     });
   });
 
+  group('margin boundary edge cases', () {
+    test('NRL score at exact margin boundary (13) is result a, not b', () {
+      // Home wins by exactly 13 = margin win (GameResult.a)
+      final scoring = Scoring(homeTeamScore: 25, awayTeamScore: 12);
+      expect(scoring.getGameResultCalculated(League.nrl), GameResult.a);
+    });
+
+    test('NRL score one below margin boundary (12) is result b, not a', () {
+      // Home wins by exactly 12 = non-margin win (GameResult.b)
+      final scoring = Scoring(homeTeamScore: 24, awayTeamScore: 12);
+      expect(scoring.getGameResultCalculated(League.nrl), GameResult.b);
+    });
+
+    test(
+      'NRL 1-point score shift at draw/win boundary causes 1-point tip score change',
+      () {
+        // Scenario: Tipper tipped Home (b). Score shifts from draw to
+        // narrow home win. Their score changes by 1 (1 -> 2).
+        // This documents the exact edge case that can cause a production
+        // score shift: result c (draw) vs b (narrow home win).
+        final draw = Scoring(homeTeamScore: 12, awayTeamScore: 12);
+        final narrowWin = Scoring(homeTeamScore: 13, awayTeamScore: 12);
+
+        expect(draw.getGameResultCalculated(League.nrl), GameResult.c);
+        expect(narrowWin.getGameResultCalculated(League.nrl), GameResult.b);
+
+        // Tip was Home (b): draw gives 1, narrow win gives 2 = delta of 1
+        final scoreDraw = Scoring.getTipScoreCalculated(
+          League.nrl,
+          GameResult.c,
+          GameResult.b,
+        );
+        final scoreNarrowWin = Scoring.getTipScoreCalculated(
+          League.nrl,
+          GameResult.b,
+          GameResult.b,
+        );
+
+        expect(scoreDraw, 1);
+        expect(scoreNarrowWin, 2);
+        expect(scoreNarrowWin - scoreDraw, 1);
+      },
+    );
+
+    test('AFL score at exact margin boundary (31) is result a, not b', () {
+      final scoring = Scoring(homeTeamScore: 80, awayTeamScore: 49);
+      expect(scoring.getGameResultCalculated(League.afl), GameResult.a);
+    });
+
+    test('AFL score one below margin boundary (30) is result b, not a', () {
+      final scoring = Scoring(homeTeamScore: 79, awayTeamScore: 49);
+      expect(scoring.getGameResultCalculated(League.afl), GameResult.b);
+    });
+
+    test(
+      'crowd-sourced score crossing margin boundary changes result vs official score',
+      () {
+        // Crowd-sourced says home won by 14 (margin win)
+        final crowdScore = CrowdSourcedScore(
+          DateTime.now().toUtc(),
+          ScoringTeam.home,
+          'tipper1',
+          14,
+          true,
+        );
+        final crowdAwayScore = CrowdSourcedScore(
+          DateTime.now().toUtc(),
+          ScoringTeam.away,
+          'tipper1',
+          0,
+          true,
+        );
+
+        // Without official scores, uses crowd-sourced: 14-0 = margin win
+        final withCrowdOnly = Scoring(
+          homeTeamScore: null,
+          awayTeamScore: null,
+          crowdSourcedScores: [crowdScore, crowdAwayScore],
+        );
+        expect(withCrowdOnly.getGameResultCalculated(League.nrl), GameResult.a);
+
+        // Official scores arrive showing 14-2 = still margin win (diff=12, NOT margin)
+        final withOfficial = Scoring(
+          homeTeamScore: 14,
+          awayTeamScore: 2,
+          crowdSourcedScores: [crowdScore, crowdAwayScore],
+        );
+        expect(
+          withOfficial.getGameResultCalculated(League.nrl),
+          GameResult.b, // 12 < 13, so NOT margin win
+        );
+      },
+    );
+
+    test(
+      'default tip (Away/d) scores 1 when result is Draw (c), 0 when Home (b)',
+      () {
+        // Default tip is GameResult.d (Away). If game result shifts from
+        // draw to narrow home win, the default tip score drops by 1.
+        final scoreResultC = Scoring.getTipScoreCalculated(
+          League.nrl,
+          GameResult.c,
+          GameResult.d,
+        );
+        final scoreResultB = Scoring.getTipScoreCalculated(
+          League.nrl,
+          GameResult.b,
+          GameResult.d,
+        );
+
+        expect(scoreResultC, 1);
+        expect(scoreResultB, 0);
+        expect(scoreResultC - scoreResultB, 1);
+      },
+    );
+  });
+
   group('getTipScoreCalculated', () {
     test('NRL Tip was A, result was A, score should be 4', () {
       var score = Scoring.getTipScoreCalculated(
