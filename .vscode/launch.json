@@ -62,7 +62,8 @@
       "deviceId": "chrome",
       "program": "lib/main.dart",
       "toolArgs": [
-        "--dart-define=USE_FIREBASE_EMULATORS=false",
+        "--dart-define=USE_FIREBASE_EMULATORS=true",
+        "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
         "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
       ]
     },
