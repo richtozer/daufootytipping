@@ -18,7 +18,15 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Scope: Changes are surgical; avoid unrelated edits or drive-by refactors.
 - Commits/branches: The agent does not commit or create branches unless explicitly asked.
 - Pre‑flight checks: Always run `flutter analyze` and the relevant `flutter test` scope before and after refactors.
+- Formatting: Do not run `dart format` or other bulk formatting tools unless the maintainer explicitly requests formatting for the task.
 - Repo exploration: When `jcodemunch` MCP is available, prefer it for symbol-level exploration (`search_symbols`, `get_symbol`, `get_file_outline`, `get_repo_outline`). Keep using `rg` and direct file reads for exact text matches, literals, config values, and when the MCP index is missing or stale.
+
+## Secrets & Local Config
+- Early check: Before proposing or applying any change that includes a token, key, password, certificate, `.env` value, launch argument, or other secret-bearing config, first check whether the target file is gitignored or tracked.
+- Default safe location: Prefer existing ignored local files, shell startup files, OS keychains, or environment variables for secrets. Do not place secrets in tracked repo files unless the maintainer explicitly asks for that and confirms the exposure risk is acceptable.
+- VS Code/debug configs: Treat `.vscode/launch.json`, workspace settings, scripts, and committed docs as public unless they are explicitly ignored. Never hardcode secrets there without an explicit user request.
+- If unsure: Stop and ask before writing a secret anywhere that could be committed, surfaced in diffs, or end up in Git history.
+- Follow-through: If a secret was accidentally written to a tracked file or commit, tell the maintainer immediately, rotate/revoke it, remove it from the tracked state, and only then proceed.
 
 ## Testing & Coverage
 - Use Mocktail for mocking; avoid real Firebase or network in unit tests.

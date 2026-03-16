@@ -32,6 +32,9 @@ Future<void> main() async {
     'USE_FIREBASE_EMULATORS',
     defaultValue: true,
   );
+  const String webAppCheckDebugToken = String.fromEnvironment(
+    'WEB_APP_CHECK_DEBUG_TOKEN',
+  );
   const String configuredFirebaseEmulatorHost = String.fromEnvironment(
     'FIREBASE_EMULATOR_HOST',
     defaultValue: '',
@@ -46,13 +49,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // On web, the App Check debug token must be set before Firebase is initialized.
-  if (kIsWeb) {
-    final bool appCheckDebugTokenEnabled = kDebugMode;
+  if (kIsWeb && kDebugMode) {
+    final Object appCheckDebugToken = webAppCheckDebugToken.isNotEmpty
+        ? webAppCheckDebugToken
+        : true;
     firebase_app_check_debug_token.setFirebaseAppCheckDebugToken(
-      appCheckDebugTokenEnabled,
+      appCheckDebugToken,
     );
     log(
-      'FIREBASE_APPCHECK_DEBUG_TOKEN set to $appCheckDebugTokenEnabled',
+      'FIREBASE_APPCHECK_DEBUG_TOKEN set to ${appCheckDebugToken is String ? 'a fixed token from WEB_APP_CHECK_DEBUG_TOKEN' : 'auto debug mode'}',
     );
   }
 

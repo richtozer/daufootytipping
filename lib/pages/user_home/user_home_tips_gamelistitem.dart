@@ -209,14 +209,12 @@ class _GameListItemState extends State<GameListItem> {
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
           // Use new state variables for rank labels
-          final String displayHomeRank =
-              _isLoadingLadderRank
-                  ? _loadingRankLabel
-                  : (_homeOrdinalRankLabel ?? _noRankLabel);
-          final String displayAwayRank =
-              _isLoadingLadderRank
-                  ? _loadingRankLabel
-                  : (_awayOrdinalRankLabel ?? _noRankLabel);
+          final String displayHomeRank = _isLoadingLadderRank
+              ? _loadingRankLabel
+              : (_homeOrdinalRankLabel ?? _noRankLabel);
+          final String displayAwayRank = _isLoadingLadderRank
+              ? _loadingRankLabel
+              : (_awayOrdinalRankLabel ?? _noRankLabel);
 
           // Reference to the game for easier access in onTap
           final Game game = gameTipsViewModelConsumer.game;
@@ -232,7 +230,7 @@ class _GameListItemState extends State<GameListItem> {
                 gameTipsViewModelConsumer.game.gameState ==
                         GameState.startedResultNotKnown
                     ? Tooltip(
-                        message: 'Click here to edit scoring for this game',
+                        message: 'Tap here to edit scoring for this game',
                         child: GestureDetector(
                           onTap: () => showMaterialModalBottomSheet(
                             expand: false,
@@ -505,7 +503,8 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   void didUpdateWidget(covariant _PercentStatsTipChoice oldWidget) {
     super.didUpdateWidget(oldWidget);
     final bool gameChanged =
-        oldWidget.gameTipViewModel.game.dbkey != widget.gameTipViewModel.game.dbkey;
+        oldWidget.gameTipViewModel.game.dbkey !=
+        widget.gameTipViewModel.game.dbkey;
     final bool statsViewModelChanged =
         oldWidget.statsViewModel != widget.statsViewModel;
 

@@ -226,7 +226,7 @@ class AdminDaucompsEditForm extends StatelessWidget {
           const SizedBox(height: 20.0),
           if (daucomp == null) ...[
             const Text(
-              'After adding a new comp name and URLs, click the save button and then reopen this record to see the round details.',
+              'After adding a new comp name and URLs, tap the save button and then reopen this record to see the round details.',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],

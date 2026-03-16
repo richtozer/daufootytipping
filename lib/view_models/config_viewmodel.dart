@@ -30,7 +30,7 @@ class ConfigViewModel extends ChangeNotifier {
 
   ConfigViewModel({
     DatabaseReference? db,
-    Duration initialLoadTimeout = const Duration(seconds: 10),
+    Duration initialLoadTimeout = const Duration(seconds: 15),
   }) : _db = db ?? FirebaseDatabase.instance.ref(p.configPathRoot),
        _initialLoadTimeout = initialLoadTimeout {
     _listenToConfigChanges();
@@ -41,7 +41,7 @@ class ConfigViewModel extends ChangeNotifier {
       }
 
       _initialLoadCompleter.completeError(
-        'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.',
+        'Config load timed out. Please check your connection or we may be having backend issues.',
       );
       notifyListeners();
     });
@@ -53,7 +53,9 @@ class ConfigViewModel extends ChangeNotifier {
         final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
         final Stopwatch processingStopwatch = Stopwatch()..start();
         final dynamic rawValue = event.snapshot.value;
-        final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
+        final int? payloadBytes = StartupProfiling.estimatePayloadBytes(
+          rawValue,
+        );
         StartupProfiling.instant(
           'startup.config_snapshot_received',
           arguments: <String, Object?>{
