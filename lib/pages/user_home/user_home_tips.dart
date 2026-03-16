@@ -102,11 +102,8 @@ class TipsTabState extends State<TipsTab> {
     }
 
     final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
-    final tipsLoaded =
-        daucompsViewModel.selectedTipperTipsViewModel?.isInitialLoadComplete ??
-        false;
     final nextScrollSignature =
-        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:${_buildItemExtentCacheKey(selectedComp)}';
+        '${selectedComp.dbkey}:$latestRoundNumber:${_buildItemExtentCacheKey(selectedComp)}';
     if (_lastScrollSignature != nextScrollSignature) {
       _lastScrollSignature = nextScrollSignature;
       _startupScrollSettled = false;
