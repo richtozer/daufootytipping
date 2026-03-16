@@ -117,20 +117,38 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                 gamesForLeague.isEmpty
                     ? const Expanded(child: SizedBox.shrink())
                     : Expanded(
-                        child: Consumer<StatsViewModel?>(
-                          builder: (context, statsViewModel, child) {
-                            if (statsViewModel == null) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            final RoundStats roundStats = statsViewModel
-                                .getScoringRoundStats(dauRound, selectedTipper);
+                        child: dauRound.roundState == RoundState.notStarted
+                            ? Column(
+                                children: [
+                                  KickoffCountdown(kickoffDate: firstGameStart!),
+                                  Text(
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    'Your Margins: $marginTipsSubmitted',
+                                    softWrap: false,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              )
+                            : Consumer<StatsViewModel?>(
+                                builder: (context, statsViewModel, child) {
+                                  if (statsViewModel == null) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  final RoundStats roundStats = statsViewModel
+                                      .getScoringRoundStats(
+                                        dauRound,
+                                        selectedTipper,
+                                      );
 
-                            return Column(
-                              children: [
-                                dauRound.roundState != RoundState.notStarted
-                                    ? Text(
+                                  return Column(
+                                    children: [
+                                      Text(
                                         style: TextStyle(
                                           color: !isPercentStatsPage
                                               ? Colors.white70
@@ -141,10 +159,8 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                         softWrap: true,
                                         overflow: TextOverflow.ellipsis,
                                         textAlign: TextAlign.center,
-                                      )
-                                    : const SizedBox.shrink(),
-                                dauRound.roundState != RoundState.notStarted
-                                    ? Text(
+                                      ),
+                                      Text(
                                         style: TextStyle(
                                           color: !isPercentStatsPage
                                               ? Colors.white70
@@ -155,26 +171,8 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                         softWrap: true,
                                         overflow: TextOverflow.ellipsis,
                                         textAlign: TextAlign.center,
-                                      )
-                                    : Column(
-                                        children: [
-                                          KickoffCountdown(
-                                            kickoffDate: firstGameStart!,
-                                          ),
-                                          Text(
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            'Your Margins: $marginTipsSubmitted',
-                                            softWrap: false,
-                                            overflow: TextOverflow.ellipsis,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
                                       ),
-                                dauRound.roundState != RoundState.notStarted
-                                    ? Row(
+                                      Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
@@ -218,12 +216,11 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                             ),
                                           ),
                                         ],
-                                      )
-                                    : const SizedBox.shrink(),
-                              ],
-                            );
-                          },
-                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                       ),
                 SizedBox(
                   width: 86,
