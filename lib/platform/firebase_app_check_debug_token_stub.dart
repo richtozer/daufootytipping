@@ -1,1 +1,1 @@
-void setFirebaseAppCheckDebugToken(bool enabled) {}
+void setFirebaseAppCheckDebugToken(Object? token) {}
