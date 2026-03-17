@@ -45,23 +45,9 @@ class StatsViewModel extends ChangeNotifier {
   /// rather than official fixture scores.
   bool get hasLiveScoresInUse => _gamesWithLiveScores.isNotEmpty;
 
-  /// Names of games currently scored from crowd-sourced live data.
-  List<String> get liveScoreGameNames => _gamesWithLiveScores
-      .map((game) => '${game.homeTeam.name} v ${game.awayTeam.name}')
-      .toList();
-
-  /// Games with live scores and their current crowd-sourced score values.
-  List<({String home, String away, int? homeScore, int? awayScore})>
-  get liveScoreDetails => _gamesWithLiveScores
-      .map(
-        (game) => (
-          home: game.homeTeam.name,
-          away: game.awayTeam.name,
-          homeScore: game.scoring?.currentScore(ScoringTeam.home),
-          awayScore: game.scoring?.currentScore(ScoringTeam.away),
-        ),
-      )
-      .toList();
+  /// Games currently scored from crowd-sourced live data.
+  List<Game> get gamesWithLiveScores =>
+      List<Game>.unmodifiable(_gamesWithLiveScores);
 
   final _db = FirebaseDatabase.instance.ref();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
