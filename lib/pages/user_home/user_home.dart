@@ -56,7 +56,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     });
   }
 
-  List<Widget> content() => const [TipsTab(), StatsTab(), Profile()];
+  List<Widget> content() => [const TipsTab(), StatsTab(), const Profile()];
 
   int _calculateOutstandingTipsCount() {
     if (_tippersViewModel.selectedTipper.isAnonymous) {
@@ -126,21 +126,19 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     }
 
     _tipsContentReadyTrackingStarted = true;
-    unawaited(
-      () async {
-        await gamesViewModel.initialLoadComplete;
-        await tipsViewModel.initialLoadCompleted;
-        if (!mounted) {
-          return;
-        }
-        StartupProfiling.end(
-          'startup.tips_content_ready',
-          arguments: <String, Object?>{
-            'compDbKey': _dauCompsViewModel.selectedDAUComp?.dbkey ?? 'unknown',
-          },
-        );
-      }(),
-    );
+    unawaited(() async {
+      await gamesViewModel.initialLoadComplete;
+      await tipsViewModel.initialLoadCompleted;
+      if (!mounted) {
+        return;
+      }
+      StartupProfiling.end(
+        'startup.tips_content_ready',
+        arguments: <String, Object?>{
+          'compDbKey': _dauCompsViewModel.selectedDAUComp?.dbkey ?? 'unknown',
+        },
+      );
+    }());
   }
 
   @override
@@ -265,8 +263,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       child: scaffold,
                     ),
                   );
-                } else if (dauCompsViewModelConsumer.selectedDAUComp !=
-                        null &&
+                } else if (dauCompsViewModelConsumer.selectedDAUComp != null &&
                     !dauCompsViewModelConsumer.isSelectedCompActiveComp()) {
                   String compYear =
                       dauCompsViewModelConsumer.selectedDAUComp!.name;
