@@ -114,7 +114,13 @@ Future<void> main() async {
     };
   }
 
-  if (!kDebugMode) {
+  final bool useDebugAppCheck =
+      kDebugMode ||
+      (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          kProfileMode);
+
+  if (!useDebugAppCheck) {
     await FirebaseAppCheck.instance.activate(
       providerAndroid: const AndroidPlayIntegrityProvider(),
       providerApple: const AppleAppAttestProvider(),
@@ -133,7 +139,7 @@ Future<void> main() async {
           '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
         ),
       );
-      log('FirebaseAppCheck activated in debug mode');
+      log('FirebaseAppCheck activated in debug/profile mode');
     } catch (error, stackTrace) {
       if (kIsWeb) {
         log(
