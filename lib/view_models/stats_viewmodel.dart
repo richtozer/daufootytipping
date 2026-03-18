@@ -518,28 +518,41 @@ class StatsViewModel extends ChangeNotifier {
   final Map<Game, GameStatsEntry> gamesStatsEntry = {};
 
   void getGamesStatsEntry(Game game, bool forceUpdate) async {
-    //log('StatsViewModel.getGamesStatsEntry() START for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
-    // get any existing games stats entry from db first
-    gamesStatsEntry[game] = await _getGameStatsEntry(game);
-
-    // if its not null and not forcing update then return what we have
-    if (gamesStatsEntry[game]?.averageScore != null && !forceUpdate) {
-      notifyListeners();
-      //log('StatsViewModel.getGamesStatsEntry() END (use cache) for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
+    // Fast path: if we already have a cached in-memory result and aren't
+    // forcing an update, return immediately without any DB read or
+    // notifyListeners() call. This avoids triggering rebuilds of every
+    // Consumer<StatsViewModel?> when cards re-appear during scrolling.
+    final GameStatsEntry? cached = gamesStatsEntry[game];
+    if (cached != null && cached.averageScore != null && !forceUpdate) {
       return;
     }
 
-    // otherwise prep tips model to load all tips to do the calculation - note this is an expensive operation
+    // Check the database for an existing entry
+    final GameStatsEntry dbEntry = await _getGameStatsEntry(game);
+    final GameStatsEntry? previousEntry = gamesStatsEntry[game];
+    gamesStatsEntry[game] = dbEntry;
+
+    // If the DB had a valid entry and we're not forcing, notify only if the
+    // value actually changed (avoids redundant rebuilds).
+    if (dbEntry.averageScore != null && !forceUpdate) {
+      if (previousEntry != dbEntry) {
+        notifyListeners();
+      }
+      return;
+    }
+
+    // Otherwise prep tips model to load all tips to do the calculation -
+    // note this is an expensive operation.
     allTipsViewModel ??= TipsViewModel(
       di<TippersViewModel>(),
       selectedDAUComp,
       gamesViewModel!,
     );
 
-    // await for the tips model to load
+    // Await for the tips model to load
     await allTipsViewModel!.initialLoadCompleted;
 
-    // init or update the game stats entry
+    // Init or update the game stats entry
     await _updateGameResultPercentageTipped(
       game,
       allTipsViewModel!,
@@ -547,7 +560,6 @@ class StatsViewModel extends ChangeNotifier {
     );
 
     notifyListeners();
-    //log('StatsViewModel.getGamesStatsEntry() END for game ${game.dbkey} - gamesStatsEntry: ${gamesStatsEntry[game]}');
   }
 
   Future<void> _updateGameResultPercentageTipped(

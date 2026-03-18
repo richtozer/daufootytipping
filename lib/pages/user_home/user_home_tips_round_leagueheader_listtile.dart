@@ -133,18 +133,18 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                   ),
                                 ],
                               )
-                            : Consumer<StatsViewModel?>(
-                                builder: (context, statsViewModel, child) {
-                                  if (statsViewModel == null) {
+                            : Selector<StatsViewModel?, RoundStats?>(
+                                selector: (_, statsViewModel) =>
+                                    statsViewModel?.getScoringRoundStats(
+                                      dauRound,
+                                      selectedTipper,
+                                    ),
+                                builder: (context, roundStats, child) {
+                                  if (roundStats == null) {
                                     return const Center(
                                       child: CircularProgressIndicator(),
                                     );
                                   }
-                                  final RoundStats roundStats = statsViewModel
-                                      .getScoringRoundStats(
-                                        dauRound,
-                                        selectedTipper,
-                                      );
 
                                   return Column(
                                     children: [
