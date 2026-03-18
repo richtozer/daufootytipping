@@ -463,11 +463,14 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return Consumer<StatsViewModel?>(
-      builder: (context, statsViewModel, child) {
+    return Selector<StatsViewModel?, GameStatsEntry?>(
+      selector: (_, statsViewModel) =>
+          statsViewModel?.gamesStatsEntry[gameTipsViewModelConsumer.game],
+      builder: (context, gameStatsEntry, child) {
         return _PercentStatsTipChoice(
           gameTipViewModel: gameTipsViewModelConsumer,
-          statsViewModel: statsViewModel,
+          statsViewModel: context.read<StatsViewModel?>(),
+          gameStatsEntry: gameStatsEntry,
         );
       },
     );
@@ -481,10 +484,12 @@ class _PercentStatsTipChoice extends StatefulWidget {
   const _PercentStatsTipChoice({
     required this.gameTipViewModel,
     required this.statsViewModel,
+    this.gameStatsEntry,
   });
 
   final GameTipViewModel gameTipViewModel;
   final StatsViewModel? statsViewModel;
+  final GameStatsEntry? gameStatsEntry;
 
   @override
   State<_PercentStatsTipChoice> createState() => _PercentStatsTipChoiceState();
@@ -539,12 +544,10 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
 
   @override
   Widget build(BuildContext context) {
-    final GameStatsEntry? gameStatsEntry =
-        widget.statsViewModel?.gamesStatsEntry[widget.gameTipViewModel.game];
     return TipChoice(
       widget.gameTipViewModel,
       true,
-      gameStatsEntry: gameStatsEntry,
+      gameStatsEntry: widget.gameStatsEntry,
     );
   }
 }

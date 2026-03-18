@@ -1,8 +1,12 @@
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_percent_tipped.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundmissingtipsstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -37,7 +41,7 @@ class StatsTab extends StatelessWidget with WatchItMixin {
         ? watchIt<StatsViewModel>().hasLiveScoresInUse
         : false;
     final int liveScoreCount = hasLiveScores
-        ? di<StatsViewModel>().liveScoreGameNames.length
+        ? di<StatsViewModel>().gamesWithLiveScores.length
         : 0;
 
     return Column(
@@ -70,8 +74,8 @@ class StatsTab extends StatelessWidget with WatchItMixin {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Scores are interim — using live data for '
-                      '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'}.',
+                      'Stats are based on interim live scoring for '
+                      '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'}. They may not reflect the final outcome.',
                       style: TextStyle(
                         color: Colors.amber.shade900,
                         fontSize: 13,
@@ -296,23 +300,26 @@ class StatsTab extends StatelessWidget with WatchItMixin {
     );
   }
 
-  void _showLiveScoreDetails(BuildContext context) {
-    final details = di<StatsViewModel>().liveScoreDetails;
-    showDialog(
+  Future<void> _showLiveScoreDetails(BuildContext context) async {
+    final games = di<StatsViewModel>().gamesWithLiveScores;
+    final Game? selectedGame = await showDialog<Game>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Live Scores In Use'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Games using live interim scores'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ...details.map(
+            Text(
+              'If required update game scores below to reflect actual game result. Stats will be updated accordingly.',
+            ),
+            ...games.map(
               (game) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        game.home,
+                        game.homeTeam.name,
                         textAlign: TextAlign.right,
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
@@ -320,35 +327,61 @@ class StatsTab extends StatelessWidget with WatchItMixin {
                     SizedBox(
                       width: 60,
                       child: Text(
-                        '  ${game.homeScore ?? "-"} - ${game.awayScore ?? "-"}  ',
+                        '  ${game.scoring?.currentScore(ScoringTeam.home) ?? "-"}'
+                        ' - '
+                        '${game.scoring?.currentScore(ScoringTeam.away) ?? "-"}  ',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                     Expanded(
                       child: Text(
-                        game.away,
+                        game.awayTeam.name,
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Edit score',
+                      onPressed: () => Navigator.pop(dialogContext, game),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'To correct or finalise a score, tap the game on the Tips page.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('OK'),
           ),
         ],
       ),
+    );
+
+    if (selectedGame != null && context.mounted) {
+      await _openLiveScoringModal(context, selectedGame);
+      // Re-open the live scores dialog after editing, if still relevant
+      if (context.mounted && di<StatsViewModel>().hasLiveScoresInUse) {
+        await _showLiveScoreDetails(context);
+      }
+    }
+  }
+
+  Future<void> _openLiveScoringModal(BuildContext context, Game game) async {
+    final dauCompsVM = context.read<DAUCompsViewModel>();
+    final tipsVM = dauCompsVM.selectedTipperTipsViewModel;
+    if (tipsVM == null) return;
+    final tipper = di<TippersViewModel>().selectedTipper;
+    final Tip? tip = await tipsVM.findTip(game, tipper);
+    if (tip == null || !context.mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => LiveScoringModal(tip),
     );
   }
 }
