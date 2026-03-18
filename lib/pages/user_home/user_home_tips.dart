@@ -681,7 +681,7 @@ class _CompBoundaryCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       color: Colors.black38,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
         child: Row(
           children: [
             SizedBox(
@@ -707,23 +707,23 @@ class _CompBoundaryCard extends StatelessWidget {
                           title,
                           style: const TextStyle(
                             color: Colors.white70,
-                            fontSize: 17,
+                            fontSize: 16,
+                            height: 1.1,
                           ),
                           softWrap: true,
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              body!,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 15,
-                              ),
-                              softWrap: true,
-                              textAlign: TextAlign.center,
+                        const SizedBox(height: 6),
+                        Flexible(
+                          child: Text(
+                            body!,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.15,
                             ),
+                            softWrap: true,
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ],
