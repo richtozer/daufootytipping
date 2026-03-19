@@ -75,7 +75,7 @@ class StatsTab extends StatelessWidget with WatchItMixin {
                   Expanded(
                     child: Text(
                       'Stats are based on interim live scoring for '
-                      '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'}. They may not reflect the final outcome.',
+                      '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'}. Stats below may not reflect the final outcome.',
                       style: TextStyle(
                         color: Colors.amber.shade900,
                         fontSize: 13,
