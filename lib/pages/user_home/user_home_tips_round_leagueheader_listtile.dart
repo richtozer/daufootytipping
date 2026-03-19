@@ -117,7 +117,14 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                 gamesForLeague.isEmpty
                     ? const Expanded(child: SizedBox.shrink())
                     : Expanded(
-                        child: dauRound.roundState == RoundState.notStarted
+                        // Compute from live game state rather than cached
+                        // roundState, which is only set during initial linking.
+                        child: !gamesForLeague.any(
+                          (game) =>
+                              game.gameState ==
+                                  GameState.startedResultNotKnown ||
+                              game.gameState == GameState.startedResultKnown,
+                        )
                             ? Column(
                                 children: [
                                   KickoffCountdown(kickoffDate: firstGameStart!),
@@ -141,9 +148,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                     ),
                                 builder: (context, roundStats, child) {
                                   if (roundStats == null) {
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
-                                    );
+                                    return const SizedBox.shrink();
                                   }
 
                                   return Column(
