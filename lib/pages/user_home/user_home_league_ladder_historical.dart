@@ -7,6 +7,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
 class LeagueLadderHistoricalMatchups extends StatefulWidget {
@@ -64,8 +65,12 @@ class _LeagueLadderHistoricalMatchupsState
       await gamesViewModel.initialLoadComplete;
       await gamesViewModel.teamsViewModel.initialLoadComplete;
 
-      final team1 = gamesViewModel.teamsViewModel.findTeam(widget.teamDbKeys[0]);
-      final team2 = gamesViewModel.teamsViewModel.findTeam(widget.teamDbKeys[1]);
+      final team1 = gamesViewModel.teamsViewModel.findTeam(
+        widget.teamDbKeys[0],
+      );
+      final team2 = gamesViewModel.teamsViewModel.findTeam(
+        widget.teamDbKeys[1],
+      );
 
       if (team1 == null || team2 == null) {
         throw Exception('Could not find teams for comparison');
@@ -262,13 +267,83 @@ class _LeagueLadderHistoricalMatchupsState
     );
   }
 
+  Widget _buildTeamLogo(String? logoURI) {
+    if (logoURI != null && logoURI.isNotEmpty) {
+      return SvgPicture.asset(
+        logoURI,
+        width: 20,
+        height: 20,
+        placeholderBuilder: (context) =>
+            const Icon(Icons.shield, size: 20, color: Colors.grey),
+      );
+    }
+    return const Icon(Icons.shield, size: 20, color: Colors.grey);
+  }
+
+  Widget _buildWinnerCell(HistoricalMatchupUIData matchup) {
+    final game = matchup.pastGame;
+    String? winnerLogoURI;
+    if (matchup.winType == 'Home') {
+      winnerLogoURI = game.homeTeam.logoURI;
+    } else if (matchup.winType == 'Away') {
+      winnerLogoURI = game.awayTeam.logoURI;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (matchup.winType != 'Draw' && matchup.winType != 'Unknown') ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: (matchup.winType == 'Home')
+                  ? Colors.blue.withValues(alpha: 0.1)
+                  : Colors.purple.withValues(alpha: 0.1),
+              border: Border.all(
+                color: (matchup.winType == 'Home')
+                    ? Colors.blue.withValues(alpha: 0.3)
+                    : Colors.purple.withValues(alpha: 0.3),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              matchup.winType == 'Home' ? 'Home' : 'Away',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: (matchup.winType == 'Home')
+                    ? Colors.blue[700]
+                    : Colors.purple[700],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          _buildTeamLogo(winnerLogoURI),
+          const SizedBox(width: 6),
+        ],
+        Flexible(
+          child: Text(
+            matchup.winningTeamName,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: matchup.winType == 'Draw'
+                  ? FontWeight.normal
+                  : FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Orientation orientation = MediaQuery.of(context).orientation;
 
     return Column(
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
@@ -277,23 +352,27 @@ class _LeagueLadderHistoricalMatchupsState
               const Divider(thickness: 1, height: 16),
               Row(
                 children: [
-                  Icon(Icons.history, size: 24, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Historical Matchups',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  const Padding(
+                    padding: EdgeInsets.all(5.0),
+                    child: Icon(Icons.history, size: 40),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(5.0),
+                    child: Text(
+                      'Historical Matchups',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
               ),
               if (orientation == Orientation.portrait)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    'Recent Head-to-head history between these teams. Includes your tipping history (where available).',
+                    'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
@@ -344,12 +423,12 @@ class _LeagueLadderHistoricalMatchupsState
                       width: 1.0,
                       color: Colors.grey.shade300,
                     ),
-                    columnSpacing: 0,
-                    horizontalMargin: 0,
-                    minWidth: 600,
+                    columnSpacing: 8,
+                    horizontalMargin: 8,
                     fixedTopRows: 1,
-                    fixedLeftColumns:
-                        orientation == Orientation.portrait ? 1 : 0,
+                    fixedLeftColumns: orientation == Orientation.portrait
+                        ? 1
+                        : 0,
                     showCheckboxColumn: false,
                     isHorizontalScrollBarVisible: true,
                     isVerticalScrollBarVisible: true,
@@ -359,23 +438,35 @@ class _LeagueLadderHistoricalMatchupsState
                     headingRowHeight: 40.0,
                     columns: [
                       DataColumn2(
-                        fixedWidth: 80,
-                        label: const Text('Date'),
+                        fixedWidth: 75,
+                        label: const Text(
+                          'Date',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         onSort: _onHistoricalSort,
                       ),
                       DataColumn2(
-                        fixedWidth: 100,
-                        label: const Text('Your Tip'),
+                        fixedWidth: 110,
+                        label: const Text(
+                          'Your Tip',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         onSort: _onHistoricalSort,
                       ),
                       DataColumn2(
-                        fixedWidth: 120,
-                        label: const Text('Winner'),
+                        size: ColumnSize.L,
+                        label: const Text(
+                          'Winner',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         onSort: _onHistoricalSort,
                       ),
                       DataColumn2(
-                        fixedWidth: 100,
-                        label: const Text('Score'),
+                        fixedWidth: 70,
+                        label: const Text(
+                          'Score',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         onSort: _onHistoricalSort,
                       ),
                     ],
@@ -396,61 +487,7 @@ class _LeagueLadderHistoricalMatchupsState
                             ),
                           ),
                           DataCell(_buildTipOutcomeCell(matchup)),
-                          DataCell(
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (matchup.winType != 'Draw' &&
-                                    matchup.winType != 'Unknown')
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: (matchup.winType == 'Home')
-                                          ? Colors.blue.withValues(alpha: 0.1)
-                                          : Colors.purple.withValues(alpha: 0.1),
-                                      border: Border.all(
-                                        color: (matchup.winType == 'Home')
-                                            ? Colors.blue.withValues(alpha: 0.3)
-                                            : Colors.purple.withValues(
-                                                alpha: 0.3,
-                                              ),
-                                        width: 1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: Text(
-                                      matchup.winType == 'Home'
-                                          ? 'Home'
-                                          : 'Away',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                        color: (matchup.winType == 'Home')
-                                            ? Colors.blue[700]
-                                            : Colors.purple[700],
-                                      ),
-                                    ),
-                                  ),
-                                if (matchup.winType != 'Draw' &&
-                                    matchup.winType != 'Unknown')
-                                  const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    matchup.winningTeamName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: matchup.winType == 'Draw'
-                                          ? FontWeight.normal
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          DataCell(_buildWinnerCell(matchup)),
                           DataCell(
                             Text(
                               '$homeScore - $awayScore',
@@ -465,7 +502,7 @@ class _LeagueLadderHistoricalMatchupsState
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
       ],
     );
   }
