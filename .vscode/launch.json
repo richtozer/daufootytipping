@@ -68,6 +68,19 @@
       ]
     },
     {
+      "name": "Flutter Web (Chrome) + Firebase emulators (App Check debug token)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "deviceId": "chrome",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=USE_FIREBASE_EMULATORS=true",
+        "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=6552DC29-2936-48F7-B0B3-3A7B126CD168"
+      ]
+    },
+    {
       "name": "Flutter iPhone 16 Pro + Startup Profiling",
       "type": "dart",
       "request": "launch",
