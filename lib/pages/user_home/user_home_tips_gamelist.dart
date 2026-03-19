@@ -92,6 +92,88 @@ List<TipsLeagueSection> buildTipsLeagueSections({
   return sections;
 }
 
+/// Returns the section index for the round the tips page should initially
+/// scroll to. Uses the latest round with games completed or underway.
+int targetStartupSectionIndex(
+  DAUComp selectedComp,
+  List<TipsLeagueSection> sections,
+) {
+  if (sections.isEmpty) {
+    return 0;
+  }
+
+  final activeRoundNumber = selectedComp
+      .latestRoundWithGamesCompletedOrUnderway();
+  // Round numbers are 1-based; section roundIndex is 0-based.
+  // When no round is active (0), clamp keeps it at index 0.
+  final targetRoundIndex = (activeRoundNumber > 0
+      ? activeRoundNumber - 1
+      : 0)
+      .clamp(0, selectedComp.daurounds.length - 1);
+  final targetSectionIndex = sections.indexWhere(
+    (section) =>
+        section.roundIndex == targetRoundIndex &&
+        section.league == League.nrl,
+  );
+  return targetSectionIndex == -1 ? 0 : targetSectionIndex;
+}
+
+/// Callback type for finding the first untipped game index within a game list.
+typedef FirstUntippedGameIndexFn = int Function(List<Game> games);
+
+/// Returns an additional scroll offset within the target round to position
+/// at the first untipped game, or the first live game
+/// ([GameState.startedResultNotKnown]) if all games are tipped.
+/// Returns 0 if neither condition applies.
+double intraRoundScrollRefinement({
+  required DAUComp selectedComp,
+  required List<TipsLeagueSection> sections,
+  required int targetSectionIndex,
+  required FirstUntippedGameIndexFn firstUntippedGameIndex,
+}) {
+  final section = sections[targetSectionIndex];
+  final dauRound = selectedComp.daurounds[section.roundIndex];
+  final nrlGames = dauRound.getGamesForLeague(League.nrl);
+  final aflGames = dauRound.getGamesForLeague(League.afl);
+
+  // Find the AFL section for this round (immediately follows the NRL section).
+  final aflSectionIndex = sections.indexWhere(
+    (s) => s.roundIndex == section.roundIndex && s.league == League.afl,
+  );
+
+  // First pass: find first untipped game across NRL then AFL.
+  final nrlUntippedIndex = firstUntippedGameIndex(nrlGames);
+  if (nrlUntippedIndex >= 0) {
+    return nrlUntippedIndex * Game.gameCardHeight;
+  }
+
+  final aflUntippedIndex = firstUntippedGameIndex(aflGames);
+  if (aflUntippedIndex >= 0 && aflSectionIndex >= 0) {
+    final aflSection = sections[aflSectionIndex];
+    return section.bodyExtent +
+        aflSection.headerExtent +
+        aflUntippedIndex * Game.gameCardHeight;
+  }
+
+  // Second pass: find first live game across NRL then AFL.
+  final allGames = [...nrlGames, ...aflGames];
+  for (var i = 0; i < allGames.length; i++) {
+    if (allGames[i].gameState == GameState.startedResultNotKnown) {
+      if (i < nrlGames.length) {
+        return i * Game.gameCardHeight;
+      }
+      if (aflSectionIndex >= 0) {
+        final aflSection = sections[aflSectionIndex];
+        return section.bodyExtent +
+            aflSection.headerExtent +
+            (i - nrlGames.length) * Game.gameCardHeight;
+      }
+    }
+  }
+
+  return 0;
+}
+
 int activeTipsLeagueSectionIndex({
   required List<TipsLeagueSection> sections,
   required double scrollOffset,

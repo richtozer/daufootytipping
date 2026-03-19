@@ -1,6 +1,5 @@
 import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -102,8 +101,11 @@ class TipsTabState extends State<TipsTab> {
     }
 
     final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
+    final tipsLoaded =
+        daucompsViewModel.selectedTipperTipsViewModel?.isInitialLoadComplete ??
+        false;
     final nextScrollSignature =
-        '${selectedComp.dbkey}:$latestRoundNumber:${_buildItemExtentCacheKey(selectedComp)}';
+        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:${_buildItemExtentCacheKey(selectedComp)}';
     if (_lastScrollSignature != nextScrollSignature) {
       _lastScrollSignature = nextScrollSignature;
       _startupScrollSettled = false;
@@ -222,22 +224,7 @@ class TipsTabState extends State<TipsTab> {
     DAUComp selectedComp,
     List<TipsLeagueSection> sections,
   ) {
-    if (sections.isEmpty) {
-      return 0;
-    }
-
-    final latestCompletedRoundNumber = selectedComp
-        .latestsCompletedRoundNumber();
-    final targetRoundIndex = latestCompletedRoundNumber.clamp(
-      0,
-      selectedComp.daurounds.length - 1,
-    );
-    final targetSectionIndex = sections.indexWhere(
-      (section) =>
-          section.roundIndex == targetRoundIndex &&
-          section.league == League.nrl,
-    );
-    return targetSectionIndex == -1 ? 0 : targetSectionIndex;
+    return targetStartupSectionIndex(selectedComp, sections);
   }
 
   double _startupScrollOffset({
@@ -256,9 +243,6 @@ class TipsTabState extends State<TipsTab> {
         : (offset - _topSafeInset).clamp(0.0, double.infinity);
   }
 
-  /// Returns an additional scroll offset within the target round to position
-  /// at the first untipped game, or the first [GameState.startedResultNotKnown]
-  /// game if all games are tipped. Returns 0 if neither condition applies.
   double _intraRoundScrollRefinement({
     required DAUComp selectedComp,
     required List<TipsLeagueSection> sections,
@@ -270,53 +254,13 @@ class TipsTabState extends State<TipsTab> {
     }
 
     final tipper = di<TippersViewModel>().selectedTipper;
-    final section = sections[targetSectionIndex];
-    final dauRound = selectedComp.daurounds[section.roundIndex];
-    final nrlGames = dauRound.getGamesForLeague(League.nrl);
-    final aflGames = dauRound.getGamesForLeague(League.afl);
-
-    // Find the AFL section for this round (immediately follows the NRL section).
-    final aflSectionIndex = sections.indexWhere(
-      (s) => s.roundIndex == section.roundIndex && s.league == League.afl,
+    return intraRoundScrollRefinement(
+      selectedComp: selectedComp,
+      sections: sections,
+      targetSectionIndex: targetSectionIndex,
+      firstUntippedGameIndex: (games) =>
+          tipsViewModel.firstUntippedGameIndex(games, tipper),
     );
-
-    // First pass: find first untipped game across NRL then AFL.
-    final nrlUntippedIndex = tipsViewModel.firstUntippedGameIndex(
-      nrlGames,
-      tipper,
-    );
-    if (nrlUntippedIndex >= 0) {
-      return nrlUntippedIndex * Game.gameCardHeight;
-    }
-
-    final aflUntippedIndex = tipsViewModel.firstUntippedGameIndex(
-      aflGames,
-      tipper,
-    );
-    if (aflUntippedIndex >= 0 && aflSectionIndex >= 0) {
-      final aflSection = sections[aflSectionIndex];
-      return section.bodyExtent +
-          aflSection.headerExtent +
-          aflUntippedIndex * Game.gameCardHeight;
-    }
-
-    // Second pass: find first startedResultNotKnown game.
-    final allGames = [...nrlGames, ...aflGames];
-    for (var i = 0; i < allGames.length; i++) {
-      if (allGames[i].gameState == GameState.startedResultNotKnown) {
-        if (i < nrlGames.length) {
-          return i * Game.gameCardHeight;
-        }
-        if (aflSectionIndex >= 0) {
-          final aflSection = sections[aflSectionIndex];
-          return section.bodyExtent +
-              aflSection.headerExtent +
-              (i - nrlGames.length) * Game.gameCardHeight;
-        }
-      }
-    }
-
-    return 0;
   }
 
   double _endFooterStartupOffset(List<TipsLeagueSection> sections) {

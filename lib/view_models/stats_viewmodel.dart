@@ -1221,11 +1221,18 @@ class StatsViewModel extends ChangeNotifier {
   /// ensuring getGameResultCalculated() never loses its score source.
   Future<void> _deleteStaleLiveScores() async {
     List<Game> gamesToDelete = [];
+    final gamesVM = gamesViewModel;
+    if (gamesVM == null) return;
     for (var game in _gamesWithLiveScores) {
+      // Look up the current game from GamesViewModel to get the latest
+      // fixture scores — the Game objects in _gamesWithLiveScores are
+      // snapshots from when the live scores listener fired and won't
+      // have fixture scores that arrived later.
+      final currentGame = await gamesVM.findGame(game.dbkey);
       final hasFixtureScores =
-          game.scoring != null &&
-          game.scoring!.homeTeamScore != null &&
-          game.scoring!.awayTeamScore != null;
+          currentGame?.scoring != null &&
+          currentGame!.scoring!.homeTeamScore != null &&
+          currentGame.scoring!.awayTeamScore != null;
       if (hasFixtureScores) {
         gamesToDelete.add(game);
       }

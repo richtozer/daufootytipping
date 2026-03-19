@@ -1,3 +1,4 @@
+import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
@@ -25,57 +26,21 @@ class TeamGamesHistoryPage extends StatefulWidget {
 class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   bool _isLoading = true;
   List<TeamGameHistoryItem> _gameHistory = [];
-  Map<String, List<TeamGameHistoryItem>> _groupedGames = {};
-  List<String> _sortedYears = [];
   String? _error;
-  final ScrollController _scrollController = ScrollController();
-  String _currentYear = '';
-  final Map<String, double> _yearPositions = {};
+  int? _sortColumnIndex;
+  bool _sortAscending = false;
 
   @override
   void initState() {
     super.initState();
     _fetchGameHistory();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_yearPositions.isEmpty) return;
-
-    final scrollOffset = _scrollController.offset;
-    String newYear = _currentYear;
-
-    // Add offset to switch earlier - when we're about 1 card height before the next section
-    const double switchOffset = 88.0; // ~1 card height (80px) + spacing (8px)
-
-    // Find which year section we're currently in
-    for (final entry in _yearPositions.entries.toList().reversed) {
-      if (scrollOffset >= (entry.value - switchOffset)) {
-        newYear = entry.key;
-        break;
-      }
-    }
-
-    if (newYear != _currentYear && mounted) {
-      setState(() {
-        _currentYear = newYear;
-      });
-    }
   }
 
   Future<void> _fetchGameHistory() async {
-    // Ensure widget is still mounted before calling setState
     if (!mounted) return;
     setState(() {
       _isLoading = true;
-      _error = null; // Clear previous errors
+      _error = null;
     });
 
     try {
@@ -84,242 +49,57 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         widget.team,
         widget.league,
       );
-      final groupedGames = _groupGamesByYear(history);
-      final sortedYears = groupedGames.keys.toList()
-        ..sort((a, b) => b.compareTo(a));
-      final currentYear =
-          history.isNotEmpty ? history.first.gameDate.year.toString() : '';
-      final yearPositions = _calculateYearPositions(groupedGames, sortedYears);
       if (mounted) {
         setState(() {
           _gameHistory = history;
-          _groupedGames = groupedGames;
-          _sortedYears = sortedYears;
-          _yearPositions
-            ..clear()
-            ..addAll(yearPositions);
           _isLoading = false;
-          _currentYear = currentYear;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _error = e.toString();
-          _groupedGames = {};
-          _sortedYears = [];
-          _yearPositions.clear();
-          _currentYear = '';
           _isLoading = false;
         });
       }
     }
   }
 
-  Map<String, List<TeamGameHistoryItem>> _groupGamesByYear(
-    List<TeamGameHistoryItem> history,
-  ) {
-    final Map<String, List<TeamGameHistoryItem>> groupedGames = {};
+  void _onSort(int columnIndex, bool ascending) {
+    if (_gameHistory.isEmpty) return;
 
-    for (final item in history) {
-      final year = item.gameDate.year.toString();
-      if (!groupedGames.containsKey(year)) {
-        groupedGames[year] = [];
-      }
-      groupedGames[year]!.add(item);
-    }
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
 
-    return groupedGames;
+      _gameHistory.sort((a, b) {
+        int compareResult = 0;
+        switch (columnIndex) {
+          case 0: // Date
+            compareResult = a.gameDate.compareTo(b.gameDate);
+            break;
+          case 1: // Result
+            compareResult = a.result.compareTo(b.result);
+            break;
+          case 2: // Opponent
+            compareResult = a.opponentName.compareTo(b.opponentName);
+            break;
+          case 3: // Score
+            final aTotal = a.teamScore + a.opponentScore;
+            final bTotal = b.teamScore + b.opponentScore;
+            compareResult = aTotal.compareTo(bTotal);
+            break;
+          case 4: // Round
+            compareResult = a.roundNumber.compareTo(b.roundNumber);
+            break;
+        }
+        return ascending ? compareResult : -compareResult;
+      });
+    });
   }
 
-  Map<String, double> _calculateYearPositions(
-    Map<String, List<TeamGameHistoryItem>> groupedGames,
-    List<String> sortedYears,
-  ) {
-    final Map<String, double> yearPositions = {};
-    double currentPosition = 0.0;
-    const double gameCardHeight = 80.0; // Approximate game card height
-    const double spacing = 8.0; // Spacing between cards
-    const double sectionSpacing = 40.0; // Spacing between year sections
-    const double headerHeight =
-        60.0; // Year header height (only for non-first years)
-    const double firstYearSpacing = 12.0; // Top spacing for first year
-
-    for (int index = 0; index < sortedYears.length; index++) {
-      final year = sortedYears[index];
-      final isFirstYear = index == 0;
-
-      yearPositions[year] = currentPosition;
-      final gameCount = groupedGames[year]!.length;
-
-      if (isFirstYear) {
-        // First year: just top spacing + games
-        currentPosition +=
-            firstYearSpacing +
-            (gameCount * (gameCardHeight + spacing)) +
-            sectionSpacing;
-      } else {
-        // Subsequent years: header + games
-        currentPosition +=
-            headerHeight +
-            (gameCount * (gameCardHeight + spacing)) +
-            sectionSpacing;
-      }
-    }
-
-    return yearPositions;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final orientation = MediaQuery.of(context).orientation;
-
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pop(context),
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
-        child: const Icon(Icons.arrow_back),
-      ),
-      body: Column(
-        children: [
-          if (orientation == Orientation.portrait)
-            HeaderWidget(
-              text: '${widget.team.name} - Game History',
-              leadingIconAvatar: Hero(
-                tag: "team_icon_${widget.team.dbkey}",
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child:
-                      widget.team.logoURI != null &&
-                          widget.team.logoURI!.isNotEmpty
-                      ? SvgPicture.asset(
-                          widget.team.logoURI!,
-                          placeholderBuilder: (context) =>
-                              const Icon(Icons.shield),
-                        )
-                      : const Icon(Icons.shield),
-                ),
-              ),
-            ),
-          if (orientation == Orientation.portrait)
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'This is the matchup history for the ${widget.team.name} across recent years.  ',
-                textAlign: TextAlign.left,
-              ),
-            ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(child: Text('Error: $_error'))
-                : _gameHistory.isEmpty && !_isLoading
-                ? const Center(
-                    child: Text('No game history available for this team.'),
-                  )
-                : Stack(
-                    children: [
-                      SingleChildScrollView(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.only(
-                          top: 60.0,
-                          left: 16.0,
-                          right: 16.0,
-                          bottom: 16.0,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: _buildYearSections(
-                            _groupedGames,
-                            _sortedYears,
-                          ),
-                        ),
-                      ),
-                      // Sticky header
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          margin: const EdgeInsets.all(8.0),
-                          child: Card(
-                            color: Colors.black54,
-                            surfaceTintColor: widget.league.colour,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8.0),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10.0),
-                              child: Center(
-                                child: Text(
-                                  _currentYear,
-                                  style: Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white70,
-                                      ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildYearSections(
-    Map<String, List<TeamGameHistoryItem>> groupedGames,
-    List<String> sortedYears,
-  ) {
-    List<Widget> sections = [];
-
-    for (int yearIndex = 0; yearIndex < sortedYears.length; yearIndex++) {
-      final year = sortedYears[yearIndex];
-      final games = groupedGames[year]!;
-      final isFirstYear = yearIndex == 0;
-
-      // Year header - only show for years after the first one (since sticky header shows current year)
-      if (!isFirstYear) {
-        sections.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 24.0, bottom: 12.0),
-            child: Text(
-              year,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-        );
-      } else {
-        // Just add some top spacing for the first year
-        sections.add(const SizedBox(height: 12.0));
-      }
-
-      // Games for this year
-      for (TeamGameHistoryItem game in games) {
-        sections.add(_buildGameCard(game));
-        sections.add(const SizedBox(height: 8.0));
-      }
-
-      // Spacing between years
-      sections.add(const SizedBox(height: 16.0));
-    }
-
-    return sections;
-  }
-
-  Widget _buildGameCard(TeamGameHistoryItem game) {
-    Color? resultColor;
+  Widget _buildResultCell(TeamGameHistoryItem game) {
+    Color resultColor;
     IconData resultIcon;
 
     switch (game.result) {
@@ -340,116 +120,66 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         resultIcon = Icons.help;
     }
 
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          children: [
-            // 1. Result icon and label (Lost/Won/Draw)
-            Column(
-              children: [
-                Icon(resultIcon, color: resultColor, size: 24),
-                const SizedBox(height: 2),
-                Text(
-                  game.result,
-                  style: TextStyle(
-                    color: resultColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(resultIcon, color: resultColor, size: 14),
+        const SizedBox(width: 4),
+        Text(
+          game.result,
+          style: TextStyle(color: resultColor, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
 
-            // 2. Opponent name (v Team B)
-            Expanded(
-              flex: 2,
-              child: Text(
-                'v. ${game.opponentName}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
+  Widget _buildOpponentCell(TeamGameHistoryItem game) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (game.opponentLogoUri != null && game.opponentLogoUri!.isNotEmpty)
+          SvgPicture.asset(
+            game.opponentLogoUri!,
+            width: 20,
+            height: 20,
+            placeholderBuilder: (context) =>
+                const Icon(Icons.shield, size: 20, color: Colors.grey),
+          )
+        else
+          const Icon(Icons.shield, size: 20, color: Colors.grey),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            game.opponentName,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
+    );
+  }
 
-            // 3. Opponent logo
-            if (game.opponentLogoUri != null &&
-                game.opponentLogoUri!.isNotEmpty)
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: SvgPicture.asset(
-                  game.opponentLogoUri!,
-                  placeholderBuilder: (context) =>
-                      Icon(Icons.shield, size: 20, color: Colors.grey[400]),
-                ),
-              )
-            else
-              Icon(Icons.shield, size: 20, color: Colors.grey[400]),
-            const SizedBox(width: 12),
-
-            // 4. Game score (removed pts underneath)
-            Text(
-              '${game.teamScore} - ${game.opponentScore}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // 5. Round and Home/Away info
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  'Round ${game.roundNumber}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: game.isHomeGame
-                        ? Colors.blue.withValues(alpha: 0.1)
-                        : Colors.purple.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: game.isHomeGame
-                          ? Colors.blue.withValues(alpha: 0.3)
-                          : Colors.purple.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    game.isHomeGame ? 'Home' : 'Away',
-                    style: TextStyle(
-                      color: game.isHomeGame
-                          ? Colors.blue[700]
-                          : Colors.purple[700],
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-
-            // 6. Date
-            Text(
-              _formatDate(game.gameDate),
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
+  Widget _buildHomeAwayBadge(TeamGameHistoryItem game) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: game.isHomeGame
+            ? Colors.blue.withValues(alpha: 0.1)
+            : Colors.purple.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: game.isHomeGame
+              ? Colors.blue.withValues(alpha: 0.3)
+              : Colors.purple.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        game.isHomeGame ? 'Home' : 'Away',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: game.isHomeGame ? Colors.blue[700] : Colors.purple[700],
         ),
       ),
     );
@@ -471,9 +201,161 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
       'Dec',
     ];
 
-    String day = date.day.toString().padLeft(2, '0');
-    String month = monthNames[date.month - 1];
+    final isCurrentYear = date.year == DateTime.now().year;
+    final day = date.day.toString().padLeft(2, '0');
+    final month = monthNames[date.month - 1];
 
-    return '$day-$month';
+    if (isCurrentYear) {
+      return '$day $month';
+    }
+    return '$day $month ${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pop(context),
+        backgroundColor: Colors.lightGreen[200],
+        foregroundColor: Colors.white70,
+        child: const Icon(Icons.arrow_back),
+      ),
+      body: Column(
+        children: [
+          if (orientation == Orientation.portrait)
+            HeaderWidget(
+              text: '${widget.team.name} - Game History',
+              leadingIconAvatar: Hero(
+                tag: 'team_icon_${widget.team.dbkey}',
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child:
+                      widget.team.logoURI != null &&
+                          widget.team.logoURI!.isNotEmpty
+                      ? SvgPicture.asset(
+                          widget.team.logoURI!,
+                          placeholderBuilder: (context) =>
+                              const Icon(Icons.shield),
+                        )
+                      : const Icon(Icons.shield),
+                ),
+              ),
+            ),
+          if (orientation == Orientation.portrait)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+            ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(child: Text('Error: $_error'))
+                : _gameHistory.isEmpty
+                ? const Center(
+                    child: Text('No game history available for this team.'),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(5.0),
+                    child: DataTable2(
+                      border: TableBorder.all(
+                        width: 1.0,
+                        color: Colors.grey.shade300,
+                      ),
+                      columnSpacing: 0,
+                      horizontalMargin: 0,
+                      minWidth: 520,
+                      fixedTopRows: 1,
+                      fixedLeftColumns: orientation == Orientation.portrait
+                          ? 1
+                          : 0,
+                      showCheckboxColumn: false,
+                      isHorizontalScrollBarVisible: true,
+                      isVerticalScrollBarVisible: true,
+                      sortColumnIndex: _sortColumnIndex,
+                      sortAscending: _sortAscending,
+                      dataRowHeight: 48.0,
+                      headingRowHeight: 40.0,
+                      columns: [
+                        DataColumn2(
+                          fixedWidth: 90,
+                          label: const Text(
+                            'Date',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onSort: _onSort,
+                        ),
+                        DataColumn2(
+                          fixedWidth: 80,
+                          label: const Text(
+                            'Result',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onSort: _onSort,
+                        ),
+                        DataColumn2(
+                          size: ColumnSize.L,
+                          label: const Text(
+                            'Opponent',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onSort: _onSort,
+                        ),
+                        DataColumn2(
+                          fixedWidth: 80,
+                          label: const Text(
+                            'Score',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onSort: _onSort,
+                        ),
+                        DataColumn2(
+                          fixedWidth: 100,
+                          label: const Text(
+                            'Round',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onSort: _onSort,
+                        ),
+                      ],
+                      rows: _gameHistory.map((game) {
+                        return DataRow2(
+                          cells: [
+                            DataCell(Text(_formatDate(game.gameDate))),
+                            DataCell(_buildResultCell(game)),
+                            DataCell(_buildOpponentCell(game)),
+                            DataCell(
+                              Text(
+                                '${game.teamScore} - ${game.opponentScore}',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildHomeAwayBadge(game),
+                                  const SizedBox(width: 6),
+                                  Text('R${game.roundNumber}'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
