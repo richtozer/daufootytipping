@@ -5,6 +5,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:flutter/material.dart';
 
@@ -90,6 +91,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       'This is a list of round winner(s), grouped by round. Tap on a row to see the full round leaderboard.',
                     ),
                   ),
+                  LiveScoresWarningCard(),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(10.0),

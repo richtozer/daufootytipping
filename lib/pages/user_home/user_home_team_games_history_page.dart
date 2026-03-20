@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'user_home_header.dart';
 
 class TeamGamesHistoryPage extends StatefulWidget {
@@ -254,6 +255,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
             ),
+          LiveScoresWarningCard(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())

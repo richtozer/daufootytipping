@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -186,6 +187,7 @@ class _StatRoundGameScoresForTipperState
                 : Text(
                     'Round ${widget.roundNumberToDisplay} games${widget.statsTipper.name}\n',
                   ),
+            LiveScoresWarningCard(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),

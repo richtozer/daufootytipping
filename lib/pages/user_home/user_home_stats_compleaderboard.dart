@@ -6,6 +6,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -174,6 +175,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                     ),
                   )
                 : Container(), // Return an empty container in landscape mode
+            LiveScoresWarningCard(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),

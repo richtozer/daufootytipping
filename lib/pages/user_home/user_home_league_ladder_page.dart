@@ -3,6 +3,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -354,6 +355,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                     ),
                   )
                 : Container(),
+            LiveScoresWarningCard(),
 
             // The existing body content (DataTable section) - allow natural height
             _isLoading
