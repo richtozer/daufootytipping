@@ -1,5 +1,4 @@
 import 'dart:developer';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -183,27 +182,48 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                   },
                   child: const Icon(Icons.arrow_back),
                 ),
-                body: Column(
-                  mainAxisSize: MainAxisSize.min,
+                body: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                   children: [
-                    orientation == Orientation.portrait
-                        ? const HeaderWidget(
-                            text: 'Percentage Tipped',
-                            leadingIconAvatar: Hero(
-                              tag: 'percentage',
-                              child: Icon(Icons.percent, size: 40),
+                    if (orientation == Orientation.portrait)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Percentage Tipped',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Hero(
+                                  tag: 'percentage',
+                                  child: Icon(Icons.percent, size: 50),
+                                ),
+                              ],
                             ),
-                          )
-                        : Container(),
-                    orientation == Orientation.portrait
-                        ? Padding(
-                            padding: const EdgeInsets.all(5.0),
-                            child: Text(
-                              'This is a breakdown of how people tipped previous games. Each % represents the number of people who tipped this outcome. Legend: 🟩 = Your tip, 🏆 = Game result.',
-                              style: const TextStyle(fontSize: 14),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'Breakdown of how people tipped each game. Legend: 🟩 = Your tip, 🏆 = Game result.',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: Colors.grey[600]),
+                              ),
                             ),
-                          )
-                        : Container(), //
+                          ],
+                        ),
+                      ),
                     Expanded(
                       child: CustomScrollView(
                         controller: scrollController,
@@ -223,7 +243,8 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                         ],
                       ),
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },

@@ -5,7 +5,6 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
 import 'package:flutter/material.dart';
@@ -154,27 +153,49 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         },
         child: const Icon(Icons.arrow_back),
       ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
-            orientation == Orientation.portrait
-                ? const HeaderWidget(
-                    text: 'C o m p   L e a d e r b o a r d',
-                    leadingIconAvatar: Hero(
-                      tag: 'trophy',
-                      child: Icon(Icons.emoji_events, size: 40),
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Comp Leaderboard',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Hero(
+                          tag: 'trophy',
+                          child: Icon(Icons.emoji_events, size: 50),
+                        ),
+                      ],
                     ),
-                  )
-                : Container(),
-            orientation == Orientation.portrait
-                ? Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a Tipper row below to see the breakdown of their round scores. Tap column headings to sort.',
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round scores. Tap column headings to sort.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
                     ),
-                  )
-                : Container(), // Return an empty container in landscape mode
+                  ],
+                ),
+              ),
             LiveScoresWarningCard(),
             Expanded(
               child: Padding(
@@ -268,7 +289,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

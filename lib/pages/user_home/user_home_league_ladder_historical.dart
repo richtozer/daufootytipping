@@ -343,34 +343,29 @@ class _LeagueLadderHistoricalMatchupsState
 
     return Column(
       children: [
-        const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Divider(thickness: 1, height: 16),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.all(5.0),
-                    child: Icon(Icons.history, size: 40),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(5.0),
+                  Expanded(
                     child: Text(
                       'Historical Matchups',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.history, size: 50),
                 ],
               ),
               if (orientation == Orientation.portrait)
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.only(top: 8.0),
                   child: Text(
                     'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
                     style: Theme.of(

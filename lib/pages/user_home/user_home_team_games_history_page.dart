@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
-import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
-import 'user_home_header.dart';
 
 class TeamGamesHistoryPage extends StatefulWidget {
   final Team team;
@@ -223,39 +221,58 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         foregroundColor: Colors.white70,
         child: const Icon(Icons.arrow_back),
       ),
-      body: Column(
-        children: [
-          if (orientation == Orientation.portrait)
-            HeaderWidget(
-              text: '${widget.team.name} - Game History',
-              leadingIconAvatar: Hero(
-                tag: 'team_icon_${widget.team.dbkey}',
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child:
-                      widget.team.logoURI != null &&
-                          widget.team.logoURI!.isNotEmpty
-                      ? SvgPicture.asset(
-                          widget.team.logoURI!,
-                          placeholderBuilder: (context) =>
-                              const Icon(Icons.shield),
-                        )
-                      : const Icon(Icons.shield),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${widget.team.name} - Game History',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Hero(
+                          tag: 'team_icon_${widget.team.dbkey}',
+                          child: SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: widget.team.logoURI != null &&
+                                    widget.team.logoURI!.isNotEmpty
+                                ? SvgPicture.asset(
+                                    widget.team.logoURI!,
+                                    placeholderBuilder: (context) =>
+                                        const Icon(Icons.shield),
+                                  )
+                                : const Icon(Icons.shield),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          if (orientation == Orientation.portrait)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-            ),
-          LiveScoresWarningCard(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -356,7 +373,8 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                     ),
                   ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:flutter/material.dart';
@@ -171,24 +170,61 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         },
         child: const Icon(Icons.arrow_back),
       ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
-            orientation == Orientation.portrait
-                ? HeaderWidget(
-                    text: 'Round scores\n${widget.statsTipper.name}',
-                    leadingIconAvatar: avatarPic(widget.statsTipper),
-                  )
-                : Text('Round scores\n${widget.statsTipper.name}'),
-            orientation == Orientation.portrait
-                ? Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Tap a row to see ${widget.statsTipper.name}\'s tips for that round.',
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Round Scores',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  widget.statsTipper.name,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(color: Colors.grey[700]),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        avatarPic(widget.statsTipper),
+                      ],
                     ),
-                  )
-                : Container(),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Tap a row to see ${widget.statsTipper.name}\'s tips for that round.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             LiveScoresWarningCard(),
             Expanded(
               child: Padding(
@@ -216,7 +252,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
