@@ -78,10 +78,20 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     Color color,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final fabBackgroundColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
+    final fabForegroundColor =
+        isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+      floatingActionButton: FloatingActionButton.small(
+        backgroundColor: fabBackgroundColor,
+        foregroundColor: fabForegroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         onPressed: () {
           Navigator.pop(context);
         },
@@ -101,6 +111,11 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        const Hero(
+                          tag: 'magnifyingGlass',
+                          child: Icon(Icons.search, size: 50),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             name,
@@ -109,11 +124,6 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                                 .titleLarge
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Hero(
-                          tag: 'magnifyingGlass',
-                          child: Icon(Icons.search, size: 50),
                         ),
                       ],
                     ),
