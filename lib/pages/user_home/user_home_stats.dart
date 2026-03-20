@@ -326,9 +326,9 @@ class StatsTab extends StatelessWidget with WatchItMixin {
                       Expanded(
                         child: Text(
                           '${game.homeTeam.name}  '
-                          '${game.scoring?.currentScore(ScoringTeam.home) ?? "-"}'
+                          '${game.scoring?.currentScore(ScoringTeam.home) ?? 0}'
                           ' - '
-                          '${game.scoring?.currentScore(ScoringTeam.away) ?? "-"}'
+                          '${game.scoring?.currentScore(ScoringTeam.away) ?? 0}'
                           '  ${game.awayTeam.name}',
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
