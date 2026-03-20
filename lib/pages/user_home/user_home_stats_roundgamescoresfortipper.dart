@@ -4,13 +4,13 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -170,22 +170,50 @@ class _StatRoundGameScoresForTipperState
         },
         child: const Icon(Icons.arrow_back),
       ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            orientation == Orientation.portrait
-                ? HeaderWidget(
-                    text:
-                        'Round ${widget.roundNumberToDisplay} games\n${widget.statsTipper.name}',
-                    leadingIconAvatar: avatarPic(
-                      widget.statsTipper,
-                      widget.roundNumberToDisplay,
-                    ),
-                  )
-                : Text(
-                    'Round ${widget.roundNumberToDisplay} games${widget.statsTipper.name}\n',
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (orientation == Orientation.portrait)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Round ${widget.roundNumberToDisplay} Games',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                widget.statsTipper.name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(color: Colors.grey[700]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      avatarPic(
+                        widget.statsTipper,
+                        widget.roundNumberToDisplay,
+                      ),
+                    ],
                   ),
+                ),
+            LiveScoresWarningCard(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -215,8 +243,9 @@ class _StatRoundGameScoresForTipperState
                 ),
               ),
             ),
-            const SizedBox(height: 100),
-          ],
+              const SizedBox(height: 100),
+            ],
+          ),
         ),
       ),
     );

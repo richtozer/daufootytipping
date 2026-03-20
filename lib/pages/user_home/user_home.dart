@@ -56,7 +56,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     });
   }
 
-  List<Widget> content() => [const TipsTab(), StatsTab(), const Profile()];
+  List<Widget> content() => const [TipsTab(), StatsTab(), Profile()];
 
   int _calculateOutstandingTipsCount() {
     if (_tippersViewModel.selectedTipper.isAnonymous) {
