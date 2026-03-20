@@ -215,10 +215,13 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
     final orientation = MediaQuery.of(context).orientation;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.small(
         onPressed: () => Navigator.pop(context),
         backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+        foregroundColor: Colors.black87,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         child: const Icon(Icons.arrow_back),
       ),
       body: SafeArea(
@@ -233,16 +236,6 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            '${widget.team.name} - Game History',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
                         Hero(
                           tag: 'team_icon_${widget.team.dbkey}',
                           child: SizedBox(
@@ -256,6 +249,16 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                                         const Icon(Icons.shield),
                                   )
                                 : const Icon(Icons.shield),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${widget.team.name} - Game History',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],

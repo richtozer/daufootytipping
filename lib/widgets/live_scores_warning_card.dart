@@ -16,6 +16,8 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final bool hasLiveScores = di.isRegistered<StatsViewModel>()
         ? watchIt<StatsViewModel>().hasLiveScoresInUse
         : false;
@@ -24,13 +26,25 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
 
     final int liveScoreCount =
         di<StatsViewModel>().gamesWithLiveScores.length;
+    final warningBackgroundColor = isDarkMode
+        ? Colors.amber.shade900
+        : Colors.amber.shade50;
+    final warningBorderColor = isDarkMode
+        ? Colors.amber.shade700
+        : Colors.amber.shade300;
+    final warningForegroundColor = isDarkMode
+        ? Colors.amber.shade100
+        : Colors.amber.shade900;
+    final warningIconColor = isDarkMode
+        ? Colors.amber.shade200
+        : Colors.amber.shade800;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: Colors.amber.shade50,
+      color: warningBackgroundColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.amber.shade300),
+        side: BorderSide(color: warningBorderColor),
       ),
       child: InkWell(
         onTap: () => _showLiveScoreDetails(context),
@@ -39,20 +53,20 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+              Icon(Icons.warning_amber_rounded, color: warningIconColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Stats may include in-progress or incorrect live scores for '
                   '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'} '
                   '— final results may differ.',
-                  style: TextStyle(
-                    color: Colors.amber.shade900,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: warningForegroundColor,
                     fontSize: 13,
                   ),
                 ),
               ),
-              Icon(Icons.info, color: Colors.amber.shade800),
+              Icon(Icons.info, color: warningIconColor),
             ],
           ),
         ),

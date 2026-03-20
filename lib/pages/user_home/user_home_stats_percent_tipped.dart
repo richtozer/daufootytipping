@@ -126,6 +126,13 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     log('StatPercentTipped.build()');
 
     Orientation orientation = MediaQuery.of(context).orientation;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final fabBackgroundColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
+    final fabForegroundColor =
+        isDarkMode ? Colors.white : Colors.black87;
 
     if (daucompsViewModel.selectedDAUComp == null) {
       return Center(
@@ -174,9 +181,12 @@ class StatPercentTippedState extends State<StatPercentTipped> {
               );
 
               return Scaffold(
-                floatingActionButton: FloatingActionButton(
-                  backgroundColor: Colors.lightGreen[200],
-                  foregroundColor: Colors.white70,
+                floatingActionButton: FloatingActionButton.small(
+                  backgroundColor: fabBackgroundColor,
+                  foregroundColor: fabForegroundColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
                   onPressed: () {
                     Navigator.pop(context);
                   },
@@ -195,6 +205,11 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
+                                const Hero(
+                                  tag: 'percentage',
+                                  child: Icon(Icons.percent, size: 50),
+                                ),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     'Percentage Tipped',
@@ -203,11 +218,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                         .titleLarge
                                         ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Hero(
-                                  tag: 'percentage',
-                                  child: Icon(Icons.percent, size: 50),
                                 ),
                               ],
                             ),

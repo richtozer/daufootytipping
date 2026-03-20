@@ -61,11 +61,21 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           Orientation orientation = MediaQuery.of(context).orientation;
+          final isDarkMode =
+              MediaQuery.of(context).platformBrightness == Brightness.dark;
+          final fabBackgroundColor = isDarkMode
+              ? const Color(0xFF4E7A36)
+              : Colors.lightGreen[200];
+          final fabForegroundColor =
+              isDarkMode ? Colors.white : Colors.black87;
           return Scaffold(
-            floatingActionButton: FloatingActionButton(
-              backgroundColor: Colors.lightGreen[200],
-              foregroundColor: Colors.white70,
+            floatingActionButton: FloatingActionButton.small(
+              backgroundColor: fabBackgroundColor,
+              foregroundColor: fabForegroundColor,
               heroTag: 'roundWinners',
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
               onPressed: () {
                 Navigator.pop(context);
               },
@@ -85,6 +95,11 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
+                              const Hero(
+                                tag: 'person',
+                                child: Icon(Icons.person, size: 50),
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'Round Winners',
@@ -93,11 +108,6 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                       .titleLarge
                                       ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Hero(
-                                tag: 'person',
-                                child: Icon(Icons.person, size: 50),
                               ),
                             ],
                           ),

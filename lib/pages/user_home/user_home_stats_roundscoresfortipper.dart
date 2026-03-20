@@ -160,11 +160,21 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     bool isLargeScreen,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final fabBackgroundColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
+    final fabForegroundColor =
+        isDarkMode ? Colors.white : Colors.black87;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+      floatingActionButton: FloatingActionButton.small(
+        backgroundColor: fabBackgroundColor,
+        foregroundColor: fabForegroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         onPressed: () {
           Navigator.pop(context);
         },
@@ -184,6 +194,8 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        avatarPic(widget.statsTipper),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,14 +220,12 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        avatarPic(widget.statsTipper),
                       ],
                     ),
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
-                        'Tap a row to see ${widget.statsTipper.name}\'s tips for that round.',
+                        'Tap a row to see tips for that round.',
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
