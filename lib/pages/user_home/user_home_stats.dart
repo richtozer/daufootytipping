@@ -74,8 +74,8 @@ class StatsTab extends StatelessWidget with WatchItMixin {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Stats are based on interim live scoring for '
-                      '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'}. Stats below may not reflect the final outcome.',
+                      'Stats may be using in-progress/outdated live scores for '
+                      '$liveScoreCount ${liveScoreCount == 1 ? 'game' : 'games'} —- final results may differ.',
                       style: TextStyle(
                         color: Colors.amber.shade900,
                         fontSize: 13,
@@ -305,7 +305,7 @@ class StatsTab extends StatelessWidget with WatchItMixin {
     final Game? selectedGame = await showDialog<Game>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Games using live interim scores'),
+        title: const Text('Games using interim scores'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -313,41 +313,29 @@ class StatsTab extends StatelessWidget with WatchItMixin {
               'If required update game scores below to reflect actual game result. Stats will be updated accordingly.',
             ),
             ...games.map(
-              (game) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        game.homeTeam.name,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+              (game) => InkWell(
+                onTap: () => Navigator.pop(dialogContext, game),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${game.homeTeam.name}  '
+                          '${game.scoring?.currentScore(ScoringTeam.home) ?? "-"}'
+                          ' - '
+                          '${game.scoring?.currentScore(ScoringTeam.away) ?? "-"}'
+                          '  ${game.awayTeam.name}',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 60,
-                      child: Text(
-                        '  ${game.scoring?.currentScore(ScoringTeam.home) ?? "-"}'
-                        ' - '
-                        '${game.scoring?.currentScore(ScoringTeam.away) ?? "-"}  ',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        game.awayTeam.name,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Edit score',
-                      onPressed: () => Navigator.pop(dialogContext, game),
-                    ),
-                  ],
+                      const Icon(Icons.edit, size: 16),
+                    ],
+                  ),
                 ),
               ),
             ),
