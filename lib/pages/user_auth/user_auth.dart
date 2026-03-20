@@ -292,13 +292,18 @@ class UserAuthPageState extends State<UserAuthPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Welcome to the competition. You need to choose a tipper alias. This is your identity as shown to others in the competition. It must be unique.',
+                    'Welcome! To get started, pick a unique tipper alias. '
+                    'This is the name other players will see you as in the '
+                    'competition.',
                   ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: nameController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Alias',
-                      hintText: 'Enter a name e.g. The Oracle',
+                      labelText: 'Tipper Alias',
+                      hintText: 'e.g. The Oracle',
                     ),
                   ),
                   if (errorMessage != null)
@@ -312,6 +317,13 @@ class UserAuthPageState extends State<UserAuthPage> {
                 ],
               ),
               actions: [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    await FirebaseAuth.instance.signOut();
+                  },
+                  child: const Text('Cancel'),
+                ),
                 TextButton(
                   child: const Text('Save'),
                   onPressed: () async {
@@ -348,7 +360,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                       }
                     } catch (e) {
                       setState(() {
-                        errorMessage = 'Error: $e';
+                        errorMessage = '$e';
                       });
                     }
                   },

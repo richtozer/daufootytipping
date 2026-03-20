@@ -388,13 +388,17 @@ class Profile extends StatelessWidget with WatchItMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'This is your identity as shown to others in the competition. It must be unique.',
+                    'This is the name other players will see you as in the '
+                    'competition. It must be unique.',
                   ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: nameController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Alias',
-                      hintText: 'Enter a name e.g. The Oracle',
+                      labelText: 'Tipper Alias',
+                      hintText: 'e.g. The Oracle',
                     ),
                   ),
                   if (errorMessage != null)
