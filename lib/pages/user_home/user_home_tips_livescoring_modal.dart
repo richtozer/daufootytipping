@@ -22,6 +22,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
 
   bool enableKeypad = false;
   bool? isUpdatingHomeScore;
+  bool isSubmitting = false;
 
   int positionHomeScore = 0;
   int positionAwayScore = 0;
@@ -206,20 +207,45 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
                       onPressed:
-                          (homeScore == originalHomeScore &&
-                              awayScore == originalAwayScore)
+                          isSubmitting ||
+                              (homeScore == originalHomeScore &&
+                                  awayScore == originalAwayScore)
                           ? null
                           : () async {
-                              Navigator.pop(context);
-                              di<StatsViewModel>().submitLiveScores(
-                                tip: widget.tip,
-                                homeScore: homeScore,
-                                awayScore: awayScore,
-                                originalHomeScore: originalHomeScore,
-                                originalAwayScore: originalAwayScore,
-                                selectedDAUComp:
-                                    di<DAUCompsViewModel>().selectedDAUComp!,
-                              );
+                              setState(() {
+                                isSubmitting = true;
+                              });
+                              try {
+                                await di<StatsViewModel>().submitLiveScores(
+                                  tip: widget.tip,
+                                  homeScore: homeScore,
+                                  awayScore: awayScore,
+                                  originalHomeScore: originalHomeScore,
+                                  originalAwayScore: originalAwayScore,
+                                  selectedDAUComp:
+                                      di<DAUCompsViewModel>().selectedDAUComp!,
+                                );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: Colors.red,
+                                      content: Text(
+                                        'Unable to save live scores: $error',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    isSubmitting = false;
+                                  });
+                                }
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(100, 36), // Set a smaller size
@@ -228,10 +254,18 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                           vertical: 8,
                         ),
                       ), // Reduce padding
-                      child: const Text(
-                        'Submit',
-                        style: TextStyle(fontSize: 15),
-                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Submit',
+                              style: TextStyle(fontSize: 15),
+                            ),
                     ),
                   ),
                 ],

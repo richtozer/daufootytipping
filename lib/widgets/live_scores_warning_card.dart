@@ -6,7 +6,6 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 /// Amber warning card displayed on stats pages when leaderboard scores
@@ -134,7 +133,7 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
   }
 
   Future<void> _openLiveScoringModal(BuildContext context, Game game) async {
-    final dauCompsVM = context.read<DAUCompsViewModel>();
+    final dauCompsVM = di<DAUCompsViewModel>();
     final tipsVM = dauCompsVM.selectedTipperTipsViewModel;
     if (tipsVM == null) return;
     final tipper = di<TippersViewModel>().selectedTipper;

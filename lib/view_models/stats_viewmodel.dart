@@ -1092,11 +1092,20 @@ class StatsViewModel extends ChangeNotifier {
 
     final oldScoring = game.scoring;
 
-    final newScoring = oldScoring?.copyWith(
-      crowdSourcedScores: oldScoring.crowdSourcedScores == null
-          ? crowdSourcedScores
-          : [...oldScoring.crowdSourcedScores!, ...crowdSourcedScores],
-    );
+    final newScoring = oldScoring == null
+        ? Scoring(
+            crowdSourcedScores: List<CrowdSourcedScore>.from(
+              crowdSourcedScores,
+            ),
+          )
+        : oldScoring.copyWith(
+            crowdSourcedScores: oldScoring.crowdSourcedScores == null
+                ? List<CrowdSourcedScore>.from(crowdSourcedScores)
+                : [
+                    ...oldScoring.crowdSourcedScores!,
+                    ...crowdSourcedScores,
+                  ],
+          );
 
     game.scoring = newScoring;
 
