@@ -4,7 +4,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -78,34 +78,69 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     Color color,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final fabBackgroundColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
+    final fabForegroundColor =
+        isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+      floatingActionButton: FloatingActionButton.small(
+        backgroundColor: fabBackgroundColor,
+        foregroundColor: fabForegroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         onPressed: () {
           Navigator.pop(context);
         },
         child: const Icon(Icons.arrow_back),
       ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
-            orientation == Orientation.portrait
-                ? HeaderWidget(
-                    text: 'Round ${widget.roundNumberToDisplay} Leaderboard',
-                    leadingIconAvatar: const Hero(
-                      tag: 'one_two_three',
-                      child: Icon(Icons.onetwothree, size: 50),
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Hero(
+                          tag: 'one_two_three',
+                          child: Icon(Icons.onetwothree, size: 50),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Round ${widget.roundNumberToDisplay} Leaderboard',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                  )
-                : Text('Round ${widget.roundNumberToDisplay} Leaderboard'),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'This is the round leaderboard. Tap on a row to see the tips for that tipper.',
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Tap a row to see the tips for that tipper.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            LiveScoresWarningCard(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -193,7 +228,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

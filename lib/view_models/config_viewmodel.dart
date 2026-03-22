@@ -35,8 +35,7 @@ class ConfigViewModel extends ChangeNotifier {
 
   ConfigViewModel({
     DatabaseReference? db,
-    Duration initialLoadTimeout = const Duration(seconds: 10),
-    Future<SharedPreferences> Function()? prefsFactory,
+    Duration initialLoadTimeout = const Duration(seconds: 15),
   }) : _db = db ?? FirebaseDatabase.instance.ref(p.configPathRoot),
        _initialLoadTimeout = initialLoadTimeout,
        _prefsFactory = prefsFactory ?? SharedPreferences.getInstance {
@@ -49,7 +48,7 @@ class ConfigViewModel extends ChangeNotifier {
       }
 
       _initialLoadCompleter.completeError(
-        'Config load timed out. Please check your connection or ask an Admin to check backend db or appcheck.',
+        'Config load timed out. Please check your connection or we may be having backend issues.',
       );
       notifyListeners();
     });
@@ -62,7 +61,9 @@ class ConfigViewModel extends ChangeNotifier {
         final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
         final Stopwatch processingStopwatch = Stopwatch()..start();
         final dynamic rawValue = event.snapshot.value;
-        final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
+        final int? payloadBytes = StartupProfiling.estimatePayloadBytes(
+          rawValue,
+        );
         StartupProfiling.instant(
           'startup.config_snapshot_received',
           arguments: <String, Object?>{
@@ -159,10 +160,7 @@ class ConfigViewModel extends ChangeNotifier {
   Future<void> _cacheCurrentConfig() async {
     try {
       final SharedPreferences prefs = await _prefsFactory();
-      await prefs.setString(
-        _cachedConfigKey,
-        jsonEncode(_toCacheJson()),
-      );
+      await prefs.setString(_cachedConfigKey, jsonEncode(_toCacheJson()));
     } catch (error, stackTrace) {
       log(
         'ConfigViewModel._cacheCurrentConfig() Error caching config: $error',
@@ -194,18 +192,10 @@ class ConfigViewModel extends ChangeNotifier {
   }
 
   void _applyConfigMap(Map<String, dynamic> config) {
-    _activeDAUComp = _parseOptionalString(
-      config[p.currentDAUCompKey],
-    );
-    _minAppVersion = _parseOptionalString(
-      config[p.minAppVersionKey],
-    );
-    _createLinkedTipper = _parseOptionalBool(
-      config[p.createLinkedTipperKey],
-    );
-    _googleClientId = _parseOptionalString(
-      config[p.googleClientIdKey],
-    );
+    _activeDAUComp = _parseOptionalString(config[p.currentDAUCompKey]);
+    _minAppVersion = _parseOptionalString(config[p.minAppVersionKey]);
+    _createLinkedTipper = _parseOptionalBool(config[p.createLinkedTipperKey]);
+    _googleClientId = _parseOptionalString(config[p.googleClientIdKey]);
   }
 
   Map<String, Object?> _toCacheJson() {

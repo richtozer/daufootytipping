@@ -209,14 +209,12 @@ class _GameListItemState extends State<GameListItem> {
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
           // Use new state variables for rank labels
-          final String displayHomeRank =
-              _isLoadingLadderRank
-                  ? _loadingRankLabel
-                  : (_homeOrdinalRankLabel ?? _noRankLabel);
-          final String displayAwayRank =
-              _isLoadingLadderRank
-                  ? _loadingRankLabel
-                  : (_awayOrdinalRankLabel ?? _noRankLabel);
+          final String displayHomeRank = _isLoadingLadderRank
+              ? _loadingRankLabel
+              : (_homeOrdinalRankLabel ?? _noRankLabel);
+          final String displayAwayRank = _isLoadingLadderRank
+              ? _loadingRankLabel
+              : (_awayOrdinalRankLabel ?? _noRankLabel);
 
           // Reference to the game for easier access in onTap
           final Game game = gameTipsViewModelConsumer.game;
@@ -232,7 +230,7 @@ class _GameListItemState extends State<GameListItem> {
                 gameTipsViewModelConsumer.game.gameState ==
                         GameState.startedResultNotKnown
                     ? Tooltip(
-                        message: 'Click here to edit scoring for this game',
+                        message: 'Tap here to edit scoring for this game',
                         child: GestureDetector(
                           onTap: () => showMaterialModalBottomSheet(
                             expand: false,
@@ -465,11 +463,14 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return Consumer<StatsViewModel?>(
-      builder: (context, statsViewModel, child) {
+    return Selector<StatsViewModel?, GameStatsEntry?>(
+      selector: (_, statsViewModel) =>
+          statsViewModel?.gamesStatsEntry[gameTipsViewModelConsumer.game],
+      builder: (context, gameStatsEntry, child) {
         return _PercentStatsTipChoice(
           gameTipViewModel: gameTipsViewModelConsumer,
-          statsViewModel: statsViewModel,
+          statsViewModel: context.read<StatsViewModel?>(),
+          gameStatsEntry: gameStatsEntry,
         );
       },
     );
@@ -483,10 +484,12 @@ class _PercentStatsTipChoice extends StatefulWidget {
   const _PercentStatsTipChoice({
     required this.gameTipViewModel,
     required this.statsViewModel,
+    this.gameStatsEntry,
   });
 
   final GameTipViewModel gameTipViewModel;
   final StatsViewModel? statsViewModel;
+  final GameStatsEntry? gameStatsEntry;
 
   @override
   State<_PercentStatsTipChoice> createState() => _PercentStatsTipChoiceState();
@@ -505,7 +508,8 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   void didUpdateWidget(covariant _PercentStatsTipChoice oldWidget) {
     super.didUpdateWidget(oldWidget);
     final bool gameChanged =
-        oldWidget.gameTipViewModel.game.dbkey != widget.gameTipViewModel.game.dbkey;
+        oldWidget.gameTipViewModel.game.dbkey !=
+        widget.gameTipViewModel.game.dbkey;
     final bool statsViewModelChanged =
         oldWidget.statsViewModel != widget.statsViewModel;
 
@@ -540,12 +544,10 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
 
   @override
   Widget build(BuildContext context) {
-    final GameStatsEntry? gameStatsEntry =
-        widget.statsViewModel?.gamesStatsEntry[widget.gameTipViewModel.game];
     return TipChoice(
       widget.gameTipViewModel,
       true,
-      gameStatsEntry: gameStatsEntry,
+      gameStatsEntry: widget.gameStatsEntry,
     );
   }
 }
@@ -626,7 +628,7 @@ class _TeamVersusDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool showExtra = shouldShowTextTeamInfo(context);
     return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _TeamDisplayRow(
           teamName: gameTipsViewModelConsumer.game.homeTeam.name,

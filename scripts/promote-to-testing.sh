@@ -5,6 +5,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 cd "$repo_root"
 
+# Support user-level npm global installs when the caller's shell startup files
+# have not been loaded into the current environment.
+if [ -d "$HOME/.npm-global/bin" ]; then
+  export PATH="$HOME/.npm-global/bin:$PATH"
+fi
+
 if [ "$(git rev-parse --abbrev-ref HEAD)" != "development" ]; then
   echo "Error: this script must be run from the 'development' branch."
   exit 1
@@ -22,6 +28,8 @@ fi
 
 if ! command -v firebase >/dev/null 2>&1; then
   echo "Error: firebase CLI is not installed or not on PATH."
+  echo "PATH=$PATH"
+  echo "If installed with npm, ensure the global npm bin directory is on PATH."
   exit 1
 fi
 

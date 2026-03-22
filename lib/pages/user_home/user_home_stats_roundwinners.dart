@@ -4,7 +4,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:flutter/material.dart';
 
@@ -61,35 +61,70 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       child: Consumer<StatsViewModel>(
         builder: (context, scoresViewModelConsumer, child) {
           Orientation orientation = MediaQuery.of(context).orientation;
+          final isDarkMode =
+              MediaQuery.of(context).platformBrightness == Brightness.dark;
+          final fabBackgroundColor = isDarkMode
+              ? const Color(0xFF4E7A36)
+              : Colors.lightGreen[200];
+          final fabForegroundColor =
+              isDarkMode ? Colors.white : Colors.black87;
           return Scaffold(
-            floatingActionButton: FloatingActionButton(
-              backgroundColor: Colors.lightGreen[200],
-              foregroundColor: Colors.white70,
+            floatingActionButton: FloatingActionButton.small(
+              backgroundColor: fabBackgroundColor,
+              foregroundColor: fabForegroundColor,
               heroTag: 'roundWinners',
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
               onPressed: () {
                 Navigator.pop(context);
               },
               child: const Icon(Icons.arrow_back),
             ),
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            body: SafeArea(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                 children: [
-                  orientation == Orientation.portrait
-                      ? const HeaderWidget(
-                          text: 'Round Winners',
-                          leadingIconAvatar: Hero(
-                            tag: 'person',
-                            child: Icon(Icons.person, size: 40),
+                  if (orientation == Orientation.portrait)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Hero(
+                                tag: 'person',
+                                child: Icon(Icons.person, size: 50),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Round Winners',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
                           ),
-                        )
-                      : const Text('Round Winners'),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'This is a list of round winner(s), grouped by round. Tap on a row to see the full round leaderboard.',
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              'Round winners grouped by round. Tap a row to see the full round leaderboard.',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.grey[600]),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  LiveScoresWarningCard(),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(10.0),
@@ -255,7 +290,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           );

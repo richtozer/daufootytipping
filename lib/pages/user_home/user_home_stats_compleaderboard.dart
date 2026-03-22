@@ -5,7 +5,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -56,7 +56,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   }
 
   void _refreshLeaderboard() {
-    sortedLeaderboard = List<LeaderboardEntry>.from(scoresViewModel.compLeaderboard);
+    sortedLeaderboard = List<LeaderboardEntry>.from(
+      scoresViewModel.compLeaderboard,
+    );
     _sortLeaderboard(sortColumnIndex!, isAscending);
   }
 
@@ -65,13 +67,18 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       case 0:
         sortedLeaderboard.sort(
           (a, b) => ascending
-              ? a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase())
-              : b.tipper.name.toLowerCase().compareTo(a.tipper.name.toLowerCase()),
+              ? a.tipper.name.toLowerCase().compareTo(
+                  b.tipper.name.toLowerCase(),
+                )
+              : b.tipper.name.toLowerCase().compareTo(
+                  a.tipper.name.toLowerCase(),
+                ),
         );
         break;
       case 1:
         sortedLeaderboard.sort(
-          (a, b) => ascending ? a.rank.compareTo(b.rank) : b.rank.compareTo(a.rank),
+          (a, b) =>
+              ascending ? a.rank.compareTo(b.rank) : b.rank.compareTo(a.rank),
         );
         break;
       case 2:
@@ -83,7 +90,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         break;
       case 3:
         sortedLeaderboard.sort(
-          (a, b) => ascending ? a.total.compareTo(b.total) : b.total.compareTo(a.total),
+          (a, b) => ascending
+              ? a.total.compareTo(b.total)
+              : b.total.compareTo(a.total),
         );
         break;
       case 4:
@@ -133,42 +142,71 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     );
   }
 
-  Widget buildScaffold(
-    BuildContext context,
-    String dbkey,
-    Color color,
-  ) {
+  Widget buildScaffold(BuildContext context, String dbkey, Color color) {
     Orientation orientation = MediaQuery.of(context).orientation;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final fabBackgroundColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
+    final fabForegroundColor =
+        isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+      floatingActionButton: FloatingActionButton.small(
+        backgroundColor: fabBackgroundColor,
+        foregroundColor: fabForegroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         onPressed: () {
           Navigator.pop(context);
         },
         child: const Icon(Icons.arrow_back),
       ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
-            orientation == Orientation.portrait
-                ? const HeaderWidget(
-                    text: 'C o m p   L e a d e r b o a r d',
-                    leadingIconAvatar: Hero(
-                      tag: 'trophy',
-                      child: Icon(Icons.emoji_events, size: 40),
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Hero(
+                          tag: 'trophy',
+                          child: Icon(Icons.emoji_events, size: 50),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Comp Leaderboard',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                  )
-                : Container(),
-            orientation == Orientation.portrait
-                ? Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'This is the competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Click a Tipper row below to see the breakdown of their round scores. Click column headings to sort.',
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round scores. Tap column headings to sort.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
                     ),
-                  )
-                : Container(), // Return an empty container in landscape mode
+                  ],
+                ),
+              ),
+            LiveScoresWarningCard(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
@@ -191,9 +229,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                   rows: List<DataRow>.generate(
                     sortedLeaderboard.length,
                     (index) => DataRow(
-                      color:
-                          sortedLeaderboard[index].tipper.dbkey ==
-                              dbkey
+                      color: sortedLeaderboard[index].tipper.dbkey == dbkey
                           ? WidgetStateProperty.resolveWith((states) => color)
                           : WidgetStateProperty.resolveWith(
                               (states) => Colors.transparent,
@@ -236,7 +272,9 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                           onTap: () => onTipperTapped(context, index),
                         ),
                         DataCell(
-                          Text(sortedLeaderboard[index].numRoundsWon.toString()),
+                          Text(
+                            sortedLeaderboard[index].numRoundsWon.toString(),
+                          ),
                           onTap: () => onTipperTapped(context, index),
                         ),
                         DataCell(
@@ -261,22 +299,19 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void onTipperTapped(
-    BuildContext context,
-    int index,
-  ) {
+  void onTipperTapped(BuildContext context, int index) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StatRoundScoresForTipper(
-          sortedLeaderboard[index].tipper,
-        ),
+        builder: (context) =>
+            StatRoundScoresForTipper(sortedLeaderboard[index].tipper),
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
+import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
+    as firebase_app_check_debug_token;
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -21,7 +23,6 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:universal_html/js.dart' as js;
 
 Future<void> main() async {
   StartupProfiling.instant('startup.main_entered');
@@ -30,6 +31,9 @@ Future<void> main() async {
   const bool useFirebaseEmulators = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
     defaultValue: true,
+  );
+  const String webAppCheckDebugToken = String.fromEnvironment(
+    'WEB_APP_CHECK_DEBUG_TOKEN',
   );
   const String configuredFirebaseEmulatorHost = String.fromEnvironment(
     'FIREBASE_EMULATOR_HOST',
@@ -45,14 +49,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // On web, the App Check debug token must be set before Firebase is initialized.
-  if (kIsWeb) {
-    if (kDebugMode) {
-      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = true;
-      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to true');
-    } else {
-      js.context['FIREBASE_APPCHECK_DEBUG_TOKEN'] = false;
-      log('FIREBASE_APPCHECK_DEBUG_TOKEN set to false');
-    }
+  if (kIsWeb && kDebugMode) {
+    final Object appCheckDebugToken = webAppCheckDebugToken.isNotEmpty
+        ? webAppCheckDebugToken
+        : true;
+    firebase_app_check_debug_token.setFirebaseAppCheckDebugToken(
+      appCheckDebugToken,
+    );
+    log(
+      'FIREBASE_APPCHECK_DEBUG_TOKEN set to ${appCheckDebugToken is String ? 'a fixed token from WEB_APP_CHECK_DEBUG_TOKEN' : 'auto debug mode'}',
+    );
   }
 
   // Initialize Firebase
@@ -119,7 +125,13 @@ Future<void> main() async {
     };
   }
 
-  if (!kDebugMode) {
+  final bool useDebugAppCheck =
+      kDebugMode ||
+      (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          kProfileMode);
+
+  if (!useDebugAppCheck) {
     await FirebaseAppCheck.instance.activate(
       providerAndroid: const AndroidPlayIntegrityProvider(),
       providerApple: const AppleAppAttestProvider(),
@@ -138,7 +150,7 @@ Future<void> main() async {
           '6Lfv1ZYpAAAAAF7npOM-PQ_SfIJnLob02ES9On_E',
         ),
       );
-      log('FirebaseAppCheck activated in debug mode');
+      log('FirebaseAppCheck activated in debug/profile mode');
     } catch (error, stackTrace) {
       if (kIsWeb) {
         log(

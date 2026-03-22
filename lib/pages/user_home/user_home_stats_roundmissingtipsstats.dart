@@ -4,7 +4,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -79,46 +78,68 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     Color color,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final fabBackgroundColor = isDarkMode
+        ? const Color(0xFF4E7A36)
+        : Colors.lightGreen[200];
+    final fabForegroundColor =
+        isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+      floatingActionButton: FloatingActionButton.small(
+        backgroundColor: fabBackgroundColor,
+        foregroundColor: fabForegroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         onPressed: () {
           Navigator.pop(context);
         },
         child: const Icon(Icons.arrow_back),
       ),
-      body: Center(
+      body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            orientation == Orientation.portrait
-                ? HeaderWidget(
-                    text: name,
-                    leadingIconAvatar: const Hero(
-                      tag: 'magnifyingGlass',
-                      child: Icon(Icons.search, size: 50),
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Hero(
+                          tag: 'magnifyingGlass',
+                          child: Icon(Icons.search, size: 50),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                  )
-                : Text(name),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                'Total tips outstanding across all tippers: ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  ],
                 ),
               ),
-            ),
-            orientation == Orientation.portrait
-                ? Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Below is a list of any tippers who have not submitted all tips for round ${widget.roundNumberToDisplay}.',
-                    ),
-                  )
-                : Container(),
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                child: Text(
+                  'Total of ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)} tips outstanding across all tippers.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
 
             Expanded(
               child: Padding(

@@ -34,6 +34,25 @@ class TipsViewModel extends ChangeNotifier {
 
   Future<void> get initialLoadCompleted async => _initialLoadCompleter.future;
 
+  bool get isInitialLoadComplete => _initialLoadCompleter.isCompleted;
+
+  /// Synchronously finds the index of the first game in [games] that the
+  /// [tipper] has not yet tipped. Returns -1 if tips have not loaded or if
+  /// every game has a tip.
+  int firstUntippedGameIndex(List<Game> games, Tipper tipper) {
+    if (!_initialLoadCompleter.isCompleted) return -1;
+    for (var i = 0; i < games.length; i++) {
+      final hasTip = _listOfTips.any(
+        (tip) =>
+            tip != null &&
+            _matchesGame(tip.game, games[i]) &&
+            tip.tipper.dbkey == tipper.dbkey,
+      );
+      if (!hasTip) return i;
+    }
+    return -1;
+  }
+
   Tipper?
   _tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
 

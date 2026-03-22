@@ -2,11 +2,9 @@ import 'package:daufootytipping/models/ladder_team.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -262,41 +260,41 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
 
     return Scaffold(
       // appBar: AppBar(...) removed
-      body: SingleChildScrollView(
-        child: Column(
-          // Existing body wrapped in Column
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            // Existing body wrapped in Column
+            children: [
             // Step 1: Add HeaderWidget conditionally with improved styling for comparison mode
             orientation == Orientation.portrait
                 ? _isComparisonMode
-                      ? SafeArea(
-                          child: Padding(
+                      ? Padding(
                             padding: const EdgeInsets.fromLTRB(
                               16.0,
-                              16.0,
+                              8.0,
                               16.0,
                               0.0,
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Hero(
-                                  tag:
-                                      "${widget.league.name.toLowerCase()}_league_logo_hero",
-                                  child: SvgPicture.asset(
-                                    widget.league == League.nrl
-                                        ? 'assets/nrl.svg'
-                                        : 'assets/afl.svg',
-                                    width: 40,
-                                    height: 40,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Hero(
+                                      tag:
+                                          "${widget.league.name.toLowerCase()}_league_logo_hero",
+                                      child: SvgPicture.asset(
+                                        widget.league == League.nrl
+                                            ? 'assets/nrl.svg'
+                                            : 'assets/afl.svg',
+                                        width: 50,
+                                        height: 50,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
                                         'League Leaderboard Comparison ${DateTime.now().year}',
                                         style: Theme.of(context)
                                             .textTheme
@@ -305,55 +303,74 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                               fontWeight: FontWeight.bold,
                                             ),
                                       ),
-                                      if (comparisonTeamNames != null)
-                                        Text(
-                                          comparisonTeamNames,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                color: Colors.grey[700],
-                                                height: 1.0,
-                                              ),
-                                        ),
-                                    ],
+                                    ),
+                                  ],
+                                ),
+                                if (comparisonTeamNames != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      comparisonTeamNames,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: Colors.grey[700],
+                                          ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        )
+                      : Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              16.0,
+                              8.0,
+                              16.0,
+                              0.0,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Hero(
+                                  tag:
+                                      "${widget.league.name.toLowerCase()}_league_logo_hero",
+                                  child: SvgPicture.asset(
+                                    widget.league == League.nrl
+                                        ? 'assets/nrl.svg'
+                                        : 'assets/afl.svg',
+                                    width: 50,
+                                    height: 50,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    "${widget.league.name.toUpperCase()} Premiership Ladder",
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        )
-                      : HeaderWidget(
-                          leadingIconAvatar: Hero(
-                            tag:
-                                "${widget.league.name.toLowerCase()}_league_logo_hero",
-                            child: SvgPicture.asset(
-                              widget.league == League.nrl
-                                  ? 'assets/nrl.svg'
-                                  : 'assets/afl.svg',
-                              width: 35,
-                              height: 35,
-                            ),
-                          ),
-                          text:
-                              "${widget.league.name.toUpperCase()} Premiership Ladder",
                         )
                 : Container(), // Empty container if not in portrait
             // Add Explanatory Text (conditionally based on filtered vs full view)
-            orientation == Orientation.portrait
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
-                    child: Text(
-                      (widget.teamDbKeysToDisplay != null &&
-                              widget.teamDbKeysToDisplay!.isNotEmpty)
-                          ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
-                          : "This is the current ${widget.league.name.toUpperCase()} premiership ladder for the regular season. Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                    ),
-                  )
-                : Container(),
+            if (orientation == Orientation.portrait)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+                child: Text(
+                  (widget.teamDbKeysToDisplay != null &&
+                          widget.teamDbKeysToDisplay!.isNotEmpty)
+                      ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
+                      : "Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                ),
+              ),
 
             // The existing body content (DataTable section) - allow natural height
             _isLoading
@@ -504,30 +521,22 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                               Set<WidgetState> states,
                             ) {
                               if (isTop8) {
-                                // Check if we're in dark mode
                                 final bool isDarkMode =
                                     Theme.of(context).brightness ==
                                     Brightness.dark;
 
-                                if (widget.league == League.afl) {
-                                  return isDarkMode
-                                      ? League.afl.colour.darken(10)
-                                      // Dark mode: darker, more transparent
-                                      : League.afl.colour.brighten(
-                                          20,
-                                        ); // Light mode: brighter
-                                }
                                 if (widget.league == League.nrl) {
                                   return isDarkMode
-                                      ? League.nrl.colour.darken(
-                                          10,
-                                        ) // Dark mode: darker, more transparent
-                                      : League.nrl.colour.brighten(
-                                          20,
-                                        ); // Light mode: brighter
+                                      ? Colors.lightGreen[900]
+                                      : Colors.lightGreen[200];
+                                }
+                                if (widget.league == League.afl) {
+                                  return isDarkMode
+                                      ? const Color(0xFF5C1A1A)
+                                      : Colors.red[100];
                                 }
                               }
-                              return null; // Default row color
+                              return null;
                             }),
                             cells: <DataCell>[
                               DataCell(
@@ -646,13 +655,17 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                 league: widget.league,
                 teamDbKeys: widget.teamDbKeysToDisplay!,
               ),
-          ],
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.small(
         onPressed: () => Navigator.pop(context),
         backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
+        foregroundColor: Colors.black87,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
         child: const Icon(Icons.arrow_back),
       ),
     );

@@ -10,212 +10,269 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
-Widget roundLeagueHeaderListTile(
-  League leagueHeader,
-  double logoWidth,
-  double logoHeight,
-  DAURound dauRound,
-  DAUCompsViewModel daucompsViewModel,
-  Tipper selectedTipper,
-  bool isPercentStatsPage,
-) {
-  // Calculate the number of days until the first game starts for this league round
-  List<Game> gamesForLeague = dauRound.getGamesForLeague(leagueHeader);
-  DateTime? firstGameStart;
-  if (gamesForLeague.isNotEmpty) {
-    firstGameStart = gamesForLeague.first.startTimeUTC;
-  }
+/// League round header card showing round number, score/countdown stats,
+/// and league logo.
+///
+/// Converted from a bare function to a proper widget so Flutter can preserve
+/// identity across rebuilds and diff efficiently during scrolling.
+class RoundLeagueHeaderListTile extends StatelessWidget {
+  const RoundLeagueHeaderListTile({
+    required this.league,
+    required this.logoWidth,
+    required this.logoHeight,
+    required this.dauRound,
+    required this.dauCompsViewModel,
+    required this.selectedTipper,
+    required this.isPercentStatsPage,
+    this.margin = const EdgeInsets.all(4.0),
+    this.backgroundColor,
+    super.key,
+  });
 
-  // tipsOutstanding = daucompsViewModel.selectedTipperTipsViewModel is null return
-  // a progress indicator
-  if (daucompsViewModel.selectedTipperTipsViewModel == null) {
-    return const Center(child: CircularProgressIndicator());
-  }
+  final League league;
+  final double logoWidth;
+  final double logoHeight;
+  final DAURound dauRound;
+  final DAUCompsViewModel dauCompsViewModel;
+  final Tipper selectedTipper;
+  final bool isPercentStatsPage;
+  final EdgeInsetsGeometry margin;
+  final Color? backgroundColor;
 
-  int tipsOutstanding = daucompsViewModel.selectedTipperTipsViewModel!
-      .numberOfOutstandingTipsForRoundAndLeague(dauRound, leagueHeader);
+  @override
+  Widget build(BuildContext context) {
+    final List<Game> gamesForLeague = dauRound.getGamesForLeague(league);
+    DateTime? firstGameStart;
+    if (gamesForLeague.isNotEmpty) {
+      firstGameStart = gamesForLeague.first.startTimeUTC;
+    }
 
-  // get a current count of margin tips submitted for this league round
-  int marginTipsSubmitted = daucompsViewModel.selectedTipperTipsViewModel!
-      .numberOfMarginTipsSubmittedForRoundAndLeague(dauRound, leagueHeader);
+    if (dauCompsViewModel.selectedTipperTipsViewModel == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  return Card(
-    color: !isPercentStatsPage ? Colors.black54 : Colors.white10,
-    surfaceTintColor: !isPercentStatsPage
-        ? League.nrl.colour
-        : League.nrl.colour,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-    child: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Flexible(
-                flex: 1,
-                child: Column(
-                  children: [
-                    Text(
-                      'Round',
-                      style: TextStyle(
-                        color: !isPercentStatsPage
-                            ? Colors.white70
-                            : Colors.black54,
-                        fontWeight: FontWeight.bold,
+    final int tipsOutstanding = dauCompsViewModel.selectedTipperTipsViewModel!
+        .numberOfOutstandingTipsForRoundAndLeague(dauRound, league);
+    final int? currentRoundNumber = dauCompsViewModel.selectedDAUComp
+        ?.firstNotEndedRoundNumber();
+    final bool showOutstandingBadge =
+        currentRoundNumber == dauRound.dAUroundNumber && tipsOutstanding > 0;
+    const double badgeRoom = 12;
+    final double renderedLogoWidth = league == League.afl
+        ? logoWidth + 10
+        : logoWidth;
+    final double renderedLogoHeight = league == League.afl
+        ? logoHeight + 10
+        : logoHeight;
+    final Offset badgeOffset = league == League.afl
+        ? const Offset(-7, -4)
+        : const Offset(4, -4);
+
+    final int marginTipsSubmitted = dauCompsViewModel
+        .selectedTipperTipsViewModel!
+        .numberOfMarginTipsSubmittedForRoundAndLeague(dauRound, league);
+
+    return Card(
+      margin: margin,
+      color:
+          backgroundColor ??
+          (!isPercentStatsPage ? Colors.black54 : Colors.white10),
+      surfaceTintColor: League.nrl.colour,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 86,
+                  child: Column(
+                    children: [
+                      Text(
+                        'Round',
+                        style: TextStyle(
+                          color: !isPercentStatsPage
+                              ? Colors.white70
+                              : Colors.black54,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '${dauRound.dAUroundNumber}',
-                      style: TextStyle(
-                        color: !isPercentStatsPage
-                            ? Colors.white70
-                            : Colors.black54,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 30,
+                      Text(
+                        '${dauRound.dAUroundNumber}',
+                        style: TextStyle(
+                          color: !isPercentStatsPage
+                              ? Colors.white70
+                              : Colors.black54,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 30,
+                        ),
+                        softWrap: true,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      softWrap: true,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // if the league round has no games then display an empty container, otherwise display the column of stats
-              gamesForLeague.isEmpty
-                  ? const SizedBox.shrink()
-                  : Flexible(
-                      flex: 2,
-                      child: Consumer<StatsViewModel?>(
-                        builder: (context, statsViewModel, child) {
-                          if (statsViewModel == null) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          RoundStats roundStats = statsViewModel
-                              .getScoringRoundStats(dauRound, selectedTipper);
-
-                          return Column(
-                            children: [
-                              dauRound.roundState != RoundState.notStarted
-                                  ? Text(
-                                      style: TextStyle(
-                                        color: !isPercentStatsPage
-                                            ? Colors.white70
-                                            : Colors.black54,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      'Score: ${leagueHeader == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${leagueHeader == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}',
-                                      softWrap: true,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                    )
-                                  : const SizedBox.shrink(),
-                              dauRound.roundState != RoundState.notStarted
-                                  ? Text(
-                                      style: TextStyle(
-                                        color: !isPercentStatsPage
-                                            ? Colors.white70
-                                            : Colors.black54,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      'UPS/Margins: ${leagueHeader == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${leagueHeader == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}',
-                                      softWrap: true,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                    )
-                                  : Column(
-                                      children: [
-                                        KickoffCountdown(
-                                          kickoffDate: firstGameStart!,
-                                        ),
-                                        Text(
-                                          'Tips Outstanding: $tipsOutstanding',
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          softWrap: false,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        Text(
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          'Your Margins: $marginTipsSubmitted',
-                                          softWrap: false,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
+                gamesForLeague.isEmpty
+                    ? const Expanded(child: SizedBox.shrink())
+                    : Expanded(
+                        // Compute from live game state rather than cached
+                        // roundState, which is only set during initial linking.
+                        child: !gamesForLeague.any(
+                          (game) =>
+                              game.gameState ==
+                                  GameState.startedResultNotKnown ||
+                              game.gameState == GameState.startedResultKnown,
+                        )
+                            ? Column(
+                                children: [
+                                  KickoffCountdown(kickoffDate: firstGameStart!),
+                                  Text(
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                              dauRound.roundState != RoundState.notStarted
-                                  ? Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            style: TextStyle(
-                                              color: !isPercentStatsPage
-                                                  ? Colors.white70
-                                                  : Colors.black54,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            'Rank: ${roundStats.rank}  ',
-                                            softWrap: true,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                    'Your Margins: $marginTipsSubmitted',
+                                    softWrap: false,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              )
+                            : Selector<StatsViewModel?, RoundStats?>(
+                                selector: (_, statsViewModel) =>
+                                    statsViewModel?.getScoringRoundStats(
+                                      dauRound,
+                                      selectedTipper,
+                                    ),
+                                builder: (context, roundStats, child) {
+                                  if (roundStats == null) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return Column(
+                                    children: [
+                                      Text(
+                                        style: TextStyle(
+                                          color: !isPercentStatsPage
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        roundStats.rankChange > 0
-                                            ? const Icon(
-                                                color: Colors.green,
-                                                Icons.arrow_upward,
-                                              )
-                                            : roundStats.rankChange < 0
-                                            ? const Icon(
-                                                color: Colors.red,
-                                                Icons.arrow_downward,
-                                              )
-                                            : const Icon(
-                                                color: Colors.green,
-                                                Icons.sync_alt,
+                                        'Score: ${league == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${league == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}',
+                                        softWrap: true,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      Text(
+                                        style: TextStyle(
+                                          color: !isPercentStatsPage
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        'UPS/Margins: ${league == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${league == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}',
+                                        softWrap: true,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              style: TextStyle(
+                                                color: !isPercentStatsPage
+                                                    ? Colors.white70
+                                                    : Colors.black54,
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                        Flexible(
-                                          child: Text(
-                                            style: TextStyle(
-                                              color: !isPercentStatsPage
-                                                  ? Colors.white70
-                                                  : Colors.black54,
-                                              fontWeight: FontWeight.bold,
+                                              'Rank: ${roundStats.rank}  ',
+                                              softWrap: true,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            '${roundStats.rankChange}',
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                      ],
-                                    )
-                                  : const SizedBox.shrink(),
-                            ],
-                          );
-                        },
+                                          roundStats.rankChange > 0
+                                              ? const Icon(
+                                                  color: Colors.green,
+                                                  Icons.arrow_upward,
+                                                )
+                                              : roundStats.rankChange < 0
+                                              ? const Icon(
+                                                  color: Colors.red,
+                                                  Icons.arrow_downward,
+                                                )
+                                              : const Icon(
+                                                  color: Colors.green,
+                                                  Icons.sync_alt,
+                                                ),
+                                          Flexible(
+                                            child: Text(
+                                              style: TextStyle(
+                                                color: !isPercentStatsPage
+                                                    ? Colors.white70
+                                                    : Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              '${roundStats.rankChange}',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                       ),
+                SizedBox(
+                  width: 86,
+                  child: Center(
+                    child: SizedBox(
+                      width: renderedLogoWidth + badgeRoom,
+                      height: renderedLogoHeight + badgeRoom,
+                      child: showOutstandingBadge
+                          ? Align(
+                              alignment: Alignment.center,
+                              child: Badge.count(
+                                count: tipsOutstanding,
+                                backgroundColor: Colors.red[800],
+                                largeSize: 20,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                offset: badgeOffset,
+                                textStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                child: SvgPicture.asset(
+                                  league.logo,
+                                  width: renderedLogoWidth,
+                                  height: renderedLogoHeight,
+                                ),
+                              ),
+                            )
+                          : Align(
+                              alignment: Alignment.center,
+                              child: SvgPicture.asset(
+                                league.logo,
+                                width: renderedLogoWidth,
+                                height: renderedLogoHeight,
+                              ),
+                            ),
                     ),
-              Flexible(
-                flex: 1,
-                child: SvgPicture.asset(
-                  leagueHeader.logo,
-                  width: logoWidth,
-                  height: logoHeight,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

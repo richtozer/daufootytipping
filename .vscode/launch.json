@@ -36,6 +36,9 @@
       "preLaunchTask": "start firebase emulator",
       "postDebugTask": "stop firebase emulator"
     },
+    // WEB_APP_CHECK_DEBUG_TOKEN is read from the VS Code process environment.
+    // A local .env file is not loaded automatically for Dart/Flutter launches.
+    // Start VS Code from a shell that has exported the variable, or set it in your shell profile.
     {
       "name": "Flutter Web (Chrome) + Firebase emulators (seed RTDB)",
       "type": "dart",
@@ -48,7 +51,33 @@
       "toolArgs": [
         "--dart-define=USE_FIREBASE_EMULATORS=true",
         "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
-        "--dart-define=DEBUG_APPCHECK_TOKEN=0f7a815b-f18d-437b-ad93-1c216ab8548b"
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
+      ]
+    },
+    {
+      "name": "Flutter Web (Chrome) + Firebase emulators (already running)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "deviceId": "chrome",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=USE_FIREBASE_EMULATORS=true",
+        "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
+      ]
+    },
+    {
+      "name": "Flutter Web (Chrome) + Firebase emulators (App Check debug token)",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "deviceId": "chrome",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=USE_FIREBASE_EMULATORS=true",
+        "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=6552DC29-2936-48F7-B0B3-3A7B126CD168"
       ]
     },
     {

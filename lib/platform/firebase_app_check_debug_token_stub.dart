@@ -1,0 +1,1 @@
+void setFirebaseAppCheckDebugToken(Object? token) {}
