@@ -5,6 +5,8 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
+enum _ActiveScoreField { home, away }
+
 class LiveScoringModal extends StatefulWidget {
   final Tip tip;
 
@@ -21,7 +23,8 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
   late String originalAwayScore;
 
   bool enableKeypad = false;
-  bool? isUpdatingHomeScore;
+  _ActiveScoreField? activeScoreField;
+  bool isSubmitting = false;
 
   int positionHomeScore = 0;
   int positionAwayScore = 0;
@@ -80,11 +83,11 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                     () {
                       setState(() {
                         enableKeypad = true;
-                        isUpdatingHomeScore = true;
+                        activeScoreField = _ActiveScoreField.home;
                         //positionHomeScore = 0;
                       });
                     },
-                    isUpdatingHomeScore ?? false
+                    activeScoreField == _ActiveScoreField.home
                         ? ElevatedButton.styleFrom(
                             backgroundColor: Colors.lightGreen[200],
                           )
@@ -105,15 +108,15 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                     () {
                       setState(() {
                         enableKeypad = true;
-                        isUpdatingHomeScore = false;
+                        activeScoreField = _ActiveScoreField.away;
                         //positionAwayScore = 0;
                       });
                     },
-                    isUpdatingHomeScore ?? true
-                        ? null
-                        : ElevatedButton.styleFrom(
+                    activeScoreField == _ActiveScoreField.away
+                        ? ElevatedButton.styleFrom(
                             backgroundColor: Colors.lightGreen[200],
-                          ),
+                          )
+                        : null,
                   ),
                 ],
               ),
@@ -158,20 +161,16 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                   _buildButton("0"),
                   GestureDetector(
                     onTap: () {
-                      // if isUpdatingHomeScore is true and positionHomeScore is 0, then we are at the start of the text
-                      // dont allow backspace
-                      isUpdatingHomeScore == true && positionHomeScore == 0 ||
-                              isUpdatingHomeScore == false &&
-                                  positionAwayScore == 0
-                          ? null
-                          : _backspace();
+                      if (_canBackspace) {
+                        _backspace();
+                      }
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Icon(
                         Icons.backspace,
                         size: 40,
-                        color: isUpdatingHomeScore != null
+                        color: activeScoreField != null
                             ? Colors.lightGreen
                             : Colors.grey,
                       ),
@@ -206,20 +205,45 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
                       onPressed:
-                          (homeScore == originalHomeScore &&
-                              awayScore == originalAwayScore)
+                          isSubmitting ||
+                              (homeScore == originalHomeScore &&
+                                  awayScore == originalAwayScore)
                           ? null
                           : () async {
-                              Navigator.pop(context);
-                              di<StatsViewModel>().submitLiveScores(
-                                tip: widget.tip,
-                                homeScore: homeScore,
-                                awayScore: awayScore,
-                                originalHomeScore: originalHomeScore,
-                                originalAwayScore: originalAwayScore,
-                                selectedDAUComp:
-                                    di<DAUCompsViewModel>().selectedDAUComp!,
-                              );
+                              setState(() {
+                                isSubmitting = true;
+                              });
+                              try {
+                                await di<StatsViewModel>().submitLiveScores(
+                                  tip: widget.tip,
+                                  homeScore: homeScore,
+                                  awayScore: awayScore,
+                                  originalHomeScore: originalHomeScore,
+                                  originalAwayScore: originalAwayScore,
+                                  selectedDAUComp:
+                                      di<DAUCompsViewModel>().selectedDAUComp!,
+                                );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: Colors.red,
+                                      content: Text(
+                                        'Unable to save live scores: $error',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    isSubmitting = false;
+                                  });
+                                }
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(100, 36), // Set a smaller size
@@ -228,10 +252,18 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                           vertical: 8,
                         ),
                       ), // Reduce padding
-                      child: const Text(
-                        'Submit',
-                        style: TextStyle(fontSize: 15),
-                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Submit',
+                              style: TextStyle(fontSize: 15),
+                            ),
                     ),
                   ),
                 ],
@@ -241,6 +273,14 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
         ),
       ],
     );
+  }
+
+  bool get _canBackspace {
+    return switch (activeScoreField) {
+      _ActiveScoreField.home => positionHomeScore > 0,
+      _ActiveScoreField.away => positionAwayScore > 0,
+      null => false,
+    };
   }
 
   Widget _buildElevatedButton(
@@ -288,7 +328,9 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
         onPressed: enableKeypad
             ? onPressed ??
                   () {
-                    isUpdatingHomeScore == null ? null : _input(text);
+                    if (activeScoreField != null) {
+                      _input(text);
+                    }
                   }
             : null,
         child: Text(
@@ -300,13 +342,17 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
   }
 
   void _input(String text) {
-    if (isUpdatingHomeScore == null) return;
-    if (isUpdatingHomeScore!) {
-      homeScore = _updateScore(homeScore, text, positionHomeScore);
-      positionHomeScore = homeScore == '0' ? 0 : positionHomeScore + 1;
-    } else {
-      awayScore = _updateScore(awayScore, text, positionAwayScore);
-      positionAwayScore = awayScore == '0' ? 0 : positionAwayScore + 1;
+    switch (activeScoreField) {
+      case _ActiveScoreField.home:
+        homeScore = _updateScore(homeScore, text, positionHomeScore);
+        positionHomeScore = homeScore == '0' ? 0 : positionHomeScore + 1;
+        break;
+      case _ActiveScoreField.away:
+        awayScore = _updateScore(awayScore, text, positionAwayScore);
+        positionAwayScore = awayScore == '0' ? 0 : positionAwayScore + 1;
+        break;
+      case null:
+        return;
     }
     setState(() {});
   }
@@ -325,13 +371,17 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
   }
 
   void _backspace() {
-    if (isUpdatingHomeScore == null) return;
-    if (isUpdatingHomeScore!) {
-      homeScore = _deleteDigit(homeScore, positionHomeScore);
-      positionHomeScore = homeScore == '0' ? 0 : positionHomeScore - 1;
-    } else {
-      awayScore = _deleteDigit(awayScore, positionAwayScore);
-      positionAwayScore = awayScore == '0' ? 0 : positionAwayScore - 1;
+    switch (activeScoreField) {
+      case _ActiveScoreField.home:
+        homeScore = _deleteDigit(homeScore, positionHomeScore);
+        positionHomeScore = homeScore == '0' ? 0 : positionHomeScore - 1;
+        break;
+      case _ActiveScoreField.away:
+        awayScore = _deleteDigit(awayScore, positionAwayScore);
+        positionAwayScore = awayScore == '0' ? 0 : positionAwayScore - 1;
+        break;
+      case null:
+        return;
     }
     setState(() {});
   }
