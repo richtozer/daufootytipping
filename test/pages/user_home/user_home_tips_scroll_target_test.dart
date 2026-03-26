@@ -192,6 +192,81 @@ void main() {
                 'games, not round index 0 (round 1) which is completed');
       });
 
+      test('targets first upcoming round when latest round has ended', () {
+        final now = DateTime.now().toUtc();
+
+        final r1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: now.subtract(const Duration(days: 21)),
+          lastGameKickOffUTC: now.subtract(const Duration(days: 20)),
+        )..roundState = RoundState.allGamesEnded;
+        r1.games = [
+          makeGame(
+            dbkey: 'nrl-r1-01',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: now.subtract(const Duration(days: 21)),
+          ),
+        ];
+
+        final r2 = DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: now.subtract(const Duration(days: 14)),
+          lastGameKickOffUTC: now.subtract(const Duration(days: 13)),
+        )..roundState = RoundState.allGamesEnded;
+        r2.games = [
+          makeGame(
+            dbkey: 'nrl-r2-01',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: now.subtract(const Duration(days: 14)),
+          ),
+        ];
+
+        final r3 = DAURound(
+          dAUroundNumber: 3,
+          firstGameKickOffUTC: now.subtract(const Duration(days: 5)),
+          lastGameKickOffUTC: now.subtract(const Duration(days: 4)),
+        )..roundState = RoundState.allGamesEnded;
+        r3.games = [
+          makeGame(
+            dbkey: 'nrl-r3-01',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: now.subtract(const Duration(days: 5)),
+          ),
+        ];
+
+        final r4 = DAURound(
+          dAUroundNumber: 4,
+          firstGameKickOffUTC: now.add(const Duration(days: 2)),
+          lastGameKickOffUTC: now.add(const Duration(days: 4)),
+        )..roundState = RoundState.notStarted;
+        r4.games = [
+          makeGame(
+            dbkey: 'nrl-r4-01',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: now.add(const Duration(days: 2)),
+          ),
+        ];
+
+        final comp = DAUComp(
+          name: 'Test Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: [r1, r2, r3, r4],
+        );
+
+        final sections = buildTipsLeagueSections(selectedComp: comp);
+
+        final sectionIndex = targetStartupSectionIndex(comp, sections);
+
+        expect(sections[sectionIndex].roundIndex, 3,
+            reason: 'Should target round index 3 (round 4), not the start '
+                'of round 3 once round 3 has fully ended.');
+      });
+
       test('returns 0 for empty sections', () {
         final comp = DAUComp(
           name: 'c',

@@ -93,7 +93,8 @@ List<TipsLeagueSection> buildTipsLeagueSections({
 }
 
 /// Returns the section index for the round the tips page should initially
-/// scroll to. Uses the latest round with games completed or underway.
+/// scroll to. Prefers the highest started round; otherwise falls back to the
+/// first round that has not fully ended yet.
 int targetStartupSectionIndex(
   DAUComp selectedComp,
   List<TipsLeagueSection> sections,
@@ -102,12 +103,20 @@ int targetStartupSectionIndex(
     return 0;
   }
 
-  final activeRoundNumber = selectedComp
-      .latestRoundWithGamesCompletedOrUnderway();
+  final activeRoundNumber = selectedComp.latestRoundWithGamesCompletedOrUnderway();
+  final hasStartedRound =
+      activeRoundNumber > 0 &&
+      activeRoundNumber <= selectedComp.daurounds.length &&
+      selectedComp.daurounds[activeRoundNumber - 1].roundState ==
+          RoundState.started;
+  final targetRoundNumber = hasStartedRound
+      ? activeRoundNumber
+      : selectedComp.firstNotEndedRoundNumber();
+
   // Round numbers are 1-based; section roundIndex is 0-based.
   // When no round is active (0), clamp keeps it at index 0.
-  final targetRoundIndex = (activeRoundNumber > 0
-      ? activeRoundNumber - 1
+  final targetRoundIndex = (targetRoundNumber > 0
+      ? targetRoundNumber - 1
       : 0)
       .clamp(0, selectedComp.daurounds.length - 1);
   final targetSectionIndex = sections.indexWhere(
