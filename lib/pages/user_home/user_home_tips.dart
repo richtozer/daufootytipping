@@ -110,8 +110,9 @@ class TipsTabState extends State<TipsTab> {
       _lastScrollSignature = nextScrollSignature;
       _startupScrollSettled = false;
       _startupScrollRetryCount = 0;
+      _lastStartupMaxScrollExtent = -1;
     }
-    if (_startupScrollSettled || _startupScrollPending) {
+    if (_startupScrollSettled) {
       return;
     }
     log(
@@ -148,6 +149,13 @@ class TipsTabState extends State<TipsTab> {
       _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
     }
     _syncStickyHeaderPushUp(scrollOffsetOverride: _pendingStartupOffset);
+
+    // A post-frame jump may already be queued from an earlier startup state.
+    // Reuse that callback with the latest computed target instead of locking
+    // in the stale offset from the first cold-start snapshot.
+    if (_startupScrollPending) {
+      return;
+    }
 
     _scheduleStartupScrollAttempt();
   }
