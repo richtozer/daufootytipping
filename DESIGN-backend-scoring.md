@@ -2,7 +2,7 @@
 
 **Status:** Workstream A (fixture download) is ready to implement. Workstream B (full scoring migration) is deferred pending official Dart Cloud Functions support.
 **Created:** 2025-03-21
-**Last updated:** 2025-03-21
+**Last updated:** 2026-03-26
 
 ---
 
@@ -16,6 +16,7 @@ Scoring currently runs entirely on the Flutter client. `StatsViewModel` calculat
 - Queue state is lost on app restart
 - Live score submissions trigger recalculation only on the submitter's device
 - Only admin clients download fixtures — if the admin doesn't open the app, official scores never arrive and rescoring never happens
+- Stale `/Stats/{comp}/live_scores_v1/{game}` rows can outlive official fixture scores, which leaves warning UI visible unless readers defensively ignore them
 
 ## Target Architecture (End State)
 
@@ -83,7 +84,7 @@ The migration is split into two workstreams that can be implemented independentl
 - Batch-writes ALL changed game attributes (scores, times, venues, etc.) in a single `db.update()` call
 - After the batch write completes, collects the set of affected DAU rounds (any round containing a game whose score changed)
 - Performs ONE full rescore per affected round (not per game, not per score field)
-- Cleans up stale crowd-sourced live scores for games that now have both official scores
+- Deletes any stale `/Stats/{comp}/live_scores_v1/{game}` rows for games that now have both official scores, as part of the same backend flow that writes those official scores
 - Updates `lastFixtureUpdateTimestampUTC` on the DAUComp
 - Writes rescored stats to v1 paths (same paths the client writes to today)
 
@@ -165,6 +166,7 @@ This scoring logic is **ported to TypeScript within the fixture download functio
 - Margin-based scoring (AFL narrow/wide margins, NRL margins)
 - Games with no official scores yet (should not affect round stats)
 - Games transitioning from live scores to official scores
+- Stale `live_scores_v1` rows lingering after official scores exist (must be ignored and deleted)
 - DAU round resolution with combined rounds
 - Game stats for both paid and free cohorts
 - Rounds with partial results (some games complete, some not)
@@ -299,7 +301,8 @@ This is a meaningful prerequisite that adds ~2-3 days.
   - Uses latest crowd-sourced score per team
   - Prefers official scores when present
   - Treats one-sided live update as other team = 0
-  - Only deletes live scores once BOTH official fixture scores exist
+  - If BOTH official fixture scores already exist, treats the live-score row as stale: ignore it for scoring, delete it, and exit
+  - Otherwise only deletes live scores once BOTH official fixture scores exist
 - Determines the game's DAU round
 - Reads ALL tips for that round across ALL tippers
 - Recalculates every tipper's `RoundStats` for the round
@@ -444,6 +447,8 @@ Comparison:         v1 vs v2 logged      n/a                       n/a
 | Rank, rank change, round winners | Derived client-side from round_stats (unchanged) |
 | Inline tip score display | Keep the scoring lookup table on the client for instant display (~20 lines, essentially never changes) |
 | All UI rendering | Unchanged |
+
+Reader rule: clients should continue to prefer official fixture scores and ignore any lingering `live_scores_v1` row once both official scores exist. The backend should make this state short-lived, but clients should still be defensive.
 
 ## What Moves to the Backend (End State)
 
