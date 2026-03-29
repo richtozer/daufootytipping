@@ -25,15 +25,22 @@ class Tip implements Comparable<Tip> {
   }
 
   factory Tip.fromJson(Map data, String key, Tipper tipper, Game game) {
+    final String? rawTipName = (data['r'] ?? data['gameResult']) as String?;
+    final GameResult? parsedTip =
+        rawTipName == null ? null : GameResult.values.asNameMap()[rawTipName];
+    final bool useDefaultTip = parsedTip == null;
+
     return Tip(
       dbkey: key,
       game: game,
       tipper: tipper,
-      // Read new short keys first, then fall back to legacy names
-      tip: GameResult.values.byName(
-        (data['r'] ?? data['gameResult']) as String,
-      ),
+      // Malformed historical rows should behave like an untipped game, not crash.
+      tip: parsedTip ?? GameResult.d,
       submittedTimeUTC: (() {
+        if (useDefaultTip) {
+          return DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true);
+        }
+
         final dynamic raw = data['t'] ?? data['submittedTimeUTC'];
         if (raw is int) {
           // Epoch seconds (compact)
