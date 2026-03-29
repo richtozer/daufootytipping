@@ -9,6 +9,7 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -91,7 +92,7 @@ class GameTipViewModel extends ChangeNotifier {
     this.game,
     this.allTipsViewModel, {
     DatabaseReference? database,
-  }) : _db = database ?? FirebaseDatabase.instance.ref() {
+  }) : _db = database ?? configuredDatabaseRef() {
     _listensToGamesViewModel =
         _currentDAUComp.latestsCompletedRoundNumber() <
         _currentDAUComp.daurounds.length;

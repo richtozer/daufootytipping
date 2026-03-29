@@ -7,6 +7,8 @@ import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dar
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
     as firebase_app_check_debug_token;
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
+import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -112,6 +114,8 @@ Future<void> main() async {
     );
   }
 
+  ConfiguredRealtimeDatabase.configure(database);
+
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   // same for async platform errors
   if (!kDebugMode) {
@@ -120,7 +124,16 @@ Future<void> main() async {
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      final bool fatal = CrashlyticsErrorClassifier
+          .shouldRecordPlatformErrorAsFatal(error);
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        fatal: fatal,
+        reason: fatal
+            ? null
+            : 'Transient Realtime Database disconnect reported as non-fatal.',
+      );
       return true;
     };
   }
@@ -199,6 +212,40 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String? _registeredActiveCompKey;
   bool? _registeredCreateLinkedTipper;
+  bool _coreWarmupScheduled = false;
+
+  void _scheduleCoreViewModelWarmup() {
+    if (_coreWarmupScheduled) {
+      return;
+    }
+
+    _coreWarmupScheduled = true;
+    StartupProfiling.instant(
+      'startup.core_viewmodels_warmup_scheduled',
+      arguments: <String, Object?>{
+        'compDbKey': _registeredActiveCompKey ?? 'unknown',
+      },
+    );
+
+    // Keep the listener warm-up, but move it off the first-frame critical path.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _coreWarmupScheduled = false;
+      if (!mounted) {
+        return;
+      }
+
+      StartupProfiling.instant(
+        'startup.core_viewmodels_warmup_started',
+        arguments: <String, Object?>{
+          'compDbKey': _registeredActiveCompKey ?? 'unknown',
+        },
+      );
+
+      di<TeamsViewModel>();
+      di<TippersViewModel>();
+      di<DAUCompsViewModel>();
+    });
+  }
 
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
@@ -226,10 +273,7 @@ class _MyAppState extends State<MyApp> {
       );
     }
 
-    // Warm the realtime listeners while auth/cache work is still in flight.
-    di<TeamsViewModel>();
-    di<TippersViewModel>();
-    di<DAUCompsViewModel>();
+    _scheduleCoreViewModelWarmup();
   }
 
   @override

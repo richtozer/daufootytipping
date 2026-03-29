@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:json_diff/json_diff.dart';
@@ -9,7 +10,7 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 
 class TeamsViewModel extends ChangeNotifier {
   List<Team> _teams = [];
-  final _db = FirebaseDatabase.instance.ref();
+  DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _teamsStream;
   bool _savingTeam = false;
   final Completer<void> _initialLoadCompleter = Completer<void>();

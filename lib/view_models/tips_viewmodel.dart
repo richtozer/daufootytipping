@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -67,7 +68,7 @@ class TipsViewModel extends ChangeNotifier {
     this.selectedDAUComp,
     this._gamesViewModel,
     {DatabaseReference? database, bool listenToTips = true,}
-  ) : _db = database ?? FirebaseDatabase.instance.ref() {
+  ) : _db = database ?? configuredDatabaseRef() {
     log('TipsViewModel (all tips) constructor');
     _gamesViewModel.addListener(_update);
     if (listenToTips) {
@@ -84,7 +85,7 @@ class TipsViewModel extends ChangeNotifier {
     this._gamesViewModel,
     this._tipper,
     {DatabaseReference? database, bool listenToTips = true,}
-  ) : _db = database ?? FirebaseDatabase.instance.ref() {
+  ) : _db = database ?? configuredDatabaseRef() {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
     _gamesViewModel.addListener(_update);
     if (listenToTips) {

@@ -1,3 +1,4 @@
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 abstract class DauCompsRepository {
@@ -10,7 +11,7 @@ class FirebaseDauCompsRepository implements DauCompsRepository {
   final FirebaseDatabase? _db;
   FirebaseDauCompsRepository({FirebaseDatabase? db}) : _db = db;
 
-  FirebaseDatabase get _database => _db ?? FirebaseDatabase.instance;
+  FirebaseDatabase get _database => _db ?? configuredRealtimeDatabase;
 
   @override
   Stream<DatabaseEvent> streamDauComps(String daucompsPath) {

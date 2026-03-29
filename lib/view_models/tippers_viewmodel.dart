@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -51,7 +52,7 @@ class TippersViewModel extends ChangeNotifier {
   bool get inGodMode => _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
 
   // Lazily access database reference to avoid Firebase initialization in pure unit tests.
-  DatabaseReference get _db => FirebaseDatabase.instance.ref();
+  DatabaseReference get _db => configuredDatabaseRef();
 
   late StreamSubscription<DatabaseEvent> _tippersStream;
 

@@ -154,6 +154,21 @@ void main() {
         }
       });
 
+      test('should treat missing result fields as a default tip', () {
+        final jsonData = {
+          'submittedTimeUTC': '2024-01-15T14:30:00.000Z',
+        };
+
+        final tip = Tip.fromJson(jsonData, 'tip1', testTipper, testGame);
+
+        expect(tip.tip, equals(GameResult.d));
+        expect(tip.isDefaultTip(), isTrue);
+        expect(
+          tip.submittedTimeUTC,
+          equals(DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true)),
+        );
+      });
+
       test('should convert tip to JSON correctly (compact keys)', () {
         final tip = Tip(
           dbkey: 'tip1',
