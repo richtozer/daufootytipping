@@ -201,6 +201,40 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String? _registeredActiveCompKey;
   bool? _registeredCreateLinkedTipper;
+  bool _coreWarmupScheduled = false;
+
+  void _scheduleCoreViewModelWarmup() {
+    if (_coreWarmupScheduled) {
+      return;
+    }
+
+    _coreWarmupScheduled = true;
+    StartupProfiling.instant(
+      'startup.core_viewmodels_warmup_scheduled',
+      arguments: <String, Object?>{
+        'compDbKey': _registeredActiveCompKey ?? 'unknown',
+      },
+    );
+
+    // Keep the listener warm-up, but move it off the first-frame critical path.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _coreWarmupScheduled = false;
+      if (!mounted) {
+        return;
+      }
+
+      StartupProfiling.instant(
+        'startup.core_viewmodels_warmup_started',
+        arguments: <String, Object?>{
+          'compDbKey': _registeredActiveCompKey ?? 'unknown',
+        },
+      );
+
+      di<TeamsViewModel>();
+      di<TippersViewModel>();
+      di<DAUCompsViewModel>();
+    });
+  }
 
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
@@ -228,10 +262,7 @@ class _MyAppState extends State<MyApp> {
       );
     }
 
-    // Warm the realtime listeners while auth/cache work is still in flight.
-    di<TeamsViewModel>();
-    di<TippersViewModel>();
-    di<DAUCompsViewModel>();
+    _scheduleCoreViewModelWarmup();
   }
 
   @override
