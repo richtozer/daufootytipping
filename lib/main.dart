@@ -7,6 +7,7 @@ import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dar
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
     as firebase_app_check_debug_token;
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
+import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -109,7 +110,16 @@ Future<void> main() async {
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      final bool fatal = CrashlyticsErrorClassifier
+          .shouldRecordPlatformErrorAsFatal(error);
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        fatal: fatal,
+        reason: fatal
+            ? null
+            : 'Transient Realtime Database disconnect reported as non-fatal.',
+      );
       return true;
     };
   }
