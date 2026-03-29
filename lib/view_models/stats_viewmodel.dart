@@ -49,9 +49,11 @@ class StatsViewModel extends ChangeNotifier {
   List<Game> get gamesWithLiveScores =>
       List<Game>.unmodifiable(_gamesWithLiveScores);
 
-  final _db = FirebaseDatabase.instance.ref();
+  final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
+  bool _hasLiveScoresListener = false;
+  bool _hasRoundScoresListener = false;
 
   final DAUComp selectedDAUComp;
 
@@ -81,9 +83,16 @@ class StatsViewModel extends ChangeNotifier {
   TipsViewModel? selectedTipperTipsViewModel;
 
   // Constructor
-  StatsViewModel(this.selectedDAUComp, this.gamesViewModel) {
+  StatsViewModel(
+    this.selectedDAUComp,
+    this.gamesViewModel, {
+    DatabaseReference? database,
+    bool autoInitialize = true,
+  }) : _db = database ?? FirebaseDatabase.instance.ref() {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
-    _initialize();
+    if (autoInitialize) {
+      _initialize();
+    }
   }
 
   void _initialize() async {
@@ -108,6 +117,7 @@ class StatsViewModel extends ChangeNotifier {
             log('StatsViewModel() Error listening to round scores: $error');
           },
         );
+    _hasRoundScoresListener = true;
 
     _liveScoresStream = _db
         .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
@@ -118,6 +128,7 @@ class StatsViewModel extends ChangeNotifier {
             log('StatsViewModel() Error listening to live scores: $error');
           },
         );
+    _hasLiveScoresListener = true;
   }
 
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
@@ -251,15 +262,31 @@ class StatsViewModel extends ChangeNotifier {
     try {
       if (event.snapshot.exists) {
         var dbData = event.snapshot.value as Map<dynamic, dynamic>;
-
-        _gamesWithLiveScores.clear();
+        final gamesWithLiveScores = <Game>[];
+        final staleLiveScoreGameDbKeys = <String>[];
 
         for (var entry in dbData.entries) {
-          var game = await gamesViewModel!.findGame(entry.key);
+          final gameDbKey = entry.key as String;
+          final game = await gamesViewModel?.findGame(gameDbKey);
+          if (game == null) {
+            log(
+              'StatsViewModel._handleEventLiveScores() Game $gameDbKey not found locally. Skipping live score entry.',
+            );
+            continue;
+          }
+
+          if (_hasOfficialFixtureScores(game)) {
+            staleLiveScoreGameDbKeys.add(gameDbKey);
+            log(
+              'StatsViewModel._handleEventLiveScores() Ignoring stale live score for game $gameDbKey because official fixture scores exist.',
+            );
+            continue;
+          }
+
           var scoring = Scoring.fromJson(
-            Map<String, dynamic>.from(entry.value),
+            Map<String, dynamic>.from(entry.value as Map),
           );
-          if (game!.scoring == null) {
+          if (game.scoring == null) {
             game.scoring = Scoring(
               crowdSourcedScores: scoring.crowdSourcedScores,
             );
@@ -267,14 +294,20 @@ class StatsViewModel extends ChangeNotifier {
             game.scoring?.crowdSourcedScores = scoring.crowdSourcedScores;
           }
 
-          _gamesWithLiveScores.add(game);
+          gamesWithLiveScores.add(game);
 
           log(
             'StatsViewModel._handleEventLiveScores() Loaded live score for game ${game.dbkey}',
           );
         }
 
+        _gamesWithLiveScores
+          ..clear()
+          ..addAll(gamesWithLiveScores);
+
         notifyListeners();
+
+        await _deleteLiveScoresByGameDbKeys(staleLiveScoreGameDbKeys);
       } else {
         // All live scores have been deleted (e.g. official scores arrived)
         if (_gamesWithLiveScores.isNotEmpty) {
@@ -1092,11 +1125,20 @@ class StatsViewModel extends ChangeNotifier {
 
     final oldScoring = game.scoring;
 
-    final newScoring = oldScoring?.copyWith(
-      crowdSourcedScores: oldScoring.crowdSourcedScores == null
-          ? crowdSourcedScores
-          : [...oldScoring.crowdSourcedScores!, ...crowdSourcedScores],
-    );
+    final newScoring = oldScoring == null
+        ? Scoring(
+            crowdSourcedScores: List<CrowdSourcedScore>.from(
+              crowdSourcedScores,
+            ),
+          )
+        : oldScoring.copyWith(
+            crowdSourcedScores: oldScoring.crowdSourcedScores == null
+                ? List<CrowdSourcedScore>.from(crowdSourcedScores)
+                : [
+                    ...oldScoring.crowdSourcedScores!,
+                    ...crowdSourcedScores,
+                  ],
+          );
 
     game.scoring = newScoring;
 
@@ -1220,7 +1262,7 @@ class StatsViewModel extends ChangeNotifier {
   /// Crowd-sourced scores are only removed once official scores are present,
   /// ensuring getGameResultCalculated() never loses its score source.
   Future<void> _deleteStaleLiveScores() async {
-    List<Game> gamesToDelete = [];
+    final gamesToDelete = <String>[];
     final gamesVM = gamesViewModel;
     if (gamesVM == null) return;
     for (var game in _gamesWithLiveScores) {
@@ -1229,48 +1271,64 @@ class StatsViewModel extends ChangeNotifier {
       // snapshots from when the live scores listener fired and won't
       // have fixture scores that arrived later.
       final currentGame = await gamesVM.findGame(game.dbkey);
-      final hasFixtureScores =
-          currentGame?.scoring != null &&
-          currentGame!.scoring!.homeTeamScore != null &&
-          currentGame.scoring!.awayTeamScore != null;
-      if (hasFixtureScores) {
-        gamesToDelete.add(game);
+      if (_hasOfficialFixtureScores(currentGame)) {
+        gamesToDelete.add(game.dbkey);
       }
     }
 
-    // if there are any games to delete turn off the listener
-    if (gamesToDelete.isNotEmpty) {
-      _liveScoresStream.cancel();
+    await _deleteLiveScoresByGameDbKeys(gamesToDelete);
+  }
+
+  bool _hasOfficialFixtureScores(Game? game) {
+    return game?.scoring != null &&
+        game!.scoring!.homeTeamScore != null &&
+        game.scoring!.awayTeamScore != null;
+  }
+
+  Future<void> _deleteLiveScoresByGameDbKeys(
+    Iterable<String> gameDbKeys,
+  ) async {
+    final keysToDelete = gameDbKeys.toSet().toList(growable: false);
+    if (keysToDelete.isEmpty) {
+      return;
     }
 
-    for (var game in gamesToDelete) {
-      _gamesWithLiveScores.remove(game);
+    final hadLiveScoresListener = _hasLiveScoresListener;
+    if (hadLiveScoresListener) {
+      await _liveScoresStream.cancel();
+      _hasLiveScoresListener = false;
+    }
+
+    for (final gameDbKey in keysToDelete) {
+      _gamesWithLiveScores.removeWhere((game) => game.dbkey == gameDbKey);
 
       await _db
           .child(statsPathRootLocal)
           .child(selectedDAUComp.dbkey!)
           .child(liveScoresRoot)
-          .child(game.dbkey)
+          .child(gameDbKey)
           .remove();
       log(
-        'StatsViewModel._deleteStaleLiveScores() Deleted live scores for game ${game.dbkey}',
+        'StatsViewModel._deleteLiveScoresByGameDbKeys() Deleted live scores for game $gameDbKey',
       );
     }
 
-    // if we turned the listener off, turn it back on
-    if (gamesToDelete.isNotEmpty) {
-      _liveScoresStream = _db
-          .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
-          .onValue
-          .listen(
-            _handleEventLiveScores,
-            onError: (error) {
-              log(
-                'StatsViewModel._deleteStaleLiveScores() Error listening to live scores: $error',
-              );
-            },
-          );
+    if (!hadLiveScoresListener) {
+      return;
     }
+
+    _liveScoresStream = _db
+        .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
+        .onValue
+        .listen(
+          _handleEventLiveScores,
+          onError: (error) {
+            log(
+              'StatsViewModel._deleteStaleLiveScores() Error listening to live scores: $error',
+            );
+          },
+        );
+    _hasLiveScoresListener = true;
   }
 
   List<DAURound> _getRoundsToUpdate(
@@ -1500,10 +1558,21 @@ class StatsViewModel extends ChangeNotifier {
     if (di.isRegistered<TippersViewModel>()) {
       di<TippersViewModel>().removeListener(_updateLeaderAndRoundAndRank);
     }
-    _allRoundScoresStream.cancel();
-    _liveScoresStream.cancel();
+    if (_hasRoundScoresListener) {
+      _allRoundScoresStream.cancel();
+      _hasRoundScoresListener = false;
+    }
+    if (_hasLiveScoresListener) {
+      _liveScoresStream.cancel();
+      _hasLiveScoresListener = false;
+    }
     _allTipperRoundStats.clear();
     super.dispose();
+  }
+
+  @visibleForTesting
+  Future<void> handleLiveScoresEventForTest(DatabaseEvent event) {
+    return _handleEventLiveScores(event);
   }
 
   void sortRoundWinnersByNRL(bool ascending) {
