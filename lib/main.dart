@@ -8,6 +8,7 @@ import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
     as firebase_app_check_debug_token;
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -101,6 +102,8 @@ Future<void> main() async {
       },
     );
   }
+
+  ConfiguredRealtimeDatabase.configure(database);
 
   // If in release mode, pass all uncaught "fatal" errors from the framework to Crashlytics
   // same for async platform errors

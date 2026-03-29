@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -20,7 +21,7 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 class GamesViewModel extends ChangeNotifier {
   // Properties
   List<Game> _games = [];
-  final _db = FirebaseDatabase.instance.ref();
+  DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _gamesStream;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();

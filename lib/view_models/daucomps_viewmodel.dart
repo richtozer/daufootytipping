@@ -11,6 +11,7 @@ import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Ad
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
 import 'package:daufootytipping/services/combined_rounds_service.dart';
 import 'package:daufootytipping/services/combined_rounds_persistence.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/daucomps_snapshot_applier.dart';
 import 'package:daufootytipping/services/fixture_update_coordinator.dart';
 import 'package:daufootytipping/services/lock_manager.dart';
@@ -48,7 +49,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   ); // how often we check for fixture updates
 
   // Lazily access database reference to avoid Firebase initialization during pure unit tests
-  DatabaseReference get _db => FirebaseDatabase.instance.ref();
+  DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
   final String?
