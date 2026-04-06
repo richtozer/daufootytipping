@@ -21,8 +21,10 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 class GamesViewModel extends ChangeNotifier {
   // Properties
   List<Game> _games = [];
-  DatabaseReference get _db => configuredDatabaseRef();
+  final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _gamesStream;
+  Future<void> _gamesSnapshotProcessing = Future<void>.value();
+  Completer<void>? _pendingGamesRefreshCompleter;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -36,21 +38,29 @@ class GamesViewModel extends ChangeNotifier {
 
   final DAUCompsViewModel _dauCompsViewModel;
 
-  bool _isUpdating = false;
+  final Duration _postWriteRefreshTimeout;
+  bool _isSavingBatch = false;
 
   // Constructor
   GamesViewModel(
     this.selectedDAUComp,
     this._dauCompsViewModel, {
     TeamsViewModel? teamsViewModel,
+    DatabaseReference? database,
+    Duration postWriteRefreshTimeout = const Duration(seconds: 5),
+    bool autoInitialize = true,
   }) : _ownsTeamsViewModel =
-           teamsViewModel == null && !di.isRegistered<TeamsViewModel>() {
+           teamsViewModel == null && !di.isRegistered<TeamsViewModel>(),
+       _db = database ?? configuredDatabaseRef(),
+       _postWriteRefreshTimeout = postWriteRefreshTimeout {
     _teamsViewModel =
         teamsViewModel ??
         (di.isRegistered<TeamsViewModel>()
             ? di<TeamsViewModel>()
             : TeamsViewModel());
-    _initialize();
+    if (autoInitialize) {
+      _initialize();
+    }
   }
 
   // Initialize the view model
@@ -66,37 +76,42 @@ class GamesViewModel extends ChangeNotifier {
   // Database listeners
   void _listenToGames() {
     _gamesStream = _db
-        .child('${p.gamesPathRoot}/${selectedDAUComp.dbkey}')
+        .child(_gamesPath)
         .onValue
         .listen((event) {
-          _handleEvent(event);
+          _queueGamesSnapshotProcessing(event.snapshot);
         });
   }
 
-  void _handleEvent(DatabaseEvent event) async {
-    if (_isUpdating) {
-      log('GamesViewModel_handleEvent: _isUpdating is true. Returning.');
-      return; // Prevent re-entrant updates
-    }
-    _isUpdating = true;
+  String get _gamesPath => '${p.gamesPathRoot}/${selectedDAUComp.dbkey}';
+
+  void _queueGamesSnapshotProcessing(DataSnapshot snapshot) {
+    _gamesSnapshotProcessing = _gamesSnapshotProcessing
+        .catchError((Object error, StackTrace stackTrace) {
+          log('GamesViewModel_handleEvent: recovering after error: $error');
+        })
+        .then((_) => _applyGamesSnapshot(snapshot));
+  }
+
+  Future<void> _applyGamesSnapshot(DataSnapshot snapshot) async {
     try {
       final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
-      final dynamic rawValue = event.snapshot.value;
+      final dynamic rawValue = snapshot.value;
       final int entryCount = rawValue is Map ? rawValue.length : 0;
       final int? payloadBytes = StartupProfiling.estimatePayloadBytes(rawValue);
       StartupProfiling.instant(
         'startup.games_snapshot_received',
         arguments: <String, Object?>{
-          'exists': event.snapshot.exists,
+          'exists': snapshot.exists,
           'entryCount': entryCount,
           'payloadBytes': payloadBytes ?? -1,
           'firstLoad': isFirstLoad,
           'compDbKey': selectedDAUComp.dbkey ?? 'unknown',
         },
       );
-      if (event.snapshot.exists) {
+      if (snapshot.exists) {
         final allGames = Map<String, dynamic>.from(
-          event.snapshot.value as dynamic,
+          snapshot.value as dynamic,
         );
 
         // Deserialize the games
@@ -157,14 +172,27 @@ class GamesViewModel extends ChangeNotifier {
 
       // Link games with rounds
       await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
-    } catch (e) {
+      _completePendingGamesRefresh();
+    } catch (e, stackTrace) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
+      _completePendingGamesRefresh(error: e, stackTrace: stackTrace);
       rethrow;
     } finally {
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
-      _isUpdating = false;
+    }
+  }
+
+  void _completePendingGamesRefresh({Object? error, StackTrace? stackTrace}) {
+    final completer = _pendingGamesRefreshCompleter;
+    if (completer == null || completer.isCompleted) {
+      return;
+    }
+    if (error != null) {
+      completer.completeError(error, stackTrace);
+    } else {
+      completer.complete();
     }
   }
 
@@ -229,8 +257,8 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   Future<void> saveBatchOfGameAttributes() async {
-    if (_isUpdating) return; // Prevent re-entrant updates
-    _isUpdating = true;
+    if (_isSavingBatch) return; // Prevent re-entrant updates
+    _isSavingBatch = true;
     try {
       // check if there are any updates to save
       if (updates.isEmpty) {
@@ -239,10 +267,25 @@ class GamesViewModel extends ChangeNotifier {
       }
       await initialLoadComplete;
       // turn off listeners
-      _gamesStream.cancel();
+      await _gamesStream.cancel();
       await _db.update(updates);
+      updates.clear();
       // turn listeners back on
+      final refreshCompleter = Completer<void>();
+      _pendingGamesRefreshCompleter = refreshCompleter;
       _listenToGames();
+      try {
+        await refreshCompleter.future.timeout(_postWriteRefreshTimeout);
+      } on TimeoutException {
+        log(
+          'GamesViewModel_saveBatchOfGameAttributes: timed out waiting for refreshed games snapshot after DB update. Loading current snapshot directly.',
+        );
+        await _applyGamesSnapshot(await _db.child(_gamesPath).get());
+      } finally {
+        if (identical(_pendingGamesRefreshCompleter, refreshCompleter)) {
+          _pendingGamesRefreshCompleter = null;
+        }
+      }
 
       // if any game scores have changes, the round will be flagged for scoring
       // update in List<DAURound> _roundsThatNeedScoringUpdate
@@ -257,7 +300,7 @@ class GamesViewModel extends ChangeNotifier {
       _roundsThatNeedScoringUpdate.clear();
     } finally {
       log('GamesViewModel_saveBatchOfGameAttributes: notifyListeners()');
-      _isUpdating = false;
+      _isSavingBatch = false;
     }
   }
 
