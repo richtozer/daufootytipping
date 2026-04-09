@@ -180,6 +180,26 @@ flutter pub get
 flutter clean
 firebase emulators:start
 
+Seed RTDB Extract In Terminal (macOS)
+=====================================
+
+Use `scripts/start_seeded_firebase_emulators.sh /absolute/path/to/export.json` to
+start the Firebase emulators, wait for the RTDB emulator, and seed it from an
+exported JSON file.
+
+If you want this on Finder right-click:
+
+1. Create an Automator Quick Action that receives `files or folders` in `Finder`.
+2. Add a `Run Shell Script` step and set `Pass input` to `as arguments`.
+3. Point it at `scripts/open_seeded_firebase_emulators_in_terminal.sh`, for example:
+
+   `"/absolute/path/to/daufootytipping/scripts/open_seeded_firebase_emulators_in_terminal.sh" "$@"`
+
+Running that Quick Action on an RTDB export JSON file opens a new Terminal
+window, starts the local Firebase emulators, and seeds the RTDB emulator using
+the selected file. If emulator ports are already in use, stop the current
+session first with `scripts/stop_firebase_emulators_vscode.sh`.
+
 Contributing
 ============
 Contributions are welcome! Please open an issue or submit a pull request if you have any improvements or bug fixes.
