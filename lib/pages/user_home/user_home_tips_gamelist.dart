@@ -325,7 +325,7 @@ class TipsStickyHeader extends StatelessWidget {
                 backgroundColor ??
                 (isPercentStatsPage
                     ? Colors.white12
-                    : Colors.black.withValues(alpha: 0.62)),
+                    : Colors.black.withValues(alpha: 0.82)),
           ),
         ),
       ),

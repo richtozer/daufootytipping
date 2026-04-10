@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io'; // Add this import for IOException, SocketException
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/services/scoring_update_queue.dart';
@@ -88,7 +89,7 @@ class StatsViewModel extends ChangeNotifier {
     this.gamesViewModel, {
     DatabaseReference? database,
     bool autoInitialize = true,
-  }) : _db = database ?? FirebaseDatabase.instance.ref() {
+  }) : _db = database ?? configuredDatabaseRef() {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
     if (autoInitialize) {
       _initialize();

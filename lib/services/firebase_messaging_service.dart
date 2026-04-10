@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -16,7 +17,7 @@ class FirebaseMessagingService {
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
-  final databaseReference = FirebaseDatabase.instance.ref();
+  DatabaseReference get databaseReference => configuredDatabaseRef();
   final FirebaseAuth auth = FirebaseAuth.instance;
   String? _fbmToken; // Initialize with null
 

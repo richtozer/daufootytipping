@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -36,10 +37,8 @@ class ConfigViewModel extends ChangeNotifier {
   ConfigViewModel({
     DatabaseReference? db,
     Duration initialLoadTimeout = const Duration(seconds: 15),
-  }) : _db = db ?? FirebaseDatabase.instance.ref(p.configPathRoot),
-       _initialLoadTimeout = initialLoadTimeout,
-       _prefsFactory = prefsFactory ?? SharedPreferences.getInstance {
-    unawaited(_restoreCachedConfig());
+  }) : _db = db ?? configuredDatabaseRef(p.configPathRoot),
+       _initialLoadTimeout = initialLoadTimeout {
     _listenToConfigChanges();
     // Add a timeout for initial load
     _initialLoadCompleter.future.timeout(_initialLoadTimeout).catchError((_) {
