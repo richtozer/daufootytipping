@@ -74,6 +74,8 @@ class StatsViewModel extends ChangeNotifier {
 
   Map<int, List<RoundWinnerEntry>> _roundWinners = {};
   Map<int, List<RoundWinnerEntry>> get roundWinners => _roundWinners;
+  int _roundWinnersSortColumnIndex = 0;
+  bool _roundWinnersSortAscending = false;
 
   GamesViewModel? gamesViewModel;
 
@@ -191,6 +193,11 @@ class StatsViewModel extends ChangeNotifier {
       }
       rethrow; // Re-throw the error
     }
+  }
+
+  @visibleForTesting
+  Future<void> handleRoundScoresEventForTest(DatabaseEvent event) {
+    return _handleEventRoundScores(event);
   }
 
   Completer<void>? _updateLock;
@@ -903,6 +910,7 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     _roundWinners = roundWinners;
+    _applyRoundWinnersSort();
   }
 
   Map<Tipper, int> _calculateCumulativeRankUpToRound(int upToRoundNumber) {
@@ -1062,38 +1070,21 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   void sortRoundWinnersByRoundNumber(bool ascending) {
-    var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending ? a.key.compareTo(b.key) : b.key.compareTo(a.key),
-      );
-
-    _roundWinners = Map.fromEntries(sortedEntries);
+    _roundWinnersSortColumnIndex = 0;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
   }
 
   void sortRoundWinnersByWinner(bool ascending) {
-    var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending
-            ? (a.value[0].tipper.name).toLowerCase().compareTo(
-                b.value[0].tipper.name.toLowerCase(),
-              )
-            : (b.value[0].tipper.name).toLowerCase().compareTo(
-                a.value[0].tipper.name.toLowerCase(),
-              ),
-      );
-
-    _roundWinners = Map.fromEntries(sortedEntries);
+    _roundWinnersSortColumnIndex = 1;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
   }
 
   void sortRoundWinnersByTotal(bool ascending) {
-    var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending
-            ? a.value[0].total.compareTo(b.value[0].total)
-            : b.value[0].total.compareTo(a.value[0].total),
-      );
-
-    _roundWinners = Map.fromEntries(sortedEntries);
+    _roundWinnersSortColumnIndex = 2;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
   }
 
   List<RoundStats> getTipperRoundScoresForComp(Tipper tipper) {
@@ -1577,55 +1568,69 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   void sortRoundWinnersByNRL(bool ascending) {
-    var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending
-            ? a.value[0].nRL.compareTo(b.value[0].nRL)
-            : b.value[0].nRL.compareTo(a.value[0].nRL),
-      );
-
-    _roundWinners = Map.fromEntries(sortedEntries);
+    _roundWinnersSortColumnIndex = 3;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
   }
 
   void sortRoundWinnersByAFL(bool ascending) {
-    var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending
-            ? a.value[0].aFL.compareTo(b.value[0].aFL)
-            : b.value[0].aFL.compareTo(a.value[0].aFL),
-      );
-
-    _roundWinners = Map.fromEntries(sortedEntries);
+    _roundWinnersSortColumnIndex = 4;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
   }
 
   void sortRoundWinnersByMargins(bool ascending) {
+    _roundWinnersSortColumnIndex = 5;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
+  }
+
+  void sortRoundWinnersByUPS(bool ascending) {
+    _roundWinnersSortColumnIndex = 6;
+    _roundWinnersSortAscending = ascending;
+    _applyRoundWinnersSort();
+  }
+
+  void _applyRoundWinnersSort() {
     var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending
-            ? (a.value[0].aflMargins + a.value[0].nrlMargins).compareTo(
-                b.value[0].aflMargins + b.value[0].nrlMargins,
-              )
-            : (b.value[0].aflMargins + b.value[0].nrlMargins).compareTo(
-                a.value[0].aflMargins + a.value[0].nrlMargins,
-              ),
-      );
+      ..sort(_compareRoundWinnerEntries);
 
     _roundWinners = Map.fromEntries(sortedEntries);
   }
 
-  void sortRoundWinnersByUPS(bool ascending) {
-    var sortedEntries = _roundWinners.entries.toList()
-      ..sort(
-        (a, b) => ascending
-            ? (a.value[0].aflUPS + a.value[0].nrlUPS).compareTo(
-                b.value[0].aflUPS + b.value[0].nrlUPS,
-              )
-            : (b.value[0].aflUPS + b.value[0].nrlUPS).compareTo(
-                a.value[0].aflUPS + a.value[0].nrlUPS,
-              ),
-      );
+  int _compareRoundWinnerEntries(
+    MapEntry<int, List<RoundWinnerEntry>> a,
+    MapEntry<int, List<RoundWinnerEntry>> b,
+  ) {
+    final direction = _roundWinnersSortAscending ? 1 : -1;
 
-    _roundWinners = Map.fromEntries(sortedEntries);
+    switch (_roundWinnersSortColumnIndex) {
+      case 0:
+        return direction * a.key.compareTo(b.key);
+      case 1:
+        return direction *
+            a.value[0].tipper.name.toLowerCase().compareTo(
+              b.value[0].tipper.name.toLowerCase(),
+            );
+      case 2:
+        return direction * a.value[0].total.compareTo(b.value[0].total);
+      case 3:
+        return direction * a.value[0].nRL.compareTo(b.value[0].nRL);
+      case 4:
+        return direction * a.value[0].aFL.compareTo(b.value[0].aFL);
+      case 5:
+        return direction *
+            (a.value[0].aflMargins + a.value[0].nrlMargins).compareTo(
+              b.value[0].aflMargins + b.value[0].nrlMargins,
+            );
+      case 6:
+        return direction *
+            (a.value[0].aflUPS + a.value[0].nrlUPS).compareTo(
+              b.value[0].aflUPS + b.value[0].nrlUPS,
+            );
+      default:
+        return direction * a.key.compareTo(b.key);
+    }
   }
 
   RoundStats getScoringRoundStats(DAURound dauRound, Tipper selectedTipper) {
