@@ -6,6 +6,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -251,6 +252,11 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                   ],
                 );
 
+                final scaffoldWithCompBanner = SelectedCompBanner(
+                  dauCompsViewModel: dauCompsViewModelConsumer,
+                  child: scaffold,
+                );
+
                 if (tippersViewModelConsumer.inGodMode) {
                   return Banner(
                     message: tippersViewModelConsumer.selectedTipper.name,
@@ -260,28 +266,11 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       message: 'God mode',
                       location: BannerLocation.bottomEnd,
                       color: Colors.red,
-                      child: scaffold,
+                      child: scaffoldWithCompBanner,
                     ),
                   );
-                } else if (dauCompsViewModelConsumer.selectedDAUComp != null &&
-                    !dauCompsViewModelConsumer.isSelectedCompActiveComp()) {
-                  String compYear =
-                      dauCompsViewModelConsumer.selectedDAUComp!.name;
-                  RegExp regExp = RegExp(r'\d{4}');
-                  Match? match = regExp.firstMatch(compYear);
-                  if (match != null) {
-                    compYear = match.group(0)!;
-                  }
-
-                  return Banner(
-                    message: compYear,
-                    textStyle: const TextStyle(color: Colors.black),
-                    location: BannerLocation.bottomStart,
-                    color: Colors.orange,
-                    child: scaffold,
-                  );
                 } else {
-                  return scaffold;
+                  return scaffoldWithCompBanner;
                 }
               },
             );

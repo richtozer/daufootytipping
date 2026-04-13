@@ -3,6 +3,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -214,7 +215,8 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   Widget build(BuildContext context) {
     final orientation = MediaQuery.of(context).orientation;
 
-    return Scaffold(
+    return SelectedCompBanner(
+      child: Scaffold(
       floatingActionButton: FloatingActionButton.small(
         onPressed: () => Navigator.pop(context),
         backgroundColor: Colors.lightGreen[200],
@@ -378,6 +380,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
           ),
           ],
         ),
+      ),
       ),
     );
   }

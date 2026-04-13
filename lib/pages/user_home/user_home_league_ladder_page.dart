@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -258,7 +259,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     ).orientation; // Get orientation
     final String? comparisonTeamNames = _comparisonTeamNames();
 
-    return Scaffold(
+    return SelectedCompBanner(
+      child: Scaffold(
       // appBar: AppBar(...) removed
       body: SafeArea(
         child: SingleChildScrollView(
@@ -667,6 +669,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: const Icon(Icons.arrow_back),
+      ),
       ),
     );
   }
