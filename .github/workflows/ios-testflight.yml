@@ -385,8 +385,19 @@ jobs:
 
             has_failure_markers=0
             if echo "$upload_output" | grep -Eqi \
-              'UPLOAD FAILED|Failed to upload package|Error uploading|did not receive a response|The Internet connection appears to be offline|The network connection was lost'; then
+              'UPLOAD FAILED|Failed to upload package|Error uploading|ERROR:|Failed to determine the Apple ID|A required agreement is missing or has expired|did not receive a response|The Internet connection appears to be offline|The network connection was lost'; then
               has_failure_markers=1
+            fi
+
+            is_agreement_error=0
+            if echo "$upload_output" | grep -Eqi \
+              'Failed to determine the Apple ID|A required agreement is missing or has expired'; then
+              is_agreement_error=1
+            fi
+
+            if [ "$is_agreement_error" -eq 1 ]; then
+              echo "::error::App Store Connect rejected the upload because a required agreement is missing or expired. An Apple Developer Account Holder/Admin must accept the latest agreements before TestFlight uploads will succeed."
+              exit 1
             fi
 
             if [ "$upload_status" -eq 0 ] && [ "$has_failure_markers" -eq 0 ]; then
