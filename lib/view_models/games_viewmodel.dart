@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -294,7 +295,12 @@ class GamesViewModel extends ChangeNotifier {
         log(
           'GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}',
         );
-        await di<StatsViewModel>().updateStats(selectedDAUComp, dauRound, null);
+        await ScoringUpdateQueue().queueScoringUpdate(
+          dauComp: selectedDAUComp,
+          round: dauRound,
+          tipper: null,
+          priority: 2,
+        );
       }
       // clear the list
       _roundsThatNeedScoringUpdate.clear();

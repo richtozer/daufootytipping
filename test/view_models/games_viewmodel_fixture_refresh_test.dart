@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -79,6 +80,7 @@ void main() {
   setUp(() async {
     await di.reset();
     di.allowReassignment = true;
+    ScoringUpdateQueue().clearQueue();
 
     rootDb = MockDatabaseReference();
     gamesRef = MockDatabaseReference();
@@ -131,6 +133,7 @@ void main() {
   });
 
   tearDown(() async {
+    ScoringUpdateQueue().clearQueue();
     await gamesController.close();
     await di.reset();
   });
@@ -250,6 +253,90 @@ void main() {
 
       verify(() => gamesRef.get()).called(1);
       verify(() => statsViewModel.updateStats(comp, round, null)).called(1);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'saveBatchOfGameAttributes queues rescoring behind an in-flight stats update',
+    () async {
+      final firstUpdateCompleter = Completer<void>();
+      var updateStatsCallCount = 0;
+
+      when(() => statsViewModel.updateStats(any(), any(), any())).thenAnswer((
+        _,
+      ) async {
+        updateStatsCallCount++;
+        if (updateStatsCallCount == 1) {
+          await firstUpdateCompleter.future;
+          return 'first';
+        }
+        return 'second';
+      });
+
+      final viewModel = GamesViewModel(
+        comp,
+        dauCompsViewModel,
+        teamsViewModel: teamsViewModel,
+        database: rootDb,
+        postWriteRefreshTimeout: const Duration(milliseconds: 50),
+      );
+
+      await settleAsyncWork();
+      gamesController.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-01-001': gameJson(homeScore: 10, awayScore: 8),
+            },
+          ),
+        ),
+      );
+      await viewModel.initialLoadComplete;
+      await settleAsyncWork();
+
+      final firstScoringFuture = ScoringUpdateQueue().queueScoringUpdate(
+        dauComp: comp,
+        round: round,
+        tipper: null,
+        priority: 2,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      expect(updateStatsCallCount, 1);
+
+      await viewModel.updateGameAttribute(
+        'nrl-01-001',
+        'HomeTeamScore',
+        14,
+        'nrl',
+      );
+
+      final saveFuture = viewModel.saveBatchOfGameAttributes();
+      await settleAsyncWork();
+
+      gamesController.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-01-001': gameJson(homeScore: 14, awayScore: 8),
+            },
+          ),
+        ),
+      );
+      await settleAsyncWork();
+
+      expect(ScoringUpdateQueue().queueStatus['queueLength'], 1);
+
+      firstUpdateCompleter.complete();
+
+      await firstScoringFuture;
+      await saveFuture;
+
+      expect(updateStatsCallCount, 2);
 
       viewModel.dispose();
     },
