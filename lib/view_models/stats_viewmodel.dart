@@ -11,6 +11,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
+import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
@@ -347,6 +348,29 @@ class StatsViewModel extends ChangeNotifier {
 
   Future<String>? _updateStatsInProgress;
 
+  Future<ScoringUpdateReport> updateStatsWithReport(
+    DAUComp daucompToUpdate,
+    DAURound? onlyUpdateThisRound,
+    Tipper? onlyUpdateThisTipper,
+  ) async {
+    await _rebuildScoringViewsForReport();
+    final beforeSnapshot = _captureScoringSnapshot();
+    final resultMessage = await updateStats(
+      daucompToUpdate,
+      onlyUpdateThisRound,
+      onlyUpdateThisTipper,
+    );
+    await _rebuildScoringViewsForReport();
+    notifyListeners();
+    final afterSnapshot = _captureScoringSnapshot();
+
+    return _buildScoringUpdateReport(
+      beforeSnapshot,
+      afterSnapshot,
+      resultMessage,
+    );
+  }
+
   Future<String> updateStats(
     DAUComp daucompToUpdate,
     DAURound? onlyUpdateThisRound,
@@ -535,6 +559,165 @@ class StatsViewModel extends ChangeNotifier {
       );
       return;
     }
+  }
+
+  Future<void> _rebuildScoringViewsForReport() async {
+    await di<TippersViewModel>().isUserLinked;
+
+    _isSelectedTipperPaidUpMember = di<TippersViewModel>().selectedTipper
+        .paidForComp(selectedDAUComp);
+
+    _updateLeaderboardForComp();
+    _updateRoundWinners();
+    _rankTippersPerRound();
+  }
+
+  ScoringStateSnapshot _captureScoringSnapshot() {
+    final roundEntries = <String, ScoringRoundSnapshot>{};
+    for (final roundEntry in _allTipperRoundStats.entries) {
+      for (final tipperEntry in roundEntry.value.entries) {
+        final tipper = tipperEntry.key;
+        final roundStats = tipperEntry.value;
+        final snapshot = ScoringRoundSnapshot(
+          tipperDbKey: tipper.dbkey,
+          tipperName: tipper.name,
+          roundNumber: roundStats.roundNumber == 0
+              ? roundEntry.key + 1
+              : roundStats.roundNumber,
+          total: roundStats.aflScore + roundStats.nrlScore,
+          nrl: roundStats.nrlScore,
+          afl: roundStats.aflScore,
+          rank: roundStats.rank,
+        );
+        roundEntries[snapshot.key] = snapshot;
+      }
+    }
+
+    final leaderboardEntries = <String, ScoringLeaderboardSnapshot>{};
+    for (final entry in _compLeaderboard) {
+      final snapshot = ScoringLeaderboardSnapshot(
+        tipperDbKey: entry.tipper.dbkey,
+        tipperName: entry.tipper.name,
+        rank: entry.rank,
+        total: entry.total,
+        nrl: entry.nRL,
+        afl: entry.aFL,
+        roundsWon: entry.numRoundsWon,
+        margins: entry.aflMargins + entry.nrlMargins,
+        ups: entry.aflUPS + entry.nrlUPS,
+      );
+      leaderboardEntries[snapshot.key] = snapshot;
+    }
+
+    return ScoringStateSnapshot(
+      roundEntries: roundEntries,
+      leaderboardEntries: leaderboardEntries,
+    );
+  }
+
+  ScoringUpdateReport _buildScoringUpdateReport(
+    ScoringStateSnapshot beforeSnapshot,
+    ScoringStateSnapshot afterSnapshot,
+    String resultMessage,
+  ) {
+    final leaderboardKeys = <String>{
+      ...beforeSnapshot.leaderboardEntries.keys,
+      ...afterSnapshot.leaderboardEntries.keys,
+    };
+    final leaderboardChanges = leaderboardKeys
+        .map((key) {
+          final before = beforeSnapshot.leaderboardEntries[key];
+          final after = afterSnapshot.leaderboardEntries[key];
+          final change = ScoringLeaderboardChange(
+            tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
+            tipperName: after?.tipperName ?? before?.tipperName ?? 'Unknown',
+            beforeRank: before?.rank ?? 0,
+            afterRank: after?.rank ?? 0,
+            beforeTotal: before?.total ?? 0,
+            afterTotal: after?.total ?? 0,
+            beforeNrl: before?.nrl ?? 0,
+            afterNrl: after?.nrl ?? 0,
+            beforeAfl: before?.afl ?? 0,
+            afterAfl: after?.afl ?? 0,
+            beforeRoundsWon: before?.roundsWon ?? 0,
+            afterRoundsWon: after?.roundsWon ?? 0,
+            beforeMargins: before?.margins ?? 0,
+            afterMargins: after?.margins ?? 0,
+            beforeUps: before?.ups ?? 0,
+            afterUps: after?.ups ?? 0,
+          );
+          return change.hasChange ? change : null;
+        })
+        .whereType<ScoringLeaderboardChange>()
+        .toList()
+      ..sort((a, b) {
+        final rankDeltaCompare =
+            b.rankDelta.abs().compareTo(a.rankDelta.abs());
+        if (rankDeltaCompare != 0) return rankDeltaCompare;
+        final totalDeltaCompare =
+            b.totalDelta.abs().compareTo(a.totalDelta.abs());
+        if (totalDeltaCompare != 0) return totalDeltaCompare;
+        return a.tipperName.toLowerCase().compareTo(b.tipperName.toLowerCase());
+      });
+
+    final roundKeys = <String>{
+      ...beforeSnapshot.roundEntries.keys,
+      ...afterSnapshot.roundEntries.keys,
+    };
+    final roundChanges = roundKeys
+        .map((key) {
+          final before = beforeSnapshot.roundEntries[key];
+          final after = afterSnapshot.roundEntries[key];
+          final change = ScoringRoundChange(
+            tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
+            tipperName: after?.tipperName ?? before?.tipperName ?? 'Unknown',
+            roundNumber: after?.roundNumber ?? before?.roundNumber ?? 0,
+            beforeTotal: before?.total ?? 0,
+            afterTotal: after?.total ?? 0,
+            beforeNrl: before?.nrl ?? 0,
+            afterNrl: after?.nrl ?? 0,
+            beforeAfl: before?.afl ?? 0,
+            afterAfl: after?.afl ?? 0,
+            beforeRank: before?.rank ?? 0,
+            afterRank: after?.rank ?? 0,
+          );
+          return change.hasChange ? change : null;
+        })
+        .whereType<ScoringRoundChange>()
+        .toList()
+      ..sort((a, b) {
+        final roundCompare = a.roundNumber.compareTo(b.roundNumber);
+        if (roundCompare != 0) return roundCompare;
+        final totalDeltaCompare =
+            b.totalDelta.abs().compareTo(a.totalDelta.abs());
+        if (totalDeltaCompare != 0) return totalDeltaCompare;
+        return a.tipperName.toLowerCase().compareTo(b.tipperName.toLowerCase());
+      });
+
+    return ScoringUpdateReport(
+      resultMessage: resultMessage,
+      leaderboardChanges: leaderboardChanges,
+      roundChanges: roundChanges,
+    );
+  }
+
+  @visibleForTesting
+  Future<ScoringStateSnapshot> captureScoringSnapshotForTest() async {
+    await _rebuildScoringViewsForReport();
+    return _captureScoringSnapshot();
+  }
+
+  @visibleForTesting
+  ScoringUpdateReport buildScoringUpdateReportForTest(
+    ScoringStateSnapshot beforeSnapshot,
+    ScoringStateSnapshot afterSnapshot,
+    String resultMessage,
+  ) {
+    return _buildScoringUpdateReport(
+      beforeSnapshot,
+      afterSnapshot,
+      resultMessage,
+    );
   }
 
   Map<Tipper, RoundStats> getRoundLeaderBoard(int roundNumber) {
