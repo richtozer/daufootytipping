@@ -6,6 +6,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -65,10 +66,12 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   @override
   Widget build(BuildContext context) {
-    return buildScaffold(
-      context,
-      'Round ${widget.roundNumberToDisplay} Leaderboard',
-      Colors.blue,
+    return SelectedCompBanner(
+      child: buildScaffold(
+        context,
+        'Round ${widget.roundNumberToDisplay} Leaderboard',
+        Colors.blue,
+      ),
     );
   }
 

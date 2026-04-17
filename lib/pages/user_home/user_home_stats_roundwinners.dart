@@ -6,6 +6,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
@@ -68,229 +69,235 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
               : Colors.lightGreen[200];
           final fabForegroundColor =
               isDarkMode ? Colors.white : Colors.black87;
-          return Scaffold(
-            floatingActionButton: FloatingActionButton.small(
-              backgroundColor: fabBackgroundColor,
-              foregroundColor: fabForegroundColor,
-              heroTag: 'roundWinners',
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
+          return SelectedCompBanner(
+            child: Scaffold(
+              floatingActionButton: FloatingActionButton.small(
+                backgroundColor: fabBackgroundColor,
+                foregroundColor: fabForegroundColor,
+                heroTag: 'roundWinners',
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Icon(Icons.arrow_back),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Icon(Icons.arrow_back),
-            ),
-            body: SafeArea(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (orientation == Orientation.portrait)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+              body: SafeArea(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (orientation == Orientation.portrait)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            16.0,
+                            8.0,
+                            16.0,
+                            0.0,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Hero(
-                                tag: 'person',
-                                child: Icon(Icons.person, size: 50),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Hero(
+                                    tag: 'person',
+                                    child: Icon(Icons.person, size: 50),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Round Winners',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
-                                  'Round Winners',
+                                  'Round winners grouped by round. Tap a row to see the full round leaderboard.',
                                   style: Theme.of(context)
                                       .textTheme
-                                      .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                      .bodyMedium
+                                      ?.copyWith(color: Colors.grey[600]),
                                 ),
                               ),
                             ],
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              'Round winners grouped by round. Tap a row to see the full round leaderboard.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: Colors.grey[600]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  LiveScoresWarningCard(),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: DataTable2(
-                        border: TableBorder.all(
-                          width: 1.0,
-                          color: Colors.grey.shade300,
                         ),
-                        //dividerThickness: 0,
-                        sortColumnIndex: sortColumnIndex,
-                        sortAscending: isAscending,
-                        columnSpacing: 0,
-                        horizontalMargin: 0,
-                        minWidth: 600,
-                        fixedTopRows: 1,
-                        fixedLeftColumns: orientation == Orientation.portrait
-                            ? 2
-                            : 0,
-                        showCheckboxColumn: false,
-                        isHorizontalScrollBarVisible: true,
-                        isVerticalScrollBarVisible: true,
-                        columns: getColumns(columns),
-                        rows: scoresViewModel.roundWinners.values.expand((
-                          winners,
-                        ) {
-                          return winners.map((winner) {
-                            // Check if the round number has changed
-                            if (lastRoundNumber != winner.roundNumber) {
-                              // Swap the colors
-                              Color temp = currentColor;
-                              currentColor = lastColor;
-                              lastColor = temp;
-                            }
-                            lastRoundNumber = winner.roundNumber;
+                      LiveScoresWarningCard(),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: DataTable2(
+                            border: TableBorder.all(
+                              width: 1.0,
+                              color: Colors.grey.shade300,
+                            ),
+                            sortColumnIndex: sortColumnIndex,
+                            sortAscending: isAscending,
+                            columnSpacing: 0,
+                            horizontalMargin: 0,
+                            minWidth: 600,
+                            fixedTopRows: 1,
+                            fixedLeftColumns: orientation == Orientation.portrait
+                                ? 2
+                                : 0,
+                            showCheckboxColumn: false,
+                            isHorizontalScrollBarVisible: true,
+                            isVerticalScrollBarVisible: true,
+                            columns: getColumns(columns),
+                            rows: scoresViewModel.roundWinners.values.expand((
+                              winners,
+                            ) {
+                              return winners.map((winner) {
+                                if (lastRoundNumber != winner.roundNumber) {
+                                  Color temp = currentColor;
+                                  currentColor = lastColor;
+                                  lastColor = temp;
+                                }
+                                lastRoundNumber = winner.roundNumber;
 
-                            return DataRow(
-                              color:
-                                  winner.tipper ==
-                                      di<TippersViewModel>().selectedTipper
-                                  ? WidgetStateProperty.resolveWith(
-                                      (states) =>
-                                          Theme.of(context).highlightColor,
-                                    )
-                                  : WidgetStateProperty.resolveWith(
-                                      (states) => Colors.transparent,
-                                    ),
-                              cells: [
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      color: currentColor,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          const Icon(
-                                            Icons.arrow_forward,
-                                            size: 15,
+                                return DataRow(
+                                  color:
+                                      winner.tipper ==
+                                          di<TippersViewModel>().selectedTipper
+                                      ? WidgetStateProperty.resolveWith(
+                                          (states) =>
+                                              Theme.of(context).highlightColor,
+                                        )
+                                      : WidgetStateProperty.resolveWith(
+                                          (states) => Colors.transparent,
+                                        ),
+                                  cells: [
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          color: currentColor,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              const Icon(
+                                                Icons.arrow_forward,
+                                                size: 15,
+                                              ),
+                                              Text('  ${winner.roundNumber}'),
+                                            ],
                                           ),
-                                          Text('  ${winner.roundNumber}'),
-                                        ],
+                                        ),
                                       ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
                                     ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      color: currentColor,
-                                      child: Row(
-                                        children: [
-                                          avatarPic(
-                                            winner.tipper,
-                                            winner.roundNumber,
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          color: currentColor,
+                                          child: Row(
+                                            children: [
+                                              avatarPic(
+                                                winner.tipper,
+                                                winner.roundNumber,
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  overflow: TextOverflow.fade,
+                                                  winner.tipper.name.toString(),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          Expanded(
-                                            child: Text(
-                                              overflow: TextOverflow.fade,
-                                              winner.tipper.name.toString(),
-                                            ),
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
+                                    ),
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          alignment: Alignment.centerRight,
+                                          color: currentColor,
+                                          child: Text(winner.total.toString()),
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
+                                    ),
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          alignment: Alignment.centerRight,
+                                          color: currentColor,
+                                          child: Text(winner.nRL.toString()),
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
+                                    ),
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          alignment: Alignment.centerRight,
+                                          color: currentColor,
+                                          child: Text(winner.aFL.toString()),
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
+                                    ),
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          alignment: Alignment.centerRight,
+                                          color: currentColor,
+                                          child: Text(
+                                            (winner.aflMargins + winner.nrlMargins)
+                                                .toString(),
                                           ),
-                                        ],
+                                        ),
                                       ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
                                     ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      alignment: Alignment.centerRight,
-                                      color: currentColor,
-                                      child: Text(winner.total.toString()),
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      alignment: Alignment.centerRight,
-                                      color: currentColor,
-                                      child: Text(winner.nRL.toString()),
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      alignment: Alignment.centerRight,
-                                      color: currentColor,
-                                      child: Text(winner.aFL.toString()),
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      alignment: Alignment.centerRight,
-                                      color: currentColor,
-                                      child: Text(
-                                        (winner.aflMargins + winner.nrlMargins)
-                                            .toString(),
+                                    DataCell(
+                                      SizedBox.expand(
+                                        child: Container(
+                                          alignment: Alignment.centerRight,
+                                          color: currentColor,
+                                          child: Text(
+                                            (winner.aflUPS + winner.nrlUPS)
+                                                .toString(),
+                                          ),
+                                        ),
                                       ),
+                                      onTap: () {
+                                        onRowTapped(context, winner);
+                                      },
                                     ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                                DataCell(
-                                  SizedBox.expand(
-                                    child: Container(
-                                      alignment: Alignment.centerRight,
-                                      color: currentColor,
-                                      child: Text(
-                                        (winner.aflUPS + winner.nrlUPS)
-                                            .toString(),
-                                      ),
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    onRowTapped(context, winner);
-                                  },
-                                ),
-                              ],
-                            );
-                          });
-                        }).toList(),
+                                  ],
+                                );
+                              });
+                            }).toList(),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  ],
                 ),
               ),
             ),

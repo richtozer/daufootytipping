@@ -4,6 +4,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -180,7 +181,8 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                 roundCount: latestRoundNumber,
               );
 
-              return Scaffold(
+              return SelectedCompBanner(
+                child: Scaffold(
                 floatingActionButton: FloatingActionButton.small(
                   backgroundColor: fabBackgroundColor,
                   foregroundColor: fabForegroundColor,
@@ -255,6 +257,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                     ),
                     ],
                   ),
+                ),
                 ),
               );
             },

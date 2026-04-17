@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
+import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -65,10 +66,12 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
 
   @override
   Widget build(BuildContext context) {
-    return buildScaffold(
-      context,
-      'Round ${widget.roundNumberToDisplay} - missing tips',
-      Colors.blue,
+    return SelectedCompBanner(
+      child: buildScaffold(
+        context,
+        'Round ${widget.roundNumberToDisplay} - missing tips',
+        Colors.blue,
+      ),
     );
   }
 
