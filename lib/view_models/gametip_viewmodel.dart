@@ -369,6 +369,12 @@ class GameTipViewModel extends ChangeNotifier {
       // Wait for the database change event to update the in-memory cache
       // This ensures stats calculations use current data, not stale cache
       await allTipsViewModel.waitForTipUpdate(tip);
+      final selectedTipperTipsViewModel =
+          di<DAUCompsViewModel>().selectedTipperTipsViewModel;
+      if (selectedTipperTipsViewModel != null &&
+          !identical(selectedTipperTipsViewModel, allTipsViewModel)) {
+        await selectedTipperTipsViewModel.waitForTipUpdate(tip);
+      }
 
       // Queue a scoring update instead of calling directly to prevent concurrency issues
       // The queue will deduplicate multiple updates for the same tipper/round

@@ -475,9 +475,16 @@ class StatsViewModel extends ChangeNotifier {
             (tipper) => tippersToRemove.contains(tipper),
           );
         } else {
-          selectedTipperTipsViewModel ??=
+          final currentSelectedTipperTipsViewModel =
               di<DAUCompsViewModel>().selectedTipperTipsViewModel;
-
+          if (currentSelectedTipperTipsViewModel != null) {
+            selectedTipperTipsViewModel = currentSelectedTipperTipsViewModel;
+          }
+          if (selectedTipperTipsViewModel == null) {
+            throw StateError(
+              'selectedTipperTipsViewModel is null for partial scoring update',
+            );
+          }
           await selectedTipperTipsViewModel!.initialLoadCompleted;
         }
 

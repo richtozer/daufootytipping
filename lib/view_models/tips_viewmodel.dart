@@ -262,6 +262,20 @@ class TipsViewModel extends ChangeNotifier {
     return null;
   }
 
+  Tip _rebindTipToCurrentGame(Tip tip, Game currentGame) {
+    if (identical(tip.game, currentGame)) {
+      return tip;
+    }
+
+    return Tip(
+      dbkey: tip.dbkey,
+      game: currentGame,
+      tipper: tip.tipper,
+      tip: tip.tip,
+      submittedTimeUTC: tip.submittedTimeUTC,
+    );
+  }
+
   Future<Tip?> findTip(Game game, Tipper tipper) async {
     await initialLoadCompleted;
 
@@ -271,6 +285,10 @@ class TipsViewModel extends ChangeNotifier {
           _matchesGame(tip.game, game) &&
           tip.tipper.dbkey == tipper.dbkey,
     );
+
+    if (foundTip != null) {
+      foundTip = _rebindTipToCurrentGame(foundTip, game);
+    }
 
     foundTip ??= _defaultTipIfGameStarted(game, tipper);
 
