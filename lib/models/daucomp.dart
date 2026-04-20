@@ -8,6 +8,8 @@ import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
 class DAUComp implements Comparable<DAUComp> {
+  static final RegExp _seasonYearPattern = RegExp(r'(20\d{2})');
+
   String? dbkey;
   final String name;
   final Uri aflFixtureJsonURL;
@@ -19,6 +21,25 @@ class DAUComp implements Comparable<DAUComp> {
   aflRegularCompEndDateUTC; // if provided, do not include games in afl fixture after this date
   DateTime?
   nrlRegularCompEndDateUTC; // if provided, do not include games in nrl fixture after this date
+
+  int? configuredSeasonYear() {
+    int? yearFrom(Uri uri) {
+      final matches = _seasonYearPattern.allMatches(uri.toString()).toList();
+      if (matches.isEmpty) {
+        return null;
+      }
+      return int.tryParse(matches.last.group(1)!);
+    }
+
+    final aflYear = yearFrom(aflFixtureJsonURL);
+    final nrlYear = yearFrom(nrlFixtureJsonURL);
+
+    if (aflYear != null && nrlYear != null) {
+      return aflYear == nrlYear ? aflYear : null;
+    }
+
+    return aflYear ?? nrlYear;
+  }
 
   //constructor
   DAUComp({

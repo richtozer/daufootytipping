@@ -151,6 +151,20 @@ class GamesViewModel extends ChangeNotifier {
           return game;
         }).toList();
 
+        final configuredSeasonYear = selectedDAUComp.configuredSeasonYear();
+        if (configuredSeasonYear != null) {
+          final filteredGames = gamesList
+              .where((game) => game.startTimeUTC.year == configuredSeasonYear)
+              .toList();
+          final droppedGamesCount = gamesList.length - filteredGames.length;
+          if (droppedGamesCount > 0) {
+            log(
+              'GamesViewModel_handleEvent: ignored $droppedGamesCount out-of-season game(s) for ${selectedDAUComp.name} (${selectedDAUComp.dbkey}) while loading configured season $configuredSeasonYear.',
+            );
+          }
+          gamesList = filteredGames;
+        }
+
         gamesList.sort();
         _games = gamesList;
         log(

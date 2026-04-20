@@ -98,8 +98,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           // _leagueLadder is already set above
           if (_leagueLadder == null &&
               ladderAvailability == LeagueLadderAvailability.insufficientData) {
-            _emptyMessage =
-                'Ladder will be available after Round 1 ends.';
+            _emptyMessage = 'Ladder will be available after Round 1 ends.';
           } else {
             _emptyMessage = 'No ladder data available.';
           }
@@ -252,304 +251,336 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     });
   }
 
+  int? _configuredSeasonYear() =>
+      di<DAUCompsViewModel>().selectedDAUComp?.configuredSeasonYear();
+
+  String _ladderColourExplanation(int? seasonYear) {
+    if (widget.league == League.afl &&
+        seasonYear != null &&
+        seasonYear >= 2026) {
+      return "Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the Top 6 and wild card positions 7-10.";
+    }
+    return "Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.";
+  }
+
+  Color? _rowHighlightColor(
+    BuildContext context,
+    LeagueLadderHighlightBand highlightBand,
+  ) {
+    if (highlightBand == LeagueLadderHighlightBand.none) {
+      return null;
+    }
+
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    if (widget.league == League.nrl) {
+      return isDarkMode ? Colors.lightGreen[900] : Colors.lightGreen[200];
+    }
+
+    if (widget.league == League.afl) {
+      switch (highlightBand) {
+        case LeagueLadderHighlightBand.finals:
+          return isDarkMode ? const Color(0xFF5C1A1A) : Colors.red[100];
+        case LeagueLadderHighlightBand.wildcard:
+          return isDarkMode ? const Color(0xFF452626) : Colors.red[50];
+        case LeagueLadderHighlightBand.none:
+          return null;
+      }
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     Orientation orientation = MediaQuery.of(
       context,
     ).orientation; // Get orientation
     final String? comparisonTeamNames = _comparisonTeamNames();
+    final int? seasonYear = _configuredSeasonYear();
 
     return SelectedCompBanner(
       child: Scaffold(
-      // appBar: AppBar(...) removed
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            // Existing body wrapped in Column
-            children: [
-            // Step 1: Add HeaderWidget conditionally with improved styling for comparison mode
-            orientation == Orientation.portrait
-                ? _isComparisonMode
-                      ? Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              16.0,
-                              8.0,
-                              16.0,
-                              0.0,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Hero(
-                                      tag:
-                                          "${widget.league.name.toLowerCase()}_league_logo_hero",
-                                      child: SvgPicture.asset(
-                                        widget.league == League.nrl
-                                            ? 'assets/nrl.svg'
-                                            : 'assets/afl.svg',
-                                        width: 50,
-                                        height: 50,
+        // appBar: AppBar(...) removed
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              // Existing body wrapped in Column
+              children: [
+                // Step 1: Add HeaderWidget conditionally with improved styling for comparison mode
+                orientation == Orientation.portrait
+                    ? _isComparisonMode
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16.0,
+                                8.0,
+                                16.0,
+                                0.0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Hero(
+                                        tag:
+                                            "${widget.league.name.toLowerCase()}_league_logo_hero",
+                                        child: SvgPicture.asset(
+                                          widget.league == League.nrl
+                                              ? 'assets/nrl.svg'
+                                              : 'assets/afl.svg',
+                                          width: 50,
+                                          height: 50,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'League Leaderboard Comparison ${DateTime.now().year}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (comparisonTeamNames != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
                                       child: Text(
-                                        'League Leaderboard Comparison ${DateTime.now().year}',
+                                        comparisonTeamNames,
                                         style: Theme.of(context)
                                             .textTheme
-                                            .titleLarge
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                            .titleMedium
+                                            ?.copyWith(color: Colors.grey[700]),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                if (comparisonTeamNames != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4.0),
+                                ],
+                              ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16.0,
+                                8.0,
+                                16.0,
+                                0.0,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Hero(
+                                    tag:
+                                        "${widget.league.name.toLowerCase()}_league_logo_hero",
+                                    child: SvgPicture.asset(
+                                      widget.league == League.nrl
+                                          ? 'assets/nrl.svg'
+                                          : 'assets/afl.svg',
+                                      width: 50,
+                                      height: 50,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
                                     child: Text(
-                                      comparisonTeamNames,
+                                      "${widget.league.name.toUpperCase()} Premiership Ladder",
                                       style: Theme.of(context)
                                           .textTheme
-                                          .titleMedium
+                                          .titleLarge
                                           ?.copyWith(
-                                            color: Colors.grey[700],
+                                            fontWeight: FontWeight.bold,
                                           ),
                                     ),
                                   ),
-                              ],
-                            ),
-                        )
-                      : Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              16.0,
-                              8.0,
-                              16.0,
-                              0.0,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Hero(
-                                  tag:
-                                      "${widget.league.name.toLowerCase()}_league_logo_hero",
-                                  child: SvgPicture.asset(
-                                    widget.league == League.nrl
-                                        ? 'assets/nrl.svg'
-                                        : 'assets/afl.svg',
-                                    width: 50,
-                                    height: 50,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    "${widget.league.name.toUpperCase()} Premiership Ladder",
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        )
-                : Container(), // Empty container if not in portrait
-            // Add Explanatory Text (conditionally based on filtered vs full view)
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
-                child: Text(
-                  (widget.teamDbKeysToDisplay != null &&
-                          widget.teamDbKeysToDisplay!.isNotEmpty)
-                      ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
-                      : "Tap column headers to sort. Tap a row to see the team's game history. Colour shading indicates the top 8 teams.",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                ),
-              ),
+                                ],
+                              ),
+                            )
+                    : Container(), // Empty container if not in portrait
+                // Add Explanatory Text (conditionally based on filtered vs full view)
+                if (orientation == Orientation.portrait)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+                    child: Text(
+                      (widget.teamDbKeysToDisplay != null &&
+                              widget.teamDbKeysToDisplay!.isNotEmpty)
+                          ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
+                          : _ladderColourExplanation(seasonYear),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ),
 
-            // The existing body content (DataTable section) - allow natural height
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(child: Text('Error: $_error'))
-                : _leagueLadder == null || _leagueLadder!.teams.isEmpty
-                ? _buildEmptyStateCard(context)
-                : SingleChildScrollView(
-                    // Horizontal scroll only
-                    scrollDirection: Axis.horizontal,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: DataTable(
-                        border: TableBorder.all(
-                          width: 1.0,
-                          color: Colors.grey.shade300,
-                        ),
-                        columnSpacing: 10.0,
-                        horizontalMargin: 8.0,
-                        headingRowHeight: 36.0,
-                        sortColumnIndex: _sortColumnIndex,
-                        sortAscending: _sortAscending,
-                        columns: <DataColumn>[
-                          DataColumn(
-                            label: const Text(
-                              '#',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                // The existing body content (DataTable section) - allow natural height
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                    ? Center(child: Text('Error: $_error'))
+                    : _leagueLadder == null || _leagueLadder!.teams.isEmpty
+                    ? _buildEmptyStateCard(context)
+                    : SingleChildScrollView(
+                        // Horizontal scroll only
+                        scrollDirection: Axis.horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: DataTable(
+                            border: TableBorder.all(
+                              width: 1.0,
+                              color: Colors.grey.shade300,
                             ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'Team',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'Gms',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'Pts',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'W',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'L',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'D',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'Byes',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'For',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              'Agst',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                          DataColumn(
-                            label: const Text(
-                              '%',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onSort: (int columnIndex, bool ascending) =>
-                                _onSort(columnIndex, ascending),
-                          ),
-                        ],
-                        rows: List<DataRow>.generate(_leagueLadder!.teams.length, (
-                          index,
-                        ) {
-                          final ladderTeam = _leagueLadder!
-                              .teams[index]; // This is a LadderTeam object
-                          // final isTop8 = index < 8; // Old logic for Top 8 teams
-                          final bool isTop8 =
-                              (ladderTeam.originalRank != null &&
-                              ladderTeam.originalRank! <=
-                                  8); // New logic for Top 8 teams
+                            columnSpacing: 10.0,
+                            horizontalMargin: 8.0,
+                            headingRowHeight: 36.0,
+                            sortColumnIndex: _sortColumnIndex,
+                            sortAscending: _sortAscending,
+                            columns: <DataColumn>[
+                              DataColumn(
+                                label: const Text(
+                                  '#',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'Team',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'Gms',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'Pts',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'W',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'L',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'D',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'Byes',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'For',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  'Agst',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                              DataColumn(
+                                label: const Text(
+                                  '%',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (int columnIndex, bool ascending) =>
+                                    _onSort(columnIndex, ascending),
+                              ),
+                            ],
+                            rows: List<DataRow>.generate(_leagueLadder!.teams.length, (
+                              index,
+                            ) {
+                              final ladderTeam = _leagueLadder!
+                                  .teams[index]; // This is a LadderTeam object
+                              final int? originalRank = ladderTeam.originalRank;
+                          final LeagueLadderHighlightBand highlightBand =
+                              originalRank == null
+                              ? LeagueLadderHighlightBand.none
+                              : _leagueLadder!.highlightBandForRank(
+                                  originalRank,
+                                  seasonYear: seasonYear,
+                                );
 
                           // Create a Team object for navigation
                           final Team teamForHistory = Team(
-                            dbkey: ladderTeam.dbkey,
-                            name: ladderTeam.teamName,
-                            logoURI: ladderTeam.logoURI,
-                            league: widget
-                                .league, // widget.league is the League object of the current ladder page
-                          );
+                                dbkey: ladderTeam.dbkey,
+                                name: ladderTeam.teamName,
+                                logoURI: ladderTeam.logoURI,
+                                league: widget
+                                    .league, // widget.league is the League object of the current ladder page
+                              );
 
-                          void navigateToHistory() {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => TeamGamesHistoryPage(
-                                  team: teamForHistory,
-                                  league: widget.league,
-                                ),
-                              ),
-                            );
-                          }
-
-                          return DataRow(
-                            color: WidgetStateProperty.resolveWith<Color?>((
-                              Set<WidgetState> states,
-                            ) {
-                              if (isTop8) {
-                                final bool isDarkMode =
-                                    Theme.of(context).brightness ==
-                                    Brightness.dark;
-
-                                if (widget.league == League.nrl) {
-                                  return isDarkMode
-                                      ? Colors.lightGreen[900]
-                                      : Colors.lightGreen[200];
-                                }
-                                if (widget.league == League.afl) {
-                                  return isDarkMode
-                                      ? const Color(0xFF5C1A1A)
-                                      : Colors.red[100];
-                                }
-                              }
-                              return null;
-                            }),
-                            cells: <DataCell>[
-                              DataCell(
-                                Row(
-                                  children: [
-                                    // add a arrow icon to indicate navigation to another page
-                                    Icon(
-                                      Icons.arrow_forward,
-                                      size: 16,
-                                      color: Colors.grey,
+                              void navigateToHistory() {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TeamGamesHistoryPage(
+                                      team: teamForHistory,
+                                      league: widget.league,
                                     ),
+                                  ),
+                                );
+                              }
+
+                              return DataRow(
+                                color: WidgetStateProperty.resolveWith<Color?>((
+                                  Set<WidgetState> states,
+                                ) {
+                                  return _rowHighlightColor(
+                                    context,
+                                    highlightBand,
+                                  );
+                                }),
+                                cells: <DataCell>[
+                                  DataCell(
+                                    Row(
+                                      children: [
+                                        // add a arrow icon to indicate navigation to another page
+                                        Icon(
+                                          Icons.arrow_forward,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
                                     Text(
                                       ladderTeam.originalRank?.toString() ??
                                           '-',
@@ -557,119 +588,120 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                   ],
                                 ),
                                 onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Row(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: 6.0,
-                                      ),
-                                      child: Hero(
-                                        tag: "team_icon_${ladderTeam.dbkey}",
-                                        child: _buildTeamLogo(ladderTeam),
-                                      ),
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 6.0,
+                                          ),
+                                          child: Hero(
+                                            tag:
+                                                "team_icon_${ladderTeam.dbkey}",
+                                            child: _buildTeamLogo(ladderTeam),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            ladderTeam.teamName,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Expanded(
-                                      child: Text(
-                                        ladderTeam.teamName,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.played.toString(),
+                                      textAlign: TextAlign.right,
                                     ),
-                                  ],
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.played.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.points.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.won.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.lost.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.drawn.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.byes.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.pointsFor.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.pointsAgainst.toString(),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                              DataCell(
-                                Text(
-                                  ladderTeam.percentage.toStringAsFixed(2),
-                                  textAlign: TextAlign.right,
-                                ),
-                                onTap: navigateToHistory,
-                              ),
-                            ],
-                          );
-                        }),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.points.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.won.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.lost.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.drawn.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.byes.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.pointsFor.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.pointsAgainst.toString(),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      ladderTeam.percentage.toStringAsFixed(2),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                    onTap: navigateToHistory,
+                                  ),
+                                ],
+                              );
+                            }),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
 
-            // Historical Matchups Section - only show in comparison mode
-            if (widget.teamDbKeysToDisplay != null &&
-                widget.teamDbKeysToDisplay!.length == 2)
-              LeagueLadderHistoricalMatchups(
-                league: widget.league,
-                teamDbKeys: widget.teamDbKeysToDisplay!,
-              ),
-            ],
+                // Historical Matchups Section - only show in comparison mode
+                if (widget.teamDbKeysToDisplay != null &&
+                    widget.teamDbKeysToDisplay!.length == 2)
+                  LeagueLadderHistoricalMatchups(
+                    league: widget.league,
+                    teamDbKeys: widget.teamDbKeysToDisplay!,
+                  ),
+              ],
+            ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () => Navigator.pop(context),
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.black87,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+        floatingActionButton: FloatingActionButton.small(
+          onPressed: () => Navigator.pop(context),
+          backgroundColor: Colors.lightGreen[200],
+          foregroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: const Icon(Icons.arrow_back),
         ),
-        child: const Icon(Icons.arrow_back),
-      ),
       ),
     );
   }

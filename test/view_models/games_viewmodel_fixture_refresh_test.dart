@@ -57,11 +57,12 @@ void main() {
   Map<String, Object?> gameJson({
     required int? homeScore,
     required int? awayScore,
+    String dateUtc = '2026-04-06 18:00:00Z',
   }) {
     return <String, Object?>{
       'AwayTeam': 'Away',
       'AwayTeamScore': awayScore,
-      'DateUtc': '2026-04-06 18:00:00Z',
+      'DateUtc': dateUtc,
       'HomeTeam': 'Home',
       'HomeTeamScore': homeScore,
       'Location': 'Stadium',
@@ -137,6 +138,58 @@ void main() {
     await gamesController.close();
     await di.reset();
   });
+
+  test(
+    'ignores out-of-season games when loading a historical competition',
+    () async {
+      final historicalComp = DAUComp(
+        dbkey: 'comp-1',
+        name: 'DAU Footy Tipping 2023',
+        aflFixtureJsonURL: Uri.parse('https://example.com/feed/json/afl-2023'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/feed/json/nrl-2023'),
+        daurounds: <DAURound>[round],
+      );
+
+      final viewModel = GamesViewModel(
+        historicalComp,
+        dauCompsViewModel,
+        teamsViewModel: teamsViewModel,
+        database: rootDb,
+        postWriteRefreshTimeout: const Duration(milliseconds: 50),
+      );
+
+      await settleAsyncWork();
+      gamesController.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-01-001': gameJson(
+                homeScore: 10,
+                awayScore: 8,
+                dateUtc: '2023-03-02 09:00:00Z',
+              ),
+              'nrl-01-002': gameJson(
+                homeScore: 14,
+                awayScore: 12,
+                dateUtc: '2026-03-05 02:15:00Z',
+              ),
+            },
+          ),
+        ),
+      );
+
+      await viewModel.initialLoadComplete;
+      await settleAsyncWork();
+
+      final loadedGames = await viewModel.getGames();
+      expect(loadedGames, hasLength(1));
+      expect(loadedGames.single.startTimeUTC.year, 2023);
+      expect(loadedGames.single.dbkey, 'nrl-01-001');
+
+      viewModel.dispose();
+    },
+  );
 
   test(
     'saveBatchOfGameAttributes waits for refreshed stream snapshot before rescoring',
