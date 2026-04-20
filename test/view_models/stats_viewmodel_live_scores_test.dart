@@ -121,7 +121,7 @@ void main() {
 
     when(() => rootDb.child('/Stats')).thenReturn(statsRef);
     when(() => statsRef.child(comp.dbkey!)).thenReturn(compRef);
-    when(() => compRef.child('live_scores_v1')).thenReturn(liveScoresRef);
+    when(() => compRef.child(liveScoresRoot)).thenReturn(liveScoresRef);
     when(() => liveScoresRef.child('afl-03-022')).thenReturn(staleGameRef);
     when(() => liveScoresRef.child('nrl-04-025')).thenReturn(activeGameRef);
     when(() => staleGameRef.remove()).thenAnswer((_) async {});

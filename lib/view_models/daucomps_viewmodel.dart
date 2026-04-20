@@ -109,7 +109,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
   final FixtureImportApplier _importApplier = const FixtureImportApplier();
-  final SelectionInitCoordinator _selectionInit = const SelectionInitCoordinator();
+  final SelectionInitCoordinator _selectionInit;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -124,12 +124,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     MessagingService? messaging,
     TippersViewModel Function()? tippers,
     FixtureUpdateCoordinator? fixtureCoordinator,
+    SelectionInitCoordinator? selectionInit,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
         _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
         _tippers = tippers ?? (() => di<TippersViewModel>()),
-        _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator() {
+        _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
+        _selectionInit = selectionInit ?? const SelectionInitCoordinator() {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -359,12 +361,8 @@ class DAUCompsViewModel extends ChangeNotifier {
       createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
     );
 
-    if (di.isRegistered<StatsViewModel>()) {
-      di.unregister<StatsViewModel>();
-    }
-    di.registerSingleton<StatsViewModel>(res.statsViewModel);
     gamesViewModel = res.gamesViewModel;
-    statsViewModel = di<StatsViewModel>();
+    statsViewModel = res.statsViewModel;
 
     gamesViewModel!.addListener(_otherViewModelUpdated);
     statsViewModel!.addListener(_otherViewModelUpdated);

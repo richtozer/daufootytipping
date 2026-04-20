@@ -32,28 +32,12 @@
       "name": "Debug Functions",
       "port": 9229,
       "restart": true,
-      "skipFiles": ["<node_internals>/**"],
-      "preLaunchTask": "start firebase emulator",
-      "postDebugTask": "stop firebase emulator"
+      "skipFiles": ["<node_internals>/**"]
     },
-    // WEB_APP_CHECK_DEBUG_TOKEN is read from the VS Code process environment.
-    // A local .env file is not loaded automatically for Dart/Flutter launches.
-    // Start VS Code from a shell that has exported the variable, or set it in your shell profile.
-    {
-      "name": "Flutter Web (Chrome) + Firebase emulators (seed RTDB)",
-      "type": "dart",
-      "request": "launch",
-      "flutterMode": "debug",
-      "deviceId": "chrome",
-      "program": "lib/main.dart",
-      "preLaunchTask": "seed firebase rtdb emulator from extract",
-      "postDebugTask": "stop firebase emulator",
-      "toolArgs": [
-        "--dart-define=USE_FIREBASE_EMULATORS=true",
-        "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
-        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
-      ]
-    },
+    // WEB_APP_CHECK_DEBUG_TOKEN still works as an override from the VS Code process environment.
+    // For a fixed web debug token that stays out of git, copy
+    // web/firebase_app_check_debug_token.local.example.js to
+    // web/firebase_app_check_debug_token.local.js and put your allowlisted token there.
     {
       "name": "Flutter Web (Chrome) + Firebase emulators (already running)",
       "type": "dart",
@@ -68,7 +52,7 @@
       ]
     },
     {
-      "name": "Flutter Web (Chrome) + Firebase emulators (App Check debug token)",
+      "name": "Flutter Web (Chrome) + Firebase emulators (App Check pinned locally)",
       "type": "dart",
       "request": "launch",
       "flutterMode": "debug",
@@ -77,7 +61,7 @@
       "toolArgs": [
         "--dart-define=USE_FIREBASE_EMULATORS=true",
         "--dart-define=FIREBASE_EMULATOR_HOST=localhost",
-        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=6552DC29-2936-48F7-B0B3-3A7B126CD168"
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
       ]
     },
     {
