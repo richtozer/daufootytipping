@@ -21,3 +21,12 @@ void setFirebaseAppCheckDebugToken(Object? token) {
     jsValue,
   );
 }
+
+Object? getFirebaseAppCheckDebugToken() {
+  final JSAny? jsValue = _globalThis['FIREBASE_APPCHECK_DEBUG_TOKEN'];
+  if (jsValue == null || jsValue.isUndefined) {
+    return null;
+  }
+
+  return jsValue.dartify();
+}

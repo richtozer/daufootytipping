@@ -52,15 +52,27 @@ Future<void> main() async {
 
   // On web, the App Check debug token must be set before Firebase is initialized.
   if (kIsWeb && kDebugMode) {
-    final Object appCheckDebugToken = webAppCheckDebugToken.isNotEmpty
-        ? webAppCheckDebugToken
-        : true;
-    firebase_app_check_debug_token.setFirebaseAppCheckDebugToken(
-      appCheckDebugToken,
-    );
-    log(
-      'FIREBASE_APPCHECK_DEBUG_TOKEN set to ${appCheckDebugToken is String ? 'a fixed token from WEB_APP_CHECK_DEBUG_TOKEN' : 'auto debug mode'}',
-    );
+    if (webAppCheckDebugToken.isNotEmpty) {
+      firebase_app_check_debug_token.setFirebaseAppCheckDebugToken(
+        webAppCheckDebugToken,
+      );
+      log(
+        'FIREBASE_APPCHECK_DEBUG_TOKEN set to a fixed token from WEB_APP_CHECK_DEBUG_TOKEN',
+      );
+    } else {
+      final Object? existingAppCheckDebugToken =
+          firebase_app_check_debug_token.getFirebaseAppCheckDebugToken();
+
+      if (existingAppCheckDebugToken is String &&
+          existingAppCheckDebugToken.isNotEmpty) {
+        log(
+          'FIREBASE_APPCHECK_DEBUG_TOKEN set to a fixed token from web/firebase_app_check_debug_token.local.js',
+        );
+      } else {
+        firebase_app_check_debug_token.setFirebaseAppCheckDebugToken(true);
+        log('FIREBASE_APPCHECK_DEBUG_TOKEN set to auto debug mode');
+      }
+    }
   }
 
   // Initialize Firebase

@@ -48,6 +48,7 @@ migrate_working_dir/
 .env
 /emulator/
 /test/data/
+web/firebase_app_check_debug_token.local.js
 
 # Test run artifacts (ephemeral)
 .dart_test_output.txt

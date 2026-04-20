@@ -6,6 +6,36 @@
     <!-- Other head elements like stylesheets or meta tags -->
   </head>
   <body>
-    <script src="flutter_bootstrap.js" async></script>
+    <script>
+      (function bootstrapFlutterApp() {
+        function loadScript(src, optional) {
+          return new Promise(function(resolve, reject) {
+            var script = document.createElement('script');
+            script.src = src;
+            script.async = false;
+            script.onload = function() {
+              resolve();
+            };
+            script.onerror = function() {
+              if (optional) {
+                resolve();
+                return;
+              }
+
+              reject(new Error('Failed to load ' + src));
+            };
+            document.body.appendChild(script);
+          });
+        }
+
+        loadScript('firebase_app_check_debug_token.local.js', true)
+          .then(function() {
+            return loadScript('flutter_bootstrap.js', false);
+          })
+          .catch(function(error) {
+            console.error(error);
+          });
+      })();
+    </script>
   </body>
 <html>

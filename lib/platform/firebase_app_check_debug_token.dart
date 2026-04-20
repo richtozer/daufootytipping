@@ -5,3 +5,7 @@ import 'firebase_app_check_debug_token_stub.dart'
 void setFirebaseAppCheckDebugToken(Object? token) {
   impl.setFirebaseAppCheckDebugToken(token);
 }
+
+Object? getFirebaseAppCheckDebugToken() {
+  return impl.getFirebaseAppCheckDebugToken();
+}
