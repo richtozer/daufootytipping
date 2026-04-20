@@ -492,6 +492,7 @@ class StatsViewModel extends ChangeNotifier {
           onlyUpdateThisRound,
           daucompToUpdate,
         );
+        await _ensureRoundsHaveGames(dauRoundsEdited);
 
         for (DAURound dauRound in dauRoundsEdited) {
           if (onlyUpdateThisTipper == null) {
@@ -541,6 +542,27 @@ class StatsViewModel extends ChangeNotifier {
     })();
 
     return _updateStatsInProgress!;
+  }
+
+  Future<void> _ensureRoundsHaveGames(List<DAURound> roundsToUpdate) async {
+    if (gamesViewModel == null) {
+      return;
+    }
+
+    for (final round in roundsToUpdate) {
+      if (round.games.isNotEmpty) {
+        continue;
+      }
+
+      final hydratedGames = await gamesViewModel!.getGamesForRound(round);
+      round.games = hydratedGames;
+      round.nrlGameCount = hydratedGames
+          .where((game) => game.league == League.nrl)
+          .length;
+      round.aflGameCount = hydratedGames
+          .where((game) => game.league == League.afl)
+          .length;
+    }
   }
 
   void _logEventScoringInitiated(
