@@ -29,7 +29,7 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
 
 // Define constants for Firestore database locations
-const String statsFormatVersion = 'v1';
+const String statsFormatVersion = 'v2';
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
 const String roundStatsRoot = 'round_stats_$statsFormatVersion';
