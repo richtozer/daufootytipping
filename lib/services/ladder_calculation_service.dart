@@ -20,17 +20,32 @@ class LadderCalculationService {
           .toList();
     }
 
-    // 2. Filter out dummy teams
-    final activeTeams = leagueTeams
-        .where((team) => team.name != 'To be announced')
-        .toList();
-    if (activeTeams.isEmpty) {
+    final seasonLeagueGames = allGames.where((game) => game.league == league).toList();
+
+    // 2. Derive the ladder's team set from the selected season's games.
+    final leagueTeamsByKey = {
+      for (final team in leagueTeams)
+        if (team.league == league && team.name != 'To be announced') team.dbkey: team,
+    };
+    if (leagueTeamsByKey.isEmpty) {
+      return null;
+    }
+    final seasonTeamsByKey = <String, Team>{};
+    for (final game in seasonLeagueGames) {
+      for (final team in [game.homeTeam, game.awayTeam]) {
+        if (team.name == 'To be announced') {
+          continue;
+        }
+        seasonTeamsByKey[team.dbkey] = leagueTeamsByKey[team.dbkey] ?? team;
+      }
+    }
+    if (seasonTeamsByKey.isEmpty) {
       return null;
     }
 
     // 3. Group games by round
     Map<int, List<Game>> gamesByRound = {};
-    for (var game in allGames.where((g) => g.league == league)) {
+    for (var game in seasonLeagueGames) {
       gamesByRound.putIfAbsent(game.fixtureRoundNumber, () => []).add(game);
     }
 
@@ -64,19 +79,17 @@ class LadderCalculationService {
 
     // 6. Initialize ladder teams
     Map<String, LadderTeam> ladderTeamsMap = {};
-    for (var team in activeTeams) {
-      if (team.league == league) {
-        ladderTeamsMap[team.dbkey] = LadderTeam(
-          dbkey: team.dbkey,
-          teamName: team.name,
-          logoURI: team.logoURI,
-        );
-      }
+    for (var team in seasonTeamsByKey.values) {
+      ladderTeamsMap[team.dbkey] = LadderTeam(
+        dbkey: team.dbkey,
+        teamName: team.name,
+        logoURI: team.logoURI,
+      );
     }
 
     // 7. Handle Byes
     if (league == League.nrl) {
-      final allTeamKeysInLeague = activeTeams.map((t) => t.dbkey).toSet();
+      final allTeamKeysInLeague = seasonTeamsByKey.keys.toSet();
       for (var roundNumber in completedRoundNumbers) {
         final gamesInRound = gamesByRound[roundNumber] ?? [];
         final teamsThatPlayed = <String>{};
@@ -96,9 +109,8 @@ class LadderCalculationService {
     }
 
     // 8. Process games
-    List<Game> relevantGames = allGames.where((game) {
-      return game.league == league &&
-          game.scoring != null &&
+    List<Game> relevantGames = seasonLeagueGames.where((game) {
+      return game.scoring != null &&
           game.scoring!.homeTeamScore != null &&
           game.scoring!.awayTeamScore != null;
     }).toList();

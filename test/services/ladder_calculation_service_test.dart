@@ -407,6 +407,52 @@ void main() {
       expect(ltC.played, 2);
     });
 
+    test(
+      'should exclude expansion teams that do not appear in the selected season games',
+      () {
+        final expansionTeam = _createTeam('nrl-dolphins', 'Dolphins', League.nrl);
+        final allGames = [
+          _createGame(
+              dbkey: 'nrl-1-1',
+              league: League.nrl,
+              homeTeam: teamNrlA,
+              awayTeam: teamNrlB,
+              startTime: DateTime.now().subtract(const Duration(days: 3)),
+              homeScore: 12,
+              awayScore: 0,
+              roundNumber: 1),
+          _createGame(
+              dbkey: 'nrl-2-1',
+              league: League.nrl,
+              homeTeam: teamNrlB,
+              awayTeam: teamNrlA,
+              startTime: DateTime.now().subtract(const Duration(days: 2)),
+              homeScore: 8,
+              awayScore: 20,
+              roundNumber: 2),
+          _createGame(
+              dbkey: 'nrl-3-1',
+              league: League.nrl,
+              homeTeam: teamNrlA,
+              awayTeam: teamNrlB,
+              startTime: DateTime.now().subtract(const Duration(days: 1)),
+              homeScore: 10,
+              awayScore: 4,
+              roundNumber: 3),
+        ];
+
+        final ladder = service.calculateLadder(
+          allGames: allGames,
+          leagueTeams: [teamNrlA, teamNrlB, expansionTeam],
+          league: League.nrl,
+        );
+
+        expect(ladder, isNotNull);
+        expect(ladder?.teams.length, 2);
+        expect(ladder!.teams.any((t) => t.teamName == 'Dolphins'), isFalse);
+      },
+    );
+
     test('should ignore "To be announced" teams in ladder calculation', () {
       final dummyTeam =
           _createTeam('nrl-tba', 'To be announced', League.nrl);
