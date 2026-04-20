@@ -14,8 +14,13 @@ import 'package:watch_it/watch_it.dart';
 
 class DAUCompsEditPage extends StatefulWidget {
   final DAUComp? daucomp;
+  final DAUCompsViewModel? adminDauCompsViewModel;
 
-  const DAUCompsEditPage(this.daucomp, {super.key});
+  const DAUCompsEditPage(
+    this.daucomp, {
+    super.key,
+    this.adminDauCompsViewModel,
+  });
 
   @override
   State<DAUCompsEditPage> createState() => _DAUCompsEditPageState();
@@ -25,6 +30,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   bool disableSaves = true;
   bool disableBack = false;
   bool _localActiveCompState = false;
+  late final DAUCompsViewModel _pageDauCompsViewModel;
+  late final bool _ownsPageDauCompsViewModel;
   // Initial value, will be correctly set in initState
   late final TextEditingController _daucompNameController;
   late final TextEditingController _daucompAflJsonURLController;
@@ -39,6 +46,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   @override
   void initState() {
     super.initState();
+    _ownsPageDauCompsViewModel = widget.adminDauCompsViewModel == null;
+    _pageDauCompsViewModel =
+        widget.adminDauCompsViewModel ??
+        DAUCompsViewModel(widget.daucomp?.dbkey, true);
     _daucompNameController = TextEditingController(text: widget.daucomp?.name);
     _daucompAflJsonURLController = TextEditingController(
       text: widget.daucomp?.aflFixtureJsonURL.toString(),
@@ -96,6 +107,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     _daucompNrlJsonURLController.dispose();
     _nrlRegularCompEndDateController.dispose();
     _aflRegularCompEndDateController.dispose();
+    if (_ownsPageDauCompsViewModel) {
+      _pageDauCompsViewModel.dispose();
+    }
     super.dispose();
   }
 
@@ -271,8 +285,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<DAUCompsViewModel>(
-      create: (context) => DAUCompsViewModel(widget.daucomp?.dbkey, true),
+    return ChangeNotifierProvider<DAUCompsViewModel>.value(
+      value: _pageDauCompsViewModel,
       child: Scaffold(
         appBar: AppBar(
           leading: Builder(
@@ -283,12 +297,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                     : const Icon(Icons.arrow_back),
                 onPressed: () async {
                   if (!disableBack) {
-                    // change the displayed comp back to the active comp
-                    await di<DAUCompsViewModel>().changeDisplayedDAUComp(
-                      di<DAUCompsViewModel>().activeDAUComp!,
-                      false,
-                    );
-
                     if (context.mounted) {
                       Navigator.maybePop(context);
                     }
