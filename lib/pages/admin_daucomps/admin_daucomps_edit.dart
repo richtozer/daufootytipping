@@ -487,7 +487,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                       ),
                       AdminDaucompsEditRoundsTable(
                         rounds:
-                            dauCompsViewModelConsumer.activeDAUComp?.daurounds
+                            dauCompsViewModelConsumer.selectedDAUComp?.daurounds
                                 .where((r) => r.games.isNotEmpty)
                                 .toList() ??
                             [],
@@ -503,7 +503,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                 } else {
                                   round.adminOverrideRoundEndDate = newDate;
                                 }
-                                _recalculateGameCounts();
+                                _recalculateGameCounts(
+                                  dauCompsViewModelConsumer,
+                                );
                                 disableSaves = false;
                               });
                             },
@@ -519,9 +521,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     );
   }
 
-  void _recalculateGameCounts() async {
-    // Use the ViewModel's current selectedDAUComp for the most up-to-date rounds
-    final dauCompsViewModel = di<DAUCompsViewModel>();
+  void _recalculateGameCounts(DAUCompsViewModel dauCompsViewModel) async {
     if (dauCompsViewModel.selectedDAUComp != null &&
         dauCompsViewModel.selectedDAUComp!.daurounds.isNotEmpty) {
       dauCompsViewModel.linkGamesWithRounds(

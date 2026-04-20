@@ -480,6 +480,17 @@ class DAUCompsViewModel extends ChangeNotifier {
       return 'Fixture data is already downloading';
     }
     await initialDAUCompLoadComplete;
+    await otherViewModelsLoadComplete;
+    if (gamesViewModel == null) {
+      return 'Fixture download is not ready yet. Please try again.';
+    }
+    if (gamesViewModel!.selectedDAUComp.dbkey != daucompToUpdate.dbkey) {
+      final loadedComp = gamesViewModel!.selectedDAUComp;
+      final message =
+          'Fixture download aborted: loaded games belong to ${loadedComp.name}, not ${daucompToUpdate.name}.';
+      log('DAUCompsViewModel_getNetworkFixtureData: $message');
+      return message;
+    }
     return _fixtureUpdater.runUpdate(
       comp: daucompToUpdate,
       acquireLock: () => _acquireLock(daucompToUpdate),
