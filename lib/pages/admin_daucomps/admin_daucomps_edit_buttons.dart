@@ -184,10 +184,6 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (!report.hasChanges) ...[
-                  const SizedBox(height: 12),
-                  const Text('No scoring changes detected.'),
-                ],
                 if (report.leaderboardChanges.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -200,12 +196,7 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                   ...report.leaderboardChanges.map(
                     (change) => _ScoringChangeCard(
                       title: change.tipperName,
-                      lines: [
-                        'Rank ${change.beforeRank} -> ${change.afterRank} (${_formatRankDelta(change.rankDelta)})',
-                        'Total ${change.beforeTotal} -> ${change.afterTotal} (${_formatSignedDelta(change.totalDelta)})',
-                        'NRL ${change.beforeNrl} -> ${change.afterNrl}, AFL ${change.beforeAfl} -> ${change.afterAfl}',
-                        'Rounds won ${change.beforeRoundsWon} -> ${change.afterRoundsWon}, Margins ${change.beforeMargins} -> ${change.afterMargins}, UPS ${change.beforeUps} -> ${change.afterUps}',
-                      ],
+                      lines: _buildLeaderboardChangeLines(change),
                     ),
                   ),
                 ],
@@ -221,11 +212,7 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                   ...report.roundChanges.map(
                     (change) => _ScoringChangeCard(
                       title: 'Round ${change.roundNumber} • ${change.tipperName}',
-                      lines: [
-                        'Total ${change.beforeTotal} -> ${change.afterTotal} (${_formatSignedDelta(change.totalDelta)})',
-                        'NRL ${change.beforeNrl} -> ${change.afterNrl}, AFL ${change.beforeAfl} -> ${change.afterAfl}',
-                        'Round rank ${change.beforeRank} -> ${change.afterRank} (${_formatRankDelta(change.rankDelta)})',
-                      ],
+                      lines: _buildRoundChangeLines(change),
                     ),
                   ),
                 ],
@@ -242,6 +229,99 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
       ],
     );
   }
+}
+
+List<String> _buildLeaderboardChangeLines(ScoringLeaderboardChange change) {
+  final lines = <String>[];
+
+  if (change.beforeRank != change.afterRank) {
+    lines.add(
+      'Rank ${change.beforeRank} -> ${change.afterRank} (${_formatRankDelta(change.rankDelta)})',
+    );
+  }
+  if (change.beforeTotal != change.afterTotal) {
+    lines.add(
+      _formatMetricChange('Total', change.beforeTotal, change.afterTotal),
+    );
+  }
+
+  final leagueChanges = <String>[];
+  if (change.beforeNrl != change.afterNrl) {
+    leagueChanges.add(
+      _formatMetricChange('NRL', change.beforeNrl, change.afterNrl),
+    );
+  }
+  if (change.beforeAfl != change.afterAfl) {
+    leagueChanges.add(
+      _formatMetricChange('AFL', change.beforeAfl, change.afterAfl),
+    );
+  }
+  if (leagueChanges.isNotEmpty) {
+    lines.add(leagueChanges.join(', '));
+  }
+
+  final standingChanges = <String>[];
+  if (change.beforeRoundsWon != change.afterRoundsWon) {
+    standingChanges.add(
+      _formatMetricChange(
+        'Rounds won',
+        change.beforeRoundsWon,
+        change.afterRoundsWon,
+      ),
+    );
+  }
+  if (change.beforeMargins != change.afterMargins) {
+    standingChanges.add(
+      _formatMetricChange(
+        'Margins',
+        change.beforeMargins,
+        change.afterMargins,
+      ),
+    );
+  }
+  if (change.beforeUps != change.afterUps) {
+    standingChanges.add(
+      _formatMetricChange('UPS', change.beforeUps, change.afterUps),
+    );
+  }
+  if (standingChanges.isNotEmpty) {
+    lines.add(standingChanges.join(', '));
+  }
+
+  return lines;
+}
+
+List<String> _buildRoundChangeLines(ScoringRoundChange change) {
+  final lines = <String>[];
+
+  if (change.beforeTotal != change.afterTotal) {
+    lines.add(
+      _formatMetricChange('Total', change.beforeTotal, change.afterTotal),
+    );
+  }
+
+  final leagueChanges = <String>[];
+  if (change.beforeNrl != change.afterNrl) {
+    leagueChanges.add(
+      _formatMetricChange('NRL', change.beforeNrl, change.afterNrl),
+    );
+  }
+  if (change.beforeAfl != change.afterAfl) {
+    leagueChanges.add(
+      _formatMetricChange('AFL', change.beforeAfl, change.afterAfl),
+    );
+  }
+  if (leagueChanges.isNotEmpty) {
+    lines.add(leagueChanges.join(', '));
+  }
+
+  if (change.beforeRank != change.afterRank) {
+    lines.add(
+      'Round rank ${change.beforeRank} -> ${change.afterRank} (${_formatRankDelta(change.rankDelta)})',
+    );
+  }
+
+  return lines;
 }
 
 class _ScoringChangeCard extends StatelessWidget {
@@ -289,4 +369,8 @@ String _formatRankDelta(int rankDelta) {
   if (rankDelta > 0) return 'up $rankDelta';
   if (rankDelta < 0) return 'down ${rankDelta.abs()}';
   return 'unchanged';
+}
+
+String _formatMetricChange(String label, int before, int after) {
+  return '$label $before -> $after (${_formatSignedDelta(after - before)})';
 }
