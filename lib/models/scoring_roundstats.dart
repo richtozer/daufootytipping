@@ -33,7 +33,6 @@ class RoundStats {
   Map<String, int> toJson() {
     return {
       // keep the keys short to save $/space in db
-      'nbr': roundNumber,
       'aS': aflScore,
       'aMs': aflMaxScore,
       'aMt': aflMarginTips,
@@ -47,9 +46,12 @@ class RoundStats {
     };
   }
 
-  factory RoundStats.fromJson(Map<String, dynamic> data) {
+  factory RoundStats.fromJson(
+    Map<String, dynamic> data, {
+    int fallbackRoundNumber = 0,
+  }) {
     return RoundStats(
-      roundNumber: data['nbr'] ?? 0,
+      roundNumber: data['nbr'] ?? fallbackRoundNumber,
       aflScore: data['aS'] ?? 0,
       aflMaxScore: data['aMs'] ?? 0,
       aflMarginTips: data['aMt'] ?? 0,

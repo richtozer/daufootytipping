@@ -23,7 +23,6 @@ void main() {
       final json = roundScores.toJson();
 
       expect(json, {
-        'nbr': 1,
         'aS': 10,
         'aMs': 20,
         'aMt': 5,
@@ -67,6 +66,30 @@ void main() {
       expect(roundScores.rankChange, 0);
       expect(roundScores.nrlTipsOutstanding, 0);
       expect(roundScores.aflTipsOutstanding, 0);
+    });
+
+    test('fromJson should fall back to the supplied round number', () {
+      final json = {
+        'aS': 10,
+        'aMs': 20,
+        'aMt': 5,
+        'aMu': 3,
+        'nS': 15,
+        'nMs': 25,
+        'nMt': 7,
+        'nMu': 4,
+        'nTo': 0,
+        'aTo': 0,
+      };
+
+      final roundScores = RoundStats.fromJson(
+        json,
+        fallbackRoundNumber: 2,
+      );
+
+      expect(roundScores.roundNumber, 2);
+      expect(roundScores.aflScore, 10);
+      expect(roundScores.nrlScore, 15);
     });
 
     test('toCsv should return a valid CSV list', () {

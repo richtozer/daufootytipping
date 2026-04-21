@@ -153,6 +153,7 @@ class StatsViewModel extends ChangeNotifier {
                   Map<String, dynamic>.from(
                     entry.value as Map<dynamic, dynamic>,
                   ),
+                  fallbackRoundNumber: roundIndex + 1,
                 );
                 if (tipper != null) {
                   roundScores[tipper] = roundStats;
