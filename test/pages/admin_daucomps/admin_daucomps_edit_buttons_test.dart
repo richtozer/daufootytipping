@@ -38,19 +38,19 @@ void main() {
             tipperDbKey: 'tipper-1',
             tipperName: 'Alice',
             beforeRank: 3,
-            afterRank: 1,
+            afterRank: 3,
             beforeTotal: 18,
-            afterTotal: 22,
+            afterTotal: 18,
             beforeNrl: 8,
-            afterNrl: 10,
+            afterNrl: 8,
             beforeAfl: 10,
-            afterAfl: 12,
+            afterAfl: 10,
             beforeRoundsWon: 0,
-            afterRoundsWon: 1,
+            afterRoundsWon: 0,
             beforeMargins: 2,
             afterMargins: 3,
             beforeUps: 1,
-            afterUps: 2,
+            afterUps: 1,
           ),
         ],
         roundChanges: <ScoringRoundChange>[
@@ -59,13 +59,13 @@ void main() {
             tipperName: 'Alice',
             roundNumber: 7,
             beforeTotal: 2,
-            afterTotal: 0,
+            afterTotal: 2,
             beforeNrl: 2,
-            afterNrl: 0,
+            afterNrl: 2,
             beforeAfl: 0,
             afterAfl: 0,
             beforeRank: 4,
-            afterRank: 6,
+            afterRank: 3,
           ),
         ],
       ),
@@ -101,10 +101,48 @@ void main() {
     expect(find.text('Round score changes'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Round 7 • Alice'), findsOneWidget);
+    expect(find.text('Margins 2 -> 3 (+1)'), findsOneWidget);
+    expect(find.text('Round rank 4 -> 3 (up 1)'), findsOneWidget);
+    expect(find.textContaining('Total 18 -> 18'), findsNothing);
+    expect(find.textContaining('NRL 8 -> 8'), findsNothing);
+    expect(find.textContaining('Rank 3 -> 3'), findsNothing);
+    expect(find.textContaining('Rounds won 0 -> 0'), findsNothing);
+    expect(find.textContaining('UPS 1 -> 1'), findsNothing);
+    expect(find.textContaining('Total 2 -> 2'), findsNothing);
 
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
     expect(disableBackStates, <bool>[true, false]);
+  });
+
+  testWidgets('shows the no-changes wording once', (tester) async {
+    when(() => statsViewModel.updateStatsWithReport(comp, null, null)).thenAnswer(
+      (_) async => const ScoringUpdateReport(
+        resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
+        leaderboardChanges: <ScoringLeaderboardChange>[],
+        roundChanges: <ScoringRoundChange>[],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Rescore'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No scoring changes detected.'), findsOneWidget);
   });
 }
