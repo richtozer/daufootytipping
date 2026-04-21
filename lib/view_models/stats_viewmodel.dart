@@ -29,7 +29,7 @@ import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
 
 // Define constants for Firestore database locations
-const String statsFormatVersion = 'v2';
+const String statsFormatVersion = 'v1';
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
 const String roundStatsRoot = 'round_stats_$statsFormatVersion';
@@ -654,75 +654,86 @@ class StatsViewModel extends ChangeNotifier {
       ...beforeSnapshot.leaderboardEntries.keys,
       ...afterSnapshot.leaderboardEntries.keys,
     };
-    final leaderboardChanges = leaderboardKeys
-        .map((key) {
-          final before = beforeSnapshot.leaderboardEntries[key];
-          final after = afterSnapshot.leaderboardEntries[key];
-          final change = ScoringLeaderboardChange(
-            tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
-            tipperName: after?.tipperName ?? before?.tipperName ?? 'Unknown',
-            beforeRank: before?.rank ?? 0,
-            afterRank: after?.rank ?? 0,
-            beforeTotal: before?.total ?? 0,
-            afterTotal: after?.total ?? 0,
-            beforeNrl: before?.nrl ?? 0,
-            afterNrl: after?.nrl ?? 0,
-            beforeAfl: before?.afl ?? 0,
-            afterAfl: after?.afl ?? 0,
-            beforeRoundsWon: before?.roundsWon ?? 0,
-            afterRoundsWon: after?.roundsWon ?? 0,
-            beforeMargins: before?.margins ?? 0,
-            afterMargins: after?.margins ?? 0,
-            beforeUps: before?.ups ?? 0,
-            afterUps: after?.ups ?? 0,
-          );
-          return change.hasChange ? change : null;
-        })
-        .whereType<ScoringLeaderboardChange>()
-        .toList()
-      ..sort((a, b) {
-        final rankDeltaCompare =
-            b.rankDelta.abs().compareTo(a.rankDelta.abs());
-        if (rankDeltaCompare != 0) return rankDeltaCompare;
-        final totalDeltaCompare =
-            b.totalDelta.abs().compareTo(a.totalDelta.abs());
-        if (totalDeltaCompare != 0) return totalDeltaCompare;
-        return a.tipperName.toLowerCase().compareTo(b.tipperName.toLowerCase());
-      });
+    final leaderboardChanges =
+        leaderboardKeys
+            .map((key) {
+              final before = beforeSnapshot.leaderboardEntries[key];
+              final after = afterSnapshot.leaderboardEntries[key];
+              final change = ScoringLeaderboardChange(
+                tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
+                tipperName:
+                    after?.tipperName ?? before?.tipperName ?? 'Unknown',
+                beforeRank: before?.rank ?? 0,
+                afterRank: after?.rank ?? 0,
+                beforeTotal: before?.total ?? 0,
+                afterTotal: after?.total ?? 0,
+                beforeNrl: before?.nrl ?? 0,
+                afterNrl: after?.nrl ?? 0,
+                beforeAfl: before?.afl ?? 0,
+                afterAfl: after?.afl ?? 0,
+                beforeRoundsWon: before?.roundsWon ?? 0,
+                afterRoundsWon: after?.roundsWon ?? 0,
+                beforeMargins: before?.margins ?? 0,
+                afterMargins: after?.margins ?? 0,
+                beforeUps: before?.ups ?? 0,
+                afterUps: after?.ups ?? 0,
+              );
+              return change.hasChange ? change : null;
+            })
+            .whereType<ScoringLeaderboardChange>()
+            .toList()
+          ..sort((a, b) {
+            final rankDeltaCompare = b.rankDelta.abs().compareTo(
+              a.rankDelta.abs(),
+            );
+            if (rankDeltaCompare != 0) return rankDeltaCompare;
+            final totalDeltaCompare = b.totalDelta.abs().compareTo(
+              a.totalDelta.abs(),
+            );
+            if (totalDeltaCompare != 0) return totalDeltaCompare;
+            return a.tipperName.toLowerCase().compareTo(
+              b.tipperName.toLowerCase(),
+            );
+          });
 
     final roundKeys = <String>{
       ...beforeSnapshot.roundEntries.keys,
       ...afterSnapshot.roundEntries.keys,
     };
-    final roundChanges = roundKeys
-        .map((key) {
-          final before = beforeSnapshot.roundEntries[key];
-          final after = afterSnapshot.roundEntries[key];
-          final change = ScoringRoundChange(
-            tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
-            tipperName: after?.tipperName ?? before?.tipperName ?? 'Unknown',
-            roundNumber: after?.roundNumber ?? before?.roundNumber ?? 0,
-            beforeTotal: before?.total ?? 0,
-            afterTotal: after?.total ?? 0,
-            beforeNrl: before?.nrl ?? 0,
-            afterNrl: after?.nrl ?? 0,
-            beforeAfl: before?.afl ?? 0,
-            afterAfl: after?.afl ?? 0,
-            beforeRank: before?.rank ?? 0,
-            afterRank: after?.rank ?? 0,
-          );
-          return change.hasChange ? change : null;
-        })
-        .whereType<ScoringRoundChange>()
-        .toList()
-      ..sort((a, b) {
-        final roundCompare = a.roundNumber.compareTo(b.roundNumber);
-        if (roundCompare != 0) return roundCompare;
-        final totalDeltaCompare =
-            b.totalDelta.abs().compareTo(a.totalDelta.abs());
-        if (totalDeltaCompare != 0) return totalDeltaCompare;
-        return a.tipperName.toLowerCase().compareTo(b.tipperName.toLowerCase());
-      });
+    final roundChanges =
+        roundKeys
+            .map((key) {
+              final before = beforeSnapshot.roundEntries[key];
+              final after = afterSnapshot.roundEntries[key];
+              final change = ScoringRoundChange(
+                tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
+                tipperName:
+                    after?.tipperName ?? before?.tipperName ?? 'Unknown',
+                roundNumber: after?.roundNumber ?? before?.roundNumber ?? 0,
+                beforeTotal: before?.total ?? 0,
+                afterTotal: after?.total ?? 0,
+                beforeNrl: before?.nrl ?? 0,
+                afterNrl: after?.nrl ?? 0,
+                beforeAfl: before?.afl ?? 0,
+                afterAfl: after?.afl ?? 0,
+                beforeRank: before?.rank ?? 0,
+                afterRank: after?.rank ?? 0,
+              );
+              return change.hasChange ? change : null;
+            })
+            .whereType<ScoringRoundChange>()
+            .toList()
+          ..sort((a, b) {
+            final roundCompare = a.roundNumber.compareTo(b.roundNumber);
+            if (roundCompare != 0) return roundCompare;
+            final totalDeltaCompare = b.totalDelta.abs().compareTo(
+              a.totalDelta.abs(),
+            );
+            if (totalDeltaCompare != 0) return totalDeltaCompare;
+            return a.tipperName.toLowerCase().compareTo(
+              b.tipperName.toLowerCase(),
+            );
+          });
 
     return ScoringUpdateReport(
       resultMessage: resultMessage,
@@ -1339,10 +1350,7 @@ class StatsViewModel extends ChangeNotifier {
         : oldScoring.copyWith(
             crowdSourcedScores: oldScoring.crowdSourcedScores == null
                 ? List<CrowdSourcedScore>.from(crowdSourcedScores)
-                : [
-                    ...oldScoring.crowdSourcedScores!,
-                    ...crowdSourcedScores,
-                  ],
+                : [...oldScoring.crowdSourcedScores!, ...crowdSourcedScores],
           );
 
     game.scoring = newScoring;
