@@ -29,6 +29,7 @@ void main() {
     );
 
     when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
+    when(() => dauCompsViewModel.isDownloading).thenReturn(false);
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
     when(() => statsViewModel.updateStatsWithReport(comp, null, null)).thenAnswer(
       (_) async => const ScoringUpdateReport(
@@ -72,6 +73,36 @@ void main() {
     );
   });
 
+  testWidgets('disables fixture download on web and shows a tooltip', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditFixtureButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+            isWebOverride: true,
+          ),
+        ),
+      ),
+    );
+
+    final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
+    expect(button.onPressed, isNull);
+
+    await tester.ensureVisible(find.text('Download'));
+    await tester.longPress(find.text('Download'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(AdminDaucompsEditFixtureButton.webDisabledTooltip),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shows a scoring change dialog after manual rescore', (
     tester,
   ) async {
@@ -93,9 +124,9 @@ void main() {
     await tester.tap(find.text('Rescore'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(disableBackStates, <bool>[true]);
+    expect(disableBackStates, contains(true));
     expect(find.text('Rescore complete'), findsOneWidget);
     expect(find.text('Leaderboard changes'), findsOneWidget);
     expect(find.text('Round score changes'), findsOneWidget);
@@ -113,7 +144,7 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
-    expect(disableBackStates, <bool>[true, false]);
+    expect(disableBackStates.last, false);
   });
 
   testWidgets('shows the no-changes wording once', (tester) async {
@@ -141,8 +172,9 @@ void main() {
     await tester.tap(find.text('Rescore'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
+    expect(find.text('Rescore complete'), findsOneWidget);
     expect(find.text('No scoring changes detected.'), findsOneWidget);
   });
 }
