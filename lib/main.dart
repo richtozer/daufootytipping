@@ -327,6 +327,9 @@ class _MyAppState extends State<MyApp> {
                           message:
                               'Unexpected startup error. ${snapshot.error}',
                           displaySignOutButton: false,
+                          onRetry: () {
+                            configViewModel.retryInitialLoad();
+                          },
                         );
                       }
 
@@ -337,6 +340,9 @@ class _MyAppState extends State<MyApp> {
                           message:
                               'Unexpected startup error. Contact support: https://interview.coach/tipping',
                           displaySignOutButton: false,
+                          onRetry: () {
+                            configViewModel.retryInitialLoad();
+                          },
                         );
                       } else {
                         _registerCoreViewModelsIfNeeded(configViewModel);

@@ -189,6 +189,64 @@ void main() {
 
     viewModel.dispose();
   });
+
+  test('retryInitialLoad re-arms startup after a failed initial load', () async {
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(milliseconds: 20),
+    );
+
+    controller.add(
+      _databaseEvent(
+        _rootSnapshot(
+          exists: true,
+          value: <String, Object?>{},
+          children: <String, Object?>{
+            p.currentDAUCompKey: _valueSnapshot(null),
+            p.createLinkedTipperKey: _valueSnapshot(null),
+            p.minAppVersionKey: _valueSnapshot(null),
+            p.googleClientIdKey: _valueSnapshot(null),
+          },
+        ),
+      ),
+    );
+
+    await expectLater(
+      viewModel.initialLoadComplete,
+      throwsA(
+        predicate<Object?>(
+          (error) => error.toString().contains('Config load timed out'),
+        ),
+      ),
+    );
+
+    await viewModel.retryInitialLoad();
+
+    controller.add(
+      _databaseEvent(
+        _rootSnapshot(
+          exists: true,
+          value: <String, Object?>{
+            p.currentDAUCompKey: 'comp-2026',
+            p.createLinkedTipperKey: true,
+          },
+          children: <String, Object?>{
+            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
+            p.createLinkedTipperKey: _valueSnapshot(true),
+            p.minAppVersionKey: _valueSnapshot('1.2.3'),
+            p.googleClientIdKey: _valueSnapshot('client-id'),
+          },
+        ),
+      ),
+    );
+
+    await viewModel.initialLoadComplete;
+
+    expect(viewModel.activeDAUComp, 'comp-2026');
+    expect(viewModel.createLinkedTipper, isTrue);
+
+    viewModel.dispose();
+  });
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {

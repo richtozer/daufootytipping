@@ -29,7 +29,7 @@ class ConfigViewModel extends ChangeNotifier {
   String? _googleClientId;
   String? get googleClientId => _googleClientId;
 
-  final Completer<void> _initialLoadCompleter = Completer<void>();
+  Completer<void> _initialLoadCompleter = Completer<void>();
 
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
   bool get hasRequiredBootstrapConfig =>
@@ -45,10 +45,29 @@ class ConfigViewModel extends ChangeNotifier {
        _retryableStartupReconnectDelay = retryableStartupReconnectDelay,
        _maxRetryableStartupReconnectAttempts =
            maxRetryableStartupReconnectAttempts {
+    _beginInitialLoad();
+  }
+
+  void _beginInitialLoad({bool resetState = false}) {
+    _retryableStartupReconnectTimer?.cancel();
+    _retryableStartupReconnectAttempts = 0;
+    _lastInitialLoadError = null;
+
+    if (resetState) {
+      _activeDAUComp = null;
+      _minAppVersion = null;
+      _createLinkedTipper = null;
+      _googleClientId = null;
+    }
+
+    _initialLoadCompleter = Completer<void>();
     _listenToConfigChanges();
-    // Add a timeout for initial load
-    _initialLoadCompleter.future.timeout(_initialLoadTimeout).catchError((_) {
-      if (_initialLoadCompleter.isCompleted) {
+    _armInitialLoadTimeout(_initialLoadCompleter);
+  }
+
+  void _armInitialLoadTimeout(Completer<void> completer) {
+    completer.future.timeout(_initialLoadTimeout).catchError((_) {
+      if (!identical(_initialLoadCompleter, completer) || completer.isCompleted) {
         return;
       }
 
@@ -56,7 +75,7 @@ class ConfigViewModel extends ChangeNotifier {
       final String message = lastInitialLoadError == null
           ? 'Config load timed out. Please check your connection or we may be having backend issues.'
           : 'Config load timed out. Last startup error: $lastInitialLoadError';
-      _initialLoadCompleter.completeError(message);
+      completer.completeError(message);
       notifyListeners();
     });
   }
@@ -172,6 +191,16 @@ class ConfigViewModel extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<void> retryInitialLoad() async {
+    if (!_initialLoadCompleter.isCompleted) {
+      return;
+    }
+
+    await _configStream.cancel();
+    _beginInitialLoad(resetState: true);
+    notifyListeners();
   }
 
   void _processSnapshot(DataSnapshot snapshot) {
