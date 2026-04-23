@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -5,12 +6,16 @@ import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 
 class AdminDaucompsEditFixtureButton extends StatelessWidget {
+  static const String webDisabledTooltip =
+      'Fixture download is disabled on web because browser cross-origin restrictions block the fixture source.';
+
   final DAUCompsViewModel dauCompsViewModel;
   final DAUComp? daucomp;
   // This callback is expected to be `(fn) => parent.setState(fn)`.
   // The `fn` passed to it should be the code that was originally in `setState`.
   final Function(VoidCallback fn) setStateCallback;
   final Function(bool disabled) onDisableBack;
+  final bool? isWebOverride;
 
   const AdminDaucompsEditFixtureButton({
     super.key,
@@ -18,6 +23,7 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
     required this.daucomp,
     required this.setStateCallback,
     required this.onDisableBack,
+    this.isWebOverride,
   });
 
   @override
@@ -25,6 +31,17 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
     if (daucomp == null) {
       return const SizedBox.shrink();
     } else {
+      final isWebPlatform = isWebOverride ?? kIsWeb;
+      if (isWebPlatform) {
+        return const Tooltip(
+          message: webDisabledTooltip,
+          child: OutlinedButton(
+            onPressed: null,
+            child: Text('Download'),
+          ),
+        );
+      }
+
       return OutlinedButton(
         onPressed: () async {
           if (dauCompsViewModel.isDownloading) {

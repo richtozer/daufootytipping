@@ -152,6 +152,8 @@ Common build/version command
 ----------------------------
 - Promote `development` to `testing`, then bump and commit the next development build number:
   - `scripts/promote-to-testing.sh`
+- Promote `testing` to `main`, deploy Firebase Hosting production, and push `main`:
+  - `scripts/promote-to-main.sh`
 - Increment build number only (if needed) from any working directory:
   - `scripts/bump_build_number.sh`
 
@@ -167,6 +169,15 @@ Promotion script behavior
   - Switches back to `development`
   - Runs `scripts/bump_build_number.sh`
   - Commits updated `pubspec.yaml` on `development`
+- Script: `scripts/promote-to-main.sh`
+- Preconditions:
+  - Must be run from `testing`
+  - Working tree must be clean (including untracked files)
+- Actions:
+  - Merges `testing` into `main`
+  - Deploys Firebase Hosting production from `main`
+  - Pushes `main` to `origin`
+  - Switches back to `testing`
 
 Common Terminal Commands
 ========================
