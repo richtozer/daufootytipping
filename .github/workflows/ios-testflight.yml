@@ -352,6 +352,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload dSYM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-dsyms-${{ github.ref_name }}-${{ github.run_number }}
+          path: build/ios/archive/Runner.xcarchive/dSYMs
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload to TestFlight
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
