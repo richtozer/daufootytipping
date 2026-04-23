@@ -59,6 +59,14 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Cache Xcode Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: ${{ runner.os }}-xcode26-swift-packages-${{ hashFiles('ios/Runner.xcodeproj/project.pbxproj', 'ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode26-swift-packages-
+
       - name: Ensure App.framework minimum iOS version
         run: |
           set -euo pipefail
@@ -178,13 +186,57 @@ jobs:
       - name: Show signing identities
         run: security find-identity -v -p codesigning || true
 
+      - name: Resolve Swift packages with retry
+        run: |
+          set -euo pipefail
+
+          resolve_packages() {
+            xcodebuild \
+              -workspace ios/Runner.xcworkspace \
+              -scheme Runner \
+              -resolvePackageDependencies \
+              -onlyUsePackageVersionsFromResolvedFile
+
+            xcodebuild \
+              -project ios/Runner.xcodeproj \
+              -scheme Runner \
+              -resolvePackageDependencies \
+              -onlyUsePackageVersionsFromResolvedFile
+          }
+
+          attempt=1
+          until resolve_packages; do
+            if [ "$attempt" -ge 3 ]; then
+              echo "Swift package resolution failed after ${attempt} attempts."
+              exit 1
+            fi
+
+            echo "Swift package resolution failed on attempt ${attempt}; clearing SourcePackages cache for a clean retry."
+            rm -rf "$HOME"/Library/Developer/Xcode/DerivedData/*/SourcePackages
+            attempt=$((attempt + 1))
+            sleep $((attempt * 15))
+          done
+
       - name: Prepare iOS build config
         run: |
-          flutter build ios \
+          set -euo pipefail
+
+          attempt=1
+          until flutter build ios \
             --release \
             --config-only \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
-            --build-number "${{ steps.app_version.outputs.build_number }}"
+            --build-number "${{ steps.app_version.outputs.build_number }}"; do
+            if [ "$attempt" -ge 3 ]; then
+              echo "flutter build ios --config-only failed after ${attempt} attempts."
+              exit 1
+            fi
+
+            echo "flutter build ios --config-only failed on attempt ${attempt}; clearing SourcePackages cache before retry."
+            rm -rf "$HOME"/Library/Developer/Xcode/DerivedData/*/SourcePackages
+            attempt=$((attempt + 1))
+            sleep $((attempt * 15))
+          done
 
       - name: Archive iOS app (unsigned)
         run: |
@@ -197,6 +249,8 @@ jobs:
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "build/ios/archive/Runner.xcarchive" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
             archive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
