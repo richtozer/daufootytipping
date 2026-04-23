@@ -8,6 +8,7 @@ class LoginIssueScreen extends StatelessWidget {
   final bool displaySignOutButton;
   final String googleClientId;
   final Color msgColor;
+  final VoidCallback? onRetry;
 
   const LoginIssueScreen({
     super.key,
@@ -15,6 +16,7 @@ class LoginIssueScreen extends StatelessWidget {
     this.displaySignOutButton = true,
     this.googleClientId = '',
     this.msgColor = Colors.red,
+    this.onRetry,
   });
 
   @override
@@ -48,6 +50,19 @@ class LoginIssueScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              if (onRetry != null)
+                SizedBox(
+                  width: 150,
+                  child: OutlinedButton(
+                    onPressed: onRetry,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [Icon(Icons.refresh), Text('Retry')],
+                    ),
+                  ),
+                ),
+              if (onRetry != null && displaySignOutButton)
+                const SizedBox(height: 12),
               if (displaySignOutButton)
                 SizedBox(
                   width: 150,
