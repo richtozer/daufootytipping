@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,11 @@ class ConfigViewModel extends ChangeNotifier {
   final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _configStream;
   final Duration _initialLoadTimeout;
+  final Duration _retryableStartupReconnectDelay;
+  final int _maxRetryableStartupReconnectAttempts;
+  Timer? _retryableStartupReconnectTimer;
+  int _retryableStartupReconnectAttempts = 0;
+  Object? _lastInitialLoadError;
 
   String? _activeDAUComp;
   String? get activeDAUComp => _activeDAUComp;
@@ -32,8 +38,13 @@ class ConfigViewModel extends ChangeNotifier {
   ConfigViewModel({
     DatabaseReference? db,
     Duration initialLoadTimeout = const Duration(seconds: 15),
+    Duration retryableStartupReconnectDelay = const Duration(seconds: 2),
+    int maxRetryableStartupReconnectAttempts = 3,
   }) : _db = db ?? configuredDatabaseRef(p.configPathRoot),
-       _initialLoadTimeout = initialLoadTimeout {
+       _initialLoadTimeout = initialLoadTimeout,
+       _retryableStartupReconnectDelay = retryableStartupReconnectDelay,
+       _maxRetryableStartupReconnectAttempts =
+           maxRetryableStartupReconnectAttempts {
     _listenToConfigChanges();
     // Add a timeout for initial load
     _initialLoadCompleter.future.timeout(_initialLoadTimeout).catchError((_) {
@@ -41,9 +52,11 @@ class ConfigViewModel extends ChangeNotifier {
         return;
       }
 
-      _initialLoadCompleter.completeError(
-        'Config load timed out. Please check your connection or we may be having backend issues.',
-      );
+      final Object? lastInitialLoadError = _lastInitialLoadError;
+      final String message = lastInitialLoadError == null
+          ? 'Config load timed out. Please check your connection or we may be having backend issues.'
+          : 'Config load timed out. Last startup error: $lastInitialLoadError';
+      _initialLoadCompleter.completeError(message);
       notifyListeners();
     });
   }
@@ -75,6 +88,8 @@ class ConfigViewModel extends ChangeNotifier {
         }
 
         if (!_initialLoadCompleter.isCompleted && hasRequiredBootstrapConfig) {
+          _retryableStartupReconnectTimer?.cancel();
+          _retryableStartupReconnectAttempts = 0;
           _initialLoadCompleter.complete();
         }
         processingStopwatch.stop();
@@ -89,6 +104,7 @@ class ConfigViewModel extends ChangeNotifier {
         notifyListeners();
       },
       onError: (error) {
+        _lastInitialLoadError = error;
         log('ConfigViewModel._listenToConfigChanges() Error: $error');
 
         // For network disconnection errors, attempt reconnection after delay
@@ -102,12 +118,44 @@ class ConfigViewModel extends ChangeNotifier {
               _reconnectDatabase();
             }
           });
+        } else if (StartupAppCheckSupport.isRetryableProtectedResourceError(
+          error,
+        )) {
+          _scheduleRetryableStartupReconnect(error);
         } else {
           // For other errors, complete with error immediately
           if (!_initialLoadCompleter.isCompleted) {
             _initialLoadCompleter.completeError(error);
             notifyListeners();
           }
+        }
+      },
+    );
+  }
+
+  void _scheduleRetryableStartupReconnect(Object error) {
+    if (_initialLoadCompleter.isCompleted) {
+      return;
+    }
+
+    if (_retryableStartupReconnectAttempts >=
+        _maxRetryableStartupReconnectAttempts) {
+      _initialLoadCompleter.completeError(error);
+      notifyListeners();
+      return;
+    }
+
+    _retryableStartupReconnectAttempts += 1;
+    _retryableStartupReconnectTimer?.cancel();
+    log(
+      'Retryable startup error detected, retrying config stream in ${_retryableStartupReconnectDelay.inMilliseconds}ms '
+      '(attempt $_retryableStartupReconnectAttempts/$_maxRetryableStartupReconnectAttempts).',
+    );
+    _retryableStartupReconnectTimer = Timer(
+      _retryableStartupReconnectDelay,
+      () {
+        if (!_initialLoadCompleter.isCompleted) {
+          _reconnectDatabase();
         }
       },
     );
@@ -186,6 +234,7 @@ class ConfigViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _retryableStartupReconnectTimer?.cancel();
     _configStream.cancel();
     super.dispose();
   }

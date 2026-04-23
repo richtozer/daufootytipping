@@ -149,6 +149,46 @@ void main() {
 
     viewModel.dispose();
   });
+
+  test('retryable startup read errors reconnect and recover on a later snapshot', () async {
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+      retryableStartupReconnectDelay: const Duration(milliseconds: 5),
+      maxRetryableStartupReconnectAttempts: 2,
+    );
+
+    controller.addError(
+      '[firebase_database/permission-denied] App Check token rejected by Play Integrity.',
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    controller.add(
+      _databaseEvent(
+        _rootSnapshot(
+          exists: true,
+          value: <String, Object?>{
+            p.currentDAUCompKey: 'comp-2026',
+            p.createLinkedTipperKey: true,
+          },
+          children: <String, Object?>{
+            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
+            p.createLinkedTipperKey: _valueSnapshot(true),
+            p.minAppVersionKey: _valueSnapshot('1.2.3'),
+            p.googleClientIdKey: _valueSnapshot('client-id'),
+          },
+        ),
+      ),
+    );
+
+    await viewModel.initialLoadComplete;
+
+    expect(viewModel.activeDAUComp, 'comp-2026');
+    expect(viewModel.createLinkedTipper, isTrue);
+
+    viewModel.dispose();
+  });
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {
