@@ -48,6 +48,7 @@ jobs:
           echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/flutter/bin:$PATH"
           flutter config --no-analytics
+          flutter config --enable-swift-package-manager
           flutter --version
 
       - name: Show tool versions
@@ -58,6 +59,12 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Verify Swift Package Manager is enabled
+        run: |
+          set -euo pipefail
+          flutter config --list | grep -q "enable-swift-package-manager: true"
+          grep -q '"swift_package_manager_enabled":{"ios":true' .flutter-plugins-dependencies
 
       - name: Cache Xcode Swift packages
         uses: actions/cache@v4
