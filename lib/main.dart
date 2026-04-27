@@ -95,8 +95,15 @@ Future<void> main() async {
     );
   } else {
     if (!kIsWeb) {
-      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
-      database.setPersistenceEnabled(true);
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Android is stricter here and may throw if cache size is set before
+        // persistence is enabled on the instance.
+        database.setPersistenceEnabled(true);
+        database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
+      } else {
+        database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
+        database.setPersistenceEnabled(true);
+      }
       log('Database persistence enabled (100 MB cache)');
     }
 
