@@ -95,8 +95,10 @@ Future<void> main() async {
     );
   } else {
     if (!kIsWeb) {
-      database.setPersistenceEnabled(true);
-      database.setPersistenceCacheSizeBytes(100 * 1024 * 1024); // 100 MB
+      configureRealtimeDatabasePersistence(
+        database,
+        platform: defaultTargetPlatform,
+      );
       log('Database persistence enabled (100 MB cache)');
     }
 
