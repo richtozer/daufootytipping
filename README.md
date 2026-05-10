@@ -211,6 +211,42 @@ window, starts the local Firebase emulators, and seeds the RTDB emulator using
 the selected file. If emulator ports are already in use, stop the current
 session first with `scripts/stop_firebase_emulators_vscode.sh`.
 
+Firestore Tip Log Migration
+===========================
+
+Legacy Firestore tip logs are stored under nested dynamic paths:
+
+`tipLogs/{year}/{round}/{tipperId}/{gameId}/{timestamp}`
+
+New tip logs are written as flat documents under `tipLogs2`. To migrate legacy
+data, run the Admin SDK migration from the functions package:
+
+```bash
+cd functions
+npm run migrate:tiplogs -- --dry-run --limit=5
+npm run migrate:tiplogs -- --write
+```
+
+The migration writes deterministic target document IDs from each legacy path, so
+it can be rerun without creating duplicate `tipLogs2` documents. Production runs
+use the default Firebase project from `.firebaserc` unless `--project-id` is
+passed. Authentication uses Application Default Credentials, for example by
+setting `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON file path.
+
+For later catch-up runs while older clients may still write legacy logs, skip
+already migrated documents:
+
+```bash
+cd functions
+npm run migrate:tiplogs -- --write --skip-existing --progress-interval=1000
+```
+
+To only migrate legacy records after a known cutoff timestamp:
+
+```bash
+npm run migrate:tiplogs -- --write --skip-existing --legacy-timestamp-after=2026-05-10T00:00:00Z
+```
+
 Contributing
 ============
 Contributions are welcome! Please open an issue or submit a pull request if you have any improvements or bug fixes.
