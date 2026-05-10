@@ -219,10 +219,9 @@ Legacy Firestore tip logs are stored under nested dynamic paths:
 `tipLogs/{year}/{round}/{tipperId}/{gameId}/{timestamp}`
 
 New tip logs are written as flat documents under `tipLogs2`. To migrate legacy
-data, run the Admin SDK migration from the functions package:
+data, run the Admin SDK migration from the repo root:
 
 ```bash
-cd functions
 npm run migrate:tiplogs -- --dry-run --limit=5
 npm run migrate:tiplogs -- --write
 ```
@@ -237,7 +236,6 @@ For later catch-up runs while older clients may still write legacy logs, skip
 already migrated documents:
 
 ```bash
-cd functions
 npm run migrate:tiplogs -- --write --skip-existing --progress-interval=1000
 ```
 

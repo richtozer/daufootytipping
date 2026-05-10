@@ -84,8 +84,7 @@ Migrates legacy nested Firestore tip logs into flat tipLogs2 documents.
 Default mode is a dry run. Pass --write to write migrated documents.
 
 Usage:
-  cd functions
-  node scripts/migrate_tip_logs_to_tip_logs2.js [options]
+  node tools/firestore/migrate_tip_logs_to_tip_logs2.js [options]
 
 Options:
   --write                    Write migrated docs. Without this, no writes occur.
@@ -104,7 +103,7 @@ Options:
 
 Authentication:
   For production, use Application Default Credentials, for example:
-  GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json node scripts/migrate_tip_logs_to_tip_logs2.js --write
+  GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json npm run migrate:tiplogs -- --write
 `);
 }
 

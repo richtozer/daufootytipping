@@ -1,6 +1,5 @@
 {
   "include": [
-    ".eslintrc.js",
-    "scripts/**/*.js"
+    ".eslintrc.js"
   ]
 }
