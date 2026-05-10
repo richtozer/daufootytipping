@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io'; // Add this import for IOException, SocketException
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/services/scoring_update_queue.dart';
@@ -788,18 +789,34 @@ class StatsViewModel extends ChangeNotifier {
     // notifyListeners() call. This avoids triggering rebuilds of every
     // Consumer<StatsViewModel?> when cards re-appear during scrolling.
     final GameStatsEntry? cached = gamesStatsEntry[game];
-    if (cached != null && cached.averageScore != null && !forceUpdate) {
+    if (cached != null &&
+        _canUseCachedGameStatsEntry(game, cached, forceUpdate)) {
       return;
     }
 
     // Check the database for an existing entry
-    final GameStatsEntry dbEntry = await _getGameStatsEntry(game);
+    final GameStatsEntry dbEntry;
+    try {
+      dbEntry = await _getGameStatsEntry(game);
+    } catch (error, stackTrace) {
+      if (CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+        error,
+      )) {
+        log(
+          'Transient Realtime Database disconnect while reading game stats for game: ${game.dbkey}',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return;
+      }
+      rethrow;
+    }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game];
     gamesStatsEntry[game] = dbEntry;
 
     // If the DB had a valid entry and we're not forcing, notify only if the
     // value actually changed (avoids redundant rebuilds).
-    if (dbEntry.averageScore != null && !forceUpdate) {
+    if (_canUseCachedGameStatsEntry(game, dbEntry, forceUpdate)) {
       if (previousEntry != dbEntry) {
         notifyListeners();
       }
@@ -825,6 +842,62 @@ class StatsViewModel extends ChangeNotifier {
     );
 
     notifyListeners();
+  }
+
+  bool _canUseCachedGameStatsEntry(
+    Game game,
+    GameStatsEntry entry,
+    bool forceUpdate,
+  ) {
+    if (forceUpdate || entry.averageScore == null) {
+      return false;
+    }
+
+    if (_needsFinalGameStatsRecalculation(game, entry)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _needsFinalGameStatsRecalculation(
+    Game game,
+    GameStatsEntry entry,
+  ) {
+    if (game.gameState != GameState.startedResultKnown) {
+      return false;
+    }
+
+    final int? expectedTipCount = _expectedGameStatsTipCount();
+    if (expectedTipCount != null &&
+        expectedTipCount > 0 &&
+        entry.averageScoreTipCount == expectedTipCount) {
+      return false;
+    }
+
+    log(
+      'Ignoring cached game stats for finalized game: ${game.dbkey}; '
+      'tip count ${entry.averageScoreTipCount} does not match expected $expectedTipCount.',
+    );
+    return true;
+  }
+
+  int? _expectedGameStatsTipCount() {
+    if (!di.isRegistered<TippersViewModel>()) {
+      return null;
+    }
+
+    final tippersViewModel = di<TippersViewModel>();
+    final bool selectedTipperPaidUp =
+        _isSelectedTipperPaidUpMember ??
+        tippersViewModel.selectedTipper.paidForComp(selectedDAUComp);
+
+    return tippersViewModel.tippers
+        .where(
+          (tipper) =>
+              tipper.paidForComp(selectedDAUComp) == selectedTipperPaidUp,
+        )
+        .length;
   }
 
   Future<void> _updateGameResultPercentageTipped(

@@ -502,8 +502,17 @@ class TipsViewModel extends ChangeNotifier {
         )
         .toList();
 
+    final List<Tip?> tipsForScoring = await Future.wait(
+      tippers.map((tipper) => findTip(game, tipper)),
+    );
+
     double runningAverageScoreTotal = 0.0;
     int runningAverageScoreCountTips = 0;
+    for (final Tip? tip in tipsForScoring) {
+      runningAverageScoreCountTips++;
+      runningAverageScoreTotal += tip?.getTipScoreCalculated() ?? 0;
+    }
+
     GameStatsEntry gameStatsEntry = GameStatsEntry(
       percentageTippedHomeMargin: 0.0,
       percentageTippedHome: 0.0,
@@ -518,19 +527,11 @@ class TipsViewModel extends ChangeNotifier {
       int totalTippers = tippers.length;
       int totalTippersTipped = 0;
 
-      // Collect all the futures
-      List<Future<void>> futures = tippers.map((tipper) async {
-        Tip? tip = await findTip(game, tipper);
+      for (final Tip? tip in tipsForScoring) {
         if (tip?.tip == gameResult) {
           totalTippersTipped++;
         }
-        // add this tip to the running average
-        runningAverageScoreCountTips++;
-        runningAverageScoreTotal += tip?.getTipScoreCalculated() ?? 0;
-      }).toList();
-
-      // Wait for all futures to complete
-      await Future.wait(futures);
+      }
 
       // switch on the game result and set the correct value
       switch (gameResult) {
@@ -569,6 +570,9 @@ class TipsViewModel extends ChangeNotifier {
     } else {
       gameStatsEntry.averageScore = 0.0;
     }
+    gameStatsEntry.averageScoreTipCount = tipsForScoring
+        .where((tip) => tip != null)
+        .length;
     return gameStatsEntry;
   }
 

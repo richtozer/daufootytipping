@@ -5,6 +5,7 @@ class GameStatsEntry {
   double? percentageTippedAway;
   double? percentageTippedAwayMargin;
   double? averageScore;
+  int? averageScoreTipCount;
 
   // Constructor
   GameStatsEntry({
@@ -14,6 +15,7 @@ class GameStatsEntry {
     double? percentageTippedAway,
     double? percentageTippedAwayMargin,
     double? averageScore,
+    this.averageScoreTipCount,
   }) {
     // Reduce precision to 2 decimal places
     this.percentageTippedHomeMargin = reducePrecision(
@@ -43,7 +45,8 @@ class GameStatsEntry {
         other.percentageTippedDraw == percentageTippedDraw &&
         other.percentageTippedAway == percentageTippedAway &&
         other.percentageTippedAwayMargin == percentageTippedAwayMargin &&
-        other.averageScore == averageScore;
+        other.averageScore == averageScore &&
+        other.averageScoreTipCount == averageScoreTipCount;
   }
 
   @override
@@ -53,7 +56,8 @@ class GameStatsEntry {
         percentageTippedDraw.hashCode ^
         percentageTippedAway.hashCode ^
         percentageTippedAwayMargin.hashCode ^
-        averageScore.hashCode;
+        averageScore.hashCode ^
+        averageScoreTipCount.hashCode;
   }
 
   // Method to convert instance into JSON
@@ -65,6 +69,7 @@ class GameStatsEntry {
       'pctTipD': percentageTippedAway,
       'pctTipE': percentageTippedAwayMargin,
       'avgScore': averageScore,
+      'avgScoreTipCount': averageScoreTipCount,
     };
   }
 
@@ -77,6 +82,7 @@ class GameStatsEntry {
       percentageTippedAway: (data['pctTipD'] as num?)?.toDouble(),
       percentageTippedAwayMargin: (data['pctTipE'] as num?)?.toDouble(),
       averageScore: (data['avgScore'] as num?)?.toDouble(),
+      averageScoreTipCount: (data['avgScoreTipCount'] as num?)?.toInt(),
     );
   }
 }
