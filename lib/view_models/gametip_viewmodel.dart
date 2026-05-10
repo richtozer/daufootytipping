@@ -407,56 +407,54 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   Future<void> _addLogOfTipToFirestore(Tip tip) async {
-    // Extract the year, round, tipperId, gameId, and timestamp
-    final year =
-        tip.game.startTimeUTC.year; // Assuming the game has a start time
+    final seasonYear = tip.game.startTimeUTC.year;
     final round = tip.game.getDAURound(_currentDAUComp)?.dAUroundNumber;
     final tipperId = tip.tipper.dbkey;
     final gameId = tip.game.dbkey;
-    final timestamp = DateTime.now()
-        .toUtc()
-        .toIso8601String(); // Use UTC timestamp as a unique key
+    final submittedAtUTC = DateTime.now().toUtc();
+    final submittedAtIsoUTC = submittedAtUTC.toIso8601String();
+    final gameStartTimeUTC = tip.game.startTimeUTC.toUtc();
 
     final PackageInfoService packageInfoService = di<PackageInfoService>();
     final packageInfo = await packageInfoService.packageInfo;
+    final submittedBy = di<TippersViewModel>().authenticatedTipper;
+    final tipValue = tip.game.league == League.afl ? tip.tip.afl : tip.tip.nrl;
 
     // Log the tip in Firestore
     try {
-      await FirebaseFirestore.instance
-          .collection('tipLogs')
-          .doc(year.toString()) // Year as a document
-          .collection(round.toString()) // Round as a sub-collection
-          .doc(tipperId) // Tipper ID as a document
-          .collection(gameId) // Game ID as a sub-collection
-          .doc(timestamp) // Timestamp as a document
-          .set({
-            'tipperId': tipperId,
-            'tipperName': tip.tipper.name,
-            'gameId': gameId,
-            'gameDetails': {
-              'league': tip.game.league.name,
-              'homeTeam': tip.game.homeTeam.name,
-              'awayTeam': tip.game.awayTeam.name,
-              'startTimeUTC': tip.game.startTimeUTC.toIso8601String(),
-            },
-            'tip': tip.game.league == League.afl
-                ? tip.tip.afl
-                : tip
-                      .tip
-                      .nrl, // Assuming `tip.tip` contains the actual tip value
-            'tipSubmittedUTC': timestamp,
-            'submittedBy': di<TippersViewModel>().authenticatedTipper?.name,
-            'appDetails': {
-              'version': packageInfo.version,
-              'buildNumber': packageInfo.buildNumber,
-              'installTime': packageInfo.installTime?.toIso8601String(),
-              'lastUpdateTime': packageInfo.updateTime?.toIso8601String(),
-            },
-            'platform': {'os': UniversalPlatform.operatingSystem},
-          });
+      await FirebaseFirestore.instance.collection('tipLogs2').add({
+        'createdAt': FieldValue.serverTimestamp(),
+        'submittedAtUTC': Timestamp.fromDate(submittedAtUTC),
+        'submittedAtIsoUTC': submittedAtIsoUTC,
+        'seasonYear': seasonYear,
+        'round': round,
+        'compId': _currentDAUComp.dbkey,
+        'compName': _currentDAUComp.name,
+        'tipperId': tipperId,
+        'tipperName': tip.tipper.name,
+        'gameId': gameId,
+        'league': tip.game.league.name,
+        'homeTeam': tip.game.homeTeam.name,
+        'awayTeam': tip.game.awayTeam.name,
+        'gameStartTimeUTC': Timestamp.fromDate(gameStartTimeUTC),
+        'gameStartTimeIsoUTC': gameStartTimeUTC.toIso8601String(),
+        'tipResult': tip.tip.name,
+        'tip': tipValue,
+        'submittedByTipperId': submittedBy?.dbkey,
+        'submittedBy': submittedBy?.name,
+        'appVersion': packageInfo.version,
+        'buildNumber': packageInfo.buildNumber,
+        'installTimeUTC': packageInfo.installTime == null
+            ? null
+            : Timestamp.fromDate(packageInfo.installTime!.toUtc()),
+        'lastUpdateTimeUTC': packageInfo.updateTime == null
+            ? null
+            : Timestamp.fromDate(packageInfo.updateTime!.toUtc()),
+        'platform': UniversalPlatform.operatingSystem,
+      });
 
       log(
-        '_addLogOfTipToFirestore() Tip logged in Firestore for tipper: ${tip.tipper.name}, game: ${tip.game.dbkey}, timestamp: $timestamp',
+        '_addLogOfTipToFirestore() Tip logged in Firestore for tipper: ${tip.tipper.name}, game: ${tip.game.dbkey}, timestamp: $submittedAtIsoUTC',
       );
     } catch (e) {
       log('Error logging tip in Firestore: $e');
