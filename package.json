@@ -1,8 +1,12 @@
 {
+  "scripts": {
+    "migrate:tiplogs": "node tools/firestore/migrate_tip_logs_to_tip_logs2.js"
+  },
   "devDependencies": {
     "node": "^18.0.0"
   },
   "dependencies": {
+    "firebase-admin": "^13.7.0",
     "firebase-functions": "^7.0.6",
     "typescript": "^5.8.2"
   }

@@ -1,6 +1,8 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
+const int realtimeDatabasePersistenceCacheSizeBytes = 100 * 1024 * 1024;
+
 /// Provides the app's single configured Realtime Database instance.
 class ConfiguredRealtimeDatabase {
   ConfiguredRealtimeDatabase._();
@@ -33,4 +35,22 @@ FirebaseDatabase get configuredRealtimeDatabase =>
 DatabaseReference configuredDatabaseRef([String? path]) {
   final FirebaseDatabase database = configuredRealtimeDatabase;
   return path == null ? database.ref() : database.ref(path);
+}
+
+/// Applies native Realtime Database persistence settings in platform-specific
+/// order. Android requires the cache size before persistence is enabled; iOS
+/// and macOS currently require the opposite order.
+void configureRealtimeDatabasePersistence(
+  FirebaseDatabase database, {
+  required TargetPlatform platform,
+  int cacheSizeBytes = realtimeDatabasePersistenceCacheSizeBytes,
+}) {
+  if (platform == TargetPlatform.android) {
+    database.setPersistenceCacheSizeBytes(cacheSizeBytes);
+    database.setPersistenceEnabled(true);
+    return;
+  }
+
+  database.setPersistenceEnabled(true);
+  database.setPersistenceCacheSizeBytes(cacheSizeBytes);
 }
