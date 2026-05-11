@@ -133,11 +133,9 @@ void main() {
   );
 
   test(
-    'getGamesStatsEntry recalculates finalized stats without a matching tip count',
+    'getGamesStatsEntry does not recalculate finalized stats when not forced',
     () async {
       final staleZeroRead = Completer<void>();
-      final statsUpdated = Completer<void>();
-      final listenersNotified = Completer<void>();
       final completedGame = Game(
         dbkey: game.dbkey,
         league: game.league,
@@ -149,34 +147,12 @@ void main() {
         fixtureMatchNumber: game.fixtureMatchNumber,
         scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10),
       );
-      final allTipsViewModel = TipsViewModel(
-        tippersViewModel,
-        comp,
-        gamesViewModel,
-        database: database,
-        listenToTips: false,
-      );
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
         database: database,
         autoInitialize: false,
       );
-      viewModel.allTipsViewModel = allTipsViewModel;
-      viewModel.addListener(() {
-        if (!listenersNotified.isCompleted) {
-          listenersNotified.complete();
-        }
-      });
-      allTipsViewModel.setTipsForTest(<Tip?>[
-        Tip(
-          dbkey: completedGame.dbkey,
-          game: completedGame,
-          tipper: tipper,
-          tip: GameResult.b,
-          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
-        ),
-      ]);
 
       when(() => database.get()).thenAnswer((_) async {
         staleZeroRead.complete();
@@ -192,34 +168,22 @@ void main() {
           },
         );
       });
-      when(() => database.runTransaction(any())).thenAnswer((invocation) async {
-        final handler =
-            invocation.positionalArguments.single as TransactionHandler;
-        final transaction = handler(<String, Object?>{'avgScore': 0.0});
-        expect(transaction.value, containsPair('avgScore', 2.0));
-        expect(transaction.value, containsPair('avgScoreTipCount', 1));
-        statsUpdated.complete();
-        return transactionResult;
-      });
 
       viewModel.getGamesStatsEntry(completedGame, false);
 
       await staleZeroRead.future;
-      await statsUpdated.future;
-      await listenersNotified.future;
+      await Future<void>.delayed(Duration.zero);
 
-      expect(
-        viewModel.gamesStatsEntry[completedGame]?.averageScore,
-        2.0,
-      );
+      expect(viewModel.gamesStatsEntry[completedGame], isNull);
+      expect(viewModel.allTipsViewModel, isNull);
+      verifyNever(() => database.runTransaction(any()));
 
-      allTipsViewModel.dispose();
       viewModel.dispose();
     },
   );
 
   test(
-    'getGamesStatsEntry recalculates finalized non-zero stats without a matching tip count',
+    'getGamesStatsEntry recalculates finalized stats when forced',
     () async {
       final staleStatsRead = Completer<void>();
       final statsUpdated = Completer<void>();
@@ -288,7 +252,7 @@ void main() {
         return transactionResult;
       });
 
-      viewModel.getGamesStatsEntry(completedGame, false);
+      viewModel.getGamesStatsEntry(completedGame, true);
 
       await staleStatsRead.future;
       await statsUpdated.future;
