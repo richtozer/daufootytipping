@@ -259,7 +259,7 @@ void main() {
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averageScore,
+        viewModel.gamesStatsEntry[completedGame]?.averagePoints,
         2.0,
       );
 
@@ -318,7 +318,7 @@ void main() {
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averageScore,
+        viewModel.gamesStatsEntry[completedGame]?.averagePoints,
         0.0,
       );
       expect(viewModel.allTipsViewModel, isNull);

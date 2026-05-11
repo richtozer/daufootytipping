@@ -11,8 +11,8 @@ void main() {
         percentageTippedDraw: null,
         percentageTippedAway: 3.1415926,
         percentageTippedAwayMargin: 2.7182818,
-        averageScore: 10.98765,
-        averageScoreTipCount: 12,
+        averagePoints: 10.98765,
+        averagePointsTipCount: 12,
       );
 
       expect(e.percentageTippedHomeMargin, 0.123);
@@ -20,8 +20,8 @@ void main() {
       expect(e.percentageTippedDraw, isNull);
       expect(e.percentageTippedAway, 3.142);
       expect(e.percentageTippedAwayMargin, 2.718);
-      expect(e.averageScore, 10.988);
-      expect(e.averageScoreTipCount, 12);
+      expect(e.averagePoints, 10.988);
+      expect(e.averagePointsTipCount, 12);
     });
 
     test('toJson/fromJson maps all fields', () {
@@ -31,8 +31,8 @@ void main() {
         percentageTippedDraw: 0.3,
         percentageTippedAway: 0.4,
         percentageTippedAwayMargin: 0.5,
-        averageScore: 1.0,
-        averageScoreTipCount: 42,
+        averagePoints: 1.0,
+        averagePointsTipCount: 42,
       );
       final json = e.toJson();
       final from = GameStatsEntry.fromJson(json);

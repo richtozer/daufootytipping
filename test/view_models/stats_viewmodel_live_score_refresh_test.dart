@@ -178,7 +178,7 @@ void main() {
       );
       viewModel.allTipsViewModel = allTipsViewModel;
 
-      await viewModel.handleRoundScoresEventForTest(
+      await viewModel.handleRoundPointsEventForTest(
         _databaseEvent(
           _snapshot(
             exists: true,
@@ -186,12 +186,12 @@ void main() {
               <String, Map<String, int>>{
                 'tipper-1': RoundStats(
                   roundNumber: 1,
-                  aflScore: 0,
-                  aflMaxScore: 0,
+                  aflPoints: 0,
+                  aflMaxPoints: 0,
                   aflMarginTips: 0,
                   aflMarginUPS: 0,
-                  nrlScore: 0,
-                  nrlMaxScore: 0,
+                  nrlPoints: 0,
+                  nrlMaxPoints: 0,
                   nrlMarginTips: 0,
                   nrlMarginUPS: 0,
                   rank: 0,
@@ -210,8 +210,8 @@ void main() {
       expect(result, 'Completed updates for 1 tippers and 1 rounds.');
       final updatedRoundStats = viewModel.getScoringRoundStats(round, alice);
       expect(updatedRoundStats.nrlMarginTips, 1);
-      expect(updatedRoundStats.nrlScore, 4);
-      expect(updatedRoundStats.nrlMaxScore, 4);
+      expect(updatedRoundStats.nrlPoints, 4);
+      expect(updatedRoundStats.nrlMaxPoints, 4);
       expect(updatedRoundStats.nrlMarginUPS, 1);
 
       viewModel.dispose();

@@ -47,8 +47,8 @@ class _StatRoundGameScoresForTipperState
     'Teams/\nScores',
     'Result',
     'Tip',
-    'Score',
-    'Max\nScore',
+    'Points',
+    'Max\nPoints',
   ];
 
   @override
@@ -325,10 +325,10 @@ class _StatRoundGameScoresForTipperState
           ),
         ),
         DataCell(
-          Text(tip?.getTipScoreCalculated().toString() ?? 'loading..'),
+          Text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
         ),
         DataCell(
-          Text(tip?.getMaxScoreCalculated().toString() ?? 'loading..'),
+          Text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
         ),
       ],
     );
@@ -342,7 +342,9 @@ class _StatRoundGameScoresForTipperState
               : column.startsWith('Tip')
               ? 60
               : 60,
-          numeric: column.startsWith('Max') || column == 'Score' ? true : false,
+          numeric: column.startsWith('Max') || column == 'Points'
+              ? true
+              : false,
           label: Text(column),
         ),
       )

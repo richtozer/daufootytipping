@@ -205,12 +205,12 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
                         DataCell(Text(entry.value.rank.toString())),
                         DataCell(
                           Text(
-                            (entry.value.aflScore + entry.value.nrlScore)
+                            (entry.value.aflPoints + entry.value.nrlPoints)
                                 .toString(),
                           ),
                         ),
-                        DataCell(Text(entry.value.nrlScore.toString())),
-                        DataCell(Text(entry.value.aflScore.toString())),
+                        DataCell(Text(entry.value.nrlPoints.toString())),
+                        DataCell(Text(entry.value.aflPoints.toString())),
                         DataCell(
                           Text(
                             (entry.value.aflMarginTips +
@@ -252,7 +252,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     }
     if (columnIndex == 1 || columnIndex == 2) {
       if (ascending) {
-        // Sort by RoundScores.rank and then by name
+        // Sort by RoundPoints.rank and then by name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.rank == b.value.rank) {
@@ -266,7 +266,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.rank and then by name
+        // Sort by RoundPoints.rank and then by name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
             if (a.value.rank == b.value.rank) {
@@ -283,29 +283,29 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     }
     if (columnIndex == 3) {
       if (ascending) {
-        // Sort by RoundScores.nrlScore and then name
+        // Sort by RoundPoints.nrlPoints and then name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
-            if (a.value.nrlScore == b.value.nrlScore) {
+            if (a.value.nrlPoints == b.value.nrlPoints) {
               return a.key.name.toLowerCase().compareTo(
                 b.key.name.toLowerCase(),
               );
             } else {
-              return a.value.nrlScore.compareTo(b.value.nrlScore);
+              return a.value.nrlPoints.compareTo(b.value.nrlPoints);
             }
           });
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.nrlScore and then name
+        // Sort by RoundPoints.nrlPoints and then name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
-            if (a.value.nrlScore == b.value.nrlScore) {
+            if (a.value.nrlPoints == b.value.nrlPoints) {
               return (a.key.name.toLowerCase()).compareTo(
                 b.key.name.toLowerCase(),
               );
             } else {
-              return b.value.nrlScore.compareTo(a.value.nrlScore);
+              return b.value.nrlPoints.compareTo(a.value.nrlPoints);
             }
           });
 
@@ -314,22 +314,22 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     }
     if (columnIndex == 4) {
       if (ascending) {
-        // Sort by RoundScores.aflScore
+        // Sort by RoundPoints.aflPoints
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => a.value.aflScore.compareTo(b.value.aflScore));
+          ..sort((a, b) => a.value.aflPoints.compareTo(b.value.aflPoints));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.aflScore
+        // Sort by RoundPoints.aflPoints
         var sortedEntries = roundLeaderboard.entries.toList()
-          ..sort((a, b) => b.value.aflScore.compareTo(a.value.aflScore));
+          ..sort((a, b) => b.value.aflPoints.compareTo(a.value.aflPoints));
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
     }
     if (columnIndex == 5) {
       if (ascending) {
-        // Sort by RoundScores.aflMarginTips + RoundScores.nrlMarginTips
+        // Sort by RoundPoints.aflMarginTips + RoundPoints.nrlMarginTips
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort(
             (a, b) => (a.value.aflMarginTips + a.value.nrlMarginTips).compareTo(
@@ -339,7 +339,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.aflMarginTips + RoundScores.nrlMarginTips
+        // Sort by RoundPoints.aflMarginTips + RoundPoints.nrlMarginTips
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort(
             (a, b) => (b.value.aflMarginTips + b.value.nrlMarginTips).compareTo(
@@ -352,7 +352,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     }
     if (columnIndex == 6) {
       if (ascending) {
-        // Sort by RoundScores.aflMarginUPS + RoundScores.nrlMarginUPS
+        // Sort by RoundPoints.aflMarginUPS + RoundPoints.nrlMarginUPS
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort(
             (a, b) => (a.value.aflMarginUPS + a.value.nrlMarginUPS).compareTo(
@@ -362,7 +362,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
         roundLeaderboard = Map.fromEntries(sortedEntries);
       } else {
-        // Sort by RoundScores.aflMarginUPS + RoundScores.nrlMarginUPS
+        // Sort by RoundPoints.aflMarginUPS + RoundPoints.nrlMarginUPS
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort(
             (a, b) => (b.value.aflMarginUPS + b.value.nrlMarginUPS).compareTo(

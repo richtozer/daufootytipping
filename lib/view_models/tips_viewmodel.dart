@@ -506,11 +506,11 @@ class TipsViewModel extends ChangeNotifier {
       tippers.map((tipper) => findTip(game, tipper)),
     );
 
-    double runningAverageScoreTotal = 0.0;
-    int runningAverageScoreCountTips = 0;
+    double runningAveragePointsTotal = 0.0;
+    int runningAveragePointsCountTips = 0;
     for (final Tip? tip in tipsForScoring) {
-      runningAverageScoreCountTips++;
-      runningAverageScoreTotal += tip?.getTipScoreCalculated() ?? 0;
+      runningAveragePointsCountTips++;
+      runningAveragePointsTotal += tip?.getTipPointsCalculated() ?? 0;
     }
 
     GameStatsEntry gameStatsEntry = GameStatsEntry(
@@ -562,15 +562,15 @@ class TipsViewModel extends ChangeNotifier {
           break;
       }
     }
-    // calculate the average score across all tippers for this game
-    if (runningAverageScoreCountTips > 0) {
-      gameStatsEntry.averageScore = gameStatsEntry.reducePrecision(
-        runningAverageScoreTotal / runningAverageScoreCountTips,
+    // calculate the average points across all tippers for this game
+    if (runningAveragePointsCountTips > 0) {
+      gameStatsEntry.averagePoints = gameStatsEntry.reducePrecision(
+        runningAveragePointsTotal / runningAveragePointsCountTips,
       );
     } else {
-      gameStatsEntry.averageScore = 0.0;
+      gameStatsEntry.averagePoints = 0.0;
     }
-    gameStatsEntry.averageScoreTipCount = tipsForScoring
+    gameStatsEntry.averagePointsTipCount = tipsForScoring
         .where((tip) => tip != null)
         .length;
     return gameStatsEntry;

@@ -77,16 +77,16 @@ class Tip implements Comparable<Tip> {
     }
   }
 
-  int getTipScoreCalculated() {
-    return Scoring.getTipScoreCalculated(
+  int getTipPointsCalculated() {
+    return Scoring.getTipPointsCalculated(
       game.league,
       game.scoring!.getGameResultCalculated(game.league),
       tip,
     );
   }
 
-  int getMaxScoreCalculated() {
-    return Scoring.getTipScoreCalculated(
+  int getMaxPointsCalculated() {
+    return Scoring.getTipPointsCalculated(
       game.league,
       game.scoring!.getGameResultCalculated(game.league),
       game.scoring!.getGameResultCalculated(game.league),

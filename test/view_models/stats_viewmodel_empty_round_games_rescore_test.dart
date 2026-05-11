@@ -149,7 +149,7 @@ void main() {
       );
       viewModel.allTipsViewModel = allTipsViewModel;
 
-      await viewModel.handleRoundScoresEventForTest(
+      await viewModel.handleRoundPointsEventForTest(
         _databaseEvent(_snapshot(exists: false, value: null)),
       );
 
@@ -161,8 +161,8 @@ void main() {
       expect(round.games, hasLength(1));
       expect(round.nrlGameCount, 1);
       final updatedRoundStats = viewModel.getScoringRoundStats(round, alice);
-      expect(updatedRoundStats.nrlScore, 2);
-      expect(updatedRoundStats.nrlMaxScore, 2);
+      expect(updatedRoundStats.nrlPoints, 2);
+      expect(updatedRoundStats.nrlMaxPoints, 2);
 
       viewModel.dispose();
     },
