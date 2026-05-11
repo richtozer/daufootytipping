@@ -1,10 +1,13 @@
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -28,6 +31,9 @@ void main() {
   late MockDatabaseReference statsRef;
   late MockDatabaseReference compRef;
   late MockDatabaseReference liveScoresRef;
+  late MockDatabaseReference gameStatsRef;
+  late MockDatabaseReference gameStatsPaidRef;
+  late MockDatabaseReference gameStatsGameRef;
   late MockDatabaseReference staleGameRef;
   late MockDatabaseReference activeGameRef;
   late MockGamesViewModel gamesViewModel;
@@ -35,6 +41,7 @@ void main() {
   late DAUComp comp;
   late Game staleGame;
   late Game activeGame;
+  late Game secondActiveGame;
   late Tipper alice;
 
   Game buildGame({
@@ -97,6 +104,9 @@ void main() {
     statsRef = MockDatabaseReference();
     compRef = MockDatabaseReference();
     liveScoresRef = MockDatabaseReference();
+    gameStatsRef = MockDatabaseReference();
+    gameStatsPaidRef = MockDatabaseReference();
+    gameStatsGameRef = MockDatabaseReference();
     staleGameRef = MockDatabaseReference();
     activeGameRef = MockDatabaseReference();
     gamesViewModel = MockGamesViewModel();
@@ -135,14 +145,37 @@ void main() {
       homeScore: null,
       awayScore: null,
     );
+    secondActiveGame = buildGame(
+      dbKey: 'nrl-04-026',
+      league: League.nrl,
+      fixtureRoundNumber: 4,
+      fixtureMatchNumber: 26,
+      homeScore: null,
+      awayScore: null,
+    );
+    comp.daurounds = <DAURound>[
+      DAURound(
+        dAUroundNumber: 4,
+        firstGameKickOffUTC: DateTime.utc(2026, 3, 26),
+        lastGameKickOffUTC: DateTime.utc(2026, 3, 27),
+        games: <Game>[activeGame, secondActiveGame],
+      ),
+    ];
 
     when(() => rootDb.child('/Stats')).thenReturn(statsRef);
     when(() => statsRef.child(comp.dbkey!)).thenReturn(compRef);
     when(() => compRef.child(liveScoresRoot)).thenReturn(liveScoresRef);
+    when(() => compRef.child(gameStatsRoot)).thenReturn(gameStatsRef);
+    when(() => gameStatsRef.child('paid')).thenReturn(gameStatsPaidRef);
+    when(() => gameStatsPaidRef.child(any())).thenReturn(gameStatsGameRef);
+    when(
+      () => gameStatsGameRef.get(),
+    ).thenAnswer((_) async => _snapshot(exists: false, value: null));
     when(() => liveScoresRef.child('afl-03-022')).thenReturn(staleGameRef);
     when(() => liveScoresRef.child('nrl-04-025')).thenReturn(activeGameRef);
     when(() => staleGameRef.remove()).thenAnswer((_) async {});
     when(() => activeGameRef.remove()).thenAnswer((_) async {});
+    when(() => liveScoresRef.update(any())).thenAnswer((_) async {});
     when(() => tippersViewModel.selectedTipper).thenReturn(alice);
     when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice]);
     when(() => tippersViewModel.isUserLinked).thenAnswer((_) async {});
@@ -154,6 +187,8 @@ void main() {
           return staleGame;
         case 'nrl-04-025':
           return activeGame;
+        case 'nrl-04-026':
+          return secondActiveGame;
         default:
           return null;
       }
@@ -163,6 +198,7 @@ void main() {
   });
 
   tearDown(() async {
+    ScoringUpdateQueue().clearQueue();
     await di.reset();
   });
 
@@ -266,6 +302,54 @@ void main() {
 
       expect(viewModel.gamesStatsEntry[activeGame], isNull);
       expect(viewModel.allTipsViewModel, isNull);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'submitLiveScores writes the live scores tree in a single database update',
+    () async {
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: rootDb,
+        autoInitialize: false,
+      );
+      di.registerSingleton<StatsViewModel>(viewModel);
+
+      await viewModel.handleLiveScoresEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-04-025': liveScoreJson(homeScore: 6, awayScore: 4),
+              'nrl-04-026': liveScoreJson(homeScore: 12, awayScore: 10),
+            },
+          ),
+        ),
+      );
+
+      await viewModel.submitLiveScores(
+        tip: Tip(
+          dbkey: 'tip-1',
+          game: activeGame,
+          tipper: alice,
+          tip: GameResult.a,
+          submittedTimeUTC: DateTime.utc(2026, 3, 26, 8),
+        ),
+        homeScore: '8',
+        awayScore: '4',
+        originalHomeScore: '6',
+        originalAwayScore: '4',
+        selectedDAUComp: comp,
+      );
+
+      final payload = verify(
+        () => liveScoresRef.update(captureAny()),
+      ).captured.single as Map;
+      expect(payload.keys, containsAll(<String>['nrl-04-025', 'nrl-04-026']));
+      verifyNoMoreInteractions(liveScoresRef);
 
       viewModel.dispose();
     },

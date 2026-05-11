@@ -76,8 +76,20 @@ Future<void> main() async {
     }
   }
 
-  // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize Firebase. During Android debug sessions the native default app
+  // can survive a Dart restart, so reuse it if initialization reports the
+  // existing default app.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (error) {
+    if (error.code != 'duplicate-app') {
+      rethrow;
+    }
+    log('Firebase default app already initialized; reusing existing app.');
+    Firebase.app();
+  }
 
   // Configure Realtime Database immediately after Firebase init so persistence
   // is set before any downstream code can create references/listeners.

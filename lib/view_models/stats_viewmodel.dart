@@ -1602,7 +1602,9 @@ class StatsViewModel extends ChangeNotifier {
             )
             .then((result) {
               log('Scoring update queued for round, result: $result');
-              getGamesStatsEntry(tip.game, true);
+              if (result.startsWith('Completed updates')) {
+                getGamesStatsEntry(tip.game, true);
+              }
             })
             .catchError((error) {
               log('Error queueing scoring update: $error');
@@ -1616,21 +1618,19 @@ class StatsViewModel extends ChangeNotifier {
       _gamesWithLiveScores.add(game);
     }
 
-    Map<String, Map<String, dynamic>> liveScores = {};
-    // Create a copy of the list for safe iteration
-    var gamesCopy = List<Game>.from(_gamesWithLiveScores);
-    for (var game in gamesCopy) {
+    final liveScores = <String, Map<String, dynamic>>{};
+    for (final game in List<Game>.from(_gamesWithLiveScores)) {
       liveScores[game.dbkey] = game.scoring!.toJson();
-
-      await _db
-          .child(statsPathRootLocal)
-          .child(selectedDAUComp.dbkey!)
-          .child(liveScoresRoot)
-          .update(liveScores);
-      log(
-        'StatsViewModel._writeLiveScoreToDb() Wrote live score to DB for game ${game.dbkey}',
-      );
     }
+
+    await _db
+        .child(statsPathRootLocal)
+        .child(selectedDAUComp.dbkey!)
+        .child(liveScoresRoot)
+        .update(liveScores);
+    log(
+      'StatsViewModel._writeLiveScoreToDb() Wrote live scores to DB for ${liveScores.length} games',
+    );
   }
 
   /// Deletes crowd-sourced live scores for games that have official fixture
