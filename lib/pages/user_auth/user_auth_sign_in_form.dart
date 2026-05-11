@@ -46,7 +46,15 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
   }
 
   Future<void> _ensureGoogleSignInInitialized() {
-    _googleSignInInitFuture ??= GoogleSignIn.instance.initialize();
+    final String configuredClientId = widget.googleClientId.trim();
+    final bool shouldUseConfiguredClientId =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    _googleSignInInitFuture ??= GoogleSignIn.instance.initialize(
+      clientId: shouldUseConfiguredClientId && configuredClientId.isNotEmpty
+          ? configuredClientId
+          : null,
+    );
     return _googleSignInInitFuture!;
   }
 
@@ -66,6 +74,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
         await _ensureGoogleSignInInitialized();
         final GoogleSignInAccount googleUser = await GoogleSignIn.instance
             .authenticate();
+        log('Google sign-in returned account ${googleUser.email}');
         final GoogleSignInAuthentication googleAuth = googleUser.authentication;
         final String? idToken = googleAuth.idToken;
         if (idToken == null) {
@@ -79,18 +88,32 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
           idToken: idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
+        log(
+          'FirebaseAuth Google credential sign-in completed for ${googleUser.email}',
+        );
       }
-    } on GoogleSignInException catch (e) {
+    } on GoogleSignInException catch (e, stackTrace) {
+      log(
+        'Google sign-in exception: code=${e.code}, description=${e.description}, details=${e.details}',
+        error: e,
+        stackTrace: stackTrace,
+      );
       if (e.code != GoogleSignInExceptionCode.canceled) {
         setState(() {
           _socialAuthError = 'Google sign-in failed.';
         });
       }
-    } on FirebaseAuthException catch (_) {
+    } on FirebaseAuthException catch (e, stackTrace) {
+      log(
+        'Google FirebaseAuthException: code=${e.code}, message=${e.message}',
+        error: e,
+        stackTrace: stackTrace,
+      );
       setState(() {
         _socialAuthError = 'Google sign-in failed.';
       });
-    } catch (_) {
+    } catch (e, stackTrace) {
+      log('Google sign-in failed unexpectedly', error: e, stackTrace: stackTrace);
       setState(() {
         _socialAuthError = 'Google sign-in failed.';
       });

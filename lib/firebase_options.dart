@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
     authDomain: 'dau-footy-tipping-f8a42.firebaseapp.com',
     databaseURL:
         'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'dau-footy-tipping-f8a42.appspot.com',
+    storageBucket: 'dau-footy-tipping-f8a42.firebasestorage.app',
     measurementId: 'G-V81MDHE3QN',
   );
 
@@ -62,7 +62,7 @@ class DefaultFirebaseOptions {
     projectId: 'dau-footy-tipping-f8a42',
     databaseURL:
         'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'dau-footy-tipping-f8a42.appspot.com',
+    storageBucket: 'dau-footy-tipping-f8a42.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(

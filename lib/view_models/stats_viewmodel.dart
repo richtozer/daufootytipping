@@ -55,8 +55,10 @@ class StatsViewModel extends ChangeNotifier {
   final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
+  late StreamSubscription<DatabaseEvent> _gameStatsStream;
   bool _hasLiveScoresListener = false;
   bool _hasRoundScoresListener = false;
+  bool _hasGameStatsListener = false;
 
   final DAUComp selectedDAUComp;
 
@@ -134,6 +136,33 @@ class StatsViewModel extends ChangeNotifier {
           },
         );
     _hasLiveScoresListener = true;
+
+    await _listenToGameStats();
+  }
+
+  Future<void> _listenToGameStats() async {
+    if (_hasGameStatsListener) {
+      return;
+    }
+
+    await di<TippersViewModel>().isUserLinked;
+    _isSelectedTipperPaidUpMember = di<TippersViewModel>().selectedTipper
+        .paidForComp(selectedDAUComp);
+
+    final subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
+    _gameStatsStream = _db
+        .child(statsPathRootLocal)
+        .child(selectedDAUComp.dbkey!)
+        .child(gameStatsRoot)
+        .child(subKey)
+        .onValue
+        .listen(
+          _handleEventGameStats,
+          onError: (error) {
+            log('StatsViewModel() Error listening to game stats: $error');
+          },
+        );
+    _hasGameStatsListener = true;
   }
 
   Future<void> _handleEventRoundScores(DatabaseEvent event) async {
@@ -336,6 +365,58 @@ class StatsViewModel extends ChangeNotifier {
         _initialLiveScoreLoadCompleter.complete();
       }
     }
+  }
+
+  Future<void> _handleEventGameStats(DatabaseEvent event) async {
+    try {
+      if (!event.snapshot.exists) {
+        return;
+      }
+
+      final value = event.snapshot.value;
+      if (value is! Map) {
+        return;
+      }
+
+      bool changed = false;
+      for (final entry in value.entries) {
+        final gameDbKey = entry.key as String;
+        final game = await gamesViewModel?.findGame(gameDbKey);
+        if (game == null) {
+          log(
+            'StatsViewModel._handleEventGameStats() Game $gameDbKey not found locally. Skipping game stats entry.',
+          );
+          continue;
+        }
+
+        final gameStatsEntry = GameStatsEntry.fromJson(
+          Map<String, dynamic>.from(entry.value as Map),
+        );
+        if (!_canUseCachedGameStatsEntry(game, gameStatsEntry, false)) {
+          continue;
+        }
+
+        final previousEntry = gamesStatsEntry[game];
+        gamesStatsEntry[game] = gameStatsEntry;
+        if (previousEntry != gameStatsEntry) {
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        notifyListeners();
+      }
+    } catch (e) {
+      log(
+        'StatsViewModel._handleEventGameStats() Error listening to /$statsPathRootLocal/game_stats: $e',
+      );
+      rethrow;
+    }
+  }
+
+  @visibleForTesting
+  Future<void> handleGameStatsEventForTest(DatabaseEvent event) {
+    return _handleEventGameStats(event);
   }
 
   //  These are the various triggers that can cause an update of the stats for a comp.
@@ -812,12 +893,22 @@ class StatsViewModel extends ChangeNotifier {
       rethrow;
     }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game];
-    gamesStatsEntry[game] = dbEntry;
 
     // If the DB had a valid entry and we're not forcing, notify only if the
     // value actually changed (avoids redundant rebuilds).
     if (_canUseCachedGameStatsEntry(game, dbEntry, forceUpdate)) {
+      gamesStatsEntry[game] = dbEntry;
       if (previousEntry != dbEntry) {
+        notifyListeners();
+      }
+      return;
+    }
+
+    // Passive display clients only consume the stats tree. Recalculation loads
+    // all tips for the comp, so keep it behind explicit owner/update paths.
+    if (!forceUpdate) {
+      if (previousEntry != null) {
+        gamesStatsEntry.remove(game);
         notifyListeners();
       }
       return;
@@ -1511,7 +1602,9 @@ class StatsViewModel extends ChangeNotifier {
             )
             .then((result) {
               log('Scoring update queued for round, result: $result');
-              getGamesStatsEntry(tip.game, true);
+              if (result.startsWith('Completed updates')) {
+                getGamesStatsEntry(tip.game, true);
+              }
             })
             .catchError((error) {
               log('Error queueing scoring update: $error');
@@ -1525,21 +1618,19 @@ class StatsViewModel extends ChangeNotifier {
       _gamesWithLiveScores.add(game);
     }
 
-    Map<String, Map<String, dynamic>> liveScores = {};
-    // Create a copy of the list for safe iteration
-    var gamesCopy = List<Game>.from(_gamesWithLiveScores);
-    for (var game in gamesCopy) {
+    final liveScores = <String, Map<String, dynamic>>{};
+    for (final game in List<Game>.from(_gamesWithLiveScores)) {
       liveScores[game.dbkey] = game.scoring!.toJson();
-
-      await _db
-          .child(statsPathRootLocal)
-          .child(selectedDAUComp.dbkey!)
-          .child(liveScoresRoot)
-          .update(liveScores);
-      log(
-        'StatsViewModel._writeLiveScoreToDb() Wrote live score to DB for game ${game.dbkey}',
-      );
     }
+
+    await _db
+        .child(statsPathRootLocal)
+        .child(selectedDAUComp.dbkey!)
+        .child(liveScoresRoot)
+        .update(liveScores);
+    log(
+      'StatsViewModel._writeLiveScoreToDb() Wrote live scores to DB for ${liveScores.length} games',
+    );
   }
 
   /// Deletes crowd-sourced live scores for games that have official fixture
@@ -1851,6 +1942,10 @@ class StatsViewModel extends ChangeNotifier {
     if (_hasLiveScoresListener) {
       _liveScoresStream.cancel();
       _hasLiveScoresListener = false;
+    }
+    if (_hasGameStatsListener) {
+      _gameStatsStream.cancel();
+      _hasGameStatsListener = false;
     }
     _allTipperRoundStats.clear();
     super.dispose();

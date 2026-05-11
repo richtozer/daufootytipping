@@ -76,7 +76,7 @@ Future<void> main() async {
     }
   }
 
-  // Initialize Firebase
+  // Initialize Firebase.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Configure Realtime Database immediately after Firebase init so persistence
