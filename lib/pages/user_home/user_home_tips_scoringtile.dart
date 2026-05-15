@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -57,7 +58,13 @@ class ScoringTileState extends State<ScoringTile> {
                 _buildResultText(game, tip),
                 _buildTipRow(tip, league),
                 _buildPointsText(game, tip),
-                _buildAveragePointsRow(game, tip),
+                Selector<StatsViewModel?, GameStatsEntry?>(
+                  selector: (_, statsViewModel) =>
+                      statsViewModel?.gamesStatsEntry[game],
+                  builder: (_, gameStatsEntry, _) {
+                    return _buildAveragePointsRow(gameStatsEntry, tip);
+                  },
+                ),
               ],
             ),
           );
@@ -219,9 +226,8 @@ class ScoringTileState extends State<ScoringTile> {
     );
   }
 
-  Widget _buildAveragePointsRow(Game game, Tip? tip) {
-    final averagePoints =
-        di<StatsViewModel>().gamesStatsEntry[game]?.averagePoints;
+  Widget _buildAveragePointsRow(GameStatsEntry? gameStatsEntry, Tip? tip) {
+    final averagePoints = gameStatsEntry?.averagePoints;
     final averageText = averagePoints != null
         ? '${averagePoints.toStringAsPrecision(2)} / ${tip?.getMaxPointsCalculated()}'
         : '? / ${tip?.getMaxPointsCalculated()}';
