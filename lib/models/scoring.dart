@@ -199,12 +199,12 @@ class Scoring {
     );
   }
 
-  static int getTipScoreCalculated(
+  static int getTipPointsCalculated(
     League gameLeague,
     GameResult gameResult,
     GameResult tip,
   ) {
-    final nrlScoreLookupTable = {
+    final nrlPointsLookupTable = {
       GameResult.a: {
         GameResult.a: 4,
         GameResult.b: 2,
@@ -255,7 +255,7 @@ class Scoring {
       },
     };
 
-    final aflScoreLookupTable = {
+    final aflPointsLookupTable = {
       GameResult.a: {
         GameResult.a: 4,
         GameResult.b: 2,
@@ -308,9 +308,9 @@ class Scoring {
 
     switch (gameLeague) {
       case League.nrl:
-        return nrlScoreLookupTable[gameResult]![tip]!;
+        return nrlPointsLookupTable[gameResult]![tip]!;
       case League.afl:
-        return aflScoreLookupTable[gameResult]![tip]!;
+        return aflPointsLookupTable[gameResult]![tip]!;
     }
   }
 }

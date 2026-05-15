@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -57,7 +58,13 @@ class ScoringTileState extends State<ScoringTile> {
                 _buildResultText(game, tip),
                 _buildTipRow(tip, league),
                 _buildPointsText(game, tip),
-                _buildAverageScoreRow(game, tip),
+                Selector<StatsViewModel?, GameStatsEntry?>(
+                  selector: (_, statsViewModel) =>
+                      statsViewModel?.gamesStatsEntry[game],
+                  builder: (_, gameStatsEntry, _) {
+                    return _buildAveragePointsRow(gameStatsEntry, tip);
+                  },
+                ),
               ],
             ),
           );
@@ -167,7 +174,7 @@ class ScoringTileState extends State<ScoringTile> {
 
   Widget _buildPointsText(Game game, Tip? tip) {
     final pointsText =
-        '${tip?.getTipScoreCalculated()} / ${tip?.getMaxScoreCalculated()}';
+        '${tip?.getTipPointsCalculated()} / ${tip?.getMaxPointsCalculated()}';
     final isInterimResult = game.gameState == GameState.startedResultNotKnown;
 
     return Padding(
@@ -219,12 +226,11 @@ class ScoringTileState extends State<ScoringTile> {
     );
   }
 
-  Widget _buildAverageScoreRow(Game game, Tip? tip) {
-    final averageScore =
-        di<StatsViewModel>().gamesStatsEntry[game]?.averageScore;
-    final averageText = averageScore != null
-        ? '${averageScore.toStringAsPrecision(2)} / ${tip?.getMaxScoreCalculated()}'
-        : '? / ${tip?.getMaxScoreCalculated()}';
+  Widget _buildAveragePointsRow(GameStatsEntry? gameStatsEntry, Tip? tip) {
+    final averagePoints = gameStatsEntry?.averagePoints;
+    final averageText = averagePoints != null
+        ? '${averagePoints.toStringAsPrecision(2)} / ${tip?.getMaxPointsCalculated()}'
+        : '? / ${tip?.getMaxPointsCalculated()}';
 
     return Padding(
       padding: const EdgeInsets.all(2.0),
@@ -234,12 +240,12 @@ class ScoringTileState extends State<ScoringTile> {
           Flexible(
             child: Tooltip(
               message:
-                  'This is the average score of tips for all tippers for this game. Your aim is to score higher than this to improve your ranking. If the score is not finalised then this is an interim average.',
+                  'This is the average points collected by tippers for this game. Your aim is to collect more points than this to improve your ranking. If the game score is not finalised then this is an interim average.',
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Average: ',
+                    'Avg Points: ',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -54,10 +54,10 @@ class StatsViewModel extends ChangeNotifier {
 
   final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
-  late StreamSubscription<DatabaseEvent> _allRoundScoresStream;
+  late StreamSubscription<DatabaseEvent> _allRoundPointsStream;
   late StreamSubscription<DatabaseEvent> _gameStatsStream;
   bool _hasLiveScoresListener = false;
-  bool _hasRoundScoresListener = false;
+  bool _hasRoundPointsListener = false;
   bool _hasGameStatsListener = false;
 
   final DAUComp selectedDAUComp;
@@ -69,9 +69,9 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> get initialLiveScoreLoadComplete =>
       _initialLiveScoreLoadCompleter.future;
 
-  final Completer<void> _initialRoundScoresLoadCompleted = Completer();
-  Future<void> get initialRoundScoresComplete =>
-      _initialRoundScoresLoadCompleted.future;
+  final Completer<void> _initialRoundPointsLoadCompleted = Completer();
+  Future<void> get initialRoundPointsComplete =>
+      _initialRoundPointsLoadCompleted.future;
 
   List<LeaderboardEntry> _compLeaderboard = [];
   List<LeaderboardEntry> get compLeaderboard => _compLeaderboard;
@@ -115,16 +115,16 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<void> _listenToScores() async {
-    _allRoundScoresStream = _db
+    _allRoundPointsStream = _db
         .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$roundStatsRoot')
         .onValue
         .listen(
-          _handleEventRoundScores,
+          _handleEventRoundPoints,
           onError: (error) {
-            log('StatsViewModel() Error listening to round scores: $error');
+            log('StatsViewModel() Error listening to round points: $error');
           },
         );
-    _hasRoundScoresListener = true;
+    _hasRoundPointsListener = true;
 
     _liveScoresStream = _db
         .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
@@ -165,18 +165,18 @@ class StatsViewModel extends ChangeNotifier {
     _hasGameStatsListener = true;
   }
 
-  Future<void> _handleEventRoundScores(DatabaseEvent event) async {
+  Future<void> _handleEventRoundPoints(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
         var dbData = event.snapshot.value as List<Object?>;
-        // Deserialize the round scores into _allTipperRoundStats
+        // Deserialize the round points into _allTipperRoundStats
         for (var roundIndex = 0; roundIndex < dbData.length; roundIndex++) {
-          var roundScoresJson = dbData[roundIndex] as Map<dynamic, dynamic>;
-          Map<Tipper, RoundStats> roundScores = {};
+          var roundPointsJson = dbData[roundIndex] as Map<dynamic, dynamic>;
+          Map<Tipper, RoundStats> roundPoints = {};
 
           // Collect all futures
           List<Future<void>> futures = [];
-          for (var entry in roundScoresJson.entries) {
+          for (var entry in roundPointsJson.entries) {
             futures.add(
               di<TippersViewModel>().findTipper(entry.key).then((tipper) {
                 var roundStats = RoundStats.fromJson(
@@ -186,10 +186,10 @@ class StatsViewModel extends ChangeNotifier {
                   fallbackRoundNumber: roundIndex + 1,
                 );
                 if (tipper != null) {
-                  roundScores[tipper] = roundStats;
+                  roundPoints[tipper] = roundStats;
                 } else {
                   log(
-                    'StatsViewModel() Tipper ${entry.key} not found in _handleEventRoundScores',
+                    'StatsViewModel() Tipper ${entry.key} not found in _handleEventRoundPoints',
                   );
                 }
               }),
@@ -199,37 +199,37 @@ class StatsViewModel extends ChangeNotifier {
           // Wait for all futures to complete
           await Future.wait(futures);
 
-          _allTipperRoundStats[roundIndex] = roundScores;
+          _allTipperRoundStats[roundIndex] = roundPoints;
         }
 
         log(
-          'StatsViewModel._handleEventRoundScores() Loaded round scores for ${_allTipperRoundStats.length} rounds',
+          'StatsViewModel._handleEventRoundPoints() Loaded round points for ${_allTipperRoundStats.length} rounds',
         );
       } else {
         log(
-          'StatsViewModel._handleEventRoundScores() Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundScores',
+          'StatsViewModel._handleEventRoundPoints() Snapshot ${event.snapshot.ref.path} does not exist in _handleEventRoundPoints',
         );
       }
 
-      if (!_initialRoundScoresLoadCompleted.isCompleted) {
-        _initialRoundScoresLoadCompleted.complete();
+      if (!_initialRoundPointsLoadCompleted.isCompleted) {
+        _initialRoundPointsLoadCompleted.complete();
       }
 
       // Update the leaderboard
       await _updateLeaderAndRoundAndRank();
     } catch (e, stackTrace) {
-      log('Error listening to /$statsPathRootLocal/round_scores: $e');
+      log('Error listening to /$statsPathRootLocal/roundStatsRoot: $e');
       _allTipperRoundStats.clear(); // Rollback partial updates
-      if (!_initialRoundScoresLoadCompleted.isCompleted) {
-        _initialRoundScoresLoadCompleted.completeError(e, stackTrace);
+      if (!_initialRoundPointsLoadCompleted.isCompleted) {
+        _initialRoundPointsLoadCompleted.completeError(e, stackTrace);
       }
       rethrow; // Re-throw the error
     }
   }
 
   @visibleForTesting
-  Future<void> handleRoundScoresEventForTest(DatabaseEvent event) {
-    return _handleEventRoundScores(event);
+  Future<void> handleRoundPointsEventForTest(DatabaseEvent event) {
+    return _handleEventRoundPoints(event);
   }
 
   Completer<void>? _updateLock;
@@ -480,9 +480,9 @@ class StatsViewModel extends ChangeNotifier {
       var stopwatch = Stopwatch()..start();
 
       try {
-        if (!_initialRoundScoresLoadCompleted.isCompleted) {
+        if (!_initialRoundPointsLoadCompleted.isCompleted) {
           try {
-            await _initialRoundScoresLoadCompleted.future;
+            await _initialRoundPointsLoadCompleted.future;
           } catch (e) {
             log(
               'StatsViewModel.updateStats() Error waiting for initial round load: $e',
@@ -593,7 +593,7 @@ class StatsViewModel extends ChangeNotifier {
           }
         }
 
-        await _writeScopedRoundScoresToDb(
+        await _writeScopedRoundPointsToDb(
           dauRoundsEdited,
           tippersToUpdate,
           daucompToUpdate,
@@ -696,9 +696,9 @@ class StatsViewModel extends ChangeNotifier {
           roundNumber: roundStats.roundNumber == 0
               ? roundEntry.key + 1
               : roundStats.roundNumber,
-          total: roundStats.aflScore + roundStats.nrlScore,
-          nrl: roundStats.nrlScore,
-          afl: roundStats.aflScore,
+          total: roundStats.aflPoints + roundStats.nrlPoints,
+          nrl: roundStats.nrlPoints,
+          afl: roundStats.aflPoints,
           rank: roundStats.rank,
         );
         roundEntries[snapshot.key] = snapshot;
@@ -940,7 +940,7 @@ class StatsViewModel extends ChangeNotifier {
     GameStatsEntry entry,
     bool forceUpdate,
   ) {
-    if (forceUpdate || entry.averageScore == null) {
+    if (forceUpdate || entry.averagePoints == null) {
       return false;
     }
 
@@ -962,13 +962,13 @@ class StatsViewModel extends ChangeNotifier {
     final int? expectedTipCount = _expectedGameStatsTipCount();
     if (expectedTipCount != null &&
         expectedTipCount > 0 &&
-        entry.averageScoreTipCount == expectedTipCount) {
+        entry.averagePointsTipCount == expectedTipCount) {
       return false;
     }
 
     log(
       'Ignoring cached game stats for finalized game: ${game.dbkey}; '
-      'tip count ${entry.averageScoreTipCount} does not match expected $expectedTipCount.',
+      'tip count ${entry.averagePointsTipCount} does not match expected $expectedTipCount.',
     );
     return true;
   }
@@ -1085,18 +1085,18 @@ class StatsViewModel extends ChangeNotifier {
 
   /// Writes only the recalculated rounds and tippers to the database.
   ///
-  /// Unlike the previous _writeAllRoundScoresToDb which wrote all rounds and
+  /// Unlike the previous _writeAllRoundPointsToDb which wrote all rounds and
   /// all tippers on every update, this method only writes the specific
   /// rounds/tippers that were recalculated. Inside the transaction, it merges
   /// at the tipper level within each round, preserving other tippers' data
   /// even on transaction retry.
-  Future<void> _writeScopedRoundScoresToDb(
+  Future<void> _writeScopedRoundPointsToDb(
     List<DAURound> roundsUpdated,
     List<Tipper> tippersUpdated,
     DAUComp dauComp,
   ) async {
     log(
-      'StatsViewModel._writeScopedRoundScoresToDb() Writing scores for '
+      'StatsViewModel._writeScopedRoundPointsToDb() Writing points for '
       '${roundsUpdated.length} rounds, ${tippersUpdated.length} tippers',
     );
 
@@ -1127,7 +1127,7 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     if (scopedUpdates.isEmpty) {
-      log('StatsViewModel._writeScopedRoundScoresToDb() No updates to write');
+      log('StatsViewModel._writeScopedRoundPointsToDb() No updates to write');
       return;
     }
 
@@ -1187,7 +1187,7 @@ class StatsViewModel extends ChangeNotifier {
             });
         break;
       } on SocketException catch (e) {
-        log('Network error (SocketException) while writing round scores: $e');
+        log('Network error (SocketException) while writing round points: $e');
         if (retryCount < maxRetries) {
           retryCount++;
           final delay = initialDelay * retryCount;
@@ -1200,7 +1200,7 @@ class StatsViewModel extends ChangeNotifier {
           rethrow;
         }
       } on IOException catch (e) {
-        log('Network error (IOException) while writing round scores: $e');
+        log('Network error (IOException) while writing round points: $e');
         if (retryCount < maxRetries) {
           retryCount++;
           final delay = initialDelay * retryCount;
@@ -1213,7 +1213,7 @@ class StatsViewModel extends ChangeNotifier {
           rethrow;
         }
       } catch (e) {
-        log('Unexpected error while writing round scores: $e');
+        log('Unexpected error while writing round points: $e');
         rethrow;
       }
     }
@@ -1221,7 +1221,7 @@ class StatsViewModel extends ChangeNotifier {
 
   void _updateRoundWinners() {
     Map<int, List<RoundWinnerEntry>> roundWinners = {};
-    Map<int, int> maxRoundScores = {};
+    Map<int, int> maxRoundPoints = {};
 
     // Iterate over each round
     for (var roundEntry in _allTipperRoundStats.entries) {
@@ -1229,7 +1229,7 @@ class StatsViewModel extends ChangeNotifier {
 
       Map<Tipper, RoundStats> tipperStats = roundEntry.value;
 
-      // Find the maximum score for the round
+      // Find the maximum points for the round
       for (var tipperEntry in tipperStats.entries) {
         // only include stats from tippers who's paid status matches that of the selected tipper
         // for example if the authenticated tipper is a paid member, only include other paid members for stats
@@ -1239,12 +1239,12 @@ class StatsViewModel extends ChangeNotifier {
           continue;
         }
 
-        RoundStats roundScores = tipperEntry.value;
-        int totalScore = roundScores.aflScore + roundScores.nrlScore;
+        RoundStats roundPoints = tipperEntry.value;
+        int totalPoints = roundPoints.aflPoints + roundPoints.nrlPoints;
 
-        if (maxRoundScores[roundNumber] == null ||
-            totalScore > maxRoundScores[roundNumber]!) {
-          maxRoundScores[roundNumber] = totalScore;
+        if (maxRoundPoints[roundNumber] == null ||
+            totalPoints > maxRoundPoints[roundNumber]!) {
+          maxRoundPoints[roundNumber] = totalPoints;
         }
       }
     }
@@ -1267,23 +1267,23 @@ class StatsViewModel extends ChangeNotifier {
             tipper.paidForComp(selectedDAUComp)) {
           continue;
         }
-        RoundStats roundScores = tipperEntry.value;
-        int totalScore = roundScores.aflScore + roundScores.nrlScore;
+        RoundStats roundPoints = tipperEntry.value;
+        int totalPoints = roundPoints.aflPoints + roundPoints.nrlPoints;
 
-        if (totalScore == maxRoundScores[roundNumber]! &&
-            (roundScores.nrlMaxScore + roundScores.aflMaxScore > 0)) {
+        if (totalPoints == maxRoundPoints[roundNumber]! &&
+            (roundPoints.nrlMaxPoints + roundPoints.aflMaxPoints > 0)) {
           roundWinners[roundNumber] ??= [];
           roundWinners[roundNumber]!.add(
             RoundWinnerEntry(
-              roundNumber: roundScores.roundNumber,
+              roundNumber: roundPoints.roundNumber,
               tipper: tipper,
-              total: totalScore,
-              nRL: roundScores.nrlScore,
-              aFL: roundScores.aflScore,
-              aflMargins: roundScores.aflMarginTips,
-              aflUPS: roundScores.aflMarginUPS,
-              nrlMargins: roundScores.nrlMarginTips,
-              nrlUPS: roundScores.nrlMarginUPS,
+              total: totalPoints,
+              nRL: roundPoints.nrlPoints,
+              aFL: roundPoints.aflPoints,
+              aflMargins: roundPoints.aflMarginTips,
+              aflUPS: roundPoints.aflMarginUPS,
+              nrlMargins: roundPoints.nrlMarginTips,
+              nrlUPS: roundPoints.nrlMarginUPS,
             ),
           );
 
@@ -1302,9 +1302,9 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Map<Tipper, int> _calculateCumulativeRankUpToRound(int upToRoundNumber) {
-    Map<Tipper, int> cumulativeScores = {};
+    Map<Tipper, int> cumulativePoints = {};
 
-    // Calculate cumulative scores up to the specified round
+    // Calculate cumulative points up to the specified round
     for (var roundEntry in _allTipperRoundStats.entries) {
       int roundIndex = roundEntry.key;
 
@@ -1317,7 +1317,7 @@ class StatsViewModel extends ChangeNotifier {
 
       for (var tipperEntry in tipperStats.entries) {
         Tipper tipper = tipperEntry.key;
-        RoundStats roundScores = tipperEntry.value;
+        RoundStats roundPoints = tipperEntry.value;
 
         // Only include tippers who's paid status matches that of the authenticated tipper
         if (_isSelectedTipperPaidUpMember !=
@@ -1325,36 +1325,36 @@ class StatsViewModel extends ChangeNotifier {
           continue;
         }
 
-        cumulativeScores[tipper] =
-            (cumulativeScores[tipper] ?? 0) +
-            roundScores.aflScore +
-            roundScores.nrlScore;
+        cumulativePoints[tipper] =
+            (cumulativePoints[tipper] ?? 0) +
+            roundPoints.aflPoints +
+            roundPoints.nrlPoints;
       }
     }
 
-    // Convert to list and sort by cumulative score
-    var scoreEntries = cumulativeScores.entries.toList();
-    scoreEntries.sort((a, b) => b.value.compareTo(a.value));
+    // Convert to list and sort by cumulative points
+    var pointEntries = cumulativePoints.entries.toList();
+    pointEntries.sort((a, b) => b.value.compareTo(a.value));
 
     // Assign ranks
     Map<Tipper, int> ranks = {};
     int rank = 1;
     int skip = 1;
-    for (int i = 0; i < scoreEntries.length; i++) {
-      if (i > 0 && scoreEntries[i].value < scoreEntries[i - 1].value) {
+    for (int i = 0; i < pointEntries.length; i++) {
+      if (i > 0 && pointEntries[i].value < pointEntries[i - 1].value) {
         rank += skip;
         skip = 1;
-      } else if (i > 0 && scoreEntries[i].value == scoreEntries[i - 1].value) {
+      } else if (i > 0 && pointEntries[i].value == pointEntries[i - 1].value) {
         skip++;
       }
-      ranks[scoreEntries[i].key] = rank;
+      ranks[pointEntries[i].key] = rank;
     }
 
     return ranks;
   }
 
   void _updateLeaderboardForComp() {
-    // Create a map to accumulate scores for each tipper
+    // Create a map to accumulate points for each tipper
     Map<Tipper, LeaderboardEntry> leaderboardMap = {};
 
     // Get the most recent completed round
@@ -1382,7 +1382,7 @@ class StatsViewModel extends ChangeNotifier {
       // Iterate over each tipper's stats for the round
       for (var tipperEntry in tipperStats.entries) {
         Tipper tipper = tipperEntry.key;
-        RoundStats roundScores = tipperEntry.value;
+        RoundStats roundPoints = tipperEntry.value;
 
         // only include tippers who's paid status matches that of the authenticated tipper
         if (_isSelectedTipperPaidUpMember !=
@@ -1408,19 +1408,19 @@ class StatsViewModel extends ChangeNotifier {
           );
         }
 
-        // Update leaderboard entry with round scores
+        // Update leaderboard entry with round points
         leaderboardMap[tipper]!.total +=
-            roundScores.aflScore + roundScores.nrlScore;
-        leaderboardMap[tipper]!.nRL += roundScores.nrlScore;
-        leaderboardMap[tipper]!.aFL += roundScores.aflScore;
-        leaderboardMap[tipper]!.aflMargins += roundScores.aflMarginTips;
-        leaderboardMap[tipper]!.aflUPS += roundScores.aflMarginUPS;
-        leaderboardMap[tipper]!.nrlMargins += roundScores.nrlMarginTips;
-        leaderboardMap[tipper]!.nrlUPS += roundScores.nrlMarginUPS;
+            roundPoints.aflPoints + roundPoints.nrlPoints;
+        leaderboardMap[tipper]!.nRL += roundPoints.nrlPoints;
+        leaderboardMap[tipper]!.aFL += roundPoints.aflPoints;
+        leaderboardMap[tipper]!.aflMargins += roundPoints.aflMarginTips;
+        leaderboardMap[tipper]!.aflUPS += roundPoints.aflMarginUPS;
+        leaderboardMap[tipper]!.nrlMargins += roundPoints.nrlMarginTips;
+        leaderboardMap[tipper]!.nrlUPS += roundPoints.nrlMarginUPS;
       }
     }
 
-    // Convert the map to a list and sort by total score
+    // Convert the map to a list and sort by total points
     var leaderboard = leaderboardMap.values.toList();
     leaderboard.sort((a, b) => b.total.compareTo(a.total));
 
@@ -1475,12 +1475,12 @@ class StatsViewModel extends ChangeNotifier {
     _applyRoundWinnersSort();
   }
 
-  List<RoundStats> getTipperRoundScoresForComp(Tipper tipper) {
-    if (!_initialRoundScoresLoadCompleted.isCompleted) {
+  List<RoundStats> getTipperRoundPointsForComp(Tipper tipper) {
+    if (!_initialRoundPointsLoadCompleted.isCompleted) {
       return [];
     }
 
-    List<RoundStats> tipperRoundScores = [];
+    List<RoundStats> tipperRoundPoints = [];
     for (var round in _allTipperRoundStats.entries) {
       int roundNumber = round.key;
 
@@ -1490,11 +1490,11 @@ class StatsViewModel extends ChangeNotifier {
         continue;
       }
       if (round.value.containsKey(tipper)) {
-        tipperRoundScores.add(round.value[tipper]!);
+        tipperRoundPoints.add(round.value[tipper]!);
       }
     }
 
-    return tipperRoundScores;
+    return tipperRoundPoints;
   }
 
   Future<void> _addMultipleLiveScores(
@@ -1729,7 +1729,7 @@ class StatsViewModel extends ChangeNotifier {
     TipsViewModel allTipsViewModel,
   ) async {
     // wait until we are initialized
-    await _initialRoundScoresLoadCompleted.future;
+    await _initialRoundPointsLoadCompleted.future;
 
     // initialize any round of tipper Maps as needed
     if (_allTipperRoundStats[dauRound.dAUroundNumber - 1] == null) {
@@ -1740,10 +1740,10 @@ class StatsViewModel extends ChangeNotifier {
     _allTipperRoundStats[dauRound.dAUroundNumber -
         1]![tipperToScore] = RoundStats(
       roundNumber: dauRound.dAUroundNumber,
-      aflScore: 0,
-      nrlScore: 0,
-      aflMaxScore: 0,
-      nrlMaxScore: 0,
+      aflPoints: 0,
+      nrlPoints: 0,
+      aflMaxPoints: 0,
+      nrlMaxPoints: 0,
       aflMarginTips: 0,
       nrlMarginTips: 0,
       aflMarginUPS: 0,
@@ -1791,23 +1791,23 @@ class StatsViewModel extends ChangeNotifier {
 
       if (tip.game.gameState != GameState.notStarted &&
           tip.game.gameState != GameState.startingSoon) {
-        int score = tip.getTipScoreCalculated();
-        int maxScore = tip.getMaxScoreCalculated();
+        int points = tip.getTipPointsCalculated();
+        int maxPoints = tip.getMaxPointsCalculated();
 
         if (game.league == League.afl) {
           _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.aflScore +=
-              score;
+                  ?.aflPoints +=
+              points;
           _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.aflMaxScore +=
-              maxScore;
+                  ?.aflMaxPoints +=
+              maxPoints;
         } else {
           _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.nrlScore +=
-              score;
+                  ?.nrlPoints +=
+              points;
           _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.nrlMaxScore +=
-              maxScore;
+                  ?.nrlMaxPoints +=
+              maxPoints;
         }
 
         int marginUPS = 0;
@@ -1873,7 +1873,7 @@ class StatsViewModel extends ChangeNotifier {
         continue;
       }
 
-      List<MapEntry<Tipper, int>> roundScores = [];
+      List<MapEntry<Tipper, int>> roundPoints = [];
 
       Map<Tipper, RoundStats> tipperStats = roundEntry.value;
 
@@ -1889,22 +1889,22 @@ class StatsViewModel extends ChangeNotifier {
             _allTipperRoundStats[roundIndex]![tipper] == null) {
           continue;
         }
-        roundScores.add(
+        roundPoints.add(
           MapEntry(
             tipper,
-            _allTipperRoundStats[roundIndex]![tipper]!.aflScore +
-                _allTipperRoundStats[roundIndex]![tipper]!.nrlScore,
+            _allTipperRoundStats[roundIndex]![tipper]!.aflPoints +
+                _allTipperRoundStats[roundIndex]![tipper]!.nrlPoints,
           ),
         );
       }
 
-      roundScores.sort((a, b) => b.value.compareTo(a.value));
+      roundPoints.sort((a, b) => b.value.compareTo(a.value));
 
       int rank = 1;
       int? lastScore;
       int sameRankCount = 0;
 
-      for (var entry in roundScores) {
+      for (var entry in roundPoints) {
         if (lastScore != null && entry.value != lastScore) {
           rank += sameRankCount + 1;
           sameRankCount = 0;
@@ -1935,9 +1935,9 @@ class StatsViewModel extends ChangeNotifier {
     if (di.isRegistered<TippersViewModel>()) {
       di<TippersViewModel>().removeListener(_updateLeaderAndRoundAndRank);
     }
-    if (_hasRoundScoresListener) {
-      _allRoundScoresStream.cancel();
-      _hasRoundScoresListener = false;
+    if (_hasRoundPointsListener) {
+      _allRoundPointsStream.cancel();
+      _hasRoundPointsListener = false;
     }
     if (_hasLiveScoresListener) {
       _liveScoresStream.cancel();
@@ -2026,10 +2026,10 @@ class StatsViewModel extends ChangeNotifier {
     if (_allTipperRoundStats.isEmpty) {
       return RoundStats(
         roundNumber: 0,
-        aflScore: 0,
-        nrlScore: 0,
-        aflMaxScore: 0,
-        nrlMaxScore: 0,
+        aflPoints: 0,
+        nrlPoints: 0,
+        aflMaxPoints: 0,
+        nrlMaxPoints: 0,
         aflMarginTips: 0,
         nrlMarginTips: 0,
         aflMarginUPS: 0,
@@ -2049,10 +2049,10 @@ class StatsViewModel extends ChangeNotifier {
     } else {
       return RoundStats(
         roundNumber: dauRound.dAUroundNumber,
-        aflScore: 0,
-        nrlScore: 0,
-        aflMaxScore: 0,
-        nrlMaxScore: 0,
+        aflPoints: 0,
+        nrlPoints: 0,
+        aflMaxPoints: 0,
+        nrlMaxPoints: 0,
         aflMarginTips: 0,
         nrlMarginTips: 0,
         aflMarginUPS: 0,

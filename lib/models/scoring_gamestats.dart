@@ -4,8 +4,8 @@ class GameStatsEntry {
   double? percentageTippedDraw;
   double? percentageTippedAway;
   double? percentageTippedAwayMargin;
-  double? averageScore;
-  int? averageScoreTipCount;
+  double? averagePoints;
+  int? averagePointsTipCount;
 
   // Constructor
   GameStatsEntry({
@@ -14,8 +14,8 @@ class GameStatsEntry {
     double? percentageTippedDraw,
     double? percentageTippedAway,
     double? percentageTippedAwayMargin,
-    double? averageScore,
-    this.averageScoreTipCount,
+    double? averagePoints,
+    this.averagePointsTipCount,
   }) {
     // Reduce precision to 2 decimal places
     this.percentageTippedHomeMargin = reducePrecision(
@@ -27,7 +27,7 @@ class GameStatsEntry {
     this.percentageTippedAwayMargin = reducePrecision(
       percentageTippedAwayMargin,
     );
-    this.averageScore = reducePrecision(averageScore);
+    this.averagePoints = reducePrecision(averagePoints);
   }
 
   // Helper method to reduce precision
@@ -45,8 +45,8 @@ class GameStatsEntry {
         other.percentageTippedDraw == percentageTippedDraw &&
         other.percentageTippedAway == percentageTippedAway &&
         other.percentageTippedAwayMargin == percentageTippedAwayMargin &&
-        other.averageScore == averageScore &&
-        other.averageScoreTipCount == averageScoreTipCount;
+        other.averagePoints == averagePoints &&
+        other.averagePointsTipCount == averagePointsTipCount;
   }
 
   @override
@@ -56,8 +56,8 @@ class GameStatsEntry {
         percentageTippedDraw.hashCode ^
         percentageTippedAway.hashCode ^
         percentageTippedAwayMargin.hashCode ^
-        averageScore.hashCode ^
-        averageScoreTipCount.hashCode;
+        averagePoints.hashCode ^
+        averagePointsTipCount.hashCode;
   }
 
   // Method to convert instance into JSON
@@ -68,8 +68,8 @@ class GameStatsEntry {
       'pctTipC': percentageTippedDraw,
       'pctTipD': percentageTippedAway,
       'pctTipE': percentageTippedAwayMargin,
-      'avgScore': averageScore,
-      'avgScoreTipCount': averageScoreTipCount,
+      'avgScore': averagePoints,
+      'avgScoreTipCount': averagePointsTipCount,
     };
   }
 
@@ -81,8 +81,8 @@ class GameStatsEntry {
       percentageTippedDraw: (data['pctTipC'] as num?)?.toDouble(),
       percentageTippedAway: (data['pctTipD'] as num?)?.toDouble(),
       percentageTippedAwayMargin: (data['pctTipE'] as num?)?.toDouble(),
-      averageScore: (data['avgScore'] as num?)?.toDouble(),
-      averageScoreTipCount: (data['avgScoreTipCount'] as num?)?.toInt(),
+      averagePoints: (data['avgScore'] as num?)?.toDouble(),
+      averagePointsTipCount: (data['avgScoreTipCount'] as num?)?.toInt(),
     );
   }
 }

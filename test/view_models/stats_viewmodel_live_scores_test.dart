@@ -384,8 +384,8 @@ void main() {
         ),
       );
 
-      expect(viewModel.gamesStatsEntry[activeGame]?.averageScore, 2.0);
-      expect(viewModel.gamesStatsEntry[activeGame]?.averageScoreTipCount, 1);
+      expect(viewModel.gamesStatsEntry[activeGame]?.averagePoints, 2.0);
+      expect(viewModel.gamesStatsEntry[activeGame]?.averagePointsTipCount, 1);
 
       viewModel.dispose();
     },

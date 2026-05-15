@@ -220,7 +220,7 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                 if (report.roundChanges.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
-                    'Round score changes',
+                    'Round point changes',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

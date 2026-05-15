@@ -1,11 +1,11 @@
 class RoundStats {
   int roundNumber = 0;
-  int aflScore = 0;
-  int aflMaxScore = 0;
+  int aflPoints = 0;
+  int aflMaxPoints = 0;
   int aflMarginTips = 0;
   int aflMarginUPS = 0;
-  int nrlScore = 0;
-  int nrlMaxScore = 0;
+  int nrlPoints = 0;
+  int nrlMaxPoints = 0;
   int nrlMarginTips = 0;
   int nrlMarginUPS = 0;
   int rank = 0;
@@ -16,12 +16,12 @@ class RoundStats {
   //constructor
   RoundStats({
     required this.roundNumber,
-    required this.aflScore,
-    required this.aflMaxScore,
+    required this.aflPoints,
+    required this.aflMaxPoints,
     required this.aflMarginTips,
     required this.aflMarginUPS,
-    required this.nrlScore,
-    required this.nrlMaxScore,
+    required this.nrlPoints,
+    required this.nrlMaxPoints,
     required this.nrlMarginTips,
     required this.nrlMarginUPS,
     required this.rank,
@@ -33,12 +33,12 @@ class RoundStats {
   Map<String, int> toJson() {
     return {
       // keep the keys short to save $/space in db
-      'aS': aflScore,
-      'aMs': aflMaxScore,
+      'aS': aflPoints,
+      'aMs': aflMaxPoints,
       'aMt': aflMarginTips,
       'aMu': aflMarginUPS,
-      'nS': nrlScore,
-      'nMs': nrlMaxScore,
+      'nS': nrlPoints,
+      'nMs': nrlMaxPoints,
       'nMt': nrlMarginTips,
       'nMu': nrlMarginUPS,
       'nTo': nrlTipsOutstanding,
@@ -52,12 +52,12 @@ class RoundStats {
   }) {
     return RoundStats(
       roundNumber: data['nbr'] ?? fallbackRoundNumber,
-      aflScore: data['aS'] ?? 0,
-      aflMaxScore: data['aMs'] ?? 0,
+      aflPoints: data['aS'] ?? 0,
+      aflMaxPoints: data['aMs'] ?? 0,
       aflMarginTips: data['aMt'] ?? 0,
       aflMarginUPS: data['aMu'] ?? 0,
-      nrlScore: data['nS'] ?? 0,
-      nrlMaxScore: data['nMs'] ?? 0,
+      nrlPoints: data['nS'] ?? 0,
+      nrlMaxPoints: data['nMs'] ?? 0,
       nrlMarginTips: data['nMt'] ?? 0,
       nrlMarginUPS: data['nMu'] ?? 0,
       rank: 0,
@@ -69,12 +69,12 @@ class RoundStats {
 
   List<int> toCsv() {
     return [
-      aflScore,
-      aflMaxScore,
+      aflPoints,
+      aflMaxPoints,
       aflMarginTips,
       aflMarginUPS,
-      nrlScore,
-      nrlMaxScore,
+      nrlPoints,
+      nrlMaxPoints,
       nrlMarginTips,
       nrlMarginUPS,
       rank,
@@ -91,12 +91,12 @@ class RoundStats {
 
     return other is RoundStats &&
         other.roundNumber == roundNumber &&
-        other.aflScore == aflScore &&
-        other.aflMaxScore == aflMaxScore &&
+        other.aflPoints == aflPoints &&
+        other.aflMaxPoints == aflMaxPoints &&
         other.aflMarginTips == aflMarginTips &&
         other.aflMarginUPS == aflMarginUPS &&
-        other.nrlScore == nrlScore &&
-        other.nrlMaxScore == nrlMaxScore &&
+        other.nrlPoints == nrlPoints &&
+        other.nrlMaxPoints == nrlMaxPoints &&
         other.nrlMarginTips == nrlMarginTips &&
         other.nrlMarginUPS == nrlMarginUPS &&
         other.nrlTipsOutstanding == nrlTipsOutstanding &&
@@ -106,12 +106,12 @@ class RoundStats {
   @override
   int get hashCode {
     return roundNumber.hashCode ^
-        aflScore.hashCode ^
-        aflMaxScore.hashCode ^
+        aflPoints.hashCode ^
+        aflMaxPoints.hashCode ^
         aflMarginTips.hashCode ^
         aflMarginUPS.hashCode ^
-        nrlScore.hashCode ^
-        nrlMaxScore.hashCode ^
+        nrlPoints.hashCode ^
+        nrlMaxPoints.hashCode ^
         nrlMarginTips.hashCode ^
         nrlMarginUPS.hashCode ^
         nrlTipsOutstanding.hashCode ^

@@ -361,12 +361,12 @@ void main() {
     });
 
     test(
-      'NRL 1-point score shift at draw/win boundary causes 1-point tip score change',
+      'NRL 1-point score shift at draw/win boundary causes 1-point tip points change',
       () {
         // Scenario: Tipper tipped Home (b). Score shifts from draw to
-        // narrow home win. Their score changes by 1 (1 -> 2).
+        // narrow home win. Their points change by 1 (1 -> 2).
         // This documents the exact edge case that can cause a production
-        // score shift: result c (draw) vs b (narrow home win).
+        // game score shift: result c (draw) vs b (narrow home win).
         final draw = Scoring(homeTeamScore: 12, awayTeamScore: 12);
         final narrowWin = Scoring(homeTeamScore: 13, awayTeamScore: 12);
 
@@ -374,12 +374,12 @@ void main() {
         expect(narrowWin.getGameResultCalculated(League.nrl), GameResult.b);
 
         // Tip was Home (b): draw gives 1, narrow win gives 2 = delta of 1
-        final scoreDraw = Scoring.getTipScoreCalculated(
+        final scoreDraw = Scoring.getTipPointsCalculated(
           League.nrl,
           GameResult.c,
           GameResult.b,
         );
-        final scoreNarrowWin = Scoring.getTipScoreCalculated(
+        final scoreNarrowWin = Scoring.getTipPointsCalculated(
           League.nrl,
           GameResult.b,
           GameResult.b,
@@ -442,16 +442,16 @@ void main() {
     );
 
     test(
-      'default tip (Away/d) scores 1 when result is Draw (c), 0 when Home (b)',
+      'default tip (Away/d) gets 1 point when result is Draw (c), 0 when Home (b)',
       () {
         // Default tip is GameResult.d (Away). If game result shifts from
-        // draw to narrow home win, the default tip score drops by 1.
-        final scoreResultC = Scoring.getTipScoreCalculated(
+        // draw to narrow home win, the default tip points drops by 1.
+        final scoreResultC = Scoring.getTipPointsCalculated(
           League.nrl,
           GameResult.c,
           GameResult.d,
         );
-        final scoreResultB = Scoring.getTipScoreCalculated(
+        final scoreResultB = Scoring.getTipPointsCalculated(
           League.nrl,
           GameResult.b,
           GameResult.d,
@@ -464,41 +464,41 @@ void main() {
     );
   });
 
-  group('getTipScoreCalculated', () {
-    test('NRL Tip was A, result was A, score should be 4', () {
-      var score = Scoring.getTipScoreCalculated(
+  group('getTipPointsCalculated', () {
+    test('NRL Tip was A, result was A, points should be 4', () {
+      var points = Scoring.getTipPointsCalculated(
         League.nrl,
         GameResult.a,
         GameResult.a,
       );
-      expect(score, equals(4));
+      expect(points, equals(4));
     });
 
-    test('NRL Tip was E, result was A, score should be -2', () {
-      var score = Scoring.getTipScoreCalculated(
+    test('NRL Tip was E, result was A, points should be -2', () {
+      var points = Scoring.getTipPointsCalculated(
         League.nrl,
         GameResult.a,
         GameResult.e,
       );
-      expect(score, equals(-2));
+      expect(points, equals(-2));
     });
 
-    test('NRL Tip was C, result was C, score should be 50', () {
-      var score = Scoring.getTipScoreCalculated(
+    test('NRL Tip was C, result was C, points should be 50', () {
+      var points = Scoring.getTipPointsCalculated(
         League.nrl,
         GameResult.c,
         GameResult.c,
       );
-      expect(score, equals(50));
+      expect(points, equals(50));
     });
 
-    test('AFL Tip was C, result was C, score should be 50', () {
-      var score = Scoring.getTipScoreCalculated(
+    test('AFL Tip was C, result was C, points should be 20', () {
+      var points = Scoring.getTipPointsCalculated(
         League.afl,
         GameResult.c,
         GameResult.c,
       );
-      expect(score, equals(20));
+      expect(points, equals(20));
     });
   });
 }

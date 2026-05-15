@@ -129,7 +129,7 @@ void main() {
     expect(disableBackStates, contains(true));
     expect(find.text('Rescore complete'), findsOneWidget);
     expect(find.text('Leaderboard changes'), findsOneWidget);
-    expect(find.text('Round score changes'), findsOneWidget);
+    expect(find.text('Round point changes'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Round 7 • Alice'), findsOneWidget);
     expect(find.text('Margins 2 -> 3 (+1)'), findsOneWidget);
