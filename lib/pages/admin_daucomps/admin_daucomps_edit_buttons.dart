@@ -285,7 +285,7 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
   BuildContext context, {
   required bool fixtureDownloadAvailable,
 }) {
-  var downloadFixtures = fixtureDownloadAvailable;
+  var downloadFixtures = false;
   var recalculateScoring = true;
   var rebuildGameStats = true;
 
@@ -298,7 +298,12 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
             title: const Text('Run admin updates'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text(
+                  'Fixture downloads and scoring updates are normally handled automatically. Use these manual repair steps only when you see fixture, scoring, or average point issues.',
+                ),
+                const SizedBox(height: 12),
                 CheckboxListTile(
                   value: downloadFixtures,
                   onChanged: fixtureDownloadAvailable
