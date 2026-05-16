@@ -31,7 +31,14 @@ void main() {
     when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
     when(() => dauCompsViewModel.isDownloading).thenReturn(false);
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
-    when(() => statsViewModel.updateStatsWithReport(comp, null, null)).thenAnswer(
+    when(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).thenAnswer(
       (_) async => const ScoringUpdateReport(
         resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
         leaderboardChanges: <ScoringLeaderboardChange>[
@@ -67,6 +74,17 @@ void main() {
             afterAfl: 0,
             beforeRank: 4,
             afterRank: 3,
+          ),
+        ],
+        gameStatsChanges: <ScoringGameStatsChange>[
+          ScoringGameStatsChange(
+            gameDbKey: 'afl-10-082',
+            gameName: 'Lions v Cats',
+            isPaidCohort: true,
+            beforeAveragePoints: 0,
+            afterAveragePoints: 0.14,
+            beforeTipCount: 57,
+            afterTipCount: 57,
           ),
         ],
       ),
@@ -132,6 +150,9 @@ void main() {
     expect(find.text('Round point changes'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Round 7 • Alice'), findsOneWidget);
+    expect(find.text('Game average changes'), findsOneWidget);
+    expect(find.text('Lions v Cats • Paid'), findsOneWidget);
+    expect(find.text('Avg 0.0 -> 0.14'), findsOneWidget);
     expect(find.text('Margins 2 -> 3 (+1)'), findsOneWidget);
     expect(find.text('Round rank 4 -> 3 (up 1)'), findsOneWidget);
     expect(find.textContaining('Total 18 -> 18'), findsNothing);
@@ -140,6 +161,14 @@ void main() {
     expect(find.textContaining('Rounds won 0 -> 0'), findsNothing);
     expect(find.textContaining('UPS 1 -> 1'), findsNothing);
     expect(find.textContaining('Total 2 -> 2'), findsNothing);
+    verify(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).called(1);
 
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
@@ -148,7 +177,14 @@ void main() {
   });
 
   testWidgets('shows the no-changes wording once', (tester) async {
-    when(() => statsViewModel.updateStatsWithReport(comp, null, null)).thenAnswer(
+    when(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).thenAnswer(
       (_) async => const ScoringUpdateReport(
         resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
         leaderboardChanges: <ScoringLeaderboardChange>[],

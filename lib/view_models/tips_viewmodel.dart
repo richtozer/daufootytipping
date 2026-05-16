@@ -495,6 +495,19 @@ class TipsViewModel extends ChangeNotifier {
       selectedDAUComp,
     );
 
+    return percentageOfTippersTippedForPaidStatus(game, isScoringPaidComp);
+  }
+
+  Future<GameStatsEntry> percentageOfTippersTippedForPaidStatus(
+    Game game,
+    bool isScoringPaidComp,
+  ) async {
+    if (_tipper != null) {
+      throw Exception(
+        'percentageOfTippersTippedForPaidStatus() should not be called when doing aggregates for scoring. _tipper is not null',
+      );
+    }
+
     // loop through all tippers and remove those that don't have the same paidForComp status
     List<Tipper> tippers = tipperViewModel.tippers
         .where(
@@ -531,6 +544,10 @@ class TipsViewModel extends ChangeNotifier {
         if (tip?.tip == gameResult) {
           totalTippersTipped++;
         }
+      }
+
+      if (totalTippers == 0) {
+        continue;
       }
 
       // switch on the game result and set the correct value

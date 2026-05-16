@@ -430,11 +430,13 @@ class StatsViewModel extends ChangeNotifier {
   // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
 
   Future<String>? _updateStatsInProgress;
+  final List<ScoringGameStatsChange> _lastGameStatsChanges = [];
 
   Future<ScoringUpdateReport> updateStatsWithReport(
     DAUComp daucompToUpdate,
     DAURound? onlyUpdateThisRound,
     Tipper? onlyUpdateThisTipper,
+    {bool rebuildGameStats = false}
   ) async {
     await _rebuildScoringViewsForReport();
     final beforeSnapshot = _captureScoringSnapshot();
@@ -442,6 +444,7 @@ class StatsViewModel extends ChangeNotifier {
       daucompToUpdate,
       onlyUpdateThisRound,
       onlyUpdateThisTipper,
+      rebuildGameStats: rebuildGameStats,
     );
     await _rebuildScoringViewsForReport();
     notifyListeners();
@@ -451,6 +454,9 @@ class StatsViewModel extends ChangeNotifier {
       beforeSnapshot,
       afterSnapshot,
       resultMessage,
+      gameStatsChanges: List<ScoringGameStatsChange>.unmodifiable(
+        _lastGameStatsChanges,
+      ),
     );
   }
 
@@ -458,6 +464,7 @@ class StatsViewModel extends ChangeNotifier {
     DAUComp daucompToUpdate,
     DAURound? onlyUpdateThisRound,
     Tipper? onlyUpdateThisTipper,
+    {bool rebuildGameStats = false}
   ) {
     if (_updateStatsInProgress != null) {
       log('StatsViewModel.updateStats() Update already in progress, skipping');
@@ -478,6 +485,7 @@ class StatsViewModel extends ChangeNotifier {
         'StatsViewModel.updateStats() called for comp: ${daucompToUpdate.name}',
       );
       var stopwatch = Stopwatch()..start();
+      _lastGameStatsChanges.clear();
 
       try {
         if (!_initialRoundPointsLoadCompleted.isCompleted) {
@@ -598,6 +606,9 @@ class StatsViewModel extends ChangeNotifier {
           tippersToUpdate,
           daucompToUpdate,
         );
+        if (rebuildGameStats && onlyUpdateThisTipper == null) {
+          await _rebuildGameStatsForRounds(dauRoundsEdited, daucompToUpdate);
+        }
 
         String res =
             'Completed updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
@@ -730,7 +741,10 @@ class StatsViewModel extends ChangeNotifier {
   ScoringUpdateReport _buildScoringUpdateReport(
     ScoringStateSnapshot beforeSnapshot,
     ScoringStateSnapshot afterSnapshot,
-    String resultMessage,
+    String resultMessage, {
+    List<ScoringGameStatsChange> gameStatsChanges =
+        const <ScoringGameStatsChange>[],
+  }
   ) {
     final leaderboardKeys = <String>{
       ...beforeSnapshot.leaderboardEntries.keys,
@@ -821,6 +835,16 @@ class StatsViewModel extends ChangeNotifier {
       resultMessage: resultMessage,
       leaderboardChanges: leaderboardChanges,
       roundChanges: roundChanges,
+      gameStatsChanges: gameStatsChanges
+          .where((change) => change.hasChange)
+          .toList()
+        ..sort((a, b) {
+          final gameCompare = a.gameName.toLowerCase().compareTo(
+            b.gameName.toLowerCase(),
+          );
+          if (gameCompare != 0) return gameCompare;
+          return a.cohortLabel.compareTo(b.cohortLabel);
+        }),
     );
   }
 
@@ -930,10 +954,12 @@ class StatsViewModel extends ChangeNotifier {
     await allTipsViewModel!.initialLoadCompleted;
 
     // Init or update the game stats entry
+    final bool isPaidCohort = _selectedTipperPaidUpMember();
     await _updateGameResultPercentageTipped(
       game,
       allTipsViewModel!,
       selectedDAUComp,
+      isPaidCohort,
     );
 
     notifyListeners();
@@ -997,34 +1023,84 @@ class StatsViewModel extends ChangeNotifier {
         .length;
   }
 
-  Future<void> _updateGameResultPercentageTipped(
+  Future<ScoringGameStatsChange?> _updateGameResultPercentageTipped(
     Game gameToCalculateFor,
     TipsViewModel allTipsViewModel,
     DAUComp daucompToUpdate,
+    bool isPaidCohort,
   ) async {
     final gameStatsEntry = await allTipsViewModel
-        .percentageOfTippersTipped(gameToCalculateFor);
-    gamesStatsEntry[gameToCalculateFor.dbkey] = gameStatsEntry;
+        .percentageOfTippersTippedForPaidStatus(
+          gameToCalculateFor,
+          isPaidCohort,
+        );
+    if (isPaidCohort == _selectedTipperPaidUpMember()) {
+      gamesStatsEntry[gameToCalculateFor.dbkey] = gameStatsEntry;
+    }
 
-    await _updateGameStatsIfChanged(
+    return _updateGameStatsIfChanged(
       gameToCalculateFor,
       gameStatsEntry,
       daucompToUpdate,
+      isPaidCohort,
     );
   }
 
-  Future<void> _updateGameStatsIfChanged(
+  Future<void> _rebuildGameStatsForRounds(
+    List<DAURound> roundsToUpdate,
+    DAUComp daucompToUpdate,
+  ) async {
+    if (allTipsViewModel == null) {
+      return;
+    }
+
+    final gamesToRebuild = <String, Game>{};
+    for (final round in roundsToUpdate) {
+      for (final game in round.games) {
+        gamesToRebuild[game.dbkey] = game;
+      }
+    }
+
+    for (final game in gamesToRebuild.values) {
+      final paidChange = await _updateGameResultPercentageTipped(
+        game,
+        allTipsViewModel!,
+        daucompToUpdate,
+        true,
+      );
+      if (paidChange != null) {
+        _lastGameStatsChanges.add(paidChange);
+      }
+      final freeChange = await _updateGameResultPercentageTipped(
+        game,
+        allTipsViewModel!,
+        daucompToUpdate,
+        false,
+      );
+      if (freeChange != null) {
+        _lastGameStatsChanges.add(freeChange);
+      }
+    }
+  }
+
+  bool _selectedTipperPaidUpMember() {
+    _isSelectedTipperPaidUpMember ??= di<TippersViewModel>().selectedTipper
+        .paidForComp(selectedDAUComp);
+    return _isSelectedTipperPaidUpMember!;
+  }
+
+  Future<ScoringGameStatsChange?> _updateGameStatsIfChanged(
     Game game,
     GameStatsEntry gameStatsEntry,
     DAUComp daucompToUpdate,
+    bool isPaidCohort,
   ) async {
-    assert(_isSelectedTipperPaidUpMember != null);
-
-    String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
+    String subKey = isPaidCohort ? 'paid' : 'free';
 
     log('Updating game stats for game: ${game.dbkey}');
     log('Calculated gameStatsEntry: ${gameStatsEntry.toJson()}');
     log('Existing game.gameStats: ${game.gameStats?.toJson()}');
+    ScoringGameStatsChange? detectedChange;
 
     // Use a transaction to ensure atomic updates
     final gameStatsRef = _db
@@ -1045,6 +1121,19 @@ class StatsViewModel extends ChangeNotifier {
               log('No changes detected in game stats for game: ${game.dbkey}');
               return Transaction.abort(); // Abort the transaction if no changes
             }
+            detectedChange = _buildGameStatsChange(
+              game,
+              isPaidCohort,
+              existingStats,
+              gameStatsEntry,
+            );
+          } else {
+            detectedChange = _buildGameStatsChange(
+              game,
+              isPaidCohort,
+              null,
+              gameStatsEntry,
+            );
           }
 
           log('Writing updated game stats for game: ${game.dbkey}');
@@ -1064,6 +1153,24 @@ class StatsViewModel extends ChangeNotifier {
         .catchError((error) {
           log('Error during transaction for game stats: $error');
         });
+    return detectedChange;
+  }
+
+  ScoringGameStatsChange _buildGameStatsChange(
+    Game game,
+    bool isPaidCohort,
+    GameStatsEntry? before,
+    GameStatsEntry after,
+  ) {
+    return ScoringGameStatsChange(
+      gameDbKey: game.dbkey,
+      gameName: '${game.homeTeam.name} v ${game.awayTeam.name}',
+      isPaidCohort: isPaidCohort,
+      beforeAveragePoints: before?.averagePoints,
+      afterAveragePoints: after.averagePoints,
+      beforeTipCount: before?.averagePointsTipCount,
+      afterTipCount: after.averagePointsTipCount,
+    );
   }
 
   Future<GameStatsEntry> _getGameStatsEntry(Game game) async {

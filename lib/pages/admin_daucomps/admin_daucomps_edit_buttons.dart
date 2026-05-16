@@ -136,6 +136,7 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
               daucomp!,
               null,
               null,
+              rebuildGameStats: true,
             );
             if (context.mounted) {
               await showDialog<void>(
@@ -230,6 +231,22 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                     (change) => _ScoringChangeCard(
                       title: 'Round ${change.roundNumber} • ${change.tipperName}',
                       lines: _buildRoundChangeLines(change),
+                    ),
+                  ),
+                ],
+                if (report.gameStatsChanges.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Game average changes',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...report.gameStatsChanges.map(
+                    (change) => _ScoringChangeCard(
+                      title: '${change.gameName} • ${change.cohortLabel}',
+                      lines: _buildGameStatsChangeLines(change),
                     ),
                   ),
                 ],
@@ -341,6 +358,23 @@ List<String> _buildRoundChangeLines(ScoringRoundChange change) {
   return lines;
 }
 
+List<String> _buildGameStatsChangeLines(ScoringGameStatsChange change) {
+  final lines = <String>[];
+
+  if (change.beforeAveragePoints != change.afterAveragePoints) {
+    lines.add(
+      'Avg ${_formatNullableDouble(change.beforeAveragePoints)} -> ${_formatNullableDouble(change.afterAveragePoints)}',
+    );
+  }
+  if (change.beforeTipCount != change.afterTipCount) {
+    lines.add(
+      'Tip count ${_formatNullableInt(change.beforeTipCount)} -> ${_formatNullableInt(change.afterTipCount)}',
+    );
+  }
+
+  return lines;
+}
+
 class _ScoringChangeCard extends StatelessWidget {
   final String title;
   final List<String> lines;
@@ -390,4 +424,12 @@ String _formatRankDelta(int rankDelta) {
 
 String _formatMetricChange(String label, int before, int after) {
   return '$label $before -> $after (${_formatSignedDelta(after - before)})';
+}
+
+String _formatNullableDouble(double? value) {
+  return value == null ? 'missing' : value.toStringAsPrecision(2);
+}
+
+String _formatNullableInt(int? value) {
+  return value == null ? 'missing' : value.toString();
 }
