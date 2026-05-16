@@ -452,7 +452,6 @@ class _GameListItemState extends State<GameListItem> {
     }
 
     return ScoringTile(
-      key: ValueKey('scoring-${gameTipsViewModelConsumer.game.dbkey}'),
       tip: tip,
       gameTipsViewModel: gameTipsViewModelConsumer,
       selectedDAUComp: widget.currentDAUComp,
