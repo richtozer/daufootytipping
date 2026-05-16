@@ -183,6 +183,79 @@ void main() {
   );
 
   test(
+    'getGamesStatsEntry trusts finalized stats while tipper count is unavailable',
+    () async {
+      final readAttempted = Completer<void>();
+      final listenersNotified = Completer<void>();
+      final completedGame = Game(
+        dbkey: 'afl-10-082',
+        league: League.afl,
+        homeTeam: Team(
+          dbkey: 'afl-Brisbane Lions',
+          name: 'Lions',
+          league: League.afl,
+        ),
+        awayTeam: Team(
+          dbkey: 'afl-Geelong Cats',
+          name: 'Cats',
+          league: League.afl,
+        ),
+        location: 'Gabba',
+        startTimeUTC: DateTime.utc(2026, 5, 14, 9, 30),
+        fixtureRoundNumber: 10,
+        fixtureMatchNumber: 82,
+        scoring: Scoring(homeTeamScore: 76, awayTeamScore: 117),
+      );
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.addListener(() {
+        if (!listenersNotified.isCompleted) {
+          listenersNotified.complete();
+        }
+      });
+
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[]);
+      when(() => database.get()).thenAnswer((_) async {
+        readAttempted.complete();
+        return _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'pctTipA': 0.018,
+            'pctTipB': 0.895,
+            'pctTipC': 0.0,
+            'pctTipD': 0.088,
+            'pctTipE': 0.0,
+            'avgScore': 0.0,
+            'avgScoreTipCount': 57,
+          },
+        );
+      });
+
+      viewModel.getGamesStatsEntry(completedGame, false);
+
+      await readAttempted.future;
+      await listenersNotified.future;
+
+      expect(
+        viewModel.gamesStatsEntry[completedGame]?.averagePoints,
+        0.0,
+      );
+      expect(
+        viewModel.gamesStatsEntry[completedGame]?.averagePointsTipCount,
+        57,
+      );
+      expect(viewModel.allTipsViewModel, isNull);
+      verifyNever(() => database.runTransaction(any()));
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
     'getGamesStatsEntry recalculates finalized stats when forced',
     () async {
       final staleStatsRead = Completer<void>();
