@@ -60,7 +60,7 @@ class ScoringTileState extends State<ScoringTile> {
                 _buildPointsText(game, tip),
                 Selector<StatsViewModel?, GameStatsEntry?>(
                   selector: (_, statsViewModel) =>
-                      statsViewModel?.gamesStatsEntry[game],
+                      statsViewModel?.gameStatsEntryFor(game),
                   builder: (_, gameStatsEntry, _) {
                     return _buildAveragePointsRow(gameStatsEntry, tip);
                   },
