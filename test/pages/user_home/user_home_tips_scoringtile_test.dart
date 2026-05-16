@@ -2,6 +2,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -168,6 +169,55 @@ void main() {
     await tester.pump();
 
     expect(find.text('1.7 / 2'), findsOneWidget);
+    expect(find.text('? / 2'), findsNothing);
+  });
+
+  testWidgets('uses cached average points after game object replacement', (
+    tester,
+  ) async {
+    final replacementGame = Game(
+      dbkey: game.dbkey,
+      league: game.league,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: game.startTimeUTC,
+      fixtureRoundNumber: game.fixtureRoundNumber,
+      fixtureMatchNumber: game.fixtureMatchNumber,
+      scoring: game.scoring,
+    );
+    final tip = Tip(
+      dbkey: 'tip-1',
+      game: replacementGame,
+      tipper: tipper,
+      tip: GameResult.b,
+      submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
+    );
+
+    statsViewModel.gamesStatsEntry[game] = GameStatsEntry(
+      averagePoints: 0.0,
+      averagePointsTipCount: 57,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: ScoringTile(
+              tip: tip,
+              gameTipsViewModel: FakeGameTipViewModel(
+                game: replacementGame,
+                tip: tip,
+              ),
+              selectedDAUComp: comp,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0.0 / 2'), findsOneWidget);
     expect(find.text('? / 2'), findsNothing);
   });
 }

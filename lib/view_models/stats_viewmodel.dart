@@ -864,12 +864,27 @@ class StatsViewModel extends ChangeNotifier {
 
   final Map<Game, GameStatsEntry> gamesStatsEntry = {};
 
+  GameStatsEntry? gameStatsEntryFor(Game game) {
+    final directEntry = gamesStatsEntry[game];
+    if (directEntry != null) {
+      return directEntry;
+    }
+
+    for (final entry in gamesStatsEntry.entries) {
+      if (entry.key.dbkey == game.dbkey) {
+        return entry.value;
+      }
+    }
+
+    return null;
+  }
+
   void getGamesStatsEntry(Game game, bool forceUpdate) async {
     // Fast path: if we already have a cached in-memory result and aren't
     // forcing an update, return immediately without any DB read or
     // notifyListeners() call. This avoids triggering rebuilds of every
     // Consumer<StatsViewModel?> when cards re-appear during scrolling.
-    final GameStatsEntry? cached = gamesStatsEntry[game];
+    final GameStatsEntry? cached = gameStatsEntryFor(game);
     if (cached != null &&
         _canUseCachedGameStatsEntry(game, cached, forceUpdate)) {
       return;
