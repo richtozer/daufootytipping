@@ -32,6 +32,9 @@ void main() {
 
     when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
     when(() => dauCompsViewModel.isDownloading).thenReturn(false);
+    when(
+      () => dauCompsViewModel.getNetworkFixtureData(comp),
+    ).thenAnswer((_) async => 'Fixture download complete.');
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
     when(() => statsViewModel.scoringProgressMessage).thenReturn(null);
     when(() => statsViewModel.scoringProgressValue).thenReturn(null);
@@ -127,7 +130,47 @@ void main() {
     );
   });
 
-  testWidgets('shows a scoring change dialog after manual rescore', (
+  testWidgets('shows all admin update steps selected by default', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run admin updates'), findsOneWidget);
+    expect(
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Download fixtures'),
+      ).value,
+      isTrue,
+    );
+    expect(
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Recalculate scoring'),
+      ).value,
+      isTrue,
+    );
+    expect(
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Rebuild game averages'),
+      ).value,
+      isTrue,
+    );
+  });
+
+  testWidgets('shows a scoring change dialog after manual admin update', (
     tester,
   ) async {
     final disableBackStates = <bool>[];
@@ -145,13 +188,16 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Rescore'));
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(disableBackStates, contains(true));
     expect(find.text('Rescore complete'), findsOneWidget);
+    expect(find.text('Fixture download: Fixture download complete.'), findsOneWidget);
     expect(find.text('Leaderboard changes'), findsOneWidget);
     expect(find.text('Round point changes'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
@@ -168,6 +214,9 @@ void main() {
     expect(find.textContaining('UPS 1 -> 1'), findsNothing);
     expect(find.textContaining('Total 2 -> 2'), findsNothing);
     verify(
+      () => dauCompsViewModel.getNetworkFixtureData(comp),
+    ).called(1);
+    verify(
       () => statsViewModel.updateStatsWithReport(
         comp,
         null,
@@ -182,7 +231,43 @@ void main() {
     expect(disableBackStates.last, false);
   });
 
-  testWidgets('shows progress dialog while manual rescore is running', (
+  testWidgets('can turn off fixture download before running admin update', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Download fixtures'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
+
+    verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
+    verify(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).called(1);
+  });
+
+  testWidgets('shows progress dialog while manual admin update is running', (
     tester,
   ) async {
     final reportCompleter = Completer<ScoringUpdateReport>();
@@ -212,12 +297,14 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Rescore'));
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pump();
 
-    expect(find.text('Rescoring'), findsOneWidget);
+    expect(find.text('Running updates'), findsOneWidget);
     expect(find.text('Rebuilding game averages 3/10...'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
@@ -262,7 +349,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Rescore'));
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pump();
