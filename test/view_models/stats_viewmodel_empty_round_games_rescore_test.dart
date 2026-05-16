@@ -41,6 +41,7 @@ void main() {
   late DAURound round;
   late Game game;
   late Tipper alice;
+  late Tipper bob;
   late TipsViewModel allTipsViewModel;
 
   setUp(() async {
@@ -73,6 +74,15 @@ void main() {
       name: 'Alice',
       tipperRole: TipperRole.tipper,
       compsPaidFor: <DAUComp>[comp],
+    );
+    bob = Tipper(
+      dbkey: 'tipper-2',
+      authuid: 'auth-2',
+      email: 'bob@example.com',
+      logon: 'bob@example.com',
+      name: 'Bob',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const <DAUComp>[],
     );
     game = Game(
       dbkey: 'nrl-01-001',
@@ -107,6 +117,9 @@ void main() {
     when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice]);
     when(() => tippersViewModel.findTipper('tipper-1')).thenAnswer((_) async {
       return alice;
+    });
+    when(() => tippersViewModel.findTipper('tipper-2')).thenAnswer((_) async {
+      return bob;
     });
 
     when(() => dauCompsViewModel.selectedDAUComp).thenReturn(comp);
@@ -167,6 +180,180 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'full rescore does not rebuild game stats unless explicitly requested',
+    () async {
+      final gameStatsWrites = <Map<String, dynamic>>[];
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice, bob]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: bob,
+          tip: GameResult.d,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      when(() => database.runTransaction(any())).thenAnswer((invocation) async {
+        final handler =
+            invocation.positionalArguments.single as TransactionHandler;
+        final transaction = handler(null);
+        final value = transaction.value;
+        if (value is Map && value.containsKey('avgScore')) {
+          gameStatsWrites.add(Map<String, dynamic>.from(value));
+        }
+        return transactionResult;
+      });
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final result = await viewModel.updateStats(comp, null, null);
+
+      expect(result, 'Completed updates for 2 tippers and 1 rounds.');
+      expect(gameStatsWrites, isEmpty);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'full rescore rebuilds paid and free game stats for hydrated games',
+    () async {
+      final gameStatsWrites = <Map<String, dynamic>>[];
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice, bob]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: bob,
+          tip: GameResult.d,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      when(() => database.runTransaction(any())).thenAnswer((invocation) async {
+        final handler =
+            invocation.positionalArguments.single as TransactionHandler;
+        final transaction = handler(null);
+        final value = transaction.value;
+        if (value is Map && value.containsKey('avgScore')) {
+          gameStatsWrites.add(Map<String, dynamic>.from(value));
+        }
+        return transactionResult;
+      });
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final report = await viewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      );
+
+      expect(
+        report.resultMessage,
+        'Completed updates for 2 tippers and 1 rounds.',
+      );
+      expect(report.gameStatsChanges, hasLength(2));
+      expect(
+        report.gameStatsChanges.map((change) => change.cohortLabel),
+        containsAll(<String>['Paid', 'Free']),
+      );
+      final childSegments = verify(
+        () => database.child(captureAny()),
+      ).captured.cast<String>().toList();
+      expect(
+        _containsSubsequence(childSegments, <String>[
+          '/Stats',
+          comp.dbkey!,
+          'game_stats_v2',
+          'paid',
+          game.dbkey,
+        ]),
+        isTrue,
+      );
+      expect(
+        _containsSubsequence(childSegments, <String>[
+          '/Stats',
+          comp.dbkey!,
+          'game_stats_v2',
+          'free',
+          game.dbkey,
+        ]),
+        isTrue,
+      );
+      expect(gameStatsWrites, hasLength(2));
+      expect(
+        gameStatsWrites,
+        contains(
+          allOf(
+            containsPair('pctTipB', 1.0),
+            containsPair('avgScore', 2.0),
+            containsPair('avgScoreTipCount', 1),
+          ),
+        ),
+      );
+      expect(
+        gameStatsWrites,
+        contains(
+          allOf(
+            containsPair('pctTipD', 1.0),
+            containsPair('avgScore', 0.0),
+            containsPair('avgScoreTipCount', 1),
+          ),
+        ),
+      );
+      expect(viewModel.gameStatsEntryFor(game)?.averagePoints, 2.0);
+
+      viewModel.dispose();
+    },
+  );
+}
+
+bool _containsSubsequence(List<String> values, List<String> subsequence) {
+  var matchIndex = 0;
+  for (final value in values) {
+    if (value == subsequence[matchIndex]) {
+      matchIndex++;
+      if (matchIndex == subsequence.length) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {

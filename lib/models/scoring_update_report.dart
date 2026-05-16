@@ -141,23 +141,55 @@ class ScoringLeaderboardChange {
       beforeUps != afterUps;
 }
 
+class ScoringGameStatsChange {
+  final String gameDbKey;
+  final String gameName;
+  final bool isPaidCohort;
+  final double? beforeAveragePoints;
+  final double? afterAveragePoints;
+  final int? beforeTipCount;
+  final int? afterTipCount;
+
+  const ScoringGameStatsChange({
+    required this.gameDbKey,
+    required this.gameName,
+    required this.isPaidCohort,
+    required this.beforeAveragePoints,
+    required this.afterAveragePoints,
+    required this.beforeTipCount,
+    required this.afterTipCount,
+  });
+
+  String get cohortLabel => isPaidCohort ? 'Paid' : 'Free';
+
+  bool get hasChange =>
+      beforeAveragePoints != afterAveragePoints ||
+      beforeTipCount != afterTipCount;
+}
+
 class ScoringUpdateReport {
   final String resultMessage;
   final List<ScoringLeaderboardChange> leaderboardChanges;
   final List<ScoringRoundChange> roundChanges;
+  final List<ScoringGameStatsChange> gameStatsChanges;
 
   const ScoringUpdateReport({
     required this.resultMessage,
     required this.leaderboardChanges,
     required this.roundChanges,
+    this.gameStatsChanges = const <ScoringGameStatsChange>[],
   });
 
   bool get hasChanges =>
-      leaderboardChanges.isNotEmpty || roundChanges.isNotEmpty;
+      leaderboardChanges.isNotEmpty ||
+      roundChanges.isNotEmpty ||
+      gameStatsChanges.isNotEmpty;
 
   int get changedLeaderboardEntriesCount => leaderboardChanges.length;
 
   int get changedRoundEntriesCount => roundChanges.length;
+
+  int get changedGameStatsEntriesCount => gameStatsChanges.length;
 
   int get changedTippersCount {
     final changedTippers = <String>{};
@@ -190,6 +222,11 @@ class ScoringUpdateReport {
     if (changedRoundEntriesCount > 0) {
       parts.add(
         '$changedRoundEntriesCount round ${changedRoundEntriesCount == 1 ? 'entry' : 'entries'}',
+      );
+    }
+    if (changedGameStatsEntriesCount > 0) {
+      parts.add(
+        '$changedGameStatsEntriesCount game stat ${changedGameStatsEntriesCount == 1 ? 'entry' : 'entries'}',
       );
     }
     if (rankMoveCount > 0) {
