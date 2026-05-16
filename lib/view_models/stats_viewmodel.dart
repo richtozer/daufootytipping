@@ -952,10 +952,6 @@ class StatsViewModel extends ChangeNotifier {
     // Passive display clients only consume the stats tree. Recalculation loads
     // all tips for the comp, so keep it behind explicit owner/update paths.
     if (!forceUpdate) {
-      if (previousEntry != null) {
-        gamesStatsEntry.remove(game.dbkey);
-        notifyListeners();
-      }
       return;
     }
 

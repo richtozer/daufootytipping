@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -247,6 +248,55 @@ void main() {
       expect(
         viewModel.gameStatsEntryFor(completedGame)?.averagePointsTipCount,
         57,
+      );
+      expect(viewModel.allTipsViewModel, isNull);
+      verifyNever(() => database.runTransaction(any()));
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'getGamesStatsEntry does not remove listener-loaded stats after a missing passive read',
+    () async {
+      final readStarted = Completer<void>();
+      final completeRead = Completer<DataSnapshot>();
+      final completedGame = Game(
+        dbkey: game.dbkey,
+        league: game.league,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: DateTime.utc(2024, 4, 1, 12),
+        fixtureRoundNumber: game.fixtureRoundNumber,
+        fixtureMatchNumber: game.fixtureMatchNumber,
+        scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10),
+      );
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+
+      when(() => database.get()).thenAnswer((_) async {
+        readStarted.complete();
+        return completeRead.future;
+      });
+
+      viewModel.getGamesStatsEntry(completedGame, false);
+
+      await readStarted.future;
+      viewModel.gamesStatsEntry[completedGame.dbkey] = GameStatsEntry(
+        averagePoints: 1.25,
+        averagePointsTipCount: 1,
+      );
+      completeRead.complete(_snapshot(exists: false, value: null));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
+        1.25,
       );
       expect(viewModel.allTipsViewModel, isNull);
       verifyNever(() => database.runTransaction(any()));
