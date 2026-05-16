@@ -960,9 +960,11 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     final int? expectedTipCount = _expectedGameStatsTipCount();
-    if (expectedTipCount != null &&
-        expectedTipCount > 0 &&
-        entry.averagePointsTipCount == expectedTipCount) {
+    if (expectedTipCount == null || expectedTipCount <= 0) {
+      return false;
+    }
+
+    if (entry.averagePointsTipCount == expectedTipCount) {
       return false;
     }
 
