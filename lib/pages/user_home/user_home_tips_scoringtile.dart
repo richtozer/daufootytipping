@@ -30,6 +30,19 @@ class ScoringTileState extends State<ScoringTile> {
   @override
   void initState() {
     super.initState();
+    _requestGameStatsEntry();
+  }
+
+  @override
+  void didUpdateWidget(covariant ScoringTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.gameTipsViewModel.game.dbkey !=
+        widget.gameTipsViewModel.game.dbkey) {
+      _requestGameStatsEntry();
+    }
+  }
+
+  void _requestGameStatsEntry() {
     di<StatsViewModel>().getGamesStatsEntry(
       widget.gameTipsViewModel.game,
       false,
