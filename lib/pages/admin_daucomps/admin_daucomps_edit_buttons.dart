@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 
 class AdminDaucompsEditFixtureButton extends StatelessWidget {
   static const String webDisabledTooltip =
@@ -124,12 +127,26 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
             return;
           }
 
+          var progressDialogShown = false;
           try {
             onDisableBack(true);
             await Future.delayed(const Duration(milliseconds: 100));
             final statsViewModel = dauCompsViewModel.statsViewModel;
             if (statsViewModel == null) {
               throw StateError('statsViewModel is null');
+            }
+
+            if (context.mounted) {
+              progressDialogShown = true;
+              unawaited(
+                showDialog<void>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => _ScoringProgressDialog(
+                    statsViewModel: statsViewModel,
+                  ),
+                ),
+              );
             }
 
             final report = await statsViewModel.updateStatsWithReport(
@@ -139,6 +156,9 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
               rebuildGameStats: true,
             );
             if (context.mounted) {
+              if (progressDialogShown) {
+                Navigator.of(context, rootNavigator: true).pop();
+              }
               await showDialog<void>(
                 context: context,
                 builder: (_) => _ScoringUpdateReportDialog(report: report),
@@ -146,6 +166,9 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
             }
           } catch (e) {
             if (context.mounted) {
+              if (progressDialogShown) {
+                Navigator.of(context, rootNavigator: true).pop();
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: Colors.red,
@@ -265,6 +288,39 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
   }
 }
 
+class _ScoringProgressDialog extends StatelessWidget {
+  final StatsViewModel statsViewModel;
+
+  const _ScoringProgressDialog({required this.statsViewModel});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rescoring'),
+      content: AnimatedBuilder(
+        animation: statsViewModel,
+        builder: (context, _) {
+          final progressValue = statsViewModel.scoringProgressValue;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinearProgressIndicator(value: progressValue),
+              const SizedBox(height: 16),
+              Text(
+                statsViewModel.scoringProgressMessage ??
+                    'Preparing scoring update...',
+              ),
+              const SizedBox(height: 8),
+              const Text('Keep this screen open until the report appears.'),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 List<String> _buildLeaderboardChangeLines(ScoringLeaderboardChange change) {
   final lines = <String>[];
 
@@ -366,11 +422,6 @@ List<String> _buildGameStatsChangeLines(ScoringGameStatsChange change) {
       'Avg ${_formatNullableDouble(change.beforeAveragePoints)} -> ${_formatNullableDouble(change.afterAveragePoints)}',
     );
   }
-  if (change.beforeTipCount != change.afterTipCount) {
-    lines.add(
-      'Tip count ${_formatNullableInt(change.beforeTipCount)} -> ${_formatNullableInt(change.afterTipCount)}',
-    );
-  }
 
   return lines;
 }
@@ -428,8 +479,4 @@ String _formatMetricChange(String label, int before, int after) {
 
 String _formatNullableDouble(double? value) {
   return value == null ? 'missing' : value.toStringAsPrecision(2);
-}
-
-String _formatNullableInt(int? value) {
-  return value == null ? 'missing' : value.toString();
 }

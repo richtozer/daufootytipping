@@ -163,8 +163,7 @@ class ScoringGameStatsChange {
   String get cohortLabel => isPaidCohort ? 'Paid' : 'Free';
 
   bool get hasChange =>
-      beforeAveragePoints != afterAveragePoints ||
-      beforeTipCount != afterTipCount;
+      beforeAveragePoints != null && beforeAveragePoints != afterAveragePoints;
 }
 
 class ScoringUpdateReport {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_buttons.dart';
@@ -31,6 +33,10 @@ void main() {
     when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
     when(() => dauCompsViewModel.isDownloading).thenReturn(false);
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
+    when(() => statsViewModel.scoringProgressMessage).thenReturn(null);
+    when(() => statsViewModel.scoringProgressValue).thenReturn(null);
+    when(() => statsViewModel.addListener(any())).thenReturn(null);
+    when(() => statsViewModel.removeListener(any())).thenReturn(null);
     when(
       () => statsViewModel.updateStatsWithReport(
         comp,
@@ -174,6 +180,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(disableBackStates.last, false);
+  });
+
+  testWidgets('shows progress dialog while manual rescore is running', (
+    tester,
+  ) async {
+    final reportCompleter = Completer<ScoringUpdateReport>();
+    when(() => statsViewModel.scoringProgressMessage).thenReturn(
+      'Rebuilding game averages 3/10...',
+    );
+    when(() => statsViewModel.scoringProgressValue).thenReturn(0.3);
+    when(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).thenAnswer((_) => reportCompleter.future);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Rescore'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump();
+
+    expect(find.text('Rescoring'), findsOneWidget);
+    expect(find.text('Rebuilding game averages 3/10...'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    reportCompleter.complete(
+      const ScoringUpdateReport(
+        resultMessage: 'Completed updates for 0 tippers and 0 rounds.',
+        leaderboardChanges: <ScoringLeaderboardChange>[],
+        roundChanges: <ScoringRoundChange>[],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rescore complete'), findsOneWidget);
   });
 
   testWidgets('shows the no-changes wording once', (tester) async {

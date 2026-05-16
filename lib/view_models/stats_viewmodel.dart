@@ -64,6 +64,10 @@ class StatsViewModel extends ChangeNotifier {
 
   bool _isUpdateScoringRunning = false;
   bool get isUpdateScoringRunning => _isUpdateScoringRunning;
+  String? _scoringProgressMessage;
+  String? get scoringProgressMessage => _scoringProgressMessage;
+  double? _scoringProgressValue;
+  double? get scoringProgressValue => _scoringProgressValue;
 
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
   Future<void> get initialLiveScoreLoadComplete =>
@@ -488,6 +492,7 @@ class StatsViewModel extends ChangeNotifier {
       _lastGameStatsChanges.clear();
 
       try {
+        _setScoringProgress('Preparing scoring update...', null);
         if (!_initialRoundPointsLoadCompleted.isCompleted) {
           try {
             await _initialRoundPointsLoadCompleted.future;
@@ -500,7 +505,7 @@ class StatsViewModel extends ChangeNotifier {
         }
 
         _isUpdateScoringRunning = true;
-        notifyListeners();
+        _setScoringProgress('Loading tippers...', null);
 
         _logEventScoringInitiated(
           'scoring_initiated',
@@ -526,7 +531,7 @@ class StatsViewModel extends ChangeNotifier {
           );
 
           _isUpdateScoringRunning = false;
-          notifyListeners();
+          _setScoringProgress(null, null);
           _updateStatsInProgress = null;
           completer.complete(skipReason);
           return;
@@ -543,6 +548,7 @@ class StatsViewModel extends ChangeNotifier {
 
         // Prep tips
         if (onlyUpdateThisTipper == null) {
+          _setScoringProgress('Loading all tips...', null);
           allTipsViewModel ??= TipsViewModel(
             di<TippersViewModel>(),
             daucompToUpdate,
@@ -586,6 +592,10 @@ class StatsViewModel extends ChangeNotifier {
         await _ensureRoundsHaveGames(dauRoundsEdited);
 
         for (DAURound dauRound in dauRoundsEdited) {
+          _setScoringProgress(
+            'Calculating round ${dauRound.dAUroundNumber}...',
+            null,
+          );
           if (onlyUpdateThisTipper == null) {
             await _calculateRoundStats(
               tippersToUpdate,
@@ -601,6 +611,7 @@ class StatsViewModel extends ChangeNotifier {
           }
         }
 
+        _setScoringProgress('Writing round points...', null);
         await _writeScopedRoundPointsToDb(
           dauRoundsEdited,
           tippersToUpdate,
@@ -628,7 +639,7 @@ class StatsViewModel extends ChangeNotifier {
           onlyUpdateThisTipper,
         );
         _isUpdateScoringRunning = false;
-        notifyListeners();
+        _setScoringProgress(null, null);
         _updateStatsInProgress = null;
         stopwatch.stop();
         log('StatsViewModel.updateStats() completed in ${stopwatch.elapsed}');
@@ -657,6 +668,12 @@ class StatsViewModel extends ChangeNotifier {
           .where((game) => game.league == League.afl)
           .length;
     }
+  }
+
+  void _setScoringProgress(String? message, double? value) {
+    _scoringProgressMessage = message;
+    _scoringProgressValue = value;
+    notifyListeners();
   }
 
   void _logEventScoringInitiated(
@@ -1057,30 +1074,107 @@ class StatsViewModel extends ChangeNotifier {
     final gamesToRebuild = <String, Game>{};
     for (final round in roundsToUpdate) {
       for (final game in round.games) {
-        gamesToRebuild[game.dbkey] = game;
+        if (_hasKnownGameResult(game)) {
+          gamesToRebuild[game.dbkey] = game;
+        }
       }
     }
 
+    if (gamesToRebuild.isEmpty) {
+      _setScoringProgress('No completed games need average rebuild.', null);
+      return;
+    }
+
+    _setScoringProgress('Loading existing game averages...', null);
+    final existingStats = await _loadExistingGameStats(daucompToUpdate);
+    final updates = <String, Object?>{};
+    var processedGames = 0;
+
     for (final game in gamesToRebuild.values) {
-      final paidChange = await _updateGameResultPercentageTipped(
-        game,
-        allTipsViewModel!,
-        daucompToUpdate,
-        true,
+      processedGames++;
+      _setScoringProgress(
+        'Rebuilding game averages $processedGames/${gamesToRebuild.length}...',
+        processedGames / gamesToRebuild.length,
       );
-      if (paidChange != null) {
-        _lastGameStatsChanges.add(paidChange);
-      }
-      final freeChange = await _updateGameResultPercentageTipped(
-        game,
-        allTipsViewModel!,
-        daucompToUpdate,
-        false,
-      );
-      if (freeChange != null) {
-        _lastGameStatsChanges.add(freeChange);
+
+      for (final isPaidCohort in <bool>[true, false]) {
+        final cohortKey = isPaidCohort ? 'paid' : 'free';
+        final gameStatsEntry = await allTipsViewModel!
+            .percentageOfTippersTippedForPaidStatus(game, isPaidCohort);
+        final before = existingStats[cohortKey]?[game.dbkey];
+        if (before == gameStatsEntry) {
+          continue;
+        }
+
+        updates['$cohortKey/${game.dbkey}'] = gameStatsEntry.toJson();
+        if (isPaidCohort == _selectedTipperPaidUpMember()) {
+          gamesStatsEntry[game.dbkey] = gameStatsEntry;
+        }
+        final change = _buildGameStatsChange(
+          game,
+          isPaidCohort,
+          before,
+          gameStatsEntry,
+        );
+        if (change.hasChange) {
+          _lastGameStatsChanges.add(change);
+        }
       }
     }
+
+    if (updates.isEmpty) {
+      _setScoringProgress('Game averages already up to date.', 1);
+      return;
+    }
+
+    _setScoringProgress('Writing ${updates.length} game average updates...', 1);
+    await _db
+        .child(statsPathRootLocal)
+        .child(daucompToUpdate.dbkey!)
+        .child(gameStatsRoot)
+        .update(updates);
+  }
+
+  bool _hasKnownGameResult(Game game) {
+    final scoring = game.scoring;
+    if (scoring == null) {
+      return false;
+    }
+    return scoring.getGameResultCalculated(game.league) != GameResult.z;
+  }
+
+  Future<Map<String, Map<String, GameStatsEntry>>> _loadExistingGameStats(
+    DAUComp daucompToUpdate,
+  ) async {
+    final snapshot = await _db
+        .child(statsPathRootLocal)
+        .child(daucompToUpdate.dbkey!)
+        .child(gameStatsRoot)
+        .get();
+    final result = <String, Map<String, GameStatsEntry>>{
+      'paid': <String, GameStatsEntry>{},
+      'free': <String, GameStatsEntry>{},
+    };
+    if (!snapshot.exists || snapshot.value is! Map) {
+      return result;
+    }
+
+    final rawRoot = Map<String, dynamic>.from(snapshot.value as Map);
+    for (final cohortKey in <String>['paid', 'free']) {
+      final rawCohort = rawRoot[cohortKey];
+      if (rawCohort is! Map) {
+        continue;
+      }
+      for (final entry in rawCohort.entries) {
+        final value = entry.value;
+        if (value is Map) {
+          result[cohortKey]![entry.key as String] = GameStatsEntry.fromJson(
+            Map<String, dynamic>.from(value),
+          );
+        }
+      }
+    }
+    return result;
   }
 
   bool _selectedTipperPaidUpMember() {
