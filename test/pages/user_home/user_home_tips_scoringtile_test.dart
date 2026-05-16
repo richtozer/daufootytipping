@@ -194,7 +194,7 @@ void main() {
       submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
     );
 
-    statsViewModel.gamesStatsEntry[game] = GameStatsEntry(
+    statsViewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry(
       averagePoints: 0.0,
       averagePointsTipCount: 57,
     );

@@ -396,8 +396,8 @@ class StatsViewModel extends ChangeNotifier {
           continue;
         }
 
-        final previousEntry = gamesStatsEntry[game];
-        gamesStatsEntry[game] = gameStatsEntry;
+        final previousEntry = gamesStatsEntry[game.dbkey];
+        gamesStatsEntry[game.dbkey] = gameStatsEntry;
         if (previousEntry != gameStatsEntry) {
           changed = true;
         }
@@ -862,21 +862,10 @@ class StatsViewModel extends ChangeNotifier {
     return roundLeaderboard;
   }
 
-  final Map<Game, GameStatsEntry> gamesStatsEntry = {};
+  final Map<String, GameStatsEntry> gamesStatsEntry = {};
 
   GameStatsEntry? gameStatsEntryFor(Game game) {
-    final directEntry = gamesStatsEntry[game];
-    if (directEntry != null) {
-      return directEntry;
-    }
-
-    for (final entry in gamesStatsEntry.entries) {
-      if (entry.key.dbkey == game.dbkey) {
-        return entry.value;
-      }
-    }
-
-    return null;
+    return gamesStatsEntry[game.dbkey];
   }
 
   void getGamesStatsEntry(Game game, bool forceUpdate) async {
@@ -907,12 +896,12 @@ class StatsViewModel extends ChangeNotifier {
       }
       rethrow;
     }
-    final GameStatsEntry? previousEntry = gamesStatsEntry[game];
+    final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 
     // If the DB had a valid entry and we're not forcing, notify only if the
     // value actually changed (avoids redundant rebuilds).
     if (_canUseCachedGameStatsEntry(game, dbEntry, forceUpdate)) {
-      gamesStatsEntry[game] = dbEntry;
+      gamesStatsEntry[game.dbkey] = dbEntry;
       if (previousEntry != dbEntry) {
         notifyListeners();
       }
@@ -923,7 +912,7 @@ class StatsViewModel extends ChangeNotifier {
     // all tips for the comp, so keep it behind explicit owner/update paths.
     if (!forceUpdate) {
       if (previousEntry != null) {
-        gamesStatsEntry.remove(game);
+        gamesStatsEntry.remove(game.dbkey);
         notifyListeners();
       }
       return;
@@ -1013,12 +1002,13 @@ class StatsViewModel extends ChangeNotifier {
     TipsViewModel allTipsViewModel,
     DAUComp daucompToUpdate,
   ) async {
-    gamesStatsEntry[gameToCalculateFor] = await allTipsViewModel
+    final gameStatsEntry = await allTipsViewModel
         .percentageOfTippersTipped(gameToCalculateFor);
+    gamesStatsEntry[gameToCalculateFor.dbkey] = gameStatsEntry;
 
     await _updateGameStatsIfChanged(
       gameToCalculateFor,
-      gamesStatsEntry[gameToCalculateFor]!,
+      gameStatsEntry,
       daucompToUpdate,
     );
   }

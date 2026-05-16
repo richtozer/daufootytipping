@@ -465,7 +465,7 @@ class _GameListItemState extends State<GameListItem> {
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
     return Selector<StatsViewModel?, GameStatsEntry?>(
       selector: (_, statsViewModel) =>
-          statsViewModel?.gamesStatsEntry[gameTipsViewModelConsumer.game],
+          statsViewModel?.gameStatsEntryFor(gameTipsViewModelConsumer.game),
       builder: (context, gameStatsEntry, child) {
         return _PercentStatsTipChoice(
           gameTipViewModel: gameTipsViewModelConsumer,
