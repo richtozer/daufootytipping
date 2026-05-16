@@ -300,7 +300,7 @@ void main() {
         ),
       );
 
-      expect(viewModel.gamesStatsEntry[activeGame], isNull);
+      expect(viewModel.gameStatsEntryFor(activeGame), isNull);
       expect(viewModel.allTipsViewModel, isNull);
 
       viewModel.dispose();
@@ -384,8 +384,8 @@ void main() {
         ),
       );
 
-      expect(viewModel.gamesStatsEntry[activeGame]?.averagePoints, 2.0);
-      expect(viewModel.gamesStatsEntry[activeGame]?.averagePointsTipCount, 1);
+      expect(viewModel.gameStatsEntryFor(activeGame)?.averagePoints, 2.0);
+      expect(viewModel.gameStatsEntryFor(activeGame)?.averagePointsTipCount, 1);
 
       viewModel.dispose();
     },

@@ -174,7 +174,7 @@ void main() {
       await staleZeroRead.future;
       await Future<void>.delayed(Duration.zero);
 
-      expect(viewModel.gamesStatsEntry[completedGame], isNull);
+      expect(viewModel.gameStatsEntryFor(completedGame), isNull);
       expect(viewModel.allTipsViewModel, isNull);
       verifyNever(() => database.runTransaction(any()));
 
@@ -241,11 +241,11 @@ void main() {
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averagePoints,
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
         0.0,
       );
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averagePointsTipCount,
+        viewModel.gameStatsEntryFor(completedGame)?.averagePointsTipCount,
         57,
       );
       expect(viewModel.allTipsViewModel, isNull);
@@ -332,7 +332,7 @@ void main() {
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averagePoints,
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
         2.0,
       );
 
@@ -391,7 +391,7 @@ void main() {
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averagePoints,
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
         0.0,
       );
       expect(viewModel.allTipsViewModel, isNull);
