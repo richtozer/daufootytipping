@@ -130,7 +130,7 @@ void main() {
     );
   });
 
-  testWidgets('shows all admin update steps selected by default', (
+  testWidgets('shows manual repair steps with fixture download off by default', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -151,10 +151,16 @@ void main() {
 
     expect(find.text('Run admin updates'), findsOneWidget);
     expect(
+      find.text(
+        'Fixture downloads and scoring updates are normally handled automatically. Use these manual repair steps only when you see fixture, scoring, or average point issues.',
+      ),
+      findsOneWidget,
+    );
+    expect(
       tester.widget<CheckboxListTile>(
         find.widgetWithText(CheckboxListTile, 'Download fixtures'),
       ).value,
-      isTrue,
+      isFalse,
     );
     expect(
       tester.widget<CheckboxListTile>(
@@ -197,7 +203,7 @@ void main() {
 
     expect(disableBackStates, contains(true));
     expect(find.text('Rescore complete'), findsOneWidget);
-    expect(find.text('Fixture download: Fixture download complete.'), findsOneWidget);
+    expect(find.text('Fixture download: Fixture download complete.'), findsNothing);
     expect(find.text('Leaderboard changes'), findsOneWidget);
     expect(find.text('Round point changes'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
@@ -213,9 +219,7 @@ void main() {
     expect(find.textContaining('Rounds won 0 -> 0'), findsNothing);
     expect(find.textContaining('UPS 1 -> 1'), findsNothing);
     expect(find.textContaining('Total 2 -> 2'), findsNothing);
-    verify(
-      () => dauCompsViewModel.getNetworkFixtureData(comp),
-    ).called(1);
+    verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
     verify(
       () => statsViewModel.updateStatsWithReport(
         comp,
@@ -231,7 +235,7 @@ void main() {
     expect(disableBackStates.last, false);
   });
 
-  testWidgets('can turn off fixture download before running admin update', (
+  testWidgets('can turn on fixture download before running admin update', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -256,7 +260,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pumpAndSettle();
 
-    verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
+    verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
     verify(
       () => statsViewModel.updateStatsWithReport(
         comp,
