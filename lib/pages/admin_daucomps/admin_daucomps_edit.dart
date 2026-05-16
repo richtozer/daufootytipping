@@ -373,24 +373,14 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     if (widget.daucomp != null)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          AdminDaucompsEditFixtureButton(
-                            dauCompsViewModel: dauCompsViewModelConsumer,
-                            daucomp: widget.daucomp,
-                            setStateCallback: (fn) => setState(fn),
-                            onDisableBack: (bool disabled) =>
-                                setState(() => disableBack = disabled),
-                          ),
-                          AdminDaucompsEditScoringButton(
-                            dauCompsViewModel: dauCompsViewModelConsumer,
-                            daucomp: widget.daucomp,
-                            setStateCallback: (fn) => setState(fn),
-                            onDisableBack: (bool disabled) =>
-                                setState(() => disableBack = disabled),
-                          ),
-                        ],
+                      Center(
+                        child: AdminDaucompsEditScoringButton(
+                          dauCompsViewModel: dauCompsViewModelConsumer,
+                          daucomp: widget.daucomp,
+                          setStateCallback: (fn) => setState(fn),
+                          onDisableBack: (bool disabled) =>
+                              setState(() => disableBack = disabled),
+                        ),
                       ),
                     AdminDaucompsEditForm(
                       formKey: _formKey,
