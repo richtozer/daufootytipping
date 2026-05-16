@@ -27,6 +27,7 @@ class _CachedCrossCompTip {
 
 class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
+  Map<String, Map<String, Tip>>? _tipsByGameAndTipper;
   final DatabaseReference _db;
   StreamSubscription<DatabaseEvent>? _tipsStream;
 
@@ -180,6 +181,7 @@ class TipsViewModel extends ChangeNotifier {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
       }
     } finally {
+      _tipsByGameAndTipper = null;
       _crossCompTipCache.clear();
       if (!_initialLoadCompleter.isCompleted) {
         _completeInitialLoadIfNeeded();
@@ -279,12 +281,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<Tip?> findTip(Game game, Tipper tipper) async {
     await initialLoadCompleted;
 
-    Tip? foundTip = _listOfTips.firstWhereOrNull(
-      (tip) =>
-          tip != null &&
-          _matchesGame(tip.game, game) &&
-          tip.tipper.dbkey == tipper.dbkey,
-    );
+    Tip? foundTip = _tipsForGameByTipper(game)[tipper.dbkey];
 
     if (foundTip != null) {
       foundTip = _rebindTipToCurrentGame(foundTip, game);
@@ -293,6 +290,27 @@ class TipsViewModel extends ChangeNotifier {
     foundTip ??= _defaultTipIfGameStarted(game, tipper);
 
     return foundTip;
+  }
+
+  Map<String, Tip> _tipsForGameByTipper(Game game) {
+    _tipsByGameAndTipper ??= _buildTipsByGameAndTipper();
+    return _tipsByGameAndTipper![_gameTipCacheKey(game)] ?? const {};
+  }
+
+  Map<String, Map<String, Tip>> _buildTipsByGameAndTipper() {
+    final index = <String, Map<String, Tip>>{};
+    for (final tip in _listOfTips) {
+      if (tip == null || tip.tipper.dbkey == null) {
+        continue;
+      }
+      final gameKey = _gameTipCacheKey(tip.game);
+      index.putIfAbsent(gameKey, () => <String, Tip>{})[tip.tipper.dbkey!] = tip;
+    }
+    return index;
+  }
+
+  String _gameTipCacheKey(Game game) {
+    return '${game.dbkey}|${game.startTimeUTC.toUtc().millisecondsSinceEpoch}|${game.homeTeam.dbkey}|${game.awayTeam.dbkey}';
   }
 
   bool _gameBelongsToComp(Game game, DAUComp dauComp) {
@@ -617,6 +635,7 @@ class TipsViewModel extends ChangeNotifier {
   @visibleForTesting
   void setTipsForTest(List<Tip?> tips) {
     _listOfTips = List<Tip?>.from(tips);
+    _tipsByGameAndTipper = null;
     _completeInitialLoadIfNeeded();
   }
 
