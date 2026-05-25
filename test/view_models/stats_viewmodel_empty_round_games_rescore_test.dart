@@ -1,6 +1,7 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -104,6 +105,7 @@ void main() {
     when(
       () => database.get(),
     ).thenAnswer((_) async => _snapshot(exists: false, value: null));
+    when(() => database.set(any())).thenAnswer((_) async {});
     when(() => transactionResult.committed).thenReturn(true);
 
     when(() => gamesViewModel.addListener(any())).thenReturn(null);
@@ -367,6 +369,227 @@ void main() {
 
       expect(gameStatsUpdates, isNotNull);
       expect(report.gameStatsChanges, isEmpty);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'completed games without official fixture scores do not write aggregate stats',
+    () async {
+      final auditWrites = <Map<String, Object?>>[];
+      final liveScoredGame = Game(
+        dbkey: 'nrl-01-002',
+        league: League.nrl,
+        homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
+        awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
+        location: 'Stadium',
+        startTimeUTC: DateTime.utc(2024, 4, 1, 10),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 2,
+        scoring: Scoring(
+          crowdSourcedScores: <CrowdSourcedScore>[
+            CrowdSourcedScore(
+              DateTime.utc(2024, 4, 1, 12),
+              ScoringTeam.home,
+              alice.dbkey!,
+              20,
+              false,
+            ),
+            CrowdSourcedScore(
+              DateTime.utc(2024, 4, 1, 12),
+              ScoringTeam.away,
+              alice.dbkey!,
+              10,
+              false,
+            ),
+          ],
+        ),
+      );
+      round.games = <Game>[liveScoredGame];
+      when(
+        () => gamesViewModel.getGamesForRound(round),
+      ).thenAnswer((_) async => <Game>[liveScoredGame]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: liveScoredGame.dbkey,
+          game: liveScoredGame,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      when(() => database.set(any())).thenAnswer((invocation) async {
+        auditWrites.add(
+          Map<String, Object?>.from(invocation.positionalArguments.single as Map),
+        );
+      });
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final result = await viewModel.updateStats(comp, null, null);
+
+      expect(
+        result,
+        startsWith(
+          'Skipped: completed game(s) are missing official fixture scores',
+        ),
+      );
+      verifyNever(() => database.runTransaction(any()));
+      expect(auditWrites, hasLength(1));
+      expect(
+        auditWrites.single,
+        containsPair('event', 'scoring_skipped_stale_sources'),
+      );
+      expect(
+        auditWrites.single['blockedGames'],
+        isA<List>().having((games) => games.length, 'length', 1),
+      );
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'league-specific grace periods are enforced correctly (AFL 4h, NRL 3h)',
+    () async {
+      final now = DateTime.now().toUtc();
+
+      // Case 1: AFL game started 3h 50m ago (within 4h grace period) -> allowed
+      final aflGameWithin = Game(
+        dbkey: 'afl-game-within',
+        league: League.afl,
+        homeTeam: Team(dbkey: 'afl-home', name: 'Home', league: League.afl),
+        awayTeam: Team(dbkey: 'afl-away', name: 'Away', league: League.afl),
+        location: 'Stadium',
+        startTimeUTC: now.subtract(const Duration(hours: 3, minutes: 50)),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 1,
+        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
+      );
+
+      // Case 2: AFL game started 4h 10m ago (outside 4h grace period) -> blocked
+      final aflGameOutside = Game(
+        dbkey: 'afl-game-outside',
+        league: League.afl,
+        homeTeam: Team(dbkey: 'afl-home', name: 'Home', league: League.afl),
+        awayTeam: Team(dbkey: 'afl-away', name: 'Away', league: League.afl),
+        location: 'Stadium',
+        startTimeUTC: now.subtract(const Duration(hours: 4, minutes: 10)),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 2,
+        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
+      );
+
+      // Case 3: NRL game started 2h 50m ago (within 3h grace period) -> allowed
+      final nrlGameWithin = Game(
+        dbkey: 'nrl-game-within',
+        league: League.nrl,
+        homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
+        awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
+        location: 'Stadium',
+        startTimeUTC: now.subtract(const Duration(hours: 2, minutes: 50)),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 3,
+        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
+      );
+
+      // Case 4: NRL game started 3h 10m ago (outside 3h grace period) -> blocked
+      final nrlGameOutside = Game(
+        dbkey: 'nrl-game-outside',
+        league: League.nrl,
+        homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
+        awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
+        location: 'Stadium',
+        startTimeUTC: now.subtract(const Duration(hours: 3, minutes: 10)),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 4,
+        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
+      );
+
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      expect(viewModel.gracePeriodFor(League.afl), const Duration(hours: 4));
+      expect(viewModel.gracePeriodFor(League.nrl), const Duration(hours: 3));
+
+      // Test AFL Within
+      round.games = <Game>[aflGameWithin];
+      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[aflGameWithin]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: aflGameWithin.dbkey,
+          game: aflGameWithin,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
+        ),
+      ]);
+      var result = await viewModel.updateStats(comp, null, null);
+      expect(result, isNot(startsWith('Skipped:')));
+
+      // Test AFL Outside
+      round.games = <Game>[aflGameOutside];
+      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[aflGameOutside]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: aflGameOutside.dbkey,
+          game: aflGameOutside,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
+        ),
+      ]);
+      result = await viewModel.updateStats(comp, null, null);
+      expect(result, startsWith('Skipped: completed game(s) are missing official fixture scores'));
+
+      // Test NRL Within
+      round.games = <Game>[nrlGameWithin];
+      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[nrlGameWithin]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: nrlGameWithin.dbkey,
+          game: nrlGameWithin,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
+        ),
+      ]);
+      result = await viewModel.updateStats(comp, null, null);
+      expect(result, isNot(startsWith('Skipped:')));
+
+      // Test NRL Outside
+      round.games = <Game>[nrlGameOutside];
+      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[nrlGameOutside]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: nrlGameOutside.dbkey,
+          game: nrlGameOutside,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
+        ),
+      ]);
+      result = await viewModel.updateStats(comp, null, null);
+      expect(result, startsWith('Skipped: completed game(s) are missing official fixture scores'));
 
       viewModel.dispose();
     },
