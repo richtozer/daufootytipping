@@ -633,6 +633,20 @@ class DAUCompsViewModel extends ChangeNotifier {
     return _daucomps.firstWhereOrNull((daucomp) => daucomp.dbkey == compDbKey);
   }
 
+  Future<List<DAUComp>> resolveCompsList(List compDbKeys) async {
+    await initialDAUCompLoadComplete;
+    List<DAUComp> daucompList = [];
+    for (var compDbKey in compDbKeys) {
+      final DAUComp? daucomp = await findComp(compDbKey);
+      if (daucomp == null) {
+        log('DAUCompsViewModel.resolveCompsList: compDbKey not found: $compDbKey');
+      } else if (daucomp.dbkey == compDbKey) {
+        daucompList.add(daucomp);
+      }
+    }
+    return daucompList;
+  }
+
   void updateRoundAttribute(
     String dauCompDbKey,
     int roundNumber,

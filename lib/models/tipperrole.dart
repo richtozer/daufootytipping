@@ -1,2 +1,1 @@
-// TipperRole
-enum TipperRole { admin, tipper }
+export 'package:dau_shared/models/tipperrole.dart';

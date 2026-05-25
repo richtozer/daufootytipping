@@ -28,6 +28,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
+import 'package:dau_shared/services/scoring_calculator.dart';
 
 // Define constants for Firestore database locations
 const String statsFormatVersion = 'v2';
@@ -2106,104 +2107,22 @@ class StatsViewModel extends ChangeNotifier {
       _allTipperRoundStats[dauRound.dAUroundNumber - 1] = {};
     }
 
-    //reset all stats for the tipper
-    _allTipperRoundStats[dauRound.dAUroundNumber -
-        1]![tipperToScore] = RoundStats(
-      roundNumber: dauRound.dAUroundNumber,
-      aflPoints: 0,
-      nrlPoints: 0,
-      aflMaxPoints: 0,
-      nrlMaxPoints: 0,
-      aflMarginTips: 0,
-      nrlMarginTips: 0,
-      aflMarginUPS: 0,
-      nrlMarginUPS: 0,
-      aflTipsOutstanding: 0,
-      nrlTipsOutstanding: 0,
-      rank: 0,
-      rankChange: 0,
-    );
-
-    assert(
-      _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore] != null,
-    );
-
+    final Map<String, Tip> tipsByGameKey = {};
     for (var game in dauRound.games) {
       Tip? tip = await allTipsViewModel.findTip(game, tipperToScore);
-
-      if (tip == null) {
-        // keep track of tips outstanding
-        if (game.league == League.afl) {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-              .aflTipsOutstanding++;
-        } else {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-              .nrlTipsOutstanding++;
-        }
-        continue;
-      }
-
-      // count margin tips regardless of round state
-
-      int marginTip = (tip.tip == GameResult.a || tip.tip == GameResult.e)
-          ? 1
-          : 0;
-
-      if (tip.game.league == League.afl) {
-        _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-                .aflMarginTips +=
-            marginTip;
-      } else {
-        _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]!
-                .nrlMarginTips +=
-            marginTip;
-      }
-
-      if (tip.game.gameState != GameState.notStarted &&
-          tip.game.gameState != GameState.startingSoon) {
-        int points = tip.getTipPointsCalculated();
-        int maxPoints = tip.getMaxPointsCalculated();
-
-        if (game.league == League.afl) {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.aflPoints +=
-              points;
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.aflMaxPoints +=
-              maxPoints;
-        } else {
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.nrlPoints +=
-              points;
-          _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                  ?.nrlMaxPoints +=
-              maxPoints;
-        }
-
-        int marginUPS = 0;
-        if (tip.game.scoring != null) {
-          marginUPS =
-              (tip.game.scoring!.getGameResultCalculated(game.league) ==
-                          GameResult.a &&
-                      tip.tip == GameResult.a) ||
-                  (tip.game.scoring!.getGameResultCalculated(game.league) ==
-                          GameResult.e &&
-                      tip.tip == GameResult.e)
-              ? 1
-              : 0;
-
-          if (tip.game.league == League.afl) {
-            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                    ?.aflMarginUPS +=
-                marginUPS;
-          } else {
-            _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore]
-                    ?.nrlMarginUPS +=
-                marginUPS;
-          }
-        }
+      if (tip != null) {
+        tipsByGameKey[game.dbkey] = tip;
       }
     }
+
+    final stats = ScoringCalculator.calculateRoundStatsForTipper(
+      roundNumber: dauRound.dAUroundNumber,
+      games: dauRound.games,
+      tipsByGameKey: tipsByGameKey,
+      now: DateTime.now().toUtc(),
+    );
+
+    _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore] = stats;
   }
 
   Future<void> _calculateRoundStats(

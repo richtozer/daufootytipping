@@ -1,0 +1,14 @@
+name: dau_shared
+description: Pure-Dart shared models, constants, and calculators for DAU Footy Tipping.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+
+dependencies:
+  collection: ^1.18.0
+  intl: ^0.20.2
+
+dev_dependencies:
+  test: ^1.25.15
