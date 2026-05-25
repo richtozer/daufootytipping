@@ -493,38 +493,40 @@ class DAUCompsViewModel extends ChangeNotifier {
       return message;
     }
 
+    String? cloudFunctionsBaseURL;
     try {
       final configEvent = await _db.child('$configPathRoot/$cloudFunctionsBaseURLKey').once();
-      final String? cloudFunctionsBaseURL = configEvent.snapshot.value as String?;
-      if (cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
-        log('DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...');
-        _isDownloading = true;
-        notifyListeners();
-        try {
-          final String functionUrl = cloudFunctionsBaseURL.endsWith('/')
-              ? '${cloudFunctionsBaseURL}admin-fixture-download'
-              : '$cloudFunctionsBaseURL/admin-fixture-download';
-          final callable = FirebaseFunctions.instance.httpsCallableFromUrl(
-            functionUrl,
-            options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
-          );
-          final result = await callable.call(<String, dynamic>{
-            'compKey': daucompToUpdate.dbkey,
-          });
-          final resultData = result.data as Map;
-          final String message = resultData['message'] ?? 'Successfully updated fixtures via Cloud Function';
-          log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
-          return message;
-        } finally {
-          _isDownloading = false;
-          notifyListeners();
-        }
-      }
+      cloudFunctionsBaseURL = configEvent.snapshot.value as String?;
     } catch (e, stackTrace) {
-      log('DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e. Falling back to local execution.', error: e, stackTrace: stackTrace);
-      if (e is FirebaseFunctionsException &&
-          (e.code == 'unauthenticated' || e.code == 'permission-denied')) {
+      log('DAUCompsViewModel_getNetworkFixtureData: Failed to read cloudFunctionsBaseURL: $e. Falling back to local execution.', error: e, stackTrace: stackTrace);
+      cloudFunctionsBaseURL = null;
+    }
+
+    if (cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
+      log('DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...');
+      _isDownloading = true;
+      notifyListeners();
+      try {
+        final String functionUrl = cloudFunctionsBaseURL.endsWith('/')
+            ? '${cloudFunctionsBaseURL}admin-fixture-download'
+            : '$cloudFunctionsBaseURL/admin-fixture-download';
+        final callable = FirebaseFunctions.instance.httpsCallableFromUrl(
+          functionUrl,
+          options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
+        );
+        final result = await callable.call(<String, dynamic>{
+          'compKey': daucompToUpdate.dbkey,
+        });
+        final resultData = result.data as Map;
+        final String message = resultData['message'] ?? 'Successfully updated fixtures via Cloud Function';
+        log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
+        return message;
+      } catch (e, stackTrace) {
+        log('DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e.', error: e, stackTrace: stackTrace);
         rethrow;
+      } finally {
+        _isDownloading = false;
+        notifyListeners();
       }
     }
 

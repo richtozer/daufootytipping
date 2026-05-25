@@ -1,14 +1,18 @@
 import 'package:test/test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
-import 'package:firebase_admin/src/database.dart';
 import 'package:firebase_dart/database.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import '../bin/server.dart';
 
-class MockDatabase extends Mock implements Database {}
+class MockDatabase extends Mock {
+  DatabaseReference ref([String? path]) => noSuchMethod(
+        Invocation.method(#ref, [path]),
+      ) as DatabaseReference;
+}
 class MockDatabaseReference extends Mock implements DatabaseReference {}
 class MockDataSnapshot extends Mock implements DataSnapshot {}
+class MockTransactionResult extends Mock implements TransactionResult {}
 
 void main() {
   late MockDatabase mockDb;
@@ -106,12 +110,23 @@ void main() {
       });
 
       final mockLockRef = MockDatabaseReference();
-      final mockLockSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
-      when(() => mockLockRef.once()).thenAnswer((_) async => mockLockSnapshot);
       
       final lockTime = DateTime.now().toUtc();
-      when(() => mockLockSnapshot.value).thenReturn(lockTime.toIso8601String()); // Lock is active
+      final mockTransactionResult = MockTransactionResult();
+      when(() => mockTransactionResult.committed).thenReturn(false);
+
+      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
+        final handler = invocation.positionalArguments[0] as TransactionHandler;
+        final mutableData = MutableData('downloadLock', lockTime.toIso8601String());
+        final result = await handler(mutableData);
+        if (result == null) {
+          return mockTransactionResult;
+        }
+        final successResult = MockTransactionResult();
+        when(() => successResult.committed).thenReturn(true);
+        return successResult;
+      });
 
       expect(
         executeFixtureDownload(
@@ -151,10 +166,20 @@ void main() {
       });
 
       final mockLockRef = MockDatabaseReference();
-      final mockLockSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
-      when(() => mockLockRef.once()).thenAnswer((_) async => mockLockSnapshot);
-      when(() => mockLockSnapshot.value).thenReturn(null); // No lock
+      final mockTransactionResult = MockTransactionResult();
+      when(() => mockTransactionResult.committed).thenReturn(true);
+      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
+        final handler = invocation.positionalArguments[0] as TransactionHandler;
+        final mutableData = MutableData('downloadLock', null);
+        final result = await handler(mutableData);
+        if (result == null) {
+          final abortResult = MockTransactionResult();
+          when(() => abortResult.committed).thenReturn(false);
+          return abortResult;
+        }
+        return mockTransactionResult;
+      });
       when(() => mockLockRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
 
       final mockStatusRef = MockDatabaseReference();
@@ -220,7 +245,7 @@ void main() {
       expect(resultMsg, contains('Found 1 NRL games and 1 AFL games'));
 
       // Verify that lock was acquired and then released
-      verify(() => mockLockRef.set(any(that: isA<String>()), priority: any(named: 'priority'))).called(1);
+      verify(() => mockLockRef.runTransaction(any())).called(1);
       verify(() => mockLockRef.set(null, priority: any(named: 'priority'))).called(1);
 
       // Verify status transitions

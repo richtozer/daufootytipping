@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
-import 'package:firebase_admin/src/database.dart';
 import 'package:firebase_dart/database.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dau_shared/dau_shared.dart';
@@ -66,7 +65,7 @@ void main(List<String> args) async {
 Future<String> executeFixtureDownload({
   required String authUid,
   required String compKey,
-  required Database db,
+  required dynamic db,
   required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
   required DateTime now,
 }) async {
@@ -116,38 +115,50 @@ Future<String> executeFixtureDownload({
 
   final comp = DAUComp.fromJson(compData, compKey, dauroundsList);
 
-  // 6. Attempt to acquire distributed download lock (with 24h TTL)
+  // 6. Attempt to acquire distributed download lock (with 24h TTL) using a transaction
   final DatabaseReference lockRef = db.ref('/AllDAUComps/$compKey/downloadLock');
-  final DataSnapshot lockSnapshot = await lockRef.once();
-  if (lockSnapshot.value != null) {
-    DateTime? lockTimestamp;
-    if (lockSnapshot.value is String) {
-      lockTimestamp = DateTime.tryParse(lockSnapshot.value as String);
-    }
-    if (lockTimestamp != null) {
-      if (now.difference(lockTimestamp) < const Duration(hours: 24)) {
-        throw AbortedError('Fixture download is already in progress.');
+  TransactionResult transactionResult;
+  try {
+    transactionResult = await lockRef.runTransaction((mutableData) {
+      final currentValue = mutableData.value;
+      if (currentValue != null) {
+        DateTime? lockTimestamp;
+        if (currentValue is String) {
+          lockTimestamp = DateTime.tryParse(currentValue);
+        }
+        if (lockTimestamp != null) {
+          if (now.difference(lockTimestamp) < const Duration(hours: 24)) {
+            // Lock is active and not expired, abort transaction by returning null
+            return null;
+          }
+        }
       }
-    }
+      // Otherwise, acquire the lock by setting the value
+      mutableData.value = now.toIso8601String();
+      return mutableData;
+    });
+  } catch (e) {
+    throw AbortedError('Fixture download failed to acquire lock: $e');
   }
 
-  // Acquire lock (simple timestamp string matching client)
-  await lockRef.set(now.toIso8601String());
+  if (!transactionResult.committed) {
+    throw AbortedError('Fixture download is already in progress.');
+  }
+
+  // Helper to log status updates
+  Future<void> logStatus(String status, {String? error}) async {
+    final DatabaseReference statusRef = db.ref('/Stats/$compKey/scoring_status');
+    final statusData = <String, dynamic>{
+      'status': status,
+      'updatedAt': now.toIso8601String(),
+    };
+    if (error != null) {
+      statusData['error'] = error;
+    }
+    await statusRef.set(statusData);
+  }
 
   try {
-    // Helper to log status updates
-    Future<void> logStatus(String status, {String? error}) async {
-      final DatabaseReference statusRef = db.ref('/Stats/$compKey/scoring_status');
-      final statusData = <String, dynamic>{
-        'status': status,
-        'updatedAt': now.toIso8601String(),
-      };
-      if (error != null) {
-        statusData['error'] = error;
-      }
-      await statusRef.set(statusData);
-    }
-
     await logStatus('fetching_fixtures');
 
     // 7. Perform HTTP GET to AFL and NRL fixture URLs
@@ -217,6 +228,11 @@ Future<String> executeFixtureDownload({
     await logStatus('success');
 
     return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
+  } catch (e) {
+    try {
+      await logStatus('failed', error: e.toString());
+    } catch (_) {}
+    rethrow;
   } finally {
     // Release lock
     await lockRef.set(null);
