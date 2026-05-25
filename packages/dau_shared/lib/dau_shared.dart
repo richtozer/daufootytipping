@@ -25,6 +25,7 @@ export 'constants/paths.dart';
 
 // Services
 export 'services/combined_rounds_service.dart';
+export 'services/fixture_import_applier.dart';
 export 'services/ladder_calculation_service.dart';
 export 'services/rounds_linking_service.dart';
 export 'services/scoring_calculator.dart';

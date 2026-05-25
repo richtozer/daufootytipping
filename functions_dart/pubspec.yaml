@@ -1,0 +1,24 @@
+name: dart_functions
+description: Dart Cloud Functions for DAU Footy Tipping
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+
+dependencies:
+  firebase_functions: ^0.6.0
+  firebase_admin: ^0.3.1+4
+  firebase_dart: ^1.6.2
+  http: ^1.2.0
+  intl: ^0.20.2
+  dau_shared:
+    path: ../packages/dau_shared
+
+dependency_overrides:
+  googleapis: ^16.0.0
+
+dev_dependencies:
+  test: ^1.25.15
+  mocktail: ^1.0.3
+  build_runner: ^2.4.9
