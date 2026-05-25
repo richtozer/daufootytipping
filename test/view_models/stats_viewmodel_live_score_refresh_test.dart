@@ -56,10 +56,13 @@ void main() {
     dauCompsViewModel = MockDAUCompsViewModel();
     gamesViewModel = MockGamesViewModel();
 
+    final gameStartTime = DateTime.now().toUtc().subtract(
+      const Duration(hours: 1),
+    );
     round = DAURound(
       dAUroundNumber: 1,
-      firstGameKickOffUTC: DateTime.utc(2026, 4, 1, 10),
-      lastGameKickOffUTC: DateTime.utc(2026, 4, 1, 12),
+      firstGameKickOffUTC: gameStartTime,
+      lastGameKickOffUTC: gameStartTime,
     );
     comp = DAUComp(
       dbkey: 'comp-1',
@@ -84,7 +87,7 @@ void main() {
       homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
       awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
       location: 'Stadium',
-      startTimeUTC: DateTime.utc(2026, 4, 1, 10),
+      startTimeUTC: gameStartTime,
       fixtureRoundNumber: 1,
       fixtureMatchNumber: 1,
       scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
@@ -95,20 +98,20 @@ void main() {
       homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
       awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
       location: 'Stadium',
-      startTimeUTC: DateTime.utc(2026, 4, 1, 10),
+      startTimeUTC: gameStartTime,
       fixtureRoundNumber: 1,
       fixtureMatchNumber: 1,
       scoring: Scoring(
         crowdSourcedScores: <CrowdSourcedScore>[
           CrowdSourcedScore(
-            DateTime.utc(2026, 4, 1, 10, 30),
+            gameStartTime.add(const Duration(minutes: 30)),
             ScoringTeam.home,
             'tipper-1',
             14,
             false,
           ),
           CrowdSourcedScore(
-            DateTime.utc(2026, 4, 1, 10, 31),
+            gameStartTime.add(const Duration(minutes: 31)),
             ScoringTeam.away,
             'tipper-1',
             0,
@@ -123,6 +126,7 @@ void main() {
     when(() => database.runTransaction(any())).thenAnswer((_) async {
       return transactionResult;
     });
+    when(() => database.set(any())).thenAnswer((_) async {});
     when(() => transactionResult.committed).thenReturn(true);
 
     when(() => gamesViewModel.addListener(any())).thenReturn(null);
@@ -157,7 +161,7 @@ void main() {
         game: staleGame,
         tipper: alice,
         tip: GameResult.a,
-        submittedTimeUTC: DateTime.utc(2026, 4, 1, 9),
+        submittedTimeUTC: gameStartTime.subtract(const Duration(hours: 1)),
       ),
     ]);
   });

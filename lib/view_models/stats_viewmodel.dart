@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io'; // Add this import for IOException, SocketException
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
+import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/services/scoring_update_queue.dart';
@@ -24,7 +25,6 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
@@ -36,6 +36,7 @@ const String statsPathRootLocal = p.statsPathRoot;
 const String roundStatsRoot = 'round_stats_$statsFormatVersion';
 const String liveScoresRoot = 'live_scores_$statsFormatVersion';
 const String gameStatsRoot = 'game_stats_$statsFormatVersion';
+const String scoringAuditRoot = 'scoring_audit_$statsFormatVersion';
 
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
@@ -489,6 +490,7 @@ class StatsViewModel extends ChangeNotifier {
         'StatsViewModel.updateStats() called for comp: ${daucompToUpdate.name}',
       );
       var stopwatch = Stopwatch()..start();
+      var completionEventName = 'scoring_completed';
       _lastGameStatsChanges.clear();
 
       try {
@@ -534,6 +536,7 @@ class StatsViewModel extends ChangeNotifier {
           _setScoringProgress(null, null);
           _updateStatsInProgress = null;
           completer.complete(skipReason);
+          completionEventName = 'scoring_skipped_empty_database';
           return;
         }
 
@@ -591,6 +594,28 @@ class StatsViewModel extends ChangeNotifier {
         );
         await _ensureRoundsHaveGames(dauRoundsEdited);
 
+        final sourceFreshness = _validateScoringSourcesAreFresh(
+          dauRoundsEdited,
+        );
+        if (!sourceFreshness.canWriteAggregates) {
+          final skippedMessage =
+              'Skipped: ${sourceFreshness.reason}. No aggregate stats were written.';
+          log('StatsViewModel.updateStats() $skippedMessage');
+          await _writeScoringAuditEvent(
+            eventName: 'scoring_skipped_stale_sources',
+            daucompToUpdate: daucompToUpdate,
+            roundsUpdated: dauRoundsEdited,
+            onlyUpdateThisRound: onlyUpdateThisRound,
+            onlyUpdateThisTipper: onlyUpdateThisTipper,
+            tippersUpdated: tippersToUpdate,
+            message: skippedMessage,
+            blockedGames: sourceFreshness.blockedGames,
+          );
+          completer.complete(skippedMessage);
+          completionEventName = 'scoring_skipped_stale_sources';
+          return;
+        }
+
         for (DAURound dauRound in dauRoundsEdited) {
           _setScoringProgress(
             'Calculating round ${dauRound.dAUroundNumber}...',
@@ -626,14 +651,31 @@ class StatsViewModel extends ChangeNotifier {
         log('StatsViewModel.updateStats() $res');
 
         await _deleteStaleLiveScores();
+        await _writeScoringAuditEvent(
+          eventName: 'scoring_completed',
+          daucompToUpdate: daucompToUpdate,
+          roundsUpdated: dauRoundsEdited,
+          onlyUpdateThisRound: onlyUpdateThisRound,
+          onlyUpdateThisTipper: onlyUpdateThisTipper,
+          tippersUpdated: tippersToUpdate,
+          message: res,
+        );
 
         completer.complete(res);
       } catch (e) {
         log('StatsViewModel.updateStats() Error: $e');
+        completionEventName = 'scoring_failed';
+        await _writeScoringAuditEvent(
+          eventName: 'scoring_failed',
+          daucompToUpdate: daucompToUpdate,
+          onlyUpdateThisRound: onlyUpdateThisRound,
+          onlyUpdateThisTipper: onlyUpdateThisTipper,
+          message: e.toString(),
+        );
         completer.completeError(e);
       } finally {
         _logEventScoringInitiated(
-          'scoring_completed',
+          completionEventName,
           daucompToUpdate,
           onlyUpdateThisRound,
           onlyUpdateThisTipper,
@@ -698,6 +740,116 @@ class StatsViewModel extends ChangeNotifier {
         '_logEventScoringInitiated() Error writing log event that scoring has initiated: $e',
       );
       return;
+    }
+  }
+
+  _ScoringSourceFreshness _validateScoringSourcesAreFresh(
+    List<DAURound> roundsUpdated,
+  ) {
+    final now = DateTime.now().toUtc();
+    final blockedGames = <Game>[];
+
+    for (final round in roundsUpdated) {
+      for (final game in round.games) {
+        if (!_shouldRequireOfficialScores(game, now)) {
+          continue;
+        }
+        if (!_hasOfficialFixtureScores(game)) {
+          blockedGames.add(game);
+        }
+      }
+    }
+
+    if (blockedGames.isEmpty) {
+      return const _ScoringSourceFreshness.allowed();
+    }
+
+    final gameKeys = blockedGames.map((game) => game.dbkey).join(', ');
+    return _ScoringSourceFreshness.blocked(
+      blockedGames,
+      'completed game(s) are missing official fixture scores: $gameKeys',
+    );
+  }
+
+  Duration gracePeriodFor(League league) {
+    return league == League.afl
+        ? const Duration(hours: 4)
+        : const Duration(hours: 3);
+  }
+
+  bool _shouldRequireOfficialScores(Game game, DateTime now) {
+    final gracePeriod = gracePeriodFor(game.league);
+    final officialScoreRequiredFrom = game.startTimeUTC.add(gracePeriod);
+    return now.isAfter(officialScoreRequiredFrom) ||
+        now.isAtSameMomentAs(officialScoreRequiredFrom);
+  }
+
+  Future<void> _writeScoringAuditEvent({
+    required String eventName,
+    required DAUComp daucompToUpdate,
+    DAURound? onlyUpdateThisRound,
+    Tipper? onlyUpdateThisTipper,
+    List<DAURound> roundsUpdated = const <DAURound>[],
+    List<Tipper> tippersUpdated = const <Tipper>[],
+    List<Game> blockedGames = const <Game>[],
+    String? message,
+  }) async {
+    try {
+      final selectedTipper = di.isRegistered<TippersViewModel>()
+          ? di<TippersViewModel>().selectedTipper
+          : null;
+      String? appVersion;
+      String? buildNumber;
+      if (di.isRegistered<PackageInfoService>()) {
+        try {
+          final packageInfo = await di<PackageInfoService>().packageInfo;
+          appVersion = packageInfo.version;
+          buildNumber = packageInfo.buildNumber;
+        } catch (e) {
+          log('StatsViewModel._writeScoringAuditEvent() Package info unavailable: $e');
+        }
+      }
+      final auditKey = DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+      await _db
+          .child(statsPathRootLocal)
+          .child(daucompToUpdate.dbkey!)
+          .child(scoringAuditRoot)
+          .child(auditKey)
+          .set({
+            'event': eventName,
+            'serverTimestamp': ServerValue.timestamp,
+            'clientTimestampUTC': DateTime.now().toUtc().toIso8601String(),
+            'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+            'appVersion': appVersion,
+            'buildNumber': buildNumber,
+            'comp': daucompToUpdate.name,
+            'compDbKey': daucompToUpdate.dbkey,
+            'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
+            'roundsUpdated': roundsUpdated
+                .map((round) => round.dAUroundNumber)
+                .toList(),
+            'tipper': onlyUpdateThisTipper?.name ?? 'all',
+            'tipperDbKey': onlyUpdateThisTipper?.dbkey ?? 'all',
+            'selectedTipper': selectedTipper?.name,
+            'selectedTipperDbKey': selectedTipper?.dbkey,
+            'selectedTipperAuthUid': selectedTipper?.authuid,
+            'tippersUpdatedCount': tippersUpdated.length,
+            'blockedGames': blockedGames
+                .map(
+                  (game) => {
+                    'dbkey': game.dbkey,
+                    'league': game.league.name,
+                    'startTimeUTC': game.startTimeUTC.toIso8601String(),
+                    'hasOfficialScores': _hasOfficialFixtureScores(game),
+                    'hasLiveScores':
+                        game.scoring?.crowdSourcedScores?.isNotEmpty ?? false,
+                  },
+                )
+                .toList(),
+            'message': message,
+          });
+    } catch (e) {
+      log('StatsViewModel._writeScoringAuditEvent() Error: $e');
     }
   }
 
@@ -952,6 +1104,20 @@ class StatsViewModel extends ChangeNotifier {
     // Passive display clients only consume the stats tree. Recalculation loads
     // all tips for the comp, so keep it behind explicit owner/update paths.
     if (!forceUpdate) {
+      return;
+    }
+
+    if (_shouldRequireOfficialScores(game, DateTime.now().toUtc()) &&
+        !_hasOfficialFixtureScores(game)) {
+      final message =
+          'Skipped game stats update for ${game.dbkey}: completed game is missing official fixture scores.';
+      log('StatsViewModel.getGamesStatsEntry() $message');
+      await _writeScoringAuditEvent(
+        eventName: 'game_stats_skipped_stale_sources',
+        daucompToUpdate: selectedDAUComp,
+        blockedGames: <Game>[game],
+        message: message,
+      );
       return;
     }
 
@@ -2268,4 +2434,18 @@ class StatsViewModel extends ChangeNotifier {
       );
     }
   }
+}
+
+class _ScoringSourceFreshness {
+  final bool canWriteAggregates;
+  final List<Game> blockedGames;
+  final String reason;
+
+  const _ScoringSourceFreshness.allowed()
+    : canWriteAggregates = true,
+      blockedGames = const <Game>[],
+      reason = '';
+
+  const _ScoringSourceFreshness.blocked(this.blockedGames, this.reason)
+    : canWriteAggregates = false;
 }
