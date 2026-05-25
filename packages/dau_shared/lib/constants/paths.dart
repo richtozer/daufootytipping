@@ -42,3 +42,4 @@ const String currentDAUCompKey = 'currentDAUComp';
 const String minAppVersionKey = 'minAppVersion';
 const String createLinkedTipperKey = 'createLinkedTipper';
 const String googleClientIdKey = 'googleClientId';
+const String cloudFunctionsBaseURLKey = 'cloudFunctionsBaseURL';

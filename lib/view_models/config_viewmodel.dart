@@ -29,6 +29,9 @@ class ConfigViewModel extends ChangeNotifier {
   String? _googleClientId;
   String? get googleClientId => _googleClientId;
 
+  String? _cloudFunctionsBaseURL;
+  String? get cloudFunctionsBaseURL => _cloudFunctionsBaseURL;
+
   Completer<void> _initialLoadCompleter = Completer<void>();
 
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -58,6 +61,7 @@ class ConfigViewModel extends ChangeNotifier {
       _minAppVersion = null;
       _createLinkedTipper = null;
       _googleClientId = null;
+      _cloudFunctionsBaseURL = null;
     }
 
     _initialLoadCompleter = Completer<void>();
@@ -215,6 +219,9 @@ class ConfigViewModel extends ChangeNotifier {
     );
     _googleClientId = _parseOptionalString(
       snapshot.child(p.googleClientIdKey).value,
+    );
+    _cloudFunctionsBaseURL = _parseOptionalString(
+      snapshot.child(p.cloudFunctionsBaseURLKey).value,
     );
   }
 

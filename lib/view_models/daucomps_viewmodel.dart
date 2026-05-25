@@ -28,6 +28,7 @@ import 'package:daufootytipping/services/fixture_update_service.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -491,6 +492,45 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('DAUCompsViewModel_getNetworkFixtureData: $message');
       return message;
     }
+
+    String? cloudFunctionsBaseURL;
+    try {
+      final configEvent = await _db.child('$configPathRoot/$cloudFunctionsBaseURLKey').once();
+      cloudFunctionsBaseURL = configEvent.snapshot.value as String?;
+    } catch (e, stackTrace) {
+      log('DAUCompsViewModel_getNetworkFixtureData: Failed to read cloudFunctionsBaseURL: $e. Falling back to local execution.', error: e, stackTrace: stackTrace);
+      cloudFunctionsBaseURL = null;
+    }
+
+    if (cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
+      log('DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...');
+      _isDownloading = true;
+      notifyListeners();
+      try {
+        final String functionUrl = cloudFunctionsBaseURL.endsWith('/')
+            ? '${cloudFunctionsBaseURL}admin-fixture-download'
+            : '$cloudFunctionsBaseURL/admin-fixture-download';
+        final callable = FirebaseFunctions.instance.httpsCallableFromUrl(
+          functionUrl,
+          options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
+        );
+        final result = await callable.call(<String, dynamic>{
+          'compKey': daucompToUpdate.dbkey,
+        });
+        final resultData = result.data as Map;
+        final String message = resultData['message'] ?? 'Successfully updated fixtures via Cloud Function';
+        log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
+        return message;
+      } catch (e, stackTrace) {
+        log('DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e.', error: e, stackTrace: stackTrace);
+        rethrow;
+      } finally {
+        _isDownloading = false;
+        notifyListeners();
+      }
+    }
+
+    log('DAUCompsViewModel_getNetworkFixtureData: Executing local fixture download...');
     return _fixtureUpdater.runUpdate(
       comp: daucompToUpdate,
       acquireLock: () => _acquireLock(daucompToUpdate),
