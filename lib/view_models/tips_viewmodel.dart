@@ -17,6 +17,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:dau_shared/services/scoring_calculator.dart';
 
 class _CachedCrossCompTip {
   const _CachedCrossCompTip({required this.tip, required this.cachedAtUtc});
@@ -537,78 +538,11 @@ class TipsViewModel extends ChangeNotifier {
       tippers.map((tipper) => findTip(game, tipper)),
     );
 
-    double runningAveragePointsTotal = 0.0;
-    int runningAveragePointsCountTips = 0;
-    for (final Tip? tip in tipsForScoring) {
-      runningAveragePointsCountTips++;
-      runningAveragePointsTotal += tip?.getTipPointsCalculated() ?? 0;
-    }
-
-    GameStatsEntry gameStatsEntry = GameStatsEntry(
-      percentageTippedHomeMargin: 0.0,
-      percentageTippedHome: 0.0,
-      percentageTippedDraw: 0.0,
-      percentageTippedAway: 0.0,
-      percentageTippedAwayMargin: 0.0,
+    return ScoringCalculator.calculateGameStatsEntry(
+      cohortTippers: tippers,
+      tipsForCohort: tipsForScoring,
+      league: game.league,
     );
-
-    // enumerate each game result and do the calculation
-    for (GameResult gameResult in GameResult.values) {
-      // now do the calculation
-      int totalTippers = tippers.length;
-      int totalTippersTipped = 0;
-
-      for (final Tip? tip in tipsForScoring) {
-        if (tip?.tip == gameResult) {
-          totalTippersTipped++;
-        }
-      }
-
-      if (totalTippers == 0) {
-        continue;
-      }
-
-      // switch on the game result and set the correct value
-      switch (gameResult) {
-        case GameResult.a:
-          gameStatsEntry.percentageTippedHomeMargin = gameStatsEntry
-              .reducePrecision(totalTippersTipped / totalTippers);
-          break;
-        case GameResult.b:
-          gameStatsEntry.percentageTippedHome = gameStatsEntry.reducePrecision(
-            totalTippersTipped / totalTippers,
-          );
-          break;
-        case GameResult.c:
-          gameStatsEntry.percentageTippedDraw = gameStatsEntry.reducePrecision(
-            totalTippersTipped / totalTippers,
-          );
-          break;
-        case GameResult.d:
-          gameStatsEntry.percentageTippedAway = gameStatsEntry.reducePrecision(
-            totalTippersTipped / totalTippers,
-          );
-          break;
-        case GameResult.e:
-          gameStatsEntry.percentageTippedAwayMargin = gameStatsEntry
-              .reducePrecision(totalTippersTipped / totalTippers);
-          break;
-        case GameResult.z:
-          break;
-      }
-    }
-    // calculate the average points across all tippers for this game
-    if (runningAveragePointsCountTips > 0) {
-      gameStatsEntry.averagePoints = gameStatsEntry.reducePrecision(
-        runningAveragePointsTotal / runningAveragePointsCountTips,
-      );
-    } else {
-      gameStatsEntry.averagePoints = 0.0;
-    }
-    gameStatsEntry.averagePointsTipCount = tipsForScoring
-        .where((tip) => tip != null)
-        .length;
-    return gameStatsEntry;
   }
 
   List<Tip?> getTipsForTipper(Tipper tipper) {
