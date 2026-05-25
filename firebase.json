@@ -39,6 +39,11 @@
         "npm --prefix \"$RESOURCE_DIR\" run lint",
         "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
+    },
+    {
+      "runtime": "dart3",
+      "source": "functions_dart",
+      "codebase": "dart_functions"
     }
   ],
   "hosting": {
