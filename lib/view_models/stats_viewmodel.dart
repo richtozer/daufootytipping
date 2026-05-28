@@ -755,7 +755,7 @@ class StatsViewModel extends ChangeNotifier {
         if (!_shouldRequireOfficialScores(game, now)) {
           continue;
         }
-        if (!_hasOfficialFixtureScores(game)) {
+        if (!_hasKnownGameResult(game)) {
           blockedGames.add(game);
         }
       }
@@ -768,7 +768,7 @@ class StatsViewModel extends ChangeNotifier {
     final gameKeys = blockedGames.map((game) => game.dbkey).join(', ');
     return _ScoringSourceFreshness.blocked(
       blockedGames,
-      'completed game(s) are missing official fixture scores: $gameKeys',
+      'completed game(s) are missing usable scoring sources: $gameKeys',
     );
   }
 
@@ -1109,9 +1109,9 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     if (_shouldRequireOfficialScores(game, DateTime.now().toUtc()) &&
-        !_hasOfficialFixtureScores(game)) {
+        !_hasKnownGameResult(game)) {
       final message =
-          'Skipped game stats update for ${game.dbkey}: completed game is missing official fixture scores.';
+          'Skipped game stats update for ${game.dbkey}: completed game is missing a usable scoring source.';
       log('StatsViewModel.getGamesStatsEntry() $message');
       await _writeScoringAuditEvent(
         eventName: 'game_stats_skipped_stale_sources',

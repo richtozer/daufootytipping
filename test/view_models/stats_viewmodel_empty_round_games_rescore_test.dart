@@ -375,9 +375,8 @@ void main() {
   );
 
   test(
-    'completed games without official fixture scores do not write aggregate stats',
+    'completed games with complete live scores can write aggregate stats',
     () async {
-      final auditWrites = <Map<String, Object?>>[];
       final liveScoredGame = Game(
         dbkey: 'nrl-01-002',
         league: League.nrl,
@@ -419,11 +418,6 @@ void main() {
           submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
         ),
       ]);
-      when(() => database.set(any())).thenAnswer((invocation) async {
-        auditWrites.add(
-          Map<String, Object?>.from(invocation.positionalArguments.single as Map),
-        );
-      });
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
@@ -438,22 +432,11 @@ void main() {
 
       final result = await viewModel.updateStats(comp, null, null);
 
-      expect(
-        result,
-        startsWith(
-          'Skipped: completed game(s) are missing official fixture scores',
-        ),
-      );
-      verifyNever(() => database.runTransaction(any()));
-      expect(auditWrites, hasLength(1));
-      expect(
-        auditWrites.single,
-        containsPair('event', 'scoring_skipped_stale_sources'),
-      );
-      expect(
-        auditWrites.single['blockedGames'],
-        isA<List>().having((games) => games.length, 'length', 1),
-      );
+      expect(result, 'Completed updates for 1 tippers and 1 rounds.');
+      final updatedRoundStats = viewModel.getScoringRoundStats(round, alice);
+      expect(updatedRoundStats.nrlPoints, 2);
+      expect(updatedRoundStats.nrlMaxPoints, 2);
+      verify(() => database.runTransaction(any())).called(1);
 
       viewModel.dispose();
     },
@@ -559,7 +542,7 @@ void main() {
         ),
       ]);
       result = await viewModel.updateStats(comp, null, null);
-      expect(result, startsWith('Skipped: completed game(s) are missing official fixture scores'));
+      expect(result, startsWith('Skipped: completed game(s) are missing usable scoring sources'));
 
       // Test NRL Within
       round.games = <Game>[nrlGameWithin];
@@ -589,7 +572,7 @@ void main() {
         ),
       ]);
       result = await viewModel.updateStats(comp, null, null);
-      expect(result, startsWith('Skipped: completed game(s) are missing official fixture scores'));
+      expect(result, startsWith('Skipped: completed game(s) are missing usable scoring sources'));
 
       viewModel.dispose();
     },
