@@ -64,9 +64,9 @@ void main() {
       expect(scoring.getGameResultCalculated(League.nrl), GameResult.z);
     });
 
-    // New tests for partial live scoring with crowd-sourced scores
+    // Partial live scores are not enough to score a game.
     test(
-      'returns NRL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0',
+      'returns NRL GameResult.z when only home crowd-sourced score exists',
       () {
         final crowdScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -80,12 +80,12 @@ void main() {
           awayTeamScore: null,
           crowdSourcedScores: [crowdScore],
         );
-        expect(scoring.getGameResultCalculated(League.nrl), GameResult.a);
+        expect(scoring.getGameResultCalculated(League.nrl), GameResult.z);
       },
     );
 
     test(
-      'returns NRL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0',
+      'returns NRL GameResult.z when only away crowd-sourced score exists',
       () {
         final crowdScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -99,12 +99,12 @@ void main() {
           awayTeamScore: null,
           crowdSourcedScores: [crowdScore],
         );
-        expect(scoring.getGameResultCalculated(League.nrl), GameResult.e);
+        expect(scoring.getGameResultCalculated(League.nrl), GameResult.z);
       },
     );
 
     test(
-      'returns NRL GameResult.b when homeTeamScore from crowd-sourced wins narrowly',
+      'returns NRL GameResult.z when narrow home crowd-sourced score is incomplete',
       () {
         final crowdScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -118,7 +118,7 @@ void main() {
           awayTeamScore: null,
           crowdSourcedScores: [crowdScore],
         );
-        expect(scoring.getGameResultCalculated(League.nrl), GameResult.b);
+        expect(scoring.getGameResultCalculated(League.nrl), GameResult.z);
       },
     );
 
@@ -199,9 +199,9 @@ void main() {
       expect(scoring.getGameResultCalculated(League.afl), GameResult.z);
     });
 
-    // New tests for partial live scoring with crowd-sourced scores
+    // Partial live scores are not enough to score a game.
     test(
-      'returns AFL GameResult.a when homeTeamScore from crowd-sourced and awayTeamScore assumed 0',
+      'returns AFL GameResult.z when only home crowd-sourced score exists',
       () {
         final crowdScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -215,12 +215,12 @@ void main() {
           awayTeamScore: null,
           crowdSourcedScores: [crowdScore],
         );
-        expect(scoring.getGameResultCalculated(League.afl), GameResult.a);
+        expect(scoring.getGameResultCalculated(League.afl), GameResult.z);
       },
     );
 
     test(
-      'returns AFL GameResult.e when awayTeamScore from crowd-sourced and homeTeamScore assumed 0',
+      'returns AFL GameResult.z when only away crowd-sourced score exists',
       () {
         final crowdScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -234,12 +234,12 @@ void main() {
           awayTeamScore: null,
           crowdSourcedScores: [crowdScore],
         );
-        expect(scoring.getGameResultCalculated(League.afl), GameResult.e);
+        expect(scoring.getGameResultCalculated(League.afl), GameResult.z);
       },
     );
 
     test(
-      'returns AFL GameResult.b when homeTeamScore from crowd-sourced wins narrowly',
+      'returns AFL GameResult.z when narrow home crowd-sourced score is incomplete',
       () {
         final crowdScore = CrowdSourcedScore(
           DateTime.now().toUtc(),
@@ -253,7 +253,7 @@ void main() {
           awayTeamScore: null,
           crowdSourcedScores: [crowdScore],
         );
-        expect(scoring.getGameResultCalculated(League.afl), GameResult.b);
+        expect(scoring.getGameResultCalculated(League.afl), GameResult.z);
       },
     );
 

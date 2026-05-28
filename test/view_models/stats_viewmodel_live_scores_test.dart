@@ -356,6 +356,50 @@ void main() {
   );
 
   test(
+    'submitLiveScores writes explicit zero for an unchanged unknown score',
+    () async {
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: rootDb,
+        autoInitialize: false,
+      );
+      di.registerSingleton<StatsViewModel>(viewModel);
+
+      await viewModel.submitLiveScores(
+        tip: Tip(
+          dbkey: 'tip-1',
+          game: activeGame,
+          tipper: alice,
+          tip: GameResult.a,
+          submittedTimeUTC: DateTime.utc(2026, 3, 26, 8),
+        ),
+        homeScore: '8',
+        awayScore: '0',
+        originalHomeScore: '0',
+        originalAwayScore: '0',
+        selectedDAUComp: comp,
+      );
+
+      final payload = verify(
+        () => liveScoresRef.update(captureAny()),
+      ).captured.single as Map;
+      final activeGamePayload = payload['nrl-04-025'] as Map;
+      final crowdSourcedScores =
+          activeGamePayload['crowdSourcedScores'] as List;
+      final scoresByTeam = <String, int>{
+        for (final score in crowdSourcedScores.cast<Map>())
+          score['scoreTeam'] as String: score['interimScore'] as int,
+      };
+
+      expect(scoresByTeam, containsPair('home', 8));
+      expect(scoresByTeam, containsPair('away', 0));
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
     'loads game stats from the game stats tree',
     () async {
       final viewModel = StatsViewModel(
