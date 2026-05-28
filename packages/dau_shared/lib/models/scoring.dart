@@ -133,16 +133,6 @@ class Scoring {
     int? homeScore = currentScore(ScoringTeam.home);
     int? awayScore = currentScore(ScoringTeam.away);
 
-    // Handle partial live scores by assuming un-scored team has 0
-    // This allows proper scoring during live updates until fixture scores are available
-    if (homeScore != null && awayScore == null && crowdSourcedScores != null) {
-      awayScore = 0;
-    } else if (awayScore != null &&
-        homeScore == null &&
-        crowdSourcedScores != null) {
-      homeScore = 0;
-    }
-
     if (homeScore != null && awayScore != null) {
       switch (league) {
         case League.nrl:

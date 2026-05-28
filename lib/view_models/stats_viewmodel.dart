@@ -1932,31 +1932,45 @@ class StatsViewModel extends ChangeNotifier {
     required DAUComp selectedDAUComp,
   }) async {
     await _submitLock.synchronized(() async {
+      final currentHomeScore = tip.game.scoring?.currentScore(
+        ScoringTeam.home,
+      );
+      final currentAwayScore = tip.game.scoring?.currentScore(
+        ScoringTeam.away,
+      );
+      final homeScoreChanged = homeScore != originalHomeScore;
+      final awayScoreChanged = awayScore != originalAwayScore;
+
       // Process BOTH scores in single atomic operation
       List<CrowdSourcedScore> scoresToAdd = [];
 
-      if (homeScore != originalHomeScore) {
+      void addScore(ScoringTeam scoreTeam, String score) {
         scoresToAdd.add(
           CrowdSourcedScore(
             DateTime.now().toUtc(),
-            ScoringTeam.home,
+            scoreTeam,
             tip.tipper.dbkey!,
-            int.tryParse(homeScore)!,
+            int.tryParse(score)!,
             false,
           ),
         );
       }
 
-      if (awayScore != originalAwayScore) {
-        scoresToAdd.add(
-          CrowdSourcedScore(
-            DateTime.now().toUtc(),
-            ScoringTeam.away,
-            tip.tipper.dbkey!,
-            int.tryParse(awayScore)!,
-            false,
-          ),
-        );
+      if (homeScoreChanged) {
+        addScore(ScoringTeam.home, homeScore);
+      }
+
+      if (awayScoreChanged) {
+        addScore(ScoringTeam.away, awayScore);
+      }
+
+      if (scoresToAdd.isNotEmpty) {
+        if (!homeScoreChanged && currentHomeScore == null) {
+          addScore(ScoringTeam.home, homeScore);
+        }
+        if (!awayScoreChanged && currentAwayScore == null) {
+          addScore(ScoringTeam.away, awayScore);
+        }
       }
 
       // Add all scores atomically
