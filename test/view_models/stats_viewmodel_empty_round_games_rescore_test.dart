@@ -594,6 +594,6 @@ MockDataSnapshot _snapshot({
   when(() => snapshot.exists).thenReturn(exists);
   when(() => snapshot.value).thenReturn(value);
   when(() => snapshot.ref).thenReturn(ref);
-  when(() => ref.path).thenReturn('/Stats/comp-2024/round_stats_v2');
+  when(() => ref.path).thenReturn('/Stats/comp-2024/$roundStatsRoot');
   return snapshot;
 }
