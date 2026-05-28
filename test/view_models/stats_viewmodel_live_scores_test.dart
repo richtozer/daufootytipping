@@ -77,23 +77,32 @@ void main() {
     required int homeScore,
     required int awayScore,
   }) {
+    final crowdSourcedScores = <Map<String, Object?>>[
+      <String, Object?>{
+        'gameComplete': false,
+        'interimScore': homeScore,
+        'scoreTeam': 'home',
+        'submittedTimeUTC': '2026-03-26T09:11:40.848427Z',
+        'tipperID': 'tipper-1',
+      },
+      <String, Object?>{
+        'gameComplete': false,
+        'interimScore': awayScore,
+        'scoreTeam': 'away',
+        'submittedTimeUTC': '2026-03-26T09:11:40.848486Z',
+        'tipperID': 'tipper-1',
+      },
+    ];
+
     return <String, Object?>{
-      'crowdSourcedScores': <Map<String, Object?>>[
-        <String, Object?>{
-          'gameComplete': false,
-          'interimScore': homeScore,
-          'scoreTeam': 'home',
-          'submittedTimeUTC': '2026-03-26T09:11:40.848427Z',
-          'tipperID': 'tipper-1',
-        },
-        <String, Object?>{
-          'gameComplete': false,
-          'interimScore': awayScore,
-          'scoreTeam': 'away',
-          'submittedTimeUTC': '2026-03-26T09:11:40.848486Z',
-          'tipperID': 'tipper-1',
-        },
-      ],
+      'current': <String, Object?>{
+        'homeInterimScore': homeScore,
+        'awayInterimScore': awayScore,
+        'submittedTimeUTC': '2026-03-26T09:11:40.848486Z',
+        'tipperID': 'tipper-1',
+        'gameComplete': false,
+        'crowdSourcedScores': crowdSourcedScores,
+      },
     };
   }
 
@@ -308,7 +317,7 @@ void main() {
   );
 
   test(
-    'submitLiveScores writes the live scores tree in a single database update',
+    'submitLiveScores writes a game-level current snapshot in one update',
     () async {
       final viewModel = StatsViewModel(
         comp,
@@ -348,7 +357,18 @@ void main() {
       final payload = verify(
         () => liveScoresRef.update(captureAny()),
       ).captured.single as Map;
-      expect(payload.keys, containsAll(<String>['nrl-04-025', 'nrl-04-026']));
+      expect(payload.keys, contains('nrl-04-025/current'));
+      expect(payload.keys, isNot(contains('nrl-04-026/current')));
+
+      final currentPayload = payload['nrl-04-025/current'] as Map;
+      expect(currentPayload, containsPair('homeInterimScore', 8));
+      expect(currentPayload, containsPair('awayInterimScore', 4));
+      expect(
+        payload.keys.where(
+          (key) => key.toString().startsWith('nrl-04-025/history/'),
+        ),
+        hasLength(1),
+      );
       verifyNoMoreInteractions(liveScoresRef);
 
       viewModel.dispose();
@@ -384,7 +404,9 @@ void main() {
       final payload = verify(
         () => liveScoresRef.update(captureAny()),
       ).captured.single as Map;
-      final activeGamePayload = payload['nrl-04-025'] as Map;
+      final activeGamePayload = payload['nrl-04-025/current'] as Map;
+      expect(activeGamePayload, containsPair('homeInterimScore', 8));
+      expect(activeGamePayload, containsPair('awayInterimScore', 0));
       final crowdSourcedScores =
           activeGamePayload['crowdSourcedScores'] as List;
       final scoresByTeam = <String, int>{
@@ -394,6 +416,12 @@ void main() {
 
       expect(scoresByTeam, containsPair('home', 8));
       expect(scoresByTeam, containsPair('away', 0));
+      expect(
+        payload.keys.where(
+          (key) => key.toString().startsWith('nrl-04-025/history/'),
+        ),
+        hasLength(2),
+      );
 
       viewModel.dispose();
     },

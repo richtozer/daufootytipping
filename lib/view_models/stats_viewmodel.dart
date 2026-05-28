@@ -31,7 +31,7 @@ import 'package:synchronized/synchronized.dart';
 import 'package:dau_shared/services/scoring_calculator.dart';
 
 // Define constants for Firestore database locations
-const String statsFormatVersion = 'v2';
+const String statsFormatVersion = 'v3';
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
 const String roundStatsRoot = 'round_stats_$statsFormatVersion';
@@ -329,9 +329,11 @@ class StatsViewModel extends ChangeNotifier {
             continue;
           }
 
-          var scoring = Scoring.fromJson(
-            Map<String, dynamic>.from(entry.value as Map),
-          );
+          final liveScoreEntry = Map<String, dynamic>.from(entry.value as Map);
+          final currentLiveScore = liveScoreEntry['current'] is Map
+              ? Map<String, dynamic>.from(liveScoreEntry['current'] as Map)
+              : liveScoreEntry;
+          var scoring = Scoring.fromJson(currentLiveScore);
           if (game.scoring == null) {
             game.scoring = Scoring(
               crowdSourcedScores: scoring.crowdSourcedScores,
@@ -1918,7 +1920,7 @@ class StatsViewModel extends ChangeNotifier {
       }
     }
 
-    await di<StatsViewModel>()._writeLiveScoreToDb(game);
+    await di<StatsViewModel>()._writeLiveScoreToDb(game, crowdSourcedScores);
   }
 
   final Lock _submitLock = Lock();
@@ -1998,24 +2000,53 @@ class StatsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> _writeLiveScoreToDb(Game game) async {
+  Future<void> _writeLiveScoreToDb(
+    Game game,
+    List<CrowdSourcedScore> submittedScores,
+  ) async {
     if (!_gamesWithLiveScores.contains(game)) {
       _gamesWithLiveScores.add(game);
     }
 
-    final liveScores = <String, Map<String, dynamic>>{};
-    for (final game in List<Game>.from(_gamesWithLiveScores)) {
-      liveScores[game.dbkey] = game.scoring!.toJson();
+    final updates = <String, Object?>{
+      '${game.dbkey}/current': _liveScoreCurrentPayload(game),
+    };
+    for (final score in submittedScores) {
+      final historyKey =
+          '${score.submittedTimeUTC.microsecondsSinceEpoch}-${score.scoreTeam.name}';
+      updates['${game.dbkey}/history/$historyKey'] = score.toJson();
     }
 
     await _db
         .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
         .child(liveScoresRoot)
-        .update(liveScores);
+        .update(updates);
     log(
-      'StatsViewModel._writeLiveScoreToDb() Wrote live scores to DB for ${liveScores.length} games',
+      'StatsViewModel._writeLiveScoreToDb() Wrote live score current snapshot for game ${game.dbkey}',
     );
+  }
+
+  Map<String, Object?> _liveScoreCurrentPayload(Game game) {
+    final scoring = game.scoring;
+    CrowdSourcedScore? latestScore;
+    for (final score in scoring?.crowdSourcedScores ?? <CrowdSourcedScore>[]) {
+      if (latestScore == null ||
+          score.submittedTimeUTC.isAfter(latestScore.submittedTimeUTC)) {
+        latestScore = score;
+      }
+    }
+
+    return <String, Object?>{
+      'homeInterimScore': scoring?.currentScore(ScoringTeam.home),
+      'awayInterimScore': scoring?.currentScore(ScoringTeam.away),
+      'submittedTimeUTC': latestScore?.submittedTimeUTC.toIso8601String(),
+      'tipperID': latestScore?.tipperID,
+      'gameComplete': latestScore?.gameComplete ?? false,
+      'crowdSourcedScores': scoring?.crowdSourcedScores
+          ?.map((score) => score.toJson())
+          .toList(),
+    };
   }
 
   /// Deletes crowd-sourced live scores for games that have official fixture
