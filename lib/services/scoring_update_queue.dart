@@ -154,6 +154,7 @@ class ScoringUpdateQueue {
             request.dauComp,
             request.round,
             request.tipper,
+            rebuildGameStats: request.tipper == null,
           );
 
           stopwatch.stop();
