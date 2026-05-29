@@ -10,6 +10,9 @@ cd "$repo_root"
 if [ -d "$HOME/.npm-global/bin" ]; then
   export PATH="$HOME/.npm-global/bin:$PATH"
 fi
+if [ -d "$HOME/dev/tooling/flutter/bin" ]; then
+  export PATH="$HOME/dev/tooling/flutter/bin:$PATH"
+fi
 
 if [ "$(git rev-parse --abbrev-ref HEAD)" != "testing" ]; then
   echo "Error: this script must be run from the 'testing' branch."
