@@ -34,9 +34,7 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
     final warningForegroundColor = isDarkMode
         ? Colors.amber.shade100
         : Colors.amber.shade900;
-    final warningIconColor = isDarkMode
-        ? Colors.amber.shade200
-        : Colors.amber.shade800;
+    final warningIconColor = iconColorFor(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -46,7 +44,7 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
         side: BorderSide(color: warningBorderColor),
       ),
       child: InkWell(
-        onTap: () => _showLiveScoreDetails(context),
+        onTap: () => showLiveScoreDetails(context),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -73,7 +71,13 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
     );
   }
 
-  Future<void> _showLiveScoreDetails(BuildContext context) async {
+  static Color iconColorFor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.amber.shade200
+        : Colors.amber.shade800;
+  }
+
+  static Future<void> showLiveScoreDetails(BuildContext context) async {
     final games = di<StatsViewModel>().gamesWithLiveScores;
     final Game? selectedGame = await showDialog<Game>(
       context: context,
@@ -127,12 +131,15 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
     if (selectedGame != null && context.mounted) {
       await _openLiveScoringModal(context, selectedGame);
       if (context.mounted && di<StatsViewModel>().hasLiveScoresInUse) {
-        await _showLiveScoreDetails(context);
+        await showLiveScoreDetails(context);
       }
     }
   }
 
-  Future<void> _openLiveScoringModal(BuildContext context, Game game) async {
+  static Future<void> _openLiveScoringModal(
+    BuildContext context,
+    Game game,
+  ) async {
     final dauCompsVM = di<DAUCompsViewModel>();
     final tipsVM = dauCompsVM.selectedTipperTipsViewModel;
     if (tipsVM == null) return;

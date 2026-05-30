@@ -1,4 +1,5 @@
 import 'package:carousel_slider/carousel_controller.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/ladder_team.dart';
@@ -221,4 +222,126 @@ void main() {
       ),
     ).called(2);
   });
+
+  testWidgets(
+    'shows interim banner for crowdsourced scores even after live window',
+    (tester) async {
+      final liveScoredGame = Game(
+        dbkey: 'nrl-01-002',
+        league: League.nrl,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(days: 1)),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 2,
+        scoring: Scoring(
+          homeTeamScore: null,
+          awayTeamScore: null,
+          crowdSourcedScores: [
+            CrowdSourcedScore(
+              DateTime.now().toUtc(),
+              ScoringTeam.home,
+              currentTipper.dbkey!,
+              20,
+              false,
+            ),
+          ],
+        ),
+      );
+
+      currentLadder = buildLadder([
+        liveScoredGame.homeTeam.dbkey,
+        liveScoredGame.awayTeam.dbkey,
+      ]);
+      when(() => mockGameTipViewModel.game).thenReturn(liveScoredGame);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Provider<StatsViewModel?>.value(
+            value: null,
+            child: Scaffold(
+              body: GameListItem(
+                game: liveScoredGame,
+                currentTipper: currentTipper,
+                currentDAUComp: currentComp,
+                allTipsViewModel: mockTipsViewModel,
+                isPercentStatsPage: false,
+                gameTipViewModel: mockGameTipViewModel,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(_findBanner('* Interim'), findsOneWidget);
+      expect(_findBanner('Live'), findsNothing);
+    },
+  );
+
+  testWidgets('hides interim banner once fixture scores are available', (
+    tester,
+  ) async {
+    final finalScoredGame = Game(
+      dbkey: 'nrl-01-003',
+      league: League.nrl,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: DateTime.now().toUtc().subtract(const Duration(days: 1)),
+      fixtureRoundNumber: 1,
+      fixtureMatchNumber: 3,
+      scoring: Scoring(
+        homeTeamScore: 28,
+        awayTeamScore: 18,
+        crowdSourcedScores: [
+          CrowdSourcedScore(
+            DateTime.now().toUtc(),
+            ScoringTeam.home,
+            currentTipper.dbkey!,
+            20,
+            false,
+          ),
+        ],
+      ),
+    );
+
+    currentLadder = buildLadder([
+      finalScoredGame.homeTeam.dbkey,
+      finalScoredGame.awayTeam.dbkey,
+    ]);
+    when(() => mockGameTipViewModel.game).thenReturn(finalScoredGame);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Provider<StatsViewModel?>.value(
+          value: null,
+          child: Scaffold(
+            body: GameListItem(
+              game: finalScoredGame,
+              currentTipper: currentTipper,
+              currentDAUComp: currentComp,
+              allTipsViewModel: mockTipsViewModel,
+              isPercentStatsPage: false,
+              gameTipViewModel: mockGameTipViewModel,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump();
+
+    expect(_findBanner('* Interim'), findsNothing);
+  });
+}
+
+Finder _findBanner(String message) {
+  return find.byWidgetPredicate(
+    (widget) => widget is Banner && widget.message == message,
+  );
 }

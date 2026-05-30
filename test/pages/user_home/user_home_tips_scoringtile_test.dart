@@ -1,4 +1,5 @@
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -219,6 +220,64 @@ void main() {
 
     expect(find.text('0.0 / 2'), findsOneWidget);
     expect(find.text('? / 2'), findsNothing);
+  });
+
+  testWidgets('opens interim score dialog when interim scoring tile is tapped', (
+    tester,
+  ) async {
+    final liveScoredGame = Game(
+      dbkey: 'nrl-11-082',
+      league: League.nrl,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: game.startTimeUTC,
+      fixtureRoundNumber: game.fixtureRoundNumber,
+      fixtureMatchNumber: game.fixtureMatchNumber,
+      scoring: Scoring(
+        homeTeamScore: null,
+        awayTeamScore: null,
+        crowdSourcedScores: [
+          CrowdSourcedScore(
+            DateTime.utc(2026, 5, 10, 13),
+            ScoringTeam.home,
+            tipper.dbkey!,
+            20,
+            false,
+          ),
+        ],
+      ),
+    );
+    final tip = Tip(
+      dbkey: 'tip-1',
+      game: liveScoredGame,
+      tipper: tipper,
+      tip: GameResult.b,
+      submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: ScoringTile(
+              tip: tip,
+              gameTipsViewModel: FakeGameTipViewModel(
+                game: liveScoredGame,
+                tip: tip,
+              ),
+              selectedDAUComp: comp,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(ScoringTile));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Games using interim scores'), findsOneWidget);
   });
 }
 
