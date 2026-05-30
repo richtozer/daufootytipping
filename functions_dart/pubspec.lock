@@ -676,10 +676,10 @@ packages:
     dependency: transitive
     description:
       name: sortedmap
-      sha256: "8e52459bf981badf522ee19186ab032c05e08198fa8afcde892aa8ddbfce8ccc"
+      sha256: d7d5a48c05c293b91113e2570c0ddb35847fa019e6bd6d998af87664dc4bd053
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.4+1"
+    version: "0.5.5"
   source_gen:
     dependency: transitive
     description:
