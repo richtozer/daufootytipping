@@ -597,28 +597,6 @@ class StatsViewModel extends ChangeNotifier {
         );
         await _ensureRoundsHaveGames(dauRoundsEdited);
 
-        final sourceFreshness = _validateScoringSourcesAreFresh(
-          dauRoundsEdited,
-        );
-        if (!sourceFreshness.canWriteAggregates) {
-          final skippedMessage =
-              'Skipped: ${sourceFreshness.reason}. No aggregate stats were written.';
-          log('StatsViewModel.updateStats() $skippedMessage');
-          await _writeScoringAuditEvent(
-            eventName: 'scoring_skipped_stale_sources',
-            daucompToUpdate: daucompToUpdate,
-            roundsUpdated: dauRoundsEdited,
-            onlyUpdateThisRound: onlyUpdateThisRound,
-            onlyUpdateThisTipper: onlyUpdateThisTipper,
-            tippersUpdated: tippersToUpdate,
-            message: skippedMessage,
-            blockedGames: sourceFreshness.blockedGames,
-          );
-          completer.complete(skippedMessage);
-          completionEventName = 'scoring_skipped_stale_sources';
-          return;
-        }
-
         for (DAURound dauRound in dauRoundsEdited) {
           _setScoringProgress(
             'Calculating round ${dauRound.dAUroundNumber}...',
@@ -744,47 +722,6 @@ class StatsViewModel extends ChangeNotifier {
       );
       return;
     }
-  }
-
-  _ScoringSourceFreshness _validateScoringSourcesAreFresh(
-    List<DAURound> roundsUpdated,
-  ) {
-    final now = DateTime.now().toUtc();
-    final blockedGames = <Game>[];
-
-    for (final round in roundsUpdated) {
-      for (final game in round.games) {
-        if (!_shouldRequireOfficialScores(game, now)) {
-          continue;
-        }
-        if (!_hasKnownGameResult(game)) {
-          blockedGames.add(game);
-        }
-      }
-    }
-
-    if (blockedGames.isEmpty) {
-      return const _ScoringSourceFreshness.allowed();
-    }
-
-    final gameKeys = blockedGames.map((game) => game.dbkey).join(', ');
-    return _ScoringSourceFreshness.blocked(
-      blockedGames,
-      'completed game(s) are missing usable scoring sources: $gameKeys',
-    );
-  }
-
-  Duration gracePeriodFor(League league) {
-    return league == League.afl
-        ? const Duration(hours: 4)
-        : const Duration(hours: 3);
-  }
-
-  bool _shouldRequireOfficialScores(Game game, DateTime now) {
-    final gracePeriod = gracePeriodFor(game.league);
-    final officialScoreRequiredFrom = game.startTimeUTC.add(gracePeriod);
-    return now.isAfter(officialScoreRequiredFrom) ||
-        now.isAtSameMomentAs(officialScoreRequiredFrom);
   }
 
   Future<void> _writeScoringAuditEvent({
@@ -1107,20 +1044,6 @@ class StatsViewModel extends ChangeNotifier {
     // Passive display clients only consume the stats tree. Recalculation loads
     // all tips for the comp, so keep it behind explicit owner/update paths.
     if (!forceUpdate) {
-      return;
-    }
-
-    if (_shouldRequireOfficialScores(game, DateTime.now().toUtc()) &&
-        !_hasKnownGameResult(game)) {
-      final message =
-          'Skipped game stats update for ${game.dbkey}: completed game is missing a usable scoring source.';
-      log('StatsViewModel.getGamesStatsEntry() $message');
-      await _writeScoringAuditEvent(
-        eventName: 'game_stats_skipped_stale_sources',
-        daucompToUpdate: selectedDAUComp,
-        blockedGames: <Game>[game],
-        message: message,
-      );
       return;
     }
 
@@ -2398,18 +2321,4 @@ class StatsViewModel extends ChangeNotifier {
       );
     }
   }
-}
-
-class _ScoringSourceFreshness {
-  final bool canWriteAggregates;
-  final List<Game> blockedGames;
-  final String reason;
-
-  const _ScoringSourceFreshness.allowed()
-    : canWriteAggregates = true,
-      blockedGames = const <Game>[],
-      reason = '';
-
-  const _ScoringSourceFreshness.blocked(this.blockedGames, this.reason)
-    : canWriteAggregates = false;
 }

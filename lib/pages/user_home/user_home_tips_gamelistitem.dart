@@ -1,3 +1,6 @@
+import 'dart:developer'; // For log()
+import 'dart:math' as math;
+
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
@@ -11,6 +14,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
@@ -20,7 +24,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
-import 'dart:developer'; // For log()
 
 class GameListItem extends StatefulWidget {
   const GameListItem({
@@ -373,18 +376,25 @@ class _GameListItemState extends State<GameListItem> {
             ),
           );
 
+          final scoring = game.scoring;
+          final hasCrowdSourcedScore =
+              scoring?.crowdSourcedScores?.isNotEmpty ?? false;
+          final hasFinalFixtureScore =
+              scoring?.homeTeamScore != null && scoring?.awayTeamScore != null;
+
+          if (hasCrowdSourcedScore && !hasFinalFixtureScore) {
+            return _buildInterimScoreBanner(context, gameDetailsCard);
+          }
+
           // if game is more than 3 hours in the past, don't show any banner
-          if (gameTipsViewModelConsumer.game.startTimeUTC
-                  .difference(DateTime.now())
-                  .inHours <
-              -3) {
+          if (game.startTimeUTC.difference(DateTime.now()).inHours < -3) {
             return gameDetailsCard;
           }
 
           String bannerMessage;
           Color bannerColor;
 
-          switch (gameTipsViewModelConsumer.game.gameState) {
+          switch (game.gameState) {
             case GameState.startingSoon:
               bannerMessage = "Game today";
               bannerColor = Colors.orange;
@@ -410,6 +420,41 @@ class _GameListItemState extends State<GameListItem> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildInterimScoreBanner(BuildContext context, Widget child) {
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      children: [
+        Banner(
+          color: Colors.grey.shade600,
+          location: BannerLocation.topEnd,
+          message: '* Interim',
+          child: child,
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          width: 78,
+          height: 78,
+          child: Transform.rotate(
+            angle: math.pi / 4,
+            child: Tooltip(
+              message: 'Scores are based on interim live score data.',
+              child: Semantics(
+                button: true,
+                label: 'Interim score warning',
+                child: InkWell(
+                  onTap: () =>
+                      LiveScoresWarningCard.showLiveScoreDetails(context),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

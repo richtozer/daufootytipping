@@ -443,62 +443,34 @@ void main() {
   );
 
   test(
-    'league-specific grace periods are enforced correctly (AFL 4h, NRL 3h)',
+    'missing score sources no longer block aggregate stats writes',
     () async {
-      final now = DateTime.now().toUtc();
-
-      // Case 1: AFL game started 3h 50m ago (within 4h grace period) -> allowed
-      final aflGameWithin = Game(
-        dbkey: 'afl-game-within',
-        league: League.afl,
-        homeTeam: Team(dbkey: 'afl-home', name: 'Home', league: League.afl),
-        awayTeam: Team(dbkey: 'afl-away', name: 'Away', league: League.afl),
-        location: 'Stadium',
-        startTimeUTC: now.subtract(const Duration(hours: 3, minutes: 50)),
-        fixtureRoundNumber: 1,
-        fixtureMatchNumber: 1,
-        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
-      );
-
-      // Case 2: AFL game started 4h 10m ago (outside 4h grace period) -> blocked
-      final aflGameOutside = Game(
-        dbkey: 'afl-game-outside',
-        league: League.afl,
-        homeTeam: Team(dbkey: 'afl-home', name: 'Home', league: League.afl),
-        awayTeam: Team(dbkey: 'afl-away', name: 'Away', league: League.afl),
-        location: 'Stadium',
-        startTimeUTC: now.subtract(const Duration(hours: 4, minutes: 10)),
-        fixtureRoundNumber: 1,
-        fixtureMatchNumber: 2,
-        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
-      );
-
-      // Case 3: NRL game started 2h 50m ago (within 3h grace period) -> allowed
-      final nrlGameWithin = Game(
-        dbkey: 'nrl-game-within',
+      final unscoredGame = Game(
+        dbkey: 'nrl-01-003',
         league: League.nrl,
         homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
         awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
         location: 'Stadium',
-        startTimeUTC: now.subtract(const Duration(hours: 2, minutes: 50)),
+        startTimeUTC: DateTime.now().toUtc().subtract(
+          const Duration(hours: 5),
+        ),
         fixtureRoundNumber: 1,
         fixtureMatchNumber: 3,
         scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
       );
-
-      // Case 4: NRL game started 3h 10m ago (outside 3h grace period) -> blocked
-      final nrlGameOutside = Game(
-        dbkey: 'nrl-game-outside',
-        league: League.nrl,
-        homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
-        awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
-        location: 'Stadium',
-        startTimeUTC: now.subtract(const Duration(hours: 3, minutes: 10)),
-        fixtureRoundNumber: 1,
-        fixtureMatchNumber: 4,
-        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
-      );
-
+      round.games = <Game>[unscoredGame];
+      when(
+        () => gamesViewModel.getGamesForRound(round),
+      ).thenAnswer((_) async => <Game>[unscoredGame]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: unscoredGame.dbkey,
+          game: unscoredGame,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
@@ -511,68 +483,10 @@ void main() {
         _databaseEvent(_snapshot(exists: false, value: null)),
       );
 
-      expect(viewModel.gracePeriodFor(League.afl), const Duration(hours: 4));
-      expect(viewModel.gracePeriodFor(League.nrl), const Duration(hours: 3));
+      final result = await viewModel.updateStats(comp, null, null);
 
-      // Test AFL Within
-      round.games = <Game>[aflGameWithin];
-      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[aflGameWithin]);
-      allTipsViewModel.setTipsForTest(<Tip?>[
-        Tip(
-          dbkey: aflGameWithin.dbkey,
-          game: aflGameWithin,
-          tipper: alice,
-          tip: GameResult.b,
-          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
-        ),
-      ]);
-      var result = await viewModel.updateStats(comp, null, null);
-      expect(result, isNot(startsWith('Skipped:')));
-
-      // Test AFL Outside
-      round.games = <Game>[aflGameOutside];
-      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[aflGameOutside]);
-      allTipsViewModel.setTipsForTest(<Tip?>[
-        Tip(
-          dbkey: aflGameOutside.dbkey,
-          game: aflGameOutside,
-          tipper: alice,
-          tip: GameResult.b,
-          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
-        ),
-      ]);
-      result = await viewModel.updateStats(comp, null, null);
-      expect(result, startsWith('Skipped: completed game(s) are missing usable scoring sources'));
-
-      // Test NRL Within
-      round.games = <Game>[nrlGameWithin];
-      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[nrlGameWithin]);
-      allTipsViewModel.setTipsForTest(<Tip?>[
-        Tip(
-          dbkey: nrlGameWithin.dbkey,
-          game: nrlGameWithin,
-          tipper: alice,
-          tip: GameResult.b,
-          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
-        ),
-      ]);
-      result = await viewModel.updateStats(comp, null, null);
-      expect(result, isNot(startsWith('Skipped:')));
-
-      // Test NRL Outside
-      round.games = <Game>[nrlGameOutside];
-      when(() => gamesViewModel.getGamesForRound(round)).thenAnswer((_) async => <Game>[nrlGameOutside]);
-      allTipsViewModel.setTipsForTest(<Tip?>[
-        Tip(
-          dbkey: nrlGameOutside.dbkey,
-          game: nrlGameOutside,
-          tipper: alice,
-          tip: GameResult.b,
-          submittedTimeUTC: now.subtract(const Duration(hours: 5)),
-        ),
-      ]);
-      result = await viewModel.updateStats(comp, null, null);
-      expect(result, startsWith('Skipped: completed game(s) are missing usable scoring sources'));
+      expect(result, 'Completed updates for 1 tippers and 1 rounds.');
+      verify(() => database.runTransaction(any())).called(1);
 
       viewModel.dispose();
     },
