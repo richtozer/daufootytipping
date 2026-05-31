@@ -3,7 +3,7 @@
     "project_number": "1008137398618",
     "firebase_url": "https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "dau-footy-tipping-f8a42",
-    "storage_bucket": "dau-footy-tipping-f8a42.appspot.com"
+    "storage_bucket": "dau-footy-tipping-f8a42.firebasestorage.app"
   },
   "client": [
     {
@@ -15,11 +15,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "1008137398618-fnp182b8skq0qksl7u2kdfejbh6cl7aq.apps.googleusercontent.com",
+          "client_id": "1008137398618-r5atts63cp2q574krqo9ldb16kq1k1ke.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "coach.interview.daufootytipping",
-            "certificate_hash": "01eddcf1262663248d32b50e500ffa6333512aa4"
+            "certificate_hash": "944338469ac4f1a5626c103aae2cb5a0d550fd15"
+          }
+        },
+        {
+          "client_id": "1008137398618-ubj65lfh0hmhdr8is3kvs870dkf6qdr0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "coach.interview.daufootytipping",
+            "certificate_hash": "0c6862e2504eb55cd6a2621e039cbb28ea314ba1"
           }
         },
         {
@@ -40,10 +48,10 @@
               "client_type": 3
             },
             {
-              "client_id": "1008137398618-5v7nuhp6qaef6uorfoe2j4mgv6ls613q.apps.googleusercontent.com",
+              "client_id": "1008137398618-6mltcn1gj9p97p82ebar74gmrgasci97.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "coach.interview.daufootytipping.RunnerTests"
+                "bundle_id": "coach.interview.daufootytipping"
               }
             }
           ]

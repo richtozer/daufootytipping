@@ -451,9 +451,6 @@ class TipsTabState extends State<TipsTab> {
           ChangeNotifierProvider<DAUCompsViewModel>.value(
             value: daucompsViewModel,
           ),
-          ChangeNotifierProvider<StatsViewModel?>.value(
-            value: daucompsViewModel.statsViewModel,
-          ),
         ],
         child: Theme(
           data: myTheme,
@@ -461,89 +458,97 @@ class TipsTabState extends State<TipsTab> {
             builder: (context, daucompsViewmodelConsumer, client) {
               final sections = _cachedSections;
               if (sections.isEmpty) {
-                return CustomScrollView(
-                  controller: scrollController,
-                  restorationId: 'tipsListView',
-                  slivers: const [SliverToBoxAdapter(child: EndFooter())],
+                return ChangeNotifierProvider<StatsViewModel?>.value(
+                  value: daucompsViewmodelConsumer.statsViewModel,
+                  child: CustomScrollView(
+                    controller: scrollController,
+                    restorationId: 'tipsListView',
+                    slivers: const [SliverToBoxAdapter(child: EndFooter())],
+                  ),
                 );
               }
               final stickySection =
                   sections[_activeSectionIndex.clamp(0, sections.length - 1)];
 
-              return Stack(
-                children: [
-                  CustomScrollView(
-                    controller: scrollController,
-                    restorationId: 'tipsListView',
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: _welcomeSliverHeight,
-                          child: Column(
-                            children: [
-                              SizedBox(height: _topSafeInset),
-                              Expanded(
-                                child: WelcomeHeader(
-                                  daucompsViewmodelConsumer:
-                                      daucompsViewmodelConsumer,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      for (
-                        var sectionIndex = 0;
-                        sectionIndex < sections.length;
-                        sectionIndex++
-                      )
-                        ...buildRoundLeagueSectionSlivers(
-                          section: sections[sectionIndex],
-                          roundIndex: sections[sectionIndex].roundIndex,
-                          league: sections[sectionIndex].league,
-                          dauCompsViewModel: daucompsViewmodelConsumer,
-                          currentTipper: di<TippersViewModel>().selectedTipper,
-                          isPercentStatsPage: false,
-                          showInlineHeader:
-                              sectionIndex != 0 || !_stickyHeaderVisible,
-                          hideInlineHeaderVisual:
-                              _stickyHeaderVisible &&
-                              sectionIndex == _activeSectionIndex,
-                        ),
-                      const SliverToBoxAdapter(child: EndFooter()),
-                    ],
-                  ),
-                  if (_stickyHeaderVisible)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: ValueListenableBuilder<double>(
-                          valueListenable: _stickyHeaderPushUpOffset,
-                          builder: (context, pushUpOffset, child) {
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
+              return ChangeNotifierProvider<StatsViewModel?>.value(
+                value: daucompsViewmodelConsumer.statsViewModel,
+                child: Stack(
+                  children: [
+                    CustomScrollView(
+                      controller: scrollController,
+                      restorationId: 'tipsListView',
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: _welcomeSliverHeight,
+                            child: Column(
                               children: [
                                 SizedBox(height: _topSafeInset),
-                                Transform.translate(
-                                  offset: Offset(0, -pushUpOffset),
-                                  child: child,
+                                Expanded(
+                                  child: WelcomeHeader(
+                                    daucompsViewmodelConsumer:
+                                        daucompsViewmodelConsumer,
+                                  ),
                                 ),
                               ],
-                            );
-                          },
-                          child: TipsStickyHeader(
-                            section: stickySection,
+                            ),
+                          ),
+                        ),
+                        for (
+                          var sectionIndex = 0;
+                          sectionIndex < sections.length;
+                          sectionIndex++
+                        )
+                          ...buildRoundLeagueSectionSlivers(
+                            section: sections[sectionIndex],
+                            roundIndex: sections[sectionIndex].roundIndex,
+                            league: sections[sectionIndex].league,
                             dauCompsViewModel: daucompsViewmodelConsumer,
-                            currentTipper: di<TippersViewModel>().selectedTipper,
+                            currentTipper:
+                                di<TippersViewModel>().selectedTipper,
                             isPercentStatsPage: false,
-                            topPadding: 0,
+                            showInlineHeader:
+                                sectionIndex != 0 || !_stickyHeaderVisible,
+                            hideInlineHeaderVisual:
+                                _stickyHeaderVisible &&
+                                sectionIndex == _activeSectionIndex,
+                          ),
+                        const SliverToBoxAdapter(child: EndFooter()),
+                      ],
+                    ),
+                    if (_stickyHeaderVisible)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<double>(
+                            valueListenable: _stickyHeaderPushUpOffset,
+                            builder: (context, pushUpOffset, child) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(height: _topSafeInset),
+                                  Transform.translate(
+                                    offset: Offset(0, -pushUpOffset),
+                                    child: child,
+                                  ),
+                                ],
+                              );
+                            },
+                            child: TipsStickyHeader(
+                              section: stickySection,
+                              dauCompsViewModel: daucompsViewmodelConsumer,
+                              currentTipper:
+                                  di<TippersViewModel>().selectedTipper,
+                              isPercentStatsPage: false,
+                              topPadding: 0,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               );
             },
           ),

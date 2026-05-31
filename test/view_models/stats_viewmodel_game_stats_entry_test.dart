@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -133,11 +134,9 @@ void main() {
   );
 
   test(
-    'getGamesStatsEntry recalculates finalized stats without a matching tip count',
+    'getGamesStatsEntry does not recalculate finalized stats when not forced',
     () async {
       final staleZeroRead = Completer<void>();
-      final statsUpdated = Completer<void>();
-      final listenersNotified = Completer<void>();
       final completedGame = Game(
         dbkey: game.dbkey,
         league: game.league,
@@ -149,34 +148,12 @@ void main() {
         fixtureMatchNumber: game.fixtureMatchNumber,
         scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10),
       );
-      final allTipsViewModel = TipsViewModel(
-        tippersViewModel,
-        comp,
-        gamesViewModel,
-        database: database,
-        listenToTips: false,
-      );
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
         database: database,
         autoInitialize: false,
       );
-      viewModel.allTipsViewModel = allTipsViewModel;
-      viewModel.addListener(() {
-        if (!listenersNotified.isCompleted) {
-          listenersNotified.complete();
-        }
-      });
-      allTipsViewModel.setTipsForTest(<Tip?>[
-        Tip(
-          dbkey: completedGame.dbkey,
-          game: completedGame,
-          tipper: tipper,
-          tip: GameResult.b,
-          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
-        ),
-      ]);
 
       when(() => database.get()).thenAnswer((_) async {
         staleZeroRead.complete();
@@ -192,34 +169,144 @@ void main() {
           },
         );
       });
-      when(() => database.runTransaction(any())).thenAnswer((invocation) async {
-        final handler =
-            invocation.positionalArguments.single as TransactionHandler;
-        final transaction = handler(<String, Object?>{'avgScore': 0.0});
-        expect(transaction.value, containsPair('avgScore', 2.0));
-        expect(transaction.value, containsPair('avgScoreTipCount', 1));
-        statsUpdated.complete();
-        return transactionResult;
-      });
 
       viewModel.getGamesStatsEntry(completedGame, false);
 
       await staleZeroRead.future;
-      await statsUpdated.future;
-      await listenersNotified.future;
+      await Future<void>.delayed(Duration.zero);
 
-      expect(
-        viewModel.gamesStatsEntry[completedGame]?.averageScore,
-        2.0,
-      );
+      expect(viewModel.gameStatsEntryFor(completedGame), isNull);
+      expect(viewModel.allTipsViewModel, isNull);
+      verifyNever(() => database.runTransaction(any()));
 
-      allTipsViewModel.dispose();
       viewModel.dispose();
     },
   );
 
   test(
-    'getGamesStatsEntry recalculates finalized non-zero stats without a matching tip count',
+    'getGamesStatsEntry trusts finalized stats while tipper count is unavailable',
+    () async {
+      final readAttempted = Completer<void>();
+      final listenersNotified = Completer<void>();
+      final completedGame = Game(
+        dbkey: 'afl-10-082',
+        league: League.afl,
+        homeTeam: Team(
+          dbkey: 'afl-Brisbane Lions',
+          name: 'Lions',
+          league: League.afl,
+        ),
+        awayTeam: Team(
+          dbkey: 'afl-Geelong Cats',
+          name: 'Cats',
+          league: League.afl,
+        ),
+        location: 'Gabba',
+        startTimeUTC: DateTime.utc(2026, 5, 14, 9, 30),
+        fixtureRoundNumber: 10,
+        fixtureMatchNumber: 82,
+        scoring: Scoring(homeTeamScore: 76, awayTeamScore: 117),
+      );
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.addListener(() {
+        if (!listenersNotified.isCompleted) {
+          listenersNotified.complete();
+        }
+      });
+
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[]);
+      when(() => database.get()).thenAnswer((_) async {
+        readAttempted.complete();
+        return _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'pctTipA': 0.018,
+            'pctTipB': 0.895,
+            'pctTipC': 0.0,
+            'pctTipD': 0.088,
+            'pctTipE': 0.0,
+            'avgScore': 0.0,
+            'avgScoreTipCount': 57,
+          },
+        );
+      });
+
+      viewModel.getGamesStatsEntry(completedGame, false);
+
+      await readAttempted.future;
+      await listenersNotified.future;
+
+      expect(
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
+        0.0,
+      );
+      expect(
+        viewModel.gameStatsEntryFor(completedGame)?.averagePointsTipCount,
+        57,
+      );
+      expect(viewModel.allTipsViewModel, isNull);
+      verifyNever(() => database.runTransaction(any()));
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'getGamesStatsEntry does not remove listener-loaded stats after a missing passive read',
+    () async {
+      final readStarted = Completer<void>();
+      final completeRead = Completer<DataSnapshot>();
+      final completedGame = Game(
+        dbkey: game.dbkey,
+        league: game.league,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: DateTime.utc(2024, 4, 1, 12),
+        fixtureRoundNumber: game.fixtureRoundNumber,
+        fixtureMatchNumber: game.fixtureMatchNumber,
+        scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10),
+      );
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+
+      when(() => database.get()).thenAnswer((_) async {
+        readStarted.complete();
+        return completeRead.future;
+      });
+
+      viewModel.getGamesStatsEntry(completedGame, false);
+
+      await readStarted.future;
+      viewModel.gamesStatsEntry[completedGame.dbkey] = GameStatsEntry(
+        averagePoints: 1.25,
+        averagePointsTipCount: 1,
+      );
+      completeRead.complete(_snapshot(exists: false, value: null));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
+        1.25,
+      );
+      expect(viewModel.allTipsViewModel, isNull);
+      verifyNever(() => database.runTransaction(any()));
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'getGamesStatsEntry recalculates finalized stats when forced',
     () async {
       final staleStatsRead = Completer<void>();
       final statsUpdated = Completer<void>();
@@ -288,14 +375,14 @@ void main() {
         return transactionResult;
       });
 
-      viewModel.getGamesStatsEntry(completedGame, false);
+      viewModel.getGamesStatsEntry(completedGame, true);
 
       await staleStatsRead.future;
       await statsUpdated.future;
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averageScore,
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
         2.0,
       );
 
@@ -354,7 +441,7 @@ void main() {
       await listenersNotified.future;
 
       expect(
-        viewModel.gamesStatsEntry[completedGame]?.averageScore,
+        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
         0.0,
       );
       expect(viewModel.allTipsViewModel, isNull);

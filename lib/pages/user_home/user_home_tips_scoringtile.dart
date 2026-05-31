@@ -1,10 +1,12 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -44,21 +46,32 @@ class ScoringTileState extends State<ScoringTile> {
           final tip = gameTipsViewModelConsumer.tip;
           final game = gameTipsViewModelConsumer.game;
           final league = tip?.game.league;
+          final isInterimScore = _isInterimScore(game);
 
           return Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildResultText(game, tip),
-                _buildTipRow(tip, league),
-                _buildPointsText(game, tip),
-                _buildAverageScoreRow(game, tip),
-              ],
+            child: _buildScoringTileContent(
+              context,
+              isInterimScore,
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildResultText(game, tip),
+                  _buildTipRow(tip, league),
+                  _buildPointsText(game, tip),
+                  Selector<StatsViewModel?, GameStatsEntry?>(
+                    selector: (_, statsViewModel) =>
+                        statsViewModel?.gameStatsEntryFor(game),
+                    builder: (_, gameStatsEntry, _) {
+                      return _buildAveragePointsRow(gameStatsEntry, tip);
+                    },
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -66,9 +79,34 @@ class ScoringTileState extends State<ScoringTile> {
     );
   }
 
+  bool _isInterimScore(Game game) {
+    final scoring = game.scoring;
+    final hasCrowdSourcedScore =
+        scoring?.crowdSourcedScores?.isNotEmpty ?? false;
+    final hasFinalFixtureScore =
+        scoring?.homeTeamScore != null && scoring?.awayTeamScore != null;
+    return hasCrowdSourcedScore && !hasFinalFixtureScore;
+  }
+
+  Widget _buildScoringTileContent(
+    BuildContext context,
+    bool isInterimScore,
+    Widget child,
+  ) {
+    if (!isInterimScore) return child;
+
+    return Tooltip(
+      message: 'Scores are based on interim live score data.',
+      child: InkWell(
+        onTap: () => LiveScoresWarningCard.showLiveScoreDetails(context),
+        borderRadius: BorderRadius.circular(8.0),
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildResultText(Game game, Tip? tip) {
     final resultText = tip?.getGameResultText() ?? 'N/A';
-    final isInterimResult = game.gameState == GameState.startedResultNotKnown;
 
     return Padding(
       padding: const EdgeInsets.all(2.0),
@@ -76,43 +114,22 @@ class ScoringTileState extends State<ScoringTile> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Flexible(
-            child: isInterimResult
-                ? Tooltip(
-                    message:
-                        'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '* Result: ',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Flexible(
-                          child: Text(
-                            resultText,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Result: ',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Flexible(
-                        child: Text(
-                          resultText,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Result: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Flexible(
+                  child: Text(
+                    resultText,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -167,8 +184,7 @@ class ScoringTileState extends State<ScoringTile> {
 
   Widget _buildPointsText(Game game, Tip? tip) {
     final pointsText =
-        '${tip?.getTipScoreCalculated()} / ${tip?.getMaxScoreCalculated()}';
-    final isInterimResult = game.gameState == GameState.startedResultNotKnown;
+        '${tip?.getTipPointsCalculated()} / ${tip?.getMaxPointsCalculated()}';
 
     return Padding(
       padding: const EdgeInsets.all(2.0),
@@ -176,55 +192,33 @@ class ScoringTileState extends State<ScoringTile> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Flexible(
-            child: isInterimResult
-                ? Tooltip(
-                    message:
-                        'This is an interim result based on the current game score. The final result will be available after the game score is finalised.',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '* Points: ',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Flexible(
-                          child: Text(
-                            pointsText,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Your Points: ',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Flexible(
-                        child: Text(
-                          pointsText,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Your Points: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Flexible(
+                  child: Text(
+                    pointsText,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAverageScoreRow(Game game, Tip? tip) {
-    final averageScore =
-        di<StatsViewModel>().gamesStatsEntry[game]?.averageScore;
-    final averageText = averageScore != null
-        ? '${averageScore.toStringAsPrecision(2)} / ${tip?.getMaxScoreCalculated()}'
-        : '? / ${tip?.getMaxScoreCalculated()}';
+  Widget _buildAveragePointsRow(GameStatsEntry? gameStatsEntry, Tip? tip) {
+    final averagePoints = gameStatsEntry?.averagePoints;
+    final averageText = averagePoints != null
+        ? '${averagePoints.toStringAsPrecision(2)} / ${tip?.getMaxPointsCalculated()}'
+        : '? / ${tip?.getMaxPointsCalculated()}';
 
     return Padding(
       padding: const EdgeInsets.all(2.0),
@@ -234,12 +228,12 @@ class ScoringTileState extends State<ScoringTile> {
           Flexible(
             child: Tooltip(
               message:
-                  'This is the average score of tips for all tippers for this game. Your aim is to score higher than this to improve your ranking. If the score is not finalised then this is an interim average.',
+                  'This is the average points collected by tippers for this game. Your aim is to collect more points than this to improve your ranking. If the game score is not finalised then this is an interim average.',
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Average: ',
+                    'Avg Points: ',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -1,6 +1,7 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
@@ -41,6 +42,7 @@ void main() {
   late DAURound round;
   late Game game;
   late Tipper alice;
+  late Tipper bob;
   late TipsViewModel allTipsViewModel;
 
   setUp(() async {
@@ -74,6 +76,15 @@ void main() {
       tipperRole: TipperRole.tipper,
       compsPaidFor: <DAUComp>[comp],
     );
+    bob = Tipper(
+      dbkey: 'tipper-2',
+      authuid: 'auth-2',
+      email: 'bob@example.com',
+      logon: 'bob@example.com',
+      name: 'Bob',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const <DAUComp>[],
+    );
     game = Game(
       dbkey: 'nrl-01-001',
       league: League.nrl,
@@ -90,6 +101,11 @@ void main() {
     when(
       () => database.runTransaction(any()),
     ).thenAnswer((_) async => transactionResult);
+    when(() => database.update(any())).thenAnswer((_) async {});
+    when(
+      () => database.get(),
+    ).thenAnswer((_) async => _snapshot(exists: false, value: null));
+    when(() => database.set(any())).thenAnswer((_) async {});
     when(() => transactionResult.committed).thenReturn(true);
 
     when(() => gamesViewModel.addListener(any())).thenReturn(null);
@@ -107,6 +123,9 @@ void main() {
     when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice]);
     when(() => tippersViewModel.findTipper('tipper-1')).thenAnswer((_) async {
       return alice;
+    });
+    when(() => tippersViewModel.findTipper('tipper-2')).thenAnswer((_) async {
+      return bob;
     });
 
     when(() => dauCompsViewModel.selectedDAUComp).thenReturn(comp);
@@ -149,7 +168,7 @@ void main() {
       );
       viewModel.allTipsViewModel = allTipsViewModel;
 
-      await viewModel.handleRoundScoresEventForTest(
+      await viewModel.handleRoundPointsEventForTest(
         _databaseEvent(_snapshot(exists: false, value: null)),
       );
 
@@ -161,8 +180,313 @@ void main() {
       expect(round.games, hasLength(1));
       expect(round.nrlGameCount, 1);
       final updatedRoundStats = viewModel.getScoringRoundStats(round, alice);
-      expect(updatedRoundStats.nrlScore, 2);
-      expect(updatedRoundStats.nrlMaxScore, 2);
+      expect(updatedRoundStats.nrlPoints, 2);
+      expect(updatedRoundStats.nrlMaxPoints, 2);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'full rescore does not rebuild game stats unless explicitly requested',
+    () async {
+      final gameStatsWrites = <Map<String, dynamic>>[];
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice, bob]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: bob,
+          tip: GameResult.d,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      when(() => database.runTransaction(any())).thenAnswer((invocation) async {
+        final handler =
+            invocation.positionalArguments.single as TransactionHandler;
+        final transaction = handler(null);
+        final value = transaction.value;
+        if (value is Map && value.containsKey('avgScore')) {
+          gameStatsWrites.add(Map<String, dynamic>.from(value));
+        }
+        return transactionResult;
+      });
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final result = await viewModel.updateStats(comp, null, null);
+
+      expect(result, 'Completed updates for 2 tippers and 1 rounds.');
+      expect(gameStatsWrites, isEmpty);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'full rescore rebuilds paid and free game stats for hydrated games',
+    () async {
+      Map<String, Object?>? gameStatsUpdates;
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice, bob]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: bob,
+          tip: GameResult.d,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      when(() => database.get()).thenAnswer((_) async {
+        return _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'paid': <String, Object?>{
+              game.dbkey: <String, Object?>{
+                'pctTipB': 1.0,
+                'avgScore': 1.0,
+                'avgScoreTipCount': 1,
+              },
+            },
+            'free': <String, Object?>{
+              game.dbkey: <String, Object?>{
+                'pctTipD': 1.0,
+                'avgScore': 1.0,
+                'avgScoreTipCount': 1,
+              },
+            },
+          },
+        );
+      });
+      when(() => database.update(any())).thenAnswer((invocation) async {
+        gameStatsUpdates = Map<String, Object?>.from(
+          invocation.positionalArguments.single as Map,
+        );
+      });
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final report = await viewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      );
+
+      expect(
+        report.resultMessage,
+        'Completed updates for 2 tippers and 1 rounds.',
+      );
+      expect(report.gameStatsChanges, hasLength(2));
+      expect(
+        report.gameStatsChanges.map((change) => change.cohortLabel),
+        containsAll(<String>['Paid', 'Free']),
+      );
+      expect(gameStatsUpdates, isNotNull);
+      expect(
+        gameStatsUpdates!['paid/${game.dbkey}'],
+        containsPair('avgScore', 2.0),
+      );
+      expect(
+        gameStatsUpdates!['free/${game.dbkey}'],
+        containsPair('avgScore', 0.0),
+      );
+      expect(viewModel.gameStatsEntryFor(game)?.averagePoints, 2.0);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'game stats report suppresses rows that were previously missing',
+    () async {
+      Map<String, Object?>? gameStatsUpdates;
+      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice, bob]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: game.dbkey,
+          game: game,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      when(() => database.update(any())).thenAnswer((invocation) async {
+        gameStatsUpdates = Map<String, Object?>.from(
+          invocation.positionalArguments.single as Map,
+        );
+      });
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final report = await viewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      );
+
+      expect(gameStatsUpdates, isNotNull);
+      expect(report.gameStatsChanges, isEmpty);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'completed games with complete live scores can write aggregate stats',
+    () async {
+      final liveScoredGame = Game(
+        dbkey: 'nrl-01-002',
+        league: League.nrl,
+        homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
+        awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
+        location: 'Stadium',
+        startTimeUTC: DateTime.utc(2024, 4, 1, 10),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 2,
+        scoring: Scoring(
+          crowdSourcedScores: <CrowdSourcedScore>[
+            CrowdSourcedScore(
+              DateTime.utc(2024, 4, 1, 12),
+              ScoringTeam.home,
+              alice.dbkey!,
+              20,
+              false,
+            ),
+            CrowdSourcedScore(
+              DateTime.utc(2024, 4, 1, 12),
+              ScoringTeam.away,
+              alice.dbkey!,
+              10,
+              false,
+            ),
+          ],
+        ),
+      );
+      round.games = <Game>[liveScoredGame];
+      when(
+        () => gamesViewModel.getGamesForRound(round),
+      ).thenAnswer((_) async => <Game>[liveScoredGame]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: liveScoredGame.dbkey,
+          game: liveScoredGame,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final result = await viewModel.updateStats(comp, null, null);
+
+      expect(result, 'Completed updates for 1 tippers and 1 rounds.');
+      final updatedRoundStats = viewModel.getScoringRoundStats(round, alice);
+      expect(updatedRoundStats.nrlPoints, 2);
+      expect(updatedRoundStats.nrlMaxPoints, 2);
+      verify(() => database.runTransaction(any())).called(1);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'missing score sources no longer block aggregate stats writes',
+    () async {
+      final unscoredGame = Game(
+        dbkey: 'nrl-01-003',
+        league: League.nrl,
+        homeTeam: Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl),
+        awayTeam: Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl),
+        location: 'Stadium',
+        startTimeUTC: DateTime.now().toUtc().subtract(
+          const Duration(hours: 5),
+        ),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 3,
+        scoring: Scoring(homeTeamScore: null, awayTeamScore: null),
+      );
+      round.games = <Game>[unscoredGame];
+      when(
+        () => gamesViewModel.getGamesForRound(round),
+      ).thenAnswer((_) async => <Game>[unscoredGame]);
+      allTipsViewModel.setTipsForTest(<Tip?>[
+        Tip(
+          dbkey: unscoredGame.dbkey,
+          game: unscoredGame,
+          tipper: alice,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2024, 4, 1, 9),
+        ),
+      ]);
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: database,
+        autoInitialize: false,
+      );
+      viewModel.allTipsViewModel = allTipsViewModel;
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(_snapshot(exists: false, value: null)),
+      );
+
+      final result = await viewModel.updateStats(comp, null, null);
+
+      expect(result, 'Completed updates for 1 tippers and 1 rounds.');
+      verify(() => database.runTransaction(any())).called(1);
 
       viewModel.dispose();
     },
@@ -184,6 +508,6 @@ MockDataSnapshot _snapshot({
   when(() => snapshot.exists).thenReturn(exists);
   when(() => snapshot.value).thenReturn(value);
   when(() => snapshot.ref).thenReturn(ref);
-  when(() => ref.path).thenReturn('/Stats/comp-2024/round_stats_v2');
+  when(() => ref.path).thenReturn('/Stats/comp-2024/$roundStatsRoot');
   return snapshot;
 }

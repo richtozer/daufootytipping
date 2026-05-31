@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 
 class AdminDaucompsEditFixtureButton extends StatelessWidget {
   static const String webDisabledTooltip =
@@ -111,8 +114,18 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
     if (daucomp == null) {
       return const SizedBox.shrink();
     } else {
+      final isWebPlatform = kIsWeb;
       return OutlinedButton(
         onPressed: () async {
+          if (dauCompsViewModel.isDownloading) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: League.afl.colour,
+                content: const Text('Fixture download already in progress'),
+              ),
+            );
+            return;
+          }
           if (dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
               false) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -124,6 +137,29 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
             return;
           }
 
+          final selectedSteps = await _showAdminUpdateStepsDialog(
+            context,
+            fixtureDownloadAvailable: !isWebPlatform,
+          );
+          if (selectedSteps == null) {
+            return;
+          }
+          if (!selectedSteps.hasAnyStep) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Colors.orange,
+                  content: Text('Select at least one update step.'),
+                ),
+              );
+            }
+            return;
+          }
+
+          var progressDialogShown = false;
+          final adminProgress = ValueNotifier<AdminUpdateProgress>(
+            const AdminUpdateProgress('Preparing admin update...', null),
+          );
           try {
             onDisableBack(true);
             await Future.delayed(const Duration(milliseconds: 100));
@@ -132,19 +168,68 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
               throw StateError('statsViewModel is null');
             }
 
-            final report = await statsViewModel.updateStatsWithReport(
-              daucomp!,
-              null,
-              null,
-            );
             if (context.mounted) {
-              await showDialog<void>(
-                context: context,
-                builder: (_) => _ScoringUpdateReportDialog(report: report),
+              progressDialogShown = true;
+              unawaited(
+                showDialog<void>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => _AdminUpdateProgressDialog(
+                    adminProgress: adminProgress,
+                    statsViewModel: statsViewModel,
+                  ),
+                ),
               );
+            }
+
+            String? fixtureResult;
+            if (selectedSteps.downloadFixtures) {
+              adminProgress.value = const AdminUpdateProgress(
+                'Downloading fixtures...',
+                null,
+              );
+              fixtureResult = await dauCompsViewModel.getNetworkFixtureData(
+                daucomp!,
+              );
+            }
+
+            ScoringUpdateReport? report;
+            if (selectedSteps.recalculateScoring) {
+              report = await statsViewModel.updateStatsWithReport(
+                daucomp!,
+                null,
+                null,
+                rebuildGameStats: selectedSteps.rebuildGameStats,
+              );
+            }
+
+            if (context.mounted) {
+              if (progressDialogShown) {
+                Navigator.of(context, rootNavigator: true).pop();
+              }
+              if (report != null) {
+                await showDialog<void>(
+                  context: context,
+                  builder: (_) => _ScoringUpdateReportDialog(
+                    report: report!,
+                    fixtureResult: fixtureResult,
+                  ),
+                );
+              } else if (fixtureResult != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.green,
+                    content: Text(fixtureResult),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
             }
           } catch (e) {
             if (context.mounted) {
+              if (progressDialogShown) {
+                Navigator.of(context, rootNavigator: true).pop();
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: Colors.red,
@@ -156,25 +241,145 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
               );
             }
           } finally {
+            adminProgress.dispose();
             if (context.mounted) {
               onDisableBack(false);
             }
           }
         },
         child: Text(
-          !(dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ?? false)
-              ? 'Rescore'
-              : 'Scoring...',
+          !(dauCompsViewModel.isDownloading ||
+                  (dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
+                      false))
+              ? 'Run Updates'
+              : 'Updating...',
         ),
       );
     }
   }
 }
 
+class AdminUpdateStepSelection {
+  final bool downloadFixtures;
+  final bool recalculateScoring;
+  final bool rebuildGameStats;
+
+  const AdminUpdateStepSelection({
+    required this.downloadFixtures,
+    required this.recalculateScoring,
+    required this.rebuildGameStats,
+  });
+
+  bool get hasAnyStep =>
+      downloadFixtures || recalculateScoring || rebuildGameStats;
+}
+
+class AdminUpdateProgress {
+  final String message;
+  final double? value;
+
+  const AdminUpdateProgress(this.message, this.value);
+}
+
+Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
+  BuildContext context, {
+  required bool fixtureDownloadAvailable,
+}) {
+  var downloadFixtures = false;
+  var recalculateScoring = true;
+  var rebuildGameStats = true;
+
+  return showDialog<AdminUpdateStepSelection>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Run admin updates'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Fixture downloads and scoring updates are normally handled automatically. Use these manual repair steps only when you see fixture, scoring, or average point issues.',
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  value: downloadFixtures,
+                  onChanged: fixtureDownloadAvailable
+                      ? (value) {
+                          setDialogState(() {
+                            downloadFixtures = value ?? false;
+                          });
+                        }
+                      : null,
+                  title: const Text('Download fixtures'),
+                  subtitle: Text(
+                    fixtureDownloadAvailable
+                        ? 'Fetch latest fixture scores and save game updates.'
+                        : AdminDaucompsEditFixtureButton.webDisabledTooltip,
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                CheckboxListTile(
+                  value: recalculateScoring,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      recalculateScoring = value ?? false;
+                      if (!recalculateScoring) {
+                        rebuildGameStats = false;
+                      }
+                    });
+                  },
+                  title: const Text('Recalculate scoring'),
+                  subtitle: const Text('Rebuild round points and leaderboards.'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                CheckboxListTile(
+                  value: rebuildGameStats,
+                  onChanged: recalculateScoring
+                      ? (value) {
+                          setDialogState(() {
+                            rebuildGameStats = value ?? false;
+                          });
+                        }
+                      : null,
+                  title: const Text('Rebuild game averages'),
+                  subtitle: const Text(
+                    'Refresh paid and free average points for completed games.',
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(
+                  AdminUpdateStepSelection(
+                    downloadFixtures: downloadFixtures,
+                    recalculateScoring: recalculateScoring,
+                    rebuildGameStats: rebuildGameStats,
+                  ),
+                ),
+                child: const Text('Run'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
 class _ScoringUpdateReportDialog extends StatelessWidget {
   final ScoringUpdateReport report;
+  final String? fixtureResult;
 
-  const _ScoringUpdateReportDialog({required this.report});
+  const _ScoringUpdateReportDialog({required this.report, this.fixtureResult});
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +399,10 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(report.resultMessage),
+                if (fixtureResult != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Fixture download: $fixtureResult'),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   report.summaryLine,
@@ -220,7 +429,7 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                 if (report.roundChanges.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
-                    'Round score changes',
+                    'Round point changes',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -230,6 +439,22 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
                     (change) => _ScoringChangeCard(
                       title: 'Round ${change.roundNumber} • ${change.tipperName}',
                       lines: _buildRoundChangeLines(change),
+                    ),
+                  ),
+                ],
+                if (report.gameStatsChanges.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Game average changes',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...report.gameStatsChanges.map(
+                    (change) => _ScoringChangeCard(
+                      title: '${change.gameName} • ${change.cohortLabel}',
+                      lines: _buildGameStatsChangeLines(change),
                     ),
                   ),
                 ],
@@ -244,6 +469,43 @@ class _ScoringUpdateReportDialog extends StatelessWidget {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+class _AdminUpdateProgressDialog extends StatelessWidget {
+  final ValueListenable<AdminUpdateProgress> adminProgress;
+  final StatsViewModel statsViewModel;
+
+  const _AdminUpdateProgressDialog({
+    required this.adminProgress,
+    required this.statsViewModel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Running updates'),
+      content: AnimatedBuilder(
+        animation: Listenable.merge(<Listenable>[adminProgress, statsViewModel]),
+        builder: (context, _) {
+          final progressValue =
+              statsViewModel.scoringProgressValue ?? adminProgress.value.value;
+          final progressMessage =
+              statsViewModel.scoringProgressMessage ?? adminProgress.value.message;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinearProgressIndicator(value: progressValue),
+              const SizedBox(height: 16),
+              Text(progressMessage),
+              const SizedBox(height: 8),
+              const Text('Keep this screen open until the report appears.'),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -341,6 +603,18 @@ List<String> _buildRoundChangeLines(ScoringRoundChange change) {
   return lines;
 }
 
+List<String> _buildGameStatsChangeLines(ScoringGameStatsChange change) {
+  final lines = <String>[];
+
+  if (change.beforeAveragePoints != change.afterAveragePoints) {
+    lines.add(
+      'Avg ${_formatNullableDouble(change.beforeAveragePoints)} -> ${_formatNullableDouble(change.afterAveragePoints)}',
+    );
+  }
+
+  return lines;
+}
+
 class _ScoringChangeCard extends StatelessWidget {
   final String title;
   final List<String> lines;
@@ -390,4 +664,8 @@ String _formatRankDelta(int rankDelta) {
 
 String _formatMetricChange(String label, int before, int after) {
   return '$label $before -> $after (${_formatSignedDelta(after - before)})';
+}
+
+String _formatNullableDouble(double? value) {
+  return value == null ? 'missing' : value.toStringAsPrecision(2);
 }

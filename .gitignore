@@ -74,3 +74,6 @@ app.*.map.json
 
 # Firebase functions related
 node_modules/
+
+# Dart functions compiled executable
+functions_dart/bin/server

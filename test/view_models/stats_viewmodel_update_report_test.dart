@@ -108,11 +108,11 @@ void main() {
       autoInitialize: false,
     );
 
-    await viewModel.handleRoundScoresEventForTest(
+    await viewModel.handleRoundPointsEventForTest(
       _databaseEvent(
         _snapshot(
           exists: true,
-          value: _roundScoresPayload(
+          value: _roundPointsPayload(
             roundOneAliceTotal: 5,
             roundOneBobTotal: 3,
             roundTwoAliceTotal: 6,
@@ -123,11 +123,11 @@ void main() {
     );
     final beforeSnapshot = await viewModel.captureScoringSnapshotForTest();
 
-    await viewModel.handleRoundScoresEventForTest(
+    await viewModel.handleRoundPointsEventForTest(
       _databaseEvent(
         _snapshot(
           exists: true,
-          value: _roundScoresPayload(
+          value: _roundPointsPayload(
             roundOneAliceTotal: 8,
             roundOneBobTotal: 3,
             roundTwoAliceTotal: 8,
@@ -189,7 +189,7 @@ MockDataSnapshot _snapshot({
   return snapshot;
 }
 
-List<Object?> _roundScoresPayload({
+List<Object?> _roundPointsPayload({
   required int roundOneAliceTotal,
   required int roundOneBobTotal,
   required int roundTwoAliceTotal,
@@ -213,12 +213,12 @@ Map<String, int> _roundStatsJson({
 }) {
   return RoundStats(
     roundNumber: roundNumber,
-    aflScore: 0,
-    aflMaxScore: 1,
+    aflPoints: 0,
+    aflMaxPoints: 1,
     aflMarginTips: 0,
     aflMarginUPS: 0,
-    nrlScore: total,
-    nrlMaxScore: total + 1,
+    nrlPoints: total,
+    nrlMaxPoints: total + 1,
     nrlMarginTips: 0,
     nrlMarginUPS: 0,
     rank: 0,

@@ -53,6 +53,14 @@ When Firebase supports the required Dart triggers, the end state is:
 - backend-owned admin rescore
 - client becomes a read-only consumer of scores and stats
 
+### Architectural Simplifications
+- **Removal of Grace Period Checks:** The league-specific grace period checks (mandating official scores after a certain duration to prevent stale writes) are not required on the backend. Because backend functions run with real-time server-side database access (no local offline cache lag) and act as the sole writer of aggregates, there is no risk of a client overwriting correct server stats with stale calculations. The backend can simply compute stats using the best available data on the server (official scores if present, falling back to live scores).
+- **Removal of Client-Side Scoring Queue:** The client-side `ScoringUpdateQueue` (which queues and triggers rescoring tasks when tips or scores change) will be completely obsoleted. The client will simply write tips or live scores to their respective paths, and server-side cloud triggers (`onWrite`) will automatically initiate rescoring.
+- **Obsoletion of Local Concurrency Locks:** Complex client-side concurrency guards (like `_isUpdateScoringRunning`, `_updateLock`, and single-flight flags) will be removed. The backend handles event execution, and concurrency conflicts on writes are resolved using standard database transactions.
+- **Removal of UI Progress Tracking for Scoring:** Client-side progress tracking states (such as `_scoringProgressMessage`, `_scoringProgressValue`, and step-by-step reporting hooks) will be removed from the view models. The client will simply display read-only stats and leaderboards.
+- **Simplification of Precedence and Merging Logic:** The client will no longer need to manage complex merging and precedence rules between live crowdsourced scores and official fixture scores (e.g., `_gamesWithLiveScores` cleanup, `_deleteStaleLiveScores`). The backend will write the computed stats, and the client will consume them directly.
+- **Centralized Audit Logging:** Device-specific audit logging from the client (`_writeScoringAuditEvent` which logs app version, build number, and platform) will be replaced by server-side system logs or centralized database entries structured directly by the Cloud Function.
+
 ## Work Plan
 
 ### Phase 0: Preparation Now
@@ -115,6 +123,23 @@ When full migration begins:
 - use a new backend-owned scoring branch as the authoritative validation target
 - dual-write only after validation
 - preserve `/Stats/.../live_scores_v1/` as the client-owned live-score input path unless redesigning that path explicitly
+
+## Server-to-Client Status Broadcast (UI Progress Tracking)
+To replace the legacy client-side local progress state and support admin actions (like manual fixture downloads or full rescores), the backend will write real-time status updates to a dedicated path in the database:
+
+Path: `/Stats/<comp_id>/scoring_status/`
+Fields:
+- `status`: `'idle' | 'downloading_fixture' | 'calculating' | 'completed' | 'failed'`
+- `inProgress`: boolean (convenience flag to toggle UI overlays or lock submit buttons)
+- `startedAt`: ServerValue.timestamp
+- `message`: optional progress details (e.g., "Downloading NRL Round 12...", "Averages recalculated...")
+- `percentComplete`: float (0.0 to 1.0) for active runs
+- `triggeredBy`: `tipperId` / `'system_timer'`
+- `error`: optional error details if status is `'failed'`
+
+### Benefits:
+- **Global Visibility:** All active users (not just the admin/tipper who triggered the action) see a unified status. For example, if an admin triggers a fixture refresh, other users' leaderboards will display "Refreshing scores..." rather than showing stale numbers or silently changing layout.
+- **Persistent State:** If the app is closed and reopened during an expensive calculation, the correct state displays immediately.
 
 ## Admin Authorization
 Future admin callables should verify admin status server-side.

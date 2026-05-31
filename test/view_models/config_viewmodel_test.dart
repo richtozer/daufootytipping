@@ -46,6 +46,7 @@ void main() {
               p.createLinkedTipperKey: _valueSnapshot(null),
               p.minAppVersionKey: _valueSnapshot(null),
               p.googleClientIdKey: _valueSnapshot(null),
+              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
             },
           ),
         ),
@@ -82,6 +83,7 @@ void main() {
             p.createLinkedTipperKey: _valueSnapshot(null),
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -102,6 +104,7 @@ void main() {
             p.createLinkedTipperKey: _valueSnapshot(true),
             p.minAppVersionKey: _valueSnapshot('1.2.3'),
             p.googleClientIdKey: _valueSnapshot('client-id'),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot('https://example.com'),
           },
         ),
       ),
@@ -113,6 +116,7 @@ void main() {
     expect(viewModel.createLinkedTipper, isTrue);
     expect(viewModel.minAppVersion, '1.2.3');
     expect(viewModel.googleClientId, 'client-id');
+    expect(viewModel.cloudFunctionsBaseURL, 'https://example.com');
 
     viewModel.dispose();
   });
@@ -133,6 +137,7 @@ void main() {
             p.createLinkedTipperKey: _valueSnapshot(null),
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -177,6 +182,7 @@ void main() {
             p.createLinkedTipperKey: _valueSnapshot(true),
             p.minAppVersionKey: _valueSnapshot('1.2.3'),
             p.googleClientIdKey: _valueSnapshot('client-id'),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -206,6 +212,7 @@ void main() {
             p.createLinkedTipperKey: _valueSnapshot(null),
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -235,6 +242,7 @@ void main() {
             p.createLinkedTipperKey: _valueSnapshot(true),
             p.minAppVersionKey: _valueSnapshot('1.2.3'),
             p.googleClientIdKey: _valueSnapshot('client-id'),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
           },
         ),
       ),

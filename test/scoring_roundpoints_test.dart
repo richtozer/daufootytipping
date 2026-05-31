@@ -2,16 +2,16 @@ import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('RoundScores', () {
+  group('RoundPoints', () {
     test('toJson should return a valid JSON map', () {
-      final roundScores = RoundStats(
+      final roundPoints = RoundStats(
         roundNumber: 1,
-        aflScore: 10,
-        aflMaxScore: 20,
+        aflPoints: 10,
+        aflMaxPoints: 20,
         aflMarginTips: 5,
         aflMarginUPS: 3,
-        nrlScore: 15,
-        nrlMaxScore: 25,
+        nrlPoints: 15,
+        nrlMaxPoints: 25,
         nrlMarginTips: 7,
         nrlMarginUPS: 4,
         rank: 1,
@@ -20,7 +20,7 @@ void main() {
         aflTipsOutstanding: 0,
       );
 
-      final json = roundScores.toJson();
+      final json = roundPoints.toJson();
 
       expect(json, {
         'aS': 10,
@@ -36,7 +36,7 @@ void main() {
       });
     });
 
-    test('fromJson should create a valid RoundScores object', () {
+    test('fromJson should create a valid RoundPoints object', () {
       final json = {
         'nbr': 1,
         'aS': 10,
@@ -51,21 +51,21 @@ void main() {
         'aTo': 0,
       };
 
-      final roundScores = RoundStats.fromJson(json);
+      final roundPoints = RoundStats.fromJson(json);
 
-      expect(roundScores.roundNumber, 1);
-      expect(roundScores.aflScore, 10);
-      expect(roundScores.aflMaxScore, 20);
-      expect(roundScores.aflMarginTips, 5);
-      expect(roundScores.aflMarginUPS, 3);
-      expect(roundScores.nrlScore, 15);
-      expect(roundScores.nrlMaxScore, 25);
-      expect(roundScores.nrlMarginTips, 7);
-      expect(roundScores.nrlMarginUPS, 4);
-      expect(roundScores.rank, 0); // fromJson sets these to 0
-      expect(roundScores.rankChange, 0);
-      expect(roundScores.nrlTipsOutstanding, 0);
-      expect(roundScores.aflTipsOutstanding, 0);
+      expect(roundPoints.roundNumber, 1);
+      expect(roundPoints.aflPoints, 10);
+      expect(roundPoints.aflMaxPoints, 20);
+      expect(roundPoints.aflMarginTips, 5);
+      expect(roundPoints.aflMarginUPS, 3);
+      expect(roundPoints.nrlPoints, 15);
+      expect(roundPoints.nrlMaxPoints, 25);
+      expect(roundPoints.nrlMarginTips, 7);
+      expect(roundPoints.nrlMarginUPS, 4);
+      expect(roundPoints.rank, 0); // fromJson sets these to 0
+      expect(roundPoints.rankChange, 0);
+      expect(roundPoints.nrlTipsOutstanding, 0);
+      expect(roundPoints.aflTipsOutstanding, 0);
     });
 
     test('fromJson should fall back to the supplied round number', () {
@@ -82,25 +82,25 @@ void main() {
         'aTo': 0,
       };
 
-      final roundScores = RoundStats.fromJson(
+      final roundPoints = RoundStats.fromJson(
         json,
         fallbackRoundNumber: 2,
       );
 
-      expect(roundScores.roundNumber, 2);
-      expect(roundScores.aflScore, 10);
-      expect(roundScores.nrlScore, 15);
+      expect(roundPoints.roundNumber, 2);
+      expect(roundPoints.aflPoints, 10);
+      expect(roundPoints.nrlPoints, 15);
     });
 
     test('toCsv should return a valid CSV list', () {
-      final roundScores = RoundStats(
+      final roundPoints = RoundStats(
         roundNumber: 1,
-        aflScore: 10,
-        aflMaxScore: 20,
+        aflPoints: 10,
+        aflMaxPoints: 20,
         aflMarginTips: 5,
         aflMarginUPS: 3,
-        nrlScore: 15,
-        nrlMaxScore: 25,
+        nrlPoints: 15,
+        nrlMaxPoints: 25,
         nrlMarginTips: 7,
         nrlMarginUPS: 4,
         rank: 1,
@@ -109,22 +109,22 @@ void main() {
         aflTipsOutstanding: 0,
       );
 
-      final csv = roundScores.toCsv();
+      final csv = roundPoints.toCsv();
 
       expect(csv, [10, 20, 5, 3, 15, 25, 7, 4, 1, 0, 0, 0]);
     });
 
     test(
-      'equality operator should compare two RoundScores objects correctly',
+      'equality operator should compare two RoundPoints objects correctly',
       () {
-        final roundScores1 = RoundStats(
+        final roundPoints1 = RoundStats(
           roundNumber: 1,
-          aflScore: 10,
-          aflMaxScore: 20,
+          aflPoints: 10,
+          aflMaxPoints: 20,
           aflMarginTips: 5,
           aflMarginUPS: 3,
-          nrlScore: 15,
-          nrlMaxScore: 25,
+          nrlPoints: 15,
+          nrlMaxPoints: 25,
           nrlMarginTips: 7,
           nrlMarginUPS: 4,
           rank: 1,
@@ -133,14 +133,14 @@ void main() {
           aflTipsOutstanding: 0,
         );
 
-        final roundScores2 = RoundStats(
+        final roundPoints2 = RoundStats(
           roundNumber: 1,
-          aflScore: 10,
-          aflMaxScore: 20,
+          aflPoints: 10,
+          aflMaxPoints: 20,
           aflMarginTips: 5,
           aflMarginUPS: 3,
-          nrlScore: 15,
-          nrlMaxScore: 25,
+          nrlPoints: 15,
+          nrlMaxPoints: 25,
           nrlMarginTips: 7,
           nrlMarginUPS: 4,
           rank: 1,
@@ -149,14 +149,14 @@ void main() {
           aflTipsOutstanding: 0,
         );
 
-        final roundScores3 = RoundStats(
+        final roundPoints3 = RoundStats(
           roundNumber: 2,
-          aflScore: 20,
-          aflMaxScore: 30,
+          aflPoints: 20,
+          aflMaxPoints: 30,
           aflMarginTips: 10,
           aflMarginUPS: 6,
-          nrlScore: 30,
-          nrlMaxScore: 40,
+          nrlPoints: 30,
+          nrlMaxPoints: 40,
           nrlMarginTips: 14,
           nrlMarginUPS: 8,
           rank: 2,
@@ -165,22 +165,22 @@ void main() {
           aflTipsOutstanding: 0,
         );
 
-        expect(roundScores1 == roundScores2, true);
-        expect(roundScores1 == roundScores3, false);
+        expect(roundPoints1 == roundPoints2, true);
+        expect(roundPoints1 == roundPoints3, false);
       },
     );
 
     test(
-      'hashCode should return the same value for equal RoundScores objects',
+      'hashCode should return the same value for equal RoundPoints objects',
       () {
-        final roundScores1 = RoundStats(
+        final roundPoints1 = RoundStats(
           roundNumber: 1,
-          aflScore: 10,
-          aflMaxScore: 20,
+          aflPoints: 10,
+          aflMaxPoints: 20,
           aflMarginTips: 5,
           aflMarginUPS: 3,
-          nrlScore: 15,
-          nrlMaxScore: 25,
+          nrlPoints: 15,
+          nrlMaxPoints: 25,
           nrlMarginTips: 7,
           nrlMarginUPS: 4,
           rank: 1,
@@ -189,14 +189,14 @@ void main() {
           aflTipsOutstanding: 0,
         );
 
-        final roundScores2 = RoundStats(
+        final roundPoints2 = RoundStats(
           roundNumber: 1,
-          aflScore: 10,
-          aflMaxScore: 20,
+          aflPoints: 10,
+          aflMaxPoints: 20,
           aflMarginTips: 5,
           aflMarginUPS: 3,
-          nrlScore: 15,
-          nrlMaxScore: 25,
+          nrlPoints: 15,
+          nrlMaxPoints: 25,
           nrlMarginTips: 7,
           nrlMarginUPS: 4,
           rank: 1,
@@ -205,7 +205,7 @@ void main() {
           aflTipsOutstanding: 0,
         );
 
-        expect(roundScores1.hashCode == roundScores2.hashCode, true);
+        expect(roundPoints1.hashCode == roundPoints2.hashCode, true);
       },
     );
   });

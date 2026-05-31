@@ -21,7 +21,7 @@ class StatRoundWinners extends StatefulWidget {
 }
 
 class _StatRoundWinnersState extends State<StatRoundWinners> {
-  late StatsViewModel scoresViewModel;
+  late StatsViewModel statsViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
 
@@ -38,7 +38,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<StatsViewModel>();
+    statsViewModel = di<StatsViewModel>();
     onSort(0, false);
   }
 
@@ -58,9 +58,9 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
     int? lastRoundNumber;
     return ChangeNotifierProvider<StatsViewModel>.value(
-      value: scoresViewModel,
+      value: statsViewModel,
       child: Consumer<StatsViewModel>(
-        builder: (context, scoresViewModelConsumer, child) {
+        builder: (context, statsViewModelConsumer, child) {
           Orientation orientation = MediaQuery.of(context).orientation;
           final isDarkMode =
               MediaQuery.of(context).platformBrightness == Brightness.dark;
@@ -155,7 +155,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                             isHorizontalScrollBarVisible: true,
                             isVerticalScrollBarVisible: true,
                             columns: getColumns(columns),
-                            rows: scoresViewModel.roundWinners.values.expand((
+                            rows: statsViewModel.roundWinners.values.expand((
                               winners,
                             ) {
                               return winners.map((winner) {
@@ -320,31 +320,31 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     switch (columnIndex) {
       case 0:
         // sort by round number
-        scoresViewModel.sortRoundWinnersByRoundNumber(ascending);
+        statsViewModel.sortRoundWinnersByRoundNumber(ascending);
         break;
       case 1:
         // sort by winner
-        scoresViewModel.sortRoundWinnersByWinner(ascending);
+        statsViewModel.sortRoundWinnersByWinner(ascending);
         break;
       case 2:
         // sort by total
-        scoresViewModel.sortRoundWinnersByTotal(ascending);
+        statsViewModel.sortRoundWinnersByTotal(ascending);
         break;
       case 3:
         // sort by nrl
-        scoresViewModel.sortRoundWinnersByNRL(ascending);
+        statsViewModel.sortRoundWinnersByNRL(ascending);
         break;
       case 4:
         // sort by afl
-        scoresViewModel.sortRoundWinnersByAFL(ascending);
+        statsViewModel.sortRoundWinnersByAFL(ascending);
         break;
       case 5:
         // sort by margins
-        scoresViewModel.sortRoundWinnersByMargins(ascending);
+        statsViewModel.sortRoundWinnersByMargins(ascending);
         break;
       case 6:
         // sort by ups
-        scoresViewModel.sortRoundWinnersByUPS(ascending);
+        statsViewModel.sortRoundWinnersByUPS(ascending);
         break;
     }
 

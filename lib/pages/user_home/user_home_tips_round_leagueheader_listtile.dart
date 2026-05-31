@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
-/// League round header card showing round number, score/countdown stats,
+/// League round header card showing round number, points/countdown stats,
 /// and league logo.
 ///
 /// Converted from a bare function to a proper widget so Flutter can preserve
@@ -160,7 +160,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                               : Colors.black54,
                                           fontWeight: FontWeight.bold,
                                         ),
-                                        'Score: ${league == League.afl ? roundStats.aflScore : roundStats.nrlScore} / ${league == League.afl ? roundStats.aflMaxScore : roundStats.nrlMaxScore}',
+                                        'Points: ${league == League.afl ? roundStats.aflPoints : roundStats.nrlPoints} / ${league == League.afl ? roundStats.aflMaxPoints : roundStats.nrlMaxPoints}',
                                         softWrap: true,
                                         overflow: TextOverflow.ellipsis,
                                         textAlign: TextAlign.center,

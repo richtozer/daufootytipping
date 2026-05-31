@@ -6,7 +6,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
-import 'package:daufootytipping/pages/user_home/user_home_stats_roundscoresfortipper.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats_roundpointsfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
@@ -20,7 +20,7 @@ class StatCompLeaderboard extends StatefulWidget {
 }
 
 class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
-  late StatsViewModel scoresViewModel;
+  late StatsViewModel statsViewModel;
   List<LeaderboardEntry> sortedLeaderboard = [];
   bool isAscending = true;
   int? sortColumnIndex = 1;
@@ -40,14 +40,14 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   @override
   void initState() {
     super.initState();
-    scoresViewModel = di<StatsViewModel>();
-    scoresViewModel.addListener(_handleLeaderboardChanged);
+    statsViewModel = di<StatsViewModel>();
+    statsViewModel.addListener(_handleLeaderboardChanged);
     _refreshLeaderboard();
   }
 
   @override
   void dispose() {
-    scoresViewModel.removeListener(_handleLeaderboardChanged);
+    statsViewModel.removeListener(_handleLeaderboardChanged);
     super.dispose();
   }
 
@@ -58,7 +58,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   void _refreshLeaderboard() {
     sortedLeaderboard = List<LeaderboardEntry>.from(
-      scoresViewModel.compLeaderboard,
+      statsViewModel.compLeaderboard,
     );
     _sortLeaderboard(sortColumnIndex!, isAscending);
   }
@@ -199,7 +199,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
-                        'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round scores. Tap column headings to sort.',
+                        'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round points. Tap column headings to sort.',
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
@@ -314,7 +314,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       context,
       MaterialPageRoute(
         builder: (context) =>
-            StatRoundScoresForTipper(sortedLeaderboard[index].tipper),
+            StatRoundPointsForTipper(sortedLeaderboard[index].tipper),
       ),
     );
   }

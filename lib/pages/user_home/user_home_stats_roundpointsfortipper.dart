@@ -12,22 +12,22 @@ import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
-class StatRoundScoresForTipper extends StatefulWidget {
-  const StatRoundScoresForTipper(this.statsTipper, {super.key});
+class StatRoundPointsForTipper extends StatefulWidget {
+  const StatRoundPointsForTipper(this.statsTipper, {super.key});
 
   final Tipper statsTipper;
 
   @override
-  State<StatRoundScoresForTipper> createState() =>
-      _StatRoundScoresForTipperState();
+  State<StatRoundPointsForTipper> createState() =>
+      _StatRoundPointsForTipperState();
 }
 
-class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
-  StatsViewModel? scoresViewModel;
+class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
+  StatsViewModel? statsViewModel;
   bool isAscending = false;
   int? sortColumnIndex = 0;
   int highestRoundNumber = 0;
-  List<RoundStats>? sortedScores;
+  List<RoundStats>? sortedPoints;
 
   final List<String> columns = [
     'Round',
@@ -44,85 +44,85 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     if (di<DAUCompsViewModel>().selectedDAUComp == null) {
       return;
     }
-    scoresViewModel = di<StatsViewModel>();
-    scoresViewModel!.addListener(_handleScoresChanged);
-    _refreshScores();
+    statsViewModel = di<StatsViewModel>();
+    statsViewModel!.addListener(_handlePointsChanged);
+    _refreshPoints();
   }
 
   @override
-  void didUpdateWidget(covariant StatRoundScoresForTipper oldWidget) {
+  void didUpdateWidget(covariant StatRoundPointsForTipper oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.statsTipper != widget.statsTipper) {
-      _refreshScores();
+      _refreshPoints();
     }
   }
 
   @override
   void dispose() {
-    scoresViewModel?.removeListener(_handleScoresChanged);
+    statsViewModel?.removeListener(_handlePointsChanged);
     super.dispose();
   }
 
-  void _handleScoresChanged() {
+  void _handlePointsChanged() {
     if (!mounted) return;
-    setState(_refreshScores);
+    setState(_refreshPoints);
   }
 
-  void _refreshScores() {
+  void _refreshPoints() {
     final selectedComp = di<DAUCompsViewModel>().selectedDAUComp;
-    final localScoresViewModel = scoresViewModel;
-    if (selectedComp == null || localScoresViewModel == null) {
-      sortedScores = const <RoundStats>[];
+    final localStatsViewModel = statsViewModel;
+    if (selectedComp == null || localStatsViewModel == null) {
+      sortedPoints = const <RoundStats>[];
       return;
     }
 
     highestRoundNumber = selectedComp.latestsCompletedRoundNumber();
     log(
-      'StatRoundScoresForTipper() highest round number is $highestRoundNumber',
+      'StatRoundPointsForTipper() highest round number is $highestRoundNumber',
     );
 
-    final rawScores = localScoresViewModel.getTipperRoundScoresForComp(
+    final rawPoints = localStatsViewModel.getTipperRoundPointsForComp(
       widget.statsTipper,
     )..removeWhere((element) => element.roundNumber > highestRoundNumber + 1);
 
-    sortedScores = List<RoundStats>.from(rawScores);
-    _sortScores(sortColumnIndex!, isAscending);
+    sortedPoints = List<RoundStats>.from(rawPoints);
+    _sortPoints(sortColumnIndex!, isAscending);
   }
 
-  void _sortScores(int columnIndex, bool ascending) {
-    if (sortedScores == null) return;
+  void _sortPoints(int columnIndex, bool ascending) {
+    if (sortedPoints == null) return;
 
     switch (columnIndex) {
       case 0:
-        sortedScores!.sort(
+        sortedPoints!.sort(
           (a, b) => ascending
               ? a.roundNumber.compareTo(b.roundNumber)
               : b.roundNumber.compareTo(a.roundNumber),
         );
         break;
       case 1:
-        sortedScores!.sort(
+        sortedPoints!.sort(
           (a, b) => ascending
-              ? (a.nrlScore + a.aflScore).compareTo(b.nrlScore + b.aflScore)
-              : (b.nrlScore + b.aflScore).compareTo(a.nrlScore + a.aflScore),
+              ? (a.nrlPoints + a.aflPoints).compareTo(b.nrlPoints + b.aflPoints)
+              : (b.nrlPoints + b.aflPoints).compareTo(a.nrlPoints + a.aflPoints),
         );
         break;
       case 2:
-        sortedScores!.sort(
+        sortedPoints!.sort(
           (a, b) => ascending
-              ? a.nrlScore.compareTo(b.nrlScore)
-              : b.nrlScore.compareTo(a.nrlScore),
+              ? a.nrlPoints.compareTo(b.nrlPoints)
+              : b.nrlPoints.compareTo(a.nrlPoints),
         );
         break;
       case 3:
-        sortedScores!.sort(
+        sortedPoints!.sort(
           (a, b) => ascending
-              ? a.aflScore.compareTo(b.aflScore)
-              : b.aflScore.compareTo(a.aflScore),
+              ? a.aflPoints.compareTo(b.aflPoints)
+              : b.aflPoints.compareTo(a.aflPoints),
         );
         break;
       case 4:
-        sortedScores!.sort(
+        sortedPoints!.sort(
           (a, b) => ascending
               ? (a.aflMarginTips + a.nrlMarginTips).compareTo(
                   b.aflMarginTips + b.nrlMarginTips,
@@ -133,7 +133,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
         );
         break;
       case 5:
-        sortedScores!.sort(
+        sortedPoints!.sort(
           (a, b) => ascending
               ? (a.aflMarginUPS + a.nrlMarginUPS).compareTo(
                   b.aflMarginUPS + b.nrlMarginUPS,
@@ -151,7 +151,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     return SelectedCompBanner(
       child: buildScaffold(
         context,
-        sortedScores ?? const <RoundStats>[],
+        sortedPoints ?? const <RoundStats>[],
         MediaQuery.of(context).size.width > 500,
       ),
     );
@@ -159,7 +159,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
 
   Scaffold buildScaffold(
     BuildContext context,
-    List<RoundStats> scores,
+    List<RoundStats> points,
     bool isLargeScreen,
   ) {
     Orientation orientation = MediaQuery.of(context).orientation;
@@ -204,7 +204,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Round Scores',
+                                'Round Points',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleLarge
@@ -257,10 +257,10 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
                   showCheckboxColumn: false,
                   isHorizontalScrollBarVisible: true,
                   isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns, scores),
+                  columns: getColumns(columns, points),
                   rows: List<DataRow>.generate(
-                    scores.length,
-                    (index) => buildDataRow(scores, index),
+                    points.length,
+                    (index) => buildDataRow(points, index),
                   ).toList(),
                 ),
               ),
@@ -272,15 +272,15 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  DataRow buildDataRow(List<RoundStats> scores, int index) {
-    var score = scores[index];
+  DataRow buildDataRow(List<RoundStats> points, int index) {
+    final roundPoints = points[index];
     return DataRow(
       cells: [
         DataCell(
           Row(
             children: [
               const Icon(Icons.arrow_forward, size: 15),
-              Text((score.roundNumber).toString()),
+              Text((roundPoints.roundNumber).toString()),
             ],
           ),
           onTap: () {
@@ -289,64 +289,66 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
               MaterialPageRoute(
                 builder: (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
-                  score.roundNumber,
+                  roundPoints.roundNumber,
                 ),
               ),
             );
           },
         ),
         DataCell(
-          Text((score.nrlScore + score.aflScore).toString()),
+          Text((roundPoints.nrlPoints + roundPoints.aflPoints).toString()),
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
-                  score.roundNumber,
+                  roundPoints.roundNumber,
                 ),
               ),
             );
           },
         ),
         DataCell(
-          Text(score.nrlScore.toString()),
+          Text(roundPoints.nrlPoints.toString()),
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
-                  score.roundNumber,
+                  roundPoints.roundNumber,
                 ),
               ),
             );
           },
         ),
         DataCell(
-          Text(score.aflScore.toString()),
+          Text(roundPoints.aflPoints.toString()),
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
-                  score.roundNumber,
+                  roundPoints.roundNumber,
                 ),
               ),
             );
           },
         ),
-        DataCell(Text((score.aflMarginTips + score.nrlMarginTips).toString())),
         DataCell(
-          Text((score.aflMarginUPS + score.nrlMarginUPS).toString()),
+          Text((roundPoints.aflMarginTips + roundPoints.nrlMarginTips).toString()),
+        ),
+        DataCell(
+          Text((roundPoints.aflMarginUPS + roundPoints.nrlMarginUPS).toString()),
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
-                  score.roundNumber,
+                  roundPoints.roundNumber,
                 ),
               ),
             );
@@ -356,15 +358,15 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
     );
   }
 
-  void onSort(int columnIndex, bool ascending, List<RoundStats> scores) {
+  void onSort(int columnIndex, bool ascending, List<RoundStats> points) {
     setState(() {
-      _sortScores(columnIndex, ascending);
+      _sortPoints(columnIndex, ascending);
       sortColumnIndex = columnIndex;
       isAscending = ascending;
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns, List<RoundStats> scores) =>
+  List<DataColumn> getColumns(List<String> columns, List<RoundStats> points) =>
       columns.asMap().entries.map((entry) {
         int index = entry.key;
         String column = entry.value;
@@ -376,7 +378,7 @@ class _StatRoundScoresForTipperState extends State<StatRoundScoresForTipper> {
               : 60,
           numeric: column != 'Round',
           label: Text(column),
-          onSort: (columnIndex, ascending) => onSort(index, ascending, scores),
+          onSort: (columnIndex, ascending) => onSort(index, ascending, points),
         );
       }).toList();
 

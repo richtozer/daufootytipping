@@ -29,11 +29,16 @@ Widget circleAvatarWithFallback({
   }
 
   initials = initials.toUpperCase(); // Convert to uppercase
+  final ImageProvider? foregroundImage = (imageUrl == null || imageUrl.isEmpty)
+      ? null
+      : CachedNetworkImageProvider(imageUrl);
+
   return CircleAvatar(
     radius: radius,
-    foregroundImage: (imageUrl == null || imageUrl.isEmpty)
+    foregroundImage: foregroundImage,
+    onForegroundImageError: foregroundImage == null
         ? null
-        : CachedNetworkImageProvider(imageUrl),
+        : (error, stackTrace) {},
     backgroundColor: backgroundColor,
     child: Center(
       child: Text(

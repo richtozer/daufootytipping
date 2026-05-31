@@ -17,6 +17,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:dau_shared/services/scoring_calculator.dart';
 
 class _CachedCrossCompTip {
   const _CachedCrossCompTip({required this.tip, required this.cachedAtUtc});
@@ -27,6 +28,7 @@ class _CachedCrossCompTip {
 
 class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
+  Map<String, Map<String, Tip>>? _tipsByGameAndTipper;
   final DatabaseReference _db;
   StreamSubscription<DatabaseEvent>? _tipsStream;
 
@@ -180,6 +182,7 @@ class TipsViewModel extends ChangeNotifier {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
       }
     } finally {
+      _tipsByGameAndTipper = null;
       _crossCompTipCache.clear();
       if (!_initialLoadCompleter.isCompleted) {
         _completeInitialLoadIfNeeded();
@@ -279,12 +282,7 @@ class TipsViewModel extends ChangeNotifier {
   Future<Tip?> findTip(Game game, Tipper tipper) async {
     await initialLoadCompleted;
 
-    Tip? foundTip = _listOfTips.firstWhereOrNull(
-      (tip) =>
-          tip != null &&
-          _matchesGame(tip.game, game) &&
-          tip.tipper.dbkey == tipper.dbkey,
-    );
+    Tip? foundTip = _tipsForGameByTipper(game)[tipper.dbkey];
 
     if (foundTip != null) {
       foundTip = _rebindTipToCurrentGame(foundTip, game);
@@ -293,6 +291,27 @@ class TipsViewModel extends ChangeNotifier {
     foundTip ??= _defaultTipIfGameStarted(game, tipper);
 
     return foundTip;
+  }
+
+  Map<String, Tip> _tipsForGameByTipper(Game game) {
+    _tipsByGameAndTipper ??= _buildTipsByGameAndTipper();
+    return _tipsByGameAndTipper![_gameTipCacheKey(game)] ?? const {};
+  }
+
+  Map<String, Map<String, Tip>> _buildTipsByGameAndTipper() {
+    final index = <String, Map<String, Tip>>{};
+    for (final tip in _listOfTips) {
+      if (tip == null || tip.tipper.dbkey == null) {
+        continue;
+      }
+      final gameKey = _gameTipCacheKey(tip.game);
+      index.putIfAbsent(gameKey, () => <String, Tip>{})[tip.tipper.dbkey!] = tip;
+    }
+    return index;
+  }
+
+  String _gameTipCacheKey(Game game) {
+    return '${game.dbkey}|${game.startTimeUTC.toUtc().millisecondsSinceEpoch}|${game.homeTeam.dbkey}|${game.awayTeam.dbkey}';
   }
 
   bool _gameBelongsToComp(Game game, DAUComp dauComp) {
@@ -495,6 +514,19 @@ class TipsViewModel extends ChangeNotifier {
       selectedDAUComp,
     );
 
+    return percentageOfTippersTippedForPaidStatus(game, isScoringPaidComp);
+  }
+
+  Future<GameStatsEntry> percentageOfTippersTippedForPaidStatus(
+    Game game,
+    bool isScoringPaidComp,
+  ) async {
+    if (_tipper != null) {
+      throw Exception(
+        'percentageOfTippersTippedForPaidStatus() should not be called when doing aggregates for scoring. _tipper is not null',
+      );
+    }
+
     // loop through all tippers and remove those that don't have the same paidForComp status
     List<Tipper> tippers = tipperViewModel.tippers
         .where(
@@ -506,74 +538,11 @@ class TipsViewModel extends ChangeNotifier {
       tippers.map((tipper) => findTip(game, tipper)),
     );
 
-    double runningAverageScoreTotal = 0.0;
-    int runningAverageScoreCountTips = 0;
-    for (final Tip? tip in tipsForScoring) {
-      runningAverageScoreCountTips++;
-      runningAverageScoreTotal += tip?.getTipScoreCalculated() ?? 0;
-    }
-
-    GameStatsEntry gameStatsEntry = GameStatsEntry(
-      percentageTippedHomeMargin: 0.0,
-      percentageTippedHome: 0.0,
-      percentageTippedDraw: 0.0,
-      percentageTippedAway: 0.0,
-      percentageTippedAwayMargin: 0.0,
+    return ScoringCalculator.calculateGameStatsEntry(
+      cohortTippers: tippers,
+      tipsForCohort: tipsForScoring,
+      league: game.league,
     );
-
-    // enumerate each game result and do the calculation
-    for (GameResult gameResult in GameResult.values) {
-      // now do the calculation
-      int totalTippers = tippers.length;
-      int totalTippersTipped = 0;
-
-      for (final Tip? tip in tipsForScoring) {
-        if (tip?.tip == gameResult) {
-          totalTippersTipped++;
-        }
-      }
-
-      // switch on the game result and set the correct value
-      switch (gameResult) {
-        case GameResult.a:
-          gameStatsEntry.percentageTippedHomeMargin = gameStatsEntry
-              .reducePrecision(totalTippersTipped / totalTippers);
-          break;
-        case GameResult.b:
-          gameStatsEntry.percentageTippedHome = gameStatsEntry.reducePrecision(
-            totalTippersTipped / totalTippers,
-          );
-          break;
-        case GameResult.c:
-          gameStatsEntry.percentageTippedDraw = gameStatsEntry.reducePrecision(
-            totalTippersTipped / totalTippers,
-          );
-          break;
-        case GameResult.d:
-          gameStatsEntry.percentageTippedAway = gameStatsEntry.reducePrecision(
-            totalTippersTipped / totalTippers,
-          );
-          break;
-        case GameResult.e:
-          gameStatsEntry.percentageTippedAwayMargin = gameStatsEntry
-              .reducePrecision(totalTippersTipped / totalTippers);
-          break;
-        case GameResult.z:
-          break;
-      }
-    }
-    // calculate the average score across all tippers for this game
-    if (runningAverageScoreCountTips > 0) {
-      gameStatsEntry.averageScore = gameStatsEntry.reducePrecision(
-        runningAverageScoreTotal / runningAverageScoreCountTips,
-      );
-    } else {
-      gameStatsEntry.averageScore = 0.0;
-    }
-    gameStatsEntry.averageScoreTipCount = tipsForScoring
-        .where((tip) => tip != null)
-        .length;
-    return gameStatsEntry;
   }
 
   List<Tip?> getTipsForTipper(Tipper tipper) {
@@ -600,6 +569,7 @@ class TipsViewModel extends ChangeNotifier {
   @visibleForTesting
   void setTipsForTest(List<Tip?> tips) {
     _listOfTips = List<Tip?>.from(tips);
+    _tipsByGameAndTipper = null;
     _completeInitialLoadIfNeeded();
   }
 

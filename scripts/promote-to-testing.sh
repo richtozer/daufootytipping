@@ -10,6 +10,9 @@ cd "$repo_root"
 if [ -d "$HOME/.npm-global/bin" ]; then
   export PATH="$HOME/.npm-global/bin:$PATH"
 fi
+if [ -d "$HOME/dev/tooling/flutter/bin" ]; then
+  export PATH="$HOME/dev/tooling/flutter/bin:$PATH"
+fi
 
 if [ "$(git rev-parse --abbrev-ref HEAD)" != "development" ]; then
   echo "Error: this script must be run from the 'development' branch."
@@ -91,6 +94,9 @@ git merge --no-edit development
 
 echo "Step 4: Deploying Firebase Hosting preview channel 'test-web'..."
 firebase hosting:channel:deploy test-web
+
+echo "Step 4b: Deploying Dart Cloud Functions..."
+firebase deploy --only functions:dart_functions
 
 echo "Step 5: Switching back to development..."
 git checkout development

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_buttons.dart';
@@ -30,8 +32,22 @@ void main() {
 
     when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
     when(() => dauCompsViewModel.isDownloading).thenReturn(false);
+    when(
+      () => dauCompsViewModel.getNetworkFixtureData(comp),
+    ).thenAnswer((_) async => 'Fixture download complete.');
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
-    when(() => statsViewModel.updateStatsWithReport(comp, null, null)).thenAnswer(
+    when(() => statsViewModel.scoringProgressMessage).thenReturn(null);
+    when(() => statsViewModel.scoringProgressValue).thenReturn(null);
+    when(() => statsViewModel.addListener(any())).thenReturn(null);
+    when(() => statsViewModel.removeListener(any())).thenReturn(null);
+    when(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).thenAnswer(
       (_) async => const ScoringUpdateReport(
         resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
         leaderboardChanges: <ScoringLeaderboardChange>[
@@ -69,6 +85,17 @@ void main() {
             afterRank: 3,
           ),
         ],
+        gameStatsChanges: <ScoringGameStatsChange>[
+          ScoringGameStatsChange(
+            gameDbKey: 'afl-10-082',
+            gameName: 'Lions v Cats',
+            isPaidCohort: true,
+            beforeAveragePoints: 0,
+            afterAveragePoints: 0.14,
+            beforeTipCount: 57,
+            afterTipCount: 57,
+          ),
+        ],
       ),
     );
   });
@@ -103,7 +130,53 @@ void main() {
     );
   });
 
-  testWidgets('shows a scoring change dialog after manual rescore', (
+  testWidgets('shows manual repair steps with fixture download off by default', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run admin updates'), findsOneWidget);
+    expect(
+      find.text(
+        'Fixture downloads and scoring updates are normally handled automatically. Use these manual repair steps only when you see fixture, scoring, or average point issues.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Download fixtures'),
+      ).value,
+      isFalse,
+    );
+    expect(
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Recalculate scoring'),
+      ).value,
+      isTrue,
+    );
+    expect(
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Rebuild game averages'),
+      ).value,
+      isTrue,
+    );
+  });
+
+  testWidgets('shows a scoring change dialog after manual admin update', (
     tester,
   ) async {
     final disableBackStates = <bool>[];
@@ -121,17 +194,23 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Rescore'));
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(disableBackStates, contains(true));
     expect(find.text('Rescore complete'), findsOneWidget);
+    expect(find.text('Fixture download: Fixture download complete.'), findsNothing);
     expect(find.text('Leaderboard changes'), findsOneWidget);
-    expect(find.text('Round score changes'), findsOneWidget);
+    expect(find.text('Round point changes'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Round 7 • Alice'), findsOneWidget);
+    expect(find.text('Game average changes'), findsOneWidget);
+    expect(find.text('Lions v Cats • Paid'), findsOneWidget);
+    expect(find.text('Avg 0.0 -> 0.14'), findsOneWidget);
     expect(find.text('Margins 2 -> 3 (+1)'), findsOneWidget);
     expect(find.text('Round rank 4 -> 3 (up 1)'), findsOneWidget);
     expect(find.textContaining('Total 18 -> 18'), findsNothing);
@@ -140,6 +219,15 @@ void main() {
     expect(find.textContaining('Rounds won 0 -> 0'), findsNothing);
     expect(find.textContaining('UPS 1 -> 1'), findsNothing);
     expect(find.textContaining('Total 2 -> 2'), findsNothing);
+    verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
+    verify(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).called(1);
 
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
@@ -147,8 +235,104 @@ void main() {
     expect(disableBackStates.last, false);
   });
 
+  testWidgets('can turn on fixture download before running admin update', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Download fixtures'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
+
+    verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
+    verify(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).called(1);
+  });
+
+  testWidgets('shows progress dialog while manual admin update is running', (
+    tester,
+  ) async {
+    final reportCompleter = Completer<ScoringUpdateReport>();
+    when(() => statsViewModel.scoringProgressMessage).thenReturn(
+      'Rebuilding game averages 3/10...',
+    );
+    when(() => statsViewModel.scoringProgressValue).thenReturn(0.3);
+    when(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).thenAnswer((_) => reportCompleter.future);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump();
+
+    expect(find.text('Running updates'), findsOneWidget);
+    expect(find.text('Rebuilding game averages 3/10...'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    reportCompleter.complete(
+      const ScoringUpdateReport(
+        resultMessage: 'Completed updates for 0 tippers and 0 rounds.',
+        leaderboardChanges: <ScoringLeaderboardChange>[],
+        roundChanges: <ScoringRoundChange>[],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rescore complete'), findsOneWidget);
+  });
+
   testWidgets('shows the no-changes wording once', (tester) async {
-    when(() => statsViewModel.updateStatsWithReport(comp, null, null)).thenAnswer(
+    when(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    ).thenAnswer(
       (_) async => const ScoringUpdateReport(
         resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
         leaderboardChanges: <ScoringLeaderboardChange>[],
@@ -169,7 +353,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Rescore'));
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pump();

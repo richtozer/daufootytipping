@@ -195,9 +195,14 @@ void main() {
     'saveBatchOfGameAttributes waits for refreshed stream snapshot before rescoring',
     () async {
       late GamesViewModel viewModel;
-      when(() => statsViewModel.updateStats(any(), any(), any())).thenAnswer((
-        _,
-      ) async {
+      when(
+        () => statsViewModel.updateStats(
+          any(),
+          any(),
+          any(),
+          rebuildGameStats: any(named: 'rebuildGameStats'),
+        ),
+      ).thenAnswer((_) async {
         final currentGame = await viewModel.findGame('nrl-01-001');
         expect(currentGame?.scoring?.homeTeamScore, 14);
         expect(currentGame?.scoring?.awayTeamScore, 8);
@@ -236,7 +241,14 @@ void main() {
       final saveFuture = viewModel.saveBatchOfGameAttributes();
       await settleAsyncWork();
 
-      verifyNever(() => statsViewModel.updateStats(any(), any(), any()));
+      verifyNever(
+        () => statsViewModel.updateStats(
+          any(),
+          any(),
+          any(),
+          rebuildGameStats: any(named: 'rebuildGameStats'),
+        ),
+      );
 
       gamesController.add(
         _databaseEvent(
@@ -251,7 +263,14 @@ void main() {
 
       await saveFuture;
 
-      verify(() => statsViewModel.updateStats(comp, round, null)).called(1);
+      verify(
+        () => statsViewModel.updateStats(
+          comp,
+          round,
+          null,
+          rebuildGameStats: true,
+        ),
+      ).called(1);
       final updatedGame = await viewModel.findGame('nrl-01-001');
       expect(updatedGame?.scoring?.homeTeamScore, 14);
       expect(updatedGame?.scoring?.awayTeamScore, 8);
@@ -264,9 +283,14 @@ void main() {
     'saveBatchOfGameAttributes falls back to direct reload when refreshed stream snapshot is missed',
     () async {
       late GamesViewModel viewModel;
-      when(() => statsViewModel.updateStats(any(), any(), any())).thenAnswer((
-        _,
-      ) async {
+      when(
+        () => statsViewModel.updateStats(
+          any(),
+          any(),
+          any(),
+          rebuildGameStats: any(named: 'rebuildGameStats'),
+        ),
+      ).thenAnswer((_) async {
         final currentGame = await viewModel.findGame('nrl-01-001');
         expect(currentGame?.scoring?.homeTeamScore, 14);
         expect(currentGame?.scoring?.awayTeamScore, 8);
@@ -305,7 +329,14 @@ void main() {
       await viewModel.saveBatchOfGameAttributes();
 
       verify(() => gamesRef.get()).called(1);
-      verify(() => statsViewModel.updateStats(comp, round, null)).called(1);
+      verify(
+        () => statsViewModel.updateStats(
+          comp,
+          round,
+          null,
+          rebuildGameStats: true,
+        ),
+      ).called(1);
 
       viewModel.dispose();
     },
@@ -317,9 +348,14 @@ void main() {
       final firstUpdateCompleter = Completer<void>();
       var updateStatsCallCount = 0;
 
-      when(() => statsViewModel.updateStats(any(), any(), any())).thenAnswer((
-        _,
-      ) async {
+      when(
+        () => statsViewModel.updateStats(
+          any(),
+          any(),
+          any(),
+          rebuildGameStats: any(named: 'rebuildGameStats'),
+        ),
+      ).thenAnswer((_) async {
         updateStatsCallCount++;
         if (updateStatsCallCount == 1) {
           await firstUpdateCompleter.future;

@@ -147,12 +147,12 @@ void main() {
         expect(
           homeScore,
           21,
-          reason: 'Should use official home score, not live',
+          reason: 'Should use official home points, not live',
         );
         expect(
           awayScore,
           18,
-          reason: 'Should use official away score, not live',
+          reason: 'Should use official away points, not live',
         );
         expect(
           result,

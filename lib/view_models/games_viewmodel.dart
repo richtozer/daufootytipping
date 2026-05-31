@@ -304,7 +304,7 @@ class GamesViewModel extends ChangeNotifier {
 
       // if any game scores have changes, the round will be flagged for scoring
       // update in List<DAURound> _roundsThatNeedScoringUpdate
-      // update the round scores then remove the round from the list
+      // update the tipper points then remove the round from the list
       for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
         log(
           'GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}',

@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
@@ -76,7 +77,7 @@ Future<void> main() async {
     }
   }
 
-  // Initialize Firebase
+  // Initialize Firebase.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Configure Realtime Database immediately after Firebase init so persistence
@@ -85,6 +86,8 @@ Future<void> main() async {
   if (kDebugMode && useFirebaseEmulators) {
     database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
     log('Database emulator started on $firebaseEmulatorHost:8000');
+    FirebaseFunctions.instance.useFunctionsEmulator(firebaseEmulatorHost, 9229);
+    log('Functions emulator configured on $firebaseEmulatorHost:9229');
     StartupProfiling.instant(
       'startup.database_configured',
       arguments: <String, Object?>{
