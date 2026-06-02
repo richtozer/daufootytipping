@@ -443,7 +443,7 @@ void main() {
   );
 
   test(
-    'missing score sources no longer block aggregate stats writes',
+    'completed games with missing score sources block aggregate stats writes',
     () async {
       final unscoredGame = Game(
         dbkey: 'nrl-01-003',
@@ -485,8 +485,11 @@ void main() {
 
       final result = await viewModel.updateStats(comp, null, null);
 
-      expect(result, 'Completed updates for 1 tippers and 1 rounds.');
-      verify(() => database.runTransaction(any())).called(1);
+      expect(
+        result,
+        'Skipped: completed game(s) are missing usable scoring sources: nrl-01-003. No aggregate stats were written.',
+      );
+      verifyNever(() => database.runTransaction(any()));
 
       viewModel.dispose();
     },

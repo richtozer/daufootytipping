@@ -126,11 +126,15 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
+    await _applyTipsSnapshot(event.snapshot);
+  }
+
+  Future<void> _applyTipsSnapshot(DataSnapshot snapshot) async {
     try {
-      if (event.snapshot.exists) {
+      if (snapshot.exists) {
         if (_tipper == null) {
           final allTips = Map<String, dynamic>.from(
-            event.snapshot.value as Map,
+            snapshot.value as Map,
           );
           log(
             'TipsViewModel._handleEvent() All tippers - Deserialize tip for ${allTips.length} tippers.',
@@ -140,7 +144,7 @@ class TipsViewModel extends ChangeNotifier {
           log('_handleEvent deserializing tips for tipper ${_tipper!.dbkey}');
           final stopwatch = Stopwatch()..start();
           Map<String, dynamic> dbData = Map<String, dynamic>.from(
-            event.snapshot.value as Map,
+            snapshot.value as Map,
           );
           log(
             '_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}',
@@ -180,6 +184,7 @@ class TipsViewModel extends ChangeNotifier {
         }
       } else {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
+        _listOfTips = <Tip?>[];
       }
     } finally {
       _tipsByGameAndTipper = null;
@@ -196,6 +201,13 @@ class TipsViewModel extends ChangeNotifier {
       }
       notifyListeners();
     }
+  }
+
+  Future<void> refreshFromServer() async {
+    final path = _tipper == null
+        ? '${p.tipsPathRoot}/${selectedDAUComp.dbkey}'
+        : '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper!.dbkey}';
+    await _applyTipsSnapshot(await _db.child(path).get());
   }
 
   Future<List<Tip>> _deserializeTips(Map<String, dynamic> json) async {

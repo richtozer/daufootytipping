@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' hide IconAlignment;
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -355,7 +355,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
         onPressed: _signInWithApple,
         text: 'Sign in with Apple',
         style: SignInWithAppleButtonStyle.black,
-        iconAlignment: IconAlignment.left,
+        iconAlignment: SignInWithAppleIconAlignment.left,
         borderRadius: const BorderRadius.all(Radius.circular(14)),
         height: 56,
       ),
