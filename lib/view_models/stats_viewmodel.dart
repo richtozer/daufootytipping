@@ -38,6 +38,49 @@ const String roundStatsRoot = 'round_stats_$statsFormatVersion';
 const String liveScoresRoot = 'live_scores_$statsFormatVersion';
 const String gameStatsRoot = 'game_stats_$statsFormatVersion';
 const String scoringAuditRoot = 'scoring_audit_$statsFormatVersion';
+const String adminScoringFreshnessProbePath = 'admin_scoring_freshness_probe';
+
+enum AdminDatabaseRefreshState { unknown, checking, fresh, blocked, failed }
+
+class AdminDatabaseRefreshStatus {
+  final AdminDatabaseRefreshState state;
+  final String message;
+  final DateTime? checkedAtUtc;
+
+  const AdminDatabaseRefreshStatus._(
+    this.state,
+    this.message, [
+    this.checkedAtUtc,
+  ]);
+
+  const AdminDatabaseRefreshStatus.unknown()
+    : this._(
+        AdminDatabaseRefreshState.unknown,
+        'Database freshness not checked',
+      );
+
+  const AdminDatabaseRefreshStatus.checking()
+    : this._(
+        AdminDatabaseRefreshState.checking,
+        'Checking database freshness...',
+      );
+
+  AdminDatabaseRefreshStatus.fresh(DateTime checkedAtUtc)
+    : this._(
+        AdminDatabaseRefreshState.fresh,
+        'Database sources refreshed',
+        checkedAtUtc,
+      );
+
+  const AdminDatabaseRefreshStatus.blocked(String message)
+    : this._(AdminDatabaseRefreshState.blocked, message);
+
+  const AdminDatabaseRefreshStatus.failed(String message)
+    : this._(AdminDatabaseRefreshState.failed, message);
+
+  bool get isChecking => state == AdminDatabaseRefreshState.checking;
+  bool get isFresh => state == AdminDatabaseRefreshState.fresh;
+}
 
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
@@ -55,6 +98,7 @@ class StatsViewModel extends ChangeNotifier {
       List<Game>.unmodifiable(_gamesWithLiveScores);
 
   final DatabaseReference _db;
+  final DatabaseReference? _connectedInfoRef;
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundPointsStream;
   late StreamSubscription<DatabaseEvent> _gameStatsStream;
@@ -66,6 +110,10 @@ class StatsViewModel extends ChangeNotifier {
 
   bool _isUpdateScoringRunning = false;
   bool get isUpdateScoringRunning => _isUpdateScoringRunning;
+  AdminDatabaseRefreshStatus _adminDatabaseRefreshStatus =
+      const AdminDatabaseRefreshStatus.unknown();
+  AdminDatabaseRefreshStatus get adminDatabaseRefreshStatus =>
+      _adminDatabaseRefreshStatus;
   String? _scoringProgressMessage;
   String? get scoringProgressMessage => _scoringProgressMessage;
   double? _scoringProgressValue;
@@ -100,8 +148,10 @@ class StatsViewModel extends ChangeNotifier {
     this.selectedDAUComp,
     this.gamesViewModel, {
     DatabaseReference? database,
+    DatabaseReference? connectedInfoReference,
     bool autoInitialize = true,
-  }) : _db = database ?? configuredDatabaseRef() {
+  }) : _db = database ?? configuredDatabaseRef(),
+       _connectedInfoRef = connectedInfoReference {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
     if (autoInitialize) {
       _initialize();
@@ -597,6 +647,28 @@ class StatsViewModel extends ChangeNotifier {
         );
         await _ensureRoundsHaveGames(dauRoundsEdited);
 
+        final sourceFreshness = _validateScoringSourcesAreFresh(
+          dauRoundsEdited,
+        );
+        if (!sourceFreshness.canWriteAggregates) {
+          final skippedMessage =
+              'Skipped: ${sourceFreshness.reason}. No aggregate stats were written.';
+          log('StatsViewModel.updateStats() $skippedMessage');
+          await _writeScoringAuditEvent(
+            eventName: 'scoring_skipped_stale_sources',
+            daucompToUpdate: daucompToUpdate,
+            roundsUpdated: dauRoundsEdited,
+            onlyUpdateThisRound: onlyUpdateThisRound,
+            onlyUpdateThisTipper: onlyUpdateThisTipper,
+            tippersUpdated: tippersToUpdate,
+            message: skippedMessage,
+            blockedGames: sourceFreshness.blockedGames,
+          );
+          completer.complete(skippedMessage);
+          completionEventName = 'scoring_skipped_stale_sources';
+          return;
+        }
+
         for (DAURound dauRound in dauRoundsEdited) {
           _setScoringProgress(
             'Calculating round ${dauRound.dAUroundNumber}...',
@@ -697,6 +769,158 @@ class StatsViewModel extends ChangeNotifier {
     _scoringProgressMessage = message;
     _scoringProgressValue = value;
     notifyListeners();
+  }
+
+  void _setAdminDatabaseRefreshStatus(
+    AdminDatabaseRefreshStatus status,
+  ) {
+    _adminDatabaseRefreshStatus = status;
+    notifyListeners();
+  }
+
+  Future<void> prepareFreshAdminScoringInputs(
+    DAUComp daucompToUpdate, {
+    Duration timeout = const Duration(seconds: 8),
+    Duration maxServerProbeAge = const Duration(minutes: 5),
+  }) async {
+    _setAdminDatabaseRefreshStatus(
+      const AdminDatabaseRefreshStatus.checking(),
+    );
+
+    try {
+      _setScoringProgress('Checking database connection...', null);
+      await _requireRealtimeDatabaseConnected(timeout);
+      _setScoringProgress('Confirming server round trip...', null);
+      await _confirmServerRoundTrip(
+        daucompToUpdate,
+        maxServerProbeAge,
+      ).timeout(timeout);
+
+      _setScoringProgress('Refreshing tippers from server...', null);
+      await di<TippersViewModel>().refreshFromServer().timeout(timeout);
+
+      final gamesVM = gamesViewModel;
+      if (gamesVM == null) {
+        throw StateError('gamesViewModel is null');
+      }
+      _setScoringProgress('Refreshing games from server...', null);
+      await gamesVM.refreshFromServer().timeout(timeout);
+
+      _setScoringProgress('Refreshing tips from server...', null);
+      allTipsViewModel?.dispose();
+      allTipsViewModel = TipsViewModel(
+        di<TippersViewModel>(),
+        daucompToUpdate,
+        gamesVM,
+        database: _db,
+        listenToTips: false,
+      );
+      await allTipsViewModel!.refreshFromServer().timeout(timeout);
+
+      _setAdminDatabaseRefreshStatus(
+        AdminDatabaseRefreshStatus.fresh(DateTime.now().toUtc()),
+      );
+      _setScoringProgress('Database sources refreshed.', 1);
+    } catch (e) {
+      final status = e is TimeoutException
+          ? AdminDatabaseRefreshStatus.blocked(
+              'Database did not confirm fresh data before timeout.',
+            )
+          : AdminDatabaseRefreshStatus.failed(
+              'Database freshness check failed: $e',
+            );
+      _setAdminDatabaseRefreshStatus(status);
+      rethrow;
+    } finally {
+      _setScoringProgress(null, null);
+    }
+  }
+
+  Future<void> _requireRealtimeDatabaseConnected(Duration timeout) async {
+    final connectedEvent = await (_connectedInfoRef ??
+            configuredRealtimeDatabase.ref('.info/connected'))
+        .onValue
+        .firstWhere((event) => event.snapshot.value == true)
+        .timeout(timeout);
+    final connectedSnapshot = connectedEvent.snapshot;
+    if (connectedSnapshot.value != true) {
+      throw StateError(
+        'Realtime Database is not connected; aborting admin scoring refresh.',
+      );
+    }
+  }
+
+  Future<void> _confirmServerRoundTrip(
+    DAUComp daucompToUpdate,
+    Duration maxServerProbeAge,
+  ) async {
+    final probeRef = _db
+        .child(statsPathRootLocal)
+        .child(daucompToUpdate.dbkey!)
+        .child(adminScoringFreshnessProbePath);
+    await probeRef.set(<String, Object?>{
+      'serverTimestamp': ServerValue.timestamp,
+      'clientTimestampUTC': DateTime.now().toUtc().toIso8601String(),
+    });
+
+    final snapshot = await probeRef.get();
+    if (!snapshot.exists || snapshot.value is! Map) {
+      throw StateError('Server freshness probe was not readable.');
+    }
+    final payload = Map<String, dynamic>.from(snapshot.value as Map);
+    final serverTimestamp = payload['serverTimestamp'];
+    if (serverTimestamp is! int) {
+      throw StateError('Server freshness probe did not contain a timestamp.');
+    }
+    final probeAge = DateTime.now().toUtc().difference(
+      DateTime.fromMillisecondsSinceEpoch(serverTimestamp, isUtc: true),
+    );
+    if (probeAge.abs() > maxServerProbeAge) {
+      throw StateError(
+        'Server freshness probe timestamp is outside the allowed window.',
+      );
+    }
+  }
+
+  _ScoringSourceFreshness _validateScoringSourcesAreFresh(
+    List<DAURound> roundsUpdated,
+  ) {
+    final now = DateTime.now().toUtc();
+    final blockedGames = <Game>[];
+
+    for (final round in roundsUpdated) {
+      for (final game in round.games) {
+        if (!_shouldRequireOfficialScores(game, now)) {
+          continue;
+        }
+        if (!_hasKnownGameResult(game)) {
+          blockedGames.add(game);
+        }
+      }
+    }
+
+    if (blockedGames.isEmpty) {
+      return const _ScoringSourceFreshness.allowed();
+    }
+
+    final gameKeys = blockedGames.map((game) => game.dbkey).join(', ');
+    return _ScoringSourceFreshness.blocked(
+      blockedGames,
+      'completed game(s) are missing usable scoring sources: $gameKeys',
+    );
+  }
+
+  Duration gracePeriodFor(League league) {
+    return league == League.afl
+        ? const Duration(hours: 4)
+        : const Duration(hours: 3);
+  }
+
+  bool _shouldRequireOfficialScores(Game game, DateTime now) {
+    final gracePeriod = gracePeriodFor(game.league);
+    final officialScoreRequiredFrom = game.startTimeUTC.add(gracePeriod);
+    return now.isAfter(officialScoreRequiredFrom) ||
+        now.isAtSameMomentAs(officialScoreRequiredFrom);
   }
 
   void _logEventScoringInitiated(
@@ -1044,6 +1268,20 @@ class StatsViewModel extends ChangeNotifier {
     // Passive display clients only consume the stats tree. Recalculation loads
     // all tips for the comp, so keep it behind explicit owner/update paths.
     if (!forceUpdate) {
+      return;
+    }
+
+    if (_shouldRequireOfficialScores(game, DateTime.now().toUtc()) &&
+        !_hasKnownGameResult(game)) {
+      final message =
+          'Skipped game stats update for ${game.dbkey}: completed game is missing a usable scoring source.';
+      log('StatsViewModel.getGamesStatsEntry() $message');
+      await _writeScoringAuditEvent(
+        eventName: 'game_stats_skipped_stale_sources',
+        daucompToUpdate: selectedDAUComp,
+        blockedGames: <Game>[game],
+        message: message,
+      );
       return;
     }
 
@@ -2321,4 +2559,18 @@ class StatsViewModel extends ChangeNotifier {
       );
     }
   }
+}
+
+class _ScoringSourceFreshness {
+  final bool canWriteAggregates;
+  final List<Game> blockedGames;
+  final String reason;
+
+  const _ScoringSourceFreshness.allowed()
+    : canWriteAggregates = true,
+      blockedGames = const <Game>[],
+      reason = '';
+
+  const _ScoringSourceFreshness.blocked(this.blockedGames, this.reason)
+    : canWriteAggregates = false;
 }

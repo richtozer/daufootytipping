@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
@@ -9,6 +11,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
 
 class MockDatabaseReference extends Mock implements DatabaseReference {}
+
+class MockDatabaseEvent extends Mock implements DatabaseEvent {}
 
 class MockDataSnapshot extends Mock implements DataSnapshot {}
 
@@ -77,8 +81,11 @@ void main() {
   });
 
   test('refreshes server-backed sources before admin scoring', () async {
-    when(() => connectedRef.get()).thenAnswer(
-      (_) async => _snapshot(exists: true, value: true),
+    when(() => connectedRef.onValue).thenAnswer(
+      (_) => Stream<DatabaseEvent>.fromIterable(<DatabaseEvent>[
+        _event(snapshot: _snapshot(exists: true, value: false)),
+        _event(snapshot: _snapshot(exists: true, value: true)),
+      ]),
     );
     when(() => probeRef.get()).thenAnswer(
       (_) async => _snapshot(
@@ -109,8 +116,10 @@ void main() {
   });
 
   test('blocks admin scoring refresh when database is not connected', () async {
-    when(() => connectedRef.get()).thenAnswer(
-      (_) async => _snapshot(exists: true, value: false),
+    when(() => connectedRef.onValue).thenAnswer(
+      (_) => _streamThenNever(
+        _event(snapshot: _snapshot(exists: true, value: false)),
+      ),
     );
     final viewModel = StatsViewModel(
       comp,
@@ -123,18 +132,29 @@ void main() {
     await expectLater(
       viewModel.prepareFreshAdminScoringInputs(
         comp,
-        timeout: const Duration(milliseconds: 200),
+        timeout: const Duration(milliseconds: 20),
       ),
-      throwsA(isA<StateError>()),
+      throwsA(isA<TimeoutException>()),
     );
 
     expect(
       viewModel.adminDatabaseRefreshStatus.state,
-      AdminDatabaseRefreshState.failed,
+      AdminDatabaseRefreshState.blocked,
     );
     verifyNever(() => tippersViewModel.refreshFromServer());
     verifyNever(() => gamesViewModel.refreshFromServer());
   });
+}
+
+Stream<DatabaseEvent> _streamThenNever(DatabaseEvent event) async* {
+  yield event;
+  await Completer<void>().future;
+}
+
+MockDatabaseEvent _event({required DataSnapshot snapshot}) {
+  final event = MockDatabaseEvent();
+  when(() => event.snapshot).thenReturn(snapshot);
+  return event;
 }
 
 MockDataSnapshot _snapshot({required bool exists, required Object? value}) {

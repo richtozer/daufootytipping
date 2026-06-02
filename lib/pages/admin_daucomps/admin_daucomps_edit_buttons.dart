@@ -113,149 +113,268 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (daucomp == null) {
       return const SizedBox.shrink();
-    } else {
-      final isWebPlatform = kIsWeb;
-      return OutlinedButton(
-        onPressed: () async {
-          if (dauCompsViewModel.isDownloading) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: League.afl.colour,
-                content: const Text('Fixture download already in progress'),
-              ),
-            );
-            return;
-          }
-          if (dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
-              false) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text('Scoring already in progress'),
-              ),
-            );
-            return;
-          }
+    }
 
-          final selectedSteps = await _showAdminUpdateStepsDialog(
-            context,
-            fixtureDownloadAvailable: !isWebPlatform,
-          );
-          if (selectedSteps == null) {
-            return;
-          }
-          if (!selectedSteps.hasAnyStep) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: Colors.orange,
-                  content: Text('Select at least one update step.'),
-                ),
-              );
-            }
-            return;
-          }
-
-          var progressDialogShown = false;
-          final adminProgress = ValueNotifier<AdminUpdateProgress>(
-            const AdminUpdateProgress('Preparing admin update...', null),
-          );
-          try {
-            onDisableBack(true);
-            await Future.delayed(const Duration(milliseconds: 100));
-            final statsViewModel = dauCompsViewModel.statsViewModel;
-            if (statsViewModel == null) {
-              throw StateError('statsViewModel is null');
-            }
-
-            if (context.mounted) {
-              progressDialogShown = true;
-              unawaited(
-                showDialog<void>(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => _AdminUpdateProgressDialog(
-                    adminProgress: adminProgress,
-                    statsViewModel: statsViewModel,
-                  ),
-                ),
-              );
-            }
-
-            String? fixtureResult;
-            if (selectedSteps.downloadFixtures) {
-              adminProgress.value = const AdminUpdateProgress(
-                'Downloading fixtures...',
-                null,
-              );
-              fixtureResult = await dauCompsViewModel.getNetworkFixtureData(
-                daucomp!,
-              );
-            }
-
-            ScoringUpdateReport? report;
-            if (selectedSteps.recalculateScoring) {
-              report = await statsViewModel.updateStatsWithReport(
-                daucomp!,
-                null,
-                null,
-                rebuildGameStats: selectedSteps.rebuildGameStats,
-              );
-            }
-
-            if (context.mounted) {
-              if (progressDialogShown) {
-                Navigator.of(context, rootNavigator: true).pop();
-              }
-              if (report != null) {
-                await showDialog<void>(
-                  context: context,
-                  builder: (_) => _ScoringUpdateReportDialog(
-                    report: report!,
-                    fixtureResult: fixtureResult,
-                  ),
-                );
-              } else if (fixtureResult != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: Colors.green,
-                    content: Text(fixtureResult),
-                    duration: const Duration(seconds: 4),
-                  ),
-                );
-              }
-            }
-          } catch (e) {
-            if (context.mounted) {
-              if (progressDialogShown) {
-                Navigator.of(context, rootNavigator: true).pop();
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.red,
-                  content: Text(
-                    'An error occurred during scoring calculation: $e',
-                  ),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } finally {
-            adminProgress.dispose();
-            if (context.mounted) {
-              onDisableBack(false);
-            }
-          }
-        },
-        child: Text(
-          !(dauCompsViewModel.isDownloading ||
-                  (dauCompsViewModel.statsViewModel?.isUpdateScoringRunning ??
-                      false))
-              ? 'Run Updates'
-              : 'Updating...',
-        ),
+    final statsViewModel = dauCompsViewModel.statsViewModel;
+    if (statsViewModel == null) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton(onPressed: null, child: Text('Run Updates')),
+          SizedBox(width: 8),
+          _AdminDatabaseStatusIndicator(
+            status: AdminDatabaseRefreshStatus.failed(
+              'Stats view model unavailable.',
+            ),
+          ),
+        ],
       );
     }
+
+    return ListenableBuilder(
+      listenable: statsViewModel,
+      builder: (context, _) {
+        final isWebPlatform = kIsWeb;
+        final isBusy =
+            dauCompsViewModel.isDownloading ||
+            statsViewModel.isUpdateScoringRunning ||
+            statsViewModel.adminDatabaseRefreshStatus.isChecking;
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OutlinedButton(
+              onPressed: isBusy
+                  ? null
+                  : () async {
+                      if (dauCompsViewModel.isDownloading) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: League.afl.colour,
+                            content: const Text(
+                              'Fixture download already in progress',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      if (statsViewModel.isUpdateScoringRunning) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: Colors.red,
+                            content: Text('Scoring already in progress'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final selectedSteps = await _showAdminUpdateStepsDialog(
+                        context,
+                        fixtureDownloadAvailable: !isWebPlatform,
+                      );
+                      if (selectedSteps == null) {
+                        return;
+                      }
+                      if (!selectedSteps.hasAnyStep) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: Colors.orange,
+                              content: Text('Select at least one update step.'),
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      var progressDialogShown = false;
+                      final adminProgress = ValueNotifier<AdminUpdateProgress>(
+                        const AdminUpdateProgress(
+                          'Preparing admin update...',
+                          null,
+                        ),
+                      );
+                      try {
+                        onDisableBack(true);
+                        await Future.delayed(const Duration(milliseconds: 100));
+
+                        if (context.mounted) {
+                          progressDialogShown = true;
+                          unawaited(
+                            showDialog<void>(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => _AdminUpdateProgressDialog(
+                                adminProgress: adminProgress,
+                                statsViewModel: statsViewModel,
+                              ),
+                            ),
+                          );
+                        }
+
+                        String? fixtureResult;
+                        if (selectedSteps.downloadFixtures) {
+                          adminProgress.value = const AdminUpdateProgress(
+                            'Downloading fixtures...',
+                            null,
+                          );
+                          fixtureResult = await dauCompsViewModel
+                              .getNetworkFixtureData(daucomp!);
+                        }
+
+                        ScoringUpdateReport? report;
+                        if (selectedSteps.recalculateScoring) {
+                          adminProgress.value = const AdminUpdateProgress(
+                            'Refreshing database sources...',
+                            null,
+                          );
+                          await statsViewModel.prepareFreshAdminScoringInputs(
+                            daucomp!,
+                          );
+                          report = await statsViewModel.updateStatsWithReport(
+                            daucomp!,
+                            null,
+                            null,
+                            rebuildGameStats: selectedSteps.rebuildGameStats,
+                          );
+                        }
+
+                        if (context.mounted) {
+                          if (progressDialogShown) {
+                            Navigator.of(context, rootNavigator: true).pop();
+                          }
+                          if (report != null) {
+                            await showDialog<void>(
+                              context: context,
+                              builder: (_) => _ScoringUpdateReportDialog(
+                                report: report!,
+                                fixtureResult: fixtureResult,
+                              ),
+                            );
+                          } else if (fixtureResult != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: Colors.green,
+                                content: Text(fixtureResult),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          if (progressDialogShown) {
+                            Navigator.of(context, rootNavigator: true).pop();
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: Colors.orange,
+                              content: Text(
+                                _adminUpdateErrorMessage(
+                                  e,
+                                  selectedSteps.recalculateScoring,
+                                ),
+                              ),
+                              duration: const Duration(seconds: 6),
+                            ),
+                          );
+                        }
+                      } finally {
+                        adminProgress.dispose();
+                        if (context.mounted) {
+                          onDisableBack(false);
+                        }
+                      }
+                    },
+              child: Text(!isBusy ? 'Run Updates' : 'Updating...'),
+            ),
+            const SizedBox(width: 8),
+            _AdminDatabaseStatusIndicator(
+              status: statsViewModel.adminDatabaseRefreshStatus,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+String _adminUpdateErrorMessage(Object error, bool wasScoringSelected) {
+  if (wasScoringSelected &&
+      (error is TimeoutException ||
+          error is StateError ||
+          error.toString().contains('Database freshness check failed'))) {
+    return 'Could not confirm the latest data. Check the connection and try again.';
+  }
+
+  return wasScoringSelected
+      ? 'Could not update scores. Please try again.'
+      : 'Could not complete the update. Please try again.';
+}
+
+class _AdminDatabaseStatusIndicator extends StatelessWidget {
+  final AdminDatabaseRefreshStatus status;
+
+  const _AdminDatabaseStatusIndicator({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (icon, color, label, tooltip) = switch (status.state) {
+      AdminDatabaseRefreshState.unknown => (
+        Icons.help_outline,
+        Colors.grey,
+        'Not checked',
+        'The app will check for fresh data before updating scores.',
+      ),
+      AdminDatabaseRefreshState.checking => (
+        Icons.sync,
+        Colors.blue,
+        'Checking',
+        'Checking that the latest data is available.',
+      ),
+      AdminDatabaseRefreshState.fresh => (
+        Icons.cloud_done_outlined,
+        Colors.green,
+        'Ready',
+        'Latest data confirmed.',
+      ),
+      AdminDatabaseRefreshState.blocked => (
+        Icons.cloud_off_outlined,
+        Colors.orange,
+        'Try again',
+        'Latest data could not be confirmed. Check the connection and try again.',
+      ),
+      AdminDatabaseRefreshState.failed => (
+        Icons.error_outline,
+        Colors.red,
+        'Needs attention',
+        'The update could not start. Check the connection and try again.',
+      ),
+    };
+
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(6),
+          color: color.withValues(alpha: 0.08),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(color: color),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

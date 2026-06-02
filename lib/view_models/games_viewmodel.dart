@@ -329,6 +329,12 @@ class GamesViewModel extends ChangeNotifier {
     return _games;
   }
 
+  Future<void> refreshFromServer() async {
+    await _teamsViewModel.initialLoadComplete;
+    await _dauCompsViewModel.initialDAUCompLoadComplete;
+    await _applyGamesSnapshot(await _db.child(_gamesPath).get());
+  }
+
   Future<Game?> findGame(String gameDbKey) async {
     await initialLoadComplete;
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);

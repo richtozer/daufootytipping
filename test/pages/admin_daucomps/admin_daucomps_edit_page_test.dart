@@ -57,6 +57,11 @@ void main() {
     when(() => pageDauCompsViewModel.statsViewModel).thenReturn(pageStatsViewModel);
     when(() => pageDauCompsViewModel.linkGamesWithRounds(any())).thenAnswer((_) async {});
     when(() => pageStatsViewModel.isUpdateScoringRunning).thenReturn(false);
+    when(() => pageStatsViewModel.adminDatabaseRefreshStatus).thenReturn(
+      const AdminDatabaseRefreshStatus.unknown(),
+    );
+    when(() => pageStatsViewModel.addListener(any())).thenAnswer((_) {});
+    when(() => pageStatsViewModel.removeListener(any())).thenAnswer((_) {});
 
     di.registerSingleton<DAUCompsViewModel>(globalDauCompsViewModel);
   });
