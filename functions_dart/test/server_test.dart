@@ -23,6 +23,51 @@ void main() {
     mockRoleSnapshot = MockDataSnapshot();
   });
 
+  group('configuration resolution', () {
+    test('resolveDatabaseUrl uses RTDB emulator host with default namespace', () {
+      expect(
+        resolveDatabaseUrl(
+          environment: {
+            'FIREBASE_DATABASE_EMULATOR_HOST': '127.0.0.1:8000',
+            'GCLOUD_PROJECT': 'dau-footy-tipping-f8a42',
+          },
+        ),
+        'http://127.0.0.1:8000/?ns=dau-footy-tipping-f8a42-default-rtdb',
+      );
+    });
+
+    test('resolveDatabaseUrl uses namespace override for RTDB emulator', () {
+      expect(
+        resolveDatabaseUrl(
+          environment: {
+            'FIREBASE_DATABASE_EMULATOR_HOST': '127.0.0.1:8000',
+            'FIREBASE_DATABASE_EMULATOR_NAMESPACE': 'custom-ns',
+          },
+        ),
+        'http://127.0.0.1:8000/?ns=custom-ns',
+      );
+    });
+
+    test('resolveDatabaseUrl uses FIREBASE_CONFIG databaseURL', () {
+      expect(
+        resolveDatabaseUrl(
+          environment: {
+            'FIREBASE_CONFIG':
+                '{"databaseURL":"https://example.firebaseio.com"}',
+          },
+        ),
+        'https://example.firebaseio.com',
+      );
+    });
+
+    test('resolveDatabaseUrl falls back to regional production database', () {
+      expect(
+        resolveDatabaseUrl(environment: {}),
+        'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app',
+      );
+    });
+  });
+
   group('executeFixtureDownload tests', () {
     test('non-admin role throws PermissionDeniedError', () async {
       final mockTippersRef = MockDatabaseReference();

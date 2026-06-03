@@ -95,7 +95,7 @@ npm --prefix ./functions run build -- -w &
 build_watch_pid=$!
 
 echo "Starting Firebase emulators..."
-firebase emulators:start --inspect-functions &
+firebase emulators:start &
 emulator_pid=$!
 
 echo "Waiting for Realtime Database emulator on ${emulator_host}:${emulator_port}..."

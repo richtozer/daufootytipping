@@ -95,7 +95,10 @@ git merge --no-edit development
 echo "Step 4: Deploying Firebase Hosting preview channel 'test-web'..."
 firebase hosting:channel:deploy test-web
 
-echo "Step 4b: Deploying Dart Cloud Functions..."
+echo "Step 4b: Building Dart Cloud Functions for Linux deployment..."
+bash "$repo_root/scripts/build_dart_functions.sh" linux
+
+echo "Step 4c: Deploying Dart Cloud Functions..."
 firebase deploy --only functions:dart_functions
 
 echo "Step 5: Switching back to development..."
