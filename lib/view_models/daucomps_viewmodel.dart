@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
@@ -30,8 +31,10 @@ import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart';
 
@@ -209,30 +212,40 @@ class DAUCompsViewModel extends ChangeNotifier {
     log(
       "DAUCompsViewModel_triggerDailyEvent()  Daily event triggered at ${DateTime.now()}",
     );
-    final didRun = await _fixtureCoordinator.maybeTriggerUpdate(
-      activeComp: _activeDAUComp,
-      selectedComp: _selectedDAUComp,
-      threshold: fixtureUpdateTimerDuration,
-      isSelectedCompActive: isSelectedCompActiveComp,
-      isCompOver: _isCompOver,
-      refreshActiveByKey: (key) async {
-        _activeDAUComp = await findComp(key);
-        return _activeDAUComp;
-      },
-      logAnalytics: (name, params) => _analytics.logEvent(
-        name,
-        parameters: {
-          ...params,
-          'tipperHandlingUpdate': _tippers().authenticatedTipper?.name ?? 'unknown tipper',
+    late final bool didRun;
+    try {
+      didRun = await _fixtureCoordinator.maybeTriggerUpdate(
+        activeComp: _activeDAUComp,
+        selectedComp: _selectedDAUComp,
+        threshold: fixtureUpdateTimerDuration,
+        isSelectedCompActive: isSelectedCompActiveComp,
+        isCompOver: _isCompOver,
+        refreshActiveByKey: (key) async {
+          _activeDAUComp = await findComp(key);
+          return _activeDAUComp;
         },
-      ),
-      runFixtureUpdate: (comp) async {
-        // Preserve prior behavior: await games VM load before updating fixtures
-        await gamesViewModel?.initialLoadComplete;
-        return getNetworkFixtureData(comp);
-      },
-      afterUpdate: () => _messaging.deleteStaleTokens(_tippers()),
-    );
+        logAnalytics: (name, params) => _analytics.logEvent(
+          name,
+          parameters: {
+            ...params,
+            'tipperHandlingUpdate': _tippers().authenticatedTipper?.name ?? 'unknown tipper',
+          },
+        ),
+        runFixtureUpdate: (comp) async {
+          // Preserve prior behavior: startup timer updates use the client-side fixture updater.
+          await gamesViewModel?.initialLoadComplete;
+          return getNetworkFixtureData(comp, useCloudFunction: false);
+        },
+        afterUpdate: () => _messaging.deleteStaleTokens(_tippers()),
+      );
+    } catch (e, stackTrace) {
+      log(
+        'DAUCompsViewModel_triggerDailyEvent() Fixture update failed during automatic startup check: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
 
     if (!didRun) {
       log(
@@ -475,7 +488,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     await lockRef.set(null);
   }
 
-  Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
+  Future<String> getNetworkFixtureData(
+    DAUComp daucompToUpdate, {
+    bool useCloudFunction = true,
+  }) async {
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
       return 'Fixture data is already downloading';
@@ -494,30 +510,64 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     String? cloudFunctionsBaseURL;
-    try {
-      final configEvent = await _db.child('$configPathRoot/$cloudFunctionsBaseURLKey').once();
-      cloudFunctionsBaseURL = configEvent.snapshot.value as String?;
-    } catch (e, stackTrace) {
-      log('DAUCompsViewModel_getNetworkFixtureData: Failed to read cloudFunctionsBaseURL: $e. Falling back to local execution.', error: e, stackTrace: stackTrace);
-      cloudFunctionsBaseURL = null;
+    if (useCloudFunction) {
+      try {
+        final configPath = '$configPathRoot/$cloudFunctionsBaseURLKey';
+        final configSnapshot = await _db.child(configPath).get();
+        cloudFunctionsBaseURL = configSnapshot.value as String?;
+        log(
+          'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL at $configPath is ${cloudFunctionsBaseURL ?? '<not set>'}',
+        );
+      } catch (e, stackTrace) {
+        log(
+          'DAUCompsViewModel_getNetworkFixtureData: Failed to read cloudFunctionsBaseURL: $e. Falling back to local execution.',
+          error: e,
+          stackTrace: stackTrace,
+        );
+        cloudFunctionsBaseURL = null;
+      }
+    } else {
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function disabled for this call. Falling back to local execution.',
+      );
     }
 
-    if (cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
+    if (useCloudFunction && cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
       log('DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...');
       _isDownloading = true;
       notifyListeners();
       try {
+        const functionName = 'admin-fixture-download';
         final String functionUrl = cloudFunctionsBaseURL.endsWith('/')
-            ? '${cloudFunctionsBaseURL}admin-fixture-download'
-            : '$cloudFunctionsBaseURL/admin-fixture-download';
-        final callable = FirebaseFunctions.instance.httpsCallableFromUrl(
-          functionUrl,
-          options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
+            ? '$cloudFunctionsBaseURL$functionName'
+            : '$cloudFunctionsBaseURL/$functionName';
+        final uri = Uri.tryParse(functionUrl);
+        final isLocalEmulatorUrl = uri != null &&
+            uri.scheme == 'http' &&
+            (uri.host == '127.0.0.1' ||
+                uri.host == 'localhost' ||
+                uri.host == '10.0.2.2');
+        log(
+          isLocalEmulatorUrl
+              ? 'DAUCompsViewModel_getNetworkFixtureData: Using local Functions emulator callable URL $functionUrl.'
+              : 'DAUCompsViewModel_getNetworkFixtureData: Using deployed callable URL $functionUrl.',
         );
-        final result = await callable.call(<String, dynamic>{
-          'compKey': daucompToUpdate.dbkey,
-        });
-        final resultData = result.data as Map;
+        final Map resultData;
+        if (isLocalEmulatorUrl) {
+          resultData = await _callLocalFixtureDownloadFunction(
+            functionUrl,
+            compKey: daucompToUpdate.dbkey!,
+          );
+        } else {
+          final callable = FirebaseFunctions.instance.httpsCallableFromUrl(
+            functionUrl,
+            options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
+          );
+          final result = await callable.call(<String, dynamic>{
+            'compKey': daucompToUpdate.dbkey,
+          });
+          resultData = result.data as Map;
+        }
         final String message = resultData['message'] ?? 'Successfully updated fixtures via Cloud Function';
         log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
         return message;
@@ -530,7 +580,13 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    log('DAUCompsViewModel_getNetworkFixtureData: Executing local fixture download...');
+    if (useCloudFunction) {
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function not configured. Executing local fixture download...',
+      );
+    } else {
+      log('DAUCompsViewModel_getNetworkFixtureData: Executing local fixture download...');
+    }
     return _fixtureUpdater.runUpdate(
       comp: daucompToUpdate,
       acquireLock: () => _acquireLock(daucompToUpdate),
@@ -541,6 +597,58 @@ class DAUCompsViewModel extends ChangeNotifier {
       },
       processFetched: (comp, nrl, afl) => _processFetchedFixtures(comp, nrl, afl),
     );
+  }
+
+  Future<Map> _callLocalFixtureDownloadFunction(
+    String functionUrl, {
+    required String compKey,
+  }) async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final response = await http
+        .post(
+          Uri.parse(functionUrl),
+          headers: <String, String>{
+            'Content-Type': 'application/json',
+            if (idToken != null) 'Authorization': 'Bearer $idToken',
+          },
+          body: jsonEncode(<String, Object?>{
+            'data': <String, Object?>{'compKey': compKey},
+          }),
+        )
+        .timeout(const Duration(minutes: 2));
+    late final Map decoded;
+    try {
+      final responseBody = jsonDecode(response.body);
+      if (responseBody is! Map) {
+        throw const FormatException('Expected JSON object');
+      }
+      decoded = responseBody;
+    } catch (_) {
+      throw FirebaseFunctionsException(
+        code: 'internal',
+        message:
+            'Invalid response from local emulator: HTTP ${response.statusCode}',
+      );
+    }
+    if (response.statusCode >= 400 || decoded.containsKey('error')) {
+      final error = decoded['error'];
+      final message = error is Map
+          ? error['message']?.toString() ?? response.body
+          : response.body;
+      throw FirebaseFunctionsException(
+        code: error is Map ? error['status']?.toString().toLowerCase() ?? 'unknown' : 'unknown',
+        message: message,
+      );
+    }
+    final result = decoded['result'];
+    if (result is! Map) {
+      throw FirebaseFunctionsException(
+        code: 'internal',
+        message:
+            'Invalid callable response from local emulator: missing result',
+      );
+    }
+    return result;
   }
 
   Future<String> _processFetchedFixtures(

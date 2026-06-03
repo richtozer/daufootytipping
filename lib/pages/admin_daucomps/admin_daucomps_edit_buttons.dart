@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -186,6 +187,12 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                         }
                         return;
                       }
+                      log(
+                        'AdminDaucompsEditScoringButton: selected steps: '
+                        'downloadFixtures=${selectedSteps.downloadFixtures}, '
+                        'recalculateScoring=${selectedSteps.recalculateScoring}, '
+                        'rebuildGameStats=${selectedSteps.rebuildGameStats}',
+                      );
 
                       var progressDialogShown = false;
                       final adminProgress = ValueNotifier<AdminUpdateProgress>(
@@ -194,36 +201,42 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                           null,
                         ),
                       );
+                      Future<void>? progressDialogClosed;
+                      var progressDialogPopRequested = false;
                       try {
                         onDisableBack(true);
                         await Future.delayed(const Duration(milliseconds: 100));
 
                         if (context.mounted) {
                           progressDialogShown = true;
-                          unawaited(
-                            showDialog<void>(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (_) => _AdminUpdateProgressDialog(
-                                adminProgress: adminProgress,
-                                statsViewModel: statsViewModel,
-                              ),
+                          progressDialogClosed = showDialog<void>(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => _AdminUpdateProgressDialog(
+                              adminProgress: adminProgress,
+                              statsViewModel: statsViewModel,
                             ),
                           );
+                          unawaited(progressDialogClosed);
                         }
 
                         String? fixtureResult;
                         if (selectedSteps.downloadFixtures) {
+                          log('AdminDaucompsEditScoringButton: starting fixture download step.');
                           adminProgress.value = const AdminUpdateProgress(
                             'Downloading fixtures...',
                             null,
                           );
                           fixtureResult = await dauCompsViewModel
                               .getNetworkFixtureData(daucomp!);
+                          log(
+                            'AdminDaucompsEditScoringButton: fixture download step completed: $fixtureResult',
+                          );
                         }
 
                         ScoringUpdateReport? report;
                         if (selectedSteps.recalculateScoring) {
+                          log('AdminDaucompsEditScoringButton: starting scoring update step.');
                           adminProgress.value = const AdminUpdateProgress(
                             'Refreshing database sources...',
                             null,
@@ -237,11 +250,17 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                             null,
                             rebuildGameStats: selectedSteps.rebuildGameStats,
                           );
+                          log('AdminDaucompsEditScoringButton: scoring update step completed.');
                         }
 
                         if (context.mounted) {
                           if (progressDialogShown) {
                             Navigator.of(context, rootNavigator: true).pop();
+                            progressDialogPopRequested = true;
+                            await progressDialogClosed?.catchError((_) {});
+                          }
+                          if (!context.mounted) {
+                            return;
                           }
                           if (report != null) {
                             await showDialog<void>(
@@ -261,10 +280,20 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                             );
                           }
                         }
-                      } catch (e) {
+                      } catch (e, stackTrace) {
+                        log(
+                          'AdminDaucompsEditScoringButton: admin update failed: $e',
+                          error: e,
+                          stackTrace: stackTrace,
+                        );
                         if (context.mounted) {
                           if (progressDialogShown) {
                             Navigator.of(context, rootNavigator: true).pop();
+                            progressDialogPopRequested = true;
+                            await progressDialogClosed?.catchError((_) {});
+                          }
+                          if (!context.mounted) {
+                            return;
                           }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -280,6 +309,9 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                           );
                         }
                       } finally {
+                        if (progressDialogPopRequested) {
+                          await progressDialogClosed?.catchError((_) {});
+                        }
                         adminProgress.dispose();
                         if (context.mounted) {
                           onDisableBack(false);

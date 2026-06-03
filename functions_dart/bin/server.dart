@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
@@ -7,18 +9,24 @@ import 'package:firebase_dart/standalone_database.dart';
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
+void logFunction(String message) =>
+    developer.log(message, name: 'adminFixtureDownload');
+
 void main(List<String> args) async {
   await runFunctions((firebase) {
     firebase.https.onCall(
       name: 'adminFixtureDownload',
       (request, response) async {
+        logFunction('adminFixtureDownload: callable invoked');
         // 1. Verify caller authentication
         final auth = request.auth;
         if (auth == null) {
+          logFunction('adminFixtureDownload: missing callable auth');
           throw UnauthenticatedError('User must be authenticated');
         }
 
         final uid = auth.uid;
+        logFunction('adminFixtureDownload: auth uid=$uid');
 
         // 2. Initialize Firebase Admin SDK using Application Default Credentials
         final credential = Credentials.applicationDefault();
@@ -29,6 +37,8 @@ void main(List<String> args) async {
         final adminApp = FirebaseAdmin.instance.initializeApp(
           AppOptions(
             credential: credential,
+            databaseUrl: resolveDatabaseUrl(),
+            projectId: resolveProjectId(),
           ),
         );
 
@@ -37,6 +47,7 @@ void main(List<String> args) async {
         try {
           final data = request.data as Map<String, dynamic>?;
           final compKey = data?['compKey'] as String?;
+          logFunction('adminFixtureDownload: compKey=$compKey');
           if (compKey == null || compKey.isEmpty) {
             throw InvalidArgumentError('Missing required parameter: compKey');
           }
@@ -62,6 +73,41 @@ void main(List<String> args) async {
   });
 }
 
+String resolveProjectId({Map<String, String>? environment}) {
+  final env = environment ?? Platform.environment;
+  return env['GCLOUD_PROJECT'] ??
+      env['GOOGLE_CLOUD_PROJECT'] ??
+      env['GCP_PROJECT'] ??
+      env['FIREBASE_PROJECT'] ??
+      'dau-footy-tipping-f8a42';
+}
+
+String resolveDatabaseUrl({Map<String, String>? environment}) {
+  final env = environment ?? Platform.environment;
+  final emulatorHost = env['FIREBASE_DATABASE_EMULATOR_HOST'];
+  if (emulatorHost != null && emulatorHost.isNotEmpty) {
+    final namespace = env['RTDB_EMULATOR_NAMESPACE'] ??
+        env['FIREBASE_DATABASE_EMULATOR_NAMESPACE'] ??
+        '${resolveProjectId(environment: env)}-default-rtdb';
+    return 'http://$emulatorHost/?ns=$namespace';
+  }
+
+  final firebaseConfig = env['FIREBASE_CONFIG'];
+  if (firebaseConfig != null && firebaseConfig.isNotEmpty) {
+    try {
+      final decoded = json.decode(firebaseConfig);
+      if (decoded is Map) {
+        final configuredUrl = decoded['databaseURL'];
+        if (configuredUrl is String && configuredUrl.isNotEmpty) {
+          return configuredUrl;
+        }
+      }
+    } catch (_) {}
+  }
+
+  return 'https://dau-footy-tipping-f8a42-default-rtdb.asia-southeast1.firebasedatabase.app';
+}
+
 Future<String> executeFixtureDownload({
   required String authUid,
   required String compKey,
@@ -70,24 +116,29 @@ Future<String> executeFixtureDownload({
   required DateTime now,
 }) async {
   // 3. Verify user has admin role by querying AllTippers indexed by authuid
+  logFunction('executeFixtureDownload: checking admin role for authUid=$authUid');
   final DatabaseReference tippersRef = db.ref('/AllTippers');
   final Query roleQuery = tippersRef.orderByChild('authuid').equalTo(authUid);
   final DataSnapshot roleSnapshot = await roleQuery.once();
   final roleVal = roleSnapshot.value;
   if (roleVal == null || roleVal is! Map || roleVal.isEmpty) {
+    logFunction('executeFixtureDownload: no AllTippers record for authUid=$authUid');
     throw PermissionDeniedError('User is not authorized as admin');
   }
   final tipperData = Map<String, dynamic>.from(roleVal).values.first;
   final role = (tipperData as Map)['tipperRole'] as String?;
+  logFunction('executeFixtureDownload: resolved role=$role');
   if (role != 'admin') {
     throw PermissionDeniedError('User is not authorized as admin');
   }
 
   // 5. Fetch DAUComp configuration from DB
+  logFunction('executeFixtureDownload: loading compKey=$compKey');
   final DatabaseReference compRef = db.ref('/AllDAUComps/$compKey');
   final DataSnapshot compSnapshot = await compRef.once();
   final compRaw = compSnapshot.value;
   if (compRaw == null) {
+    logFunction('executeFixtureDownload: comp not found for compKey=$compKey');
     throw NotFoundError('DAUComp not found for key: $compKey');
   }
 
@@ -142,11 +193,14 @@ Future<String> executeFixtureDownload({
   }
 
   if (!transactionResult.committed) {
+    logFunction('executeFixtureDownload: lock already held for compKey=$compKey');
     throw AbortedError('Fixture download is already in progress.');
   }
+  logFunction('executeFixtureDownload: lock acquired for compKey=$compKey');
 
   // Helper to log status updates
   Future<void> logStatus(String status, {String? error}) async {
+    logFunction('executeFixtureDownload: writing status=$status error=${error ?? ''}');
     final DatabaseReference statusRef = db.ref('/Stats/$compKey/scoring_status');
     final statusData = <String, dynamic>{
       'status': status,
@@ -162,7 +216,9 @@ Future<String> executeFixtureDownload({
     await logStatus('fetching_fixtures');
 
     // 7. Perform HTTP GET to AFL and NRL fixture URLs
+    logFunction('executeFixtureDownload: fetching NRL fixture ${comp.nrlFixtureJsonURL}');
     final nrlGames = await fetchFixtureJson(comp.nrlFixtureJsonURL);
+    logFunction('executeFixtureDownload: fetching AFL fixture ${comp.aflFixtureJsonURL}');
     final aflGames = await fetchFixtureJson(comp.aflFixtureJsonURL);
 
     await logStatus('applying_updates');
@@ -222,6 +278,7 @@ Future<String> executeFixtureDownload({
     dbUpdates['/AllDAUComps/$compKey/lastFixtureUTC'] = now.toIso8601String();
 
     // Perform multi-path update in the database
+    logFunction('executeFixtureDownload: applying ${dbUpdates.length} database updates');
     await db.ref('/').update(dbUpdates);
 
     // Log status success
@@ -229,6 +286,7 @@ Future<String> executeFixtureDownload({
 
     return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
   } catch (e) {
+    logFunction('executeFixtureDownload: failed with $e');
     try {
       await logStatus('failed', error: e.toString());
     } catch (_) {}
