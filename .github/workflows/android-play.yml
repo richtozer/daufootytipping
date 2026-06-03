@@ -67,7 +67,7 @@ jobs:
 
       - name: Install Flutter SDK
         env:
-          FLUTTER_VERSION: "3.38.9"
+          FLUTTER_VERSION: "3.44.0"
         run: |
           set -euo pipefail
           git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$HOME/flutter"
