@@ -14,6 +14,7 @@ export 'models/scoring_leaderboard.dart';
 export 'models/scoring_roundstats.dart';
 export 'models/scoring_roundwinners.dart';
 export 'models/scoring_update_report.dart';
+export 'models/backend_scoring_command.dart';
 export 'models/team.dart';
 export 'models/team_game_history_item.dart';
 export 'models/tip.dart';
