@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  compareGameStats,
   compareRoundStats,
+  formatGameStatsComparisonReport,
   formatComparisonReport,
+  hasGameStatsComparisonFailures,
   hasComparisonFailures,
   parseArgs,
 } from "./compare_backend_round_stats.mjs";
@@ -171,4 +174,146 @@ test("parseArgs reads emulator defaults and CLI options", () => {
   assert.equal(options.namespace, "test-ns");
   assert.deepEqual(options.fields, ["aS", "nS"]);
   assert.equal(options.maxMismatches, 5);
+});
+
+test("compareGameStats compares paid and free cohorts by game key", () => {
+  const comparison = compareGameStats({
+    backendStats: {
+      paid: {
+        "nrl-01-001": {avgScore: 2.1234, avgScoreTipCount: 10, pctTipD: 0.4},
+      },
+      free: {
+        "nrl-01-001": {avgScore: 1, avgScoreTipCount: 20, pctTipD: 0.1},
+      },
+    },
+    legacyStats: {
+      paid: {
+        "nrl-01-001": {avgScore: 2.123, avgScoreTipCount: 10, pctTipD: 0.4},
+      },
+      free: {
+        "nrl-01-001": {avgScore: 1, avgScoreTipCount: 20, pctTipD: 0.1},
+      },
+    },
+    fields: ["avgScore", "avgScoreTipCount", "pctTipD"],
+  });
+
+  assert.equal(comparison.totals.cohortsCompared, 2);
+  assert.equal(comparison.totals.matches, 2);
+  assert.equal(comparison.totals.mismatches, 0);
+  assert.equal(hasGameStatsComparisonFailures(comparison), false);
+});
+
+test("compareGameStats reports field mismatches and missing games", () => {
+  const comparison = compareGameStats({
+    backendStats: {
+      paid: {
+        "backend-only": {avgScore: 1},
+        "nrl-01-001": {avgScore: 2, avgScoreTipCount: 10},
+      },
+      free: {},
+    },
+    legacyStats: {
+      paid: {
+        "legacy-only": {avgScore: 1},
+        "nrl-01-001": {avgScore: 3, avgScoreTipCount: 10},
+      },
+      free: {},
+    },
+    cohort: "paid",
+    fields: ["avgScore", "avgScoreTipCount"],
+  });
+
+  assert.equal(comparison.totals.matches, 0);
+  assert.equal(comparison.totals.mismatches, 1);
+  assert.deepEqual(comparison.cohorts[0].missingLegacyGames, ["backend-only"]);
+  assert.deepEqual(comparison.cohorts[0].missingBackendGames, ["legacy-only"]);
+  assert.deepEqual(comparison.cohorts[0].mismatches[0], {
+    gameKey: "nrl-01-001",
+    fields: {
+      avgScore: {
+        backend: 2,
+        legacy: 3,
+      },
+    },
+  });
+  assert.equal(hasGameStatsComparisonFailures(comparison), true);
+});
+
+test("compareGameStats limits comparison to one game", () => {
+  const comparison = compareGameStats({
+    backendStats: {
+      paid: {
+        "nrl-01-001": {avgScore: 2},
+        "nrl-01-002": {avgScore: 4},
+      },
+    },
+    legacyStats: {
+      paid: {
+        "nrl-01-001": {avgScore: 2},
+        "nrl-01-002": {avgScore: 0},
+      },
+    },
+    cohort: "paid",
+    gameKey: "nrl-01-001",
+    fields: ["avgScore"],
+  });
+
+  assert.equal(comparison.totals.matches, 1);
+  assert.equal(comparison.totals.mismatches, 0);
+});
+
+test("formatGameStatsComparisonReport describes cohort mapping", () => {
+  const comparison = compareGameStats({
+    backendStats: {
+      paid: {
+        "nrl-01-001": {avgScore: 2},
+      },
+    },
+    legacyStats: {
+      paid: {
+        "nrl-01-001": {avgScore: 3},
+      },
+    },
+    cohort: "paid",
+    fields: ["avgScore"],
+  });
+
+  const report = formatGameStatsComparisonReport(comparison, {
+    compKey: "comp2026",
+    cohort: "paid",
+    maxMismatches: 20,
+  });
+
+  assert.match(report, /Backend game stats comparison/);
+  assert.match(report, /Cohort paid/);
+  assert.match(report, /avgScore backend=2 v3=3/);
+});
+
+test("parseArgs supports game-stats options", () => {
+  const options = parseArgs(
+    [
+      "--comp-key",
+      "comp2026",
+      "--type",
+      "game-stats",
+      "--cohort",
+      "paid",
+      "--game-key",
+      "nrl-01-001",
+    ],
+    {},
+  );
+
+  assert.equal(options.type, "game-stats");
+  assert.equal(options.cohort, "paid");
+  assert.equal(options.gameKey, "nrl-01-001");
+  assert.deepEqual(options.fields, [
+    "pctTipA",
+    "pctTipB",
+    "pctTipC",
+    "pctTipD",
+    "pctTipE",
+    "avgScore",
+    "avgScoreTipCount",
+  ]);
 });

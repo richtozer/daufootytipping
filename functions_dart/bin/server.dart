@@ -1044,13 +1044,11 @@ _handleAdminRescoreBackendScoringCommand({
       db: db,
       compKey: command.compKey,
     );
-    final activeTippers = _filterBackendScoringTippersWithSubmittedTips(
-      allTippers: allTippers,
-      tipsByTipperRaw: tipsByTipperRaw,
-    );
     final rebuildResults = <_BackendScoringRoundRebuildResult>[];
     final skippedRoundNumbers = <int>[];
     final requestedRoundNumber = command.roundNumber;
+    final gameStatsUpdatesSink =
+        requestedRoundNumber == null ? <String, dynamic>{} : null;
     if (requestedRoundNumber != null) {
       final round = _findRoundByNumber(comp, requestedRoundNumber);
       if (round == null) {
@@ -1065,7 +1063,7 @@ _handleAdminRescoreBackendScoringCommand({
           games: games,
           roundNumber: requestedRoundNumber,
           now: now,
-          allTippers: activeTippers,
+          allTippers: allTippers,
           tipsByTipperRaw: tipsByTipperRaw,
           replaceRoundStats: true,
         ),
@@ -1078,10 +1076,11 @@ _handleAdminRescoreBackendScoringCommand({
           games: games,
           roundNumber: round.dAUroundNumber,
           now: now,
-          allTippers: activeTippers,
+          allTippers: allTippers,
           tipsByTipperRaw: tipsByTipperRaw,
           allowEmptyRound: true,
           replaceRoundStats: true,
+          gameStatsUpdatesSink: gameStatsUpdatesSink,
         );
         if (rebuildResult.skipped) {
           skippedRoundNumbers.add(round.dAUroundNumber);
@@ -1089,12 +1088,20 @@ _handleAdminRescoreBackendScoringCommand({
           rebuildResults.add(rebuildResult);
         }
       }
+      await db.ref('/Stats/${command.compKey}/$_backendGameStatsRoot').set(
+            _nestBackendGameStatsUpdates(gameStatsUpdatesSink),
+          );
     }
 
     final rebuiltRoundNumbers =
         rebuildResults.map((result) => result.roundNumber).toList();
     final rebuiltRoundCount = rebuildResults.length;
-    final tipperCount = activeTippers.length;
+    final tipperCount = rebuildResults.isNotEmpty
+        ? rebuildResults.first.tipperCount
+        : _filterBackendScoringTippersWithSubmittedTips(
+            allTippers: allTippers,
+            tipsByTipperRaw: tipsByTipperRaw,
+          ).length;
     final message = requestedRoundNumber != null
         ? 'Admin rescore completed for round $requestedRoundNumber across $tipperCount tippers.'
         : 'Admin rescore completed for $rebuiltRoundCount rounds across $tipperCount tippers; skipped ${skippedRoundNumbers.length} empty rounds.';
@@ -1193,6 +1200,7 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
   Map<String, dynamic>? tipsByTipperRaw,
   bool allowEmptyRound = false,
   bool replaceRoundStats = false,
+  Map<String, dynamic>? gameStatsUpdatesSink,
 }) async {
   final roundGames = games.where((game) {
     final gameRound = game.getDAURound(comp);
@@ -1211,9 +1219,6 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     );
   }
 
-  final roundGamesByKey = {
-    for (final game in roundGames) game.dbkey: game,
-  };
   final rawTippers = allTippers ?? await _loadBackendScoringTippers(db);
   final rawTips = tipsByTipperRaw ??
       await _loadBackendScoringTipsByTipperRaw(
@@ -1224,6 +1229,9 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     allTippers: rawTippers,
     tipsByTipperRaw: rawTips,
   );
+  final roundGamesByKey = {
+    for (final game in roundGames) game.dbkey: game,
+  };
   final tipLoadResult = _buildBackendScoringTipsForRound(
     allTippers: tippers,
     gamesByKey: roundGamesByKey,
@@ -1261,12 +1269,24 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     }
   }
 
+  final completedRoundGames = roundGames
+      .where(_hasKnownBackendGameResult)
+      .toList();
+  final gameStatsTipLoadResult = _buildBackendScoringTipsForRound(
+    allTippers: rawTippers,
+    gamesByKey: {
+      for (final game in completedRoundGames) game.dbkey: game,
+    },
+    tipsByTipperRaw: rawTips,
+    now: now,
+  );
   await _rebuildBackendGameStatsForRound(
     db: db,
     comp: comp,
-    roundGames: roundGames,
-    allTippers: tippers,
-    tipsByTipper: tipsByTipper,
+    roundGames: completedRoundGames,
+    allTippers: rawTippers,
+    tipsByTipper: gameStatsTipLoadResult.tipsByTipper,
+    updatesSink: gameStatsUpdatesSink,
   );
 
   return _BackendScoringRoundRebuildResult(
@@ -1454,12 +1474,21 @@ List<Tipper> _filterBackendScoringTippersWithSubmittedTips({
   }).toList();
 }
 
+bool _hasKnownBackendGameResult(Game game) {
+  final scoring = game.scoring;
+  if (scoring == null) {
+    return false;
+  }
+  return scoring.getGameResultCalculated(game.league) != GameResult.z;
+}
+
 Future<void> _rebuildBackendGameStatsForRound({
   required dynamic db,
   required DAUComp comp,
   required List<Game> roundGames,
   required List<Tipper> allTippers,
   required Map<String, Map<String, Tip>> tipsByTipper,
+  Map<String, dynamic>? updatesSink,
 }) async {
   if (roundGames.isEmpty || allTippers.isEmpty) {
     return;
@@ -1491,11 +1520,42 @@ Future<void> _rebuildBackendGameStatsForRound({
     }
   }
 
+  if (updatesSink != null) {
+    updatesSink.addAll(updates);
+    return;
+  }
+
   if (updates.isNotEmpty) {
     await db
         .ref('/Stats/${comp.dbkey}/$_backendGameStatsRoot')
         .update(updates);
   }
+}
+
+Map<String, dynamic> _nestBackendGameStatsUpdates(
+  Map<String, dynamic>? flatUpdates,
+) {
+  final nestedUpdates = <String, dynamic>{};
+  if (flatUpdates == null) {
+    return nestedUpdates;
+  }
+
+  for (final entry in flatUpdates.entries) {
+    final separatorIndex = entry.key.indexOf('/');
+    if (separatorIndex <= 0 || separatorIndex == entry.key.length - 1) {
+      continue;
+    }
+
+    final cohortKey = entry.key.substring(0, separatorIndex);
+    final gameKey = entry.key.substring(separatorIndex + 1);
+    final cohortUpdates = nestedUpdates.putIfAbsent(
+      cohortKey,
+      () => <String, dynamic>{},
+    ) as Map<String, dynamic>;
+    cohortUpdates[gameKey] = entry.value;
+  }
+
+  return nestedUpdates;
 }
 
 Future<DAUComp> _loadBackendScoringComp(dynamic db, String compKey) async {

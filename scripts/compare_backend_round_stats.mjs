@@ -13,6 +13,16 @@ const DEFAULT_FIELDS = [
   "nMu",
   "nTo",
 ];
+const DEFAULT_GAME_STATS_FIELDS = [
+  "pctTipA",
+  "pctTipB",
+  "pctTipC",
+  "pctTipD",
+  "pctTipE",
+  "avgScore",
+  "avgScoreTipCount",
+];
+const VALID_TYPES = new Set(["round-stats", "game-stats"]);
 
 export function compareRoundStats({
   backendStats,
@@ -102,6 +112,91 @@ export function compareRoundStats({
   };
 }
 
+export function compareGameStats({
+  backendStats,
+  legacyStats,
+  cohort,
+  gameKey,
+  fields = DEFAULT_GAME_STATS_FIELDS,
+}) {
+  const cohorts = cohort == null ? ["paid", "free"] : [cohort];
+  const results = [];
+
+  for (const cohortKey of cohorts) {
+    const backendCohort = objectValue(backendStats, cohortKey);
+    const legacyCohort = objectValue(legacyStats, cohortKey);
+    const result = {
+      cohort: cohortKey,
+      missingBackendCohort: backendCohort == null,
+      missingLegacyCohort: legacyCohort == null,
+      missingBackendGames: [],
+      missingLegacyGames: [],
+      mismatches: [],
+      matches: 0,
+      backendGameCount: backendCohort == null ? 0 : Object.keys(backendCohort).length,
+      legacyGameCount: legacyCohort == null ? 0 : Object.keys(legacyCohort).length,
+    };
+
+    if (backendCohort == null || legacyCohort == null) {
+      results.push(result);
+      continue;
+    }
+
+    const backendGameKeys = gameKey == null
+      ? Object.keys(backendCohort)
+      : [gameKey];
+    const legacyGameKeys = gameKey == null
+      ? Object.keys(legacyCohort)
+      : [gameKey];
+    const gameKeys = new Set([...backendGameKeys, ...legacyGameKeys]);
+
+    for (const key of Array.from(gameKeys).sort()) {
+      const backendGameStats = backendCohort[key];
+      const legacyGameStats = legacyCohort[key];
+      if (backendGameStats == null) {
+        result.missingBackendGames.push(key);
+        continue;
+      }
+      if (legacyGameStats == null) {
+        result.missingLegacyGames.push(key);
+        continue;
+      }
+
+      const fieldDiffs = {};
+      for (const field of fields) {
+        const backendValue = normalizeComparableNumber(
+          backendGameStats[field] ?? 0,
+        );
+        const legacyValue = normalizeComparableNumber(
+          legacyGameStats[field] ?? 0,
+        );
+        if (backendValue !== legacyValue) {
+          fieldDiffs[field] = {
+            backend: backendValue,
+            legacy: legacyValue,
+          };
+        }
+      }
+
+      if (Object.keys(fieldDiffs).length > 0) {
+        result.mismatches.push({
+          gameKey: key,
+          fields: fieldDiffs,
+        });
+      } else {
+        result.matches += 1;
+      }
+    }
+
+    results.push(result);
+  }
+
+  return {
+    cohorts: results,
+    totals: summarizeGameStatsCohorts(results),
+  };
+}
+
 export function parseArgs(args, env = process.env) {
   const options = {
     baseUrl: defaultBaseUrl(env),
@@ -111,6 +206,7 @@ export function parseArgs(args, env = process.env) {
       DEFAULT_NAMESPACE,
     fields: DEFAULT_FIELDS,
     maxMismatches: 20,
+    type: "round-stats",
   };
 
   for (let i = 0; i < args.length; i += 1) {
@@ -131,8 +227,27 @@ export function parseArgs(args, env = process.env) {
       case "--comp-key":
         options.compKey = nextValue();
         break;
+      case "--type":
+        options.type = nextValue();
+        if (!VALID_TYPES.has(options.type)) {
+          throw new Error("--type must be round-stats or game-stats");
+        }
+        if (options.type === "game-stats" &&
+            options.fields === DEFAULT_FIELDS) {
+          options.fields = DEFAULT_GAME_STATS_FIELDS;
+        }
+        break;
       case "--round":
         options.roundNumber = positiveInt(nextValue(), "--round");
+        break;
+      case "--cohort":
+        options.cohort = nextValue();
+        if (options.cohort !== "paid" && options.cohort !== "free") {
+          throw new Error("--cohort must be paid or free");
+        }
+        break;
+      case "--game-key":
+        options.gameKey = nextValue();
         break;
       case "--tipper-id":
         options.tipperId = nextValue();
@@ -162,6 +277,14 @@ export function parseArgs(args, env = process.env) {
 
   if (!options.help && !options.compKey) {
     throw new Error("Missing required argument: --comp-key");
+  }
+  if (options.type === "round-stats" &&
+      (options.cohort != null || options.gameKey != null)) {
+    throw new Error("--cohort and --game-key require --type game-stats");
+  }
+  if (options.type === "game-stats" &&
+      (options.roundNumber != null || options.tipperId != null)) {
+    throw new Error("--round and --tipper-id require --type round-stats");
   }
 
   return options;
@@ -232,6 +355,74 @@ export function formatComparisonReport(comparison, options) {
   return lines.join("\n");
 }
 
+export function formatGameStatsComparisonReport(comparison, options) {
+  const lines = [];
+  lines.push("Backend game stats comparison");
+  lines.push(`compKey: ${options.compKey}`);
+  lines.push("mapping: game_stats_backend_v1/<cohort>/<gameKey> -> game_stats_v3/<cohort>/<gameKey>");
+  if (options.cohort != null) {
+    lines.push(`cohort: ${options.cohort}`);
+  }
+  if (options.gameKey != null) {
+    lines.push(`gameKey: ${options.gameKey}`);
+  }
+  lines.push("");
+
+  for (const cohort of comparison.cohorts) {
+    lines.push(`Cohort ${cohort.cohort}`);
+    if (cohort.missingBackendCohort) {
+      lines.push("  missing backend cohort");
+      continue;
+    }
+    if (cohort.missingLegacyCohort) {
+      lines.push("  missing v3 cohort");
+      continue;
+    }
+
+    lines.push(`  matches: ${cohort.matches}`);
+    lines.push(`  mismatches: ${cohort.mismatches.length}`);
+    lines.push(`  backend games: ${cohort.backendGameCount}`);
+    lines.push(`  v3 games: ${cohort.legacyGameCount}`);
+    lines.push(`  v3-only games missing backend: ${cohort.missingBackendGames.length}`);
+    lines.push(`  backend-only games missing v3: ${cohort.missingLegacyGames.length}`);
+
+    for (const mismatch of cohort.mismatches.slice(0, options.maxMismatches)) {
+      lines.push(
+        `  mismatch ${mismatch.gameKey}: ${formatFieldDiffs(mismatch.fields)}`,
+      );
+    }
+    if (cohort.mismatches.length > options.maxMismatches) {
+      lines.push(
+        `  ... ${cohort.mismatches.length - options.maxMismatches} more mismatches`,
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push(`cohorts compared: ${comparison.totals.cohortsCompared}`);
+  lines.push(`cohorts missing backend: ${comparison.totals.missingBackendCohorts}`);
+  lines.push(`cohorts missing v3: ${comparison.totals.missingLegacyCohorts}`);
+  lines.push(`total matches: ${comparison.totals.matches}`);
+  lines.push(`total mismatches: ${comparison.totals.mismatches}`);
+  lines.push(
+    `total v3-only games missing backend: ${comparison.totals.missingBackendGames}`,
+  );
+  lines.push(
+    `total backend-only games missing v3: ${comparison.totals.missingLegacyGames}`,
+  );
+
+  return lines.join("\n");
+}
+
+export function hasGameStatsComparisonFailures(comparison) {
+  const totals = comparison.totals;
+  return totals.missingBackendCohorts > 0 ||
+    totals.missingLegacyCohorts > 0 ||
+    totals.mismatches > 0 ||
+    totals.missingBackendGames > 0 ||
+    totals.missingLegacyGames > 0;
+}
+
 export function hasComparisonFailures(comparison) {
   const totals = comparison.totals;
   return totals.missingBackendRounds > 0 ||
@@ -269,6 +460,34 @@ function summarizeRounds(rounds) {
   );
 }
 
+function summarizeGameStatsCohorts(cohorts) {
+  return cohorts.reduce(
+    (totals, cohort) => {
+      totals.cohortsCompared += 1;
+      if (cohort.missingBackendCohort) {
+        totals.missingBackendCohorts += 1;
+      }
+      if (cohort.missingLegacyCohort) {
+        totals.missingLegacyCohorts += 1;
+      }
+      totals.matches += cohort.matches;
+      totals.mismatches += cohort.mismatches.length;
+      totals.missingBackendGames += cohort.missingBackendGames.length;
+      totals.missingLegacyGames += cohort.missingLegacyGames.length;
+      return totals;
+    },
+    {
+      cohortsCompared: 0,
+      missingBackendCohorts: 0,
+      missingLegacyCohorts: 0,
+      matches: 0,
+      mismatches: 0,
+      missingBackendGames: 0,
+      missingLegacyGames: 0,
+    },
+  );
+}
+
 function legacyRoundForBackendRound(legacyStats, backendRoundNumber) {
   const legacyRoundIndex = backendRoundNumber - 1;
   if (Array.isArray(legacyStats)) {
@@ -298,6 +517,13 @@ function formatFieldDiffs(fields) {
   return Object.entries(fields)
     .map(([field, diff]) => `${field} backend=${diff.backend} v3=${diff.legacy}`)
     .join(", ");
+}
+
+function normalizeComparableNumber(value) {
+  if (typeof value !== "number") {
+    return value;
+  }
+  return Number(value.toFixed(3));
 }
 
 function defaultBaseUrl(env) {
@@ -350,34 +576,52 @@ async function runCli() {
     return 0;
   }
 
+  const backendRoot = options.type === "game-stats"
+    ? "game_stats_backend_v1"
+    : "round_stats_backend_v1";
+  const legacyRoot = options.type === "game-stats"
+    ? "game_stats_v3"
+    : "round_stats_v3";
   const [backendStats, legacyStats] = await Promise.all([
     fetchRtdbJson({
       baseUrl: options.baseUrl,
       namespace: options.namespace,
-      path: `/Stats/${options.compKey}/round_stats_backend_v1`,
+      path: `/Stats/${options.compKey}/${backendRoot}`,
     }),
     fetchRtdbJson({
       baseUrl: options.baseUrl,
       namespace: options.namespace,
-      path: `/Stats/${options.compKey}/round_stats_v3`,
+      path: `/Stats/${options.compKey}/${legacyRoot}`,
     }),
   ]);
 
-  const comparison = compareRoundStats({
-    backendStats,
-    legacyStats,
-    roundNumber: options.roundNumber,
-    tipperId: options.tipperId,
-    fields: options.fields,
-  });
+  const comparison = options.type === "game-stats"
+    ? compareGameStats({
+      backendStats,
+      legacyStats,
+      cohort: options.cohort,
+      gameKey: options.gameKey,
+      fields: options.fields,
+    })
+    : compareRoundStats({
+      backendStats,
+      legacyStats,
+      roundNumber: options.roundNumber,
+      tipperId: options.tipperId,
+      fields: options.fields,
+    });
 
   if (options.json) {
     console.log(JSON.stringify(comparison, null, 2));
   } else {
-    console.log(formatComparisonReport(comparison, options));
+    console.log(options.type === "game-stats"
+      ? formatGameStatsComparisonReport(comparison, options)
+      : formatComparisonReport(comparison, options));
   }
 
-  return hasComparisonFailures(comparison) ? 1 : 0;
+  return options.type === "game-stats"
+    ? (hasGameStatsComparisonFailures(comparison) ? 1 : 0)
+    : (hasComparisonFailures(comparison) ? 1 : 0);
 }
 
 function usage() {
@@ -386,8 +630,11 @@ function usage() {
     "  node scripts/compare_backend_round_stats.mjs --comp-key <compKey> [options]",
     "",
     "Options:",
+    "  --type <type>            round-stats or game-stats. Default: round-stats.",
     "  --round <number>          Compare one backend round against v3[round - 1].",
     "  --tipper-id <id>          Compare one tipper only.",
+    "  --cohort <paid|free>      Compare one game-stats cohort only.",
+    "  --game-key <key>          Compare one game only for game-stats.",
     "  --base-url <url>          RTDB REST base URL. Defaults to emulator env or http://127.0.0.1:8000.",
     "  --namespace <name>        RTDB namespace. Defaults to emulator env or dau-footy-tipping-f8a42-default-rtdb.",
     "  --fields <a,b,c>          Comma-separated fields to compare.",

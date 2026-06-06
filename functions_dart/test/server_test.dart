@@ -882,6 +882,14 @@ void main() {
             'HomeTeamScore': 10,
             'AwayTeamScore': 30,
           },
+          'nrl-01-002': {
+            'RoundNumber': 1,
+            'MatchNumber': 2,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'Location': 'Stadium Future',
+            'DateUtc': '2026-01-04T10:00:00Z',
+          },
         });
 
         when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
@@ -1012,6 +1020,8 @@ void main() {
         final freeGameStats = Map<String, dynamic>.from(
           gameUpdates['free/nrl-01-001'] as Map,
         );
+        expect(gameUpdates, isNot(contains('paid/nrl-01-002')));
+        expect(gameUpdates, isNot(contains('free/nrl-01-002')));
         expect(paidGameStats['avgScoreTipCount'], 1);
         expect(paidGameStats['pctTipD'], 1.0);
         expect(paidGameStats['pctTipB'], 0.0);
@@ -1020,9 +1030,9 @@ void main() {
           Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],
           2,
         );
-        expect(freeGameStats['avgScoreTipCount'], 1);
-        expect(freeGameStats['pctTipB'], 1.0);
-        expect(freeGameStats['pctTipD'], 0.0);
+        expect(freeGameStats['avgScoreTipCount'], 2);
+        expect(freeGameStats['pctTipB'], 0.5);
+        expect(freeGameStats['pctTipD'], 0.5);
         expect(roundUpdates['free-tipper'], isA<Map>());
         expect(
           Map<String, dynamic>.from(roundUpdates['free-tipper'] as Map)['nS'],
@@ -1390,7 +1400,7 @@ void main() {
             .thenAnswer((_) async {});
         when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
             .thenReturn(mockGameStatsRootRef);
-        when(() => mockGameStatsRootRef.update(any()))
+        when(() => mockGameStatsRootRef.set(any()))
             .thenAnswer((_) async {});
         when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
             .thenReturn(mockStatusRef);
@@ -1426,7 +1436,19 @@ void main() {
         verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
         verify(() => mockDb.ref('/AllTippers')).called(1);
         verifyNever(() => mockRoundThreeStatsRootRef.set(any()));
-        verify(() => mockGameStatsRootRef.update(any())).called(2);
+        final gameStatsReplacement = verify(
+          () => mockGameStatsRootRef.set(captureAny()),
+        ).captured.single as Map<String, dynamic>;
+        expect(gameStatsReplacement.keys, containsAll(['paid', 'free']));
+        expect(
+          Map<String, dynamic>.from(gameStatsReplacement['paid'] as Map).keys,
+          containsAll(['nrl-01-001', 'nrl-02-001']),
+        );
+        expect(
+          Map<String, dynamic>.from(gameStatsReplacement['free'] as Map).keys,
+          containsAll(['nrl-01-001', 'nrl-02-001']),
+        );
+        verifyNever(() => mockGameStatsRootRef.update(any()));
         final status = verify(
           () => mockStatusRef.set(captureAny()),
         ).captured.single as Map<String, dynamic>;

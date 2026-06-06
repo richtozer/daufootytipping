@@ -103,6 +103,10 @@ behaviour:
   All-tipper round rebuilds only include tippers with at least one submitted tip
   in the comp, matching the legacy client scoring cohort; missed started games
   still receive the legacy default-away tip for those active tippers.
+  Game-stat rebuilds only write games with known results, and calculate paid/free
+  cohorts from all tippers rather than only the active round-stat cohort.
+  Full-comp admin rescoring replaces `game_stats_backend_v1` after rebuilding so
+  stale shadow rows for future/unscored games are removed.
 
 Tip-write commands must not trigger full-comp or full-round rescoring unless a
 later rule explicitly requires it.
@@ -266,6 +270,8 @@ Rules:
   DAU round number; compare backend round `N` with v3 round `N - 1`
 - use `npm run compare:backend-scoring -- --comp-key <compKey>` for read-only
   backend-v1 versus v3 round-stat comparisons after admin rescoring
+- use `npm run compare:backend-scoring -- --comp-key <compKey> --type game-stats`
+  for paid/free game-stat shadow comparisons
 - preserve `live_scores_v3` as a client-owned input unless explicitly
   redesigning live scoring
 - never let TypeScript wrappers write aggregate scoring branches
