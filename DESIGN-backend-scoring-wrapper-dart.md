@@ -6,8 +6,8 @@
 - Scoring and fixture business logic moves to Dart HTTPS functions where possible.
 - The TypeScript layer is intentionally thin and must not contain scoring rules.
 - Current implementation covers `tipWritten`, `officialScoreWritten`, and
-  `adminRescore` for single-round and all-round backend shadow rebuilds.
-  `liveScoreWritten` remains to be added.
+  `liveScoreWritten` RTDB wrappers, plus `adminRescore` for single-round and
+  all-round backend shadow rebuilds.
 
 ## Summary
 The project can move scoring toward backend execution before Firebase supports
@@ -173,8 +173,7 @@ Status:
 - comparison against current client-written v3 output is still needed before
   client cutover
 - the currently implemented backend command surface is `tipWritten`,
-  `officialScoreWritten`, and `adminRescore`; `liveScoreWritten` is still
-  missing
+  `officialScoreWritten`, `liveScoreWritten`, and `adminRescore`
 
 Deliverables:
 - keep or extend the existing Dart function surface for admin fixture download
@@ -199,8 +198,8 @@ Wrapper responsibilities:
 - call the Dart worker with a compact payload
 - throw on retryable failures so Firebase retries the event
 - log non-retryable validation failures with enough context to replay manually
-- the current implementation covers `tipWritten` and `officialScoreWritten`;
-  `liveScoreWritten` remains to be added
+- the current implementation covers `tipWritten`, `officialScoreWritten`, and
+  `liveScoreWritten`
 
 Wrapper non-responsibilities:
 - no scoring calculations
@@ -255,6 +254,7 @@ The migration should not mutate that contract until validation is complete.
 Recommended backend-owned branches:
 - `round_stats_backend_v1`
 - `game_stats_backend_v1`
+- `live_scores_backend_v1`
 - `leaderboard_backend_v1`
 - `round_winners_backend_v1`
 - `scoring_audit_backend_v1`
@@ -264,6 +264,8 @@ Recommended backend-owned branches:
 Rules:
 - treat current v3 output as the legacy/client-owned production branch
 - write backend results to shadow branches first
+- version backend-owned branches independently; for example,
+  `live_scores_backend_v1` can coexist with `game_stats_backend_v2`
 - compare backend shadow output against v3 before client cutover
 - when comparing round stats, remember that `round_stats_v3` is zero-indexed
   by list position while `round_stats_backend_v1` is keyed by the 1-based

@@ -466,6 +466,24 @@ void main() {
       );
     });
 
+    test('parses a liveScoreWritten command payload', () {
+      final command = BackendScoringCommand.fromJson({
+        'commandType': 'liveScoreWritten',
+        'compKey': 'comp2026',
+        'gameKey': 'nrl-01-001',
+        'sourceEventId': 'event-live-1',
+        'sourcePath': '/Stats/comp2026/live_scores_v3/nrl-01-001/current',
+        'scopeKey': 'comp:comp2026/game:nrl-01-001',
+        'commandId': 'event-live-1',
+      });
+
+      expect(command.commandType, BackendScoringCommandType.liveScoreWritten);
+      expect(command.compKey, 'comp2026');
+      expect(command.roundNumber, isNull);
+      expect(command.tipperId, isNull);
+      expect(command.gameKey, 'nrl-01-001');
+    });
+
     test('parses an adminRescore command payload', () {
       final command = BackendScoringCommand.fromJson({
         'commandType': 'adminRescore',
@@ -1040,6 +1058,229 @@ void main() {
         );
         expect(capturedStartedIdempotencyRecord, isNotNull);
         expect(capturedStartedIdempotencyRecord!['status'], 'started');
+        verify(() => mockIdempotencyRef.set(any())).called(1);
+        verify(() => mockStatusRef.set(any())).called(1);
+      },
+    );
+
+    test(
+      'live score commands rebuild the affected round from live score state',
+      () async {
+        final mockDb = MockDatabase();
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        final mockLiveScoresRef = MockDatabaseReference();
+        final mockLiveScoresSnapshot = MockDataSnapshot();
+        final mockLiveScoreGameRef = MockDatabaseReference();
+        final mockLiveScoreGameSnapshot = MockDataSnapshot();
+        final mockBackendLiveScoreGameRef = MockDatabaseReference();
+        final mockAllTippersRef = MockDatabaseReference();
+        final mockAllTippersSnapshot = MockDataSnapshot();
+        final mockAllTipsRef = MockDatabaseReference();
+        final mockAllTipsSnapshot = MockDataSnapshot();
+        final mockIdempotencyRef = MockDatabaseReference();
+        final mockRoundStatsRootRef = MockDatabaseReference();
+        final mockGameStatsRootRef = MockDatabaseReference();
+        final mockStatusRef = MockDatabaseReference();
+        final mockTransactionResult = MockTransactionResult();
+
+        final command = BackendScoringCommand(
+          commandType: BackendScoringCommandType.liveScoreWritten,
+          compKey: 'comp2026',
+          roundNumber: null,
+          tipperId: null,
+          gameKey: 'nrl-01-001',
+          sourceEventId: 'event-live-1',
+          sourcePath: '/Stats/comp2026/live_scores_v3/nrl-01-001/current',
+          scopeKey: 'comp:comp2026/game:nrl-01-001',
+          commandId: 'event-live-1',
+        );
+
+        when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/event-live-1'))
+            .thenReturn(mockIdempotencyRef);
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler = invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('event-live-1', null);
+          final result = await handler(mutableData);
+          if (result == null) {
+            final abortedResult = MockTransactionResult();
+            when(() => abortedResult.committed).thenReturn(false);
+            return abortedResult;
+          }
+          return mockTransactionResult;
+        });
+        when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/AllDAUComps/comp2026'))
+            .thenReturn(mockCompRef);
+        when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn({
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://example.com/afl.json',
+          'nrlFixtureJsonURL': 'https://example.com/nrl.json',
+          'combinedRounds2': [
+            {
+              'roundStartDate': '2026-01-01T00:00:00Z',
+              'roundEndDate': '2026-01-07T23:59:59Z',
+            },
+          ],
+        });
+
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({
+          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+        });
+
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+            .thenReturn(mockLiveScoresRef);
+        when(() => mockLiveScoresRef.once())
+            .thenAnswer((_) async => mockLiveScoresSnapshot);
+        final liveScoreGameValue = {
+          'current': {
+            'crowdSourcedScores': {
+              '0': {
+                'submittedTimeUTC': '2026-01-03T10:05:00Z',
+                'scoreTeam': 'home',
+                'tipperID': 'score-tipper',
+                'interimScore': '10',
+                'gameComplete': false,
+              },
+              '1': {
+                'submittedTimeUTC': '2026-01-03T10:06:00Z',
+                'scoreTeam': 'away',
+                'tipperID': 'score-tipper',
+                'interimScore': 30.0,
+                'gameComplete': false,
+              },
+              'malformed': {
+                'scoreTeam': 'away',
+              },
+            },
+          },
+          'history': {
+            '1760000000000000-home': {
+              'submittedTimeUTC': '2026-01-03T10:05:00Z',
+              'scoreTeam': 'home',
+              'tipperID': 'score-tipper',
+              'interimScore': 10,
+              'gameComplete': false,
+            },
+          },
+        };
+        when(() => mockLiveScoresSnapshot.value).thenReturn({
+          'nrl-01-001': liveScoreGameValue,
+        });
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3/nrl-01-001'))
+            .thenReturn(mockLiveScoreGameRef);
+        when(() => mockLiveScoreGameRef.once())
+            .thenAnswer((_) async => mockLiveScoreGameSnapshot);
+        when(() => mockLiveScoreGameSnapshot.value)
+            .thenReturn(liveScoreGameValue);
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1/nrl-01-001'))
+            .thenReturn(mockBackendLiveScoreGameRef);
+        when(() => mockBackendLiveScoreGameRef.set(any()))
+            .thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/DAUCompsGames/comp2026'))
+            .thenReturn(mockGamesRef);
+        when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'Location': 'Stadium One',
+            'DateUtc': '2026-01-03T10:00:00Z',
+          },
+        });
+
+        when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
+        when(() => mockAllTippersRef.once())
+            .thenAnswer((_) async => mockAllTippersSnapshot);
+        when(() => mockAllTippersSnapshot.value).thenReturn({
+          'paid-tipper': {
+            'authuid': 'auth-paid',
+            'email': 'paid@example.com',
+            'name': 'Paid',
+            'tipperRole': 'tipper',
+            'compsParticipatedIn': ['comp2026'],
+            'isAnonymous': false,
+          },
+          'free-tipper': {
+            'authuid': 'auth-free',
+            'email': 'free@example.com',
+            'name': 'Free',
+            'tipperRole': 'tipper',
+            'isAnonymous': false,
+          },
+        });
+
+        when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
+        when(() => mockAllTipsRef.once())
+            .thenAnswer((_) async => mockAllTipsSnapshot);
+        when(() => mockAllTipsSnapshot.value).thenReturn({
+          'paid-tipper': {
+            'nrl-01-001': {'r': 'd', 't': 1760000001},
+          },
+        });
+
+        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
+            .thenReturn(mockRoundStatsRootRef);
+        when(() => mockRoundStatsRootRef.update(any()))
+            .thenAnswer((_) async {});
+        when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
+            .thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.update(any()))
+            .thenAnswer((_) async {});
+        when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
+            .thenReturn(mockStatusRef);
+        when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
+
+        final result = await executeBackendScoringCommand(
+          db: mockDb,
+          command: command,
+          now: DateTime.parse('2026-01-03T12:00:00Z'),
+        );
+
+        expect(result.skipped, isFalse);
+        expect(result.status, 'completed');
+
+        final roundUpdates = verify(
+          () => mockRoundStatsRootRef.update(captureAny()),
+        ).captured.single as Map<String, dynamic>;
+        expect(roundUpdates, containsPair('paid-tipper', isA<Map>()));
+        expect(roundUpdates, isNot(contains('free-tipper')));
+        expect(
+          Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],
+          2,
+        );
+
+        final gameUpdates = verify(
+          () => mockGameStatsRootRef.update(captureAny()),
+        ).captured.single as Map<String, dynamic>;
+        final paidGameStats = Map<String, dynamic>.from(
+          gameUpdates['paid/nrl-01-001'] as Map,
+        );
+        final freeGameStats = Map<String, dynamic>.from(
+          gameUpdates['free/nrl-01-001'] as Map,
+        );
+        expect(paidGameStats['avgScoreTipCount'], 1);
+        expect(paidGameStats['pctTipD'], 1.0);
+        expect(freeGameStats['avgScoreTipCount'], 1);
+        expect(freeGameStats['pctTipD'], 1.0);
+        verify(
+          () => mockBackendLiveScoreGameRef.set(liveScoreGameValue),
+        ).called(1);
         verify(() => mockIdempotencyRef.set(any())).called(1);
         verify(() => mockStatusRef.set(any())).called(1);
       },

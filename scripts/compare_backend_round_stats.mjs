@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 const DEFAULT_NAMESPACE = "dau-footy-tipping-f8a42-default-rtdb";
+const STATS_PATH_ROOT = "/Stats";
+const ROUND_STATS_BACKEND_V1_ROOT = "round_stats_backend_v1";
+const GAME_STATS_BACKEND_V1_ROOT = "game_stats_backend_v1";
+const ROUND_STATS_V3_ROOT = "round_stats_v3";
+const GAME_STATS_V3_ROOT = "game_stats_v3";
 const DEFAULT_FIELDS = [
   "aS",
   "aMs",
@@ -359,7 +364,10 @@ export function formatGameStatsComparisonReport(comparison, options) {
   const lines = [];
   lines.push("Backend game stats comparison");
   lines.push(`compKey: ${options.compKey}`);
-  lines.push("mapping: game_stats_backend_v1/<cohort>/<gameKey> -> game_stats_v3/<cohort>/<gameKey>");
+  lines.push(
+    `mapping: ${GAME_STATS_BACKEND_V1_ROOT}/<cohort>/<gameKey> -> ` +
+    `${GAME_STATS_V3_ROOT}/<cohort>/<gameKey>`,
+  );
   if (options.cohort != null) {
     lines.push(`cohort: ${options.cohort}`);
   }
@@ -577,21 +585,21 @@ async function runCli() {
   }
 
   const backendRoot = options.type === "game-stats"
-    ? "game_stats_backend_v1"
-    : "round_stats_backend_v1";
+    ? GAME_STATS_BACKEND_V1_ROOT
+    : ROUND_STATS_BACKEND_V1_ROOT;
   const legacyRoot = options.type === "game-stats"
-    ? "game_stats_v3"
-    : "round_stats_v3";
+    ? GAME_STATS_V3_ROOT
+    : ROUND_STATS_V3_ROOT;
   const [backendStats, legacyStats] = await Promise.all([
     fetchRtdbJson({
       baseUrl: options.baseUrl,
       namespace: options.namespace,
-      path: `/Stats/${options.compKey}/${backendRoot}`,
+      path: `${STATS_PATH_ROOT}/${options.compKey}/${backendRoot}`,
     }),
     fetchRtdbJson({
       baseUrl: options.baseUrl,
       namespace: options.namespace,
-      path: `/Stats/${options.compKey}/${legacyRoot}`,
+      path: `${STATS_PATH_ROOT}/${options.compKey}/${legacyRoot}`,
     }),
   ]);
 

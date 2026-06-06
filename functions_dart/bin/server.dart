@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
+import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
@@ -370,7 +371,7 @@ Future<String> executeFixtureDownload({
 }) async {
   // 3. Verify user has admin role by querying AllTippers indexed by authuid
   logFunction('executeFixtureDownload: checking admin role for authUid=$authUid');
-  final DatabaseReference tippersRef = db.ref('/AllTippers');
+  final DatabaseReference tippersRef = db.ref(paths.tippersPath);
   final Query roleQuery = tippersRef.orderByChild('authuid').equalTo(authUid);
   final DataSnapshot roleSnapshot = await roleQuery.once();
   final roleVal = roleSnapshot.value;
@@ -387,7 +388,7 @@ Future<String> executeFixtureDownload({
 
   // 5. Fetch DAUComp configuration from DB
   logFunction('executeFixtureDownload: loading compKey=$compKey');
-  final DatabaseReference compRef = db.ref('/AllDAUComps/$compKey');
+  final DatabaseReference compRef = db.ref('${paths.daucompsPath}/$compKey');
   final DataSnapshot compSnapshot = await compRef.once();
   final compRaw = compSnapshot.value;
   if (compRaw == null) {
@@ -401,7 +402,9 @@ Future<String> executeFixtureDownload({
   final comp = DAUComp.fromJson(compData, compKey, dauroundsList);
 
   // 6. Attempt to acquire distributed download lock (with 24h TTL) using a transaction
-  final DatabaseReference lockRef = db.ref('/AllDAUComps/$compKey/downloadLock');
+  final DatabaseReference lockRef = db.ref(
+    '${paths.daucompsPath}/$compKey/${paths.downloadLockKey}',
+  );
   TransactionResult transactionResult;
   try {
     transactionResult = await lockRef.runTransaction((MutableData mutableData) {
@@ -435,7 +438,9 @@ Future<String> executeFixtureDownload({
   // Helper to log status updates
   Future<void> logStatus(String status, {String? error}) async {
     logFunction('executeFixtureDownload: writing status=$status error=${error ?? ''}');
-    final DatabaseReference statusRef = db.ref('/Stats/$compKey/scoring_status');
+    final DatabaseReference statusRef = db.ref(
+      '${paths.statsPathRoot}/$compKey/${paths.scoringStatusKey}',
+    );
     final statusData = <String, dynamic>{
       'status': status,
       'updatedAt': now.toIso8601String(),
@@ -464,7 +469,7 @@ Future<String> executeFixtureDownload({
     final dbUpdates = <String, dynamic>{};
 
     // Fetch existing teams to ensure they exist in /Teams
-    final DatabaseReference teamsRef = db.ref('/Teams');
+    final DatabaseReference teamsRef = db.ref(paths.teamsPathRoot);
     final DataSnapshot teamsSnapshot = await teamsRef.once();
     final Map<String, dynamic> existingTeams = teamsSnapshot.value != null
         ? Map<String, dynamic>.from(teamsSnapshot.value as Map)
@@ -473,7 +478,7 @@ Future<String> executeFixtureDownload({
     void ensureTeamExists(String teamName, String league) {
       final teamKey = '$league-${_normalizeTeamLookupName(teamName)}';
       if (!existingTeams.containsKey(teamKey)) {
-        dbUpdates['/Teams/$teamKey'] = {
+        dbUpdates['${paths.teamsPathRoot}/$teamKey'] = {
           'name': teamName.trim(),
           'league': league,
           'logoURI': null,
@@ -484,7 +489,9 @@ Future<String> executeFixtureDownload({
 
     for (final op in ops) {
       for (final entry in op.attributes.entries) {
-        dbUpdates['/DAUCompsGames/$compKey/${op.dbkey}/${entry.key}'] = entry.value;
+        dbUpdates[
+            '${paths.gamesPathRoot}/$compKey/${op.dbkey}/${entry.key}'] =
+            entry.value;
       }
       final homeTeam = op.attributes['HomeTeam'] as String?;
       final awayTeam = op.attributes['AwayTeam'] as String?;
@@ -503,13 +510,19 @@ Future<String> executeFixtureDownload({
         final round = combined[i];
         final startDateStr = '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.firstGameKickOffUTC)}Z';
         final endDateStr = '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.lastGameKickOffUTC)}Z';
-        dbUpdates['/AllDAUComps/$compKey/combinedRounds2/$i/roundStartDate'] = startDateStr;
-        dbUpdates['/AllDAUComps/$compKey/combinedRounds2/$i/roundEndDate'] = endDateStr;
+        dbUpdates[
+            '${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$i/'
+            '${paths.roundStartDateKey}'] = startDateStr;
+        dbUpdates[
+            '${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$i/'
+            '${paths.roundEndDateKey}'] = endDateStr;
       }
     }
 
     // Update last fixture update timestamp
-    dbUpdates['/AllDAUComps/$compKey/lastFixtureUTC'] = now.toIso8601String();
+    dbUpdates[
+        '${paths.daucompsPath}/$compKey/${paths.lastFixtureUTCKey}'] =
+        now.toIso8601String();
 
     // Perform multi-path update in the database
     logFunction('executeFixtureDownload: applying ${dbUpdates.length} database updates');
@@ -543,9 +556,6 @@ Future<List<dynamic>> _fetchFixtureJson(Uri url) async {
   throw Exception('Failed to fetch fixture from $url: ${response.statusCode}');
 }
 
-const String _backendRoundStatsRoot = 'round_stats_backend_v1';
-const String _backendGameStatsRoot = 'game_stats_backend_v1';
-const String _backendIdempotencyRoot = 'scoring_idempotency_backend_v1';
 const Duration _backendIdempotencyTtl = Duration(hours: 24);
 
 const Map<String, String> _jsonHeaders = {
@@ -607,8 +617,10 @@ Future<BackendScoringCommandResult> executeBackendScoringCommand({
         now: now,
       );
     case BackendScoringCommandType.liveScoreWritten:
-      throw UnimplementedError(
-        'Backend scoring command ${command.commandType.name} is not implemented yet',
+      return _handleOfficialScoreWrittenBackendScoringCommand(
+        db: db,
+        command: command,
+        now: now,
       );
   }
 }
@@ -633,7 +645,8 @@ Future<_BackendScoringLockResult> _acquireBackendScoringCommandLock({
   required DateTime now,
 }) async {
   final idempotencyRef = db.ref(
-    '/Stats/${command.compKey}/$_backendIdempotencyRoot/${command.commandId}',
+    '${paths.statsPathRoot}/${command.compKey}/'
+    '${paths.scoringIdempotencyBackendRoot}/${command.commandId}',
   );
   final startedRecord = BackendScoringIdempotencyRecord(
     status: BackendScoringIdempotencyStatus.started,
@@ -732,7 +745,8 @@ _handleTipWrittenBackendScoringCommand({
 
   final startedRecord = lock.startedRecord;
   final idempotencyRef = db.ref(
-    '/Stats/${command.compKey}/$_backendIdempotencyRoot/${command.commandId}',
+    '${paths.statsPathRoot}/${command.compKey}/'
+    '${paths.scoringIdempotencyBackendRoot}/${command.commandId}',
   );
   final comp = await _loadBackendScoringComp(db, command.compKey);
   final tipper = await _loadBackendScoringTipper(db, command.tipperId!);
@@ -791,7 +805,8 @@ _handleTipWrittenBackendScoringCommand({
 
     await db
         .ref(
-          '/Stats/${command.compKey}/$_backendRoundStatsRoot/$roundNumber/${tipper.dbkey}',
+          '${paths.statsPathRoot}/${command.compKey}/'
+          '${paths.roundStatsBackendRoot}/$roundNumber/${tipper.dbkey}',
         )
         .set(roundStats.toJson());
 
@@ -808,7 +823,9 @@ _handleTipWrittenBackendScoringCommand({
       completedAt: now.toIso8601String(),
     );
     await idempotencyRef.set(completedRecord.toJson());
-    await db.ref('/Stats/${command.compKey}/scoring_status').set(<String, dynamic>{
+    await db.ref(
+      '${paths.statsPathRoot}/${command.compKey}/${paths.scoringStatusKey}',
+    ).set(<String, dynamic>{
       'status': 'completed',
       'inProgress': false,
       'commandId': command.commandId,
@@ -847,7 +864,9 @@ _handleTipWrittenBackendScoringCommand({
       error: error.toString(),
     );
     await idempotencyRef.set(failedRecord.toJson());
-    await db.ref('/Stats/${command.compKey}/scoring_status').set(<String, dynamic>{
+    await db.ref(
+      '${paths.statsPathRoot}/${command.compKey}/${paths.scoringStatusKey}',
+    ).set(<String, dynamic>{
       'status': 'failed',
       'inProgress': false,
       'commandId': command.commandId,
@@ -890,7 +909,8 @@ _handleOfficialScoreWrittenBackendScoringCommand({
 
   final startedRecord = lock.startedRecord;
   final idempotencyRef = db.ref(
-    '/Stats/${command.compKey}/$_backendIdempotencyRoot/${command.commandId}',
+    '${paths.statsPathRoot}/${command.compKey}/'
+    '${paths.scoringIdempotencyBackendRoot}/${command.commandId}',
   );
   final comp = await _loadBackendScoringComp(db, command.compKey);
   final games = await _loadBackendScoringGames(
@@ -925,6 +945,14 @@ _handleOfficialScoreWrittenBackendScoringCommand({
   }
 
   try {
+    if (command.commandType == BackendScoringCommandType.liveScoreWritten) {
+      await _writeBackendLiveScoreShadow(
+        db: db,
+        compKey: command.compKey,
+        gameKey: command.gameKey!,
+      );
+    }
+
     final rebuildResult = await _rebuildBackendScoringRound(
       db: db,
       comp: comp,
@@ -946,7 +974,9 @@ _handleOfficialScoreWrittenBackendScoringCommand({
       completedAt: now.toIso8601String(),
     );
     await idempotencyRef.set(completedRecord.toJson());
-    await db.ref('/Stats/${command.compKey}/scoring_status').set(<String, dynamic>{
+    await db.ref(
+      '${paths.statsPathRoot}/${command.compKey}/${paths.scoringStatusKey}',
+    ).set(<String, dynamic>{
       'status': 'completed',
       'inProgress': false,
       'commandId': command.commandId,
@@ -987,7 +1017,9 @@ _handleOfficialScoreWrittenBackendScoringCommand({
       error: error.toString(),
     );
     await idempotencyRef.set(failedRecord.toJson());
-    await db.ref('/Stats/${command.compKey}/scoring_status').set(<String, dynamic>{
+    await db.ref(
+      '${paths.statsPathRoot}/${command.compKey}/${paths.scoringStatusKey}',
+    ).set(<String, dynamic>{
       'status': 'failed',
       'inProgress': false,
       'commandId': command.commandId,
@@ -1030,7 +1062,8 @@ _handleAdminRescoreBackendScoringCommand({
 
   final startedRecord = lock.startedRecord;
   final idempotencyRef = db.ref(
-    '/Stats/${command.compKey}/$_backendIdempotencyRoot/${command.commandId}',
+    '${paths.statsPathRoot}/${command.compKey}/'
+    '${paths.scoringIdempotencyBackendRoot}/${command.commandId}',
   );
 
   try {
@@ -1088,7 +1121,10 @@ _handleAdminRescoreBackendScoringCommand({
           rebuildResults.add(rebuildResult);
         }
       }
-      await db.ref('/Stats/${command.compKey}/$_backendGameStatsRoot').set(
+      await db.ref(
+        '${paths.statsPathRoot}/${command.compKey}/'
+        '${paths.gameStatsBackendRoot}',
+      ).set(
             _nestBackendGameStatsUpdates(gameStatsUpdatesSink),
           );
     }
@@ -1119,7 +1155,9 @@ _handleAdminRescoreBackendScoringCommand({
       completedAt: now.toIso8601String(),
     );
     await idempotencyRef.set(completedRecord.toJson());
-    await db.ref('/Stats/${command.compKey}/scoring_status').set(<String, dynamic>{
+    await db.ref(
+      '${paths.statsPathRoot}/${command.compKey}/${paths.scoringStatusKey}',
+    ).set(<String, dynamic>{
       'status': 'completed',
       'inProgress': false,
       'commandId': command.commandId,
@@ -1160,7 +1198,9 @@ _handleAdminRescoreBackendScoringCommand({
       error: error.toString(),
     );
     await idempotencyRef.set(failedRecord.toJson());
-    await db.ref('/Stats/${command.compKey}/scoring_status').set(<String, dynamic>{
+    await db.ref(
+      '${paths.statsPathRoot}/${command.compKey}/${paths.scoringStatusKey}',
+    ).set(<String, dynamic>{
       'status': 'failed',
       'inProgress': false,
       'commandId': command.commandId,
@@ -1260,7 +1300,8 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
 
   if (roundStatsUpdates.isNotEmpty) {
     final roundStatsRef = db.ref(
-      '/Stats/${comp.dbkey}/$_backendRoundStatsRoot/$roundNumber',
+      '${paths.statsPathRoot}/${comp.dbkey}/'
+      '${paths.roundStatsBackendRoot}/$roundNumber',
     );
     if (replaceRoundStats) {
       await roundStatsRef.set(roundStatsUpdates);
@@ -1366,7 +1407,7 @@ Map<String, Tip> _applyDefaultTipsForStartedGames({
 }
 
 Future<List<Tipper>> _loadBackendScoringTippers(dynamic db) async {
-  final tippersSnapshot = await db.ref('/AllTippers').once();
+  final tippersSnapshot = await db.ref(paths.tippersPath).once();
   final tippers = <Tipper>[];
   if (tippersSnapshot.value is! Map) {
     return tippers;
@@ -1407,7 +1448,8 @@ Future<Map<String, dynamic>> _loadBackendScoringTipsByTipperRaw({
   required dynamic db,
   required String compKey,
 }) async {
-  final tipsSnapshot = await db.ref('/AllTips/$compKey').once();
+  final tipsSnapshot =
+      await db.ref('${paths.tipsPathRoot}/$compKey').once();
   return tipsSnapshot.value is Map
       ? Map<String, dynamic>.from(tipsSnapshot.value as Map)
       : <String, dynamic>{};
@@ -1527,7 +1569,10 @@ Future<void> _rebuildBackendGameStatsForRound({
 
   if (updates.isNotEmpty) {
     await db
-        .ref('/Stats/${comp.dbkey}/$_backendGameStatsRoot')
+        .ref(
+          '${paths.statsPathRoot}/${comp.dbkey}/'
+          '${paths.gameStatsBackendRoot}',
+        )
         .update(updates);
   }
 }
@@ -1559,7 +1604,8 @@ Map<String, dynamic> _nestBackendGameStatsUpdates(
 }
 
 Future<DAUComp> _loadBackendScoringComp(dynamic db, String compKey) async {
-  final compSnapshot = await db.ref('/AllDAUComps/$compKey').once();
+  final compSnapshot =
+      await db.ref('${paths.daucompsPath}/$compKey').once();
   if (compSnapshot.value == null) {
     throw NotFoundError('DAUComp not found for key: $compKey');
   }
@@ -1573,7 +1619,8 @@ Future<Tipper> _loadBackendScoringTipper(
   dynamic db,
   String tipperId,
 ) async {
-  final tipperSnapshot = await db.ref('/AllTippers/$tipperId').once();
+  final tipperSnapshot =
+      await db.ref('${paths.tippersPath}/$tipperId').once();
   if (tipperSnapshot.value == null) {
     throw NotFoundError('Tipper not found for key: $tipperId');
   }
@@ -1643,7 +1690,7 @@ Future<List<Game>> _loadBackendScoringGames({
   required dynamic db,
   required DAUComp comp,
 }) async {
-  final teamsSnapshot = await db.ref('/Teams').once();
+  final teamsSnapshot = await db.ref(paths.teamsPathRoot).once();
   final teamsByKey = <String, Team>{};
   if (teamsSnapshot.value is Map) {
     final teamsRaw = Map<String, dynamic>.from(teamsSnapshot.value as Map);
@@ -1660,11 +1707,12 @@ Future<List<Game>> _loadBackendScoringGames({
   }
 
   final liveScoresSnapshot = await db
-      .ref('/Stats/${comp.dbkey}/live_scores_v3')
+      .ref('${paths.statsPathRoot}/${comp.dbkey}/${paths.liveScoresLegacyRoot}')
       .once();
   final liveScoresByGame = _deserializeLiveScores(liveScoresSnapshot);
 
-  final gamesSnapshot = await db.ref('/DAUCompsGames/${comp.dbkey}').once();
+  final gamesSnapshot =
+      await db.ref('${paths.gamesPathRoot}/${comp.dbkey}').once();
   final games = <Game>[];
   if (gamesSnapshot.value == null) {
     return games;
@@ -1701,6 +1749,22 @@ Future<List<Game>> _loadBackendScoringGames({
   return games;
 }
 
+Future<void> _writeBackendLiveScoreShadow({
+  required dynamic db,
+  required String compKey,
+  required String gameKey,
+}) async {
+  final liveScoreSnapshot = await db
+      .ref('${paths.statsPathRoot}/$compKey/${paths.liveScoresLegacyRoot}/$gameKey')
+      .once();
+  await db
+      .ref(
+        '${paths.statsPathRoot}/$compKey/'
+        '${paths.liveScoresBackendRoot}/$gameKey',
+      )
+      .set(liveScoreSnapshot.value);
+}
+
 String _normalizeTeamLookupName(dynamic rawName) {
   return rawName.toString().trim().toLowerCase();
 }
@@ -1731,18 +1795,116 @@ List<CrowdSourcedScore>? _crowdScoresForGame(Map<String, dynamic>? current) {
   }
 
   final rawScores = current['crowdSourcedScores'];
-  if (rawScores is! List) {
-    return null;
-  }
-
   final scores = <CrowdSourcedScore>[];
-  for (final rawScore in rawScores) {
-    if (rawScore is Map) {
-      scores.add(CrowdSourcedScore.fromJson(rawScore));
+  for (final rawScore in _crowdScoreValues(rawScores)) {
+    final score = _tryParseCrowdSourcedScore(rawScore);
+    if (score != null) {
+      scores.add(score);
     }
   }
 
+  if (scores.isEmpty) {
+    scores.addAll(_crowdScoresFromCurrentSnapshot(current));
+  }
+
   return scores.isEmpty ? null : scores;
+}
+
+Iterable<dynamic> _crowdScoreValues(dynamic rawScores) {
+  if (rawScores is List) {
+    return rawScores;
+  }
+  if (rawScores is Map) {
+    final entries = rawScores.entries.toList()
+      ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+    return entries.map((entry) => entry.value);
+  }
+  return const [];
+}
+
+CrowdSourcedScore? _tryParseCrowdSourcedScore(dynamic rawScore) {
+  if (rawScore is! Map) {
+    return null;
+  }
+
+  try {
+    final data = Map<String, dynamic>.from(rawScore);
+    final submittedTimeRaw = data['submittedTimeUTC'];
+    final scoreTeamRaw = data['scoreTeam'];
+    final tipperIdRaw = data['tipperID'];
+    final interimScore = _tryParseInt(data['interimScore']);
+    if (submittedTimeRaw is! String ||
+        scoreTeamRaw is! String ||
+        tipperIdRaw is! String ||
+        interimScore == null) {
+      return null;
+    }
+
+    return CrowdSourcedScore(
+      DateTime.parse(submittedTimeRaw),
+      ScoringTeam.values.byName(scoreTeamRaw),
+      tipperIdRaw,
+      interimScore,
+      data['gameComplete'] == true,
+    );
+  } catch (error, stackTrace) {
+    developer.log(
+      'backendScoringCommand: ignored malformed live score',
+      name: 'backendScoringCommand',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return null;
+  }
+}
+
+List<CrowdSourcedScore> _crowdScoresFromCurrentSnapshot(
+  Map<String, dynamic> current,
+) {
+  final submittedTimeRaw = current['submittedTimeUTC'];
+  final tipperIdRaw = current['tipperID'];
+  if (submittedTimeRaw is! String || tipperIdRaw is! String) {
+    return const [];
+  }
+
+  final submittedTime = DateTime.tryParse(submittedTimeRaw);
+  if (submittedTime == null) {
+    return const [];
+  }
+
+  final scores = <CrowdSourcedScore>[];
+  void addScore(ScoringTeam team, dynamic rawScore) {
+    final interimScore = _tryParseInt(rawScore);
+    if (interimScore == null) {
+      return;
+    }
+    scores.add(
+      CrowdSourcedScore(
+        submittedTime,
+        team,
+        tipperIdRaw,
+        interimScore,
+        current['gameComplete'] == true,
+      ),
+    );
+  }
+
+  addScore(ScoringTeam.home, current['homeInterimScore']);
+  addScore(ScoringTeam.away, current['awayInterimScore']);
+  return scores;
+}
+
+int? _tryParseInt(dynamic value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
 }
 
 Future<Map<String, Tip>> _loadBackendScoringTipsForTipper({
@@ -1752,7 +1914,9 @@ Future<Map<String, Tip>> _loadBackendScoringTipsForTipper({
   required Map<String, Game> gamesByKey,
   required DateTime now,
 }) async {
-  final tipsSnapshot = await db.ref('/AllTips/$compKey/${tipper.dbkey}').once();
+  final tipsSnapshot = await db
+      .ref('${paths.tipsPathRoot}/$compKey/${tipper.dbkey}')
+      .once();
   final tipsByGameKey = <String, Tip>{};
   if (tipsSnapshot.value is Map) {
     final tipsRaw = Map<String, dynamic>.from(tipsSnapshot.value as Map);
