@@ -5,8 +5,9 @@
 - Production RTDB event triggers remain on 1st gen TypeScript functions.
 - Scoring and fixture business logic moves to Dart HTTPS functions where possible.
 - The TypeScript layer is intentionally thin and must not contain scoring rules.
-- Current implementation covers `tipWritten` end to end; `officialScoreWritten`,
-  `liveScoreWritten`, and `adminRescore` remain to be added.
+- Current implementation covers `tipWritten`, `officialScoreWritten`, and
+  `adminRescore` for single-round and all-round backend shadow rebuilds.
+  `liveScoreWritten` remains to be added.
 
 ## Summary
 The project can move scoring toward backend execution before Firebase supports
@@ -97,6 +98,11 @@ behaviour:
 - `liveScoreWritten`: recalculate the affected round for all relevant tippers
   using the current live-score precedence rules.
 - `adminRescore`: recalculate the requested comp, round, or full scoring scope.
+  Full-comp admin rescoring skips empty/unpopulated rounds and records them in
+  backend scoring status rather than aborting the batch.
+  All-tipper round rebuilds only include tippers with at least one submitted tip
+  in the comp, matching the legacy client scoring cohort; missed started games
+  still receive the legacy default-away tip for those active tippers.
 
 Tip-write commands must not trigger full-comp or full-round rescoring unless a
 later rule explicitly requires it.
@@ -158,10 +164,13 @@ Status:
 - initial Dart Functions codebase is present in `functions_dart`
 - admin fixture download through a Dart function path is already represented in
   the repo
-- remaining work is to add or complete Dart admin rescore, backend validation
-  branch writes, and comparison against current client-written v3 output
-- the currently implemented backend command surface is `tipWritten` only; the
-  other command types in this design are still missing
+- Dart admin rescore and backend validation branch writes are implemented for
+  single-round and all-round shadow rebuilds
+- comparison against current client-written v3 output is still needed before
+  client cutover
+- the currently implemented backend command surface is `tipWritten`,
+  `officialScoreWritten`, and `adminRescore`; `liveScoreWritten` is still
+  missing
 
 Deliverables:
 - keep or extend the existing Dart function surface for admin fixture download
@@ -186,8 +195,8 @@ Wrapper responsibilities:
 - call the Dart worker with a compact payload
 - throw on retryable failures so Firebase retries the event
 - log non-retryable validation failures with enough context to replay manually
-- the current implementation only covers `tipWritten`; the other trigger types
-  and the admin rescore command remain to be added
+- the current implementation covers `tipWritten` and `officialScoreWritten`;
+  `liveScoreWritten` remains to be added
 
 Wrapper non-responsibilities:
 - no scoring calculations
@@ -255,6 +264,8 @@ Rules:
 - when comparing round stats, remember that `round_stats_v3` is zero-indexed
   by list position while `round_stats_backend_v1` is keyed by the 1-based
   DAU round number; compare backend round `N` with v3 round `N - 1`
+- use `npm run compare:backend-scoring -- --comp-key <compKey>` for read-only
+  backend-v1 versus v3 round-stat comparisons after admin rescoring
 - preserve `live_scores_v3` as a client-owned input unless explicitly
   redesigning live scoring
 - never let TypeScript wrappers write aggregate scoring branches

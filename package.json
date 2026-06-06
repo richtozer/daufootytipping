@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "compare:backend-scoring": "node scripts/compare_backend_round_stats.mjs",
     "migrate:tiplogs": "node tools/firestore/migrate_tip_logs_to_tip_logs2.js"
   },
   "devDependencies": {

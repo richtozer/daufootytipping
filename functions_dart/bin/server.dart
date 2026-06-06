@@ -1035,25 +1035,69 @@ _handleAdminRescoreBackendScoringCommand({
 
   try {
     final comp = await _loadBackendScoringComp(db, command.compKey);
-    final roundNumber = command.roundNumber!;
-    final round = _findRoundByNumber(comp, roundNumber);
-    if (round == null) {
-      throw NotFoundError(
-        'Round $roundNumber not found for comp ${command.compKey}',
-      );
-    }
-
     final games = await _loadBackendScoringGames(
       db: db,
       comp: comp,
     );
-    final rebuildResult = await _rebuildBackendScoringRound(
+    final allTippers = await _loadBackendScoringTippers(db);
+    final tipsByTipperRaw = await _loadBackendScoringTipsByTipperRaw(
       db: db,
-      comp: comp,
-      games: games,
-      roundNumber: roundNumber,
-      now: now,
+      compKey: command.compKey,
     );
+    final activeTippers = _filterBackendScoringTippersWithSubmittedTips(
+      allTippers: allTippers,
+      tipsByTipperRaw: tipsByTipperRaw,
+    );
+    final rebuildResults = <_BackendScoringRoundRebuildResult>[];
+    final skippedRoundNumbers = <int>[];
+    final requestedRoundNumber = command.roundNumber;
+    if (requestedRoundNumber != null) {
+      final round = _findRoundByNumber(comp, requestedRoundNumber);
+      if (round == null) {
+        throw NotFoundError(
+          'Round $requestedRoundNumber not found for comp ${command.compKey}',
+        );
+      }
+      rebuildResults.add(
+        await _rebuildBackendScoringRound(
+          db: db,
+          comp: comp,
+          games: games,
+          roundNumber: requestedRoundNumber,
+          now: now,
+          allTippers: activeTippers,
+          tipsByTipperRaw: tipsByTipperRaw,
+          replaceRoundStats: true,
+        ),
+      );
+    } else {
+      for (final round in comp.daurounds) {
+        final rebuildResult = await _rebuildBackendScoringRound(
+          db: db,
+          comp: comp,
+          games: games,
+          roundNumber: round.dAUroundNumber,
+          now: now,
+          allTippers: activeTippers,
+          tipsByTipperRaw: tipsByTipperRaw,
+          allowEmptyRound: true,
+          replaceRoundStats: true,
+        );
+        if (rebuildResult.skipped) {
+          skippedRoundNumbers.add(round.dAUroundNumber);
+        } else {
+          rebuildResults.add(rebuildResult);
+        }
+      }
+    }
+
+    final rebuiltRoundNumbers =
+        rebuildResults.map((result) => result.roundNumber).toList();
+    final rebuiltRoundCount = rebuildResults.length;
+    final tipperCount = activeTippers.length;
+    final message = requestedRoundNumber != null
+        ? 'Admin rescore completed for round $requestedRoundNumber across $tipperCount tippers.'
+        : 'Admin rescore completed for $rebuiltRoundCount rounds across $tipperCount tippers; skipped ${skippedRoundNumbers.length} empty rounds.';
 
     final completedRecord = BackendScoringIdempotencyRecord(
       status: BackendScoringIdempotencyStatus.completed,
@@ -1080,8 +1124,9 @@ _handleAdminRescoreBackendScoringCommand({
       'startedAt': startedRecord.startedAt,
       'completedAt': now.toIso8601String(),
       'updatedAt': now.toIso8601String(),
-      'message':
-          'Admin rescore completed for round $roundNumber across ${rebuildResult.tipperCount} tippers.',
+      'roundsRebuilt': rebuiltRoundNumbers,
+      'roundsSkipped': skippedRoundNumbers,
+      'message': message,
     });
 
     return BackendScoringCommandResult(
@@ -1091,8 +1136,7 @@ _handleAdminRescoreBackendScoringCommand({
       commandType: command.commandType.name,
       scopeKey: command.scopeKey,
       compKey: command.compKey,
-      message:
-          'Admin rescore completed for round $roundNumber across ${rebuildResult.tipperCount} tippers.',
+      message: message,
     );
   } catch (error) {
     final failedRecord = BackendScoringIdempotencyRecord(
@@ -1130,10 +1174,12 @@ _handleAdminRescoreBackendScoringCommand({
 class _BackendScoringRoundRebuildResult {
   final int roundNumber;
   final int tipperCount;
+  final bool skipped;
 
   const _BackendScoringRoundRebuildResult({
     required this.roundNumber,
     required this.tipperCount,
+    this.skipped = false,
   });
 }
 
@@ -1143,12 +1189,23 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
   required List<Game> games,
   required int roundNumber,
   required DateTime now,
+  List<Tipper>? allTippers,
+  Map<String, dynamic>? tipsByTipperRaw,
+  bool allowEmptyRound = false,
+  bool replaceRoundStats = false,
 }) async {
   final roundGames = games.where((game) {
     final gameRound = game.getDAURound(comp);
     return gameRound?.dAUroundNumber == roundNumber;
   }).toList();
   if (roundGames.isEmpty) {
+    if (allowEmptyRound) {
+      return _BackendScoringRoundRebuildResult(
+        roundNumber: roundNumber,
+        tipperCount: allTippers?.length ?? 0,
+        skipped: true,
+      );
+    }
     throw NotFoundError(
       'No games found for round $roundNumber in comp ${comp.dbkey}',
     );
@@ -1157,19 +1214,27 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
   final roundGamesByKey = {
     for (final game in roundGames) game.dbkey: game,
   };
-  final allTippers = await _loadBackendScoringTippers(db);
-  final tipLoadResult = await _loadBackendScoringTipsForRound(
-    db: db,
-    compKey: comp.dbkey!,
-    allTippers: allTippers,
+  final rawTippers = allTippers ?? await _loadBackendScoringTippers(db);
+  final rawTips = tipsByTipperRaw ??
+      await _loadBackendScoringTipsByTipperRaw(
+        db: db,
+        compKey: comp.dbkey!,
+      );
+  final tippers = _filterBackendScoringTippersWithSubmittedTips(
+    allTippers: rawTippers,
+    tipsByTipperRaw: rawTips,
+  );
+  final tipLoadResult = _buildBackendScoringTipsForRound(
+    allTippers: tippers,
     gamesByKey: roundGamesByKey,
+    tipsByTipperRaw: rawTips,
     now: now,
   );
   final tipsByTipper = tipLoadResult.tipsByTipper;
 
   final roundStatsUpdates = <String, dynamic>{};
 
-  for (final tipper in allTippers) {
+  for (final tipper in tippers) {
     final tipperDbKey = tipper.dbkey;
     if (tipperDbKey == null) {
       continue;
@@ -1186,22 +1251,27 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
   }
 
   if (roundStatsUpdates.isNotEmpty) {
-    await db
-        .ref('/Stats/${comp.dbkey}/$_backendRoundStatsRoot/$roundNumber')
-        .update(roundStatsUpdates);
+    final roundStatsRef = db.ref(
+      '/Stats/${comp.dbkey}/$_backendRoundStatsRoot/$roundNumber',
+    );
+    if (replaceRoundStats) {
+      await roundStatsRef.set(roundStatsUpdates);
+    } else {
+      await roundStatsRef.update(roundStatsUpdates);
+    }
   }
 
   await _rebuildBackendGameStatsForRound(
     db: db,
     comp: comp,
     roundGames: roundGames,
-    allTippers: allTippers,
+    allTippers: tippers,
     tipsByTipper: tipsByTipper,
   );
 
   return _BackendScoringRoundRebuildResult(
     roundNumber: roundNumber,
-    tipperCount: allTippers.length,
+    tipperCount: tippers.length,
   );
 }
 
@@ -1313,18 +1383,22 @@ Future<List<Tipper>> _loadBackendScoringTippers(dynamic db) async {
   return tippers;
 }
 
-Future<_RoundTipLoadResult> _loadBackendScoringTipsForRound({
+Future<Map<String, dynamic>> _loadBackendScoringTipsByTipperRaw({
   required dynamic db,
   required String compKey,
-  required List<Tipper> allTippers,
-  required Map<String, Game> gamesByKey,
-  required DateTime now,
 }) async {
   final tipsSnapshot = await db.ref('/AllTips/$compKey').once();
-  final tipsByTipperRaw = tipsSnapshot.value is Map
+  return tipsSnapshot.value is Map
       ? Map<String, dynamic>.from(tipsSnapshot.value as Map)
       : <String, dynamic>{};
+}
 
+_RoundTipLoadResult _buildBackendScoringTipsForRound({
+  required List<Tipper> allTippers,
+  required Map<String, Game> gamesByKey,
+  required Map<String, dynamic> tipsByTipperRaw,
+  required DateTime now,
+}) {
   final tipsByTipper = <String, Map<String, Tip>>{};
 
   for (final tipper in allTippers) {
@@ -1363,6 +1437,21 @@ Future<_RoundTipLoadResult> _loadBackendScoringTipsForRound({
   }
 
   return _RoundTipLoadResult(tipsByTipper: tipsByTipper);
+}
+
+List<Tipper> _filterBackendScoringTippersWithSubmittedTips({
+  required List<Tipper> allTippers,
+  required Map<String, dynamic> tipsByTipperRaw,
+}) {
+  return allTippers.where((tipper) {
+    final tipperDbKey = tipper.dbkey;
+    if (tipperDbKey == null) {
+      return false;
+    }
+
+    final tipperTipsRaw = tipsByTipperRaw[tipperDbKey];
+    return tipperTipsRaw is Map && tipperTipsRaw.isNotEmpty;
+  }).toList();
 }
 
 Future<void> _rebuildBackendGameStatsForRound({

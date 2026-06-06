@@ -76,9 +76,6 @@ class BackendScoringCommand {
         }
         break;
       case BackendScoringCommandType.adminRescore:
-        if (roundNumber == null) {
-          throw ArgumentError('adminRescore requires roundNumber');
-        }
         break;
     }
 

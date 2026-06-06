@@ -484,18 +484,21 @@ void main() {
       expect(command.gameKey, isNull);
     });
 
-    test('rejects adminRescore command payloads without a round', () {
-      expect(
-        () => BackendScoringCommand.fromJson({
-          'commandType': 'adminRescore',
-          'compKey': 'comp2026',
-          'sourceEventId': 'admin-13',
-          'sourcePath': '/admin/backendScoring/adminRescore',
-          'scopeKey': 'comp:comp2026/round:13/all_tippers',
-          'commandId': 'admin-13',
-        }),
-        throwsArgumentError,
-      );
+    test('parses an all-round adminRescore command payload', () {
+      final command = BackendScoringCommand.fromJson({
+        'commandType': 'adminRescore',
+        'compKey': 'comp2026',
+        'sourceEventId': 'admin-all',
+        'sourcePath': '/admin/backendScoring/adminRescore',
+        'scopeKey': 'comp:comp2026/all_rounds/all_tippers',
+        'commandId': 'admin-all',
+      });
+
+      expect(command.commandType, BackendScoringCommandType.adminRescore);
+      expect(command.compKey, 'comp2026');
+      expect(command.roundNumber, isNull);
+      expect(command.tipperId, isNull);
+      expect(command.gameKey, isNull);
     });
 
     test('skips replayed completed commands without recalculating', () async {
@@ -906,6 +909,13 @@ void main() {
             'tipperRole': 'tipper',
             'isAnonymous': false,
           },
+          'inactive-tipper': {
+            'authuid': 'auth-inactive',
+            'email': 'inactive@example.com',
+            'name': 'Inactive',
+            'tipperRole': 'tipper',
+            'isAnonymous': false,
+          },
         });
 
         when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
@@ -914,7 +924,9 @@ void main() {
         when(() => mockAllTipsSnapshot.value).thenReturn({
           'paid-tipper': {
             // No submitted tip for this started game; backend should synthesize
-            // the legacy default away tip.
+            // the legacy default away tip because this tipper has submitted at
+            // least one tip elsewhere in the comp.
+            'nrl-02-001': {'r': 'a', 't': 1760000000},
           },
           'free-tipper': {
             'nrl-01-001': {'r': 'b', 't': 1760000001},
@@ -987,6 +999,7 @@ void main() {
         ).captured.single as Map<String, dynamic>;
         expect(roundUpdates, containsPair('paid-tipper', isA<Map>()));
         expect(roundUpdates, containsPair('free-tipper', isA<Map>()));
+        expect(roundUpdates, isNot(contains('inactive-tipper')));
         verifyNever(() => mockPaidRoundStatsRef.set(any()));
         verifyNever(() => mockFreeRoundStatsRef.set(any()));
 
@@ -1090,6 +1103,10 @@ void main() {
               'roundStartDate': '2026-01-08T00:00:00Z',
               'roundEndDate': '2026-01-14T23:59:59Z',
             },
+            {
+              'roundStartDate': '2026-01-15T00:00:00Z',
+              'roundEndDate': '2026-01-21T23:59:59Z',
+            },
           ],
         });
 
@@ -1157,7 +1174,9 @@ void main() {
         when(() => mockAllTipsRef.once())
             .thenAnswer((_) async => mockAllTipsSnapshot);
         when(() => mockAllTipsSnapshot.value).thenReturn({
-          'paid-tipper': {},
+          'paid-tipper': {
+            'nrl-02-001': {'r': 'a', 't': 1760000002},
+          },
           'free-tipper': {
             'nrl-01-001': {'r': 'b', 't': 1760000001},
             'nrl-02-001': {'r': 'a', 't': 1760000002},
@@ -1166,7 +1185,7 @@ void main() {
 
         when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
             .thenReturn(mockRoundStatsRootRef);
-        when(() => mockRoundStatsRootRef.update(any()))
+        when(() => mockRoundStatsRootRef.set(any()))
             .thenAnswer((_) async {});
         when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
             .thenReturn(mockGameStatsRootRef);
@@ -1187,7 +1206,7 @@ void main() {
         expect(result.message, contains('Admin rescore completed for round 1'));
 
         final roundUpdates = verify(
-          () => mockRoundStatsRootRef.update(captureAny()),
+          () => mockRoundStatsRootRef.set(captureAny()),
         ).captured.single as Map<String, dynamic>;
         expect(roundUpdates.keys, containsAll(['paid-tipper', 'free-tipper']));
         expect(
@@ -1214,6 +1233,206 @@ void main() {
         verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
         verify(() => mockIdempotencyRef.set(any())).called(1);
         verify(() => mockStatusRef.set(any())).called(1);
+      },
+    );
+
+    test(
+      'admin rescore without round rebuilds all backend rounds',
+      () async {
+        final mockDb = MockDatabase();
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        final mockLiveScoresRef = MockDatabaseReference();
+        final mockLiveScoresSnapshot = MockDataSnapshot();
+        final mockAllTippersRef = MockDatabaseReference();
+        final mockAllTippersSnapshot = MockDataSnapshot();
+        final mockAllTipsRef = MockDatabaseReference();
+        final mockAllTipsSnapshot = MockDataSnapshot();
+        final mockIdempotencyRef = MockDatabaseReference();
+        final mockRoundOneStatsRootRef = MockDatabaseReference();
+        final mockRoundTwoStatsRootRef = MockDatabaseReference();
+        final mockRoundThreeStatsRootRef = MockDatabaseReference();
+        final mockGameStatsRootRef = MockDatabaseReference();
+        final mockStatusRef = MockDatabaseReference();
+        final mockTransactionResult = MockTransactionResult();
+
+        final command = BackendScoringCommand(
+          commandType: BackendScoringCommandType.adminRescore,
+          compKey: 'comp2026',
+          roundNumber: null,
+          tipperId: null,
+          gameKey: null,
+          sourceEventId: 'admin-rescore-all',
+          sourcePath: '/admin/backendScoring/adminRescore',
+          scopeKey: 'comp:comp2026/all_rounds/all_tippers',
+          commandId: 'admin-rescore-all',
+        );
+
+        when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-all'))
+            .thenReturn(mockIdempotencyRef);
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler = invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('admin-rescore-all', null);
+          final result = await handler(mutableData);
+          if (result == null) {
+            final abortedResult = MockTransactionResult();
+            when(() => abortedResult.committed).thenReturn(false);
+            return abortedResult;
+          }
+          return mockTransactionResult;
+        });
+        when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/AllDAUComps/comp2026'))
+            .thenReturn(mockCompRef);
+        when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn({
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://example.com/afl.json',
+          'nrlFixtureJsonURL': 'https://example.com/nrl.json',
+          'combinedRounds2': [
+            {
+              'roundStartDate': '2026-01-01T00:00:00Z',
+              'roundEndDate': '2026-01-07T23:59:59Z',
+            },
+            {
+              'roundStartDate': '2026-01-08T00:00:00Z',
+              'roundEndDate': '2026-01-14T23:59:59Z',
+            },
+            {
+              'roundStartDate': '2026-01-15T00:00:00Z',
+              'roundEndDate': '2026-01-21T23:59:59Z',
+            },
+          ],
+        });
+
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({
+          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+        });
+
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+            .thenReturn(mockLiveScoresRef);
+        when(() => mockLiveScoresRef.once())
+            .thenAnswer((_) async => mockLiveScoresSnapshot);
+        when(() => mockLiveScoresSnapshot.value).thenReturn(null);
+
+        when(() => mockDb.ref('/DAUCompsGames/comp2026'))
+            .thenReturn(mockGamesRef);
+        when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'Location': 'Stadium One',
+            'DateUtc': '2026-01-03T10:00:00Z',
+            'HomeTeamScore': 10,
+            'AwayTeamScore': 30,
+          },
+          'nrl-02-001': {
+            'RoundNumber': 2,
+            'MatchNumber': 1,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'Location': 'Stadium Two',
+            'DateUtc': '2026-01-10T10:00:00Z',
+            'HomeTeamScore': 30,
+            'AwayTeamScore': 10,
+          },
+        });
+
+        when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
+        when(() => mockAllTippersRef.once())
+            .thenAnswer((_) async => mockAllTippersSnapshot);
+        when(() => mockAllTippersSnapshot.value).thenReturn({
+          'tipper-1': {
+            'authuid': 'auth-1',
+            'email': 'tipper@example.com',
+            'name': 'Tipper',
+            'tipperRole': 'tipper',
+            'compsParticipatedIn': ['comp2026'],
+            'isAnonymous': false,
+          },
+        });
+
+        when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
+        when(() => mockAllTipsRef.once())
+            .thenAnswer((_) async => mockAllTipsSnapshot);
+        when(() => mockAllTipsSnapshot.value).thenReturn({
+          'tipper-1': {
+            'nrl-01-001': {'r': 'd', 't': 1760000001},
+            'nrl-02-001': {'r': 'a', 't': 1760000002},
+          },
+        });
+
+        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
+            .thenReturn(mockRoundOneStatsRootRef);
+        when(() => mockRoundOneStatsRootRef.set(any()))
+            .thenAnswer((_) async {});
+        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2'))
+            .thenReturn(mockRoundTwoStatsRootRef);
+        when(() => mockRoundTwoStatsRootRef.set(any()))
+            .thenAnswer((_) async {});
+        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/3'))
+            .thenReturn(mockRoundThreeStatsRootRef);
+        when(() => mockRoundThreeStatsRootRef.set(any()))
+            .thenAnswer((_) async {});
+        when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
+            .thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.update(any()))
+            .thenAnswer((_) async {});
+        when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
+            .thenReturn(mockStatusRef);
+        when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
+
+        final result = await executeBackendScoringCommand(
+          db: mockDb,
+          command: command,
+          now: DateTime.parse('2026-01-10T12:00:00Z'),
+        );
+
+        expect(result.skipped, isFalse);
+        expect(result.status, 'completed');
+        expect(result.message, contains('Admin rescore completed for 2 rounds'));
+        expect(result.message, contains('skipped 1 empty rounds'));
+
+        final roundOneUpdates = verify(
+          () => mockRoundOneStatsRootRef.set(captureAny()),
+        ).captured.single as Map<String, dynamic>;
+        final roundTwoUpdates = verify(
+          () => mockRoundTwoStatsRootRef.set(captureAny()),
+        ).captured.single as Map<String, dynamic>;
+        expect(roundOneUpdates, containsPair('tipper-1', isA<Map>()));
+        expect(roundTwoUpdates, containsPair('tipper-1', isA<Map>()));
+        expect(
+          Map<String, dynamic>.from(roundOneUpdates['tipper-1'] as Map)['nS'],
+          2,
+        );
+        expect(
+          Map<String, dynamic>.from(roundTwoUpdates['tipper-1'] as Map)['nS'],
+          4,
+        );
+        verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
+        verify(() => mockDb.ref('/AllTippers')).called(1);
+        verifyNever(() => mockRoundThreeStatsRootRef.set(any()));
+        verify(() => mockGameStatsRootRef.update(any())).called(2);
+        final status = verify(
+          () => mockStatusRef.set(captureAny()),
+        ).captured.single as Map<String, dynamic>;
+        expect(status, containsPair('roundsRebuilt', [1, 2]));
+        expect(status, containsPair('roundsSkipped', [3]));
+        verify(() => mockIdempotencyRef.set(any())).called(1);
       },
     );
   });
