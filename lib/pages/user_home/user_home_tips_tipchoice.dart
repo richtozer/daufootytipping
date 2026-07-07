@@ -5,8 +5,10 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/services/realtime_connection_service.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 class TipChoice extends StatelessWidget {
   const TipChoice(
@@ -19,6 +21,9 @@ class TipChoice extends StatelessWidget {
   final GameTipViewModel gameTipViewModel;
   final bool isPercentStatsPage;
   final GameStatsEntry? gameStatsEntry;
+
+  static const String offlineScoringNoticeMessage =
+      "You're offline. Your tip has been saved locally, but scoring is calculated on the backend. Tips outstanding/margin counts will update after your device reconnects.";
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +166,7 @@ class TipChoice extends StatelessWidget {
           gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
       onSelected: gameTipsViewModel.savingTip
           ? null
-          : (bool selected) {
+          : (bool selected) async {
               if (gameTipViewModel.currentTipper.isAnonymous) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -181,7 +186,7 @@ class TipChoice extends StatelessWidget {
                     .inGodMode) {
                   showDialog(
                     context: context,
-                    builder: (BuildContext context) {
+                    builder: (BuildContext dialogContext) {
                       return AlertDialog(
                         icon: const Icon(Icons.warning),
                         iconColor: Colors.red,
@@ -192,20 +197,24 @@ class TipChoice extends StatelessWidget {
                         actions: <Widget>[
                           TextButton(
                             onPressed: () {
-                              Navigator.of(context).pop();
+                              Navigator.of(dialogContext).pop();
                             },
                             child: const Text('Cancel'),
                           ),
                           TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
+                            onPressed: () async {
+                              Navigator.of(dialogContext).pop();
                               final tip = Tip(
                                 tipper: gameTipsViewModel.currentTipper,
                                 game: gameTipsViewModel.game,
                                 tip: option,
                                 submittedTimeUTC: DateTime.now().toUtc(),
                               );
-                              gameTipsViewModel.addTip(tip);
+                              await gameTipsViewModel.addTip(tip);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              _showOfflineScoringNoticeIfNeeded(context);
                             },
                             child: const Text('Submit'),
                           ),
@@ -246,16 +255,41 @@ class TipChoice extends StatelessWidget {
                     tip: option,
                     submittedTimeUTC: DateTime.now().toUtc(),
                   );
-                  gameTipsViewModel.addTip(tip);
+                  await gameTipsViewModel.addTip(tip);
+                  if (!context.mounted) {
+                    return;
+                  }
+                  _showOfflineScoringNoticeIfNeeded(context);
                 }
               } catch (e) {
                 final msg = 'Error submitting tip: $e';
                 log(msg);
+                if (!context.mounted) {
+                  return;
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(backgroundColor: Colors.red, content: Text(msg)),
                 );
               }
             },
+    );
+  }
+
+  void _showOfflineScoringNoticeIfNeeded(BuildContext context) {
+    if (!di<RealtimeConnectionService>().consumeOfflineTipNotice()) {
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 8),
+        content: Text(offlineScoringNoticeMessage),
+      ),
     );
   }
 
