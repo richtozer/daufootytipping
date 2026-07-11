@@ -26,12 +26,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select Xcode 26
+      - name: Select Xcode
         run: |
           set -euo pipefail
-          selected_xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -d /Applications/Xcode-beta.app ]; then
+            selected_xcode="/Applications/Xcode-beta.app"
+          else
+            selected_xcode="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1 || true)"
+          fi
           if [ -z "$selected_xcode" ]; then
-            echo "Xcode 26.x is required but was not found on the runner."
+            echo "Xcode was not found on the runner."
             echo "Installed Xcode versions:"
             ls -d /Applications/Xcode*.app || true
             exit 1
@@ -70,9 +74,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
-          key: ${{ runner.os }}-xcode26-swift-packages-${{ hashFiles('ios/Runner.xcodeproj/project.pbxproj', 'ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'pubspec.lock') }}
+          key: ${{ runner.os }}-xcode27-swift-packages-${{ hashFiles('ios/Runner.xcodeproj/project.pbxproj', 'ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'pubspec.lock') }}
           restore-keys: |
-            ${{ runner.os }}-xcode26-swift-packages-
+            ${{ runner.os }}-xcode27-swift-packages-
 
       - name: Ensure App.framework minimum iOS version
         run: |
