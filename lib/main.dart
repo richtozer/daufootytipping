@@ -11,6 +11,7 @@ import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/realtime_connection_service.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -208,6 +209,9 @@ Future<void> main() async {
 
   di.allowReassignment = true;
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
+  di.registerLazySingleton<RealtimeConnectionService>(
+    () => RealtimeConnectionService(),
+  );
 
   runApp(
     MultiProvider(
@@ -292,6 +296,7 @@ class _MyAppState extends State<MyApp> {
       );
     }
 
+    di<RealtimeConnectionService>();
     _scheduleCoreViewModelWarmup();
   }
 

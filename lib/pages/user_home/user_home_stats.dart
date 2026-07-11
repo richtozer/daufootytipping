@@ -206,7 +206,7 @@ class StatsTab extends StatelessWidget {
                       const SizedBox(height: 64, width: 16), // Added const here
                       const Expanded(
                         // Added const here
-                        child: Text('NRL Ladder\nView current standings'),
+                        child: Text('NRL Ladder\nTeam rankings'),
                       ),
                       Icon(Icons.arrow_forward),
                     ],
@@ -238,9 +238,7 @@ class StatsTab extends StatelessWidget {
                         ),
                       ),
                       SizedBox(height: 64, width: 16),
-                      Expanded(
-                        child: Text('AFL Ladder\nView current standings'),
-                      ),
+                      Expanded(child: Text('AFL Ladder\nTeam rankings')),
                       Icon(Icons.arrow_forward),
                     ],
                   ),
@@ -253,5 +251,4 @@ class StatsTab extends StatelessWidget {
       ],
     );
   }
-
 }

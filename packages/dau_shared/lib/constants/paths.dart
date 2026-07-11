@@ -37,6 +37,21 @@ const String configPathRoot = '/AppConfig';
 const String tipsPathRoot = '/AllTips';
 const String statsPathRoot = '/Stats';
 
+/// Legacy/client-owned scoring branches under [statsPathRoot].
+const String roundStatsLegacyRoot = 'round_stats_v3';
+const String gameStatsLegacyRoot = 'game_stats_v3';
+const String liveScoresLegacyRoot = 'live_scores_v3';
+
+/// Backend-owned scoring shadow branches under [statsPathRoot].
+///
+/// Keep these versioned independently. Do not assume that bumping one backend
+/// branch version implies bumping all backend scoring branches.
+const String roundStatsBackendRoot = 'round_stats_backend_v1';
+const String gameStatsBackendRoot = 'game_stats_backend_v1';
+const String liveScoresBackendRoot = 'live_scores_backend_v1';
+const String scoringIdempotencyBackendRoot = 'scoring_idempotency_backend_v1';
+const String scoringStatusKey = 'scoring_status';
+
 /// App config keys under [configPathRoot].
 const String currentDAUCompKey = 'currentDAUComp';
 const String minAppVersionKey = 'minAppVersion';

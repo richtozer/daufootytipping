@@ -23,8 +23,23 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 launcher_script="${script_dir}/start_seeded_firebase_emulators.sh"
 json_file_abs="$(cd "$(dirname "${json_file}")" && pwd)/$(basename "${json_file}")"
+staged_dir="$(mktemp -d "${TMPDIR:-/tmp}/firebase-rtdb-export-XXXXXX")"
+staged_json_file="${staged_dir}/$(basename "${json_file_abs}")"
 
-osascript - "${repo_root}" "${launcher_script}" "${json_file_abs}" <<'EOF'
+osascript - "${json_file_abs}" "${staged_dir}" <<'EOF'
+on run argv
+  set sourcePath to item 1 of argv
+  set destinationDir to item 2 of argv
+
+  tell application "Finder"
+    set sourceFile to POSIX file sourcePath as alias
+    set destinationFolder to POSIX file destinationDir as alias
+    duplicate sourceFile to destinationFolder
+  end tell
+end run
+EOF
+
+osascript - "${repo_root}" "${launcher_script}" "${staged_json_file}" <<'EOF'
 on run argv
   set repoRoot to item 1 of argv
   set launcherScript to item 2 of argv
