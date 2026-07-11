@@ -1,4 +1,13 @@
 {
+    "files.exclude": {
+        "**/build/**": true
+    },
+    "files.watcherExclude": {
+        "**/build/**": true
+    },
+    "search.exclude": {
+        "**/build/**": true
+    },
     "githubIssues.queries": [
         {
             "label": "My Issues",
