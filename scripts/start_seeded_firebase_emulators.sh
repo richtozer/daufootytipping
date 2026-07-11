@@ -20,6 +20,11 @@ require_command() {
   fi
 }
 
+firebase_cli="/opt/homebrew/bin/firebase"
+if [[ ! -x "${firebase_cli}" ]]; then
+  firebase_cli="$(command -v firebase || true)"
+fi
+
 if [[ $# -ne 1 ]]; then
   usage >&2
   exit 1
@@ -32,9 +37,22 @@ if [[ ! -f "${json_file}" ]]; then
   exit 1
 fi
 
+cleanup_seed_file=false
+cleanup_seed_dir=false
+case "${json_file}" in
+  "${TMPDIR:-/tmp}"/firebase-rtdb-export-*.json | /private/tmp/firebase-rtdb-export-*.json)
+    cleanup_seed_file=true
+    cleanup_seed_dir=true
+    ;;
+esac
+
 require_command npm
-require_command firebase
 require_command curl
+
+if [[ -z "${firebase_cli}" || ! -x "${firebase_cli}" ]]; then
+  echo "Required command not found: firebase" >&2
+  exit 1
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
@@ -84,6 +102,14 @@ cleanup() {
     kill "${build_watch_pid}" 2>/dev/null || true
     wait "${build_watch_pid}" 2>/dev/null || true
   fi
+
+  if [[ "${cleanup_seed_file}" == true && -f "${json_file}" ]]; then
+    rm -f "${json_file}" 2>/dev/null || true
+  fi
+
+  if [[ "${cleanup_seed_dir}" == true ]]; then
+    rmdir "$(dirname "${json_file}")" 2>/dev/null || true
+  fi
 }
 
 trap cleanup EXIT INT TERM
@@ -95,7 +121,7 @@ npm --prefix ./functions run build -- -w &
 build_watch_pid=$!
 
 echo "Starting Firebase emulators..."
-firebase emulators:start &
+"${firebase_cli}" emulators:start &
 emulator_pid=$!
 
 echo "Waiting for Realtime Database emulator on ${emulator_host}:${emulator_port}..."

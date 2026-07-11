@@ -26,8 +26,8 @@ seed_namespace() {
   curl --fail --silent --show-error \
     -X PUT \
     -H "Content-Type: application/json" \
-    --data-binary @"${json_file}" \
-    "${base_url}/.json?ns=${ns}" >/dev/null
+    --data-binary @- \
+    "${base_url}/.json?ns=${ns}" >/dev/null < "${json_file}"
 
   shallow="$(
     curl --fail --silent --show-error \
