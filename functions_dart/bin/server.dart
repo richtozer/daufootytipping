@@ -16,6 +16,7 @@ void logFunction(String message) =>
 const _fixtureDownloadOptions = CallableOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
   timeoutSeconds: TimeoutSeconds(300),
+  enforceAppCheck: EnforceAppCheck(true),
 );
 const _backendScoringCommandOptions = HttpsOptions(
   region: Region(SupportedRegion.asiaSoutheast1),

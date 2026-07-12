@@ -11,6 +11,14 @@ ignored local files.
 Backend scoring functions are deployed in `asia-southeast1` to match the RTDB
 trigger region and avoid cross-region wrapper-to-worker calls.
 
+`admin-fixture-download` is client/admin-app callable and enforces Firebase App
+Check. Smoke test it from a valid app client or a debug-token-enabled simulator,
+not with raw `curl`.
+
+`backend-scoring-command` is an internal TypeScript-wrapper-to-Dart-worker HTTP
+endpoint. It intentionally uses the shared `x-backend-scoring-secret` header
+instead of App Check because callers are backend functions, not app clients.
+
 The Dart worker requires:
 
 ```text
