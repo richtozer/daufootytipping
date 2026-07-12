@@ -13,12 +13,22 @@ import 'package:intl/intl.dart';
 void logFunction(String message) =>
     developer.log(message, name: 'adminFixtureDownload');
 
+const _fixtureDownloadOptions = CallableOptions(
+  region: Region(SupportedRegion.asiaSoutheast1),
+  timeoutSeconds: TimeoutSeconds(300),
+);
+const _backendScoringCommandOptions = HttpsOptions(
+  region: Region(SupportedRegion.asiaSoutheast1),
+  timeoutSeconds: TimeoutSeconds(300),
+);
+
 void main(List<String> args) async {
   await runFunctions((firebase) {
     final runtimeAdminApp = firebase.adminApp;
 
     firebase.https.onCall(
       name: 'adminFixtureDownload',
+      options: _fixtureDownloadOptions,
       (request, response) async {
         logFunction('adminFixtureDownload: callable invoked');
         // 1. Verify caller authentication
@@ -66,6 +76,7 @@ void main(List<String> args) async {
 
     firebase.https.onRequest(
       name: 'backendScoringCommand',
+      options: _backendScoringCommandOptions,
       (request) => _handleBackendScoringCommandRequestWithRuntimeApp(
         request,
         runtimeAdminApp: runtimeAdminApp,

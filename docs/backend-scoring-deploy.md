@@ -8,6 +8,9 @@ ignored local files.
 
 ## Required Runtime Configuration
 
+Backend scoring functions are deployed in `asia-southeast1` to match the RTDB
+trigger region and avoid cross-region wrapper-to-worker calls.
+
 The Dart worker requires:
 
 ```text
@@ -67,6 +70,56 @@ two-step sequence.
 
 After this first deployment, the Dart HTTPS URL should remain stable. Future
 deployments can deploy both codebases together if the env files remain present.
+
+## Region Migration Notes
+
+Changing function regions creates new functions in the new region rather than
+renaming the old regional functions in place.
+
+When moving backend scoring from `us-central1` to `asia-southeast1`:
+
+1. Deploy Dart functions first:
+
+   ```bash
+   bash scripts/build_dart_functions.sh linux
+   firebase deploy --only functions:dart_functions
+   ```
+
+2. Get the new `asia-southeast1` `backend-scoring-command` HTTPS URL.
+
+3. Update ignored local runtime config:
+
+   ```bash
+   # functions/.env
+   BACKEND_SCORING_COMMAND_URL=<asia-southeast1 backend-scoring-command URL>
+   BACKEND_SCORING_COMMAND_SECRET=<same shared secret>
+   ```
+
+4. Deploy TypeScript wrappers:
+
+   ```bash
+   firebase deploy --only functions:default
+   ```
+
+5. Smoke test the new region before deleting old regional functions.
+
+6. Delete old `us-central1` backend scoring functions only after the new
+   `asia-southeast1` functions are verified:
+
+   ```bash
+   firebase functions:delete tipWrittenBackendScoring --region us-central1
+   firebase functions:delete officialScoreWrittenBackendScoring --region us-central1
+   firebase functions:delete liveScoreWrittenBackendScoring --region us-central1
+   firebase functions:delete backend-scoring-command --region us-central1
+   ```
+
+7. If the admin fixture callable is used by clients/admin tools, update
+   `/config/cloudFunctionsBaseURL` to the new `asia-southeast1` base URL before
+   deleting the old `admin-fixture-download` function:
+
+   ```bash
+   firebase functions:delete admin-fixture-download --region us-central1
+   ```
 
 ## Smoke Test
 

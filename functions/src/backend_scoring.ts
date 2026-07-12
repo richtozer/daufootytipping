@@ -91,8 +91,11 @@ const LIVE_SCORE_CURRENT_KEY = "current";
 const LIVE_SCORE_CURRENT_TRIGGER_PATH =
   `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_V3_ROOT}/{gameKey}/` +
   LIVE_SCORE_CURRENT_KEY;
+const BACKEND_SCORING_REGION = "asia-southeast1";
+const backendScoringFunctions = functions.region(BACKEND_SCORING_REGION);
+const backendScoringDatabase = backendScoringFunctions.database;
 
-export const tipWrittenBackendScoring = functions.database
+export const tipWrittenBackendScoring = backendScoringDatabase
   .ref(`${TIPS_PATH_ROOT}/{compKey}/{tipperId}/{gameKey}`)
   .onWrite(
     async (
@@ -109,7 +112,7 @@ export const tipWrittenBackendScoring = functions.database
     },
   );
 
-export const officialScoreWrittenBackendScoring = functions.database
+export const officialScoreWrittenBackendScoring = backendScoringDatabase
   .ref(`${GAMES_PATH_ROOT}/{compKey}/{gameKey}`)
   .onWrite(
     async (
@@ -126,7 +129,7 @@ export const officialScoreWrittenBackendScoring = functions.database
     },
   );
 
-export const liveScoreWrittenBackendScoring = functions.database
+export const liveScoreWrittenBackendScoring = backendScoringDatabase
   .ref(LIVE_SCORE_CURRENT_TRIGGER_PATH)
   .onWrite(
     async (
