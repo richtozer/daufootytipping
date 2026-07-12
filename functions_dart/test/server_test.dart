@@ -906,7 +906,7 @@ void main() {
             'HomeTeam': 'Broncos',
             'AwayTeam': 'Roosters',
             'Location': 'Stadium Future',
-            'DateUtc': '2026-01-04T10:00:00Z',
+            'DateUtc': '2026-01-03T11:00:00Z',
           },
         });
 
@@ -953,6 +953,7 @@ void main() {
             // the legacy default away tip because this tipper has submitted at
             // least one tip elsewhere in the comp.
             'nrl-02-001': {'r': 'a', 't': 1760000000},
+            'nrl-01-002': {'r': 'a', 't': 1760000002},
           },
           'free-tipper': {
             'nrl-01-001': {'r': 'b', 't': 1760000001},
@@ -1038,11 +1039,17 @@ void main() {
         final freeGameStats = Map<String, dynamic>.from(
           gameUpdates['free/nrl-01-001'] as Map,
         );
-        expect(gameUpdates, isNot(contains('paid/nrl-01-002')));
-        expect(gameUpdates, isNot(contains('free/nrl-01-002')));
+        final paidUnscoredGameStats = Map<String, dynamic>.from(
+          gameUpdates['paid/nrl-01-002'] as Map,
+        );
         expect(paidGameStats['avgScoreTipCount'], 1);
         expect(paidGameStats['pctTipD'], 1.0);
         expect(paidGameStats['pctTipB'], 0.0);
+        expect(paidUnscoredGameStats['avgScore'], 0.0);
+        expect(paidUnscoredGameStats['avgScoreTipCount'], 1);
+        expect(paidUnscoredGameStats['pctTipA'], 1.0);
+        expect(paidUnscoredGameStats['pctTipB'], 0.0);
+        expect(gameUpdates, isNot(contains('free/nrl-01-002')));
         expect(roundUpdates['paid-tipper'], isA<Map>());
         expect(
           Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],

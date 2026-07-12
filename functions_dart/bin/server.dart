@@ -1310,24 +1310,23 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     }
   }
 
-  final completedRoundGames = roundGames
-      .where(_hasKnownBackendGameResult)
-      .toList();
   final gameStatsTipLoadResult = _buildBackendScoringTipsForRound(
     allTippers: rawTippers,
     gamesByKey: {
-      for (final game in completedRoundGames) game.dbkey: game,
+      for (final game in roundGames) game.dbkey: game,
     },
     tipsByTipperRaw: rawTips,
     now: now,
+    defaultTipGamePredicate: _hasKnownBackendGameResult,
   );
   await _rebuildBackendGameStatsForRound(
     db: db,
     comp: comp,
-    roundGames: completedRoundGames,
+    roundGames: roundGames,
     allTippers: rawTippers,
     tipsByTipper: gameStatsTipLoadResult.tipsByTipper,
     updatesSink: gameStatsUpdatesSink,
+    now: now,
   );
 
   return _BackendScoringRoundRebuildResult(
@@ -1460,6 +1459,7 @@ _RoundTipLoadResult _buildBackendScoringTipsForRound({
   required Map<String, Game> gamesByKey,
   required Map<String, dynamic> tipsByTipperRaw,
   required DateTime now,
+  bool Function(Game game)? defaultTipGamePredicate,
 }) {
   final tipsByTipper = <String, Map<String, Tip>>{};
 
@@ -1488,14 +1488,16 @@ _RoundTipLoadResult _buildBackendScoringTipsForRound({
       }
     }
 
-    final augmentedTipsByGameKey = _applyDefaultTipsForStartedGames(
-      games: gamesByKey.values.toList(),
+    final defaultableGames = defaultTipGamePredicate == null
+        ? gamesByKey.values.toList()
+        : gamesByKey.values.where(defaultTipGamePredicate).toList();
+
+    tipsByTipper[tipperDbKey] = _applyDefaultTipsForStartedGames(
+      games: defaultableGames,
       tipsByGameKey: tipperTipsByGameKey,
       tipper: tipper,
       now: now,
     );
-
-    tipsByTipper[tipperDbKey] = augmentedTipsByGameKey;
   }
 
   return _RoundTipLoadResult(tipsByTipper: tipsByTipper);
@@ -1530,6 +1532,7 @@ Future<void> _rebuildBackendGameStatsForRound({
   required List<Game> roundGames,
   required List<Tipper> allTippers,
   required Map<String, Map<String, Tip>> tipsByTipper,
+  required DateTime now,
   Map<String, dynamic>? updatesSink,
 }) async {
   if (roundGames.isEmpty || allTippers.isEmpty) {
@@ -1549,10 +1552,19 @@ Future<void> _rebuildBackendGameStatsForRound({
     MapEntry('free', freeCohortTippers),
   ];
   for (final game in roundGames) {
+    final hasKnownResult = _hasKnownBackendGameResult(game);
+    final gameState = game.getGameState(now);
+    final hasStarted = gameState == GameState.startedResultKnown ||
+        gameState == GameState.startedResultNotKnown;
     for (final cohort in cohorts) {
       final tipsForCohort = cohort.value
           .map((tipper) => tipsByTipper[tipper.dbkey]?[game.dbkey])
           .toList();
+      final hasSubmittedTips = tipsForCohort.any((tip) => tip != null);
+      if (!hasKnownResult && (!hasStarted || !hasSubmittedTips)) {
+        continue;
+      }
+
       final gameStatsEntry = ScoringCalculator.calculateGameStatsEntry(
         cohortTippers: cohort.value,
         tipsForCohort: tipsForCohort,
