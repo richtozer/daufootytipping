@@ -1,3 +1,4 @@
+/* eslint-disable require-jsdoc */
 import * as functions from "firebase-functions/v1";
 
 export type BackendScoringCommandType =
@@ -351,9 +352,9 @@ function extractLiveScoreMaterial(
   return {
     homeInterimScore: normalizeLiveScoreValue(raw.homeInterimScore),
     awayInterimScore: normalizeLiveScoreValue(raw.awayInterimScore),
-    gameComplete: typeof raw.gameComplete === "boolean"
-      ? raw.gameComplete
-      : null,
+    gameComplete: typeof raw.gameComplete === "boolean" ?
+      raw.gameComplete :
+      null,
   };
 }
 
@@ -401,9 +402,9 @@ function extractOfficialScores(
   }
 
   const raw = value as Record<string, unknown>;
-  const current = raw.current != null && typeof raw.current === "object"
-    ? raw.current as Record<string, unknown>
-    : raw;
+  const current = raw.current != null && typeof raw.current === "object" ?
+    raw.current as Record<string, unknown> :
+    raw;
   return {
     homeTeamScore: current.HomeTeamScore ?? current.homeTeamScore ?? null,
     awayTeamScore: current.AwayTeamScore ?? current.awayTeamScore ?? null,
