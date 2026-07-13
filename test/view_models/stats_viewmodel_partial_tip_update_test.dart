@@ -268,6 +268,81 @@ void main() {
 
     viewModel.dispose();
   });
+
+  test('backend round stats list keys are converted to zero-based indexes', () async {
+    final roundTwo = DAURound(
+      dAUroundNumber: 2,
+      firstGameKickOffUTC: DateTime.utc(2030, 1, 8),
+      lastGameKickOffUTC: DateTime.utc(2030, 1, 9),
+    );
+    comp.daurounds = <DAURound>[round, roundTwo];
+
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+      useBackendScoringBranches: true,
+    );
+
+    await viewModel.handleRoundPointsEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <Object?>[
+            null,
+            <String, Object?>{
+              'tipper-1': RoundStats(
+                roundNumber: 1,
+                aflPoints: 2,
+                aflMaxPoints: 4,
+                aflMarginTips: 1,
+                aflMarginUPS: 0,
+                nrlPoints: 6,
+                nrlMaxPoints: 8,
+                nrlMarginTips: 2,
+                nrlMarginUPS: 1,
+                rank: 1,
+                rankChange: 0,
+                nrlTipsOutstanding: 0,
+                aflTipsOutstanding: 0,
+              ).toJson(),
+            },
+            <String, Object?>{
+              'tipper-1': RoundStats(
+                roundNumber: 2,
+                aflPoints: 4,
+                aflMaxPoints: 6,
+                aflMarginTips: 1,
+                aflMarginUPS: 1,
+                nrlPoints: 8,
+                nrlMaxPoints: 10,
+                nrlMarginTips: 2,
+                nrlMarginUPS: 2,
+                rank: 1,
+                rankChange: 0,
+                nrlTipsOutstanding: 0,
+                aflTipsOutstanding: 0,
+              ).toJson(),
+            },
+          ],
+        ),
+      ),
+    );
+
+    expect(viewModel.allTipperRoundStats, contains(0));
+    expect(viewModel.allTipperRoundStats, contains(1));
+    expect(viewModel.allTipperRoundStats, isNot(contains(2)));
+
+    final roundOneStats = viewModel.getScoringRoundStats(round, alice);
+    final roundTwoStats = viewModel.getScoringRoundStats(roundTwo, alice);
+    expect(roundOneStats.roundNumber, 1);
+    expect(roundOneStats.aflPoints, 2);
+    expect(roundTwoStats.roundNumber, 2);
+    expect(roundTwoStats.aflPoints, 4);
+
+    viewModel.dispose();
+  });
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {

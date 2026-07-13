@@ -311,7 +311,10 @@ class StatsViewModel extends ChangeNotifier {
       for (var index = 0; index < value.length; index++) {
         final row = value[index];
         if (row is Map) {
-          rows[index] = Map<dynamic, dynamic>.from(row);
+          final roundIndex = useBackendScoringBranches ? index - 1 : index;
+          if (roundIndex >= 0) {
+            rows[roundIndex] = Map<dynamic, dynamic>.from(row);
+          }
         }
       }
       return rows;
