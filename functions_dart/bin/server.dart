@@ -22,6 +22,7 @@ const _backendScoringCommandOptions = HttpsOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
   timeoutSeconds: TimeoutSeconds(300),
 );
+const int _idempotencyPruneLimit = 500;
 
 void main(List<String> args) async {
   await runFunctions((firebase) {
@@ -769,6 +770,23 @@ Future<String> executeFixtureDownload({
     // Log status success
     await logStatus('success');
 
+    try {
+      final prunedCount =
+          await pruneExpiredBackendScoringIdempotencyRecords(
+        compKey: compKey,
+        db: db,
+        now: now,
+      );
+      logFunction(
+        'executeFixtureDownload: pruned $prunedCount expired backend scoring '
+        'idempotency records',
+      );
+    } catch (e) {
+      logFunction(
+        'executeFixtureDownload: backend scoring idempotency prune failed: $e',
+      );
+    }
+
     return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
   } catch (e) {
     logFunction('executeFixtureDownload: failed with $e');
@@ -780,6 +798,64 @@ Future<String> executeFixtureDownload({
     // Release lock
     await lockRef.set(null);
   }
+}
+
+Future<int> pruneExpiredBackendScoringIdempotencyRecords({
+  required String compKey,
+  required dynamic db,
+  required DateTime now,
+  int limit = _idempotencyPruneLimit,
+}) async {
+  if (limit <= 0) {
+    return 0;
+  }
+
+  final idempotencyRef = db.ref(
+    '${paths.statsPathRoot}/$compKey/'
+    '${paths.scoringIdempotencyBackendRoot}',
+  );
+  final snapshot = await idempotencyRef.once();
+  final rawRecords = snapshot.value;
+  if (rawRecords is! Map) {
+    return 0;
+  }
+
+  final updates = <String, dynamic>{};
+  void collectExpired(dynamic rawValue, String relativePath) {
+    if (updates.length >= limit || rawValue is! Map) {
+      return;
+    }
+
+    final value = Map<dynamic, dynamic>.from(rawValue);
+    final expiresAtRaw = value['expiresAt'];
+    if (expiresAtRaw is String) {
+      final expiresAt = DateTime.tryParse(expiresAtRaw)?.toUtc();
+      if (expiresAt != null && !expiresAt.isAfter(now.toUtc())) {
+        updates[relativePath] = null;
+      }
+      return;
+    }
+
+    for (final entry in value.entries) {
+      if (updates.length >= limit) {
+        return;
+      }
+      final key = entry.key;
+      if (key is! String || key.isEmpty) {
+        continue;
+      }
+      final childPath = relativePath.isEmpty ? key : '$relativePath/$key';
+      collectExpired(entry.value, childPath);
+    }
+  }
+
+  collectExpired(rawRecords, '');
+  if (updates.isEmpty) {
+    return 0;
+  }
+
+  await idempotencyRef.update(updates);
+  return updates.length;
 }
 
 Future<List<dynamic>> _fetchFixtureJson(Uri url) async {

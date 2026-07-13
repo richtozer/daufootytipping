@@ -107,6 +107,78 @@ void main() {
   });
 
   group('executeFixtureDownload tests', () {
+    test('prunes expired backend scoring idempotency records', () async {
+      final mockIdempotencyRef = MockDatabaseReference();
+      final mockSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1',
+        ),
+      ).thenReturn(mockIdempotencyRef);
+      when(() => mockIdempotencyRef.once())
+          .thenAnswer((_) async => mockSnapshot);
+      when(() => mockSnapshot.value).thenReturn({
+        'expired-command': {
+          'status': 'completed',
+          'expiresAt': '2026-07-11T12:00:00Z',
+        },
+        'active-command': {
+          'status': 'completed',
+          'expiresAt': '2026-07-13T12:00:00Z',
+        },
+      });
+      when(() => mockIdempotencyRef.update(any())).thenAnswer((_) async {});
+
+      final prunedCount =
+          await pruneExpiredBackendScoringIdempotencyRecords(
+        compKey: 'comp2026',
+        db: mockDb,
+        now: DateTime.parse('2026-07-12T12:00:00Z'),
+      );
+
+      expect(prunedCount, 1);
+      final capturedUpdates = verify(
+        () => mockIdempotencyRef.update(captureAny()),
+      ).captured.single as Map<dynamic, dynamic>;
+      expect(capturedUpdates, {'expired-command': null});
+    });
+
+    test('prunes expired nested legacy idempotency records', () async {
+      final mockIdempotencyRef = MockDatabaseReference();
+      final mockSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1',
+        ),
+      ).thenReturn(mockIdempotencyRef);
+      when(() => mockIdempotencyRef.once())
+          .thenAnswer((_) async => mockSnapshot);
+      when(() => mockSnapshot.value).thenReturn({
+        'event': {
+          'with': {
+            'slash': {
+              'status': 'completed',
+              'expiresAt': '2026-07-11T12:00:00Z',
+            },
+          },
+        },
+      });
+      when(() => mockIdempotencyRef.update(any())).thenAnswer((_) async {});
+
+      final prunedCount =
+          await pruneExpiredBackendScoringIdempotencyRecords(
+        compKey: 'comp2026',
+        db: mockDb,
+        now: DateTime.parse('2026-07-12T12:00:00Z'),
+      );
+
+      expect(prunedCount, 1);
+      final capturedUpdates = verify(
+        () => mockIdempotencyRef.update(captureAny()),
+      ).captured.single as Map<dynamic, dynamic>;
+      expect(capturedUpdates, {'event/with/slash': null});
+    });
+
     test('non-admin role throws PermissionDeniedError', () async {
       final mockTippersRef = MockDatabaseReference();
       final mockQuery = MockDatabaseReference();
@@ -461,6 +533,22 @@ void main() {
           'sourcePath': '/AllTips/comp2026/tipper-1/nrl-01-001',
           'scopeKey': 'comp:comp2026/game:nrl-01-001/tipper:tipper-1',
           'commandId': 'event-123',
+        }),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects command IDs that are unsafe RTDB keys', () {
+      expect(
+        () => BackendScoringCommand.fromJson({
+          'commandType': 'tipWritten',
+          'compKey': 'comp2026',
+          'tipperId': 'tipper-1',
+          'gameKey': 'nrl-01-001',
+          'sourceEventId': 'event/unsafe',
+          'sourcePath': '/AllTips/comp2026/tipper-1/nrl-01-001',
+          'scopeKey': 'comp:comp2026/game:nrl-01-001/tipper:tipper-1',
+          'commandId': 'event/unsafe',
         }),
         throwsArgumentError,
       );

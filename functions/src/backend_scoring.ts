@@ -153,6 +153,7 @@ export function buildTipWrittenBackendScoringCommand(
   sourceEventId: string,
 ): BackendScoringCommandPayload {
   const sourcePath = `${TIPS_PATH_ROOT}/${compKey}/${tipperId}/${gameKey}`;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "tipWritten",
     compKey,
@@ -161,7 +162,7 @@ export function buildTipWrittenBackendScoringCommand(
     sourceEventId,
     sourcePath,
     scopeKey: `comp:${compKey}/game:${gameKey}/tipper:${tipperId}`,
-    commandId: sourceEventId,
+    commandId,
   };
 }
 
@@ -171,6 +172,7 @@ export function buildOfficialScoreWrittenBackendScoringCommand(
   sourceEventId: string,
 ): BackendScoringCommandPayload {
   const sourcePath = `${GAMES_PATH_ROOT}/${compKey}/${gameKey}`;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "officialScoreWritten",
     compKey,
@@ -178,7 +180,7 @@ export function buildOfficialScoreWrittenBackendScoringCommand(
     sourceEventId,
     sourcePath,
     scopeKey: `comp:${compKey}/game:${gameKey}`,
-    commandId: sourceEventId,
+    commandId,
   };
 }
 
@@ -198,6 +200,7 @@ export function buildLiveScoreWrittenBackendScoringCommand(
   const sourcePath =
     `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_V3_ROOT}/${gameKey}/` +
     LIVE_SCORE_CURRENT_KEY;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "liveScoreWritten",
     compKey,
@@ -205,8 +208,12 @@ export function buildLiveScoreWrittenBackendScoringCommand(
     sourceEventId,
     sourcePath,
     scopeKey: `comp:${compKey}/game:${gameKey}`,
-    commandId: sourceEventId,
+    commandId,
   };
+}
+
+export function buildBackendScoringCommandId(sourceEventId: string): string {
+  return `event_${Buffer.from(sourceEventId, "utf8").toString("base64url")}`;
 }
 
 export async function handleTipWrittenBackendScoringWrite(
