@@ -1440,6 +1440,7 @@ void main() {
           'name': 'Comp 2026',
           'aflFixtureJsonURL': 'https://example.com/afl.json',
           'nrlFixtureJsonURL': 'https://example.com/nrl.json',
+          'aflRegularCompEndDateUTC': '2026-01-02T23:59:59Z',
           'combinedRounds2': [
             {
               'roundStartDate': '2026-01-01T00:00:00Z',
@@ -1459,6 +1460,8 @@ void main() {
         when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
         when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
         when(() => mockTeamsSnapshot.value).thenReturn({
+          'afl-Cats': {'name': 'Cats', 'league': 'afl'},
+          'afl-Demons': {'name': 'Demons', 'league': 'afl'},
           'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
@@ -1493,6 +1496,16 @@ void main() {
             'HomeTeamScore': 30,
             'AwayTeamScore': 10,
           },
+          'afl-01-001': {
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+            'HomeTeam': 'Cats',
+            'AwayTeam': 'Demons',
+            'Location': 'AFL Stadium',
+            'DateUtc': '2026-01-03T10:30:00Z',
+            'HomeTeamScore': 80,
+            'AwayTeamScore': 70,
+          },
         });
 
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
@@ -1522,10 +1535,12 @@ void main() {
         when(() => mockAllTipsSnapshot.value).thenReturn({
           'paid-tipper': {
             'nrl-02-001': {'r': 'a', 't': 1760000002},
+            'afl-01-001': {'r': 'b', 't': 1760000003},
           },
           'free-tipper': {
             'nrl-01-001': {'r': 'b', 't': 1760000001},
             'nrl-02-001': {'r': 'a', 't': 1760000002},
+            'afl-01-001': {'r': 'b', 't': 1760000003},
           },
         });
 
@@ -1564,6 +1579,10 @@ void main() {
           1,
         );
         expect(
+          Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['aS'],
+          0,
+        );
+        expect(
           Map<String, dynamic>.from(roundUpdates['free-tipper'] as Map)['nS'],
           0,
         );
@@ -1575,6 +1594,8 @@ void main() {
           'paid/nrl-01-001',
           'free/nrl-01-001',
         ]));
+        expect(gameUpdates, isNot(contains('paid/afl-01-001')));
+        expect(gameUpdates, isNot(contains('free/afl-01-001')));
         final paidGameStats = Map<String, dynamic>.from(
           gameUpdates['paid/nrl-01-001'] as Map,
         );
@@ -1776,7 +1797,10 @@ void main() {
         );
         verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
         verify(() => mockDb.ref('/AllTippers')).called(1);
-        verifyNever(() => mockRoundThreeStatsRootRef.set(any()));
+        final roundThreeReplacement = verify(
+          () => mockRoundThreeStatsRootRef.set(captureAny()),
+        ).captured.single;
+        expect(roundThreeReplacement, isNull);
         final gameStatsReplacement = verify(
           () => mockGameStatsRootRef.set(captureAny()),
         ).captured.single as Map<String, dynamic>;

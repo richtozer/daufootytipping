@@ -1562,6 +1562,14 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
   }).toList();
   if (roundGames.isEmpty) {
     if (allowEmptyRound) {
+      if (replaceRoundStats) {
+        await db
+            .ref(
+              '${paths.statsPathRoot}/${comp.dbkey}/'
+              '${paths.roundStatsBackendRoot}/$roundNumber',
+            )
+            .set(null);
+      }
       return _BackendScoringRoundRebuildResult(
         roundNumber: roundNumber,
         tipperCount: allTippers?.length ?? 0,
@@ -2070,6 +2078,10 @@ Future<List<Game>> _loadBackendScoringGames({
     }
 
     final game = Game.fromJson(entry.key, gameRaw, homeTeam, awayTeam);
+    if (_isBackendScoringGameOutsideRegularComp(comp, game)) {
+      continue;
+    }
+
     final scoring = Scoring(
       homeTeamScore: (gameRaw['HomeTeamScore'] as num?)?.toInt(),
       awayTeamScore: (gameRaw['AwayTeamScore'] as num?)?.toInt(),
@@ -2082,6 +2094,16 @@ Future<List<Game>> _loadBackendScoringGames({
 
   games.sort();
   return games;
+}
+
+bool _isBackendScoringGameOutsideRegularComp(DAUComp comp, Game game) {
+  if (game.league == League.afl && comp.aflRegularCompEndDateUTC != null) {
+    return game.startTimeUTC.isAfter(comp.aflRegularCompEndDateUTC!);
+  }
+  if (game.league == League.nrl && comp.nrlRegularCompEndDateUTC != null) {
+    return game.startTimeUTC.isAfter(comp.nrlRegularCompEndDateUTC!);
+  }
+  return false;
 }
 
 Future<void> _writeBackendLiveScoreShadow({

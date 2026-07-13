@@ -120,6 +120,50 @@ test("compareRoundStats reports missing rounds and tippers", () => {
   assert.equal(hasComparisonFailures(comparison), true);
 });
 
+test("compareRoundStats ignores empty structural tail rounds", () => {
+  const comparison = compareRoundStats({
+    backendStats: {
+      1: {
+        "tipper-1": {aS: 4, nS: 2},
+      },
+      2: null,
+      3: {
+        "tipper-1": {aS: 0, nS: 0},
+      },
+    },
+    legacyStats: [
+      {
+        "tipper-1": {aS: 4, nS: 2},
+      },
+      null,
+    ],
+    fields: ["aS", "nS"],
+  });
+
+  assert.equal(comparison.totals.roundsCompared, 1);
+  assert.equal(comparison.totals.matches, 1);
+  assert.equal(comparison.totals.missingBackendRounds, 0);
+  assert.equal(comparison.totals.missingLegacyRounds, 0);
+  assert.equal(hasComparisonFailures(comparison), false);
+});
+
+test("compareRoundStats reports explicit missing empty rounds", () => {
+  const comparison = compareRoundStats({
+    backendStats: {
+      3: {
+        "tipper-1": {aS: 0, nS: 0},
+      },
+    },
+    legacyStats: [],
+    roundNumber: 3,
+    fields: ["aS", "nS"],
+  });
+
+  assert.equal(comparison.totals.roundsCompared, 1);
+  assert.equal(comparison.totals.missingLegacyRounds, 1);
+  assert.equal(hasComparisonFailures(comparison), true);
+});
+
 test("formatComparisonReport includes zero-index mapping", () => {
   const comparison = compareRoundStats({
     backendStats: {
