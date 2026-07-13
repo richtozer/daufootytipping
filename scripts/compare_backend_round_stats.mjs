@@ -36,9 +36,10 @@ export function compareRoundStats({
   tipperId,
   fields = DEFAULT_FIELDS,
 }) {
-  const backendRounds = roundNumber == null
-    ? numericKeys(backendStats)
-    : [roundNumber];
+  const explicitRound = roundNumber != null;
+  const backendRounds = explicitRound
+    ? [roundNumber]
+    : roundKeysForComparison(backendStats, legacyStats);
   const rounds = [];
 
   for (const backendRoundNumber of backendRounds) {
@@ -60,6 +61,11 @@ export function compareRoundStats({
       backendTipperCount: backendRound == null ? 0 : Object.keys(backendRound).length,
       legacyTipperCount: legacyRound == null ? 0 : Object.keys(legacyRound).length,
     };
+
+    if (!explicitRound &&
+        isIgnorableStructuralRound(backendRound, legacyRound, fields)) {
+      continue;
+    }
 
     if (backendRound == null || legacyRound == null) {
       rounds.push(result);
@@ -526,6 +532,60 @@ function legacyRoundForBackendRound(legacyStats, backendRoundNumber) {
     return legacyStats[legacyRoundIndex] ?? null;
   }
   return objectValue(legacyStats, legacyRoundIndex);
+}
+
+function roundKeysForComparison(backendStats, legacyStats) {
+  return Array.from(
+    new Set([
+      ...numericKeys(backendStats),
+      ...legacyBackendRoundKeys(legacyStats),
+    ]),
+  ).sort((a, b) => a - b);
+}
+
+function legacyBackendRoundKeys(legacyStats) {
+  if (legacyStats == null || typeof legacyStats !== "object") {
+    return [];
+  }
+  if (Array.isArray(legacyStats)) {
+    return legacyStats.map((_, index) => index + 1);
+  }
+  return Object.keys(legacyStats)
+    .map((key) => Number(key))
+    .filter((key) => Number.isInteger(key) && key >= 0)
+    .map((legacyRoundIndex) => legacyRoundIndex + 1)
+    .sort((a, b) => a - b);
+}
+
+function isEmptyRoundStats(roundStats, fields) {
+  if (roundStats == null || typeof roundStats !== "object") {
+    return true;
+  }
+
+  const tipperStats = Object.values(roundStats);
+  if (tipperStats.length === 0) {
+    return true;
+  }
+
+  return tipperStats.every((stats) => {
+    if (stats == null || typeof stats !== "object") {
+      return true;
+    }
+    return fields.every((field) => (stats[field] ?? 0) === 0);
+  });
+}
+
+function isIgnorableStructuralRound(backendRound, legacyRound, fields) {
+  if (backendRound == null && legacyRound == null) {
+    return true;
+  }
+  if (backendRound == null) {
+    return isEmptyRoundStats(legacyRound, fields);
+  }
+  if (legacyRound == null) {
+    return isEmptyRoundStats(backendRound, fields);
+  }
+  return false;
 }
 
 function objectValue(value, key) {
