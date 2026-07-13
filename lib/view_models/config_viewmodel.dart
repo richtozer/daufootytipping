@@ -32,6 +32,9 @@ class ConfigViewModel extends ChangeNotifier {
   String? _cloudFunctionsBaseURL;
   String? get cloudFunctionsBaseURL => _cloudFunctionsBaseURL;
 
+  bool _useBackendScoringBranches = false;
+  bool get useBackendScoringBranches => _useBackendScoringBranches;
+
   Completer<void> _initialLoadCompleter = Completer<void>();
 
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -62,6 +65,7 @@ class ConfigViewModel extends ChangeNotifier {
       _createLinkedTipper = null;
       _googleClientId = null;
       _cloudFunctionsBaseURL = null;
+      _useBackendScoringBranches = false;
     }
 
     _initialLoadCompleter = Completer<void>();
@@ -223,6 +227,11 @@ class ConfigViewModel extends ChangeNotifier {
     _cloudFunctionsBaseURL = _parseOptionalString(
       snapshot.child(p.cloudFunctionsBaseURLKey).value,
     );
+    _useBackendScoringBranches =
+        _parseOptionalBool(
+          snapshot.child(p.useBackendScoringBranchesKey).value,
+        ) ??
+        false;
   }
 
   String? _parseOptionalString(Object? value) {

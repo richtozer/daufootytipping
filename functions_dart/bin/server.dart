@@ -1632,6 +1632,7 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     tipsByTipperRaw: rawTips,
     now: now,
     defaultTipGamePredicate: _hasKnownBackendGameResult,
+    requireStartedGameForDefaultTips: false,
   );
   await _rebuildBackendGameStatsForRound(
     db: db,
@@ -1701,11 +1702,17 @@ Map<String, Tip> _applyDefaultTipsForStartedGames({
   required Map<String, Tip> tipsByGameKey,
   required Tipper tipper,
   required DateTime now,
+  bool requireStartedGame = true,
 }) {
   final augmentedTips = <String, Tip>{...tipsByGameKey};
   for (final game in games) {
     final gameKey = game.dbkey;
     if (augmentedTips.containsKey(gameKey)) {
+      continue;
+    }
+
+    if (!requireStartedGame) {
+      augmentedTips[gameKey] = _buildDefaultTipForStartedGame(game, tipper);
       continue;
     }
 
@@ -1774,6 +1781,7 @@ _RoundTipLoadResult _buildBackendScoringTipsForRound({
   required Map<String, dynamic> tipsByTipperRaw,
   required DateTime now,
   bool Function(Game game)? defaultTipGamePredicate,
+  bool requireStartedGameForDefaultTips = true,
 }) {
   final tipsByTipper = <String, Map<String, Tip>>{};
 
@@ -1811,6 +1819,7 @@ _RoundTipLoadResult _buildBackendScoringTipsForRound({
       tipsByGameKey: tipperTipsByGameKey,
       tipper: tipper,
       now: now,
+      requireStartedGame: requireStartedGameForDefaultTips,
     );
   }
 

@@ -1544,7 +1544,7 @@ void main() {
         final result = await executeBackendScoringCommand(
           db: mockDb,
           command: command,
-          now: DateTime.parse('2026-01-03T12:00:00Z'),
+          now: DateTime.parse('2026-01-03T09:00:00Z'),
         );
 
         expect(result.skipped, isFalse);
@@ -1557,7 +1557,11 @@ void main() {
         expect(roundUpdates.keys, containsAll(['paid-tipper', 'free-tipper']));
         expect(
           Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],
-          2,
+          0,
+        );
+        expect(
+          Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nTo'],
+          1,
         );
         expect(
           Map<String, dynamic>.from(roundUpdates['free-tipper'] as Map)['nS'],
@@ -1575,6 +1579,7 @@ void main() {
           gameUpdates['paid/nrl-01-001'] as Map,
         );
         expect(paidGameStats['pctTipD'], 1.0);
+        expect(paidGameStats['avgScore'], 2.0);
         expect(paidGameStats['avgScoreTipCount'], 1);
         verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
         verify(() => mockIdempotencyRef.set(any())).called(1);

@@ -107,6 +107,17 @@ class StatsViewModel extends ChangeNotifier {
   bool _hasGameStatsListener = false;
 
   final DAUComp selectedDAUComp;
+  final bool useBackendScoringBranches;
+
+  String get _roundStatsReadRoot => useBackendScoringBranches
+      ? p.roundStatsBackendRoot
+      : roundStatsRoot;
+  String get _liveScoresReadRoot => useBackendScoringBranches
+      ? p.liveScoresBackendRoot
+      : liveScoresRoot;
+  String get _gameStatsReadRoot => useBackendScoringBranches
+      ? p.gameStatsBackendRoot
+      : gameStatsRoot;
 
   bool _isUpdateScoringRunning = false;
   bool get isUpdateScoringRunning => _isUpdateScoringRunning;
@@ -150,9 +161,15 @@ class StatsViewModel extends ChangeNotifier {
     DatabaseReference? database,
     DatabaseReference? connectedInfoReference,
     bool autoInitialize = true,
+    this.useBackendScoringBranches = false,
   }) : _db = database ?? configuredDatabaseRef(),
        _connectedInfoRef = connectedInfoReference {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
+    log(
+      'StatsViewModel scoring reads: backend=$useBackendScoringBranches '
+      'round=$_roundStatsReadRoot game=$_gameStatsReadRoot '
+      'live=$_liveScoresReadRoot',
+    );
     if (autoInitialize) {
       _initialize();
     }
@@ -172,7 +189,9 @@ class StatsViewModel extends ChangeNotifier {
 
   Future<void> _listenToScores() async {
     _allRoundPointsStream = _db
-        .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$roundStatsRoot')
+        .child(
+          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_roundStatsReadRoot',
+        )
         .onValue
         .listen(
           _handleEventRoundPoints,
@@ -183,7 +202,9 @@ class StatsViewModel extends ChangeNotifier {
     _hasRoundPointsListener = true;
 
     _liveScoresStream = _db
-        .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
+        .child(
+          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
+        )
         .onValue
         .listen(
           _handleEventLiveScores,
@@ -209,7 +230,7 @@ class StatsViewModel extends ChangeNotifier {
     _gameStatsStream = _db
         .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
-        .child(gameStatsRoot)
+        .child(_gameStatsReadRoot)
         .child(subKey)
         .onValue
         .listen(
@@ -224,10 +245,11 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> _handleEventRoundPoints(DatabaseEvent event) async {
     try {
       if (event.snapshot.exists) {
-        var dbData = event.snapshot.value as List<Object?>;
+        final dbData = _roundStatsRowsFromSnapshot(event.snapshot.value);
         // Deserialize the round points into _allTipperRoundStats
-        for (var roundIndex = 0; roundIndex < dbData.length; roundIndex++) {
-          var roundPointsJson = dbData[roundIndex] as Map<dynamic, dynamic>;
+        for (final row in dbData.entries) {
+          final roundIndex = row.key;
+          final roundPointsJson = row.value;
           Map<Tipper, RoundStats> roundPoints = {};
 
           // Collect all futures
@@ -281,6 +303,42 @@ class StatsViewModel extends ChangeNotifier {
       }
       rethrow; // Re-throw the error
     }
+  }
+
+  Map<int, Map<dynamic, dynamic>> _roundStatsRowsFromSnapshot(Object? value) {
+    if (value is List) {
+      final rows = <int, Map<dynamic, dynamic>>{};
+      for (var index = 0; index < value.length; index++) {
+        final row = value[index];
+        if (row is Map) {
+          rows[index] = Map<dynamic, dynamic>.from(row);
+        }
+      }
+      return rows;
+    }
+
+    if (value is Map) {
+      final rows = <int, Map<dynamic, dynamic>>{};
+      for (final entry in value.entries) {
+        final rawRoundKey = entry.key;
+        final roundNumber = rawRoundKey is int
+            ? rawRoundKey
+            : int.tryParse(rawRoundKey.toString());
+        final row = entry.value;
+        if (roundNumber == null || row is! Map) {
+          continue;
+        }
+        final roundIndex = useBackendScoringBranches
+            ? roundNumber - 1
+            : roundNumber;
+        if (roundIndex >= 0) {
+          rows[roundIndex] = Map<dynamic, dynamic>.from(row);
+        }
+      }
+      return rows;
+    }
+
+    return <int, Map<dynamic, dynamic>>{};
   }
 
   @visibleForTesting
@@ -405,7 +463,9 @@ class StatsViewModel extends ChangeNotifier {
 
         notifyListeners();
 
-        await _deleteLiveScoresByGameDbKeys(staleLiveScoreGameDbKeys);
+        if (!useBackendScoringBranches) {
+          await _deleteLiveScoresByGameDbKeys(staleLiveScoreGameDbKeys);
+        }
       } else {
         // All live scores have been deleted (e.g. official scores arrived)
         if (_gamesWithLiveScores.isNotEmpty) {
@@ -1600,21 +1660,25 @@ class StatsViewModel extends ChangeNotifier {
         .paidForComp(selectedDAUComp);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
-    var snapshot = await _db
+    final snapshot = await _db
         .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
-        .child(gameStatsRoot)
+        .child(_gameStatsReadRoot)
         .child(subKey)
         .child(game.dbkey)
         .get();
 
-    if (snapshot.exists) {
-      return GameStatsEntry.fromJson(
-        Map<String, dynamic>.from(snapshot.value as Map),
-      );
-    } else {
-      return GameStatsEntry();
+    return _gameStatsEntryFromSnapshot(snapshot) ?? GameStatsEntry();
+  }
+
+  GameStatsEntry? _gameStatsEntryFromSnapshot(DataSnapshot snapshot) {
+    if (!snapshot.exists || snapshot.value is! Map) {
+      return null;
     }
+
+    return GameStatsEntry.fromJson(
+      Map<String, dynamic>.from(snapshot.value as Map),
+    );
   }
 
   /// Writes only the recalculated rounds and tippers to the database.
@@ -2272,7 +2336,9 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     _liveScoresStream = _db
-        .child('$statsPathRootLocal/${selectedDAUComp.dbkey}/$liveScoresRoot')
+        .child(
+          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
+        )
         .onValue
         .listen(
           _handleEventLiveScores,
