@@ -91,6 +91,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final Map<String, dynamic> updates = {};
   final bool _adminMode;
   bool get adminMode => _adminMode;
+  final bool _useBackendScoringBranches;
 
   Timer? _dailyTimer;
 
@@ -129,13 +130,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     TippersViewModel Function()? tippers,
     FixtureUpdateCoordinator? fixtureCoordinator,
     SelectionInitCoordinator? selectionInit,
+    bool useBackendScoringBranches = false,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
         _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
         _tippers = tippers ?? (() => di<TippersViewModel>()),
         _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
-        _selectionInit = selectionInit ?? const SelectionInitCoordinator() {
+        _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
+        _useBackendScoringBranches = useBackendScoringBranches {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -324,7 +327,11 @@ class DAUCompsViewModel extends ChangeNotifier {
             },
             createStatsViewModel: (comp, gamesVm) => StartupProfiling.trackSync(
               'startup.create_stats_view_model',
-              () => StatsViewModel(comp, gamesVm),
+              () => StatsViewModel(
+                comp,
+                gamesVm,
+                useBackendScoringBranches: _useBackendScoringBranches,
+              ),
             ),
             createTipsViewModel: (gamesVm) => StartupProfiling.trackSync(
               'startup.create_tips_view_model',
@@ -372,7 +379,11 @@ class DAUCompsViewModel extends ChangeNotifier {
     final res = await _selectionInit.initializeAdmin(
       selectedComp: _selectedDAUComp!,
       createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
-      createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
+      createStatsViewModel: (comp, gamesVm) => StatsViewModel(
+        comp,
+        gamesVm,
+        useBackendScoringBranches: _useBackendScoringBranches,
+      ),
     );
 
     gamesViewModel = res.gamesViewModel;

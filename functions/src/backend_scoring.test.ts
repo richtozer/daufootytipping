@@ -7,6 +7,7 @@ import {
   BackendScoringCommandPayload,
   TipWriteChangeLike,
   TipWriteSnapshotLike,
+  buildBackendScoringCommandId,
   buildLiveScoreWrittenBackendScoringCommand,
   buildOfficialScoreWrittenBackendScoringCommand,
   buildTipWrittenBackendScoringCommand,
@@ -63,7 +64,7 @@ test("buildTipWrittenBackendScoringCommand constructs the expected payload", () 
     "comp2026",
     "tipper-1",
     "nrl-01-001",
-    "event-123",
+    "mFbon+KFfeNZAx38IYGNz1uL6fk=",
   );
 
   assert.deepEqual(command, {
@@ -71,10 +72,10 @@ test("buildTipWrittenBackendScoringCommand constructs the expected payload", () 
     compKey: "comp2026",
     tipperId: "tipper-1",
     gameKey: "nrl-01-001",
-    sourceEventId: "event-123",
+    sourceEventId: "mFbon+KFfeNZAx38IYGNz1uL6fk=",
     sourcePath: "/AllTips/comp2026/tipper-1/nrl-01-001",
     scopeKey: "comp:comp2026/game:nrl-01-001/tipper:tipper-1",
-    commandId: "event-123",
+    commandId: "event_bUZib24rS0ZmZU5aQXgzOElZR056MXVMNmZrPQ",
   });
 });
 
@@ -92,7 +93,7 @@ test("buildOfficialScoreWrittenBackendScoringCommand constructs the expected pay
     sourceEventId: "event-456",
     sourcePath: "/DAUCompsGames/comp2026/nrl-01-001",
     scopeKey: "comp:comp2026/game:nrl-01-001",
-    commandId: "event-456",
+    commandId: "event_ZXZlbnQtNDU2",
   });
 });
 
@@ -110,8 +111,15 @@ test("buildLiveScoreWrittenBackendScoringCommand builds payload", () => {
     sourceEventId: "event-789",
     sourcePath: "/Stats/comp2026/live_scores_v3/nrl-01-001/current",
     scopeKey: "comp:comp2026/game:nrl-01-001",
-    commandId: "event-789",
+    commandId: "event_ZXZlbnQtNzg5",
   });
+});
+
+test("buildBackendScoringCommandId encodes unsafe RTDB key characters", () => {
+  assert.equal(
+    buildBackendScoringCommandId("mFbon+KFfeNZAx38IYGNz1uL6fk="),
+    "event_bUZib24rS0ZmZU5aQXgzOElZR056MXVMNmZrPQ",
+  );
 });
 
 test("handleTipWrittenBackendScoringWrite posts a compact command payload", async () => {
@@ -173,7 +181,7 @@ test("handleTipWrittenBackendScoringWrite posts a compact command payload", asyn
     sourceEventId: "event-123",
     sourcePath: "/AllTips/comp2026/tipper-1/nrl-01-001",
     scopeKey: "comp:comp2026/game:nrl-01-001/tipper:tipper-1",
-    commandId: "event-123",
+    commandId: "event_ZXZlbnQtMTIz",
   });
   assert.equal(logger.warns.length, 0);
   assert.equal(logger.errors.length, 0);
@@ -317,7 +325,7 @@ test("handleOfficialScoreWrittenBackendScoringWrite posts a compact command payl
     sourceEventId: "event-456",
     sourcePath: "/DAUCompsGames/comp2026/nrl-01-001",
     scopeKey: "comp:comp2026/game:nrl-01-001",
-    commandId: "event-456",
+    commandId: "event_ZXZlbnQtNDU2",
   });
   assert.equal(logger.warns.length, 0);
   assert.equal(logger.errors.length, 0);
@@ -386,7 +394,7 @@ test("handleLiveScoreWrittenBackendScoringWrite posts payload", async () => {
     sourceEventId: "event-789",
     sourcePath: "/Stats/comp2026/live_scores_v3/nrl-01-001/current",
     scopeKey: "comp:comp2026/game:nrl-01-001",
-    commandId: "event-789",
+    commandId: "event_ZXZlbnQtNzg5",
   });
   assert.equal(logger.warns.length, 0);
   assert.equal(logger.errors.length, 0);

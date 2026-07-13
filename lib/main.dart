@@ -235,6 +235,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String? _registeredActiveCompKey;
   bool? _registeredCreateLinkedTipper;
+  bool? _registeredUseBackendScoringBranches;
   bool _coreWarmupScheduled = false;
 
   void _scheduleCoreViewModelWarmup() {
@@ -273,6 +274,8 @@ class _MyAppState extends State<MyApp> {
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
     final bool createLinkedTipper = configViewModel.createLinkedTipper!;
+    final bool useBackendScoringBranches =
+        configViewModel.useBackendScoringBranches;
 
     if (!di.isRegistered<TeamsViewModel>()) {
       di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
@@ -282,17 +285,23 @@ class _MyAppState extends State<MyApp> {
         !di.isRegistered<DAUCompsViewModel>() ||
         !di.isRegistered<TippersViewModel>() ||
         _registeredActiveCompKey != activeCompKey ||
-        _registeredCreateLinkedTipper != createLinkedTipper;
+        _registeredCreateLinkedTipper != createLinkedTipper ||
+        _registeredUseBackendScoringBranches != useBackendScoringBranches;
 
     if (needsRegistration) {
       _registeredActiveCompKey = activeCompKey;
       _registeredCreateLinkedTipper = createLinkedTipper;
+      _registeredUseBackendScoringBranches = useBackendScoringBranches;
 
       di.registerLazySingleton<TippersViewModel>(
         () => TippersViewModel(createLinkedTipper),
       );
       di.registerLazySingleton<DAUCompsViewModel>(
-        () => DAUCompsViewModel(activeCompKey, false),
+        () => DAUCompsViewModel(
+          activeCompKey,
+          false,
+          useBackendScoringBranches: useBackendScoringBranches,
+        ),
       );
     }
 

@@ -222,6 +222,52 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test('backend round stats map keys are converted to zero-based indexes', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+      useBackendScoringBranches: true,
+    );
+
+    await viewModel.handleRoundPointsEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            '1': <String, Object?>{
+              'tipper-1': RoundStats(
+                roundNumber: 1,
+                aflPoints: 2,
+                aflMaxPoints: 4,
+                aflMarginTips: 1,
+                aflMarginUPS: 0,
+                nrlPoints: 6,
+                nrlMaxPoints: 8,
+                nrlMarginTips: 2,
+                nrlMarginUPS: 1,
+                rank: 1,
+                rankChange: 0,
+                nrlTipsOutstanding: 0,
+                aflTipsOutstanding: 0,
+              ).toJson(),
+            },
+          },
+        ),
+      ),
+    );
+
+    expect(viewModel.allTipperRoundStats, contains(0));
+    expect(viewModel.allTipperRoundStats, isNot(contains(1)));
+
+    final roundStats = viewModel.getScoringRoundStats(round, alice);
+    expect(roundStats.aflPoints, 2);
+    expect(roundStats.nrlPoints, 6);
+
+    viewModel.dispose();
+  });
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {

@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
+import 'package:firebase_functions/firebase_functions.dart'
+    hide Credential, DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dau_shared/constants/paths.dart' as paths;
@@ -12,10 +13,24 @@ import 'package:intl/intl.dart';
 void logFunction(String message) =>
     developer.log(message, name: 'adminFixtureDownload');
 
+const _fixtureDownloadOptions = CallableOptions(
+  region: Region(SupportedRegion.asiaSoutheast1),
+  timeoutSeconds: TimeoutSeconds(300),
+  enforceAppCheck: EnforceAppCheck(true),
+);
+const _backendScoringCommandOptions = HttpsOptions(
+  region: Region(SupportedRegion.asiaSoutheast1),
+  timeoutSeconds: TimeoutSeconds(300),
+);
+const int _idempotencyPruneLimit = 500;
+
 void main(List<String> args) async {
   await runFunctions((firebase) {
+    final runtimeAdminApp = firebase.adminApp;
+
     firebase.https.onCall(
       name: 'adminFixtureDownload',
+      options: _fixtureDownloadOptions,
       (request, response) async {
         logFunction('adminFixtureDownload: callable invoked');
         // 1. Verify caller authentication
@@ -28,19 +43,9 @@ void main(List<String> args) async {
         final uid = auth.uid;
         logFunction('adminFixtureDownload: auth uid=$uid');
 
-        // 2. Initialize Firebase Admin SDK using Application Default Credentials
-        final credential = Credentials.applicationDefault();
-        if (credential == null) {
-          throw InternalError('Failed to load application default credentials');
-        }
-
-        final adminApp = FirebaseAdmin.instance.initializeApp(
-          AppOptions(
-            credential: credential,
-            databaseUrl: resolveDatabaseUrl(),
-            projectId: resolveProjectId(),
-          ),
-        );
+        // 2. Initialize the legacy RTDB Admin client using the Functions
+        // runtime app credentials.
+        final adminApp = _initializeLegacyAdminApp(runtimeAdminApp);
 
         final db = adminApp.database();
 
@@ -73,7 +78,11 @@ void main(List<String> args) async {
 
     firebase.https.onRequest(
       name: 'backendScoringCommand',
-      _handleBackendScoringCommandRequest,
+      options: _backendScoringCommandOptions,
+      (request) => _handleBackendScoringCommandRequestWithRuntimeApp(
+        request,
+        runtimeAdminApp: runtimeAdminApp,
+      ),
     );
   });
 }
@@ -178,7 +187,10 @@ Response _backendScoringErrorResponse(
   );
 }
 
-Future<Response> _handleBackendScoringCommandRequest(dynamic request) async {
+Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
+  dynamic request, {
+  required dynamic runtimeAdminApp,
+}) async {
   try {
     if (request.method.toUpperCase() != 'POST') {
       return _backendScoringErrorResponse(
@@ -221,7 +233,9 @@ Future<Response> _handleBackendScoringCommandRequest(dynamic request) async {
         : payload;
     final command = BackendScoringCommand.fromJson(commandJson);
 
-    final dbHandle = await _openBackendScoringDatabase();
+    final dbHandle = await _openBackendScoringDatabase(
+      runtimeAdminApp: runtimeAdminApp,
+    );
     try {
       final result = await executeBackendScoringCommand(
         db: dbHandle.database,
@@ -327,7 +341,233 @@ class _StandaloneBackendScoringDatabaseHandle
   Future<void> close() => _database.delete();
 }
 
-Future<_BackendScoringDatabaseHandle> _openBackendScoringDatabase() async {
+class _RestBackendScoringDatabaseHandle extends _BackendScoringDatabaseHandle {
+  _RestBackendScoringDatabaseHandle(this._client, this._databaseUrl);
+
+  final dynamic _client;
+  final String _databaseUrl;
+
+  static Future<_RestBackendScoringDatabaseHandle> create({
+    required dynamic runtimeAdminApp,
+    required String databaseUrl,
+  }) async {
+    final client = await runtimeAdminApp.client;
+    return _RestBackendScoringDatabaseHandle(client, databaseUrl);
+  }
+
+  @override
+  dynamic ref(String path) => _RestDatabaseReference(
+        client: _client,
+        databaseUrl: _databaseUrl,
+        path: path,
+      );
+
+  @override
+  Future<void> close() async {}
+}
+
+class _RestDatabaseReference {
+  _RestDatabaseReference({
+    required dynamic client,
+    required String databaseUrl,
+    required String path,
+  })  : _client = client,
+        _databaseUrl = databaseUrl,
+        _path = path;
+
+  final dynamic _client;
+  final String _databaseUrl;
+  final String _path;
+
+  String? get _key {
+    final segments = _path.split('/').where((segment) => segment.isNotEmpty);
+    return segments.isEmpty ? null : segments.last;
+  }
+
+  Future<DataSnapshot> once() async {
+    final response = await _client.get(_uri());
+    _throwForRestError(response, 'read', _path);
+    return _RestDataSnapshot(_key, _decodeRestBody(response.body as String));
+  }
+
+  Future<void> set(dynamic value) async {
+    final response = await _client.put(
+      _uri(),
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode(value),
+    );
+    _throwForRestError(response, 'set', _path);
+  }
+
+  Future<void> update(Map<dynamic, dynamic> value) async {
+    final response = await _client.patch(
+      _uri(),
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode(value),
+    );
+    _throwForRestError(response, 'update', _path);
+  }
+
+  Future<TransactionResult> runTransaction(
+    TransactionHandler transactionHandler, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    var attempts = 0;
+    while (DateTime.now().isBefore(deadline)) {
+      attempts += 1;
+      final readResponse = await _client.get(
+        _uri(),
+        headers: const {'X-Firebase-ETag': 'true'},
+      );
+      _throwForRestError(readResponse, 'transaction read', _path);
+      final etag = readResponse.headers['etag'] as String?;
+      final currentValue = _decodeRestBody(readResponse.body as String);
+      final mutableData = MutableData(_key, currentValue);
+      final updatedData = await transactionHandler(mutableData);
+      if (updatedData == null) {
+        return _RestTransactionResult(
+          committed: false,
+          dataSnapshot: _RestDataSnapshot(_key, currentValue),
+        );
+      }
+
+      final writeResponse = await _client.put(
+        _uri(),
+        headers: {
+          'content-type': 'application/json',
+          'if-match': etag ?? '*',
+        },
+        body: jsonEncode(updatedData.value),
+      );
+      if (writeResponse.statusCode == 412) {
+        continue;
+      }
+      _throwForRestError(writeResponse, 'transaction write', _path);
+      return _RestTransactionResult(
+        committed: true,
+        dataSnapshot: _RestDataSnapshot(
+          _key,
+          _decodeRestBody(writeResponse.body as String),
+        ),
+      );
+    }
+
+    throw AbortedError(
+      'RTDB transaction timed out at $_path after $attempts attempts',
+    );
+  }
+
+  Uri _uri() {
+    final baseUrl = _databaseUrl.endsWith('/')
+        ? _databaseUrl.substring(0, _databaseUrl.length - 1)
+        : _databaseUrl;
+    final encodedPath = _path
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+    final pathSuffix = encodedPath.isEmpty ? '.json' : '/$encodedPath.json';
+    return Uri.parse('$baseUrl$pathSuffix');
+  }
+}
+
+class _RestDataSnapshot implements DataSnapshot {
+  _RestDataSnapshot(this.key, this.value);
+
+  @override
+  final String? key;
+
+  @override
+  final dynamic value;
+}
+
+class _RestTransactionResult implements TransactionResult {
+  _RestTransactionResult({
+    required this.committed,
+    required this.dataSnapshot,
+  });
+
+  @override
+  final bool committed;
+
+  @override
+  final DataSnapshot? dataSnapshot;
+
+  @override
+  FirebaseDatabaseException? get error => null;
+}
+
+dynamic _decodeRestBody(String body) {
+  if (body.isEmpty) {
+    return null;
+  }
+  return jsonDecode(body);
+}
+
+void _throwForRestError(dynamic response, String operation, String path) {
+  final statusCode = response.statusCode as int;
+  if (statusCode >= 200 && statusCode < 300) {
+    return;
+  }
+  throw InternalError(
+    'RTDB REST $operation failed for $path with HTTP $statusCode: '
+    '${response.body}',
+  );
+}
+
+class _RuntimeAdminCredential implements Credential {
+  _RuntimeAdminCredential(this._runtimeAdminApp);
+
+  final dynamic _runtimeAdminApp;
+
+  @override
+  Future<AccessToken> getAccessToken() async {
+    final client = await _runtimeAdminApp.client;
+    final token = client.credentials.accessToken;
+    return _RuntimeAccessToken(
+      token.data as String,
+      token.expiry as DateTime,
+    );
+  }
+}
+
+class _RuntimeAccessToken implements AccessToken {
+  _RuntimeAccessToken(this.accessToken, this.expirationTime);
+
+  @override
+  final String accessToken;
+
+  @override
+  final DateTime expirationTime;
+}
+
+dynamic _initializeLegacyAdminApp(
+  dynamic runtimeAdminApp, {
+  Map<String, String>? environment,
+}) {
+  final env = environment ?? Platform.environment;
+  final Credential? credential = runtimeAdminApp == null
+      ? Credentials.applicationDefault()
+      : _RuntimeAdminCredential(runtimeAdminApp);
+  if (credential == null) {
+    throw InternalError('Failed to load application default credentials');
+  }
+
+  final appName = 'legacy-rtdb-${DateTime.now().microsecondsSinceEpoch}';
+  return FirebaseAdmin.instance.initializeApp(
+    AppOptions(
+      credential: credential,
+      databaseUrl: resolveDatabaseUrl(environment: env),
+      projectId: resolveProjectId(environment: env),
+    ),
+    appName,
+  );
+}
+
+Future<_BackendScoringDatabaseHandle> _openBackendScoringDatabase({
+  dynamic runtimeAdminApp,
+}) async {
   final env = Platform.environment;
   final emulatorHost = env['FIREBASE_DATABASE_EMULATOR_HOST'];
   if (emulatorHost != null && emulatorHost.isNotEmpty) {
@@ -342,21 +582,20 @@ Future<_BackendScoringDatabaseHandle> _openBackendScoringDatabase() async {
     return _StandaloneBackendScoringDatabaseHandle(db);
   }
 
-  final credential = Credentials.applicationDefault();
-  if (credential == null) {
-    throw InternalError('Failed to load application default credentials');
+  if (runtimeAdminApp != null) {
+    developer.log(
+      'backendScoringCommand: using RTDB REST client',
+      name: 'backendScoringCommand',
+    );
+    return _RestBackendScoringDatabaseHandle.create(
+      runtimeAdminApp: runtimeAdminApp,
+      databaseUrl: resolveDatabaseUrl(environment: env),
+    );
   }
 
-  final adminApp = FirebaseAdmin.instance.initializeApp(
-    AppOptions(
-      credential: credential,
-      databaseUrl: resolveDatabaseUrl(environment: env),
-      projectId: resolveProjectId(environment: env),
-    ),
-  );
-
+  final adminApp = _initializeLegacyAdminApp(null, environment: env);
   developer.log(
-    'backendScoringCommand: using Firebase Admin SDK client',
+    'backendScoringCommand: using runtime Firebase Admin SDK client',
     name: 'backendScoringCommand',
   );
   return _AdminBackendScoringDatabaseHandle(adminApp);
@@ -531,6 +770,23 @@ Future<String> executeFixtureDownload({
     // Log status success
     await logStatus('success');
 
+    try {
+      final prunedCount =
+          await pruneExpiredBackendScoringIdempotencyRecords(
+        compKey: compKey,
+        db: db,
+        now: now,
+      );
+      logFunction(
+        'executeFixtureDownload: pruned $prunedCount expired backend scoring '
+        'idempotency records',
+      );
+    } catch (e) {
+      logFunction(
+        'executeFixtureDownload: backend scoring idempotency prune failed: $e',
+      );
+    }
+
     return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
   } catch (e) {
     logFunction('executeFixtureDownload: failed with $e');
@@ -542,6 +798,64 @@ Future<String> executeFixtureDownload({
     // Release lock
     await lockRef.set(null);
   }
+}
+
+Future<int> pruneExpiredBackendScoringIdempotencyRecords({
+  required String compKey,
+  required dynamic db,
+  required DateTime now,
+  int limit = _idempotencyPruneLimit,
+}) async {
+  if (limit <= 0) {
+    return 0;
+  }
+
+  final idempotencyRef = db.ref(
+    '${paths.statsPathRoot}/$compKey/'
+    '${paths.scoringIdempotencyBackendRoot}',
+  );
+  final snapshot = await idempotencyRef.once();
+  final rawRecords = snapshot.value;
+  if (rawRecords is! Map) {
+    return 0;
+  }
+
+  final updates = <String, dynamic>{};
+  void collectExpired(dynamic rawValue, String relativePath) {
+    if (updates.length >= limit || rawValue is! Map) {
+      return;
+    }
+
+    final value = Map<dynamic, dynamic>.from(rawValue);
+    final expiresAtRaw = value['expiresAt'];
+    if (expiresAtRaw is String) {
+      final expiresAt = DateTime.tryParse(expiresAtRaw)?.toUtc();
+      if (expiresAt != null && !expiresAt.isAfter(now.toUtc())) {
+        updates[relativePath] = null;
+      }
+      return;
+    }
+
+    for (final entry in value.entries) {
+      if (updates.length >= limit) {
+        return;
+      }
+      final key = entry.key;
+      if (key is! String || key.isEmpty) {
+        continue;
+      }
+      final childPath = relativePath.isEmpty ? key : '$relativePath/$key';
+      collectExpired(entry.value, childPath);
+    }
+  }
+
+  collectExpired(rawRecords, '');
+  if (updates.isEmpty) {
+    return 0;
+  }
+
+  await idempotencyRef.update(updates);
+  return updates.length;
 }
 
 Future<List<dynamic>> _fetchFixtureJson(Uri url) async {
@@ -1310,24 +1624,24 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     }
   }
 
-  final completedRoundGames = roundGames
-      .where(_hasKnownBackendGameResult)
-      .toList();
   final gameStatsTipLoadResult = _buildBackendScoringTipsForRound(
     allTippers: rawTippers,
     gamesByKey: {
-      for (final game in completedRoundGames) game.dbkey: game,
+      for (final game in roundGames) game.dbkey: game,
     },
     tipsByTipperRaw: rawTips,
     now: now,
+    defaultTipGamePredicate: _hasKnownBackendGameResult,
+    requireStartedGameForDefaultTips: false,
   );
   await _rebuildBackendGameStatsForRound(
     db: db,
     comp: comp,
-    roundGames: completedRoundGames,
+    roundGames: roundGames,
     allTippers: rawTippers,
     tipsByTipper: gameStatsTipLoadResult.tipsByTipper,
     updatesSink: gameStatsUpdatesSink,
+    now: now,
   );
 
   return _BackendScoringRoundRebuildResult(
@@ -1388,11 +1702,17 @@ Map<String, Tip> _applyDefaultTipsForStartedGames({
   required Map<String, Tip> tipsByGameKey,
   required Tipper tipper,
   required DateTime now,
+  bool requireStartedGame = true,
 }) {
   final augmentedTips = <String, Tip>{...tipsByGameKey};
   for (final game in games) {
     final gameKey = game.dbkey;
     if (augmentedTips.containsKey(gameKey)) {
+      continue;
+    }
+
+    if (!requireStartedGame) {
+      augmentedTips[gameKey] = _buildDefaultTipForStartedGame(game, tipper);
       continue;
     }
 
@@ -1460,6 +1780,8 @@ _RoundTipLoadResult _buildBackendScoringTipsForRound({
   required Map<String, Game> gamesByKey,
   required Map<String, dynamic> tipsByTipperRaw,
   required DateTime now,
+  bool Function(Game game)? defaultTipGamePredicate,
+  bool requireStartedGameForDefaultTips = true,
 }) {
   final tipsByTipper = <String, Map<String, Tip>>{};
 
@@ -1488,14 +1810,17 @@ _RoundTipLoadResult _buildBackendScoringTipsForRound({
       }
     }
 
-    final augmentedTipsByGameKey = _applyDefaultTipsForStartedGames(
-      games: gamesByKey.values.toList(),
+    final defaultableGames = defaultTipGamePredicate == null
+        ? gamesByKey.values.toList()
+        : gamesByKey.values.where(defaultTipGamePredicate).toList();
+
+    tipsByTipper[tipperDbKey] = _applyDefaultTipsForStartedGames(
+      games: defaultableGames,
       tipsByGameKey: tipperTipsByGameKey,
       tipper: tipper,
       now: now,
+      requireStartedGame: requireStartedGameForDefaultTips,
     );
-
-    tipsByTipper[tipperDbKey] = augmentedTipsByGameKey;
   }
 
   return _RoundTipLoadResult(tipsByTipper: tipsByTipper);
@@ -1530,6 +1855,7 @@ Future<void> _rebuildBackendGameStatsForRound({
   required List<Game> roundGames,
   required List<Tipper> allTippers,
   required Map<String, Map<String, Tip>> tipsByTipper,
+  required DateTime now,
   Map<String, dynamic>? updatesSink,
 }) async {
   if (roundGames.isEmpty || allTippers.isEmpty) {
@@ -1549,10 +1875,19 @@ Future<void> _rebuildBackendGameStatsForRound({
     MapEntry('free', freeCohortTippers),
   ];
   for (final game in roundGames) {
+    final hasKnownResult = _hasKnownBackendGameResult(game);
+    final gameState = game.getGameState(now);
+    final hasStarted = gameState == GameState.startedResultKnown ||
+        gameState == GameState.startedResultNotKnown;
     for (final cohort in cohorts) {
       final tipsForCohort = cohort.value
           .map((tipper) => tipsByTipper[tipper.dbkey]?[game.dbkey])
           .toList();
+      final hasSubmittedTips = tipsForCohort.any((tip) => tip != null);
+      if (!hasKnownResult && (!hasStarted || !hasSubmittedTips)) {
+        continue;
+      }
+
       final gameStatsEntry = ScoringCalculator.calculateGameStatsEntry(
         cohortTippers: cohort.value,
         tipsForCohort: tipsForCohort,

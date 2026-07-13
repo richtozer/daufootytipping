@@ -1,3 +1,4 @@
+/* eslint-disable require-jsdoc */
 import * as functions from "firebase-functions/v1";
 
 export type BackendScoringCommandType =
@@ -90,8 +91,11 @@ const LIVE_SCORE_CURRENT_KEY = "current";
 const LIVE_SCORE_CURRENT_TRIGGER_PATH =
   `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_V3_ROOT}/{gameKey}/` +
   LIVE_SCORE_CURRENT_KEY;
+const BACKEND_SCORING_REGION = "asia-southeast1";
+const backendScoringFunctions = functions.region(BACKEND_SCORING_REGION);
+const backendScoringDatabase = backendScoringFunctions.database;
 
-export const tipWrittenBackendScoring = functions.database
+export const tipWrittenBackendScoring = backendScoringDatabase
   .ref(`${TIPS_PATH_ROOT}/{compKey}/{tipperId}/{gameKey}`)
   .onWrite(
     async (
@@ -108,7 +112,7 @@ export const tipWrittenBackendScoring = functions.database
     },
   );
 
-export const officialScoreWrittenBackendScoring = functions.database
+export const officialScoreWrittenBackendScoring = backendScoringDatabase
   .ref(`${GAMES_PATH_ROOT}/{compKey}/{gameKey}`)
   .onWrite(
     async (
@@ -125,7 +129,7 @@ export const officialScoreWrittenBackendScoring = functions.database
     },
   );
 
-export const liveScoreWrittenBackendScoring = functions.database
+export const liveScoreWrittenBackendScoring = backendScoringDatabase
   .ref(LIVE_SCORE_CURRENT_TRIGGER_PATH)
   .onWrite(
     async (
@@ -149,6 +153,7 @@ export function buildTipWrittenBackendScoringCommand(
   sourceEventId: string,
 ): BackendScoringCommandPayload {
   const sourcePath = `${TIPS_PATH_ROOT}/${compKey}/${tipperId}/${gameKey}`;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "tipWritten",
     compKey,
@@ -157,7 +162,7 @@ export function buildTipWrittenBackendScoringCommand(
     sourceEventId,
     sourcePath,
     scopeKey: `comp:${compKey}/game:${gameKey}/tipper:${tipperId}`,
-    commandId: sourceEventId,
+    commandId,
   };
 }
 
@@ -167,6 +172,7 @@ export function buildOfficialScoreWrittenBackendScoringCommand(
   sourceEventId: string,
 ): BackendScoringCommandPayload {
   const sourcePath = `${GAMES_PATH_ROOT}/${compKey}/${gameKey}`;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "officialScoreWritten",
     compKey,
@@ -174,7 +180,7 @@ export function buildOfficialScoreWrittenBackendScoringCommand(
     sourceEventId,
     sourcePath,
     scopeKey: `comp:${compKey}/game:${gameKey}`,
-    commandId: sourceEventId,
+    commandId,
   };
 }
 
@@ -194,6 +200,7 @@ export function buildLiveScoreWrittenBackendScoringCommand(
   const sourcePath =
     `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_V3_ROOT}/${gameKey}/` +
     LIVE_SCORE_CURRENT_KEY;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "liveScoreWritten",
     compKey,
@@ -201,8 +208,12 @@ export function buildLiveScoreWrittenBackendScoringCommand(
     sourceEventId,
     sourcePath,
     scopeKey: `comp:${compKey}/game:${gameKey}`,
-    commandId: sourceEventId,
+    commandId,
   };
+}
+
+export function buildBackendScoringCommandId(sourceEventId: string): string {
+  return `event_${Buffer.from(sourceEventId, "utf8").toString("base64url")}`;
 }
 
 export async function handleTipWrittenBackendScoringWrite(
@@ -351,9 +362,9 @@ function extractLiveScoreMaterial(
   return {
     homeInterimScore: normalizeLiveScoreValue(raw.homeInterimScore),
     awayInterimScore: normalizeLiveScoreValue(raw.awayInterimScore),
-    gameComplete: typeof raw.gameComplete === "boolean"
-      ? raw.gameComplete
-      : null,
+    gameComplete: typeof raw.gameComplete === "boolean" ?
+      raw.gameComplete :
+      null,
   };
 }
 
@@ -401,9 +412,9 @@ function extractOfficialScores(
   }
 
   const raw = value as Record<string, unknown>;
-  const current = raw.current != null && typeof raw.current === "object"
-    ? raw.current as Record<string, unknown>
-    : raw;
+  const current = raw.current != null && typeof raw.current === "object" ?
+    raw.current as Record<string, unknown> :
+    raw;
   return {
     homeTeamScore: current.HomeTeamScore ?? current.homeTeamScore ?? null,
     awayTeamScore: current.AwayTeamScore ?? current.awayTeamScore ?? null,

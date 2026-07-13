@@ -103,8 +103,10 @@ behaviour:
   All-tipper round rebuilds only include tippers with at least one submitted tip
   in the comp, matching the legacy client scoring cohort; missed started games
   still receive the legacy default-away tip for those active tippers.
-  Game-stat rebuilds only write games with known results, and calculate paid/free
-  cohorts from all tippers rather than only the active round-stat cohort.
+  Game-stat rebuilds write games with known results, plus started/unscored games
+  when a paid/free cohort has at least one submitted tip. Future games are not
+  written just because users have pre-tipped. Paid/free cohorts are calculated
+  from all tippers rather than only the active round-stat cohort.
   Full-comp admin rescoring replaces `game_stats_backend_v1` after rebuilding so
   stale shadow rows for future/unscored games are removed.
 
@@ -231,6 +233,20 @@ Promotion criteria:
 - deterministic replay tests for representative historical rounds
 - no unexplained mismatches across a meaningful scoring window
 - operational dashboard/log query can identify stuck or failed commands
+
+Deployment readiness checklist:
+- deploy both Cloud Functions codebases together when wrapper contracts change:
+  `functions:default` for TypeScript RTDB wrappers and `functions:dart_functions`
+  for Dart HTTPS/callable workers
+- configure the TypeScript wrapper runtime with
+  `BACKEND_SCORING_COMMAND_URL` pointing at the deployed Dart
+  `backend-scoring-command` HTTPS URL
+- configure both runtimes with the same `BACKEND_SCORING_COMMAND_SECRET`
+  or `DART_BACKEND_SCORING_COMMAND_SECRET`
+- keep those values in Firebase/Google runtime configuration or ignored local
+  `.env` files; never commit actual secret values
+- verify a deployed wrapper can call the Dart worker before switching clients
+  to backend-owned scoring reads
 
 ### Phase 4: Backend-Owned Scoring
 Goal: make backend scoring authoritative for updated clients.

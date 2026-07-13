@@ -394,6 +394,30 @@ export function formatGameStatsComparisonReport(comparison, options) {
     lines.push(`  v3-only games missing backend: ${cohort.missingBackendGames.length}`);
     lines.push(`  backend-only games missing v3: ${cohort.missingLegacyGames.length}`);
 
+    for (const gameKey of cohort.missingBackendGames.slice(
+      0,
+      options.maxMismatches,
+    )) {
+      lines.push(`  missing backend game ${gameKey}`);
+    }
+    if (cohort.missingBackendGames.length > options.maxMismatches) {
+      lines.push(
+        `  ... ${cohort.missingBackendGames.length - options.maxMismatches} more missing backend games`,
+      );
+    }
+
+    for (const gameKey of cohort.missingLegacyGames.slice(
+      0,
+      options.maxMismatches,
+    )) {
+      lines.push(`  missing v3 game ${gameKey}`);
+    }
+    if (cohort.missingLegacyGames.length > options.maxMismatches) {
+      lines.push(
+        `  ... ${cohort.missingLegacyGames.length - options.maxMismatches} more missing v3 games`,
+      );
+    }
+
     for (const mismatch of cohort.mismatches.slice(0, options.maxMismatches)) {
       lines.push(
         `  mismatch ${mismatch.gameKey}: ${formatFieldDiffs(mismatch.fields)}`,

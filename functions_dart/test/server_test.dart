@@ -107,6 +107,78 @@ void main() {
   });
 
   group('executeFixtureDownload tests', () {
+    test('prunes expired backend scoring idempotency records', () async {
+      final mockIdempotencyRef = MockDatabaseReference();
+      final mockSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1',
+        ),
+      ).thenReturn(mockIdempotencyRef);
+      when(() => mockIdempotencyRef.once())
+          .thenAnswer((_) async => mockSnapshot);
+      when(() => mockSnapshot.value).thenReturn({
+        'expired-command': {
+          'status': 'completed',
+          'expiresAt': '2026-07-11T12:00:00Z',
+        },
+        'active-command': {
+          'status': 'completed',
+          'expiresAt': '2026-07-13T12:00:00Z',
+        },
+      });
+      when(() => mockIdempotencyRef.update(any())).thenAnswer((_) async {});
+
+      final prunedCount =
+          await pruneExpiredBackendScoringIdempotencyRecords(
+        compKey: 'comp2026',
+        db: mockDb,
+        now: DateTime.parse('2026-07-12T12:00:00Z'),
+      );
+
+      expect(prunedCount, 1);
+      final capturedUpdates = verify(
+        () => mockIdempotencyRef.update(captureAny()),
+      ).captured.single as Map<dynamic, dynamic>;
+      expect(capturedUpdates, {'expired-command': null});
+    });
+
+    test('prunes expired nested legacy idempotency records', () async {
+      final mockIdempotencyRef = MockDatabaseReference();
+      final mockSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1',
+        ),
+      ).thenReturn(mockIdempotencyRef);
+      when(() => mockIdempotencyRef.once())
+          .thenAnswer((_) async => mockSnapshot);
+      when(() => mockSnapshot.value).thenReturn({
+        'event': {
+          'with': {
+            'slash': {
+              'status': 'completed',
+              'expiresAt': '2026-07-11T12:00:00Z',
+            },
+          },
+        },
+      });
+      when(() => mockIdempotencyRef.update(any())).thenAnswer((_) async {});
+
+      final prunedCount =
+          await pruneExpiredBackendScoringIdempotencyRecords(
+        compKey: 'comp2026',
+        db: mockDb,
+        now: DateTime.parse('2026-07-12T12:00:00Z'),
+      );
+
+      expect(prunedCount, 1);
+      final capturedUpdates = verify(
+        () => mockIdempotencyRef.update(captureAny()),
+      ).captured.single as Map<dynamic, dynamic>;
+      expect(capturedUpdates, {'event/with/slash': null});
+    });
+
     test('non-admin role throws PermissionDeniedError', () async {
       final mockTippersRef = MockDatabaseReference();
       final mockQuery = MockDatabaseReference();
@@ -461,6 +533,22 @@ void main() {
           'sourcePath': '/AllTips/comp2026/tipper-1/nrl-01-001',
           'scopeKey': 'comp:comp2026/game:nrl-01-001/tipper:tipper-1',
           'commandId': 'event-123',
+        }),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects command IDs that are unsafe RTDB keys', () {
+      expect(
+        () => BackendScoringCommand.fromJson({
+          'commandType': 'tipWritten',
+          'compKey': 'comp2026',
+          'tipperId': 'tipper-1',
+          'gameKey': 'nrl-01-001',
+          'sourceEventId': 'event/unsafe',
+          'sourcePath': '/AllTips/comp2026/tipper-1/nrl-01-001',
+          'scopeKey': 'comp:comp2026/game:nrl-01-001/tipper:tipper-1',
+          'commandId': 'event/unsafe',
         }),
         throwsArgumentError,
       );
@@ -906,7 +994,7 @@ void main() {
             'HomeTeam': 'Broncos',
             'AwayTeam': 'Roosters',
             'Location': 'Stadium Future',
-            'DateUtc': '2026-01-04T10:00:00Z',
+            'DateUtc': '2026-01-03T11:00:00Z',
           },
         });
 
@@ -953,6 +1041,7 @@ void main() {
             // the legacy default away tip because this tipper has submitted at
             // least one tip elsewhere in the comp.
             'nrl-02-001': {'r': 'a', 't': 1760000000},
+            'nrl-01-002': {'r': 'a', 't': 1760000002},
           },
           'free-tipper': {
             'nrl-01-001': {'r': 'b', 't': 1760000001},
@@ -1038,11 +1127,17 @@ void main() {
         final freeGameStats = Map<String, dynamic>.from(
           gameUpdates['free/nrl-01-001'] as Map,
         );
-        expect(gameUpdates, isNot(contains('paid/nrl-01-002')));
-        expect(gameUpdates, isNot(contains('free/nrl-01-002')));
+        final paidUnscoredGameStats = Map<String, dynamic>.from(
+          gameUpdates['paid/nrl-01-002'] as Map,
+        );
         expect(paidGameStats['avgScoreTipCount'], 1);
         expect(paidGameStats['pctTipD'], 1.0);
         expect(paidGameStats['pctTipB'], 0.0);
+        expect(paidUnscoredGameStats['avgScore'], 0.0);
+        expect(paidUnscoredGameStats['avgScoreTipCount'], 1);
+        expect(paidUnscoredGameStats['pctTipA'], 1.0);
+        expect(paidUnscoredGameStats['pctTipB'], 0.0);
+        expect(gameUpdates, isNot(contains('free/nrl-01-002')));
         expect(roundUpdates['paid-tipper'], isA<Map>());
         expect(
           Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],
@@ -1449,7 +1544,7 @@ void main() {
         final result = await executeBackendScoringCommand(
           db: mockDb,
           command: command,
-          now: DateTime.parse('2026-01-03T12:00:00Z'),
+          now: DateTime.parse('2026-01-03T09:00:00Z'),
         );
 
         expect(result.skipped, isFalse);
@@ -1462,7 +1557,11 @@ void main() {
         expect(roundUpdates.keys, containsAll(['paid-tipper', 'free-tipper']));
         expect(
           Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],
-          2,
+          0,
+        );
+        expect(
+          Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nTo'],
+          1,
         );
         expect(
           Map<String, dynamic>.from(roundUpdates['free-tipper'] as Map)['nS'],
@@ -1480,6 +1579,7 @@ void main() {
           gameUpdates['paid/nrl-01-001'] as Map,
         );
         expect(paidGameStats['pctTipD'], 1.0);
+        expect(paidGameStats['avgScore'], 2.0);
         expect(paidGameStats['avgScoreTipCount'], 1);
         verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
         verify(() => mockIdempotencyRef.set(any())).called(1);

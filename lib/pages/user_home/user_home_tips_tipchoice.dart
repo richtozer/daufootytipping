@@ -300,34 +300,28 @@ class TipChoice extends StatelessWidget {
     BuildContext context,
   ) {
     var buttonText = '?';
+    double? percentageForOption;
     switch (option) {
       case GameResult.a:
-        buttonText = gameStatsEntry?.percentageTippedHomeMargin != null
-            ? '${(gameStatsEntry!.percentageTippedHomeMargin! * 100).toStringAsFixed(1)}%'
-            : '?';
+        percentageForOption = gameStatsEntry?.percentageTippedHomeMargin;
         break;
       case GameResult.b:
-        buttonText = gameStatsEntry?.percentageTippedHome != null
-            ? '${(gameStatsEntry!.percentageTippedHome! * 100).toStringAsFixed(1)}%'
-            : '?';
+        percentageForOption = gameStatsEntry?.percentageTippedHome;
         break;
       case GameResult.c:
-        buttonText = gameStatsEntry?.percentageTippedDraw != null
-            ? '${(gameStatsEntry!.percentageTippedDraw! * 100).toStringAsFixed(1)}%'
-            : '?';
+        percentageForOption = gameStatsEntry?.percentageTippedDraw;
         break;
       case GameResult.d:
-        buttonText = gameStatsEntry?.percentageTippedAway != null
-            ? '${(gameStatsEntry!.percentageTippedAway! * 100).toStringAsFixed(1)}%'
-            : '?';
+        percentageForOption = gameStatsEntry?.percentageTippedAway;
         break;
       case GameResult.e:
-        buttonText = gameStatsEntry?.percentageTippedAwayMargin != null
-            ? '${(gameStatsEntry!.percentageTippedAwayMargin! * 100).toStringAsFixed(1)}%'
-            : '?';
+        percentageForOption = gameStatsEntry?.percentageTippedAwayMargin;
         break;
       case GameResult.z:
         break;
+    }
+    if (percentageForOption != null) {
+      buttonText = '${(percentageForOption * 100).toStringAsFixed(1)}%';
     }
 
     return ChoiceChip.elevated(
@@ -338,7 +332,7 @@ class TipChoice extends StatelessWidget {
               option
           ? const Icon(Icons.emoji_events, color: Colors.black)
           : null,
-      label: gameStatsEntry?.percentageTippedAwayMargin == null
+      label: percentageForOption == null
           ? const SizedBox(
               width: 20,
               height: 20,

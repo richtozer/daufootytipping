@@ -55,6 +55,7 @@ class BackendScoringCommand {
     final sourcePath = _requireString(json, 'sourcePath');
     final scopeKey = _requireString(json, 'scopeKey');
     final commandId = _requireString(json, 'commandId');
+    _validateRtdbKey(commandId, 'commandId');
 
     switch (commandType) {
       case BackendScoringCommandType.tipWritten:
@@ -204,6 +205,12 @@ String _requireString(Map<String, dynamic> json, String key) {
     return value;
   }
   throw ArgumentError('Missing required field: $key');
+}
+
+void _validateRtdbKey(String value, String key) {
+  if (value.contains(RegExp(r'[.#$/\[\]]'))) {
+    throw ArgumentError('$key contains characters that are invalid in RTDB keys');
+  }
 }
 
 String? _optionalString(Map<String, dynamic> json, String key) {
