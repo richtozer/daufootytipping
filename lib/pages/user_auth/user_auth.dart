@@ -293,7 +293,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                 children: [
                   const Text(
                     'Welcome! To get started, pick a unique tipper alias. '
-                    'This is the name other players will see you as in the '
+                    'This is the name other tippers will see you as in the '
                     'competition.',
                   ),
                   const SizedBox(height: 8),
