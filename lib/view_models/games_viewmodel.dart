@@ -212,6 +212,9 @@ class GamesViewModel extends ChangeNotifier {
   }
 
   final Map<String, dynamic> updates = {};
+  static const Set<String> _ignoredFixtureAttributes = <String>{
+    'Winner',
+  };
 
   Future<void> updateGameAttribute(
     String gameDbKey,
@@ -220,6 +223,10 @@ class GamesViewModel extends ChangeNotifier {
     String league,
   ) async {
     await initialLoadComplete;
+
+    if (_ignoredFixtureAttributes.contains(attributeName)) {
+      return;
+    }
 
     //make sure the related team records exist
     if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
@@ -236,7 +243,11 @@ class GamesViewModel extends ChangeNotifier {
     Game? gameToUpdate = await findGame(gameDbKey);
     if (gameToUpdate != null) {
       dynamic oldValue = gameToUpdate.toJson()[attributeName];
-      if (attributeValue != oldValue) {
+      if (_fixtureAttributeDiffers(
+        attributeName,
+        oldValue,
+        attributeValue,
+      )) {
         log(
           'Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue',
         );
@@ -269,6 +280,26 @@ class GamesViewModel extends ChangeNotifier {
       updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
           attributeValue;
     }
+  }
+
+  bool _fixtureAttributeDiffers(
+    String attributeName,
+    dynamic oldValue,
+    dynamic newValue,
+  ) {
+    if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
+      return _normalizedFixtureText(oldValue) != _normalizedFixtureText(newValue);
+    }
+    return oldValue != newValue;
+  }
+
+  String _normalizedFixtureText(dynamic value) {
+    return value
+        ?.toString()
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .toLowerCase() ??
+        '';
   }
 
   Future<void> saveBatchOfGameAttributes() async {

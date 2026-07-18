@@ -13,6 +13,18 @@ class GameUpdate {
 class FixtureImportApplier {
   const FixtureImportApplier();
 
+  static const Set<String> _persistedGameAttributeKeys = <String>{
+    'League',
+    'HomeTeam',
+    'AwayTeam',
+    'Location',
+    'DateUtc',
+    'RoundNumber',
+    'MatchNumber',
+    'HomeTeamScore',
+    'AwayTeamScore',
+  };
+
   List<GameUpdate> buildGameUpdates(List<dynamic> nrlGames, List<dynamic> aflGames) {
     final updates = <GameUpdate>[];
 
@@ -24,7 +36,19 @@ class FixtureImportApplier {
           GameUpdate(
             dbkey: dbkey,
             league: league,
-            attributes: Map<String, dynamic>.from(gamejson),
+            attributes: Map<String, dynamic>.fromEntries(
+              gamejson.entries
+                  .where(
+                    (entry) =>
+                        _persistedGameAttributeKeys.contains(entry.key.toString()),
+                  )
+                  .map(
+                    (entry) => MapEntry<String, dynamic>(
+                      entry.key.toString(),
+                      entry.value,
+                    ),
+                  ),
+            ),
           ),
         );
       }
