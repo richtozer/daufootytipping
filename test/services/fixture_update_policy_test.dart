@@ -6,7 +6,7 @@ import 'package:daufootytipping/services/fixture_update_policy.dart';
 
 void main() {
   group('FixtureUpdatePolicy.shouldStartDailyTimer', () {
-    test('only starts for non-web, non-admin mode, admin role', () {
+    test('never starts the daily timer', () {
       const policy = FixtureUpdatePolicy();
 
       expect(
@@ -15,7 +15,7 @@ void main() {
           isAdminMode: false,
           authenticatedRole: TipperRole.admin,
         ),
-        isTrue,
+        isFalse,
       );
 
       expect(
@@ -89,4 +89,3 @@ void main() {
     });
   });
 }
-

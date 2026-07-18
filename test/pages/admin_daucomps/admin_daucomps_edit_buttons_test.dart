@@ -7,11 +7,15 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
 class MockStatsViewModel extends Mock implements StatsViewModel {}
+class MockDatabaseReference extends Mock implements DatabaseReference {}
+class MockDatabaseEvent extends Mock implements DatabaseEvent {}
+class MockDataSnapshot extends Mock implements DataSnapshot {}
 
 void main() {
   late MockDAUCompsViewModel dauCompsViewModel;
@@ -32,6 +36,9 @@ void main() {
 
     when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
     when(() => dauCompsViewModel.isDownloading).thenReturn(false);
+    when(
+      () => dauCompsViewModel.lastFixtureDownloadRanViaCloudFunction,
+    ).thenReturn(false);
     when(
       () => dauCompsViewModel.getNetworkFixtureData(comp),
     ).thenAnswer((_) async => 'Fixture download complete.');
@@ -244,7 +251,7 @@ void main() {
     expect(disableBackStates.last, false);
   });
 
-  testWidgets('can turn on fixture download before running admin update', (
+  testWidgets('runs UI scoring after local fixture download', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -281,6 +288,48 @@ void main() {
         rebuildGameStats: true,
       ),
     ).called(1);
+  });
+
+  testWidgets('skips UI scoring after backend fixture download', (
+    tester,
+  ) async {
+    when(
+      () => dauCompsViewModel.lastFixtureDownloadRanViaCloudFunction,
+    ).thenReturn(true);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Download fixtures'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
+
+    verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
+    verifyNever(() => statsViewModel.prepareFreshAdminScoringInputs(comp));
+    verifyNever(
+      () => statsViewModel.updateStatsWithReport(
+        comp,
+        null,
+        null,
+        rebuildGameStats: true,
+      ),
+    );
+    expect(find.text('Fixture download complete.'), findsOneWidget);
   });
 
   testWidgets('shows progress dialog while manual admin update is running', (
@@ -398,5 +447,79 @@ void main() {
 
     expect(find.text('Rescore complete'), findsOneWidget);
     expect(find.text('No scoring changes detected.'), findsOneWidget);
+  });
+
+  testWidgets('shows applied fixture status from the new schema', (tester) async {
+    final mockStatusRef = MockDatabaseReference();
+    final mockStatusEvent = MockDatabaseEvent();
+    final mockStatusSnapshot = MockDataSnapshot();
+    final controller = StreamController<DatabaseEvent>();
+    final now = DateTime.now().toUtc();
+
+    when(() => mockStatusRef.onValue).thenAnswer((_) => controller.stream);
+    when(() => mockStatusEvent.snapshot).thenReturn(mockStatusSnapshot);
+    when(() => mockStatusSnapshot.value).thenReturn({
+      'state': 'applied',
+      'lastCheckedAt': now.subtract(const Duration(hours: 3)).toIso8601String(),
+      'lastAppliedAt': now.subtract(const Duration(days: 1)).toIso8601String(),
+      'message': 'Fixture data loaded.',
+    });
+
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FixtureDownloadStatusBanner(
+            comp: comp,
+            statusReference: mockStatusRef,
+          ),
+        ),
+      ),
+    );
+
+    controller.add(mockStatusEvent);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fixture changes applied'), findsOneWidget);
+    expect(find.textContaining('Fixture changes last applied 1 day ago.'), findsOneWidget);
+  });
+
+  testWidgets('shows nothing_to_do status from the new schema', (tester) async {
+    final mockStatusRef = MockDatabaseReference();
+    final mockStatusEvent = MockDatabaseEvent();
+    final mockStatusSnapshot = MockDataSnapshot();
+    final controller = StreamController<DatabaseEvent>();
+    final now = DateTime.now().toUtc();
+
+    when(() => mockStatusRef.onValue).thenAnswer((_) => controller.stream);
+    when(() => mockStatusEvent.snapshot).thenReturn(mockStatusSnapshot);
+    when(() => mockStatusSnapshot.value).thenReturn({
+      'state': 'nothing_to_do',
+      'lastCheckedAt': now.subtract(const Duration(hours: 2)).toIso8601String(),
+      'message': 'No started games without fixture results were found.',
+    });
+
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FixtureDownloadStatusBanner(
+            comp: comp,
+            statusReference: mockStatusRef,
+          ),
+        ),
+      ),
+    );
+
+    controller.add(mockStatusEvent);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nothing to do'), findsOneWidget);
+    expect(
+      find.textContaining('Last checked 2 hours ago.'),
+      findsOneWidget,
+    );
   });
 }

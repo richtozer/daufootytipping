@@ -49,6 +49,11 @@ Future<void> main() async {
       : (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
       ? '10.0.2.2'
       : 'localhost';
+  final String? cloudFunctionsBaseURLOverride =
+      DAUCompsViewModel.resolveDefaultCloudFunctionsBaseURLOverride(
+        useFirebaseEmulators: useFirebaseEmulators,
+        configuredFirebaseEmulatorHost: firebaseEmulatorHost,
+      );
 
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,9 +91,7 @@ Future<void> main() async {
   final FirebaseDatabase database = FirebaseDatabase.instance;
   if (kDebugMode && useFirebaseEmulators) {
     database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
-    log('Database emulator started on $firebaseEmulatorHost:8000');
     FirebaseFunctions.instance.useFunctionsEmulator(firebaseEmulatorHost, 9229);
-    log('Functions emulator configured on $firebaseEmulatorHost:9229');
     StartupProfiling.instant(
       'startup.database_configured',
       arguments: <String, Object?>{
@@ -200,7 +203,9 @@ Future<void> main() async {
   // use emulator for firestore document collection when in debug mode
   if (kDebugMode && useFirebaseEmulators) {
     FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8081);
-    log('Firestore emulator started on $firebaseEmulatorHost:8081');
+    log(
+      'Firebase emulators configured: database=$firebaseEmulatorHost:8000, functions=$firebaseEmulatorHost:9229, firestore=$firebaseEmulatorHost:8081',
+    );
   } else if (kDebugMode) {
     log(
       'Firestore emulator disabled for debug build (USE_FIREBASE_EMULATORS=false).',
@@ -219,14 +224,21 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SearchQueryProvider()),
         ChangeNotifierProvider(create: (context) => ConfigViewModel()),
       ],
-      child: MyApp(),
+      child: MyApp(
+        cloudFunctionsBaseURLOverride: cloudFunctionsBaseURLOverride,
+      ),
     ),
   );
   StartupProfiling.instant('startup.run_app_called');
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({
+    super.key,
+    this.cloudFunctionsBaseURLOverride,
+  });
+
+  final String? cloudFunctionsBaseURLOverride;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -301,6 +313,8 @@ class _MyAppState extends State<MyApp> {
           activeCompKey,
           false,
           useBackendScoringBranches: useBackendScoringBranches,
+          cloudFunctionsBaseURLOverride:
+              widget.cloudFunctionsBaseURLOverride,
         ),
       );
     }

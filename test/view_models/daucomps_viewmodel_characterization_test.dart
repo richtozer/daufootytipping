@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:flutter/foundation.dart';
 
 void main() {
   group('DAUCompsViewModel (characterization)', () {
@@ -128,6 +129,116 @@ void main() {
       final key = '/AllDAUComps/comp123/name';
       expect(vm.updates.containsKey(key), isTrue);
       expect(vm.updates[key], 'My Comp');
+    });
+
+    test('parseCloudFunctionsBaseURLValue accepts nested map values', () {
+      expect(
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue({
+          'value': 'https://example.com',
+        }),
+        'https://example.com',
+      );
+      expect(
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue({
+          '.value': 'https://example.org',
+        }),
+        'https://example.org',
+      );
+      expect(
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue('  https://example.net  '),
+        'https://example.net',
+      );
+      expect(
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue({'value': null}),
+        isNull,
+      );
+      expect(
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue('1.3.9'),
+        isNull,
+      );
+      expect(
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue({
+          'value': '1.3.9',
+        }),
+        isNull,
+      );
+    });
+
+    test('resolveCloudFunctionsBaseURLValue prefers override over config', () {
+      expect(
+        DAUCompsViewModel.resolveCloudFunctionsBaseURLValue(
+          configValue: 'https://example.com',
+          overrideValue: 'http://localhost:9229',
+        ),
+        'http://localhost:9229',
+      );
+      expect(
+        DAUCompsViewModel.resolveCloudFunctionsBaseURLValue(
+          configValue: 'https://example.com',
+          overrideValue: '1.3.9',
+        ),
+        'https://example.com',
+      );
+      expect(
+        DAUCompsViewModel.resolveCloudFunctionsBaseURLValue(
+          configValue: '1.3.9',
+          overrideValue: null,
+        ),
+        isNull,
+      );
+    });
+
+    test('resolveDefaultCloudFunctionsBaseURLOverride uses emulator host', () {
+      expect(
+        DAUCompsViewModel.resolveDefaultCloudFunctionsBaseURLOverride(
+          useFirebaseEmulators: true,
+          configuredFirebaseEmulatorHost: 'localhost',
+          isDebugMode: true,
+          isWeb: false,
+          targetPlatform: TargetPlatform.iOS,
+        ),
+        'http://localhost:9229/dau-footy-tipping-f8a42/asia-southeast1',
+      );
+      expect(
+        DAUCompsViewModel.resolveDefaultCloudFunctionsBaseURLOverride(
+          useFirebaseEmulators: true,
+          configuredFirebaseEmulatorHost: '',
+          isDebugMode: true,
+          isWeb: false,
+          targetPlatform: TargetPlatform.android,
+        ),
+        'http://10.0.2.2:9229/dau-footy-tipping-f8a42/asia-southeast1',
+      );
+      expect(
+        DAUCompsViewModel.resolveDefaultCloudFunctionsBaseURLOverride(
+          useFirebaseEmulators: false,
+          configuredFirebaseEmulatorHost: 'localhost',
+          isDebugMode: true,
+          isWeb: false,
+          targetPlatform: TargetPlatform.iOS,
+        ),
+        isNull,
+      );
+    });
+
+    test('cloudFunctionFixtureDownloadMessage handles response shapes', () {
+      expect(
+        DAUCompsViewModel.cloudFunctionFixtureDownloadMessage({
+          'success': true,
+          'message': 'Downloaded fixtures',
+        }),
+        'Downloaded fixtures',
+      );
+      expect(
+        DAUCompsViewModel.cloudFunctionFixtureDownloadMessage({
+          'success': true,
+        }),
+        'Successfully updated fixtures via Cloud Function',
+      );
+      expect(
+        DAUCompsViewModel.cloudFunctionFixtureDownloadMessage(null),
+        'Successfully updated fixtures via Cloud Function',
+      );
     });
   });
 }
