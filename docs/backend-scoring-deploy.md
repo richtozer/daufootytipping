@@ -25,6 +25,13 @@ The Dart worker requires:
 BACKEND_SCORING_COMMAND_SECRET=<shared secret>
 ```
 
+The scheduled fixture-download wrapper additionally requires the deployed Dart
+fixture endpoint URL:
+
+```text
+DART_FIXTURE_DOWNLOAD_COMMAND_URL=<deployed scheduled fixture download URL>
+```
+
 The TypeScript wrapper functions require:
 
 ```text

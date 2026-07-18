@@ -1,9 +1,9 @@
 # Design: Dart-Only Backend Migration for Fixture Download and Scoring
 
 ## Status
-- Production migration is deferred until Firebase supports the required deployable Dart trigger types.
-- No partial TypeScript implementation will be built.
-- Near-term work is limited to preparation and, optionally, a narrowly scoped experimental admin callable in Dart.
+- Production fixture download now uses a TypeScript scheduler wrapper that forwards to a Dart HTTP endpoint.
+- The Dart-side scheduled entrypoint is production-safe HTTP, not Dart `onSchedule`.
+- Full Dart trigger migration for scoring remains a future phase.
 
 ## Summary
 The project will move fixture download and scoring to Firebase Cloud Functions only in Dart.
@@ -39,9 +39,9 @@ As of the current Firebase Dart Functions docs:
 - the trigger types needed for the full migration are not yet ready for production use
 
 Implication:
-- full backend migration is not ready yet
-- optional experimental callables may be possible
-- scheduled and event-triggered production migration should wait
+- the full Dart trigger migration is still not ready
+- cron-driven fixture download can be implemented safely through an HTTP endpoint
+- event-triggered production migration should still wait
 
 ## End-State Architecture
 When Firebase supports the required Dart triggers, the end state is:
