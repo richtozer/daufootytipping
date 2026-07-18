@@ -43,7 +43,6 @@ class TipsTabState extends State<TipsTab> {
 
   @override
   void initState() {
-    log('TipsPageBody.constructor()');
     super.initState();
 
     focusNode = FocusNode();
@@ -96,7 +95,6 @@ class TipsTabState extends State<TipsTab> {
   void _syncSelectedCompState() {
     final selectedComp = daucompsViewModel.selectedDAUComp;
     if (selectedComp == null) {
-      log('TipsPageBody._syncSelectedCompState() selectedDAUComp is null');
       return;
     }
 
@@ -433,10 +431,7 @@ class TipsTabState extends State<TipsTab> {
 
   @override
   Widget build(BuildContext context) {
-    log('TipsPageBody.build()');
-
     if (_showLoadingPlaceholder || daucompsViewModel.selectedDAUComp == null) {
-      log('TipsPageBody.build() selectedDAUComp is null; waiting for load');
       return const Center(
         child: CircularProgressIndicator(color: Colors.orange),
       );

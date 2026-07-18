@@ -32,8 +32,6 @@ class FirebaseMessagingService {
 
   Future<void> _initializeFirebaseMessagingInternal() async {
     try {
-      log('Initializing Firebase messaging');
-
       if (Platform.isIOS) {
         await _requestIOSNotificationPermission();
       }
@@ -46,7 +44,7 @@ class FirebaseMessagingService {
 
       // Listening for token refresh events
       _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-        log('New messaging token received, updating database: $newToken');
+        log('New messaging token received, updating database.');
         _fbmToken = newToken;
         await _saveTokenToDatabase(newToken);
       });
@@ -69,7 +67,6 @@ class FirebaseMessagingService {
     try {
       _fbmToken = await _firebaseMessaging.getToken();
       if (_fbmToken != null) {
-        log('Firebase messaging token: $_fbmToken');
         await _saveTokenToDatabase(_fbmToken!);
       } else {
         log('Firebase token is null');
@@ -81,7 +78,6 @@ class FirebaseMessagingService {
         await Future.delayed(const Duration(seconds: 5));
         _fbmToken = await _firebaseMessaging.getToken();
         if (_fbmToken != null) {
-          log('Firebase messaging token after retry: $_fbmToken');
           await _saveTokenToDatabase(_fbmToken!);
         } else {
           log('Firebase token is null after retry');

@@ -682,7 +682,6 @@ class StatsViewModel extends ChangeNotifier {
               );
               if (!hasSubmitted) {
                 tippersToRemove.add(tipper);
-                log('Tipper ${tipper.name} did not submit tips. Removing.');
               }
             }),
           );
@@ -690,6 +689,11 @@ class StatsViewModel extends ChangeNotifier {
           tippersToUpdate.removeWhere(
             (tipper) => tippersToRemove.contains(tipper),
           );
+          if (tippersToRemove.isNotEmpty) {
+            log(
+              'StatsViewModel.updateStats() Excluded ${tippersToRemove.length} tippers without submitted tips.',
+            );
+          }
         } else {
           final currentSelectedTipperTipsViewModel =
               di<DAUCompsViewModel>().selectedTipperTipsViewModel;
