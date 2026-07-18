@@ -43,16 +43,10 @@ void main() {
       () => dauCompsViewModel.getNetworkFixtureData(comp),
     ).thenAnswer((_) async => 'Fixture download complete.');
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
-    when(() => statsViewModel.adminDatabaseRefreshStatus).thenReturn(
-      const AdminDatabaseRefreshStatus.unknown(),
-    );
     when(() => statsViewModel.scoringProgressMessage).thenReturn(null);
     when(() => statsViewModel.scoringProgressValue).thenReturn(null);
     when(() => statsViewModel.addListener(any())).thenReturn(null);
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
-    when(
-      () => statsViewModel.prepareFreshAdminScoringInputs(comp),
-    ).thenAnswer((_) async {});
     when(
       () => statsViewModel.updateStatsWithReport(
         comp,
@@ -234,9 +228,6 @@ void main() {
     expect(find.textContaining('Total 2 -> 2'), findsNothing);
     verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
     verify(
-      () => statsViewModel.prepareFreshAdminScoringInputs(comp),
-    ).called(1);
-    verify(
       () => statsViewModel.updateStatsWithReport(
         comp,
         null,
@@ -278,9 +269,6 @@ void main() {
 
     verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
     verify(
-      () => statsViewModel.prepareFreshAdminScoringInputs(comp),
-    ).called(1);
-    verify(
       () => statsViewModel.updateStatsWithReport(
         comp,
         null,
@@ -320,7 +308,6 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
-    verifyNever(() => statsViewModel.prepareFreshAdminScoringInputs(comp));
     verifyNever(
       () => statsViewModel.updateStatsWithReport(
         comp,
@@ -383,30 +370,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Rescore complete'), findsOneWidget);
-  });
-
-  testWidgets('shows database status next to the admin update button', (
-    tester,
-  ) async {
-    when(() => statsViewModel.adminDatabaseRefreshStatus).thenReturn(
-      AdminDatabaseRefreshStatus.fresh(DateTime.utc(2026, 6, 1, 7)),
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: AdminDaucompsEditScoringButton(
-            dauCompsViewModel: dauCompsViewModel,
-            daucomp: comp,
-            setStateCallback: (_) {},
-            onDisableBack: (_) {},
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('Run Updates'), findsOneWidget);
-    expect(find.text('Ready'), findsOneWidget);
   });
 
   testWidgets('shows the no-changes wording once', (tester) async {

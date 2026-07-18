@@ -125,12 +125,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           OutlinedButton(onPressed: null, child: Text('Run Updates')),
-          SizedBox(width: 8),
-          _AdminDatabaseStatusIndicator(
-            status: AdminDatabaseRefreshStatus.failed(
-              'Stats view model unavailable.',
-            ),
-          ),
         ],
       );
     }
@@ -141,8 +135,7 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
         final isWebPlatform = kIsWeb;
         final isBusy =
             dauCompsViewModel.isDownloading ||
-            statsViewModel.isUpdateScoringRunning ||
-            statsViewModel.adminDatabaseRefreshStatus.isChecking;
+            statsViewModel.isUpdateScoringRunning;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -253,11 +246,8 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                         } else if (selectedSteps.recalculateScoring) {
                           log('AdminDaucompsEditScoringButton: starting scoring update step.');
                           adminProgress.value = const AdminUpdateProgress(
-                            'Refreshing database sources...',
+                            'Updating scores...',
                             null,
-                          );
-                          await statsViewModel.prepareFreshAdminScoringInputs(
-                            daucomp!,
                           );
                           report = await statsViewModel.updateStatsWithReport(
                             daucomp!,
@@ -335,10 +325,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                     },
                   child: Text(!isBusy ? 'Run Updates' : 'Updating...'),
                 ),
-                const SizedBox(width: 8),
-                _AdminDatabaseStatusIndicator(
-                  status: statsViewModel.adminDatabaseRefreshStatus,
-                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -351,82 +337,9 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
 }
 
 String _adminUpdateErrorMessage(Object error, bool wasScoringSelected) {
-  if (wasScoringSelected &&
-      (error is TimeoutException ||
-          error is StateError ||
-          error.toString().contains('Database freshness check failed'))) {
-    return 'Could not confirm the latest data. Check the connection and try again.';
-  }
-
   return wasScoringSelected
       ? 'Could not update scores. Please try again.'
       : 'Could not complete the update. Please try again.';
-}
-
-class _AdminDatabaseStatusIndicator extends StatelessWidget {
-  final AdminDatabaseRefreshStatus status;
-
-  const _AdminDatabaseStatusIndicator({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (icon, color, label, tooltip) = switch (status.state) {
-      AdminDatabaseRefreshState.unknown => (
-        Icons.help_outline,
-        Colors.grey,
-        'Not checked',
-        'The app will check for fresh data before updating scores.',
-      ),
-      AdminDatabaseRefreshState.checking => (
-        Icons.sync,
-        Colors.blue,
-        'Checking',
-        'Checking that the latest data is available.',
-      ),
-      AdminDatabaseRefreshState.fresh => (
-        Icons.cloud_done_outlined,
-        Colors.green,
-        'Ready',
-        'Latest data confirmed.',
-      ),
-      AdminDatabaseRefreshState.blocked => (
-        Icons.cloud_off_outlined,
-        Colors.orange,
-        'Try again',
-        'Latest data could not be confirmed. Check the connection and try again.',
-      ),
-      AdminDatabaseRefreshState.failed => (
-        Icons.error_outline,
-        Colors.red,
-        'Needs attention',
-        'The update could not start. Check the connection and try again.',
-      ),
-    };
-
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-          borderRadius: BorderRadius.circular(6),
-          color: color.withValues(alpha: 0.08),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(color: color),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class FixtureDownloadStatusBanner extends StatelessWidget {
