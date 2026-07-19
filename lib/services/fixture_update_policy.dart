@@ -9,10 +9,7 @@ class FixtureUpdatePolicy {
     required bool isAdminMode,
     required TipperRole? authenticatedRole,
   }) {
-    if (isWeb) return false;
-    if (isAdminMode) return false;
-    if (authenticatedRole != TipperRole.admin) return false;
-    return true;
+    return false;
   }
 
   bool shouldTriggerFixtureUpdate({
@@ -26,4 +23,3 @@ class FixtureUpdatePolicy {
     return now.difference(last).inHours >= threshold.inHours;
   }
 }
-

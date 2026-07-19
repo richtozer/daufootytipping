@@ -36,6 +36,8 @@ class FakeTipper extends Fake implements Tipper {}
 
 class FakeGame extends Fake implements Game {}
 
+class FakeTeam extends Fake implements Team {}
+
 void main() {
   late MockDatabaseReference rootDb;
   late MockDatabaseReference gamesRef;
@@ -76,6 +78,7 @@ void main() {
     registerFallbackValue(FakeDAURound());
     registerFallbackValue(FakeTipper());
     registerFallbackValue(FakeGame());
+    registerFallbackValue(FakeTeam());
   });
 
   setUp(() async {
@@ -127,6 +130,7 @@ void main() {
     when(() => teamsViewModel.initialLoadComplete).thenAnswer((_) async {});
     when(() => teamsViewModel.findTeam('nrl-Home')).thenReturn(homeTeam);
     when(() => teamsViewModel.findTeam('nrl-Away')).thenReturn(awayTeam);
+    when(() => teamsViewModel.addTeam(any())).thenAnswer((_) async {});
 
     when(() => statsViewModel.getGamesStatsEntry(any(), any())).thenReturn(null);
 
@@ -426,6 +430,50 @@ void main() {
       await saveFuture;
 
       expect(updateStatsCallCount, 2);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'updateGameAttribute ignores Winner and team-name casing changes',
+    () async {
+      final viewModel = GamesViewModel(
+        comp,
+        dauCompsViewModel,
+        teamsViewModel: teamsViewModel,
+        database: rootDb,
+        postWriteRefreshTimeout: const Duration(milliseconds: 50),
+      );
+
+      await settleAsyncWork();
+      gamesController.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-01-001': gameJson(homeScore: 10, awayScore: 8),
+            },
+          ),
+        ),
+      );
+      await viewModel.initialLoadComplete;
+      await settleAsyncWork();
+
+      await viewModel.updateGameAttribute(
+        'nrl-01-001',
+        'Winner',
+        'Home',
+        'nrl',
+      );
+      await viewModel.updateGameAttribute(
+        'nrl-01-001',
+        'AwayTeam',
+        'AWAY',
+        'nrl',
+      );
+
+      expect(viewModel.updates, isEmpty);
 
       viewModel.dispose();
     },

@@ -11,7 +11,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
-import 'package:daufootytipping/services/realtime_connection_service.dart';
 import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -348,25 +347,8 @@ class GameTipViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['${p.tipsPathRoot}/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
-      final connectionService = di<RealtimeConnectionService>();
-      final isOffline = connectionService.isOffline;
-      if (isOffline) {
-        unawaited(
-          _db
-              .update(updates)
-              .then((_) {
-                log('offline tip write acknowledged: ${updates.toString()}');
-                connectionService.markServerWriteAcknowledged();
-              })
-              .catchError((error) {
-                log('offline tip write failed after local save: $error');
-              }),
-        );
-        log('new tip saved locally while offline: ${updates.toString()}');
-      } else {
-        await _db.update(updates);
-        log('new tip submitted: ${updates.toString()}');
-      }
+      await _db.update(updates);
+      log('new tip submitted: ${updates.toString()}');
 
       _tip = tip; // update the tip with the new tip
 
@@ -383,13 +365,6 @@ class GameTipViewModel extends ChangeNotifier {
 
       // Log the tip in Firestore
       _addLogOfTipToFirestore(tip);
-
-      if (isOffline) {
-        log(
-          'GameTipsViewModel.addTip() saved tip locally while offline. Backend scoring will update after reconnect.',
-        );
-        return;
-      }
 
       // Wait for the database change event to update the in-memory cache
       // This ensures stats calculations use current data, not stale cache

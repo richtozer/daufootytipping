@@ -74,6 +74,18 @@
       "toolArgs": [
         "--dart-define=STARTUP_PROFILING=true"
       ]
+    },
+    {
+      "name": "Flutter iPhone 17 + Firebase emulators",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "deviceId": "047F88B3-AE7C-4E57-A87C-859B6CA6DFDC",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=USE_FIREBASE_EMULATORS=true",
+        "--dart-define=FIREBASE_EMULATOR_HOST=localhost"
+      ]
     }
   ]
 }

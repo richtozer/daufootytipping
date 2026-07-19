@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -10,8 +11,13 @@ import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
-void logFunction(String message) =>
-    developer.log(message, name: 'adminFixtureDownload');
+void logFunction(String message) {
+  stdout.writeln('[adminFixtureDownload] $message');
+}
+
+void logScheduledFixtureDownload(String message) {
+  stdout.writeln('[scheduledFixtureDownload] $message');
+}
 
 const _fixtureDownloadOptions = CallableOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
@@ -22,7 +28,12 @@ const _backendScoringCommandOptions = HttpsOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
   timeoutSeconds: TimeoutSeconds(300),
 );
+const _scheduledFixtureDownloadOptions = HttpsOptions(
+  region: Region(SupportedRegion.asiaSoutheast1),
+  timeoutSeconds: TimeoutSeconds(300),
+);
 const int _idempotencyPruneLimit = 500;
+const Duration _fixtureDownloadLockTtl = Duration(minutes: 10);
 
 void main(List<String> args) async {
   await runFunctions((firebase) {
@@ -43,15 +54,12 @@ void main(List<String> args) async {
         final uid = auth.uid;
         logFunction('adminFixtureDownload: auth uid=$uid');
 
-        // 2. Initialize the legacy RTDB Admin client using the Functions
-        // runtime app credentials.
-        final adminApp = _initializeLegacyAdminApp(runtimeAdminApp);
-
-        final db = adminApp.database();
+        final dbHandle = await _openBackendScoringDatabase(
+          runtimeAdminApp: runtimeAdminApp,
+        );
 
         try {
-          final data = request.data as Map<String, dynamic>?;
-          final compKey = data?['compKey'] as String?;
+          final compKey = extractAdminFixtureDownloadCompKey(request.data);
           logFunction('adminFixtureDownload: compKey=$compKey');
           if (compKey == null || compKey.isEmpty) {
             throw InvalidArgumentError('Missing required parameter: compKey');
@@ -60,18 +68,28 @@ void main(List<String> args) async {
           final resultMsg = await executeFixtureDownload(
             authUid: uid,
             compKey: compKey,
-            db: db,
+            db: dbHandle.database,
             fetchFixtureJson: _fetchFixtureJson,
             now: DateTime.now().toUtc(),
+            afterSuccessfulDownload: (comp, now) => _afterSuccessfulFixtureDownload(
+              db: dbHandle.database,
+              comp: comp,
+              now: now,
+            ),
           );
 
           return CallableResult({
             'success': true,
             'message': resultMsg,
           });
+        } on HttpsError catch (e) {
+          logFunction('adminFixtureDownload: callable error: $e');
+          rethrow;
+        } catch (e, stackTrace) {
+          logFunction('adminFixtureDownload: unexpected failure: $e\n$stackTrace');
+          rethrow;
         } finally {
-          // Dispose of admin app
-          await adminApp.delete();
+          await dbHandle.close();
         }
       },
     );
@@ -84,7 +102,24 @@ void main(List<String> args) async {
         runtimeAdminApp: runtimeAdminApp,
       ),
     );
+
+    firebase.https.onRequest(
+      name: 'scheduledFixtureDownload',
+      options: _scheduledFixtureDownloadOptions,
+      (request) => _handleScheduledFixtureDownloadRequestWithRuntimeApp(
+        request,
+        runtimeAdminApp: runtimeAdminApp,
+      ),
+    );
   });
+}
+
+String? extractAdminFixtureDownloadCompKey(Object? data) {
+  if (data is! Map) {
+    return null;
+  }
+  final compKey = data['compKey'];
+  return compKey is String ? compKey : null;
 }
 
 String resolveProjectId({Map<String, String>? environment}) {
@@ -128,11 +163,29 @@ const List<String> _backendScoringCommandSecretEnvKeys = [
   'DART_BACKEND_SCORING_COMMAND_SECRET',
 ];
 
+const List<String> _backendScoringCommandUrlEnvKeys = [
+  'BACKEND_SCORING_COMMAND_URL',
+  'DART_BACKEND_SCORING_COMMAND_URL',
+];
+
 String? resolveBackendScoringCommandSecret({
   Map<String, String>? environment,
 }) {
   final env = environment ?? Platform.environment;
   for (final key in _backendScoringCommandSecretEnvKeys) {
+    final value = env[key];
+    if (value != null && value.isNotEmpty) {
+      return value;
+    }
+  }
+  return null;
+}
+
+String? resolveBackendScoringCommandUrl({
+  Map<String, String>? environment,
+}) {
+  final env = environment ?? Platform.environment;
+  for (final key in _backendScoringCommandUrlEnvKeys) {
     final value = env[key];
     if (value != null && value.isNotEmpty) {
       return value;
@@ -154,7 +207,22 @@ bool isBackendScoringCommandAuthorized(
     headers,
     _backendScoringCommandSecretHeader,
   );
-  return providedSecret != null && providedSecret == secret;
+  return _constantTimeStringEquals(providedSecret, secret);
+}
+
+bool _constantTimeStringEquals(String? left, String right) {
+  if (left == null) {
+    return false;
+  }
+
+  var diff = left.length ^ right.length;
+  final maxLength = left.length > right.length ? left.length : right.length;
+  for (var i = 0; i < maxLength; i++) {
+    final leftUnit = i < left.length ? left.codeUnitAt(i) : 0;
+    final rightUnit = i < right.length ? right.codeUnitAt(i) : 0;
+    diff |= leftUnit ^ rightUnit;
+  }
+  return diff == 0;
 }
 
 String? _headerValueCaseInsensitive(
@@ -300,6 +368,379 @@ Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
   }
 }
 
+Future<Response> _handleScheduledFixtureDownloadRequestWithRuntimeApp(
+  dynamic request, {
+  required dynamic runtimeAdminApp,
+}) async {
+  try {
+    logScheduledFixtureDownload('request received');
+    if (request.method.toUpperCase() != 'POST') {
+      return _backendScoringErrorResponse(
+        405,
+        'METHOD_NOT_ALLOWED',
+        'Method not allowed',
+      );
+    }
+
+    final commandSecret = resolveBackendScoringCommandSecret();
+    if (commandSecret == null || commandSecret.isEmpty) {
+      logScheduledFixtureDownload('backend command secret is not configured');
+      return _backendScoringErrorResponse(
+        400,
+        'FAILED_PRECONDITION',
+        'Backend command secret is not configured',
+      );
+    }
+
+    final headers = normalizeHttpHeaders(request.headers);
+    if (!isBackendScoringCommandAuthorized(
+      headers,
+      expectedSecret: commandSecret,
+    )) {
+      logScheduledFixtureDownload('request authorization failed');
+      throw PermissionDeniedError('Unauthorized scheduled fixture request');
+    }
+    logScheduledFixtureDownload('request authorized; opening database');
+
+    final dbHandle = await _openBackendScoringDatabase(
+      runtimeAdminApp: runtimeAdminApp,
+    );
+    logScheduledFixtureDownload('database opened');
+    try {
+      final result = await executeScheduledFixtureDownload(
+        db: dbHandle.database,
+        fetchFixtureJson: _fetchFixtureJson,
+        now: DateTime.now().toUtc(),
+        afterSuccessfulDownload: (comp, now) => _afterSuccessfulFixtureDownload(
+          db: dbHandle.database,
+          comp: comp,
+          now: now,
+        ),
+      );
+      logScheduledFixtureDownload(
+        'completed with status=${result.outcome.apiValue}',
+      );
+      return Response.ok(
+        jsonEncode(<String, dynamic>{
+          'success': true,
+          'status': result.outcome.apiValue,
+          'message': result.message,
+        }),
+        headers: _jsonHeaders,
+      );
+    } finally {
+      await dbHandle.close();
+    }
+  } on PermissionDeniedError catch (error) {
+    return _backendScoringErrorResponse(
+      403,
+      'PERMISSION_DENIED',
+      error.toString(),
+    );
+  } on InvalidArgumentError catch (error) {
+    return _backendScoringErrorResponse(
+      400,
+      'INVALID_ARGUMENT',
+      error.toString(),
+    );
+  } on UnauthenticatedError catch (error) {
+    return _backendScoringErrorResponse(
+      401,
+      'UNAUTHENTICATED',
+      error.toString(),
+    );
+  } on NotFoundError catch (error) {
+    return _backendScoringErrorResponse(
+      404,
+      'NOT_FOUND',
+      error.toString(),
+    );
+  } on AbortedError catch (error) {
+    return _backendScoringErrorResponse(
+      503,
+      'UNAVAILABLE',
+      error.toString(),
+    );
+  } on InternalError catch (error) {
+    return _backendScoringErrorResponse(
+      500,
+      'INTERNAL',
+      error.toString(),
+    );
+  } catch (error, stackTrace) {
+    logScheduledFixtureDownload(
+      'unhandled error: $error\n$stackTrace',
+    );
+    return _backendScoringErrorResponse(
+      500,
+      'INTERNAL',
+      'An unexpected error occurred.',
+    );
+  }
+}
+
+Map<String, String> normalizeHttpHeaders(Object? rawHeaders) {
+  if (rawHeaders is! Map) {
+    return const <String, String>{};
+  }
+
+  final headers = <String, String>{};
+  for (final entry in rawHeaders.entries) {
+    final key = entry.key;
+    final value = entry.value;
+    if (key is! String) {
+      continue;
+    }
+    if (value is String) {
+      headers[key] = value;
+    } else if (value is Iterable) {
+      headers[key] = value.whereType<String>().join(',');
+    }
+  }
+  return headers;
+}
+
+enum FixtureDownloadOutcome {
+  nothingToDo,
+  applied,
+}
+
+extension FixtureDownloadOutcomeApi on FixtureDownloadOutcome {
+  String get apiValue => switch (this) {
+        FixtureDownloadOutcome.nothingToDo => 'nothing_to_do',
+        FixtureDownloadOutcome.applied => 'applied',
+      };
+}
+
+class FixtureDownloadResult {
+  const FixtureDownloadResult({
+    required this.outcome,
+    required this.message,
+  });
+
+  final FixtureDownloadOutcome outcome;
+  final String message;
+}
+
+Future<void> _afterSuccessfulFixtureDownload({
+  required dynamic db,
+  required DAUComp comp,
+  required DateTime now,
+}) async {
+  await _triggerBackendScoringAdminRescore(
+    compKey: comp.dbkey!,
+    now: now,
+  );
+  await _deleteStaleTokens(db);
+}
+
+Future<void> _triggerBackendScoringAdminRescore({
+  required String compKey,
+  required DateTime now,
+}) async {
+  final commandUrl = resolveBackendScoringCommandUrl();
+  if (commandUrl == null || commandUrl.isEmpty) {
+    throw InternalError('Backend scoring command URL is not configured');
+  }
+
+  final commandSecret = resolveBackendScoringCommandSecret();
+  if (commandSecret == null || commandSecret.isEmpty) {
+    throw InternalError('Backend scoring command secret is not configured');
+  }
+
+  final sourceEventId =
+      'fixture_download_${compKey}_${now.microsecondsSinceEpoch}';
+  final command = BackendScoringCommand(
+    commandType: BackendScoringCommandType.adminRescore,
+    compKey: compKey,
+    roundNumber: null,
+    tipperId: null,
+    gameKey: null,
+    sourceEventId: sourceEventId,
+    sourcePath: '/admin/fixtureDownload',
+    scopeKey: 'comp:$compKey/all_rounds/all_tippers',
+    commandId: _buildBackendScoringCommandId(sourceEventId),
+  );
+
+  final response = await http.post(
+    Uri.parse(commandUrl),
+    headers: <String, String>{
+      ..._jsonHeaders,
+      _backendScoringCommandSecretHeader: commandSecret,
+    },
+    body: jsonEncode(<String, dynamic>{
+      'command': command.toJson(),
+    }),
+  );
+
+  if (response.statusCode != 200) {
+    throw InternalError(
+      'Backend scoring command failed with HTTP ${response.statusCode}: ${response.body}',
+    );
+  }
+}
+
+Future<void> _deleteStaleTokens(dynamic db) async {
+  try {
+    final snapshot = await db.ref(paths.tokensPath).once();
+    final rawTokens = snapshot.value;
+    if (rawTokens is! Map) {
+      return;
+    }
+
+    final nowMillis = DateTime.now().millisecondsSinceEpoch;
+    final staleThreshold = nowMillis - const Duration(days: 30).inMilliseconds;
+    var deletedCount = 0;
+
+    for (final userEntry in rawTokens.entries) {
+      final userKey = userEntry.key;
+      final userTokens = userEntry.value;
+      if (userKey is! String || userKey.isEmpty || userTokens is! Map) {
+        continue;
+      }
+
+      for (final tokenEntry in userTokens.entries) {
+        final tokenKey = tokenEntry.key;
+        final tokenValue = tokenEntry.value;
+        if (tokenKey is! String ||
+            tokenKey.isEmpty ||
+            tokenValue is! String ||
+            tokenValue.isEmpty) {
+          continue;
+        }
+
+        final tokenMillis =
+            DateTime.tryParse(tokenValue)?.millisecondsSinceEpoch;
+        if (tokenMillis != null && tokenMillis < staleThreshold) {
+          await db
+              .ref(paths.tokensPath)
+              .child(userKey)
+              .child(tokenKey)
+              .remove();
+          deletedCount += 1;
+        }
+      }
+    }
+
+    developer.log(
+      'Fixture download token cleanup removed $deletedCount stale tokens',
+      name: 'fixtureDownloadCleanup',
+    );
+  } catch (error, stackTrace) {
+    developer.log(
+      'Fixture download token cleanup failed',
+      name: 'fixtureDownloadCleanup',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+}
+
+String _buildBackendScoringCommandId(String sourceEventId) {
+  return 'event_${base64Url.encode(utf8.encode(sourceEventId))}';
+}
+
+Future<String> _readCurrentDauCompKey(dynamic db) async {
+  final value = await readDatabaseValue(
+    db,
+    '${paths.configPathRoot}/${paths.currentDAUCompKey}',
+  );
+  if (value is String && value.isNotEmpty) {
+    return value;
+  }
+  throw NotFoundError('Current DAU comp is not configured');
+}
+
+Future<Object?> readDatabaseValue(dynamic db, String path) async {
+  final reference = db.ref(path);
+  final snapshot = await reference.once();
+  return snapshot.value;
+}
+
+Future<DAUComp> _loadFixtureDownloadComp(
+  dynamic db,
+  String compKey,
+) async {
+  final compRaw = await readDatabaseValue(
+    db,
+    '${paths.daucompsPath}/$compKey',
+  );
+  if (compRaw == null) {
+    throw NotFoundError('DAUComp not found for key: $compKey');
+  }
+
+  final compData = Map<String, dynamic>.from(compRaw as Map);
+  final dauroundsList = _deserializeCombinedRounds(compData);
+  return DAUComp.fromJson(compData, compKey, dauroundsList);
+}
+
+Future<bool> _hasStartedResultNotKnownGames({
+  required dynamic db,
+  required String compKey,
+  required DateTime now,
+}) async {
+  final gamesRef = db.ref('${paths.gamesPathRoot}/$compKey');
+  final snapshot = await gamesRef.once();
+  final rawGames = snapshot.value;
+  if (rawGames is! Map) {
+    return false;
+  }
+
+  for (final gameEntry in rawGames.entries) {
+    final rawGame = gameEntry.value;
+    if (rawGame is! Map) {
+      continue;
+    }
+
+    final dateUtcRaw = rawGame['DateUtc'];
+    if (dateUtcRaw is! String) {
+      continue;
+    }
+
+    final dateUtc = DateTime.tryParse(dateUtcRaw);
+    if (dateUtc == null || !dateUtc.isBefore(now)) {
+      continue;
+    }
+
+    final homeScore = rawGame['HomeTeamScore'];
+    final awayScore = rawGame['AwayTeamScore'];
+    if (homeScore == null || awayScore == null) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+Future<void> _writeFixtureDownloadStatus(
+  dynamic db,
+  String compKey, {
+  required String state,
+  required DateTime now,
+  required String triggeredBy,
+  String? message,
+  String? error,
+  DateTime? lastAppliedAt,
+}) async {
+  final statusRef = db.ref('${paths.statsPathRoot}/$compKey/${paths.scoringStatusKey}');
+  final status = <String, dynamic>{
+    'state': state,
+    'inProgress': state == 'downloading',
+    'triggeredBy': triggeredBy,
+    'lastCheckedAt': now.toIso8601String(),
+  };
+  if (lastAppliedAt != null) {
+    status['lastAppliedAt'] = lastAppliedAt.toIso8601String();
+  }
+  if (message != null) {
+    status['message'] = message;
+  }
+  if (error != null) {
+    status['error'] = error;
+  }
+  await statusRef.set(status);
+}
+
 abstract class _BackendScoringDatabaseHandle {
   dynamic ref(String path);
 
@@ -378,6 +819,7 @@ class _RestDatabaseReference {
   final dynamic _client;
   final String _databaseUrl;
   final String _path;
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   String? get _key {
     final segments = _path.split('/').where((segment) => segment.isNotEmpty);
@@ -385,25 +827,37 @@ class _RestDatabaseReference {
   }
 
   Future<DataSnapshot> once() async {
-    final response = await _client.get(_uri());
+    final response = await runRtdbRestRequest(
+      _client.get(_uri()),
+      operation: 'read',
+      path: _path,
+    );
     _throwForRestError(response, 'read', _path);
     return _RestDataSnapshot(_key, _decodeRestBody(response.body as String));
   }
 
   Future<void> set(dynamic value) async {
-    final response = await _client.put(
-      _uri(),
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode(value),
+    final response = await runRtdbRestRequest(
+      _client.put(
+        _uri(),
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode(value),
+      ),
+      operation: 'set',
+      path: _path,
     );
     _throwForRestError(response, 'set', _path);
   }
 
   Future<void> update(Map<dynamic, dynamic> value) async {
-    final response = await _client.patch(
-      _uri(),
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode(value),
+    final response = await runRtdbRestRequest(
+      _client.patch(
+        _uri(),
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode(value),
+      ),
+      operation: 'update',
+      path: _path,
     );
     _throwForRestError(response, 'update', _path);
   }
@@ -416,9 +870,14 @@ class _RestDatabaseReference {
     var attempts = 0;
     while (DateTime.now().isBefore(deadline)) {
       attempts += 1;
-      final readResponse = await _client.get(
-        _uri(),
-        headers: const {'X-Firebase-ETag': 'true'},
+      final readResponse = await runRtdbRestRequest(
+        _client.get(
+          _uri(),
+          headers: const {'X-Firebase-ETag': 'true'},
+        ),
+        operation: 'transaction read',
+        path: _path,
+        timeout: _remainingTransactionTime(deadline, attempts),
       );
       _throwForRestError(readResponse, 'transaction read', _path);
       final etag = readResponse.headers['etag'] as String?;
@@ -432,13 +891,18 @@ class _RestDatabaseReference {
         );
       }
 
-      final writeResponse = await _client.put(
-        _uri(),
-        headers: {
-          'content-type': 'application/json',
-          'if-match': etag ?? '*',
-        },
-        body: jsonEncode(updatedData.value),
+      final writeResponse = await runRtdbRestRequest(
+        _client.put(
+          _uri(),
+          headers: {
+            'content-type': 'application/json',
+            'if-match': etag ?? '*',
+          },
+          body: jsonEncode(updatedData.value),
+        ),
+        operation: 'transaction write',
+        path: _path,
+        timeout: _remainingTransactionTime(deadline, attempts),
       );
       if (writeResponse.statusCode == 412) {
         continue;
@@ -458,6 +922,16 @@ class _RestDatabaseReference {
     );
   }
 
+  Duration _remainingTransactionTime(DateTime deadline, int attempts) {
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      throw AbortedError(
+        'RTDB transaction timed out at $_path after $attempts attempts',
+      );
+    }
+    return remaining < _requestTimeout ? remaining : _requestTimeout;
+  }
+
   Uri _uri() {
     final baseUrl = _databaseUrl.endsWith('/')
         ? _databaseUrl.substring(0, _databaseUrl.length - 1)
@@ -469,6 +943,22 @@ class _RestDatabaseReference {
         .join('/');
     final pathSuffix = encodedPath.isEmpty ? '.json' : '/$encodedPath.json';
     return Uri.parse('$baseUrl$pathSuffix');
+  }
+}
+
+Future<T> runRtdbRestRequest<T>(
+  Future<T> request, {
+  required String operation,
+  required String path,
+  Duration timeout = const Duration(seconds: 15),
+}) async {
+  try {
+    return await request.timeout(timeout);
+  } on TimeoutException {
+    throw UnavailableError(
+      'RTDB REST $operation timed out after '
+      '${timeout.inMilliseconds}ms at $path',
+    );
   }
 }
 
@@ -601,47 +1091,115 @@ Future<_BackendScoringDatabaseHandle> _openBackendScoringDatabase({
   return _AdminBackendScoringDatabaseHandle(adminApp);
 }
 
+Future<FixtureDownloadResult> executeScheduledFixtureDownload({
+  required dynamic db,
+  required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
+  required DateTime now,
+  Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
+}) async {
+  final compKey = await _readCurrentDauCompKey(db);
+  final comp = await _loadFixtureDownloadComp(db, compKey);
+  final shouldTrigger = await _hasStartedResultNotKnownGames(
+    db: db,
+    compKey: compKey,
+    now: now,
+  );
+  if (!shouldTrigger) {
+    await _writeFixtureDownloadStatus(
+      db,
+      compKey,
+      state: 'nothing_to_do',
+      now: now,
+      triggeredBy: 'scheduler',
+      message:
+          'No started games without fixture results were found for ${comp.name}.',
+    );
+    return FixtureDownloadResult(
+      outcome: FixtureDownloadOutcome.nothingToDo,
+      message:
+          'Nothing to do. No started games without fixture results were found for ${comp.name}.',
+    );
+  }
+
+  return _executeFixtureDownloadCore(
+    comp: comp,
+    db: db,
+    fetchFixtureJson: fetchFixtureJson,
+    now: now,
+    triggeredBy: 'scheduler',
+    afterSuccessfulDownload: afterSuccessfulDownload,
+  );
+}
+
 Future<String> executeFixtureDownload({
   required String authUid,
   required String compKey,
   required dynamic db,
   required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
   required DateTime now,
+  Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
 }) async {
-  // 3. Verify user has admin role by querying AllTippers indexed by authuid
   logFunction('executeFixtureDownload: checking admin role for authUid=$authUid');
-  final DatabaseReference tippersRef = db.ref(paths.tippersPath);
-  final Query roleQuery = tippersRef.orderByChild('authuid').equalTo(authUid);
-  final DataSnapshot roleSnapshot = await roleQuery.once();
-  final roleVal = roleSnapshot.value;
-  if (roleVal == null || roleVal is! Map || roleVal.isEmpty) {
+  final roleSnapshot = await db.ref(paths.tippersPath).once();
+  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
+  if (role == null) {
     logFunction('executeFixtureDownload: no AllTippers record for authUid=$authUid');
     throw PermissionDeniedError('User is not authorized as admin');
   }
-  final tipperData = Map<String, dynamic>.from(roleVal).values.first;
-  final role = (tipperData as Map)['tipperRole'] as String?;
   logFunction('executeFixtureDownload: resolved role=$role');
   if (role != 'admin') {
     throw PermissionDeniedError('User is not authorized as admin');
   }
 
-  // 5. Fetch DAUComp configuration from DB
-  logFunction('executeFixtureDownload: loading compKey=$compKey');
-  final DatabaseReference compRef = db.ref('${paths.daucompsPath}/$compKey');
-  final DataSnapshot compSnapshot = await compRef.once();
-  final compRaw = compSnapshot.value;
-  if (compRaw == null) {
-    logFunction('executeFixtureDownload: comp not found for compKey=$compKey');
-    throw NotFoundError('DAUComp not found for key: $compKey');
+  final comp = await _loadFixtureDownloadComp(db, compKey);
+  final result = await _executeFixtureDownloadCore(
+    comp: comp,
+    db: db,
+    fetchFixtureJson: fetchFixtureJson,
+    now: now,
+    triggeredBy: 'admin',
+    afterSuccessfulDownload: afterSuccessfulDownload,
+  );
+  return result.message;
+}
+
+String? resolveTipperRoleForAuthUid(Object? rawTippers, String authUid) {
+  if (rawTippers is! Map) {
+    return null;
   }
 
-  final compData = Map<String, dynamic>.from(compRaw as Map);
-  
-  final dauroundsList = _deserializeCombinedRounds(compData);
-  final comp = DAUComp.fromJson(compData, compKey, dauroundsList);
+  String? resolvedRole;
+  var matchCount = 0;
+  for (final rawTipper in rawTippers.values) {
+    if (rawTipper is! Map || rawTipper['authuid'] != authUid) {
+      continue;
+    }
+    matchCount += 1;
+    if (matchCount > 1) {
+      return null;
+    }
+    final role = rawTipper['tipperRole'];
+    if (role is! String) {
+      return null;
+    }
+    resolvedRole = role;
+  }
+  return resolvedRole;
+}
 
-  // 6. Attempt to acquire distributed download lock (with 24h TTL) using a transaction
-  final DatabaseReference lockRef = db.ref(
+Future<FixtureDownloadResult> _executeFixtureDownloadCore({
+  required DAUComp comp,
+  required dynamic db,
+  required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
+  required DateTime now,
+  required String triggeredBy,
+  Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
+}) async {
+  final compKey = comp.dbkey!;
+
+  logFunction('executeFixtureDownload: loading compKey=$compKey');
+
+  final lockRef = db.ref(
     '${paths.daucompsPath}/$compKey/${paths.downloadLockKey}',
   );
   TransactionResult transactionResult;
@@ -654,13 +1212,11 @@ Future<String> executeFixtureDownload({
           lockTimestamp = DateTime.tryParse(currentValue);
         }
         if (lockTimestamp != null) {
-          if (now.difference(lockTimestamp) < const Duration(hours: 24)) {
-            // Lock is active and not expired, abort transaction by returning null
+          if (now.difference(lockTimestamp) < _fixtureDownloadLockTtl) {
             return null;
           }
         }
       }
-      // Otherwise, acquire the lock by setting the value
       mutableData.value = now.toIso8601String();
       return mutableData;
     });
@@ -674,44 +1230,38 @@ Future<String> executeFixtureDownload({
   }
   logFunction('executeFixtureDownload: lock acquired for compKey=$compKey');
 
-  // Helper to log status updates
-  Future<void> logStatus(String status, {String? error}) async {
-    logFunction('executeFixtureDownload: writing status=$status error=${error ?? ''}');
-    final DatabaseReference statusRef = db.ref(
-      '${paths.statsPathRoot}/$compKey/${paths.scoringStatusKey}',
-    );
-    final statusData = <String, dynamic>{
-      'status': status,
-      'updatedAt': now.toIso8601String(),
-    };
-    if (error != null) {
-      statusData['error'] = error;
-    }
-    await statusRef.set(statusData);
-  }
-
   try {
-    await logStatus('fetching_fixtures');
+    await _writeFixtureDownloadStatus(
+      db,
+      compKey,
+      state: 'downloading',
+      now: now,
+      triggeredBy: triggeredBy,
+      message: 'Downloading fixtures...',
+    );
 
-    // 7. Perform HTTP GET to AFL and NRL fixture URLs
     logFunction('executeFixtureDownload: fetching NRL fixture ${comp.nrlFixtureJsonURL}');
     final nrlGames = await fetchFixtureJson(comp.nrlFixtureJsonURL);
     logFunction('executeFixtureDownload: fetching AFL fixture ${comp.aflFixtureJsonURL}');
     final aflGames = await fetchFixtureJson(comp.aflFixtureJsonURL);
 
-    await logStatus('applying_updates');
+    await _writeFixtureDownloadStatus(
+      db,
+      compKey,
+      state: 'downloading',
+      now: now,
+      triggeredBy: triggeredBy,
+      message: 'Applying fixture updates...',
+    );
 
-    // Build and apply per-game updates
     final importApplier = const FixtureImportApplier();
     final ops = importApplier.buildGameUpdates(nrlGames, aflGames);
 
     final dbUpdates = <String, dynamic>{};
 
-    // Fetch existing teams to ensure they exist in /Teams
-    final DatabaseReference teamsRef = db.ref(paths.teamsPathRoot);
-    final DataSnapshot teamsSnapshot = await teamsRef.once();
-    final Map<String, dynamic> existingTeams = teamsSnapshot.value != null
-        ? Map<String, dynamic>.from(teamsSnapshot.value as Map)
+    final teamsValue = await readDatabaseValue(db, paths.teamsPathRoot);
+    final Map<String, dynamic> existingTeams = teamsValue != null
+        ? Map<String, dynamic>.from(teamsValue as Map)
         : {};
 
     void ensureTeamExists(String teamName, String league) {
@@ -738,7 +1288,6 @@ Future<String> executeFixtureDownload({
       if (awayTeam != null) ensureTeamExists(awayTeam, op.league);
     }
 
-    // Tag games with league in-place to calculate combined rounds if missing
     importApplier.tagGamesWithLeagueInPlace(nrlGames, 'nrl');
     importApplier.tagGamesWithLeagueInPlace(aflGames, 'afl');
 
@@ -758,17 +1307,16 @@ Future<String> executeFixtureDownload({
       }
     }
 
-    // Update last fixture update timestamp
     dbUpdates[
         '${paths.daucompsPath}/$compKey/${paths.lastFixtureUTCKey}'] =
         now.toIso8601String();
 
-    // Perform multi-path update in the database
     logFunction('executeFixtureDownload: applying ${dbUpdates.length} database updates');
     await db.ref('/').update(dbUpdates);
 
-    // Log status success
-    await logStatus('success');
+    if (afterSuccessfulDownload != null) {
+      await afterSuccessfulDownload(comp, now);
+    }
 
     try {
       final prunedCount =
@@ -787,15 +1335,36 @@ Future<String> executeFixtureDownload({
       );
     }
 
-    return 'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
+    final message =
+        'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
+    await _writeFixtureDownloadStatus(
+      db,
+      compKey,
+      state: 'applied',
+      now: now,
+      triggeredBy: triggeredBy,
+      lastAppliedAt: now,
+      message: message,
+    );
+    return FixtureDownloadResult(
+      outcome: FixtureDownloadOutcome.applied,
+      message: message,
+    );
   } catch (e) {
     logFunction('executeFixtureDownload: failed with $e');
     try {
-      await logStatus('failed', error: e.toString());
+      await _writeFixtureDownloadStatus(
+        db,
+        compKey,
+        state: 'failed',
+        now: now,
+        triggeredBy: triggeredBy,
+        error: e.toString(),
+        message: 'Fixture download failed.',
+      );
     } catch (_) {}
     rethrow;
   } finally {
-    // Release lock
     await lockRef.set(null);
   }
 }
@@ -859,7 +1428,12 @@ Future<int> pruneExpiredBackendScoringIdempotencyRecords({
 }
 
 Future<List<dynamic>> _fetchFixtureJson(Uri url) async {
-  final response = await http.get(url, headers: {'Content-Type': 'application/json; charset=UTF-8'});
+  final response = await http
+      .get(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      )
+      .timeout(const Duration(seconds: 30));
   if (response.statusCode == 200) {
     final decoded = json.decode(utf8.decode(response.bodyBytes));
     if (decoded is List) {

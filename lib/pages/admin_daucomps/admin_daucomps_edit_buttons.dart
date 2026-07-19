@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/models/daucomp.dart';
@@ -122,12 +125,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           OutlinedButton(onPressed: null, child: Text('Run Updates')),
-          SizedBox(width: 8),
-          _AdminDatabaseStatusIndicator(
-            status: AdminDatabaseRefreshStatus.failed(
-              'Stats view model unavailable.',
-            ),
-          ),
         ],
       );
     }
@@ -138,13 +135,15 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
         final isWebPlatform = kIsWeb;
         final isBusy =
             dauCompsViewModel.isDownloading ||
-            statsViewModel.isUpdateScoringRunning ||
-            statsViewModel.adminDatabaseRefreshStatus.isChecking;
+            statsViewModel.isUpdateScoringRunning;
 
-        return Row(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            OutlinedButton(
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
               onPressed: isBusy
                   ? null
                   : () async {
@@ -235,14 +234,20 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                         }
 
                         ScoringUpdateReport? report;
-                        if (selectedSteps.recalculateScoring) {
+                        final skipUiScoringAfterBackendFixtureDownload =
+                            selectedSteps.downloadFixtures &&
+                            dauCompsViewModel
+                                .lastFixtureDownloadRanViaCloudFunction;
+                        if (selectedSteps.recalculateScoring &&
+                            skipUiScoringAfterBackendFixtureDownload) {
+                          log(
+                            'AdminDaucompsEditScoringButton: skipping UI scoring step because backend fixture download already triggered scoring.',
+                          );
+                        } else if (selectedSteps.recalculateScoring) {
                           log('AdminDaucompsEditScoringButton: starting scoring update step.');
                           adminProgress.value = const AdminUpdateProgress(
-                            'Refreshing database sources...',
+                            'Updating scores...',
                             null,
-                          );
-                          await statsViewModel.prepareFreshAdminScoringInputs(
-                            daucomp!,
                           );
                           report = await statsViewModel.updateStatsWithReport(
                             daucomp!,
@@ -318,12 +323,12 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                         }
                       }
                     },
-              child: Text(!isBusy ? 'Run Updates' : 'Updating...'),
+                  child: Text(!isBusy ? 'Run Updates' : 'Updating...'),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _AdminDatabaseStatusIndicator(
-              status: statsViewModel.adminDatabaseRefreshStatus,
-            ),
+            const SizedBox(height: 8),
+            FixtureDownloadStatusBanner(comp: daucomp!),
           ],
         );
       },
@@ -332,82 +337,238 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
 }
 
 String _adminUpdateErrorMessage(Object error, bool wasScoringSelected) {
-  if (wasScoringSelected &&
-      (error is TimeoutException ||
-          error is StateError ||
-          error.toString().contains('Database freshness check failed'))) {
-    return 'Could not confirm the latest data. Check the connection and try again.';
-  }
-
   return wasScoringSelected
       ? 'Could not update scores. Please try again.'
       : 'Could not complete the update. Please try again.';
 }
 
-class _AdminDatabaseStatusIndicator extends StatelessWidget {
-  final AdminDatabaseRefreshStatus status;
+class FixtureDownloadStatusBanner extends StatelessWidget {
+  final DAUComp comp;
+  final DatabaseReference? statusReference;
 
-  const _AdminDatabaseStatusIndicator({required this.status});
+  const FixtureDownloadStatusBanner({
+    super.key,
+    required this.comp,
+    this.statusReference,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final DatabaseReference reference;
+    try {
+      reference =
+          statusReference ??
+          configuredDatabaseRef(
+            '${p.statsPathRoot}/${comp.dbkey}/${p.scoringStatusKey}',
+          );
+    } on StateError {
+      return const _FixtureDownloadStatusCard(
+        icon: Icons.info_outline,
+        color: Colors.grey,
+        title: 'Fixture status not available',
+        subtitle: 'Realtime Database is not configured for this screen.',
+      );
+    }
+
+    return StreamBuilder<DatabaseEvent>(
+      stream: reference.onValue,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _FixtureDownloadStatusCard(
+            icon: Icons.error_outline,
+            color: Colors.red,
+            title: 'Fixture status unavailable',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
+        final value = snapshot.data?.snapshot.value;
+        if (value is! Map) {
+          return const _FixtureDownloadStatusCard(
+            icon: Icons.info_outline,
+            color: Colors.grey,
+            title: 'Fixture status not checked yet',
+            subtitle:
+                'The scheduler will update this after the next run.',
+          );
+        }
+
+        final status = FixtureDownloadStatus.fromJson(
+          Map<String, dynamic>.from(value),
+        );
+        final now = DateTime.now().toUtc();
+        final (icon, color, title, subtitle) = status.describe(now);
+        return _FixtureDownloadStatusCard(
+          icon: icon,
+          color: color,
+          title: title,
+          subtitle: subtitle,
+        );
+      },
+    );
+  }
+}
+
+class _FixtureDownloadStatusCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+
+  const _FixtureDownloadStatusCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (icon, color, label, tooltip) = switch (status.state) {
-      AdminDatabaseRefreshState.unknown => (
-        Icons.help_outline,
-        Colors.grey,
-        'Not checked',
-        'The app will check for fresh data before updating scores.',
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 520),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+        color: color.withValues(alpha: 0.06),
       ),
-      AdminDatabaseRefreshState.checking => (
-        Icons.sync,
-        Colors.blue,
-        'Checking',
-        'Checking that the latest data is available.',
-      ),
-      AdminDatabaseRefreshState.fresh => (
-        Icons.cloud_done_outlined,
-        Colors.green,
-        'Ready',
-        'Latest data confirmed.',
-      ),
-      AdminDatabaseRefreshState.blocked => (
-        Icons.cloud_off_outlined,
-        Colors.orange,
-        'Try again',
-        'Latest data could not be confirmed. Check the connection and try again.',
-      ),
-      AdminDatabaseRefreshState.failed => (
-        Icons.error_outline,
-        Colors.red,
-        'Needs attention',
-        'The update could not start. Check the connection and try again.',
-      ),
-    };
-
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-          borderRadius: BorderRadius.circular(6),
-          color: color.withValues(alpha: 0.08),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(color: color),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.textTheme.bodySmall?.color?.withValues(
+                        alpha: 0.8,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class FixtureDownloadStatus {
+  final String? state;
+  final String? message;
+  final String? error;
+  final DateTime? lastCheckedAt;
+  final DateTime? lastAppliedAt;
+
+  const FixtureDownloadStatus({
+    required this.state,
+    required this.message,
+    required this.error,
+    required this.lastCheckedAt,
+    required this.lastAppliedAt,
+  });
+
+  factory FixtureDownloadStatus.fromJson(Map<String, dynamic> json) {
+    DateTime? parseTimestamp(String? value) =>
+        value == null ? null : DateTime.tryParse(value);
+
+    return FixtureDownloadStatus(
+      state: json['state']?.toString() ?? json['status']?.toString(),
+      message: json['message']?.toString(),
+      error: json['error']?.toString(),
+      lastCheckedAt: parseTimestamp(json['lastCheckedAt']?.toString()),
+      lastAppliedAt: parseTimestamp(json['lastAppliedAt']?.toString()),
+    );
+  }
+
+  (IconData, Color, String, String?) describe(DateTime now) {
+    final effectiveState = state?.toLowerCase();
+    final checkedAgo = _relativeTime(now, lastCheckedAt);
+    final appliedAgo = _relativeTime(now, lastAppliedAt);
+
+    return switch (effectiveState) {
+      'downloading' => (
+        Icons.downloading_outlined,
+        Colors.blue,
+        'Fixture download in progress',
+        message ?? 'The backend is currently applying fixture updates.',
+      ),
+      'nothing_to_do' => (
+        Icons.info_outline,
+        Colors.grey,
+        'Nothing to do',
+        checkedAgo == null
+            ? message ?? 'The last scheduler run found no fixture changes.'
+            : 'The last scheduler run found no fixture changes. Last checked $checkedAgo.',
+      ),
+      'applied' => (
+        Icons.cloud_done_outlined,
+        Colors.green,
+        'Fixture changes applied',
+        appliedAgo == null
+            ? message ?? 'The latest fixture changes were applied.'
+            : 'Fixture changes last applied $appliedAgo.',
+      ),
+      'failed' => (
+        Icons.error_outline,
+        Colors.red,
+        'Fixture download failed',
+        error ?? message ?? 'The latest fixture download attempt failed.',
+      ),
+      _ => (
+        Icons.info_outline,
+        Colors.grey,
+        'Fixture status',
+        message ?? 'Waiting for the next scheduler run.',
+      ),
+    };
+  }
+}
+
+String? _relativeTime(DateTime now, DateTime? timestamp) {
+  if (timestamp == null) {
+    return null;
+  }
+
+  final diff = now.difference(timestamp);
+  if (diff.isNegative) {
+    return 'just now';
+  }
+
+  if (diff.inDays >= 1) {
+    final days = diff.inDays;
+    return days == 1 ? '1 day ago' : '$days days ago';
+  }
+
+  if (diff.inHours >= 1) {
+    final hours = diff.inHours;
+    return hours == 1 ? '1 hour ago' : '$hours hours ago';
+  }
+
+  if (diff.inMinutes >= 1) {
+    final minutes = diff.inMinutes;
+    return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+  }
+
+  return 'just now';
 }
 
 class AdminUpdateStepSelection {

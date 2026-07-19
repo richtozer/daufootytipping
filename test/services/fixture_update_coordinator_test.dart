@@ -18,7 +18,7 @@ void main() {
       final c = FixtureUpdateCoordinator();
       expect(
         c.shouldStartDailyTimer(isWeb: false, isAdminMode: false, authenticatedRole: TipperRole.admin),
-        isTrue,
+        isFalse,
       );
       expect(
         c.shouldStartDailyTimer(isWeb: true, isAdminMode: false, authenticatedRole: TipperRole.admin),

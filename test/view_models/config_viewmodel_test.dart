@@ -125,6 +125,43 @@ void main() {
     viewModel.dispose();
   });
 
+  test('config values prefer the materialized root snapshot', () async {
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+    );
+
+    controller.add(
+      _databaseEvent(
+        _rootSnapshot(
+          exists: true,
+          value: <String, Object?>{
+            p.currentDAUCompKey: 'comp-2026',
+            p.createLinkedTipperKey: true,
+            p.cloudFunctionsBaseURLKey: 'https://functions.example.com',
+          },
+          children: <String, Object?>{
+            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
+            p.createLinkedTipperKey: _valueSnapshot(true),
+            p.minAppVersionKey: _valueSnapshot(null),
+            p.googleClientIdKey: _valueSnapshot(null),
+            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
+            p.useBackendScoringBranchesKey: _valueSnapshot(null),
+          },
+        ),
+      ),
+    );
+
+    await viewModel.initialLoadComplete;
+
+    expect(
+      viewModel.cloudFunctionsBaseURL,
+      'https://functions.example.com',
+    );
+
+    viewModel.dispose();
+  });
+
   test('backend scoring branch flag defaults to false', () async {
     final viewModel = ConfigViewModel(
       db: mockDb,

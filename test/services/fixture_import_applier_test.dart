@@ -26,6 +26,26 @@ void main() {
     expect(ops[1].attributes['MatchNumber'], 4);
   });
 
+  test('buildGameUpdates drops provider-only fields like Winner', () {
+    final applier = const FixtureImportApplier();
+    final nrl = <Map<String, dynamic>>[
+      <String, dynamic>{
+        ...game(round: 1, match: 2),
+        'HomeTeam': 'Home',
+        'AwayTeam': 'Away',
+        'Group': 'A',
+        'Winner': 'Home',
+      },
+    ];
+
+    final ops = applier.buildGameUpdates(nrl, const []);
+
+    expect(ops, hasLength(1));
+    expect(ops.single.attributes.containsKey('Group'), isFalse);
+    expect(ops.single.attributes.containsKey('Winner'), isFalse);
+    expect(ops.single.attributes['HomeTeam'], 'Home');
+  });
+
   test('tagGamesWithLeagueInPlace adds league key', () {
     final applier = const FixtureImportApplier();
     final arr = [game(round: 1, match: 1)];
@@ -59,4 +79,3 @@ void main() {
     expect(none, isNull);
   });
 }
-

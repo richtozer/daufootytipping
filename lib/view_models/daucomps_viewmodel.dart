@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
@@ -31,10 +30,8 @@ import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart';
 
@@ -80,6 +77,9 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   bool _isDownloading = false;
   bool get isDownloading => _isDownloading;
+  bool _lastFixtureDownloadRanViaCloudFunction = false;
+  bool get lastFixtureDownloadRanViaCloudFunction =>
+      _lastFixtureDownloadRanViaCloudFunction;
 
   final bool _isLegacySyncing = false;
   bool get isLegacySyncing => _isLegacySyncing;
@@ -115,9 +115,13 @@ class DAUCompsViewModel extends ChangeNotifier {
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
   final FixtureImportApplier _importApplier = const FixtureImportApplier();
   final SelectionInitCoordinator _selectionInit;
+  final String? _cloudFunctionsBaseURLOverride;
+  final String? Function()? _cloudFunctionsBaseURLProvider;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
+  static const String _firebaseProjectId = 'dau-footy-tipping-f8a42';
+  static const String _fixtureFunctionRegion = 'asia-southeast1';
 
   DAUCompsViewModel(
     this._initDAUCompDbKey,
@@ -131,6 +135,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     FixtureUpdateCoordinator? fixtureCoordinator,
     SelectionInitCoordinator? selectionInit,
     bool useBackendScoringBranches = false,
+    String? cloudFunctionsBaseURLOverride,
+    String? Function()? cloudFunctionsBaseURLProvider,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
@@ -138,7 +144,11 @@ class DAUCompsViewModel extends ChangeNotifier {
         _tippers = tippers ?? (() => di<TippersViewModel>()),
         _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
-        _useBackendScoringBranches = useBackendScoringBranches {
+        _useBackendScoringBranches = useBackendScoringBranches,
+        _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
+        _cloudFunctionsBaseURLOverride =
+            cloudFunctionsBaseURLOverride ??
+            resolveDefaultCloudFunctionsBaseURLOverride() {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -503,6 +513,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     DAUComp daucompToUpdate, {
     bool useCloudFunction = true,
   }) async {
+    _lastFixtureDownloadRanViaCloudFunction = false;
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
       return 'Fixture data is already downloading';
@@ -522,21 +533,18 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     String? cloudFunctionsBaseURL;
     if (useCloudFunction) {
-      try {
-        final configPath = '$configPathRoot/$cloudFunctionsBaseURLKey';
-        final configSnapshot = await _db.child(configPath).get();
-        cloudFunctionsBaseURL = configSnapshot.value as String?;
-        log(
-          'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL at $configPath is ${cloudFunctionsBaseURL ?? '<not set>'}',
-        );
-      } catch (e, stackTrace) {
-        log(
-          'DAUCompsViewModel_getNetworkFixtureData: Failed to read cloudFunctionsBaseURL: $e. Falling back to local execution.',
-          error: e,
-          stackTrace: stackTrace,
-        );
-        cloudFunctionsBaseURL = null;
-      }
+      cloudFunctionsBaseURL = resolveConfiguredCloudFunctionsBaseURL();
+      final String configDescription =
+          parseCloudFunctionsBaseURLValue(
+            _cloudFunctionsBaseURLProvider?.call(),
+          ) ??
+          '<not set>';
+      final String overrideDescription =
+          parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
+          '<not set>';
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from ConfigViewModel (config=$configDescription, override=$overrideDescription)',
+      );
     } else {
       log(
         'DAUCompsViewModel_getNetworkFixtureData: Cloud Function disabled for this call. Falling back to local execution.',
@@ -558,28 +566,35 @@ class DAUCompsViewModel extends ChangeNotifier {
             (uri.host == '127.0.0.1' ||
                 uri.host == 'localhost' ||
                 uri.host == '10.0.2.2');
-        log(
-          isLocalEmulatorUrl
-              ? 'DAUCompsViewModel_getNetworkFixtureData: Using local Functions emulator callable URL $functionUrl.'
-              : 'DAUCompsViewModel_getNetworkFixtureData: Using deployed callable URL $functionUrl.',
+        final options = HttpsCallableOptions(
+          timeout: const Duration(minutes: 2),
         );
-        final Map resultData;
+        final HttpsCallable callable;
         if (isLocalEmulatorUrl) {
-          resultData = await _callLocalFixtureDownloadFunction(
-            functionUrl,
-            compKey: daucompToUpdate.dbkey!,
+          final functions = FirebaseFunctions.instanceFor(
+            region: _fixtureFunctionRegion,
+          );
+          functions.useFunctionsEmulator(uri.host, uri.port);
+          callable = functions.httpsCallable(functionName, options: options);
+          log(
+            'DAUCompsViewModel_getNetworkFixtureData: Using local Functions emulator callable $functionName at ${uri.scheme}://${uri.host}:${uri.port}.',
           );
         } else {
-          final callable = FirebaseFunctions.instance.httpsCallableFromUrl(
+          callable = FirebaseFunctions.instance.httpsCallableFromUrl(
             functionUrl,
-            options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
+            options: options,
           );
-          final result = await callable.call(<String, dynamic>{
-            'compKey': daucompToUpdate.dbkey,
-          });
-          resultData = result.data as Map;
+          log(
+            'DAUCompsViewModel_getNetworkFixtureData: Using deployed callable URL $functionUrl.',
+          );
         }
-        final String message = resultData['message'] ?? 'Successfully updated fixtures via Cloud Function';
+        final result = await callable.call(<String, dynamic>{
+          'compKey': daucompToUpdate.dbkey,
+        });
+        final String message = cloudFunctionFixtureDownloadMessage(
+          result.data,
+        );
+        _lastFixtureDownloadRanViaCloudFunction = true;
         log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
         return message;
       } catch (e, stackTrace) {
@@ -610,56 +625,96 @@ class DAUCompsViewModel extends ChangeNotifier {
     );
   }
 
-  Future<Map> _callLocalFixtureDownloadFunction(
-    String functionUrl, {
-    required String compKey,
-  }) async {
-    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-    final response = await http
-        .post(
-          Uri.parse(functionUrl),
-          headers: <String, String>{
-            'Content-Type': 'application/json',
-            if (idToken != null) 'Authorization': 'Bearer $idToken',
-          },
-          body: jsonEncode(<String, Object?>{
-            'data': <String, Object?>{'compKey': compKey},
-          }),
-        )
-        .timeout(const Duration(minutes: 2));
-    late final Map decoded;
-    try {
-      final responseBody = jsonDecode(response.body);
-      if (responseBody is! Map) {
-        throw const FormatException('Expected JSON object');
-      }
-      decoded = responseBody;
-    } catch (_) {
-      throw FirebaseFunctionsException(
-        code: 'internal',
-        message:
-            'Invalid response from local emulator: HTTP ${response.statusCode}',
-      );
+  static String? parseCloudFunctionsBaseURLValue(Object? value) {
+    final parsed = _parseOptionalStringLike(value);
+    if (parsed == null) {
+      return null;
     }
-    if (response.statusCode >= 400 || decoded.containsKey('error')) {
-      final error = decoded['error'];
-      final message = error is Map
-          ? error['message']?.toString() ?? response.body
-          : response.body;
-      throw FirebaseFunctionsException(
-        code: error is Map ? error['status']?.toString().toLowerCase() ?? 'unknown' : 'unknown',
-        message: message,
-      );
+
+    final uri = Uri.tryParse(parsed);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return null;
     }
-    final result = decoded['result'];
-    if (result is! Map) {
-      throw FirebaseFunctionsException(
-        code: 'internal',
-        message:
-            'Invalid callable response from local emulator: missing result',
-      );
+
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      return null;
     }
-    return result;
+
+    return parsed;
+  }
+
+  static String? resolveCloudFunctionsBaseURLValue({
+    required Object? configValue,
+    Object? overrideValue,
+  }) {
+    final override = parseCloudFunctionsBaseURLValue(overrideValue);
+    if (override != null) {
+      return override;
+    }
+    return parseCloudFunctionsBaseURLValue(configValue);
+  }
+
+  @visibleForTesting
+  String? resolveConfiguredCloudFunctionsBaseURL() {
+    return resolveCloudFunctionsBaseURLValue(
+      configValue: _cloudFunctionsBaseURLProvider?.call(),
+      overrideValue: _cloudFunctionsBaseURLOverride,
+    );
+  }
+
+  static String? resolveDefaultCloudFunctionsBaseURLOverride({
+    bool? useFirebaseEmulators,
+    String? configuredFirebaseEmulatorHost,
+    Object? configuredOverride,
+    bool? isDebugMode,
+    bool? isWeb,
+    TargetPlatform? targetPlatform,
+  }) {
+    final parsedOverride = parseCloudFunctionsBaseURLValue(
+      configuredOverride ??
+          const String.fromEnvironment(
+            'CLOUD_FUNCTIONS_BASE_URL_OVERRIDE',
+            defaultValue: '',
+          ),
+    );
+    if (parsedOverride != null) {
+      return parsedOverride;
+    }
+
+    final emulatorsEnabled =
+        useFirebaseEmulators ??
+        const bool.fromEnvironment(
+          'USE_FIREBASE_EMULATORS',
+          defaultValue: true,
+        );
+    if (!(isDebugMode ?? kDebugMode) || !emulatorsEnabled) {
+      return null;
+    }
+
+    final configuredHost =
+        configuredFirebaseEmulatorHost ??
+        const String.fromEnvironment(
+          'FIREBASE_EMULATOR_HOST',
+          defaultValue: '',
+        );
+    final host = configuredHost.isNotEmpty
+        ? configuredHost
+        : (!(isWeb ?? kIsWeb) &&
+              (targetPlatform ?? defaultTargetPlatform) ==
+                  TargetPlatform.android)
+        ? '10.0.2.2'
+        : 'localhost';
+
+    return 'http://$host:9229/$_firebaseProjectId/$_fixtureFunctionRegion';
+  }
+
+  @visibleForTesting
+  static String cloudFunctionFixtureDownloadMessage(Object? resultData) {
+    if (resultData case {'message': final String message}
+        when message.isNotEmpty) {
+      return message;
+    }
+    return 'Successfully updated fixtures via Cloud Function';
   }
 
   Future<String> _processFetchedFixtures(
@@ -1004,38 +1059,23 @@ class DAUCompsViewModel extends ChangeNotifier {
     League league, {
     bool forceRecalculate = false,
   }) async {
-    log(
-      'DAUCompsViewModel: getOrCalculateLeagueLadder called for ${league.name}, forceRecalculate: $forceRecalculate',
-    );
-
     if (forceRecalculate) {
       clearLeagueLadderCache(league: league);
     }
 
     if (_cachedLadders.containsKey(league)) {
-      log('DAUCompsViewModel: Cache hit for ${league.name} ladder.');
       return _cachedLadders[league]!;
     }
 
     if (_cachedLadderAvailability[league] ==
         LeagueLadderAvailability.insufficientData) {
-      log(
-        'DAUCompsViewModel: Cached insufficient ladder data for ${league.name}.',
-      );
       return null;
     }
 
     final inFlightCalculation = _inFlightLadderCalculations[league];
     if (inFlightCalculation != null) {
-      log(
-        'DAUCompsViewModel: Reusing in-flight ladder calculation for ${league.name}.',
-      );
       return inFlightCalculation;
     }
-
-    log(
-      'DAUCompsViewModel: Cache miss for ${league.name} ladder. Proceeding to calculate.',
-    );
 
     if (selectedDAUComp == null) {
       _cachedLadderAvailability[league] = LeagueLadderAvailability.unavailable;
@@ -1280,4 +1320,37 @@ class DAUCompsViewModel extends ChangeNotifier {
       };
     }
   }
+}
+
+String? _parseOptionalStringLike(Object? value) {
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'null') {
+      return null;
+    }
+    return trimmed;
+  }
+
+  if (value is Map) {
+    final candidates = <Object?>[
+      value['value'],
+      value['.value'],
+      if (value.length == 1) value.values.first,
+    ];
+    for (final candidate in candidates) {
+      final parsed = _parseOptionalStringLike(candidate);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    for (final candidate in value.values) {
+      final parsed = _parseOptionalStringLike(candidate);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
 }

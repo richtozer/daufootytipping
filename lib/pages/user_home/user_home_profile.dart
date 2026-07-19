@@ -388,7 +388,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'This is the name other players will see you as in the '
+                    'This is the name other tippers will see you as in the '
                     'competition. It must be unique.',
                   ),
                   const SizedBox(height: 8),

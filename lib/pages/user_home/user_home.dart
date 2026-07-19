@@ -6,7 +6,6 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
-import 'package:daufootytipping/widgets/offline_connection_banner.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -257,9 +256,6 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                   dauCompsViewModel: dauCompsViewModelConsumer,
                   child: scaffold,
                 );
-                final scaffoldWithStatusBanners = OfflineConnectionBanner(
-                  child: scaffoldWithCompBanner,
-                );
 
                 if (tippersViewModelConsumer.inGodMode) {
                   return Banner(
@@ -270,11 +266,11 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       message: 'God mode',
                       location: BannerLocation.bottomEnd,
                       color: Colors.red,
-                      child: scaffoldWithStatusBanners,
+                      child: scaffoldWithCompBanner,
                     ),
                   );
                 } else {
-                  return scaffoldWithStatusBanners;
+                  return scaffoldWithCompBanner;
                 }
               },
             );

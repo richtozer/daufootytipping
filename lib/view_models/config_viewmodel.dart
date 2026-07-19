@@ -213,25 +213,33 @@ class ConfigViewModel extends ChangeNotifier {
 
   void _processSnapshot(DataSnapshot snapshot) {
     _activeDAUComp = _parseOptionalString(
-      snapshot.child(p.currentDAUCompKey).value,
+      _snapshotValue(snapshot, p.currentDAUCompKey),
     );
     _minAppVersion = _parseOptionalString(
-      snapshot.child(p.minAppVersionKey).value,
+      _snapshotValue(snapshot, p.minAppVersionKey),
     );
     _createLinkedTipper = _parseOptionalBool(
-      snapshot.child(p.createLinkedTipperKey).value,
+      _snapshotValue(snapshot, p.createLinkedTipperKey),
     );
     _googleClientId = _parseOptionalString(
-      snapshot.child(p.googleClientIdKey).value,
+      _snapshotValue(snapshot, p.googleClientIdKey),
     );
     _cloudFunctionsBaseURL = _parseOptionalString(
-      snapshot.child(p.cloudFunctionsBaseURLKey).value,
+      _snapshotValue(snapshot, p.cloudFunctionsBaseURLKey),
     );
     _useBackendScoringBranches =
         _parseOptionalBool(
-          snapshot.child(p.useBackendScoringBranchesKey).value,
+          _snapshotValue(snapshot, p.useBackendScoringBranchesKey),
         ) ??
         false;
+  }
+
+  Object? _snapshotValue(DataSnapshot snapshot, String key) {
+    final rawValue = snapshot.value;
+    if (rawValue is Map && rawValue.containsKey(key)) {
+      return rawValue[key];
+    }
+    return snapshot.child(key).value;
   }
 
   String? _parseOptionalString(Object? value) {

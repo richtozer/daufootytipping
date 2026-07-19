@@ -71,7 +71,6 @@ class TippersViewModel extends ChangeNotifier {
 
   //constructor
   TippersViewModel(this._createLinkedTipper, {bool skipInit = false}) {
-    log('TippersViewModel() constructor called');
     if (!skipInit) {
       _listenToTippers();
     }
@@ -82,9 +81,6 @@ class TippersViewModel extends ChangeNotifier {
     _tippersStream = _db.child(p.tippersPath).onValue.listen((event) {
       _handleEvent(event);
     });
-    log(
-      'TippersViewModel() Tippers db Listener: Listening to tippers in database on path ${p.tippersPath}',
-    );
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {
@@ -108,7 +104,6 @@ class TippersViewModel extends ChangeNotifier {
     );
 
     if (snapshot.exists) {
-      log('TippersViewModel() Tippers db Listener called');
       List<Tipper?> tippersList =
           await Tipper.fromJsonList(
         snapshot.value,
@@ -128,9 +123,6 @@ class TippersViewModel extends ChangeNotifier {
       // references go stale after every Firebase update.
       _refreshAuthenticatedTipperReference();
 
-      log(
-        'TippersViewModel() Tipper db Listener: ${_tippers.length} tippers found in database',
-      );
     } else {
       log(
         'TippersViewModel() Tipper db Listener: No tippers found in database',
