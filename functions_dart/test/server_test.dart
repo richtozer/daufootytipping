@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:test/test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
@@ -12,9 +14,30 @@ class MockDatabase extends Mock {
       ) as DatabaseReference;
 }
 class MockDatabaseReference extends Mock implements DatabaseReference {}
-class MockQuery extends Mock implements Query {}
 class MockDataSnapshot extends Mock implements DataSnapshot {}
 class MockTransactionResult extends Mock implements TransactionResult {}
+
+class DuckTypedDatabase {
+  DuckTypedDatabase(this.values);
+
+  final Map<String, Object?> values;
+
+  DuckTypedReference ref(String path) => DuckTypedReference(values[path]);
+}
+
+class DuckTypedReference {
+  DuckTypedReference(this.value);
+
+  final Object? value;
+
+  Future<DuckTypedSnapshot> once() async => DuckTypedSnapshot(value);
+}
+
+class DuckTypedSnapshot {
+  DuckTypedSnapshot(this.value);
+
+  final Object? value;
+}
 
 void main() {
   late MockDatabase mockDb;
@@ -138,6 +161,32 @@ void main() {
       );
     });
 
+    test('normalizeHttpHeaders accepts string and multi-value headers', () {
+      expect(
+        normalizeHttpHeaders(<Object?, Object?>{
+          'single': 'value',
+          'multiple': <String>['one', 'two'],
+          1: 'ignored',
+        }),
+        <String, String>{
+          'single': 'value',
+          'multiple': 'one,two',
+        },
+      );
+      expect(normalizeHttpHeaders(null), isEmpty);
+    });
+
+    test('readDatabaseValue accepts a non-legacy database reference', () async {
+      final db = DuckTypedDatabase(<String, Object?>{
+        '/AppConfig/currentDAUComp': 'comp2026',
+      });
+
+      expect(
+        await readDatabaseValue(db, '/AppConfig/currentDAUComp'),
+        'comp2026',
+      );
+    });
+
     test('extractAdminFixtureDownloadCompKey accepts platform-channel maps', () {
       expect(
         extractAdminFixtureDownloadCompKey(<Object?, Object?>{
@@ -162,6 +211,65 @@ void main() {
   });
 
   group('executeFixtureDownload tests', () {
+    test('resolves the matching tipper role from the full config snapshot', () {
+      final rawTippers = {
+        'otherTipper': {
+          'authuid': 'other-user',
+          'tipperRole': 'admin',
+        },
+        'requestedTipper': {
+          'authuid': 'user123',
+          'tipperRole': 'tipper',
+        },
+      };
+
+      expect(
+        resolveTipperRoleForAuthUid(rawTippers, 'user123'),
+        'tipper',
+      );
+      expect(
+        resolveTipperRoleForAuthUid(rawTippers, 'missing-user'),
+        isNull,
+      );
+      expect(
+        resolveTipperRoleForAuthUid({
+          'malformed': {'authuid': 'user123', 'tipperRole': null},
+        }, 'user123'),
+        isNull,
+      );
+      expect(
+        resolveTipperRoleForAuthUid({
+          'duplicateAdmin': {
+            'authuid': 'user123',
+            'tipperRole': 'admin',
+          },
+          'duplicateTipper': {
+            'authuid': 'user123',
+            'tipperRole': 'tipper',
+          },
+        }, 'user123'),
+        isNull,
+      );
+    });
+
+    test('REST timeouts identify the operation and path', () async {
+      await expectLater(
+        runRtdbRestRequest<void>(
+          Completer<void>().future,
+          operation: 'read',
+          path: '/AppConfig',
+          timeout: const Duration(milliseconds: 1),
+        ),
+        throwsA(
+          isA<UnavailableError>().having(
+            (error) => error.toString(),
+            'message',
+            allOf(contains('read'), contains('/AppConfig')),
+          ),
+        ),
+      );
+    });
+
     test('prunes expired backend scoring idempotency records', () async {
       final mockIdempotencyRef = MockDatabaseReference();
       final mockSnapshot = MockDataSnapshot();
@@ -236,12 +344,9 @@ void main() {
 
     test('non-admin role throws PermissionDeniedError', () async {
       final mockTippersRef = MockDatabaseReference();
-      final mockQuery = MockDatabaseReference();
 
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.orderByChild('authuid')).thenReturn(mockQuery);
-      when(() => mockQuery.equalTo('user123')).thenReturn(mockQuery);
-      when(() => mockQuery.once()).thenAnswer((_) async => mockRoleSnapshot);
+      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
       when(() => mockRoleSnapshot.value).thenReturn({
         'tipper123': {
           'authuid': 'user123',
@@ -263,12 +368,9 @@ void main() {
 
     test('missing DAUComp config throws NotFoundError', () async {
       final mockTippersRef = MockDatabaseReference();
-      final mockQuery = MockDatabaseReference();
 
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.orderByChild('authuid')).thenReturn(mockQuery);
-      when(() => mockQuery.equalTo('user123')).thenReturn(mockQuery);
-      when(() => mockQuery.once()).thenAnswer((_) async => mockRoleSnapshot);
+      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
       when(() => mockRoleSnapshot.value).thenReturn({
         'tipper123': {
           'authuid': 'user123',
@@ -296,12 +398,9 @@ void main() {
 
     test('active lock throws AbortedError', () async {
       final mockTippersRef = MockDatabaseReference();
-      final mockQuery = MockDatabaseReference();
 
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.orderByChild('authuid')).thenReturn(mockQuery);
-      when(() => mockQuery.equalTo('user123')).thenReturn(mockQuery);
-      when(() => mockQuery.once()).thenAnswer((_) async => mockRoleSnapshot);
+      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
       when(() => mockRoleSnapshot.value).thenReturn({
         'tipper123': {
           'authuid': 'user123',
@@ -352,12 +451,9 @@ void main() {
 
     test('expired fixture download lock can be reacquired', () async {
       final mockTippersRef = MockDatabaseReference();
-      final mockQuery = MockDatabaseReference();
 
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.orderByChild('authuid')).thenReturn(mockQuery);
-      when(() => mockQuery.equalTo('user123')).thenReturn(mockQuery);
-      when(() => mockQuery.once()).thenAnswer((_) async => mockRoleSnapshot);
+      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
       when(() => mockRoleSnapshot.value).thenReturn({
         'tipper123': {
           'authuid': 'user123',
@@ -422,12 +518,9 @@ void main() {
 
     test('successful fixture update workflow', () async {
       final mockTippersRef = MockDatabaseReference();
-      final mockQuery = MockDatabaseReference();
 
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.orderByChild('authuid')).thenReturn(mockQuery);
-      when(() => mockQuery.equalTo('user123')).thenReturn(mockQuery);
-      when(() => mockQuery.once()).thenAnswer((_) async => mockRoleSnapshot);
+      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
       when(() => mockRoleSnapshot.value).thenReturn({
         'tipper123': {
           'authuid': 'user123',
@@ -695,15 +788,12 @@ void main() {
     });
 
     test('normalizes team keys when fixture team names contain whitespace', () async {
-      final mockRoleQuery = MockQuery();
       final mockRoleSnapshot = MockDataSnapshot();
       final mockTippersRef = MockDatabaseReference();
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.orderByChild('authuid')).thenReturn(mockRoleQuery);
-      when(() => mockRoleQuery.equalTo('user123')).thenReturn(mockRoleQuery);
-      when(() => mockRoleQuery.once()).thenAnswer((_) async => mockRoleSnapshot);
+      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
       when(() => mockRoleSnapshot.value).thenReturn({
-        'adminTipper': {'tipperRole': 'admin'}
+        'adminTipper': {'authuid': 'user123', 'tipperRole': 'admin'}
       });
 
       final mockCompRef = MockDatabaseReference();
