@@ -6,7 +6,9 @@ import {
   officialScoreWrittenBackendScoring,
   tipWrittenBackendScoring,
 } from "./backend_scoring";
-import {scheduledFixtureDownload as scheduledFixtureDownloadForwarder} from "./fixture_download_scheduler";
+import {
+  scheduledFixtureDownload as scheduledFixtureDownloadForwarder,
+} from "./fixture_download_scheduler";
 
 import * as admin from "firebase-admin";
 

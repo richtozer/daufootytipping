@@ -37,7 +37,8 @@ check_env_file \
   "$node_env" \
   "TypeScript functions" \
   BACKEND_SCORING_COMMAND_URL \
-  BACKEND_SCORING_COMMAND_SECRET
+  BACKEND_SCORING_COMMAND_SECRET \
+  DART_FIXTURE_DOWNLOAD_COMMAND_URL
 
 if [ "$missing" -ne 0 ]; then
   cat <<'EOF'
@@ -46,7 +47,8 @@ Backend scoring deploy prerequisites are incomplete.
 
 Expected ignored local files:
 - functions_dart/.env with BACKEND_SCORING_COMMAND_SECRET
-- functions/.env with BACKEND_SCORING_COMMAND_URL and BACKEND_SCORING_COMMAND_SECRET
+- functions/.env with BACKEND_SCORING_COMMAND_URL,
+  BACKEND_SCORING_COMMAND_SECRET, and DART_FIXTURE_DOWNLOAD_COMMAND_URL
 
 Do not commit actual secret values.
 See docs/backend-scoring-deploy.md for the first-deploy sequence.

@@ -26,6 +26,12 @@ const DEFAULT_COMMAND_SECRET_ENV_KEYS = [
 const FIXTURE_DOWNLOAD_COMMAND_SECRET_HEADER = "x-backend-scoring-secret";
 const FIXTURE_DOWNLOAD_SCHEDULE = "0 16 * * *";
 
+/**
+ * Resolves the first configured environment value for the supplied keys.
+ *
+ * @param {string[]} keys Environment variable names in precedence order.
+ * @return {string|undefined} The first non-empty configured value.
+ */
 function resolveScheduledFixtureDownloadEnv(
   keys: string[],
 ): string | undefined {
@@ -38,14 +44,21 @@ function resolveScheduledFixtureDownloadEnv(
   return undefined;
 }
 
+/**
+ * Forwards a scheduled invocation to the Dart fixture-download endpoint.
+ *
+ * @param {ScheduledFixtureDownloadDependencies} deps Injectable dependencies.
+ */
 export async function forwardScheduledFixtureDownload(
   deps: ScheduledFixtureDownloadDependencies = {},
 ): Promise<void> {
   const logger = deps.logger ?? console;
   const commandUrl =
-    deps.commandUrl ?? resolveScheduledFixtureDownloadEnv(DEFAULT_COMMAND_URL_ENV_KEYS);
+    deps.commandUrl ??
+    resolveScheduledFixtureDownloadEnv(DEFAULT_COMMAND_URL_ENV_KEYS);
   const commandSecret =
-    deps.commandSecret ?? resolveScheduledFixtureDownloadEnv(DEFAULT_COMMAND_SECRET_ENV_KEYS);
+    deps.commandSecret ??
+    resolveScheduledFixtureDownloadEnv(DEFAULT_COMMAND_SECRET_ENV_KEYS);
 
   if (commandUrl == null || commandUrl.length === 0) {
     throw new Error("Scheduled fixture download URL is not configured");
@@ -68,7 +81,8 @@ export async function forwardScheduledFixtureDownload(
   if (!response.ok) {
     const responseBody = await response.text();
     throw new Error(
-      `Scheduled fixture download failed with HTTP ${response.status}: ${responseBody}`,
+      `Scheduled fixture download failed with HTTP ${response.status}: ` +
+        responseBody,
     );
   }
 
