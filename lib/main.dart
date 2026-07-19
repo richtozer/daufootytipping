@@ -311,6 +311,8 @@ class _MyAppState extends State<MyApp> {
           useBackendScoringBranches: useBackendScoringBranches,
           cloudFunctionsBaseURLOverride:
               widget.cloudFunctionsBaseURLOverride,
+          cloudFunctionsBaseURLProvider:
+              () => configViewModel.cloudFunctionsBaseURL,
         ),
       );
     }

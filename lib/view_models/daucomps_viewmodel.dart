@@ -116,6 +116,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final FixtureImportApplier _importApplier = const FixtureImportApplier();
   final SelectionInitCoordinator _selectionInit;
   final String? _cloudFunctionsBaseURLOverride;
+  final String? Function()? _cloudFunctionsBaseURLProvider;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -135,6 +136,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     SelectionInitCoordinator? selectionInit,
     bool useBackendScoringBranches = false,
     String? cloudFunctionsBaseURLOverride,
+    String? Function()? cloudFunctionsBaseURLProvider,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
@@ -143,6 +145,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
         _useBackendScoringBranches = useBackendScoringBranches,
+        _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
         _cloudFunctionsBaseURLOverride =
             cloudFunctionsBaseURLOverride ??
             resolveDefaultCloudFunctionsBaseURLOverride() {
@@ -530,30 +533,18 @@ class DAUCompsViewModel extends ChangeNotifier {
 
     String? cloudFunctionsBaseURL;
     if (useCloudFunction) {
-      try {
-        final configPath = '$configPathRoot/$cloudFunctionsBaseURLKey';
-        final configSnapshot = await _db.child(configPath).get();
-        cloudFunctionsBaseURL = resolveCloudFunctionsBaseURLValue(
-          configValue: configSnapshot.value,
-          overrideValue: _cloudFunctionsBaseURLOverride,
-        );
-        final String configDescription =
-            parseCloudFunctionsBaseURLValue(configSnapshot.value) ??
-            '<not set>';
-        final String overrideDescription =
-            parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
-            '<not set>';
-        log(
-          'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from $configPath (config=$configDescription, override=$overrideDescription)',
-        );
-      } catch (e, stackTrace) {
-        log(
-          'DAUCompsViewModel_getNetworkFixtureData: Failed to read cloudFunctionsBaseURL: $e. Falling back to local execution.',
-          error: e,
-          stackTrace: stackTrace,
-        );
-        cloudFunctionsBaseURL = null;
-      }
+      cloudFunctionsBaseURL = resolveConfiguredCloudFunctionsBaseURL();
+      final String configDescription =
+          parseCloudFunctionsBaseURLValue(
+            _cloudFunctionsBaseURLProvider?.call(),
+          ) ??
+          '<not set>';
+      final String overrideDescription =
+          parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
+          '<not set>';
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from ConfigViewModel (config=$configDescription, override=$overrideDescription)',
+      );
     } else {
       log(
         'DAUCompsViewModel_getNetworkFixtureData: Cloud Function disabled for this call. Falling back to local execution.',
@@ -661,6 +652,14 @@ class DAUCompsViewModel extends ChangeNotifier {
       return override;
     }
     return parseCloudFunctionsBaseURLValue(configValue);
+  }
+
+  @visibleForTesting
+  String? resolveConfiguredCloudFunctionsBaseURL() {
+    return resolveCloudFunctionsBaseURLValue(
+      configValue: _cloudFunctionsBaseURLProvider?.call(),
+      overrideValue: _cloudFunctionsBaseURLOverride,
+    );
   }
 
   static String? resolveDefaultCloudFunctionsBaseURLOverride({

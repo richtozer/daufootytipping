@@ -188,6 +188,29 @@ void main() {
       );
     });
 
+    test('configured cloud functions URL follows the provider value', () {
+      String? configuredUrl = 'https://first.example.com';
+      final vm = DAUCompsViewModel(
+        null,
+        false,
+        skipInit: true,
+        cloudFunctionsBaseURLOverride: 'not-a-url',
+        cloudFunctionsBaseURLProvider: () => configuredUrl,
+      );
+
+      expect(
+        vm.resolveConfiguredCloudFunctionsBaseURL(),
+        'https://first.example.com',
+      );
+
+      configuredUrl = 'https://second.example.com';
+
+      expect(
+        vm.resolveConfiguredCloudFunctionsBaseURL(),
+        'https://second.example.com',
+      );
+    });
+
     test('resolveDefaultCloudFunctionsBaseURLOverride uses emulator host', () {
       expect(
         DAUCompsViewModel.resolveDefaultCloudFunctionsBaseURLOverride(
