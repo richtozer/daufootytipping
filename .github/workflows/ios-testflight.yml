@@ -369,16 +369,27 @@ jobs:
 
           has_app_identifier=0
           has_apple_signin=0
+          app_attest_environment=""
           /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$entitlements_plist" >/dev/null 2>&1 && has_app_identifier=1
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null 2>&1 && has_apple_signin=1
+          app_attest_environment=$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.devicecheck.appattest-environment' "$entitlements_plist" 2>/dev/null || true)
 
-          if [ "$has_app_identifier" -eq 1 ] && [ "$has_apple_signin" -eq 1 ]; then
+          if [ "$has_app_identifier" -eq 1 ] && \
+             [ "$has_apple_signin" -eq 1 ] && \
+             [ "$app_attest_environment" = "production" ]; then
             echo "Exported IPA entitlements are valid. No re-sign required."
             exit 0
           fi
 
           echo "Entitlements incomplete after export. Applying re-sign fallback..."
           /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$embedded_profile_plist" > "$runner_entitlements"
+
+          # Provisioning profiles describe allowed entitlement values and can
+          # contain both App Attest environments as an array. A signed app must
+          # request exactly one environment, otherwise iOS ignores the invalid
+          # entitlement blob and Firebase App Check cannot attest the app.
+          /usr/libexec/PlistBuddy -c 'Delete :com.apple.developer.devicecheck.appattest-environment' "$runner_entitlements" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c 'Add :com.apple.developer.devicecheck.appattest-environment string production' "$runner_entitlements"
 
           signing_identity="$(security find-identity -v -p codesigning | awk -F'\"' '/Apple Distribution/{print $2; exit}')"
           if [ -z "$signing_identity" ]; then
@@ -396,6 +407,11 @@ jobs:
           cat "$entitlements_plist"
           /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$entitlements_plist" >/dev/null
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$entitlements_plist" >/dev/null
+          app_attest_environment=$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.devicecheck.appattest-environment' "$entitlements_plist")
+          if [ "$app_attest_environment" != "production" ]; then
+            echo "Re-signed app has invalid App Attest environment: $app_attest_environment"
+            exit 1
+          fi
 
           (
             cd "$work_dir"
