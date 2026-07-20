@@ -92,6 +92,41 @@ void main() {
       );
     });
 
+    test('buildRtdbRestUri builds the production root endpoint', () {
+      expect(
+        buildRtdbRestUri(
+          databaseUrl:
+              'https://example-default-rtdb.asia-southeast1.firebasedatabase.app',
+          path: '',
+        ),
+        Uri.parse(
+          'https://example-default-rtdb.asia-southeast1.firebasedatabase.app/.json',
+        ),
+      );
+    });
+
+    test('buildRtdbRestUri builds and encodes a nested endpoint', () {
+      expect(
+        buildRtdbRestUri(
+          databaseUrl: 'https://example.firebaseio.com/',
+          path: '/Stats/comp 2026',
+        ),
+        Uri.parse('https://example.firebaseio.com/Stats/comp%202026.json'),
+      );
+    });
+
+    test('buildRtdbRestUri preserves emulator namespace parameters', () {
+      expect(
+        buildRtdbRestUri(
+          databaseUrl: 'http://127.0.0.1:8000/?ns=example-default-rtdb',
+          path: '/AppConfig',
+        ),
+        Uri.parse(
+          'http://127.0.0.1:8000/AppConfig.json?ns=example-default-rtdb',
+        ),
+      );
+    });
+
     test('resolveBackendScoringCommandSecret uses configured env keys', () {
       expect(
         resolveBackendScoringCommandSecret(environment: {
