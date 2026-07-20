@@ -307,6 +307,8 @@ class _MyAppState extends State<MyApp> {
               widget.cloudFunctionsBaseURLOverride,
           cloudFunctionsBaseURLProvider:
               () => configViewModel.cloudFunctionsBaseURL,
+          adminScoringRescoreURLProvider:
+              () => configViewModel.adminScoringRescoreURL,
         ),
       );
     }

@@ -6,6 +6,7 @@ import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_update_report.dart';
@@ -304,6 +305,13 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
 }
 
 String _adminUpdateErrorMessage(Object error, bool wasScoringSelected) {
+  if (error is FirebaseFunctionsException) {
+    final detail = error.message?.trim();
+    final suffix = detail == null || detail.isEmpty
+        ? error.code
+        : '${error.code}: $detail';
+    return 'Could not update scores ($suffix). Please try again.';
+  }
   return wasScoringSelected
       ? 'Could not update scores. Please try again.'
       : 'Could not complete the update. Please try again.';
