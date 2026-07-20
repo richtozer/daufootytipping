@@ -196,6 +196,8 @@ List<Object?> _roundPointsPayload({
   required int roundTwoBobTotal,
 }) {
   return <Object?>[
+    // Backend round keys are one-based, so list index 0 is unused.
+    null,
     <String, Map<String, int>>{
       'tipper-1': _roundStatsJson(roundNumber: 1, total: roundOneAliceTotal),
       'tipper-2': _roundStatsJson(roundNumber: 1, total: roundOneBobTotal),

@@ -91,7 +91,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   final Map<String, dynamic> updates = {};
   final bool _adminMode;
   bool get adminMode => _adminMode;
-  final bool _useBackendScoringBranches;
 
   Timer? _dailyTimer;
 
@@ -134,7 +133,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     TippersViewModel Function()? tippers,
     FixtureUpdateCoordinator? fixtureCoordinator,
     SelectionInitCoordinator? selectionInit,
-    bool useBackendScoringBranches = false,
     String? cloudFunctionsBaseURLOverride,
     String? Function()? cloudFunctionsBaseURLProvider,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
@@ -144,7 +142,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         _tippers = tippers ?? (() => di<TippersViewModel>()),
         _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
-        _useBackendScoringBranches = useBackendScoringBranches,
         _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
         _cloudFunctionsBaseURLOverride =
             cloudFunctionsBaseURLOverride ??
@@ -340,7 +337,6 @@ class DAUCompsViewModel extends ChangeNotifier {
               () => StatsViewModel(
                 comp,
                 gamesVm,
-                useBackendScoringBranches: _useBackendScoringBranches,
               ),
             ),
             createTipsViewModel: (gamesVm) => StartupProfiling.trackSync(
@@ -392,7 +388,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       createStatsViewModel: (comp, gamesVm) => StatsViewModel(
         comp,
         gamesVm,
-        useBackendScoringBranches: _useBackendScoringBranches,
       ),
     );
 
@@ -509,6 +504,62 @@ class DAUCompsViewModel extends ChangeNotifier {
     await lockRef.set(null);
   }
 
+  HttpsCallable _adminCallable(
+    String functionName,
+    String cloudFunctionsBaseURL, {
+    required Duration timeout,
+  }) {
+    final functionUrl = cloudFunctionsBaseURL.endsWith('/')
+        ? '$cloudFunctionsBaseURL$functionName'
+        : '$cloudFunctionsBaseURL/$functionName';
+    final uri = Uri.parse(functionUrl);
+    final isLocalEmulatorUrl = uri.scheme == 'http' &&
+        (uri.host == '127.0.0.1' ||
+            uri.host == 'localhost' ||
+            uri.host == '10.0.2.2');
+    final options = HttpsCallableOptions(timeout: timeout);
+    if (isLocalEmulatorUrl) {
+      final functions = FirebaseFunctions.instanceFor(
+        region: _fixtureFunctionRegion,
+      );
+      functions.useFunctionsEmulator(uri.host, uri.port);
+      log(
+        'DAUCompsViewModel: using local Functions emulator callable $functionName at ${uri.scheme}://${uri.host}:${uri.port}.',
+      );
+      return functions.httpsCallable(functionName, options: options);
+    }
+
+    log('DAUCompsViewModel: using deployed callable URL $functionUrl.');
+    return FirebaseFunctions.instance.httpsCallableFromUrl(
+      functionUrl,
+      options: options,
+    );
+  }
+
+  Future<String> rescoreWithBackend(DAUComp daucompToUpdate) async {
+    final cloudFunctionsBaseURL = resolveConfiguredCloudFunctionsBaseURL();
+    if (cloudFunctionsBaseURL == null || cloudFunctionsBaseURL.isEmpty) {
+      throw StateError(
+        'Backend scoring is not configured. Set /AppConfig/cloudFunctionsBaseURL.',
+      );
+    }
+
+    const functionName = 'admin-scoring-rescore';
+    final callable = _adminCallable(
+      functionName,
+      cloudFunctionsBaseURL,
+      timeout: const Duration(minutes: 6),
+    );
+
+    log(
+      'DAUCompsViewModel_rescoreWithBackend: triggering $functionName for ${daucompToUpdate.dbkey}.',
+    );
+    final result = await callable.call(<String, dynamic>{
+      'compKey': daucompToUpdate.dbkey,
+    });
+    return cloudFunctionFixtureDownloadMessage(result.data);
+  }
+
   Future<String> getNetworkFixtureData(
     DAUComp daucompToUpdate, {
     bool useCloudFunction = true,
@@ -557,37 +608,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       notifyListeners();
       try {
         const functionName = 'admin-fixture-download';
-        final String functionUrl = cloudFunctionsBaseURL.endsWith('/')
-            ? '$cloudFunctionsBaseURL$functionName'
-            : '$cloudFunctionsBaseURL/$functionName';
-        final uri = Uri.tryParse(functionUrl);
-        final isLocalEmulatorUrl = uri != null &&
-            uri.scheme == 'http' &&
-            (uri.host == '127.0.0.1' ||
-                uri.host == 'localhost' ||
-                uri.host == '10.0.2.2');
-        final options = HttpsCallableOptions(
+        final callable = _adminCallable(
+          functionName,
+          cloudFunctionsBaseURL,
           timeout: const Duration(minutes: 2),
         );
-        final HttpsCallable callable;
-        if (isLocalEmulatorUrl) {
-          final functions = FirebaseFunctions.instanceFor(
-            region: _fixtureFunctionRegion,
-          );
-          functions.useFunctionsEmulator(uri.host, uri.port);
-          callable = functions.httpsCallable(functionName, options: options);
-          log(
-            'DAUCompsViewModel_getNetworkFixtureData: Using local Functions emulator callable $functionName at ${uri.scheme}://${uri.host}:${uri.port}.',
-          );
-        } else {
-          callable = FirebaseFunctions.instance.httpsCallableFromUrl(
-            functionUrl,
-            options: options,
-          );
-          log(
-            'DAUCompsViewModel_getNetworkFixtureData: Using deployed callable URL $functionUrl.',
-          );
-        }
         final result = await callable.call(<String, dynamic>{
           'compKey': daucompToUpdate.dbkey,
         });
