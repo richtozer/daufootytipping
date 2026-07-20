@@ -107,6 +107,16 @@ void main() {
       );
     });
 
+    test('resolveBackendScoringCommandSecrets supports key rotation', () {
+      expect(
+        resolveBackendScoringCommandSecrets(environment: {
+          'BACKEND_SCORING_COMMAND_SECRET': 'new-secret',
+          'DART_BACKEND_SCORING_COMMAND_SECRET': 'old-secret',
+        }),
+        ['new-secret', 'old-secret'],
+      );
+    });
+
     test('resolveBackendScoringCommandUrl uses configured env keys', () {
       expect(
         resolveBackendScoringCommandUrl(environment: {
@@ -158,6 +168,16 @@ void main() {
           expectedSecret: 'secret-123',
         ),
         isFalse,
+      );
+    });
+
+    test('isBackendScoringCommandAuthorized accepts rollover secrets', () {
+      expect(
+        isBackendScoringCommandAuthorized(
+          {'x-backend-scoring-secret': 'old-secret'},
+          expectedSecrets: ['new-secret', 'old-secret'],
+        ),
+        isTrue,
       );
     });
 

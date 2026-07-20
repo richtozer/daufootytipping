@@ -128,6 +128,28 @@ void main() {
     viewModel.dispose();
   });
 
+  test('loads the rescore URL directly when the cached snapshot lacks it', () async {
+    final childReference = MockDatabaseReference();
+    final snapshot = MockDataSnapshot();
+    when(() => mockDb.child(p.adminScoringRescoreURLKey))
+        .thenReturn(childReference);
+    when(() => childReference.get()).thenAnswer((_) async => snapshot);
+    when(() => snapshot.value)
+        .thenReturn('https://admin-scoring-rescore.example.com');
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+    );
+
+    final value = await viewModel.loadAdminScoringRescoreURL();
+
+    expect(value, 'https://admin-scoring-rescore.example.com');
+    expect(viewModel.adminScoringRescoreURL, value);
+    verify(() => childReference.get()).called(1);
+
+    viewModel.dispose();
+  });
+
   test('config values prefer the materialized root snapshot', () async {
     final viewModel = ConfigViewModel(
       db: mockDb,

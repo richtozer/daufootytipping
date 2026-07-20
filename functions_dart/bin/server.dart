@@ -204,14 +204,22 @@ const List<String> _backendScoringCommandUrlEnvKeys = [
 String? resolveBackendScoringCommandSecret({
   Map<String, String>? environment,
 }) {
+  final secrets = resolveBackendScoringCommandSecrets(environment: environment);
+  return secrets.isEmpty ? null : secrets.first;
+}
+
+List<String> resolveBackendScoringCommandSecrets({
+  Map<String, String>? environment,
+}) {
   final env = environment ?? Platform.environment;
+  final secrets = <String>[];
   for (final key in _backendScoringCommandSecretEnvKeys) {
     final value = env[key];
-    if (value != null && value.isNotEmpty) {
-      return value;
+    if (value != null && value.isNotEmpty && !secrets.contains(value)) {
+      secrets.add(value);
     }
   }
-  return null;
+  return secrets;
 }
 
 String? resolveBackendScoringCommandUrl({
@@ -230,9 +238,13 @@ String? resolveBackendScoringCommandUrl({
 bool isBackendScoringCommandAuthorized(
   Map<String, String> headers, {
   String? expectedSecret,
+  List<String>? expectedSecrets,
 }) {
-  final secret = expectedSecret ?? resolveBackendScoringCommandSecret();
-  if (secret == null || secret.isEmpty) {
+  final secrets = expectedSecrets ??
+      (expectedSecret == null
+          ? resolveBackendScoringCommandSecrets()
+          : <String>[expectedSecret]);
+  if (secrets.isEmpty) {
     return false;
   }
 
@@ -240,7 +252,11 @@ bool isBackendScoringCommandAuthorized(
     headers,
     _backendScoringCommandSecretHeader,
   );
-  return _constantTimeStringEquals(providedSecret, secret);
+  var authorized = false;
+  for (final secret in secrets) {
+    authorized = _constantTimeStringEquals(providedSecret, secret) || authorized;
+  }
+  return authorized;
 }
 
 bool _constantTimeStringEquals(String? left, String right) {
@@ -301,8 +317,8 @@ Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
       );
     }
 
-    final commandSecret = resolveBackendScoringCommandSecret();
-    if (commandSecret == null || commandSecret.isEmpty) {
+    final commandSecrets = resolveBackendScoringCommandSecrets();
+    if (commandSecrets.isEmpty) {
       return _backendScoringErrorResponse(
         400,
         'FAILED_PRECONDITION',
@@ -313,7 +329,7 @@ Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
     final headers = Map<String, String>.from(request.headers as Map);
     if (!isBackendScoringCommandAuthorized(
       headers,
-      expectedSecret: commandSecret,
+      expectedSecrets: commandSecrets,
     )) {
       throw PermissionDeniedError('Unauthorized backend scoring command request');
     }
@@ -415,8 +431,8 @@ Future<Response> _handleScheduledFixtureDownloadRequestWithRuntimeApp(
       );
     }
 
-    final commandSecret = resolveBackendScoringCommandSecret();
-    if (commandSecret == null || commandSecret.isEmpty) {
+    final commandSecrets = resolveBackendScoringCommandSecrets();
+    if (commandSecrets.isEmpty) {
       logScheduledFixtureDownload('backend command secret is not configured');
       return _backendScoringErrorResponse(
         400,
@@ -428,7 +444,7 @@ Future<Response> _handleScheduledFixtureDownloadRequestWithRuntimeApp(
     final headers = normalizeHttpHeaders(request.headers);
     if (!isBackendScoringCommandAuthorized(
       headers,
-      expectedSecret: commandSecret,
+      expectedSecrets: commandSecrets,
     )) {
       logScheduledFixtureDownload('request authorization failed');
       throw PermissionDeniedError('Unauthorized scheduled fixture request');
