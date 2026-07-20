@@ -242,7 +242,7 @@ void main() {
         viewModel.gamesWithLiveScores.single.scoring?.crowdSourcedScores?.length,
         2,
       );
-      verify(() => staleGameRef.remove()).called(1);
+      verifyNever(() => staleGameRef.remove());
       verifyNever(() => activeGameRef.remove());
 
       viewModel.dispose();
@@ -282,8 +282,8 @@ void main() {
 
     expect(viewModel.hasLiveScoresInUse, isFalse);
     expect(viewModel.gamesWithLiveScores, isEmpty);
-    verify(() => staleGameRef.remove()).called(1);
-    verify(() => activeGameRef.remove()).called(1);
+    verifyNever(() => staleGameRef.remove());
+    verifyNever(() => activeGameRef.remove());
 
     viewModel.dispose();
   });

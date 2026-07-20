@@ -63,17 +63,10 @@ class StatsViewModel extends ChangeNotifier {
   bool _hasGameStatsListener = false;
 
   final DAUComp selectedDAUComp;
-  final bool useBackendScoringBranches;
 
-  String get _roundStatsReadRoot => useBackendScoringBranches
-      ? p.roundStatsBackendRoot
-      : roundStatsRoot;
-  String get _liveScoresReadRoot => useBackendScoringBranches
-      ? p.liveScoresBackendRoot
-      : liveScoresRoot;
-  String get _gameStatsReadRoot => useBackendScoringBranches
-      ? p.gameStatsBackendRoot
-      : gameStatsRoot;
+  String get _roundStatsReadRoot => p.roundStatsBackendRoot;
+  String get _liveScoresReadRoot => p.liveScoresBackendRoot;
+  String get _gameStatsReadRoot => p.gameStatsBackendRoot;
 
   bool _isUpdateScoringRunning = false;
   bool get isUpdateScoringRunning => _isUpdateScoringRunning;
@@ -112,11 +105,10 @@ class StatsViewModel extends ChangeNotifier {
     this.gamesViewModel, {
     DatabaseReference? database,
     bool autoInitialize = true,
-    this.useBackendScoringBranches = false,
   }) : _db = database ?? configuredDatabaseRef() {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
     log(
-      'StatsViewModel scoring reads: backend=$useBackendScoringBranches '
+      'StatsViewModel scoring reads: backend=true '
       'round=$_roundStatsReadRoot game=$_gameStatsReadRoot '
       'live=$_liveScoresReadRoot',
     );
@@ -261,7 +253,7 @@ class StatsViewModel extends ChangeNotifier {
       for (var index = 0; index < value.length; index++) {
         final row = value[index];
         if (row is Map) {
-          final roundIndex = useBackendScoringBranches ? index - 1 : index;
+          final roundIndex = index - 1;
           if (roundIndex >= 0) {
             rows[roundIndex] = Map<dynamic, dynamic>.from(row);
           }
@@ -281,9 +273,7 @@ class StatsViewModel extends ChangeNotifier {
         if (roundNumber == null || row is! Map) {
           continue;
         }
-        final roundIndex = useBackendScoringBranches
-            ? roundNumber - 1
-            : roundNumber;
+        final roundIndex = roundNumber - 1;
         if (roundIndex >= 0) {
           rows[roundIndex] = Map<dynamic, dynamic>.from(row);
         }
@@ -416,9 +406,6 @@ class StatsViewModel extends ChangeNotifier {
 
         notifyListeners();
 
-        if (!useBackendScoringBranches) {
-          await _deleteLiveScoresByGameDbKeys(staleLiveScoreGameDbKeys);
-        }
       } else {
         // All live scores have been deleted (e.g. official scores arrived)
         if (_gamesWithLiveScores.isNotEmpty) {

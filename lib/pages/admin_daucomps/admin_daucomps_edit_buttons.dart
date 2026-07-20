@@ -4,7 +4,7 @@ import 'dart:developer';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -13,16 +13,12 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 
 class AdminDaucompsEditFixtureButton extends StatelessWidget {
-  static const String webDisabledTooltip =
-      'Fixture download is disabled on web because browser cross-origin restrictions block the fixture source.';
-
   final DAUCompsViewModel dauCompsViewModel;
   final DAUComp? daucomp;
   // This callback is expected to be `(fn) => parent.setState(fn)`.
   // The `fn` passed to it should be the code that was originally in `setState`.
   final Function(VoidCallback fn) setStateCallback;
   final Function(bool disabled) onDisableBack;
-  final bool? isWebOverride;
 
   const AdminDaucompsEditFixtureButton({
     super.key,
@@ -30,7 +26,6 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
     required this.daucomp,
     required this.setStateCallback,
     required this.onDisableBack,
-    this.isWebOverride,
   });
 
   @override
@@ -38,17 +33,6 @@ class AdminDaucompsEditFixtureButton extends StatelessWidget {
     if (daucomp == null) {
       return const SizedBox.shrink();
     } else {
-      final isWebPlatform = isWebOverride ?? kIsWeb;
-      if (isWebPlatform) {
-        return const Tooltip(
-          message: webDisabledTooltip,
-          child: OutlinedButton(
-            onPressed: null,
-            child: Text('Download'),
-          ),
-        );
-      }
-
       return OutlinedButton(
         onPressed: () async {
           if (dauCompsViewModel.isDownloading) {
@@ -132,7 +116,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: statsViewModel,
       builder: (context, _) {
-        final isWebPlatform = kIsWeb;
         final isBusy =
             dauCompsViewModel.isDownloading ||
             statsViewModel.isUpdateScoringRunning;
@@ -170,7 +153,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
 
                       final selectedSteps = await _showAdminUpdateStepsDialog(
                         context,
-                        fixtureDownloadAvailable: !isWebPlatform,
                       );
                       if (selectedSteps == null) {
                         return;
@@ -189,8 +171,7 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                       log(
                         'AdminDaucompsEditScoringButton: selected steps: '
                         'downloadFixtures=${selectedSteps.downloadFixtures}, '
-                        'recalculateScoring=${selectedSteps.recalculateScoring}, '
-                        'rebuildGameStats=${selectedSteps.rebuildGameStats}',
+                        'recalculateScoring=${selectedSteps.recalculateScoring}',
                       );
 
                       var progressDialogShown = false;
@@ -233,7 +214,7 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                           );
                         }
 
-                        ScoringUpdateReport? report;
+                        String? scoringResult;
                         final skipUiScoringAfterBackendFixtureDownload =
                             selectedSteps.downloadFixtures &&
                             dauCompsViewModel
@@ -244,18 +225,14 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                             'AdminDaucompsEditScoringButton: skipping UI scoring step because backend fixture download already triggered scoring.',
                           );
                         } else if (selectedSteps.recalculateScoring) {
-                          log('AdminDaucompsEditScoringButton: starting scoring update step.');
+                          log('AdminDaucompsEditScoringButton: starting backend scoring update step.');
                           adminProgress.value = const AdminUpdateProgress(
                             'Updating scores...',
                             null,
                           );
-                          report = await statsViewModel.updateStatsWithReport(
-                            daucomp!,
-                            null,
-                            null,
-                            rebuildGameStats: selectedSteps.rebuildGameStats,
-                          );
-                          log('AdminDaucompsEditScoringButton: scoring update step completed.');
+                          scoringResult = await dauCompsViewModel
+                              .rescoreWithBackend(daucomp!);
+                          log('AdminDaucompsEditScoringButton: backend scoring update step completed.');
                         }
 
                         if (context.mounted) {
@@ -267,19 +244,11 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                           if (!context.mounted) {
                             return;
                           }
-                          if (report != null) {
-                            await showDialog<void>(
-                              context: context,
-                              builder: (_) => _ScoringUpdateReportDialog(
-                                report: report!,
-                                fixtureResult: fixtureResult,
-                              ),
-                            );
-                          } else if (fixtureResult != null) {
+                          if (scoringResult != null || fixtureResult != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: Colors.green,
-                                content: Text(fixtureResult),
+                                content: Text(scoringResult ?? fixtureResult!),
                                 duration: const Duration(seconds: 4),
                               ),
                             );
@@ -327,8 +296,6 @@ class AdminDaucompsEditScoringButton extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            FixtureDownloadStatusBanner(comp: daucomp!),
           ],
         );
       },
@@ -574,16 +541,13 @@ String? _relativeTime(DateTime now, DateTime? timestamp) {
 class AdminUpdateStepSelection {
   final bool downloadFixtures;
   final bool recalculateScoring;
-  final bool rebuildGameStats;
 
   const AdminUpdateStepSelection({
     required this.downloadFixtures,
     required this.recalculateScoring,
-    required this.rebuildGameStats,
   });
 
-  bool get hasAnyStep =>
-      downloadFixtures || recalculateScoring || rebuildGameStats;
+  bool get hasAnyStep => downloadFixtures || recalculateScoring;
 }
 
 class AdminUpdateProgress {
@@ -594,12 +558,10 @@ class AdminUpdateProgress {
 }
 
 Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
-  BuildContext context, {
-  required bool fixtureDownloadAvailable,
-}) {
+  BuildContext context,
+) {
   var downloadFixtures = false;
   var recalculateScoring = true;
-  var rebuildGameStats = true;
 
   return showDialog<AdminUpdateStepSelection>(
     context: context,
@@ -618,18 +580,14 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
                 const SizedBox(height: 12),
                 CheckboxListTile(
                   value: downloadFixtures,
-                  onChanged: fixtureDownloadAvailable
-                      ? (value) {
-                          setDialogState(() {
-                            downloadFixtures = value ?? false;
-                          });
-                        }
-                      : null,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      downloadFixtures = value ?? false;
+                    });
+                  },
                   title: const Text('Download fixtures'),
-                  subtitle: Text(
-                    fixtureDownloadAvailable
-                        ? 'Fetch latest fixture scores and save game updates.'
-                        : AdminDaucompsEditFixtureButton.webDisabledTooltip,
+                  subtitle: const Text(
+                    'Fetch latest fixture scores through the backend and save game updates.',
                   ),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -638,27 +596,11 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
                   onChanged: (value) {
                     setDialogState(() {
                       recalculateScoring = value ?? false;
-                      if (!recalculateScoring) {
-                        rebuildGameStats = false;
-                      }
                     });
                   },
                   title: const Text('Recalculate scoring'),
-                  subtitle: const Text('Rebuild round points and leaderboards.'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-                CheckboxListTile(
-                  value: rebuildGameStats,
-                  onChanged: recalculateScoring
-                      ? (value) {
-                          setDialogState(() {
-                            rebuildGameStats = value ?? false;
-                          });
-                        }
-                      : null,
-                  title: const Text('Rebuild game averages'),
                   subtitle: const Text(
-                    'Refresh paid and free average points for completed games.',
+                    'Rebuild round points, leaderboards, and game averages.',
                   ),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -674,7 +616,6 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
                   AdminUpdateStepSelection(
                     downloadFixtures: downloadFixtures,
                     recalculateScoring: recalculateScoring,
-                    rebuildGameStats: rebuildGameStats,
                   ),
                 ),
                 child: const Text('Run'),
@@ -687,10 +628,13 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
   );
 }
 
+// Retained until the obsolete client scoring/reporting code is deleted in part 2.
+// ignore: unused_element
 class _ScoringUpdateReportDialog extends StatelessWidget {
   final ScoringUpdateReport report;
   final String? fixtureResult;
 
+  // ignore: unused_element_parameter
   const _ScoringUpdateReportDialog({required this.report, this.fixtureResult});
 
   @override

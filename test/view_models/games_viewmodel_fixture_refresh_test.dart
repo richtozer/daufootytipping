@@ -196,7 +196,7 @@ void main() {
   );
 
   test(
-    'saveBatchOfGameAttributes waits for refreshed stream snapshot before rescoring',
+    'saveBatchOfGameAttributes waits for refreshed stream snapshot without client rescoring',
     () async {
       late GamesViewModel viewModel;
       when(
@@ -267,14 +267,14 @@ void main() {
 
       await saveFuture;
 
-      verify(
+      verifyNever(
         () => statsViewModel.updateStats(
           comp,
           round,
           null,
           rebuildGameStats: true,
         ),
-      ).called(1);
+      );
       final updatedGame = await viewModel.findGame('nrl-01-001');
       expect(updatedGame?.scoring?.homeTeamScore, 14);
       expect(updatedGame?.scoring?.awayTeamScore, 8);
@@ -333,21 +333,21 @@ void main() {
       await viewModel.saveBatchOfGameAttributes();
 
       verify(() => gamesRef.get()).called(1);
-      verify(
+      verifyNever(
         () => statsViewModel.updateStats(
           comp,
           round,
           null,
           rebuildGameStats: true,
         ),
-      ).called(1);
+      );
 
       viewModel.dispose();
     },
   );
 
   test(
-    'saveBatchOfGameAttributes queues rescoring behind an in-flight stats update',
+    'saveBatchOfGameAttributes leaves scoring to backend triggers',
     () async {
       final firstUpdateCompleter = Completer<void>();
       var updateStatsCallCount = 0;
@@ -398,7 +398,7 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 150));
 
-      expect(updateStatsCallCount, 1);
+      expect(updateStatsCallCount, 0);
 
       await viewModel.updateGameAttribute(
         'nrl-01-001',
@@ -422,14 +422,14 @@ void main() {
       );
       await settleAsyncWork();
 
-      expect(ScoringUpdateQueue().queueStatus['queueLength'], 1);
+      expect(ScoringUpdateQueue().queueStatus['queueLength'], 0);
 
       firstUpdateCompleter.complete();
 
       await firstScoringFuture;
       await saveFuture;
 
-      expect(updateStatsCallCount, 2);
+      expect(updateStatsCallCount, 0);
 
       viewModel.dispose();
     },

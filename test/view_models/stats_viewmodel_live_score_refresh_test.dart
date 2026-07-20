@@ -187,6 +187,8 @@ void main() {
           _snapshot(
             exists: true,
             value: <Object?>[
+              // Backend round keys are one-based, so list index 0 is unused.
+              null,
               <String, Map<String, int>>{
                 'tipper-1': RoundStats(
                   roundNumber: 1,

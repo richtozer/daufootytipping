@@ -874,6 +874,72 @@ void main() {
     });
   });
 
+  group('executeAdminScoringRescore tests', () {
+    test('rejects non-admin callers before scoring', () async {
+      final db = DuckTypedDatabase({
+        '/AllTippers': {
+          'tipper-1': {
+            'authuid': 'user123',
+            'tipperRole': 'user',
+          },
+        },
+      });
+
+      await expectLater(
+        executeAdminScoringRescore(
+          authUid: 'user123',
+          compKey: 'comp2026',
+          db: db,
+          now: DateTime.parse('2026-07-19T12:00:00Z'),
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+    });
+
+    test('admin caller executes a full-comp backend rescore command', () async {
+      final db = DuckTypedDatabase({
+        '/AllTippers': {
+          'tipper-1': {
+            'authuid': 'admin123',
+            'tipperRole': 'admin',
+          },
+        },
+      });
+      BackendScoringCommand? capturedCommand;
+      dynamic capturedDb;
+      final now = DateTime.parse('2026-07-19T12:00:00Z');
+
+      final result = await executeAdminScoringRescore(
+        authUid: 'admin123',
+        compKey: 'comp2026',
+        db: db,
+        now: now,
+        executeCommand: ({required db, required command, required now}) async {
+          capturedDb = db;
+          capturedCommand = command;
+          return BackendScoringCommandResult(
+            status: 'completed',
+            skipped: false,
+            commandId: command.commandId,
+            commandType: command.commandType.apiValue,
+            scopeKey: command.scopeKey,
+            compKey: command.compKey,
+            message: 'Backend rescore complete.',
+          );
+        },
+      );
+
+      expect(capturedDb, same(db));
+      expect(capturedCommand?.commandType, BackendScoringCommandType.adminRescore);
+      expect(capturedCommand?.compKey, 'comp2026');
+      expect(capturedCommand?.scopeKey, 'comp:comp2026/all_rounds/all_tippers');
+      expect(capturedCommand?.roundNumber, isNull);
+      expect(capturedCommand?.tipperId, isNull);
+      expect(result.status, 'completed');
+      expect(result.message, 'Backend rescore complete.');
+    });
+  });
+
   group('backend scoring command tests', () {
     test('parses a tipWritten command payload', () {
       final command = BackendScoringCommand.fromJson({

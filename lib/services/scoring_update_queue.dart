@@ -73,18 +73,14 @@ class ScoringUpdateQueue {
     required Tipper? tipper,
     int priority = 1,
   }) async {
-    final completer = Completer<String>();
-    final request = ScoringUpdateRequest(
-      dauComp: dauComp,
-      round: round,
-      tipper: tipper,
-      completer: completer,
-      priority: priority,
+    log(
+      'ScoringUpdateQueue: client scoring is retired; backend triggers handle ${dauComp.name}',
     );
-
-    return _addRequestToQueue(request);
+    return 'Backend scoring update queued by Firebase.';
   }
 
+  // Retained until the obsolete client scoring queue is deleted in part 2.
+  // ignore: unused_element
   Future<String> _addRequestToQueue(ScoringUpdateRequest request) async {
     // Check if we already have a pending request with the same deduplication key
     final existingRequest = _deduplicateMap[request.deduplicationKey];

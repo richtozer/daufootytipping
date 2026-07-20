@@ -19,7 +19,7 @@ void logScheduledFixtureDownload(String message) {
   stdout.writeln('[scheduledFixtureDownload] $message');
 }
 
-const _fixtureDownloadOptions = CallableOptions(
+const _adminCallableOptions = CallableOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
   timeoutSeconds: TimeoutSeconds(300),
   enforceAppCheck: EnforceAppCheck(true),
@@ -41,7 +41,7 @@ void main(List<String> args) async {
 
     firebase.https.onCall(
       name: 'adminFixtureDownload',
-      options: _fixtureDownloadOptions,
+      options: _adminCallableOptions,
       (request, response) async {
         logFunction('adminFixtureDownload: callable invoked');
         // 1. Verify caller authentication
@@ -88,6 +88,39 @@ void main(List<String> args) async {
         } catch (e, stackTrace) {
           logFunction('adminFixtureDownload: unexpected failure: $e\n$stackTrace');
           rethrow;
+        } finally {
+          await dbHandle.close();
+        }
+      },
+    );
+
+    firebase.https.onCall(
+      name: 'adminScoringRescore',
+      options: _adminCallableOptions,
+      (request, response) async {
+        final auth = request.auth;
+        if (auth == null) {
+          throw UnauthenticatedError('User must be authenticated');
+        }
+
+        final dbHandle = await _openBackendScoringDatabase(
+          runtimeAdminApp: runtimeAdminApp,
+        );
+        try {
+          final compKey = extractAdminFixtureDownloadCompKey(request.data);
+          if (compKey == null || compKey.isEmpty) {
+            throw InvalidArgumentError('Missing required parameter: compKey');
+          }
+          final result = await executeAdminScoringRescore(
+            authUid: auth.uid,
+            compKey: compKey,
+            db: dbHandle.database,
+            now: DateTime.now().toUtc(),
+          );
+          return CallableResult({
+            'success': true,
+            'message': result.message,
+          });
         } finally {
           await dbHandle.close();
         }
@@ -1161,6 +1194,44 @@ Future<String> executeFixtureDownload({
     afterSuccessfulDownload: afterSuccessfulDownload,
   );
   return result.message;
+}
+
+typedef BackendScoringCommandExecutor = Future<BackendScoringCommandResult>
+    Function({
+  required dynamic db,
+  required BackendScoringCommand command,
+  required DateTime now,
+});
+
+Future<BackendScoringCommandResult> executeAdminScoringRescore({
+  required String authUid,
+  required String compKey,
+  required dynamic db,
+  required DateTime now,
+  BackendScoringCommandExecutor executeCommand = executeBackendScoringCommand,
+}) async {
+  final roleSnapshot = await db.ref(paths.tippersPath).once();
+  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
+  if (role != 'admin') {
+    throw PermissionDeniedError('User is not authorized as admin');
+  }
+
+  final sourceEventId = 'admin_rescore_${compKey}_${now.microsecondsSinceEpoch}';
+  return executeCommand(
+    db: db,
+    command: BackendScoringCommand(
+      commandType: BackendScoringCommandType.adminRescore,
+      compKey: compKey,
+      roundNumber: null,
+      tipperId: null,
+      gameKey: null,
+      sourceEventId: sourceEventId,
+      sourcePath: '/admin/scoringRescore',
+      scopeKey: 'comp:$compKey/all_rounds/all_tippers',
+      commandId: _buildBackendScoringCommandId(sourceEventId),
+    ),
+    now: now,
+  );
 }
 
 String? resolveTipperRoleForAuthUid(Object? rawTippers, String authUid) {

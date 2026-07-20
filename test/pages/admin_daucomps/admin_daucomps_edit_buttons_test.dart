@@ -42,6 +42,9 @@ void main() {
     when(
       () => dauCompsViewModel.getNetworkFixtureData(comp),
     ).thenAnswer((_) async => 'Fixture download complete.');
+    when(
+      () => dauCompsViewModel.rescoreWithBackend(comp),
+    ).thenAnswer((_) async => 'Backend rescore complete.');
     when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
     when(() => statsViewModel.scoringProgressMessage).thenReturn(null);
     when(() => statsViewModel.scoringProgressValue).thenReturn(null);
@@ -107,7 +110,7 @@ void main() {
     );
   });
 
-  testWidgets('disables fixture download on web and shows a tooltip', (
+  testWidgets('allows fixture download through the backend', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -118,23 +121,19 @@ void main() {
             daucomp: comp,
             setStateCallback: (_) {},
             onDisableBack: (_) {},
-            isWebOverride: true,
           ),
         ),
       ),
     );
 
     final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
-    expect(button.onPressed, isNull);
+    expect(button.onPressed, isNotNull);
 
-    await tester.ensureVisible(find.text('Download'));
-    await tester.longPress(find.text('Download'));
+    await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text(AdminDaucompsEditFixtureButton.webDisabledTooltip),
-      findsOneWidget,
-    );
+    verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
+    expect(find.text('Fixture download complete.'), findsOneWidget);
   });
 
   testWidgets('shows manual repair steps with fixture download off by default', (
@@ -175,15 +174,12 @@ void main() {
       ).value,
       isTrue,
     );
-    expect(
-      tester.widget<CheckboxListTile>(
-        find.widgetWithText(CheckboxListTile, 'Rebuild game averages'),
-      ).value,
-      isTrue,
-    );
+    expect(find.textContaining('Fixture status'), findsNothing);
+    expect(find.text('Nothing to do'), findsNothing);
+    expect(find.text('Rebuild game averages'), findsNothing);
   });
 
-  testWidgets('shows a scoring change dialog after manual admin update', (
+  testWidgets('runs manual scoring through the backend', (
     tester,
   ) async {
     final disableBackStates = <bool>[];
@@ -209,40 +205,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(disableBackStates, contains(true));
-    expect(find.text('Rescore complete'), findsOneWidget);
-    expect(find.text('Fixture download: Fixture download complete.'), findsNothing);
-    expect(find.text('Leaderboard changes'), findsOneWidget);
-    expect(find.text('Round point changes'), findsOneWidget);
-    expect(find.text('Alice'), findsOneWidget);
-    expect(find.text('Round 7 • Alice'), findsOneWidget);
-    expect(find.text('Game average changes'), findsOneWidget);
-    expect(find.text('Lions v Cats • Paid'), findsOneWidget);
-    expect(find.text('Avg 0.0 -> 0.14'), findsOneWidget);
-    expect(find.text('Margins 2 -> 3 (+1)'), findsOneWidget);
-    expect(find.text('Round rank 4 -> 3 (up 1)'), findsOneWidget);
-    expect(find.textContaining('Total 18 -> 18'), findsNothing);
-    expect(find.textContaining('NRL 8 -> 8'), findsNothing);
-    expect(find.textContaining('Rank 3 -> 3'), findsNothing);
-    expect(find.textContaining('Rounds won 0 -> 0'), findsNothing);
-    expect(find.textContaining('UPS 1 -> 1'), findsNothing);
-    expect(find.textContaining('Total 2 -> 2'), findsNothing);
+    expect(find.text('Backend rescore complete.'), findsOneWidget);
     verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
-    verify(
-      () => statsViewModel.updateStatsWithReport(
-        comp,
-        null,
-        null,
-        rebuildGameStats: true,
-      ),
-    ).called(1);
-
-    await tester.tap(find.text('Close'));
-    await tester.pumpAndSettle();
+    verify(() => dauCompsViewModel.rescoreWithBackend(comp)).called(1);
+    verifyNever(() => statsViewModel.updateStatsWithReport(
+      comp,
+      null,
+      null,
+      rebuildGameStats: true,
+    ));
 
     expect(disableBackStates.last, false);
   });
 
-  testWidgets('runs UI scoring after local fixture download', (
+  testWidgets('runs backend scoring after local fixture download', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -268,14 +244,7 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
-    verify(
-      () => statsViewModel.updateStatsWithReport(
-        comp,
-        null,
-        null,
-        rebuildGameStats: true,
-      ),
-    ).called(1);
+    verify(() => dauCompsViewModel.rescoreWithBackend(comp)).called(1);
   });
 
   testWidgets('skips UI scoring after backend fixture download', (
@@ -308,33 +277,20 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => dauCompsViewModel.getNetworkFixtureData(comp)).called(1);
-    verifyNever(
-      () => statsViewModel.updateStatsWithReport(
-        comp,
-        null,
-        null,
-        rebuildGameStats: true,
-      ),
-    );
+    verifyNever(() => dauCompsViewModel.rescoreWithBackend(comp));
     expect(find.text('Fixture download complete.'), findsOneWidget);
   });
 
   testWidgets('shows progress dialog while manual admin update is running', (
     tester,
   ) async {
-    final reportCompleter = Completer<ScoringUpdateReport>();
+    final reportCompleter = Completer<String>();
     when(() => statsViewModel.scoringProgressMessage).thenReturn(
       'Rebuilding game averages 3/10...',
     );
     when(() => statsViewModel.scoringProgressValue).thenReturn(0.3);
-    when(
-      () => statsViewModel.updateStatsWithReport(
-        comp,
-        null,
-        null,
-        rebuildGameStats: true,
-      ),
-    ).thenAnswer((_) => reportCompleter.future);
+    when(() => dauCompsViewModel.rescoreWithBackend(comp))
+        .thenAnswer((_) => reportCompleter.future);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -360,34 +316,13 @@ void main() {
     expect(find.text('Rebuilding game averages 3/10...'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
-    reportCompleter.complete(
-      const ScoringUpdateReport(
-        resultMessage: 'Completed updates for 0 tippers and 0 rounds.',
-        leaderboardChanges: <ScoringLeaderboardChange>[],
-        roundChanges: <ScoringRoundChange>[],
-      ),
-    );
+    reportCompleter.complete('Backend rescore complete.');
     await tester.pumpAndSettle();
 
-    expect(find.text('Rescore complete'), findsOneWidget);
+    expect(find.text('Backend rescore complete.'), findsOneWidget);
   });
 
-  testWidgets('shows the no-changes wording once', (tester) async {
-    when(
-      () => statsViewModel.updateStatsWithReport(
-        comp,
-        null,
-        null,
-        rebuildGameStats: true,
-      ),
-    ).thenAnswer(
-      (_) async => const ScoringUpdateReport(
-        resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
-        leaderboardChanges: <ScoringLeaderboardChange>[],
-        roundChanges: <ScoringRoundChange>[],
-      ),
-    );
-
+  testWidgets('shows the backend completion message once', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -408,8 +343,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pump();
 
-    expect(find.text('Rescore complete'), findsOneWidget);
-    expect(find.text('No scoring changes detected.'), findsOneWidget);
+    expect(find.text('Backend rescore complete.'), findsOneWidget);
   });
 
   testWidgets('shows applied fixture status from the new schema', (tester) async {
