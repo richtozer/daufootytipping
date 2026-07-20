@@ -322,6 +322,36 @@ void main() {
     expect(find.text('Backend rescore complete.'), findsOneWidget);
   });
 
+  testWidgets('shows configuration detail for a rescore StateError', (
+    tester,
+  ) async {
+    when(() => dauCompsViewModel.rescoreWithBackend(comp)).thenThrow(
+      StateError('Backend scoring URL is not configured.'),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminDaucompsEditScoringButton(
+            dauCompsViewModel: dauCompsViewModel,
+            daucomp: comp,
+            setStateCallback: (_) {},
+            onDisableBack: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Run Updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Backend scoring URL is not configured.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shows the backend completion message once', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

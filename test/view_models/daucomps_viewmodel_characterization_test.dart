@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -232,6 +233,31 @@ void main() {
         vm.resolveConfiguredAdminScoringRescoreURL(),
         'https://rescore-two.example.com',
       );
+    });
+
+    test('backend rescore loads a URL when the provider is not ready', () async {
+      var loadCount = 0;
+      final vm = DAUCompsViewModel(
+        null,
+        false,
+        skipInit: true,
+        cloudFunctionsBaseURLOverride: 'not-a-url',
+        adminScoringRescoreURLProvider: () => null,
+        adminScoringRescoreURLLoader: () async {
+          loadCount += 1;
+          return 'not-a-url';
+        },
+      );
+      final comp = DAUComp(
+        dbkey: 'comp-2026',
+        name: 'Test Comp',
+        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+        daurounds: const [],
+      );
+
+      await expectLater(vm.rescoreWithBackend(comp), throwsStateError);
+      expect(loadCount, 1);
     });
 
     test('deployed callable URL remains a complete service URL', () {

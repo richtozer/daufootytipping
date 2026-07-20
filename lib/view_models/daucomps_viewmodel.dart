@@ -117,6 +117,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final String? _cloudFunctionsBaseURLOverride;
   final String? Function()? _cloudFunctionsBaseURLProvider;
   final String? Function()? _adminScoringRescoreURLProvider;
+  final Future<String?> Function()? _adminScoringRescoreURLLoader;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -137,6 +138,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     String? cloudFunctionsBaseURLOverride,
     String? Function()? cloudFunctionsBaseURLProvider,
     String? Function()? adminScoringRescoreURLProvider,
+    Future<String?> Function()? adminScoringRescoreURLLoader,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
@@ -146,6 +148,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
         _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
         _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
+        _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
         _cloudFunctionsBaseURLOverride =
             cloudFunctionsBaseURLOverride ??
             resolveDefaultCloudFunctionsBaseURLOverride() {
@@ -542,7 +545,15 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<String> rescoreWithBackend(DAUComp daucompToUpdate) async {
-    final adminScoringRescoreURL = resolveConfiguredAdminScoringRescoreURL();
+    var adminScoringRescoreURL = resolveConfiguredAdminScoringRescoreURL();
+    if (adminScoringRescoreURL == null) {
+      log(
+        'DAUCompsViewModel_rescoreWithBackend: configured URL is not cached; refreshing AppConfig.',
+      );
+      adminScoringRescoreURL = parseCloudFunctionsBaseURLValue(
+        await _adminScoringRescoreURLLoader?.call(),
+      );
+    }
     if (adminScoringRescoreURL == null || adminScoringRescoreURL.isEmpty) {
       throw StateError(
         'Backend scoring is not configured. Set /AppConfig/adminScoringRescoreURL.',

@@ -35,6 +35,21 @@ class ConfigViewModel extends ChangeNotifier {
   String? _adminScoringRescoreURL;
   String? get adminScoringRescoreURL => _adminScoringRescoreURL;
 
+  Future<String?> loadAdminScoringRescoreURL() async {
+    final cachedValue = _adminScoringRescoreURL;
+    if (cachedValue != null) {
+      return cachedValue;
+    }
+
+    final snapshot = await _db.child(p.adminScoringRescoreURLKey).get();
+    final loadedValue = _parseOptionalString(snapshot.value);
+    if (loadedValue != null && loadedValue != _adminScoringRescoreURL) {
+      _adminScoringRescoreURL = loadedValue;
+      notifyListeners();
+    }
+    return loadedValue;
+  }
+
   bool _useBackendScoringBranches = false;
   bool get useBackendScoringBranches => _useBackendScoringBranches;
 

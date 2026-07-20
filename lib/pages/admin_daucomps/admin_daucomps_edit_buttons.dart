@@ -312,6 +312,9 @@ String _adminUpdateErrorMessage(Object error, bool wasScoringSelected) {
         : '${error.code}: $detail';
     return 'Could not update scores ($suffix). Please try again.';
   }
+  if (error is StateError) {
+    return 'Could not update scores (${error.message}). Please try again.';
+  }
   return wasScoringSelected
       ? 'Could not update scores. Please try again.'
       : 'Could not complete the update. Please try again.';

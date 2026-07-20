@@ -309,6 +309,8 @@ class _MyAppState extends State<MyApp> {
               () => configViewModel.cloudFunctionsBaseURL,
           adminScoringRescoreURLProvider:
               () => configViewModel.adminScoringRescoreURL,
+          adminScoringRescoreURLLoader:
+              configViewModel.loadAdminScoringRescoreURL,
         ),
       );
     }
