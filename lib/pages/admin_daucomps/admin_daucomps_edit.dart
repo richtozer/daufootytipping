@@ -12,6 +12,27 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
+@visibleForTesting
+DAUCompsViewModel createAdminDauCompsViewModel({
+  required String? compKey,
+  required ConfigViewModel configViewModel,
+  bool skipInit = false,
+  String? cloudFunctionsBaseURLOverride,
+}) {
+  return DAUCompsViewModel(
+    compKey,
+    true,
+    skipInit: skipInit,
+    cloudFunctionsBaseURLOverride: cloudFunctionsBaseURLOverride,
+    cloudFunctionsBaseURLProvider:
+        () => configViewModel.cloudFunctionsBaseURL,
+    adminScoringRescoreURLProvider:
+        () => configViewModel.adminScoringRescoreURL,
+    adminScoringRescoreURLLoader:
+        configViewModel.loadAdminScoringRescoreURL,
+  );
+}
+
 class DAUCompsEditPage extends StatefulWidget {
   final DAUComp? daucomp;
   final DAUCompsViewModel? adminDauCompsViewModel;
@@ -49,7 +70,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     _ownsPageDauCompsViewModel = widget.adminDauCompsViewModel == null;
     _pageDauCompsViewModel =
         widget.adminDauCompsViewModel ??
-        DAUCompsViewModel(widget.daucomp?.dbkey, true);
+        createAdminDauCompsViewModel(
+          compKey: widget.daucomp?.dbkey,
+          configViewModel: context.read<ConfigViewModel>(),
+        );
     _daucompNameController = TextEditingController(text: widget.daucomp?.name);
     _daucompAflJsonURLController = TextEditingController(
       text: widget.daucomp?.aflFixtureJsonURL.toString(),

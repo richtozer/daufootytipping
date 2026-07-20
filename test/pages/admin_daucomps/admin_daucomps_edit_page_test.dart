@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_rounds_table.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,8 @@ class MockGlobalDauCompsViewModel extends Mock implements DAUCompsViewModel {}
 
 class MockStatsViewModel extends Mock implements StatsViewModel {}
 
+class MockConfigViewModel extends Mock implements ConfigViewModel {}
+
 void main() {
   late MockGlobalDauCompsViewModel globalDauCompsViewModel;
   late MockGlobalDauCompsViewModel pageDauCompsViewModel;
@@ -24,6 +27,33 @@ void main() {
   late DAURound activeRound;
   late DAURound viewedRound;
   late MockStatsViewModel pageStatsViewModel;
+
+  test('admin view model receives the shared config providers', () async {
+    final configViewModel = MockConfigViewModel();
+    when(() => configViewModel.cloudFunctionsBaseURL)
+        .thenReturn('https://fixture.example.com');
+    when(() => configViewModel.adminScoringRescoreURL)
+        .thenReturn('https://rescore.example.com');
+    when(() => configViewModel.loadAdminScoringRescoreURL())
+        .thenAnswer((_) async => 'https://rescore.example.com');
+
+    final viewModel = createAdminDauCompsViewModel(
+      compKey: 'comp-2026',
+      configViewModel: configViewModel,
+      skipInit: true,
+      cloudFunctionsBaseURLOverride: 'not-a-url',
+    );
+
+    expect(
+      viewModel.resolveConfiguredCloudFunctionsBaseURL(),
+      'https://fixture.example.com',
+    );
+    expect(
+      viewModel.resolveConfiguredAdminScoringRescoreURL(),
+      'https://rescore.example.com',
+    );
+
+  });
 
   setUp(() async {
     await di.reset();
