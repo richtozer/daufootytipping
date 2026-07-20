@@ -107,6 +107,8 @@ void main() {
             p.minAppVersionKey: _valueSnapshot('1.2.3'),
             p.googleClientIdKey: _valueSnapshot('client-id'),
             p.cloudFunctionsBaseURLKey: _valueSnapshot('https://example.com'),
+            p.adminScoringRescoreURLKey:
+                _valueSnapshot('https://rescore.example.com'),
             p.useBackendScoringBranchesKey: _valueSnapshot(true),
           },
         ),
@@ -120,6 +122,7 @@ void main() {
     expect(viewModel.minAppVersion, '1.2.3');
     expect(viewModel.googleClientId, 'client-id');
     expect(viewModel.cloudFunctionsBaseURL, 'https://example.com');
+    expect(viewModel.adminScoringRescoreURL, 'https://rescore.example.com');
     expect(viewModel.useBackendScoringBranches, isTrue);
 
     viewModel.dispose();
@@ -351,7 +354,8 @@ MockDataSnapshot _rootSnapshot({
   when(() => snapshot.value).thenReturn(value);
   when(() => snapshot.child(any())).thenAnswer((invocation) {
     final key = invocation.positionalArguments.single as String;
-    return children[key] as DataSnapshot;
+    final child = children[key];
+    return child is DataSnapshot ? child : _valueSnapshot(null);
   });
   return snapshot;
 }

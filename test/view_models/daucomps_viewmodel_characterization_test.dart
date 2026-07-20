@@ -211,6 +211,39 @@ void main() {
       );
     });
 
+    test('configured scoring URL follows its dedicated provider', () {
+      String? configuredUrl = 'https://rescore-one.example.com';
+      final vm = DAUCompsViewModel(
+        null,
+        false,
+        skipInit: true,
+        cloudFunctionsBaseURLOverride: 'not-a-url',
+        adminScoringRescoreURLProvider: () => configuredUrl,
+      );
+
+      expect(
+        vm.resolveConfiguredAdminScoringRescoreURL(),
+        'https://rescore-one.example.com',
+      );
+
+      configuredUrl = 'https://rescore-two.example.com';
+
+      expect(
+        vm.resolveConfiguredAdminScoringRescoreURL(),
+        'https://rescore-two.example.com',
+      );
+    });
+
+    test('deployed callable URL remains a complete service URL', () {
+      const configuredUrl =
+          'https://admin-scoring-rescore-example.as.a.run.app';
+
+      expect(
+        DAUCompsViewModel.deployedAdminCallableURL(configuredUrl),
+        configuredUrl,
+      );
+    });
+
     test('resolveDefaultCloudFunctionsBaseURLOverride uses emulator host', () {
       expect(
         DAUCompsViewModel.resolveDefaultCloudFunctionsBaseURLOverride(

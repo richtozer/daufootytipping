@@ -116,6 +116,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final SelectionInitCoordinator _selectionInit;
   final String? _cloudFunctionsBaseURLOverride;
   final String? Function()? _cloudFunctionsBaseURLProvider;
+  final String? Function()? _adminScoringRescoreURLProvider;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -135,6 +136,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     SelectionInitCoordinator? selectionInit,
     String? cloudFunctionsBaseURLOverride,
     String? Function()? cloudFunctionsBaseURLProvider,
+    String? Function()? adminScoringRescoreURLProvider,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
@@ -143,6 +145,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
         _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
+        _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
         _cloudFunctionsBaseURLOverride =
             cloudFunctionsBaseURLOverride ??
             resolveDefaultCloudFunctionsBaseURLOverride() {
@@ -506,13 +509,10 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   HttpsCallable _adminCallable(
     String functionName,
-    String cloudFunctionsBaseURL, {
+    String configuredURL, {
     required Duration timeout,
   }) {
-    final functionUrl = cloudFunctionsBaseURL.endsWith('/')
-        ? '$cloudFunctionsBaseURL$functionName'
-        : '$cloudFunctionsBaseURL/$functionName';
-    final uri = Uri.parse(functionUrl);
+    final uri = Uri.parse(configuredURL);
     final isLocalEmulatorUrl = uri.scheme == 'http' &&
         (uri.host == '127.0.0.1' ||
             uri.host == 'localhost' ||
@@ -529,25 +529,30 @@ class DAUCompsViewModel extends ChangeNotifier {
       return functions.httpsCallable(functionName, options: options);
     }
 
-    log('DAUCompsViewModel: using deployed callable URL $functionUrl.');
+    log('DAUCompsViewModel: using deployed callable URL $configuredURL.');
     return FirebaseFunctions.instance.httpsCallableFromUrl(
-      functionUrl,
+      deployedAdminCallableURL(configuredURL),
       options: options,
     );
   }
 
+  @visibleForTesting
+  static String deployedAdminCallableURL(String configuredURL) {
+    return Uri.parse(configuredURL).toString();
+  }
+
   Future<String> rescoreWithBackend(DAUComp daucompToUpdate) async {
-    final cloudFunctionsBaseURL = resolveConfiguredCloudFunctionsBaseURL();
-    if (cloudFunctionsBaseURL == null || cloudFunctionsBaseURL.isEmpty) {
+    final adminScoringRescoreURL = resolveConfiguredAdminScoringRescoreURL();
+    if (adminScoringRescoreURL == null || adminScoringRescoreURL.isEmpty) {
       throw StateError(
-        'Backend scoring is not configured. Set /AppConfig/cloudFunctionsBaseURL.',
+        'Backend scoring is not configured. Set /AppConfig/adminScoringRescoreURL.',
       );
     }
 
     const functionName = 'admin-scoring-rescore';
     final callable = _adminCallable(
       functionName,
-      cloudFunctionsBaseURL,
+      adminScoringRescoreURL,
       timeout: const Duration(minutes: 6),
     );
 
@@ -683,6 +688,14 @@ class DAUCompsViewModel extends ChangeNotifier {
   String? resolveConfiguredCloudFunctionsBaseURL() {
     return resolveCloudFunctionsBaseURLValue(
       configValue: _cloudFunctionsBaseURLProvider?.call(),
+      overrideValue: _cloudFunctionsBaseURLOverride,
+    );
+  }
+
+  @visibleForTesting
+  String? resolveConfiguredAdminScoringRescoreURL() {
+    return resolveCloudFunctionsBaseURLValue(
+      configValue: _adminScoringRescoreURLProvider?.call(),
       overrideValue: _cloudFunctionsBaseURLOverride,
     );
   }

@@ -32,6 +32,9 @@ class ConfigViewModel extends ChangeNotifier {
   String? _cloudFunctionsBaseURL;
   String? get cloudFunctionsBaseURL => _cloudFunctionsBaseURL;
 
+  String? _adminScoringRescoreURL;
+  String? get adminScoringRescoreURL => _adminScoringRescoreURL;
+
   bool _useBackendScoringBranches = false;
   bool get useBackendScoringBranches => _useBackendScoringBranches;
 
@@ -65,6 +68,7 @@ class ConfigViewModel extends ChangeNotifier {
       _createLinkedTipper = null;
       _googleClientId = null;
       _cloudFunctionsBaseURL = null;
+      _adminScoringRescoreURL = null;
       _useBackendScoringBranches = false;
     }
 
@@ -226,6 +230,9 @@ class ConfigViewModel extends ChangeNotifier {
     );
     _cloudFunctionsBaseURL = _parseOptionalString(
       _snapshotValue(snapshot, p.cloudFunctionsBaseURLKey),
+    );
+    _adminScoringRescoreURL = _parseOptionalString(
+      _snapshotValue(snapshot, p.adminScoringRescoreURLKey),
     );
     _useBackendScoringBranches =
         _parseOptionalBool(
