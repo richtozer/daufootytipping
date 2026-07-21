@@ -982,17 +982,30 @@ class _RestDatabaseReference {
   }
 
   Uri _uri() {
-    final baseUrl = _databaseUrl.endsWith('/')
-        ? _databaseUrl.substring(0, _databaseUrl.length - 1)
-        : _databaseUrl;
-    final encodedPath = _path
-        .split('/')
-        .where((segment) => segment.isNotEmpty)
-        .map(Uri.encodeComponent)
-        .join('/');
-    final pathSuffix = encodedPath.isEmpty ? '.json' : '/$encodedPath.json';
-    return Uri.parse('$baseUrl$pathSuffix');
+    return buildRtdbRestUri(databaseUrl: _databaseUrl, path: _path);
   }
+}
+
+Uri buildRtdbRestUri({
+  required String databaseUrl,
+  required String path,
+}) {
+  final baseUri = Uri.parse(databaseUrl);
+  final databasePathSegments = baseUri.pathSegments
+      .where((segment) => segment.isNotEmpty)
+      .toList();
+  final referencePathSegments =
+      path.split('/').where((segment) => segment.isNotEmpty).toList();
+  final restPathSegments = referencePathSegments.isEmpty
+      ? const ['.json']
+      : [
+          ...referencePathSegments.take(referencePathSegments.length - 1),
+          '${referencePathSegments.last}.json',
+        ];
+
+  return baseUri.replace(
+    pathSegments: [...databasePathSegments, ...restPathSegments],
+  );
 }
 
 Future<T> runRtdbRestRequest<T>(
@@ -1350,16 +1363,17 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
     final Map<String, dynamic> existingTeams = teamsValue != null
         ? Map<String, dynamic>.from(teamsValue as Map)
         : {};
+    final existingTeamKeys =
+        existingTeams.keys.map((key) => key.toLowerCase()).toSet();
 
     void ensureTeamExists(String teamName, String league) {
       final teamKey = '$league-${_normalizeTeamLookupName(teamName)}';
-      if (!existingTeams.containsKey(teamKey)) {
+      if (existingTeamKeys.add(teamKey.toLowerCase())) {
         dbUpdates['${paths.teamsPathRoot}/$teamKey'] = {
           'name': teamName.trim(),
           'league': league,
           'logoURI': null,
         };
-        existingTeams[teamKey] = true;
       }
     }
 
