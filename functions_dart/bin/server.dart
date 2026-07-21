@@ -1363,16 +1363,17 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
     final Map<String, dynamic> existingTeams = teamsValue != null
         ? Map<String, dynamic>.from(teamsValue as Map)
         : {};
+    final existingTeamKeys =
+        existingTeams.keys.map((key) => key.toLowerCase()).toSet();
 
     void ensureTeamExists(String teamName, String league) {
       final teamKey = '$league-${_normalizeTeamLookupName(teamName)}';
-      if (!existingTeams.containsKey(teamKey)) {
+      if (existingTeamKeys.add(teamKey.toLowerCase())) {
         dbUpdates['${paths.teamsPathRoot}/$teamKey'] = {
           'name': teamName.trim(),
           'league': league,
           'logoURI': null,
         };
-        existingTeams[teamKey] = true;
       }
     }
 

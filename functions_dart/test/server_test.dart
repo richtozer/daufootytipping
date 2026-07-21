@@ -842,7 +842,7 @@ void main() {
       expect(capturedUpdates, contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'));
     });
 
-    test('normalizes team keys when fixture team names contain whitespace', () async {
+    test('reuses existing team keys case-insensitively', () async {
       final mockRoleSnapshot = MockDataSnapshot();
       final mockTippersRef = MockDatabaseReference();
       when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
@@ -890,7 +890,13 @@ void main() {
       final mockTeamsSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
       when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
-      when(() => mockTeamsSnapshot.value).thenReturn({});
+      when(() => mockTeamsSnapshot.value).thenReturn({
+        'nrl-Broncos': {
+          'league': 'nrl',
+          'logoURI': 'assets/teams/nrl/Brisbane_colours.svg',
+          'name': 'Broncos',
+        },
+      });
 
       final mockNrlGames = [
         {
@@ -919,12 +925,12 @@ void main() {
       final capturedUpdates = verify(
         () => mockRootRef.update(captureAny()),
       ).captured.single as Map<String, dynamic>;
-      expect(capturedUpdates, contains('/Teams/nrl-broncos'));
+      expect(capturedUpdates, isNot(contains('/Teams/nrl-broncos')));
       expect(capturedUpdates, contains('/Teams/nrl-roosters'));
       expect(capturedUpdates, isNot(contains('/Teams/nrl- broncos ')));
       expect(
-        Map<String, dynamic>.from(capturedUpdates['/Teams/nrl-broncos'] as Map),
-        containsPair('name', 'Broncos'),
+        Map<String, dynamic>.from(capturedUpdates['/Teams/nrl-roosters'] as Map),
+        containsPair('name', 'Roosters'),
       );
     });
   });
