@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
@@ -181,5 +183,53 @@ void main() {
     verifyNever(
       () => mockTippersViewModel.updateTipperAttribute(any(), 'logon', any()),
     );
+  });
+
+  testWidgets('god mode switch waits for tip view model refresh before notify', (
+    tester,
+  ) async {
+    final realTippersViewModel = TippersViewModel(true, skipInit: true);
+    final authenticatedAdmin = Tipper(
+      dbkey: 'admin-auth',
+      authuid: 'auth-admin',
+      email: 'admin@example.com',
+      name: 'Admin',
+      tipperRole: TipperRole.admin,
+      compsPaidFor: const [],
+    );
+    final selectedComp = DAUComp(
+      dbkey: 'comp-1',
+      name: 'Comp',
+      aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+      nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+      daurounds: const [],
+    );
+    final refreshCompleter = Completer<void>();
+    var notificationCount = 0;
+
+    realTippersViewModel.setLinkedTippersForTest(authenticatedAdmin);
+    realTippersViewModel.addListener(() {
+      notificationCount++;
+    });
+    di.registerSingleton<TippersViewModel>(realTippersViewModel);
+    when(() => mockDauCompsViewModel.selectedDAUComp).thenReturn(selectedComp);
+    when(
+      () => mockDauCompsViewModel.selectedTipperChanged(),
+    ).thenAnswer((_) => refreshCompleter.future);
+
+    await pumpEditPage(tester);
+
+    await tester.tap(find.byKey(TipperAdminEditPage.godModeSwitchKey));
+    await tester.pump();
+
+    expect(realTippersViewModel.selectedTipper, same(tipper));
+    expect(notificationCount, 0);
+
+    refreshCompleter.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(notificationCount, 1);
+    verify(() => mockDauCompsViewModel.selectedTipperChanged()).called(1);
   });
 }

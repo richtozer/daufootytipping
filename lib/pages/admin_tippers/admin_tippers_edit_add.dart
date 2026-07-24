@@ -18,6 +18,7 @@ class TipperAdminEditPage extends StatefulWidget {
   static const Key logonFieldKey = ValueKey('tipper-admin-logon-field');
   static const Key lastLoginFieldKey = ValueKey('tipper-admin-last-login-field');
   static const Key saveButtonKey = ValueKey('tipper-admin-save-button');
+  static const Key godModeSwitchKey = ValueKey('tipper-admin-god-mode-switch');
   static const Key emailInfoButtonKey = ValueKey(
     'tipper-admin-email-info-button',
   );
@@ -413,6 +414,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                               child: Consumer<TippersViewModel>(
                                 builder: (context, tippersViewModelConsumer, child) {
                                   return Switch(
+                                    key: TipperAdminEditPage.godModeSwitchKey,
                                     value:
                                         (tippersViewModelConsumer.inGodMode &&
                                         tippersViewModelConsumer.selectedTipper ==
@@ -422,7 +424,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           ? Colors.red
                                           : null,
                                     ),
-                                    onChanged: (value) {
+                                    onChanged: (value) async {
                                       if (value == true) {
                                         if (tippersViewModelConsumer
                                                 .authenticatedTipper ==
@@ -452,15 +454,39 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           );
                                         }
 
-                                        tippersViewModelConsumer.selectedTipper =
-                                            tipper;
-                                      } else {
-                                        tippersViewModelConsumer.selectedTipper =
-                                            tippersViewModelConsumer
-                                                .authenticatedTipper!;
                                       }
-                                      di<DAUCompsViewModel>()
-                                          .selectedTipperChanged();
+                                      final selectedTipper = value == true
+                                          ? tipper
+                                          : tippersViewModelConsumer
+                                                .authenticatedTipper!;
+                                      try {
+                                        await tippersViewModelConsumer
+                                            .changeSelectedTipperAfterRefresh(
+                                              selectedTipper,
+                                              refreshSelectedTipperViewModels: () =>
+                                                  di<DAUCompsViewModel>()
+                                                      .selectedTipperChanged(),
+                                            );
+                                      } catch (error, stackTrace) {
+                                        log(
+                                          'TipperAdminEditPage: failed to change god mode tipper: $error',
+                                          error: error,
+                                          stackTrace: stackTrace,
+                                        );
+                                        if (!context.mounted) {
+                                          return;
+                                        }
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            backgroundColor: Colors.red,
+                                            content: Text(
+                                              'Could not refresh tips for god mode. Please try again.',
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     },
                                   );
                                 },

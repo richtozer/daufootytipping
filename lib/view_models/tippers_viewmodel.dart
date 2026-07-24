@@ -39,9 +39,21 @@ class TippersViewModel extends ChangeNotifier {
   late Tipper _selectedTipper;
   Tipper get selectedTipper => _selectedTipper;
 
-  // this setter is to support god mode, where the admin can select a tipper to act as
-  set selectedTipper(Tipper tipper) {
+  Future<void> changeSelectedTipperAfterRefresh(
+    Tipper tipper, {
+    required Future<void> Function() refreshSelectedTipperViewModels,
+  }) async {
+    final previousTipper = _selectedTipper;
     _selectedTipper = tipper;
+
+    try {
+      await refreshSelectedTipperViewModels();
+    } catch (_) {
+      _selectedTipper = previousTipper;
+      notifyListeners();
+      rethrow;
+    }
+
     notifyListeners();
   }
 
