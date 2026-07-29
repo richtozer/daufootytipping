@@ -22,8 +22,6 @@ import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
 
-// Define constants for Realtime Database locations
-const String statsFormatVersion = 'v3';
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
 
