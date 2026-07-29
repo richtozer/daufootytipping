@@ -98,6 +98,8 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _update() {
+    _tipsByGameAndTipper = null;
+    _crossCompTipCache.clear();
     notifyListeners(); //notify our consumers that the data may have changed to gamesViewModel.games data that we have a dependency on
   }
 
@@ -296,6 +298,10 @@ class TipsViewModel extends ChangeNotifier {
 
     Tip? foundTip = _tipsForGameByTipper(game)[tipper.dbkey];
 
+    if (foundTip == null && _gameBelongsToComp(game, selectedDAUComp)) {
+      foundTip = _findCurrentCompTipByGameKey(game, tipper);
+    }
+
     if (foundTip != null) {
       foundTip = _rebindTipToCurrentGame(foundTip, game);
     }
@@ -303,6 +309,15 @@ class TipsViewModel extends ChangeNotifier {
     foundTip ??= _defaultTipIfGameStarted(game, tipper);
 
     return foundTip;
+  }
+
+  Tip? _findCurrentCompTipByGameKey(Game game, Tipper tipper) {
+    return _listOfTips.firstWhereOrNull(
+      (tip) =>
+          tip != null &&
+          tip.game.dbkey == game.dbkey &&
+          tip.tipper.dbkey == tipper.dbkey,
+    );
   }
 
   Map<String, Tip> _tipsForGameByTipper(Game game) {

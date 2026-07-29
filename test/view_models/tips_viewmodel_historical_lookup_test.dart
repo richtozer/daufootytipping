@@ -143,6 +143,42 @@ void main() {
       expect(result.game.startTimeUTC, historicalSeasonGame.startTimeUTC);
     });
 
+    test('findTip preserves a submitted current-comp tip after fixture start changes', () async {
+      final vm = TipsViewModel.forTipper(
+        mockTippersViewModel,
+        currentComp,
+        mockGamesViewModel,
+        tipper,
+        database: mockDb,
+        listenToTips: false,
+      );
+
+      final originalGame = buildGame(
+        dbkey: 'nrl-01-001',
+        startTimeUTC: DateTime.parse('2026-03-10T10:00:00Z'),
+      );
+      final rescheduledGame = buildGame(
+        dbkey: 'nrl-01-001',
+        startTimeUTC: DateTime.parse('2026-03-10T11:00:00Z'),
+      );
+
+      vm.setTipsForTest([
+        Tip(
+          game: originalGame,
+          tipper: tipper,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.parse('2026-03-09T10:00:00Z'),
+        ),
+      ]);
+
+      final result = await vm.findTip(rescheduledGame, tipper);
+
+      expect(result, isNotNull);
+      expect(result!.isDefaultTip(), isFalse);
+      expect(result.tip, GameResult.b);
+      expect(result.game.startTimeUTC, rescheduledGame.startTimeUTC);
+    });
+
     test('findTipAcrossCompetitions loads and caches a historical tip from the owning comp', () async {
       final vm = TipsViewModel.forTipper(
         mockTippersViewModel,
