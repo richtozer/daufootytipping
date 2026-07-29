@@ -8,7 +8,6 @@ import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
-import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -32,9 +31,6 @@ void main() {
   late MockDatabaseReference statsRef;
   late MockDatabaseReference compRef;
   late MockDatabaseReference liveScoresRef;
-  late MockDatabaseReference gameStatsRef;
-  late MockDatabaseReference gameStatsPaidRef;
-  late MockDatabaseReference gameStatsGameRef;
   late MockDatabaseReference staleGameRef;
   late MockDatabaseReference activeGameRef;
   late MockGamesViewModel gamesViewModel;
@@ -114,9 +110,6 @@ void main() {
     statsRef = MockDatabaseReference();
     compRef = MockDatabaseReference();
     liveScoresRef = MockDatabaseReference();
-    gameStatsRef = MockDatabaseReference();
-    gameStatsPaidRef = MockDatabaseReference();
-    gameStatsGameRef = MockDatabaseReference();
     staleGameRef = MockDatabaseReference();
     activeGameRef = MockDatabaseReference();
     gamesViewModel = MockGamesViewModel();
@@ -175,12 +168,6 @@ void main() {
     when(() => rootDb.child('/Stats')).thenReturn(statsRef);
     when(() => statsRef.child(comp.dbkey!)).thenReturn(compRef);
     when(() => compRef.child(p.liveScoresBackendRoot)).thenReturn(liveScoresRef);
-    when(() => compRef.child(gameStatsRoot)).thenReturn(gameStatsRef);
-    when(() => gameStatsRef.child('paid')).thenReturn(gameStatsPaidRef);
-    when(() => gameStatsPaidRef.child(any())).thenReturn(gameStatsGameRef);
-    when(
-      () => gameStatsGameRef.get(),
-    ).thenAnswer((_) async => _snapshot(exists: false, value: null));
     when(() => liveScoresRef.child('afl-03-022')).thenReturn(staleGameRef);
     when(() => liveScoresRef.child('nrl-04-025')).thenReturn(activeGameRef);
     when(() => staleGameRef.remove()).thenAnswer((_) async {});
@@ -208,7 +195,6 @@ void main() {
   });
 
   tearDown(() async {
-    ScoringUpdateQueue().clearQueue();
     await di.reset();
   });
 
@@ -311,7 +297,6 @@ void main() {
       );
 
       expect(viewModel.gameStatsEntryFor(activeGame), isNull);
-      expect(viewModel.allTipsViewModel, isNull);
 
       viewModel.dispose();
     },

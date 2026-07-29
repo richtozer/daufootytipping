@@ -11,7 +11,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
-import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -23,6 +22,13 @@ import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+
+typedef TipAnalyticsLogger = Future<void> Function(
+  String name,
+  Map<String, Object> parameters,
+);
+
+typedef TipLogWriter = Future<void> Function(Tip tip);
 
 // Helper class to structure historical matchup data for the UI
 class HistoricalMatchupUIData {
@@ -64,6 +70,8 @@ class GameTipViewModel extends ChangeNotifier {
   int? get awayTeamScore => _awayTeamScore;
 
   final DatabaseReference _db;
+  final TipAnalyticsLogger _logAnalyticsEvent;
+  final TipLogWriter? _writeTipLog;
   bool _disposed = false;
   late final bool _listensToGamesViewModel;
 
@@ -92,7 +100,11 @@ class GameTipViewModel extends ChangeNotifier {
     this.game,
     this.allTipsViewModel, {
     DatabaseReference? database,
-  }) : _db = database ?? configuredDatabaseRef() {
+    TipAnalyticsLogger? logAnalyticsEvent,
+    TipLogWriter? writeTipLog,
+  })  : _db = database ?? configuredDatabaseRef(),
+        _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
+        _writeTipLog = writeTipLog {
     _listensToGamesViewModel =
         _currentDAUComp.latestsCompletedRoundNumber() <
         _currentDAUComp.daurounds.length;
@@ -353,18 +365,15 @@ class GameTipViewModel extends ChangeNotifier {
       _tip = tip; // update the tip with the new tip
 
       // write a firebase analytic event that a tip was submitted
-      FirebaseAnalytics.instance.logEvent(
-        name: 'tip_submitted',
-        parameters: {
-          'game': tip.game.dbkey,
-          'tipper': tip.tipper.name.toString(),
-          'tip': tipJson.toString(),
-          'submittedBy': currentTipper.name.toString(),
-        },
-      );
+      await _logAnalyticsEvent('tip_submitted', {
+        'game': tip.game.dbkey,
+        'tipper': tip.tipper.name.toString(),
+        'tip': tipJson.toString(),
+        'submittedBy': currentTipper.name.toString(),
+      });
 
       // Log the tip in Firestore
-      _addLogOfTipToFirestore(tip);
+      unawaited((_writeTipLog ?? _addLogOfTipToFirestore)(tip));
 
       // Wait for the database change event to update the in-memory cache
       // This ensures stats calculations use current data, not stale cache
@@ -375,15 +384,6 @@ class GameTipViewModel extends ChangeNotifier {
           !identical(selectedTipperTipsViewModel, allTipsViewModel)) {
         await selectedTipperTipsViewModel.waitForTipUpdate(tip);
       }
-
-      // Queue a scoring update instead of calling directly to prevent concurrency issues
-      // The queue will deduplicate multiple updates for the same tipper/round
-      ScoringUpdateQueue().queueScoringUpdate(
-        dauComp: _currentDAUComp,
-        round: tip.game.getDAURound(_currentDAUComp),
-        tipper: tip.tipper,
-        priority: 1, // Individual tip updates have lowest priority
-      );
 
       // if we are in god mode, then also do a gamestats update after main stats complete
       if (di<TippersViewModel>().inGodMode == true) {
@@ -459,6 +459,16 @@ class GameTipViewModel extends ChangeNotifier {
     } catch (e) {
       log('Error logging tip in Firestore: $e');
     }
+  }
+
+  static Future<void> _defaultLogAnalyticsEvent(
+    String name,
+    Map<String, Object> parameters,
+  ) {
+    return FirebaseAnalytics.instance.logEvent(
+      name: name,
+      parameters: parameters,
+    );
   }
 
   @override
