@@ -50,9 +50,6 @@ class ConfigViewModel extends ChangeNotifier {
     return loadedValue;
   }
 
-  bool _useBackendScoringBranches = false;
-  bool get useBackendScoringBranches => _useBackendScoringBranches;
-
   Completer<void> _initialLoadCompleter = Completer<void>();
 
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -84,7 +81,6 @@ class ConfigViewModel extends ChangeNotifier {
       _googleClientId = null;
       _cloudFunctionsBaseURL = null;
       _adminScoringRescoreURL = null;
-      _useBackendScoringBranches = false;
     }
 
     _initialLoadCompleter = Completer<void>();
@@ -249,11 +245,6 @@ class ConfigViewModel extends ChangeNotifier {
     _adminScoringRescoreURL = _parseOptionalString(
       _snapshotValue(snapshot, p.adminScoringRescoreURLKey),
     );
-    _useBackendScoringBranches =
-        _parseOptionalBool(
-          _snapshotValue(snapshot, p.useBackendScoringBranchesKey),
-        ) ??
-        false;
   }
 
   Object? _snapshotValue(DataSnapshot snapshot, String key) {

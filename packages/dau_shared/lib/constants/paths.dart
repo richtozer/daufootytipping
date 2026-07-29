@@ -58,4 +58,3 @@ const String createLinkedTipperKey = 'createLinkedTipper';
 const String googleClientIdKey = 'googleClientId';
 const String cloudFunctionsBaseURLKey = 'cloudFunctionsBaseURL';
 const String adminScoringRescoreURLKey = 'adminScoringRescoreURL';
-const String useBackendScoringBranchesKey = 'useBackendScoringBranches';
