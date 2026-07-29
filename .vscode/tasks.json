@@ -2,9 +2,56 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": " ",
+      "label": "Local Backend: start empty",
       "type": "shell",
-      "command": "json-server --watch ./test/data/fixture-2024-3rounds.json"
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/scripts/start_local_backend.sh"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Local Backend: start from RTDB snapshot",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/scripts/start_local_backend.sh",
+        "--seed",
+        "${input:rtdbSnapshotPath}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Local Backend: stop",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/scripts/stop_firebase_emulators_vscode.sh"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "clear": false
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "rtdbSnapshotPath",
+      "type": "promptString",
+      "description": "Absolute path to the RTDB JSON snapshot"
     }
   ]
 }

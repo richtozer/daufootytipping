@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
-import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -15,9 +14,7 @@ import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
-import 'package:dau_shared/services/scoring_calculator.dart';
 
 class _CachedCrossCompTip {
   const _CachedCrossCompTip({required this.tip, required this.cachedAtUtc});
@@ -98,6 +95,8 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _update() {
+    _tipsByGameAndTipper = null;
+    _crossCompTipCache.clear();
     notifyListeners(); //notify our consumers that the data may have changed to gamesViewModel.games data that we have a dependency on
   }
 
@@ -296,6 +295,10 @@ class TipsViewModel extends ChangeNotifier {
 
     Tip? foundTip = _tipsForGameByTipper(game)[tipper.dbkey];
 
+    if (foundTip == null && _gameBelongsToComp(game, selectedDAUComp)) {
+      foundTip = _findCurrentCompTipByGameKey(game, tipper);
+    }
+
     if (foundTip != null) {
       foundTip = _rebindTipToCurrentGame(foundTip, game);
     }
@@ -303,6 +306,15 @@ class TipsViewModel extends ChangeNotifier {
     foundTip ??= _defaultTipIfGameStarted(game, tipper);
 
     return foundTip;
+  }
+
+  Tip? _findCurrentCompTipByGameKey(Game game, Tipper tipper) {
+    return _listOfTips.firstWhereOrNull(
+      (tip) =>
+          tip != null &&
+          tip.game.dbkey == game.dbkey &&
+          tip.tipper.dbkey == tipper.dbkey,
+    );
   }
 
   Map<String, Tip> _tipsForGameByTipper(Game game) {
@@ -511,50 +523,6 @@ class TipsViewModel extends ChangeNotifier {
               (tip.tip == GameResult.a || tip.tip == GameResult.e),
         )
         .length;
-  }
-
-  Future<GameStatsEntry> percentageOfTippersTipped(Game game) async {
-    // throw an exception if the tipper is not null
-    if (_tipper != null) {
-      throw Exception(
-        'percentageOfTippersTipped() should not be called when doing aggregates for scoring. _tipper is not null',
-      );
-    }
-    // get the paidForComp status for the selected tipper
-    bool isScoringPaidComp = false;
-    isScoringPaidComp = di<TippersViewModel>().selectedTipper.paidForComp(
-      selectedDAUComp,
-    );
-
-    return percentageOfTippersTippedForPaidStatus(game, isScoringPaidComp);
-  }
-
-  Future<GameStatsEntry> percentageOfTippersTippedForPaidStatus(
-    Game game,
-    bool isScoringPaidComp,
-  ) async {
-    if (_tipper != null) {
-      throw Exception(
-        'percentageOfTippersTippedForPaidStatus() should not be called when doing aggregates for scoring. _tipper is not null',
-      );
-    }
-
-    // loop through all tippers and remove those that don't have the same paidForComp status
-    List<Tipper> tippers = tipperViewModel.tippers
-        .where(
-          (tipper) => tipper.paidForComp(selectedDAUComp) == isScoringPaidComp,
-        )
-        .toList();
-
-    final List<Tip?> tipsForScoring = await Future.wait(
-      tippers.map((tipper) => findTip(game, tipper)),
-    );
-
-    return ScoringCalculator.calculateGameStatsEntry(
-      cohortTippers: tippers,
-      tipsForCohort: tipsForScoring,
-      league: game.league,
-    );
   }
 
   List<Tip?> getTipsForTipper(Tipper tipper) {

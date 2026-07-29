@@ -14,6 +14,7 @@ import {
   handleLiveScoreWrittenBackendScoringWrite,
   handleOfficialScoreWrittenBackendScoringWrite,
   handleTipWrittenBackendScoringWrite,
+  resolveBackendScoringCommandUrl,
 } from "./backend_scoring";
 
 class FakeSnapshot implements TipWriteSnapshotLike {
@@ -109,7 +110,7 @@ test("buildLiveScoreWrittenBackendScoringCommand builds payload", () => {
     compKey: "comp2026",
     gameKey: "nrl-01-001",
     sourceEventId: "event-789",
-    sourcePath: "/Stats/comp2026/live_scores_v3/nrl-01-001/current",
+    sourcePath: "/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current",
     scopeKey: "comp:comp2026/game:nrl-01-001",
     commandId: "event_ZXZlbnQtNzg5",
   });
@@ -119,6 +120,17 @@ test("buildBackendScoringCommandId encodes unsafe RTDB key characters", () => {
   assert.equal(
     buildBackendScoringCommandId("mFbon+KFfeNZAx38IYGNz1uL6fk="),
     "event_bUZib24rS0ZmZU5aQXgzOElZR056MXVMNmZrPQ",
+  );
+});
+
+test("resolveBackendScoringCommandUrl prefers local Dart endpoint in emulator", () => {
+  assert.equal(
+    resolveBackendScoringCommandUrl(undefined, {
+      FUNCTIONS_EMULATOR: "true",
+      GCLOUD_PROJECT: "demo-project",
+      BACKEND_SCORING_COMMAND_URL: "https://backend.example.com",
+    }),
+    "http://127.0.0.1:9229/demo-project/asia-southeast1/backend-scoring-command",
   );
 });
 
@@ -184,6 +196,58 @@ test("handleTipWrittenBackendScoringWrite posts a compact command payload", asyn
     commandId: "event_ZXZlbnQtMTIz",
   });
   assert.equal(logger.warns.length, 0);
+  assert.equal(logger.errors.length, 0);
+});
+
+test("handleTipWrittenBackendScoringWrite routes to local Dart worker in emulator", async () => {
+  const change = createChange(null, {
+    tip: "home",
+    submittedAtUTC: "2026-01-03T12:00:00Z",
+  });
+  const logger = new FakeLogger();
+
+  const fetchCalls: Array<{
+    url: string;
+    init: Parameters<BackendScoringFetchLike>[1];
+  }> = [];
+  const fetchImpl: BackendScoringFetchLike = async (url, init) => {
+    fetchCalls.push({url, init});
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({status: "completed"});
+      },
+    } satisfies BackendScoringFetchResponseLike;
+  };
+
+  await handleTipWrittenBackendScoringWrite(
+    change,
+    {
+      eventId: "event-123",
+      params: {
+        compKey: "comp2026",
+        tipperId: "tipper-1",
+        gameKey: "nrl-01-001",
+      },
+    },
+    {
+      fetchImpl,
+      commandSecret: "secret-123",
+      logger,
+      environment: {
+        FUNCTIONS_EMULATOR: "true",
+        GCLOUD_PROJECT: "demo-project",
+        BACKEND_SCORING_COMMAND_URL: "https://backend.example.com",
+      },
+    },
+  );
+
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(
+    fetchCalls[0].url,
+    "http://127.0.0.1:9229/demo-project/asia-southeast1/backend-scoring-command",
+  );
   assert.equal(logger.errors.length, 0);
 });
 
@@ -392,7 +456,7 @@ test("handleLiveScoreWrittenBackendScoringWrite posts payload", async () => {
     compKey: "comp2026",
     gameKey: "nrl-01-001",
     sourceEventId: "event-789",
-    sourcePath: "/Stats/comp2026/live_scores_v3/nrl-01-001/current",
+    sourcePath: "/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current",
     scopeKey: "comp:comp2026/game:nrl-01-001",
     commandId: "event_ZXZlbnQtNzg5",
   });

@@ -262,7 +262,6 @@ Then:
 Current clients write scoring to the v3 branch:
 - `round_stats_v3`
 - `game_stats_v3`
-- `live_scores_v3`
 - `scoring_audit_v3`
 
 The migration should not mutate that contract until validation is complete.
@@ -290,8 +289,8 @@ Rules:
   backend-v1 versus v3 round-stat comparisons after admin rescoring
 - use `npm run compare:backend-scoring -- --comp-key <compKey> --type game-stats`
   for paid/free game-stat shadow comparisons
-- preserve `live_scores_v3` as a client-owned input unless explicitly
-  redesigning live scoring
+- write live scores directly to `live_scores_backend_v1`; do not preserve a
+  separate client-owned live-score input branch
 - never let TypeScript wrappers write aggregate scoring branches
 
 ## Server-to-Client Status Broadcast

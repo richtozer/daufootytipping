@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_buttons.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -50,64 +49,6 @@ void main() {
     when(() => statsViewModel.scoringProgressValue).thenReturn(null);
     when(() => statsViewModel.addListener(any())).thenReturn(null);
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
-    when(
-      () => statsViewModel.updateStatsWithReport(
-        comp,
-        null,
-        null,
-        rebuildGameStats: true,
-      ),
-    ).thenAnswer(
-      (_) async => const ScoringUpdateReport(
-        resultMessage: 'Completed updates for 2 tippers and 3 rounds.',
-        leaderboardChanges: <ScoringLeaderboardChange>[
-          ScoringLeaderboardChange(
-            tipperDbKey: 'tipper-1',
-            tipperName: 'Alice',
-            beforeRank: 3,
-            afterRank: 3,
-            beforeTotal: 18,
-            afterTotal: 18,
-            beforeNrl: 8,
-            afterNrl: 8,
-            beforeAfl: 10,
-            afterAfl: 10,
-            beforeRoundsWon: 0,
-            afterRoundsWon: 0,
-            beforeMargins: 2,
-            afterMargins: 3,
-            beforeUps: 1,
-            afterUps: 1,
-          ),
-        ],
-        roundChanges: <ScoringRoundChange>[
-          ScoringRoundChange(
-            tipperDbKey: 'tipper-1',
-            tipperName: 'Alice',
-            roundNumber: 7,
-            beforeTotal: 2,
-            afterTotal: 2,
-            beforeNrl: 2,
-            afterNrl: 2,
-            beforeAfl: 0,
-            afterAfl: 0,
-            beforeRank: 4,
-            afterRank: 3,
-          ),
-        ],
-        gameStatsChanges: <ScoringGameStatsChange>[
-          ScoringGameStatsChange(
-            gameDbKey: 'afl-10-082',
-            gameName: 'Lions v Cats',
-            isPaidCohort: true,
-            beforeAveragePoints: 0,
-            afterAveragePoints: 0.14,
-            beforeTipCount: 57,
-            afterTipCount: 57,
-          ),
-        ],
-      ),
-    );
   });
 
   testWidgets('allows fixture download through the backend', (
@@ -208,12 +149,6 @@ void main() {
     expect(find.text('Backend rescore complete.'), findsOneWidget);
     verifyNever(() => dauCompsViewModel.getNetworkFixtureData(comp));
     verify(() => dauCompsViewModel.rescoreWithBackend(comp)).called(1);
-    verifyNever(() => statsViewModel.updateStatsWithReport(
-      comp,
-      null,
-      null,
-      rebuildGameStats: true,
-    ));
 
     expect(disableBackStates.last, false);
   });

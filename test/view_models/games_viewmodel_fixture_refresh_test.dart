@@ -6,10 +6,8 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,8 +23,6 @@ class MockDataSnapshot extends Mock implements DataSnapshot {}
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
 class MockTeamsViewModel extends Mock implements TeamsViewModel {}
-
-class MockStatsViewModel extends Mock implements StatsViewModel {}
 
 class FakeDAUComp extends Fake implements DAUComp {}
 
@@ -44,7 +40,6 @@ void main() {
   late StreamController<DatabaseEvent> gamesController;
   late MockDAUCompsViewModel dauCompsViewModel;
   late MockTeamsViewModel teamsViewModel;
-  late MockStatsViewModel statsViewModel;
   late DAUComp comp;
   late DAURound round;
   late Team homeTeam;
@@ -84,14 +79,12 @@ void main() {
   setUp(() async {
     await di.reset();
     di.allowReassignment = true;
-    ScoringUpdateQueue().clearQueue();
 
     rootDb = MockDatabaseReference();
     gamesRef = MockDatabaseReference();
     gamesController = StreamController<DatabaseEvent>.broadcast();
     dauCompsViewModel = MockDAUCompsViewModel();
     teamsViewModel = MockTeamsViewModel();
-    statsViewModel = MockStatsViewModel();
 
     round = DAURound(
       dAUroundNumber: 1,
@@ -131,14 +124,9 @@ void main() {
     when(() => teamsViewModel.findTeam('nrl-Home')).thenReturn(homeTeam);
     when(() => teamsViewModel.findTeam('nrl-Away')).thenReturn(awayTeam);
     when(() => teamsViewModel.addTeam(any())).thenAnswer((_) async {});
-
-    when(() => statsViewModel.getGamesStatsEntry(any(), any())).thenReturn(null);
-
-    di.registerSingleton<StatsViewModel>(statsViewModel);
   });
 
   tearDown(() async {
-    ScoringUpdateQueue().clearQueue();
     await gamesController.close();
     await di.reset();
   });
@@ -199,19 +187,6 @@ void main() {
     'saveBatchOfGameAttributes waits for refreshed stream snapshot without client rescoring',
     () async {
       late GamesViewModel viewModel;
-      when(
-        () => statsViewModel.updateStats(
-          any(),
-          any(),
-          any(),
-          rebuildGameStats: any(named: 'rebuildGameStats'),
-        ),
-      ).thenAnswer((_) async {
-        final currentGame = await viewModel.findGame('nrl-01-001');
-        expect(currentGame?.scoring?.homeTeamScore, 14);
-        expect(currentGame?.scoring?.awayTeamScore, 8);
-        return 'ok';
-      });
 
       viewModel = GamesViewModel(
         comp,
@@ -245,15 +220,6 @@ void main() {
       final saveFuture = viewModel.saveBatchOfGameAttributes();
       await settleAsyncWork();
 
-      verifyNever(
-        () => statsViewModel.updateStats(
-          any(),
-          any(),
-          any(),
-          rebuildGameStats: any(named: 'rebuildGameStats'),
-        ),
-      );
-
       gamesController.add(
         _databaseEvent(
           _snapshot(
@@ -267,14 +233,6 @@ void main() {
 
       await saveFuture;
 
-      verifyNever(
-        () => statsViewModel.updateStats(
-          comp,
-          round,
-          null,
-          rebuildGameStats: true,
-        ),
-      );
       final updatedGame = await viewModel.findGame('nrl-01-001');
       expect(updatedGame?.scoring?.homeTeamScore, 14);
       expect(updatedGame?.scoring?.awayTeamScore, 8);
@@ -284,22 +242,79 @@ void main() {
   );
 
   test(
+    'saveBatchOfGameAttributes writes fixture score updates and leaves scoring to backend triggers',
+    () async {
+      Map<dynamic, dynamic>? writtenPayload;
+      when(() => rootDb.update(any())).thenAnswer((invocation) async {
+        writtenPayload = Map<dynamic, dynamic>.from(
+          invocation.positionalArguments.single as Map,
+        );
+      });
+
+      final viewModel = GamesViewModel(
+        comp,
+        dauCompsViewModel,
+        teamsViewModel: teamsViewModel,
+        database: rootDb,
+        postWriteRefreshTimeout: const Duration(milliseconds: 50),
+      );
+
+      await settleAsyncWork();
+      gamesController.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-01-001': gameJson(homeScore: 10, awayScore: 8),
+            },
+          ),
+        ),
+      );
+      await viewModel.initialLoadComplete;
+      await settleAsyncWork();
+
+      await viewModel.updateGameAttribute(
+        'nrl-01-001',
+        'HomeTeamScore',
+        16,
+        'nrl',
+      );
+
+      expect(
+        viewModel.updates,
+        containsPair('/DAUCompsGames/comp-1/nrl-01-001/HomeTeamScore', 16),
+      );
+
+      final saveFuture = viewModel.saveBatchOfGameAttributes();
+      await settleAsyncWork();
+
+      gamesController.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-01-001': gameJson(homeScore: 16, awayScore: 8),
+            },
+          ),
+        ),
+      );
+
+      await saveFuture;
+
+      verify(() => rootDb.update(any())).called(1);
+      expect(
+        writtenPayload,
+        containsPair('/DAUCompsGames/comp-1/nrl-01-001/HomeTeamScore', 16),
+      );
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
     'saveBatchOfGameAttributes falls back to direct reload when refreshed stream snapshot is missed',
     () async {
       late GamesViewModel viewModel;
-      when(
-        () => statsViewModel.updateStats(
-          any(),
-          any(),
-          any(),
-          rebuildGameStats: any(named: 'rebuildGameStats'),
-        ),
-      ).thenAnswer((_) async {
-        final currentGame = await viewModel.findGame('nrl-01-001');
-        expect(currentGame?.scoring?.homeTeamScore, 14);
-        expect(currentGame?.scoring?.awayTeamScore, 8);
-        return 'ok';
-      });
 
       viewModel = GamesViewModel(
         comp,
@@ -333,103 +348,6 @@ void main() {
       await viewModel.saveBatchOfGameAttributes();
 
       verify(() => gamesRef.get()).called(1);
-      verifyNever(
-        () => statsViewModel.updateStats(
-          comp,
-          round,
-          null,
-          rebuildGameStats: true,
-        ),
-      );
-
-      viewModel.dispose();
-    },
-  );
-
-  test(
-    'saveBatchOfGameAttributes leaves scoring to backend triggers',
-    () async {
-      final firstUpdateCompleter = Completer<void>();
-      var updateStatsCallCount = 0;
-
-      when(
-        () => statsViewModel.updateStats(
-          any(),
-          any(),
-          any(),
-          rebuildGameStats: any(named: 'rebuildGameStats'),
-        ),
-      ).thenAnswer((_) async {
-        updateStatsCallCount++;
-        if (updateStatsCallCount == 1) {
-          await firstUpdateCompleter.future;
-          return 'first';
-        }
-        return 'second';
-      });
-
-      final viewModel = GamesViewModel(
-        comp,
-        dauCompsViewModel,
-        teamsViewModel: teamsViewModel,
-        database: rootDb,
-        postWriteRefreshTimeout: const Duration(milliseconds: 50),
-      );
-
-      await settleAsyncWork();
-      gamesController.add(
-        _databaseEvent(
-          _snapshot(
-            exists: true,
-            value: <String, Object?>{
-              'nrl-01-001': gameJson(homeScore: 10, awayScore: 8),
-            },
-          ),
-        ),
-      );
-      await viewModel.initialLoadComplete;
-      await settleAsyncWork();
-
-      final firstScoringFuture = ScoringUpdateQueue().queueScoringUpdate(
-        dauComp: comp,
-        round: round,
-        tipper: null,
-        priority: 2,
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-
-      expect(updateStatsCallCount, 0);
-
-      await viewModel.updateGameAttribute(
-        'nrl-01-001',
-        'HomeTeamScore',
-        14,
-        'nrl',
-      );
-
-      final saveFuture = viewModel.saveBatchOfGameAttributes();
-      await settleAsyncWork();
-
-      gamesController.add(
-        _databaseEvent(
-          _snapshot(
-            exists: true,
-            value: <String, Object?>{
-              'nrl-01-001': gameJson(homeScore: 14, awayScore: 8),
-            },
-          ),
-        ),
-      );
-      await settleAsyncWork();
-
-      expect(ScoringUpdateQueue().queueStatus['queueLength'], 0);
-
-      firstUpdateCompleter.complete();
-
-      await firstScoringFuture;
-      await saveFuture;
-
-      expect(updateStatsCallCount, 0);
 
       viewModel.dispose();
     },

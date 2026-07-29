@@ -1,5 +1,6 @@
 /* eslint-disable require-jsdoc */
 import * as functions from "firebase-functions/v1";
+import {resolveLocalDartFunctionUrl} from "./local_emulator_functions";
 
 export type BackendScoringCommandType =
   | "tipWritten"
@@ -68,6 +69,7 @@ export interface TipWrittenBackendScoringDependencies {
   commandUrl?: string;
   commandSecret?: string;
   logger?: BackendScoringCommandLoggerLike;
+  environment?: Record<string, string | undefined>;
 }
 
 type BackendScoringDispatchOutcome = "success" | "permanentFailure";
@@ -86,10 +88,10 @@ const BACKEND_SCORING_COMMAND_SECRET_HEADER = "x-backend-scoring-secret";
 const STATS_PATH_ROOT = "/Stats";
 const TIPS_PATH_ROOT = "/AllTips";
 const GAMES_PATH_ROOT = "/DAUCompsGames";
-const LIVE_SCORES_V3_ROOT = "live_scores_v3";
+const LIVE_SCORES_BACKEND_ROOT = "live_scores_backend_v1";
 const LIVE_SCORE_CURRENT_KEY = "current";
 const LIVE_SCORE_CURRENT_TRIGGER_PATH =
-  `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_V3_ROOT}/{gameKey}/` +
+  `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_BACKEND_ROOT}/{gameKey}/` +
   LIVE_SCORE_CURRENT_KEY;
 const BACKEND_SCORING_REGION = "asia-southeast1";
 const backendScoringFunctions = functions.region(BACKEND_SCORING_REGION);
@@ -198,7 +200,7 @@ export function buildLiveScoreWrittenBackendScoringCommand(
   sourceEventId: string,
 ): BackendScoringCommandPayload {
   const sourcePath =
-    `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_V3_ROOT}/${gameKey}/` +
+    `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_BACKEND_ROOT}/${gameKey}/` +
     LIVE_SCORE_CURRENT_KEY;
   const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
@@ -426,7 +428,11 @@ async function dispatchBackendScoringCommand(
   deps: TipWrittenBackendScoringDependencies,
 ): Promise<BackendScoringDispatchOutcome> {
   const logger = deps.logger ?? functions.logger;
-  const commandUrl = resolveBackendScoringCommandUrl(deps.commandUrl);
+  const environment = deps.environment ?? process.env;
+  const commandUrl = resolveBackendScoringCommandUrl(
+    deps.commandUrl,
+    environment,
+  );
   if (commandUrl == null) {
     logger.error(
       "backendScoring command: missing command URL configuration",
@@ -434,7 +440,10 @@ async function dispatchBackendScoringCommand(
     return "permanentFailure";
   }
 
-  const commandSecret = resolveBackendScoringCommandSecret(deps.commandSecret);
+  const commandSecret = resolveBackendScoringCommandSecret(
+    deps.commandSecret,
+    environment,
+  );
   if (commandSecret == null) {
     logger.error(
       "backendScoring command: missing command secret configuration",
@@ -476,15 +485,24 @@ async function dispatchBackendScoringCommand(
   return "permanentFailure";
 }
 
-function resolveBackendScoringCommandUrl(
+export function resolveBackendScoringCommandUrl(
   overrideUrl?: string,
+  environment: Record<string, string | undefined> = process.env,
 ): string | null {
   if (overrideUrl != null && overrideUrl.trim().length > 0) {
     return overrideUrl.trim();
   }
 
+  const localEmulatorUrl = resolveLocalDartFunctionUrl(
+    "backend-scoring-command",
+    environment,
+  );
+  if (localEmulatorUrl != null) {
+    return localEmulatorUrl;
+  }
+
   for (const envKey of DEFAULT_COMMAND_URL_ENV_KEYS) {
-    const value = process.env[envKey];
+    const value = environment[envKey];
     if (value != null && value.trim().length > 0) {
       return value.trim();
     }
@@ -517,13 +535,14 @@ function stringifySnapshot(value: unknown): string {
 
 function resolveBackendScoringCommandSecret(
   overrideSecret?: string,
+  environment: Record<string, string | undefined> = process.env,
 ): string | null {
   if (overrideSecret != null && overrideSecret.trim().length > 0) {
     return overrideSecret.trim();
   }
 
   for (const envKey of DEFAULT_COMMAND_SECRET_ENV_KEYS) {
-    const value = process.env[envKey];
+    const value = environment[envKey];
     if (value != null && value.trim().length > 0) {
       return value.trim();
     }

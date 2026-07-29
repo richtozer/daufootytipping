@@ -200,6 +200,9 @@ const List<String> _backendScoringCommandUrlEnvKeys = [
   'BACKEND_SCORING_COMMAND_URL',
   'DART_BACKEND_SCORING_COMMAND_URL',
 ];
+const String _defaultProjectId = 'dau-footy-tipping-f8a42';
+const String _defaultFunctionRegion = 'asia-southeast1';
+const String _defaultFunctionsEmulatorOrigin = 'http://127.0.0.1:9229';
 
 String? resolveBackendScoringCommandSecret({
   Map<String, String>? environment,
@@ -226,6 +229,14 @@ String? resolveBackendScoringCommandUrl({
   Map<String, String>? environment,
 }) {
   final env = environment ?? Platform.environment;
+  final localUrl = resolveLocalDartFunctionUrl(
+    'backend-scoring-command',
+    environment: env,
+  );
+  if (localUrl != null) {
+    return localUrl;
+  }
+
   for (final key in _backendScoringCommandUrlEnvKeys) {
     final value = env[key];
     if (value != null && value.isNotEmpty) {
@@ -233,6 +244,65 @@ String? resolveBackendScoringCommandUrl({
     }
   }
   return null;
+}
+
+bool isRunningInFirebaseFunctionsEmulator({
+  Map<String, String>? environment,
+}) {
+  final env = environment ?? Platform.environment;
+  final value = env['FUNCTIONS_EMULATOR'];
+  return value != null && value.isNotEmpty && value != 'false' && value != '0';
+}
+
+String? resolveLocalDartFunctionUrl(
+  String functionName, {
+  Map<String, String>? environment,
+}) {
+  final env = environment ?? Platform.environment;
+  if (!isRunningInFirebaseFunctionsEmulator(environment: env)) {
+    return null;
+  }
+
+  return [
+    _resolveFunctionsEmulatorOrigin(env),
+    _resolveFirebaseProjectId(env),
+    _resolveFirebaseFunctionRegion(env),
+    functionName,
+  ].join('/');
+}
+
+String _resolveFirebaseProjectId(Map<String, String> environment) {
+  return environment['GCLOUD_PROJECT'] ??
+      environment['GOOGLE_CLOUD_PROJECT'] ??
+      environment['GCP_PROJECT'] ??
+      environment['FIREBASE_PROJECT'] ??
+      _defaultProjectId;
+}
+
+String _resolveFirebaseFunctionRegion(Map<String, String> environment) {
+  return environment['FUNCTION_REGION'] ??
+      environment['FUNCTIONS_REGION'] ??
+      _defaultFunctionRegion;
+}
+
+String _resolveFunctionsEmulatorOrigin(Map<String, String> environment) {
+  final configuredOrigin = environment['LOCAL_FUNCTIONS_EMULATOR_ORIGIN'] ??
+      environment['FUNCTIONS_EMULATOR_ORIGIN'] ??
+      environment['FUNCTIONS_EMULATOR_HOST'];
+  if (configuredOrigin != null && configuredOrigin.trim().isNotEmpty) {
+    return _normalizeOrigin(configuredOrigin);
+  }
+
+  return _defaultFunctionsEmulatorOrigin;
+}
+
+String _normalizeOrigin(String value) {
+  final trimmed = value.trim().replaceAll(RegExp(r'/+$'), '');
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  return 'http://$trimmed';
 }
 
 bool isBackendScoringCommandAuthorized(
@@ -611,6 +681,10 @@ Future<void> _triggerBackendScoringAdminRescore({
     commandId: _buildBackendScoringCommandId(sourceEventId),
   );
 
+  logFunction(
+    'executeFixtureDownload: triggering backend scoring admin rescore '
+    'for compKey=$compKey',
+  );
   final response = await http.post(
     Uri.parse(commandUrl),
     headers: <String, String>{
@@ -627,6 +701,10 @@ Future<void> _triggerBackendScoringAdminRescore({
       'Backend scoring command failed with HTTP ${response.statusCode}: ${response.body}',
     );
   }
+  logFunction(
+    'executeFixtureDownload: triggered backend scoring admin rescore '
+    'for compKey=$compKey',
+  );
 }
 
 Future<void> _deleteStaleTokens(dynamic db) async {
@@ -1934,14 +2012,6 @@ _handleOfficialScoreWrittenBackendScoringCommand({
   }
 
   try {
-    if (command.commandType == BackendScoringCommandType.liveScoreWritten) {
-      await _writeBackendLiveScoreShadow(
-        db: db,
-        compKey: command.compKey,
-        gameKey: command.gameKey!,
-      );
-    }
-
     final rebuildResult = await _rebuildBackendScoringRound(
       db: db,
       comp: comp,
@@ -2725,7 +2795,7 @@ Future<List<Game>> _loadBackendScoringGames({
   }
 
   final liveScoresSnapshot = await db
-      .ref('${paths.statsPathRoot}/${comp.dbkey}/${paths.liveScoresLegacyRoot}')
+      .ref('${paths.statsPathRoot}/${comp.dbkey}/${paths.liveScoresBackendRoot}')
       .once();
   final liveScoresByGame = _deserializeLiveScores(liveScoresSnapshot);
 
@@ -2779,22 +2849,6 @@ bool _isBackendScoringGameOutsideRegularComp(DAUComp comp, Game game) {
     return game.startTimeUTC.isAfter(comp.nrlRegularCompEndDateUTC!);
   }
   return false;
-}
-
-Future<void> _writeBackendLiveScoreShadow({
-  required dynamic db,
-  required String compKey,
-  required String gameKey,
-}) async {
-  final liveScoreSnapshot = await db
-      .ref('${paths.statsPathRoot}/$compKey/${paths.liveScoresLegacyRoot}/$gameKey')
-      .once();
-  await db
-      .ref(
-        '${paths.statsPathRoot}/$compKey/'
-        '${paths.liveScoresBackendRoot}/$gameKey',
-      )
-      .set(liveScoreSnapshot.value);
 }
 
 String _normalizeTeamLookupName(dynamic rawName) {

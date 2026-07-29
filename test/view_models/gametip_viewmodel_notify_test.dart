@@ -7,19 +7,25 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
+import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:watch_it/watch_it.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
 class MockGamesViewModel extends Mock implements GamesViewModel {}
 class MockDatabaseReference extends Mock implements DatabaseReference {}
+class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
+class MockTippersViewModel extends Mock implements TippersViewModel {}
 class FakeGame extends Fake implements Game {}
 class FakeTipper extends Fake implements Tipper {}
+class FakeTip extends Fake implements Tip {}
 
 void main() {
   group('GameTipViewModel games updates', () {
@@ -60,9 +66,11 @@ void main() {
     setUpAll(() {
       registerFallbackValue(FakeGame());
       registerFallbackValue(FakeTipper());
+      registerFallbackValue(FakeTip());
     });
 
-    setUp(() {
+    setUp(() async {
+      await di.reset();
       mockTipsViewModel = MockTipsViewModel();
       mockGamesViewModel = MockGamesViewModel();
       mockDb = MockDatabaseReference();
@@ -80,6 +88,10 @@ void main() {
       when(() => mockTipsViewModel.initialLoadCompleted).thenAnswer((_) async {});
       when(() => mockTipsViewModel.findTip(any(), any())).thenAnswer((_) async => null);
       when(() => mockTipsViewModel.getTipsForTipper(any())).thenReturn([]);
+      when(
+        () => mockTipsViewModel.waitForTipUpdate(any()),
+      ).thenAnswer((_) async {});
+      when(() => mockDb.update(any())).thenAnswer((_) async {});
 
       homeTeam = Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl);
       awayTeam = Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl);
@@ -108,6 +120,10 @@ void main() {
           ),
         ],
       );
+    });
+
+    tearDown(() async {
+      await di.reset();
     });
 
     test('does not notify when the updated game scores and state are unchanged', () async {
@@ -248,5 +264,58 @@ void main() {
         vm.dispose();
       },
     );
+
+    test('addTip writes the tip to RTDB without client scoring', () async {
+      final currentGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+        homeScore: 0,
+        awayScore: 0,
+      );
+      final dauCompsViewModel = MockDAUCompsViewModel();
+      final tippersViewModel = MockTippersViewModel();
+      when(
+        () => mockGamesViewModel.findGame(currentGame.dbkey),
+      ).thenAnswer((_) async => currentGame);
+      when(
+        () => dauCompsViewModel.selectedTipperTipsViewModel,
+      ).thenReturn(null);
+      when(() => tippersViewModel.inGodMode).thenReturn(false);
+      di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
+      di.registerSingleton<TippersViewModel>(tippersViewModel);
+
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        currentGame,
+        mockTipsViewModel,
+        database: mockDb,
+        logAnalyticsEvent: (_, _) async {},
+        writeTipLog: (_) async {},
+      );
+      await settleAsyncWork();
+      final tip = Tip(
+        game: currentGame,
+        tipper: tipper,
+        tip: GameResult.b,
+        submittedTimeUTC: DateTime.utc(2030, 1, 1, 9),
+      );
+
+      await vm.addTip(tip);
+
+      final updatePayload = verify(
+        () => mockDb.update(captureAny()),
+      ).captured.single as Map;
+      expect(
+        updatePayload.keys.single,
+        '/AllTips/${currentComp.dbkey}/${tipper.dbkey}/${currentGame.dbkey}',
+      );
+      expect(
+        updatePayload.values.single,
+        containsPair('r', GameResult.b.name),
+      );
+      verify(() => mockTipsViewModel.waitForTipUpdate(tip)).called(1);
+
+      vm.dispose();
+    });
   });
 }

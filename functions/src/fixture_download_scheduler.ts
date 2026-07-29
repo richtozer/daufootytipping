@@ -1,4 +1,5 @@
 import {onSchedule} from "firebase-functions/v2/scheduler";
+import {resolveLocalDartFunctionUrl} from "./local_emulator_functions";
 
 export interface ScheduledFixtureDownloadLoggerLike {
   log(message: string): void;
@@ -11,6 +12,7 @@ export interface ScheduledFixtureDownloadDependencies {
   commandUrl?: string;
   commandSecret?: string;
   logger?: ScheduledFixtureDownloadLoggerLike;
+  environment?: Record<string, string | undefined>;
 }
 
 const DEFAULT_COMMAND_URL_ENV_KEYS = [
@@ -30,13 +32,15 @@ const FIXTURE_DOWNLOAD_SCHEDULE = "0 16 * * *";
  * Resolves the first configured environment value for the supplied keys.
  *
  * @param {string[]} keys Environment variable names in precedence order.
+ * @param {Record<string, string|undefined>} environment Environment to inspect.
  * @return {string|undefined} The first non-empty configured value.
  */
 function resolveScheduledFixtureDownloadEnv(
   keys: string[],
+  environment: Record<string, string | undefined> = process.env,
 ): string | undefined {
   for (const key of keys) {
-    const value = process.env[key];
+    const value = environment[key];
     if (value != null && value.length > 0) {
       return value;
     }
@@ -53,12 +57,20 @@ export async function forwardScheduledFixtureDownload(
   deps: ScheduledFixtureDownloadDependencies = {},
 ): Promise<void> {
   const logger = deps.logger ?? console;
+  const environment = deps.environment ?? process.env;
   const commandUrl =
     deps.commandUrl ??
-    resolveScheduledFixtureDownloadEnv(DEFAULT_COMMAND_URL_ENV_KEYS);
+    resolveLocalDartFunctionUrl("scheduled-fixture-download", environment) ??
+    resolveScheduledFixtureDownloadEnv(
+      DEFAULT_COMMAND_URL_ENV_KEYS,
+      environment,
+    );
   const commandSecret =
     deps.commandSecret ??
-    resolveScheduledFixtureDownloadEnv(DEFAULT_COMMAND_SECRET_ENV_KEYS);
+    resolveScheduledFixtureDownloadEnv(
+      DEFAULT_COMMAND_SECRET_ENV_KEYS,
+      environment,
+    );
 
   if (commandUrl == null || commandUrl.length === 0) {
     throw new Error("Scheduled fixture download URL is not configured");

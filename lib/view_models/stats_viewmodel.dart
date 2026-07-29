@@ -1,19 +1,14 @@
 import 'dart:async';
 import 'dart:developer';
-import 'dart:io'; // Add this import for IOException, SocketException
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
-import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
-import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
-import 'package:daufootytipping/models/scoring_update_report.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
@@ -22,22 +17,13 @@ import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
-import 'package:dau_shared/services/scoring_calculator.dart';
 
-// Define constants for Firestore database locations
-const String statsFormatVersion = 'v3';
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
-const String roundStatsRoot = 'round_stats_$statsFormatVersion';
-const String liveScoresRoot = 'live_scores_$statsFormatVersion';
-const String gameStatsRoot = 'game_stats_$statsFormatVersion';
-const String scoringAuditRoot = 'scoring_audit_$statsFormatVersion';
 
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
@@ -68,13 +54,6 @@ class StatsViewModel extends ChangeNotifier {
   String get _liveScoresReadRoot => p.liveScoresBackendRoot;
   String get _gameStatsReadRoot => p.gameStatsBackendRoot;
 
-  bool _isUpdateScoringRunning = false;
-  bool get isUpdateScoringRunning => _isUpdateScoringRunning;
-  String? _scoringProgressMessage;
-  String? get scoringProgressMessage => _scoringProgressMessage;
-  double? _scoringProgressValue;
-  double? get scoringProgressValue => _scoringProgressValue;
-
   final Completer<void> _initialLiveScoreLoadCompleter = Completer();
   Future<void> get initialLiveScoreLoadComplete =>
       _initialLiveScoreLoadCompleter.future;
@@ -95,9 +74,6 @@ class StatsViewModel extends ChangeNotifier {
 
   bool? _isSelectedTipperPaidUpMember;
   bool get isSelectedTipperPaidUpMember => _isSelectedTipperPaidUpMember!;
-
-  TipsViewModel? allTipsViewModel;
-  TipsViewModel? selectedTipperTipsViewModel;
 
   // Constructor
   StatsViewModel(
@@ -238,7 +214,7 @@ class StatsViewModel extends ChangeNotifier {
       // Update the leaderboard
       await _updateLeaderAndRoundAndRank();
     } catch (e, stackTrace) {
-      log('Error listening to /$statsPathRootLocal/roundStatsRoot: $e');
+      log('Error listening to /$statsPathRootLocal/$_roundStatsReadRoot: $e');
       _allTipperRoundStats.clear(); // Rollback partial updates
       if (!_initialRoundPointsLoadCompleted.isCompleted) {
         _initialRoundPointsLoadCompleted.completeError(e, stackTrace);
@@ -450,10 +426,6 @@ class StatsViewModel extends ChangeNotifier {
         final gameStatsEntry = GameStatsEntry.fromJson(
           Map<String, dynamic>.from(entry.value as Map),
         );
-        if (!_canUseCachedGameStatsEntry(game, gameStatsEntry, false)) {
-          continue;
-        }
-
         final previousEntry = gamesStatsEntry[game.dbkey];
         gamesStatsEntry[game.dbkey] = gameStatsEntry;
         if (previousEntry != gameStatsEntry) {
@@ -477,621 +449,9 @@ class StatsViewModel extends ChangeNotifier {
     return _handleEventGameStats(event);
   }
 
-  //  These are the various triggers that can cause an update of the stats for a comp.
-  // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
-  // | Trigger                              | Rounds re-scored               | Tippers re-scored        | Description                                                                       |
-  // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
-  // | Admin clicks 're-score' in UI         | All                           | All                     | Full re-score. Updates all rounds for all tippers.                                |
-  // | User places a tip                    | Only the round that tip is for| Tipper who placed tip   | Partial re-score. Updates margin counts for that user and that round.             |
-  // | Fixture download has new scores      | Only the round with changes   | All                     | Partial re-score. Scoring updates for all tippers for the current round.          |
-  // | User enters a live score             | Only the round with changes   | All                     | Partial re-score. Scoring updates for all tippers for the current round.          |
-  // +--------------------------------------+-------------------------------+-------------------------+-----------------------------------------------------------------------------------+
-
-  Future<String>? _updateStatsInProgress;
-  final List<ScoringGameStatsChange> _lastGameStatsChanges = [];
-
-  Future<ScoringUpdateReport> updateStatsWithReport(
-    DAUComp daucompToUpdate,
-    DAURound? onlyUpdateThisRound,
-    Tipper? onlyUpdateThisTipper,
-    {bool rebuildGameStats = false}
-  ) async {
-    await _rebuildScoringViewsForReport();
-    final beforeSnapshot = _captureScoringSnapshot();
-    final resultMessage = await updateStats(
-      daucompToUpdate,
-      onlyUpdateThisRound,
-      onlyUpdateThisTipper,
-      rebuildGameStats: rebuildGameStats,
-    );
-    await _rebuildScoringViewsForReport();
-    notifyListeners();
-    final afterSnapshot = _captureScoringSnapshot();
-
-    return _buildScoringUpdateReport(
-      beforeSnapshot,
-      afterSnapshot,
-      resultMessage,
-      gameStatsChanges: List<ScoringGameStatsChange>.unmodifiable(
-        _lastGameStatsChanges,
-      ),
-    );
-  }
-
-  Future<String> updateStats(
-    DAUComp daucompToUpdate,
-    DAURound? onlyUpdateThisRound,
-    Tipper? onlyUpdateThisTipper,
-    {bool rebuildGameStats = false}
-  ) {
-    if (_updateStatsInProgress != null) {
-      log('StatsViewModel.updateStats() Update already in progress, skipping');
-      _logEventScoringInitiated(
-        'scoring_skipped',
-        daucompToUpdate,
-        onlyUpdateThisRound,
-        onlyUpdateThisTipper,
-      );
-      return Future.value('Skipped: Another stats update already in progress.');
-    }
-
-    final completer = Completer<String>();
-    _updateStatsInProgress = completer.future;
-
-    (() async {
-      log(
-        'StatsViewModel.updateStats() called for comp: ${daucompToUpdate.name}',
-      );
-      var stopwatch = Stopwatch()..start();
-      var completionEventName = 'scoring_completed';
-      _lastGameStatsChanges.clear();
-
-      try {
-        _setScoringProgress('Preparing scoring update...', null);
-        if (!_initialRoundPointsLoadCompleted.isCompleted) {
-          try {
-            await _initialRoundPointsLoadCompleted.future;
-          } catch (e) {
-            log(
-              'StatsViewModel.updateStats() Error waiting for initial round load: $e',
-            );
-            _allTipperRoundStats.clear(); // reset
-          }
-        }
-
-        _isUpdateScoringRunning = true;
-        _setScoringProgress('Loading tippers...', null);
-
-        _logEventScoringInitiated(
-          'scoring_initiated',
-          daucompToUpdate,
-          onlyUpdateThisRound,
-          onlyUpdateThisTipper,
-        );
-
-        /// make sure we have all tippers
-        await di<TippersViewModel>().initialLoadComplete;
-
-        // Check if we have existing round stats before allowing partial updates
-        if ((onlyUpdateThisRound != null || onlyUpdateThisTipper != null) &&
-            _allTipperRoundStats.isEmpty) {
-          String skipReason =
-              'Round stats database is empty - partial updates not allowed';
-          log('StatsViewModel.updateStats() $skipReason');
-          _logEventScoringInitiated(
-            'scoring_skipped_empty_database',
-            daucompToUpdate,
-            onlyUpdateThisRound,
-            onlyUpdateThisTipper,
-          );
-
-          _isUpdateScoringRunning = false;
-          _setScoringProgress(null, null);
-          _updateStatsInProgress = null;
-          completer.complete(skipReason);
-          completionEventName = 'scoring_skipped_empty_database';
-          return;
-        }
-
-        // Set the tippers to update
-        List<Tipper> tippersToUpdate = onlyUpdateThisTipper != null
-            ? [onlyUpdateThisTipper]
-            : List.from(di<TippersViewModel>().tippers);
-
-        log(
-          'StatsViewModel.updateStats() Updating stats for ${tippersToUpdate.length} tippers',
-        );
-
-        // Prep tips
-        if (onlyUpdateThisTipper == null) {
-          _setScoringProgress('Loading all tips...', null);
-          allTipsViewModel ??= TipsViewModel(
-            di<TippersViewModel>(),
-            daucompToUpdate,
-            gamesViewModel!,
-          );
-
-          List<Tipper> tippersToRemove = [];
-          await Future.wait(
-            tippersToUpdate.map((tipper) async {
-              bool hasSubmitted = await allTipsViewModel!.hasSubmittedTips(
-                tipper,
-              );
-              if (!hasSubmitted) {
-                tippersToRemove.add(tipper);
-              }
-            }),
-          );
-
-          tippersToUpdate.removeWhere(
-            (tipper) => tippersToRemove.contains(tipper),
-          );
-          if (tippersToRemove.isNotEmpty) {
-            log(
-              'StatsViewModel.updateStats() Excluded ${tippersToRemove.length} tippers without submitted tips.',
-            );
-          }
-        } else {
-          final currentSelectedTipperTipsViewModel =
-              di<DAUCompsViewModel>().selectedTipperTipsViewModel;
-          if (currentSelectedTipperTipsViewModel != null) {
-            selectedTipperTipsViewModel = currentSelectedTipperTipsViewModel;
-          }
-          if (selectedTipperTipsViewModel == null) {
-            throw StateError(
-              'selectedTipperTipsViewModel is null for partial scoring update',
-            );
-          }
-          await selectedTipperTipsViewModel!.initialLoadCompleted;
-        }
-
-        var dauRoundsEdited = _getRoundsToUpdate(
-          onlyUpdateThisRound,
-          daucompToUpdate,
-        );
-        await _ensureRoundsHaveGames(dauRoundsEdited);
-
-        final sourceFreshness = _validateScoringSourcesAreFresh(
-          dauRoundsEdited,
-        );
-        if (!sourceFreshness.canWriteAggregates) {
-          final skippedMessage =
-              'Skipped: ${sourceFreshness.reason}. No aggregate stats were written.';
-          log('StatsViewModel.updateStats() $skippedMessage');
-          await _writeScoringAuditEvent(
-            eventName: 'scoring_skipped_stale_sources',
-            daucompToUpdate: daucompToUpdate,
-            roundsUpdated: dauRoundsEdited,
-            onlyUpdateThisRound: onlyUpdateThisRound,
-            onlyUpdateThisTipper: onlyUpdateThisTipper,
-            tippersUpdated: tippersToUpdate,
-            message: skippedMessage,
-            blockedGames: sourceFreshness.blockedGames,
-          );
-          completer.complete(skippedMessage);
-          completionEventName = 'scoring_skipped_stale_sources';
-          return;
-        }
-
-        for (DAURound dauRound in dauRoundsEdited) {
-          _setScoringProgress(
-            'Calculating round ${dauRound.dAUroundNumber}...',
-            null,
-          );
-          if (onlyUpdateThisTipper == null) {
-            await _calculateRoundStats(
-              tippersToUpdate,
-              dauRound,
-              allTipsViewModel!,
-            );
-          } else {
-            await _calculateRoundStatsForTipper(
-              onlyUpdateThisTipper,
-              dauRound,
-              selectedTipperTipsViewModel!,
-            );
-          }
-        }
-
-        _setScoringProgress('Writing round points...', null);
-        await _writeScopedRoundPointsToDb(
-          dauRoundsEdited,
-          tippersToUpdate,
-          daucompToUpdate,
-        );
-        if (rebuildGameStats && onlyUpdateThisTipper == null) {
-          await _rebuildGameStatsForRounds(dauRoundsEdited, daucompToUpdate);
-        }
-
-        String res =
-            'Completed updates for ${tippersToUpdate.length} tippers and ${dauRoundsEdited.length} rounds.';
-        log('StatsViewModel.updateStats() $res');
-
-        await _deleteStaleLiveScores();
-        await _writeScoringAuditEvent(
-          eventName: 'scoring_completed',
-          daucompToUpdate: daucompToUpdate,
-          roundsUpdated: dauRoundsEdited,
-          onlyUpdateThisRound: onlyUpdateThisRound,
-          onlyUpdateThisTipper: onlyUpdateThisTipper,
-          tippersUpdated: tippersToUpdate,
-          message: res,
-        );
-
-        completer.complete(res);
-      } catch (e) {
-        log('StatsViewModel.updateStats() Error: $e');
-        completionEventName = 'scoring_failed';
-        await _writeScoringAuditEvent(
-          eventName: 'scoring_failed',
-          daucompToUpdate: daucompToUpdate,
-          onlyUpdateThisRound: onlyUpdateThisRound,
-          onlyUpdateThisTipper: onlyUpdateThisTipper,
-          message: e.toString(),
-        );
-        completer.completeError(e);
-      } finally {
-        _logEventScoringInitiated(
-          completionEventName,
-          daucompToUpdate,
-          onlyUpdateThisRound,
-          onlyUpdateThisTipper,
-        );
-        _isUpdateScoringRunning = false;
-        _setScoringProgress(null, null);
-        _updateStatsInProgress = null;
-        stopwatch.stop();
-        log('StatsViewModel.updateStats() completed in ${stopwatch.elapsed}');
-      }
-    })();
-
-    return _updateStatsInProgress!;
-  }
-
-  Future<void> _ensureRoundsHaveGames(List<DAURound> roundsToUpdate) async {
-    if (gamesViewModel == null) {
-      return;
-    }
-
-    for (final round in roundsToUpdate) {
-      if (round.games.isNotEmpty) {
-        continue;
-      }
-
-      final hydratedGames = await gamesViewModel!.getGamesForRound(round);
-      round.games = hydratedGames;
-      round.nrlGameCount = hydratedGames
-          .where((game) => game.league == League.nrl)
-          .length;
-      round.aflGameCount = hydratedGames
-          .where((game) => game.league == League.afl)
-          .length;
-    }
-  }
-
-  void _setScoringProgress(String? message, double? value) {
-    _scoringProgressMessage = message;
-    _scoringProgressValue = value;
-    notifyListeners();
-  }
-
-  _ScoringSourceFreshness _validateScoringSourcesAreFresh(
-    List<DAURound> roundsUpdated,
-  ) {
-    final now = DateTime.now().toUtc();
-    final blockedGames = <Game>[];
-
-    for (final round in roundsUpdated) {
-      for (final game in round.games) {
-        if (!_shouldRequireOfficialScores(game, now)) {
-          continue;
-        }
-        if (!_hasKnownGameResult(game)) {
-          blockedGames.add(game);
-        }
-      }
-    }
-
-    if (blockedGames.isEmpty) {
-      return const _ScoringSourceFreshness.allowed();
-    }
-
-    final gameKeys = blockedGames.map((game) => game.dbkey).join(', ');
-    return _ScoringSourceFreshness.blocked(
-      blockedGames,
-      'completed game(s) are missing usable scoring sources: $gameKeys',
-    );
-  }
-
-  Duration gracePeriodFor(League league) {
-    return league == League.afl
-        ? const Duration(hours: 4)
-        : const Duration(hours: 3);
-  }
-
-  bool _shouldRequireOfficialScores(Game game, DateTime now) {
-    final gracePeriod = gracePeriodFor(game.league);
-    final officialScoreRequiredFrom = game.startTimeUTC.add(gracePeriod);
-    return now.isAfter(officialScoreRequiredFrom) ||
-        now.isAtSameMomentAs(officialScoreRequiredFrom);
-  }
-
-  void _logEventScoringInitiated(
-    String msg,
-    DAUComp daucompToUpdate,
-    DAURound? onlyUpdateThisRound,
-    Tipper? onlyUpdateThisTipper,
-  ) {
-    try {
-      // write a firebase analytic event that scoring is underway
-      FirebaseAnalytics.instance.logEvent(
-        name: msg,
-        parameters: {
-          'comp': daucompToUpdate.name,
-          'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
-          'tipper': onlyUpdateThisTipper?.name ?? 'all',
-          'withTransaction': 'true',
-        },
-      );
-    } catch (e) {
-      log(
-        '_logEventScoringInitiated() Error writing log event that scoring has initiated: $e',
-      );
-      return;
-    }
-  }
-
-  Future<void> _writeScoringAuditEvent({
-    required String eventName,
-    required DAUComp daucompToUpdate,
-    DAURound? onlyUpdateThisRound,
-    Tipper? onlyUpdateThisTipper,
-    List<DAURound> roundsUpdated = const <DAURound>[],
-    List<Tipper> tippersUpdated = const <Tipper>[],
-    List<Game> blockedGames = const <Game>[],
-    String? message,
-  }) async {
-    try {
-      final selectedTipper = di.isRegistered<TippersViewModel>()
-          ? di<TippersViewModel>().selectedTipper
-          : null;
-      String? appVersion;
-      String? buildNumber;
-      if (di.isRegistered<PackageInfoService>()) {
-        try {
-          final packageInfo = await di<PackageInfoService>().packageInfo;
-          appVersion = packageInfo.version;
-          buildNumber = packageInfo.buildNumber;
-        } catch (e) {
-          log('StatsViewModel._writeScoringAuditEvent() Package info unavailable: $e');
-        }
-      }
-      final auditKey = DateTime.now().toUtc().microsecondsSinceEpoch.toString();
-      await _db
-          .child(statsPathRootLocal)
-          .child(daucompToUpdate.dbkey!)
-          .child(scoringAuditRoot)
-          .child(auditKey)
-          .set({
-            'event': eventName,
-            'serverTimestamp': ServerValue.timestamp,
-            'clientTimestampUTC': DateTime.now().toUtc().toIso8601String(),
-            'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
-            'appVersion': appVersion,
-            'buildNumber': buildNumber,
-            'comp': daucompToUpdate.name,
-            'compDbKey': daucompToUpdate.dbkey,
-            'round': onlyUpdateThisRound?.dAUroundNumber ?? 'all',
-            'roundsUpdated': roundsUpdated
-                .map((round) => round.dAUroundNumber)
-                .toList(),
-            'tipper': onlyUpdateThisTipper?.name ?? 'all',
-            'tipperDbKey': onlyUpdateThisTipper?.dbkey ?? 'all',
-            'selectedTipper': selectedTipper?.name,
-            'selectedTipperDbKey': selectedTipper?.dbkey,
-            'selectedTipperAuthUid': selectedTipper?.authuid,
-            'tippersUpdatedCount': tippersUpdated.length,
-            'blockedGames': blockedGames
-                .map(
-                  (game) => {
-                    'dbkey': game.dbkey,
-                    'league': game.league.name,
-                    'startTimeUTC': game.startTimeUTC.toIso8601String(),
-                    'hasOfficialScores': _hasOfficialFixtureScores(game),
-                    'hasLiveScores':
-                        game.scoring?.crowdSourcedScores?.isNotEmpty ?? false,
-                  },
-                )
-                .toList(),
-            'message': message,
-          });
-    } catch (e) {
-      log('StatsViewModel._writeScoringAuditEvent() Error: $e');
-    }
-  }
-
-  Future<void> _rebuildScoringViewsForReport() async {
-    await di<TippersViewModel>().isUserLinked;
-
-    _isSelectedTipperPaidUpMember = di<TippersViewModel>().selectedTipper
-        .paidForComp(selectedDAUComp);
-
-    _updateLeaderboardForComp();
-    _updateRoundWinners();
-    _rankTippersPerRound();
-  }
-
-  ScoringStateSnapshot _captureScoringSnapshot() {
-    final roundEntries = <String, ScoringRoundSnapshot>{};
-    for (final roundEntry in _allTipperRoundStats.entries) {
-      for (final tipperEntry in roundEntry.value.entries) {
-        final tipper = tipperEntry.key;
-        final roundStats = tipperEntry.value;
-        final snapshot = ScoringRoundSnapshot(
-          tipperDbKey: tipper.dbkey,
-          tipperName: tipper.name,
-          roundNumber: roundStats.roundNumber == 0
-              ? roundEntry.key + 1
-              : roundStats.roundNumber,
-          total: roundStats.aflPoints + roundStats.nrlPoints,
-          nrl: roundStats.nrlPoints,
-          afl: roundStats.aflPoints,
-          rank: roundStats.rank,
-        );
-        roundEntries[snapshot.key] = snapshot;
-      }
-    }
-
-    final leaderboardEntries = <String, ScoringLeaderboardSnapshot>{};
-    for (final entry in _compLeaderboard) {
-      final snapshot = ScoringLeaderboardSnapshot(
-        tipperDbKey: entry.tipper.dbkey,
-        tipperName: entry.tipper.name,
-        rank: entry.rank,
-        total: entry.total,
-        nrl: entry.nRL,
-        afl: entry.aFL,
-        roundsWon: entry.numRoundsWon,
-        margins: entry.aflMargins + entry.nrlMargins,
-        ups: entry.aflUPS + entry.nrlUPS,
-      );
-      leaderboardEntries[snapshot.key] = snapshot;
-    }
-
-    return ScoringStateSnapshot(
-      roundEntries: roundEntries,
-      leaderboardEntries: leaderboardEntries,
-    );
-  }
-
-  ScoringUpdateReport _buildScoringUpdateReport(
-    ScoringStateSnapshot beforeSnapshot,
-    ScoringStateSnapshot afterSnapshot,
-    String resultMessage, {
-    List<ScoringGameStatsChange> gameStatsChanges =
-        const <ScoringGameStatsChange>[],
-  }
-  ) {
-    final leaderboardKeys = <String>{
-      ...beforeSnapshot.leaderboardEntries.keys,
-      ...afterSnapshot.leaderboardEntries.keys,
-    };
-    final leaderboardChanges =
-        leaderboardKeys
-            .map((key) {
-              final before = beforeSnapshot.leaderboardEntries[key];
-              final after = afterSnapshot.leaderboardEntries[key];
-              final change = ScoringLeaderboardChange(
-                tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
-                tipperName:
-                    after?.tipperName ?? before?.tipperName ?? 'Unknown',
-                beforeRank: before?.rank ?? 0,
-                afterRank: after?.rank ?? 0,
-                beforeTotal: before?.total ?? 0,
-                afterTotal: after?.total ?? 0,
-                beforeNrl: before?.nrl ?? 0,
-                afterNrl: after?.nrl ?? 0,
-                beforeAfl: before?.afl ?? 0,
-                afterAfl: after?.afl ?? 0,
-                beforeRoundsWon: before?.roundsWon ?? 0,
-                afterRoundsWon: after?.roundsWon ?? 0,
-                beforeMargins: before?.margins ?? 0,
-                afterMargins: after?.margins ?? 0,
-                beforeUps: before?.ups ?? 0,
-                afterUps: after?.ups ?? 0,
-              );
-              return change.hasChange ? change : null;
-            })
-            .whereType<ScoringLeaderboardChange>()
-            .toList()
-          ..sort((a, b) {
-            final rankDeltaCompare = b.rankDelta.abs().compareTo(
-              a.rankDelta.abs(),
-            );
-            if (rankDeltaCompare != 0) return rankDeltaCompare;
-            final totalDeltaCompare = b.totalDelta.abs().compareTo(
-              a.totalDelta.abs(),
-            );
-            if (totalDeltaCompare != 0) return totalDeltaCompare;
-            return a.tipperName.toLowerCase().compareTo(
-              b.tipperName.toLowerCase(),
-            );
-          });
-
-    final roundKeys = <String>{
-      ...beforeSnapshot.roundEntries.keys,
-      ...afterSnapshot.roundEntries.keys,
-    };
-    final roundChanges =
-        roundKeys
-            .map((key) {
-              final before = beforeSnapshot.roundEntries[key];
-              final after = afterSnapshot.roundEntries[key];
-              final change = ScoringRoundChange(
-                tipperDbKey: after?.tipperDbKey ?? before?.tipperDbKey,
-                tipperName:
-                    after?.tipperName ?? before?.tipperName ?? 'Unknown',
-                roundNumber: after?.roundNumber ?? before?.roundNumber ?? 0,
-                beforeTotal: before?.total ?? 0,
-                afterTotal: after?.total ?? 0,
-                beforeNrl: before?.nrl ?? 0,
-                afterNrl: after?.nrl ?? 0,
-                beforeAfl: before?.afl ?? 0,
-                afterAfl: after?.afl ?? 0,
-                beforeRank: before?.rank ?? 0,
-                afterRank: after?.rank ?? 0,
-              );
-              return change.hasChange ? change : null;
-            })
-            .whereType<ScoringRoundChange>()
-            .toList()
-          ..sort((a, b) {
-            final roundCompare = a.roundNumber.compareTo(b.roundNumber);
-            if (roundCompare != 0) return roundCompare;
-            final totalDeltaCompare = b.totalDelta.abs().compareTo(
-              a.totalDelta.abs(),
-            );
-            if (totalDeltaCompare != 0) return totalDeltaCompare;
-            return a.tipperName.toLowerCase().compareTo(
-              b.tipperName.toLowerCase(),
-            );
-          });
-
-    return ScoringUpdateReport(
-      resultMessage: resultMessage,
-      leaderboardChanges: leaderboardChanges,
-      roundChanges: roundChanges,
-      gameStatsChanges: gameStatsChanges
-          .where((change) => change.hasChange)
-          .toList()
-        ..sort((a, b) {
-          final gameCompare = a.gameName.toLowerCase().compareTo(
-            b.gameName.toLowerCase(),
-          );
-          if (gameCompare != 0) return gameCompare;
-          return a.cohortLabel.compareTo(b.cohortLabel);
-        }),
-    );
-  }
-
-  @visibleForTesting
-  Future<ScoringStateSnapshot> captureScoringSnapshotForTest() async {
-    await _rebuildScoringViewsForReport();
-    return _captureScoringSnapshot();
-  }
-
-  @visibleForTesting
-  ScoringUpdateReport buildScoringUpdateReportForTest(
-    ScoringStateSnapshot beforeSnapshot,
-    ScoringStateSnapshot afterSnapshot,
-    String resultMessage,
-  ) {
-    return _buildScoringUpdateReport(
-      beforeSnapshot,
-      afterSnapshot,
-      resultMessage,
-    );
-  }
+  bool get isUpdateScoringRunning => false;
+  String? get scoringProgressMessage => null;
+  double? get scoringProgressValue => null;
 
   Map<Tipper, RoundStats> getRoundLeaderBoard(int roundNumber) {
     if (_allTipperRoundStats.isEmpty) {
@@ -1119,18 +479,13 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   void getGamesStatsEntry(Game game, bool forceUpdate) async {
-    // Fast path: if we already have a cached in-memory result and aren't
-    // forcing an update, return immediately without any DB read or
-    // notifyListeners() call. This avoids triggering rebuilds of every
-    // Consumer<StatsViewModel?> when cards re-appear during scrolling.
+    // Fast path avoids rebuilding every card when it reappears during scroll.
     final GameStatsEntry? cached = gameStatsEntryFor(game);
-    if (cached != null &&
-        _canUseCachedGameStatsEntry(game, cached, forceUpdate)) {
+    if (cached != null && !forceUpdate) {
       return;
     }
 
-    // Check the database for an existing entry
-    final GameStatsEntry dbEntry;
+    final GameStatsEntry? dbEntry;
     try {
       dbEntry = await _getGameStatsEntry(game);
     } catch (error, stackTrace) {
@@ -1148,345 +503,17 @@ class StatsViewModel extends ChangeNotifier {
     }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 
-    // If the DB had a valid entry and we're not forcing, notify only if the
-    // value actually changed (avoids redundant rebuilds).
-    if (_canUseCachedGameStatsEntry(game, dbEntry, forceUpdate)) {
-      gamesStatsEntry[game.dbkey] = dbEntry;
-      if (previousEntry != dbEntry) {
-        notifyListeners();
-      }
+    if (dbEntry == null) {
       return;
     }
 
-    // Passive display clients only consume the stats tree. Recalculation loads
-    // all tips for the comp, so keep it behind explicit owner/update paths.
-    if (!forceUpdate) {
-      return;
+    gamesStatsEntry[game.dbkey] = dbEntry;
+    if (previousEntry != dbEntry) {
+      notifyListeners();
     }
-
-    if (_shouldRequireOfficialScores(game, DateTime.now().toUtc()) &&
-        !_hasKnownGameResult(game)) {
-      final message =
-          'Skipped game stats update for ${game.dbkey}: completed game is missing a usable scoring source.';
-      log('StatsViewModel.getGamesStatsEntry() $message');
-      await _writeScoringAuditEvent(
-        eventName: 'game_stats_skipped_stale_sources',
-        daucompToUpdate: selectedDAUComp,
-        blockedGames: <Game>[game],
-        message: message,
-      );
-      return;
-    }
-
-    // Otherwise prep tips model to load all tips to do the calculation -
-    // note this is an expensive operation.
-    allTipsViewModel ??= TipsViewModel(
-      di<TippersViewModel>(),
-      selectedDAUComp,
-      gamesViewModel!,
-    );
-
-    // Await for the tips model to load
-    await allTipsViewModel!.initialLoadCompleted;
-
-    // Init or update the game stats entry
-    final bool isPaidCohort = _selectedTipperPaidUpMember();
-    await _updateGameResultPercentageTipped(
-      game,
-      allTipsViewModel!,
-      selectedDAUComp,
-      isPaidCohort,
-    );
-
-    notifyListeners();
   }
 
-  bool _canUseCachedGameStatsEntry(
-    Game game,
-    GameStatsEntry entry,
-    bool forceUpdate,
-  ) {
-    if (forceUpdate || entry.averagePoints == null) {
-      return false;
-    }
-
-    if (_needsFinalGameStatsRecalculation(game, entry)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _needsFinalGameStatsRecalculation(
-    Game game,
-    GameStatsEntry entry,
-  ) {
-    if (game.gameState != GameState.startedResultKnown) {
-      return false;
-    }
-
-    final int? expectedTipCount = _expectedGameStatsTipCount();
-    if (expectedTipCount == null || expectedTipCount <= 0) {
-      return false;
-    }
-
-    if (entry.averagePointsTipCount == expectedTipCount) {
-      return false;
-    }
-
-    log(
-      'Ignoring cached game stats for finalized game: ${game.dbkey}; '
-      'tip count ${entry.averagePointsTipCount} does not match expected $expectedTipCount.',
-    );
-    return true;
-  }
-
-  int? _expectedGameStatsTipCount() {
-    if (!di.isRegistered<TippersViewModel>()) {
-      return null;
-    }
-
-    final tippersViewModel = di<TippersViewModel>();
-    final bool selectedTipperPaidUp =
-        _isSelectedTipperPaidUpMember ??
-        tippersViewModel.selectedTipper.paidForComp(selectedDAUComp);
-
-    return tippersViewModel.tippers
-        .where(
-          (tipper) =>
-              tipper.paidForComp(selectedDAUComp) == selectedTipperPaidUp,
-        )
-        .length;
-  }
-
-  Future<ScoringGameStatsChange?> _updateGameResultPercentageTipped(
-    Game gameToCalculateFor,
-    TipsViewModel allTipsViewModel,
-    DAUComp daucompToUpdate,
-    bool isPaidCohort,
-  ) async {
-    final gameStatsEntry = await allTipsViewModel
-        .percentageOfTippersTippedForPaidStatus(
-          gameToCalculateFor,
-          isPaidCohort,
-        );
-    if (isPaidCohort == _selectedTipperPaidUpMember()) {
-      gamesStatsEntry[gameToCalculateFor.dbkey] = gameStatsEntry;
-    }
-
-    return _updateGameStatsIfChanged(
-      gameToCalculateFor,
-      gameStatsEntry,
-      daucompToUpdate,
-      isPaidCohort,
-    );
-  }
-
-  Future<void> _rebuildGameStatsForRounds(
-    List<DAURound> roundsToUpdate,
-    DAUComp daucompToUpdate,
-  ) async {
-    if (allTipsViewModel == null) {
-      return;
-    }
-
-    final gamesToRebuild = <String, Game>{};
-    for (final round in roundsToUpdate) {
-      for (final game in round.games) {
-        if (_hasKnownGameResult(game)) {
-          gamesToRebuild[game.dbkey] = game;
-        }
-      }
-    }
-
-    if (gamesToRebuild.isEmpty) {
-      _setScoringProgress('No completed games need average rebuild.', null);
-      return;
-    }
-
-    _setScoringProgress('Loading existing game averages...', null);
-    final existingStats = await _loadExistingGameStats(daucompToUpdate);
-    final updates = <String, Object?>{};
-    var processedGames = 0;
-
-    for (final game in gamesToRebuild.values) {
-      processedGames++;
-      _setScoringProgress(
-        'Rebuilding game averages $processedGames/${gamesToRebuild.length}...',
-        processedGames / gamesToRebuild.length,
-      );
-
-      for (final isPaidCohort in <bool>[true, false]) {
-        final cohortKey = isPaidCohort ? 'paid' : 'free';
-        final gameStatsEntry = await allTipsViewModel!
-            .percentageOfTippersTippedForPaidStatus(game, isPaidCohort);
-        final before = existingStats[cohortKey]?[game.dbkey];
-        if (before == gameStatsEntry) {
-          continue;
-        }
-
-        updates['$cohortKey/${game.dbkey}'] = gameStatsEntry.toJson();
-        if (isPaidCohort == _selectedTipperPaidUpMember()) {
-          gamesStatsEntry[game.dbkey] = gameStatsEntry;
-        }
-        final change = _buildGameStatsChange(
-          game,
-          isPaidCohort,
-          before,
-          gameStatsEntry,
-        );
-        if (change.hasChange) {
-          _lastGameStatsChanges.add(change);
-        }
-      }
-    }
-
-    if (updates.isEmpty) {
-      _setScoringProgress('Game averages already up to date.', 1);
-      return;
-    }
-
-    _setScoringProgress('Writing ${updates.length} game average updates...', 1);
-    await _db
-        .child(statsPathRootLocal)
-        .child(daucompToUpdate.dbkey!)
-        .child(gameStatsRoot)
-        .update(updates);
-  }
-
-  bool _hasKnownGameResult(Game game) {
-    final scoring = game.scoring;
-    if (scoring == null) {
-      return false;
-    }
-    return scoring.getGameResultCalculated(game.league) != GameResult.z;
-  }
-
-  Future<Map<String, Map<String, GameStatsEntry>>> _loadExistingGameStats(
-    DAUComp daucompToUpdate,
-  ) async {
-    final snapshot = await _db
-        .child(statsPathRootLocal)
-        .child(daucompToUpdate.dbkey!)
-        .child(gameStatsRoot)
-        .get();
-    final result = <String, Map<String, GameStatsEntry>>{
-      'paid': <String, GameStatsEntry>{},
-      'free': <String, GameStatsEntry>{},
-    };
-    if (!snapshot.exists || snapshot.value is! Map) {
-      return result;
-    }
-
-    final rawRoot = Map<String, dynamic>.from(snapshot.value as Map);
-    for (final cohortKey in <String>['paid', 'free']) {
-      final rawCohort = rawRoot[cohortKey];
-      if (rawCohort is! Map) {
-        continue;
-      }
-      for (final entry in rawCohort.entries) {
-        final value = entry.value;
-        if (value is Map) {
-          result[cohortKey]![entry.key as String] = GameStatsEntry.fromJson(
-            Map<String, dynamic>.from(value),
-          );
-        }
-      }
-    }
-    return result;
-  }
-
-  bool _selectedTipperPaidUpMember() {
-    _isSelectedTipperPaidUpMember ??= di<TippersViewModel>().selectedTipper
-        .paidForComp(selectedDAUComp);
-    return _isSelectedTipperPaidUpMember!;
-  }
-
-  Future<ScoringGameStatsChange?> _updateGameStatsIfChanged(
-    Game game,
-    GameStatsEntry gameStatsEntry,
-    DAUComp daucompToUpdate,
-    bool isPaidCohort,
-  ) async {
-    String subKey = isPaidCohort ? 'paid' : 'free';
-
-    log('Updating game stats for game: ${game.dbkey}');
-    log('Calculated gameStatsEntry: ${gameStatsEntry.toJson()}');
-    log('Existing game.gameStats: ${game.gameStats?.toJson()}');
-    ScoringGameStatsChange? detectedChange;
-
-    // Use a transaction to ensure atomic updates
-    final gameStatsRef = _db
-        .child(statsPathRootLocal)
-        .child(daucompToUpdate.dbkey!)
-        .child(gameStatsRoot)
-        .child(subKey)
-        .child(game.dbkey);
-
-    await gameStatsRef
-        .runTransaction((currentData) {
-          if (currentData != null) {
-            // Merge the new data with the existing data if needed
-            final existingStats = GameStatsEntry.fromJson(
-              Map<String, dynamic>.from(currentData as Map),
-            );
-            if (existingStats == gameStatsEntry) {
-              log('No changes detected in game stats for game: ${game.dbkey}');
-              return Transaction.abort(); // Abort the transaction if no changes
-            }
-            detectedChange = _buildGameStatsChange(
-              game,
-              isPaidCohort,
-              existingStats,
-              gameStatsEntry,
-            );
-          } else {
-            detectedChange = _buildGameStatsChange(
-              game,
-              isPaidCohort,
-              null,
-              gameStatsEntry,
-            );
-          }
-
-          log('Writing updated game stats for game: ${game.dbkey}');
-          return Transaction.success(gameStatsEntry.toJson());
-        })
-        .then((result) {
-          if (result.committed) {
-            log(
-              'Game stats successfully written to DB for game: ${game.dbkey}',
-            );
-          } else {
-            log(
-              'Transaction aborted: No changes made to game stats for game: ${game.dbkey}',
-            );
-          }
-        })
-        .catchError((error) {
-          log('Error during transaction for game stats: $error');
-        });
-    return detectedChange;
-  }
-
-  ScoringGameStatsChange _buildGameStatsChange(
-    Game game,
-    bool isPaidCohort,
-    GameStatsEntry? before,
-    GameStatsEntry after,
-  ) {
-    return ScoringGameStatsChange(
-      gameDbKey: game.dbkey,
-      gameName: '${game.homeTeam.name} v ${game.awayTeam.name}',
-      isPaidCohort: isPaidCohort,
-      beforeAveragePoints: before?.averagePoints,
-      afterAveragePoints: after.averagePoints,
-      beforeTipCount: before?.averagePointsTipCount,
-      afterTipCount: after.averagePointsTipCount,
-    );
-  }
-
-  Future<GameStatsEntry> _getGameStatsEntry(Game game) async {
+  Future<GameStatsEntry?> _getGameStatsEntry(Game game) async {
     await di<TippersViewModel>().isUserLinked;
 
     _isSelectedTipperPaidUpMember = di<TippersViewModel>().selectedTipper
@@ -1501,7 +528,7 @@ class StatsViewModel extends ChangeNotifier {
         .child(game.dbkey)
         .get();
 
-    return _gameStatsEntryFromSnapshot(snapshot) ?? GameStatsEntry();
+    return _gameStatsEntryFromSnapshot(snapshot);
   }
 
   GameStatsEntry? _gameStatsEntryFromSnapshot(DataSnapshot snapshot) {
@@ -1512,142 +539,6 @@ class StatsViewModel extends ChangeNotifier {
     return GameStatsEntry.fromJson(
       Map<String, dynamic>.from(snapshot.value as Map),
     );
-  }
-
-  /// Writes only the recalculated rounds and tippers to the database.
-  ///
-  /// Unlike the previous _writeAllRoundPointsToDb which wrote all rounds and
-  /// all tippers on every update, this method only writes the specific
-  /// rounds/tippers that were recalculated. Inside the transaction, it merges
-  /// at the tipper level within each round, preserving other tippers' data
-  /// even on transaction retry.
-  Future<void> _writeScopedRoundPointsToDb(
-    List<DAURound> roundsUpdated,
-    List<Tipper> tippersUpdated,
-    DAUComp dauComp,
-  ) async {
-    log(
-      'StatsViewModel._writeScopedRoundPointsToDb() Writing points for '
-      '${roundsUpdated.length} rounds, ${tippersUpdated.length} tippers',
-    );
-
-    // Build a map of only the rounds/tippers that were recalculated
-    final Set<int> roundIndices = {
-      for (final round in roundsUpdated) round.dAUroundNumber - 1,
-    };
-    final Set<String> tipperDbKeys = {
-      for (final tipper in tippersUpdated)
-        if (tipper.dbkey != null) tipper.dbkey!,
-    };
-
-    // Pre-compute the tipper-level data to write for each round
-    Map<String, Map<String, dynamic>> scopedUpdates = {};
-    for (var roundIndex in roundIndices) {
-      final roundData = _allTipperRoundStats[roundIndex];
-      if (roundData == null) continue;
-
-      Map<String, dynamic> tipperUpdates = {};
-      for (var entry in roundData.entries) {
-        if (tipperDbKeys.contains(entry.key.dbkey)) {
-          tipperUpdates[entry.key.dbkey!] = entry.value.toJson();
-        }
-      }
-      if (tipperUpdates.isNotEmpty) {
-        scopedUpdates[roundIndex.toString()] = tipperUpdates;
-      }
-    }
-
-    if (scopedUpdates.isEmpty) {
-      log('StatsViewModel._writeScopedRoundPointsToDb() No updates to write');
-      return;
-    }
-
-    int retryCount = 0;
-    const int maxRetries = 3;
-    const Duration initialDelay = Duration(seconds: 2);
-
-    while (true) {
-      try {
-        await _db
-            .child(statsPathRootLocal)
-            .child(dauComp.dbkey!)
-            .child(roundStatsRoot)
-            .runTransaction((currentData) {
-              // Firebase RTDB returns sequential numeric keys (0, 1, 2...)
-              // as a List, not a Map. Convert either shape to a uniform
-              // Map<String, dynamic> keyed by round index string so we can
-              // merge safely without losing untouched rounds.
-              final Map<String, dynamic> existingData;
-              if (currentData is Map) {
-                existingData = Map<String, dynamic>.from(currentData);
-              } else if (currentData is List) {
-                existingData = <String, dynamic>{};
-                for (var i = 0; i < currentData.length; i++) {
-                  if (currentData[i] != null) {
-                    existingData[i.toString()] = currentData[i];
-                  }
-                }
-              } else {
-                existingData = <String, dynamic>{};
-              }
-
-              // Merge at the tipper level within each round
-              for (var roundEntry in scopedUpdates.entries) {
-                final roundKey = roundEntry.key;
-                final tipperData = roundEntry.value;
-
-                // Get or create the round map from existing server data,
-                // handling both Map and List shapes from RTDB
-                final existingRoundRaw = existingData[roundKey];
-                final Map<String, dynamic> existingRound;
-                if (existingRoundRaw is Map) {
-                  existingRound = Map<String, dynamic>.from(existingRoundRaw);
-                } else {
-                  existingRound = <String, dynamic>{};
-                }
-
-                // Merge only the tippers we recalculated
-                for (var tipperEntry in tipperData.entries) {
-                  existingRound[tipperEntry.key] = tipperEntry.value;
-                }
-
-                existingData[roundKey] = existingRound;
-              }
-
-              return Transaction.success(existingData);
-            });
-        break;
-      } on SocketException catch (e) {
-        log('Network error (SocketException) while writing round points: $e');
-        if (retryCount < maxRetries) {
-          retryCount++;
-          final delay = initialDelay * retryCount;
-          log(
-            'Retrying in ${delay.inSeconds} seconds... (attempt $retryCount/$maxRetries)',
-          );
-          await Future.delayed(delay);
-          continue;
-        } else {
-          rethrow;
-        }
-      } on IOException catch (e) {
-        log('Network error (IOException) while writing round points: $e');
-        if (retryCount < maxRetries) {
-          retryCount++;
-          final delay = initialDelay * retryCount;
-          log(
-            'Retrying in ${delay.inSeconds} seconds... (attempt $retryCount/$maxRetries)',
-          );
-          await Future.delayed(delay);
-          continue;
-        } else {
-          rethrow;
-        }
-      } catch (e) {
-        log('Unexpected error while writing round points: $e');
-        rethrow;
-      }
-    }
   }
 
   void _updateRoundWinners() {
@@ -2036,25 +927,7 @@ class StatsViewModel extends ChangeNotifier {
       // Add all scores atomically
       await _addMultipleLiveScores(tip.game, scoresToAdd);
 
-      // Use the scoring update queue
-      unawaited(
-        ScoringUpdateQueue()
-            .queueScoringUpdate(
-              dauComp: selectedDAUComp,
-              round: tip.game.getDAURound(selectedDAUComp),
-              tipper: null, // Score all tippers for the round
-              priority: 2, // Round-wide update
-            )
-            .then((result) {
-              log('Scoring update queued for round, result: $result');
-              if (result.startsWith('Completed updates')) {
-                getGamesStatsEntry(tip.game, true);
-              }
-            })
-            .catchError((error) {
-              log('Error queueing scoring update: $error');
-            }),
-      );
+      // Backend database triggers recalculate scoring from live score writes.
     });
   }
 
@@ -2078,7 +951,7 @@ class StatsViewModel extends ChangeNotifier {
     await _db
         .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
-        .child(liveScoresRoot)
+        .child(p.liveScoresBackendRoot)
         .update(updates);
     log(
       'StatsViewModel._writeLiveScoreToDb() Wrote live score current snapshot for game ${game.dbkey}',
@@ -2107,149 +980,10 @@ class StatsViewModel extends ChangeNotifier {
     };
   }
 
-  /// Deletes crowd-sourced live scores for games that have official fixture
-  /// scores. Uses explicit fixture score checks rather than gameState, which
-  /// bundles a 2-hour time delay that is irrelevant to cleanup safety.
-  /// Crowd-sourced scores are only removed once official scores are present,
-  /// ensuring getGameResultCalculated() never loses its score source.
-  Future<void> _deleteStaleLiveScores() async {
-    final gamesToDelete = <String>[];
-    final gamesVM = gamesViewModel;
-    if (gamesVM == null) return;
-    for (var game in _gamesWithLiveScores) {
-      // Look up the current game from GamesViewModel to get the latest
-      // fixture scores — the Game objects in _gamesWithLiveScores are
-      // snapshots from when the live scores listener fired and won't
-      // have fixture scores that arrived later.
-      final currentGame = await gamesVM.findGame(game.dbkey);
-      if (_hasOfficialFixtureScores(currentGame)) {
-        gamesToDelete.add(game.dbkey);
-      }
-    }
-
-    await _deleteLiveScoresByGameDbKeys(gamesToDelete);
-  }
-
   bool _hasOfficialFixtureScores(Game? game) {
     return game?.scoring != null &&
         game!.scoring!.homeTeamScore != null &&
         game.scoring!.awayTeamScore != null;
-  }
-
-  Future<void> _deleteLiveScoresByGameDbKeys(
-    Iterable<String> gameDbKeys,
-  ) async {
-    final keysToDelete = gameDbKeys.toSet().toList(growable: false);
-    if (keysToDelete.isEmpty) {
-      return;
-    }
-
-    final hadLiveScoresListener = _hasLiveScoresListener;
-    if (hadLiveScoresListener) {
-      await _liveScoresStream.cancel();
-      _hasLiveScoresListener = false;
-    }
-
-    for (final gameDbKey in keysToDelete) {
-      _gamesWithLiveScores.removeWhere((game) => game.dbkey == gameDbKey);
-
-      await _db
-          .child(statsPathRootLocal)
-          .child(selectedDAUComp.dbkey!)
-          .child(liveScoresRoot)
-          .child(gameDbKey)
-          .remove();
-      log(
-        'StatsViewModel._deleteLiveScoresByGameDbKeys() Deleted live scores for game $gameDbKey',
-      );
-    }
-
-    if (!hadLiveScoresListener) {
-      return;
-    }
-
-    _liveScoresStream = _db
-        .child(
-          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
-        )
-        .onValue
-        .listen(
-          _handleEventLiveScores,
-          onError: (error) {
-            log(
-              'StatsViewModel._deleteStaleLiveScores() Error listening to live scores: $error',
-            );
-          },
-        );
-    _hasLiveScoresListener = true;
-  }
-
-  List<DAURound> _getRoundsToUpdate(
-    DAURound? onlyUpdateThisRound,
-    DAUComp daucompToUpdate,
-  ) {
-    // grab all rounds where the round state is allGamesEnded
-    List<DAURound> roundsToUpdate = daucompToUpdate.daurounds;
-    if (onlyUpdateThisRound != null) {
-      roundsToUpdate = [onlyUpdateThisRound];
-    }
-    log(
-      'StatsViewModel._getRoundsToUpdate() Updating stats for ${roundsToUpdate.length} rounds.',
-    );
-    return roundsToUpdate;
-  }
-
-  Future<void> _calculateRoundStatsForTipper(
-    Tipper tipperToScore,
-    DAURound dauRound,
-    TipsViewModel allTipsViewModel,
-  ) async {
-    // wait until we are initialized
-    await _initialRoundPointsLoadCompleted.future;
-
-    // initialize any round of tipper Maps as needed
-    if (_allTipperRoundStats[dauRound.dAUroundNumber - 1] == null) {
-      _allTipperRoundStats[dauRound.dAUroundNumber - 1] = {};
-    }
-
-    final Map<String, Tip> tipsByGameKey = {};
-    for (var game in dauRound.games) {
-      Tip? tip = await allTipsViewModel.findTip(game, tipperToScore);
-      if (tip != null) {
-        tipsByGameKey[game.dbkey] = tip;
-      }
-    }
-
-    final stats = ScoringCalculator.calculateRoundStatsForTipper(
-      roundNumber: dauRound.dAUroundNumber,
-      games: dauRound.games,
-      tipsByGameKey: tipsByGameKey,
-      now: DateTime.now().toUtc(),
-    );
-
-    _allTipperRoundStats[dauRound.dAUroundNumber - 1]![tipperToScore] = stats;
-  }
-
-  Future<void> _calculateRoundStats(
-    List<Tipper> tippers,
-    DAURound dauRound,
-    TipsViewModel allTipsViewModel,
-  ) async {
-    List<Future<void>> futures = [];
-    int processedTippers = 0;
-
-    for (var tipper in tippers) {
-      // Yield control every 10 tippers to prevent UI blocking
-      if (processedTippers % 10 == 0) {
-        await Future.microtask(() {});
-      }
-
-      futures.add(
-        _calculateRoundStatsForTipper(tipper, dauRound, allTipsViewModel),
-      );
-      processedTippers++;
-    }
-    await Future.wait(futures);
   }
 
   void _rankTippersPerRound() {
@@ -2458,18 +1192,4 @@ class StatsViewModel extends ChangeNotifier {
       );
     }
   }
-}
-
-class _ScoringSourceFreshness {
-  final bool canWriteAggregates;
-  final List<Game> blockedGames;
-  final String reason;
-
-  const _ScoringSourceFreshness.allowed()
-    : canWriteAggregates = true,
-      blockedGames = const <Game>[],
-      reason = '';
-
-  const _ScoringSourceFreshness.blocked(this.blockedGames, this.reason)
-    : canWriteAggregates = false;
 }

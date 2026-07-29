@@ -6,16 +6,13 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/services/messaging_service.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
 import 'package:daufootytipping/services/combined_rounds_service.dart';
 import 'package:daufootytipping/services/combined_rounds_persistence.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/daucomps_snapshot_applier.dart';
-import 'package:daufootytipping/services/fixture_update_coordinator.dart';
 import 'package:daufootytipping/services/lock_manager.dart';
-import 'package:daufootytipping/services/timer_scheduler.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
 import 'package:daufootytipping/repositories/daucomps_repository.dart';
 import 'package:daufootytipping/services/rounds_linking_service.dart';
@@ -45,10 +42,6 @@ enum LeagueLadderAvailability {
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   List<DAUComp> get daucomps => _daucomps;
-  final fixtureUpdateTimerDuration = Duration(
-    hours: 24,
-  ); // how often we check for fixture updates
-
   // Lazily access database reference to avoid Firebase initialization during pure unit tests
   DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
@@ -92,8 +85,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   final bool _adminMode;
   bool get adminMode => _adminMode;
 
-  Timer? _dailyTimer;
-
   List<Game> unassignedGames = []; // List to store unassigned games
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
   final Map<League, Future<LeagueLadder?>> _inFlightLadderCalculations = {};
@@ -103,13 +94,10 @@ class DAUCompsViewModel extends ChangeNotifier {
   int? _cachedGroupedGamesCount;
   Map<League, List<Game>>? _cachedGroupedGames;
   final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
-  final FixtureUpdateCoordinator _fixtureCoordinator;
   final DauCompsSnapshotApplier _snapshotApplier = const DauCompsSnapshotApplier();
   final LockManager _lockManager = const LockManager();
-  final TimerScheduler _timerScheduler = const TimerSchedulerDefault();
   final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
   final AnalyticsService _analytics;
-  final MessagingService _messaging;
   final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
   final FixtureImportApplier _importApplier = const FixtureImportApplier();
@@ -131,9 +119,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     DauCompsRepository? repo,
     FixtureDownloadService? fixtureDownloader,
     AnalyticsService? analytics,
-    MessagingService? messaging,
     TippersViewModel Function()? tippers,
-    FixtureUpdateCoordinator? fixtureCoordinator,
     SelectionInitCoordinator? selectionInit,
     String? cloudFunctionsBaseURLOverride,
     String? Function()? cloudFunctionsBaseURLProvider,
@@ -142,9 +128,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
-        _messaging = messaging ?? FirebaseMessagingServiceAdapter(),
         _tippers = tippers ?? (() => di<TippersViewModel>()),
-        _fixtureCoordinator = fixtureCoordinator ?? const FixtureUpdateCoordinator(),
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
         _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
         _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
@@ -202,74 +186,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       }
     }
 
-    _startDailyTimer();
-  }
-
-  void _startDailyTimer() {
-    final role = _tippers().authenticatedTipper?.tipperRole;
-    final shouldStart = _fixtureCoordinator.shouldStartDailyTimer(
-      isWeb: kIsWeb,
-      isAdminMode: _adminMode,
-      authenticatedRole: role,
-    );
-    if (!shouldStart) {
-      log('DAUCompsViewModel_startDailyTimer() Daily timer not started due to policy.');
-      return;
-    }
-    _dailyTimer = _timerScheduler.schedulePeriodic(fixtureUpdateTimerDuration, (timer) {
-      triggerDailyEvent();
-    });
-
-    // always trigger the daily event when the timer is started
-    triggerDailyEvent();
-  }
-
-  void triggerDailyEvent() async {
-    log(
-      "DAUCompsViewModel_triggerDailyEvent()  Daily event triggered at ${DateTime.now()}",
-    );
-    late final bool didRun;
-    try {
-      didRun = await _fixtureCoordinator.maybeTriggerUpdate(
-        activeComp: _activeDAUComp,
-        selectedComp: _selectedDAUComp,
-        threshold: fixtureUpdateTimerDuration,
-        isSelectedCompActive: isSelectedCompActiveComp,
-        isCompOver: _isCompOver,
-        refreshActiveByKey: (key) async {
-          _activeDAUComp = await findComp(key);
-          return _activeDAUComp;
-        },
-        logAnalytics: (name, params) => _analytics.logEvent(
-          name,
-          parameters: {
-            ...params,
-            'tipperHandlingUpdate': _tippers().authenticatedTipper?.name ?? 'unknown tipper',
-          },
-        ),
-        runFixtureUpdate: (comp) async {
-          // Preserve prior behavior: startup timer updates use the client-side fixture updater.
-          await gamesViewModel?.initialLoadComplete;
-          return getNetworkFixtureData(comp, useCloudFunction: false);
-        },
-        afterUpdate: () => _messaging.deleteStaleTokens(_tippers()),
-      );
-    } catch (e, stackTrace) {
-      log(
-        'DAUCompsViewModel_triggerDailyEvent() Fixture update failed during automatic startup check: $e',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      return;
-    }
-
-    if (!didRun) {
-      log(
-        'DAUCompsViewModel_triggerDailyEvent() Looks like another client did an update in the last ${fixtureUpdateTimerDuration.inHours} hours or conditions not met. Skipping fixture update.',
-      );
-    } else {
-      log('DAUCompsViewModel_triggerDailyEvent()  Triggering fixture update');
-    }
   }
 
   Future<void> changeDisplayedDAUComp(
@@ -1066,19 +982,8 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   // per-game processing handled via FixtureImportApplier
 
-  // private method to check if the comp is over i.e. all rounds have been completed and scored
-  bool _isCompOver(DAUComp daucomp) {
-    // check if there are zero rounds
-    if (daucomp.daurounds.isEmpty) {
-      return false;
-    }
-    DAURound lastRound = daucomp.daurounds.last;
-    return lastRound.roundState == RoundState.allGamesEnded;
-  }
-
   @override
   void dispose() {
-    _dailyTimer?.cancel();
     _daucompsStream.cancel();
     _disposeChildViewModels();
     super.dispose();

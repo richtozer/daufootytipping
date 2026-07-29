@@ -8,11 +8,9 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
-import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -34,8 +32,6 @@ class GamesViewModel extends ChangeNotifier {
   late TeamsViewModel _teamsViewModel;
   final bool _ownsTeamsViewModel;
   TeamsViewModel get teamsViewModel => _teamsViewModel;
-
-  final List<DAURound> _roundsThatNeedScoringUpdate = [];
 
   final DAUCompsViewModel _dauCompsViewModel;
 
@@ -253,26 +249,6 @@ class GamesViewModel extends ChangeNotifier {
         );
         updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
             attributeValue;
-        if (attributeName == 'HomeTeamScore' ||
-            attributeName == 'AwayTeamScore') {
-          // the score has changed, add the round to the list of rounds that need scoring updates
-          // avoid adding rounds multiple times
-          // also in the unlikely event we have scores but no rounds defined yet then skip this update
-          if (selectedDAUComp.daurounds.isEmpty) {
-            log(
-              'Game: $gameDbKey has scores but there are no rounds defined. Skipping scoring update.',
-            );
-            return;
-          }
-          final round = gameToUpdate.getDAURound(selectedDAUComp);
-          if (round != null && !_roundsThatNeedScoringUpdate.contains(round)) {
-            _roundsThatNeedScoringUpdate.add(
-              gameToUpdate.getDAURound(selectedDAUComp)!,
-            );
-            // also force a gamestats update - in normal processing this should be the initial calculation
-            di<StatsViewModel>().getGamesStatsEntry(gameToUpdate, true);
-          }
-        }
       }
     } else {
       log('Game: $gameDbKey not found in local list. adding full game record');
@@ -332,23 +308,6 @@ class GamesViewModel extends ChangeNotifier {
           _pendingGamesRefreshCompleter = null;
         }
       }
-
-      // if any game scores have changes, the round will be flagged for scoring
-      // update in List<DAURound> _roundsThatNeedScoringUpdate
-      // update the tipper points then remove the round from the list
-      for (DAURound dauRound in _roundsThatNeedScoringUpdate) {
-        log(
-          'GamesViewModel_saveBatchOfGameAttributes: updating scoring for round ${dauRound.dAUroundNumber}',
-        );
-        await ScoringUpdateQueue().queueScoringUpdate(
-          dauComp: selectedDAUComp,
-          round: dauRound,
-          tipper: null,
-          priority: 2,
-        );
-      }
-      // clear the list
-      _roundsThatNeedScoringUpdate.clear();
     } finally {
       log('GamesViewModel_saveBatchOfGameAttributes: notifyListeners()');
       _isSavingBatch = false;

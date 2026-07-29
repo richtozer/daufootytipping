@@ -47,7 +47,6 @@ void main() {
               p.minAppVersionKey: _valueSnapshot(null),
               p.googleClientIdKey: _valueSnapshot(null),
               p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-              p.useBackendScoringBranchesKey: _valueSnapshot(null),
             },
           ),
         ),
@@ -85,7 +84,6 @@ void main() {
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
             p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -109,7 +107,6 @@ void main() {
             p.cloudFunctionsBaseURLKey: _valueSnapshot('https://example.com'),
             p.adminScoringRescoreURLKey:
                 _valueSnapshot('https://rescore.example.com'),
-            p.useBackendScoringBranchesKey: _valueSnapshot(true),
           },
         ),
       ),
@@ -123,7 +120,6 @@ void main() {
     expect(viewModel.googleClientId, 'client-id');
     expect(viewModel.cloudFunctionsBaseURL, 'https://example.com');
     expect(viewModel.adminScoringRescoreURL, 'https://rescore.example.com');
-    expect(viewModel.useBackendScoringBranches, isTrue);
 
     viewModel.dispose();
   });
@@ -171,7 +167,6 @@ void main() {
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
             p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -183,39 +178,6 @@ void main() {
       viewModel.cloudFunctionsBaseURL,
       'https://functions.example.com',
     );
-
-    viewModel.dispose();
-  });
-
-  test('backend scoring branch flag defaults to false', () async {
-    final viewModel = ConfigViewModel(
-      db: mockDb,
-      initialLoadTimeout: const Duration(seconds: 1),
-    );
-
-    controller.add(
-      _databaseEvent(
-        _rootSnapshot(
-          exists: true,
-          value: <String, Object?>{
-            p.currentDAUCompKey: 'comp-2026',
-            p.createLinkedTipperKey: true,
-          },
-          children: <String, Object?>{
-            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
-            p.createLinkedTipperKey: _valueSnapshot(true),
-            p.minAppVersionKey: _valueSnapshot(null),
-            p.googleClientIdKey: _valueSnapshot(null),
-            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
-          },
-        ),
-      ),
-    );
-
-    await viewModel.initialLoadComplete;
-
-    expect(viewModel.useBackendScoringBranches, isFalse);
 
     viewModel.dispose();
   });
@@ -237,7 +199,6 @@ void main() {
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
             p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -283,7 +244,6 @@ void main() {
             p.minAppVersionKey: _valueSnapshot('1.2.3'),
             p.googleClientIdKey: _valueSnapshot('client-id'),
             p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -314,7 +274,6 @@ void main() {
             p.minAppVersionKey: _valueSnapshot(null),
             p.googleClientIdKey: _valueSnapshot(null),
             p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
           },
         ),
       ),
@@ -345,7 +304,6 @@ void main() {
             p.minAppVersionKey: _valueSnapshot('1.2.3'),
             p.googleClientIdKey: _valueSnapshot('client-id'),
             p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            p.useBackendScoringBranchesKey: _valueSnapshot(null),
           },
         ),
       ),
