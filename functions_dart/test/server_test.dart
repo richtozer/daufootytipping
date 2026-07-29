@@ -167,6 +167,29 @@ void main() {
       );
     });
 
+    test('resolveBackendScoringCommandUrl prefers local emulator endpoint', () {
+      expect(
+        resolveBackendScoringCommandUrl(environment: {
+          'FUNCTIONS_EMULATOR': 'true',
+          'GCLOUD_PROJECT': 'demo-project',
+          'BACKEND_SCORING_COMMAND_URL': 'https://backend.example.com',
+        }),
+        'http://127.0.0.1:9229/demo-project/asia-southeast1/backend-scoring-command',
+      );
+    });
+
+    test('resolveBackendScoringCommandUrl supports local emulator overrides', () {
+      expect(
+        resolveBackendScoringCommandUrl(environment: {
+          'FUNCTIONS_EMULATOR': 'true',
+          'LOCAL_FUNCTIONS_EMULATOR_ORIGIN': 'localhost:5001/',
+          'FIREBASE_PROJECT': 'project-one',
+          'FUNCTION_REGION': 'us-central1',
+        }),
+        'http://localhost:5001/project-one/us-central1/backend-scoring-command',
+      );
+    });
+
     test('isBackendScoringCommandAuthorized matches the shared secret', () {
       expect(
         isBackendScoringCommandAuthorized(

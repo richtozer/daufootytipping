@@ -53,6 +53,37 @@ test("forwardScheduledFixtureDownload posts a compact secret-protected request",
   assert.equal(logger.errors.length, 0);
 });
 
+test("forwardScheduledFixtureDownload routes to local Dart endpoint in emulator", async () => {
+  const logger = new FakeLogger();
+  const fetchCalls: Array<{
+    url: RequestInfo | URL;
+    init: Parameters<typeof fetch>[1];
+  }> = [];
+
+  const fetchImpl: typeof fetch = async (url, init) => {
+    fetchCalls.push({url, init});
+    return new Response(JSON.stringify({ok: true}), {status: 200});
+  };
+
+  await forwardScheduledFixtureDownload({
+    fetchImpl,
+    commandSecret: "secret-123",
+    logger,
+    environment: {
+      FUNCTIONS_EMULATOR: "true",
+      GCLOUD_PROJECT: "demo-project",
+      DART_FIXTURE_DOWNLOAD_COMMAND_URL: "https://backend.example.com",
+    },
+  });
+
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(
+    fetchCalls[0].url,
+    "http://127.0.0.1:9229/demo-project/asia-southeast1/scheduled-fixture-download",
+  );
+  assert.equal(logger.errors.length, 0);
+});
+
 test("forwardScheduledFixtureDownload fails when url is missing", async () => {
   await assert.rejects(
     forwardScheduledFixtureDownload({

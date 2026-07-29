@@ -16,6 +16,8 @@ collect_pids() {
   done
 
   # Catch watch/build processes that may not own a listening port.
+  pids+=$'\n'"$(pgrep -u "${uid}" -f "scripts/start_local_backend.sh" 2>/dev/null || true)"
+  pids+=$'\n'"$(pgrep -u "${uid}" -f "start_local_backend.sh" 2>/dev/null || true)"
   pids+=$'\n'"$(pgrep -u "${uid}" -f "firebase emulators:start" 2>/dev/null || true)"
   pids+=$'\n'"$(pgrep -u "${uid}" -f "npm --prefix ./functions run build -- -w" 2>/dev/null || true)"
   pids+=$'\n'"$(pgrep -u "${uid}" -f "tsc --watch" 2>/dev/null || true)"
