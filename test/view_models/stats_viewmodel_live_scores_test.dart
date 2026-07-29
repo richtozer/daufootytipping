@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:daufootytipping/services/scoring_update_queue.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -173,7 +174,7 @@ void main() {
 
     when(() => rootDb.child('/Stats')).thenReturn(statsRef);
     when(() => statsRef.child(comp.dbkey!)).thenReturn(compRef);
-    when(() => compRef.child(liveScoresRoot)).thenReturn(liveScoresRef);
+    when(() => compRef.child(p.liveScoresBackendRoot)).thenReturn(liveScoresRef);
     when(() => compRef.child(gameStatsRoot)).thenReturn(gameStatsRef);
     when(() => gameStatsRef.child('paid')).thenReturn(gameStatsPaidRef);
     when(() => gameStatsPaidRef.child(any())).thenReturn(gameStatsGameRef);

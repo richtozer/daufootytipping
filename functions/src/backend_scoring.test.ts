@@ -110,7 +110,7 @@ test("buildLiveScoreWrittenBackendScoringCommand builds payload", () => {
     compKey: "comp2026",
     gameKey: "nrl-01-001",
     sourceEventId: "event-789",
-    sourcePath: "/Stats/comp2026/live_scores_v3/nrl-01-001/current",
+    sourcePath: "/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current",
     scopeKey: "comp:comp2026/game:nrl-01-001",
     commandId: "event_ZXZlbnQtNzg5",
   });
@@ -456,7 +456,7 @@ test("handleLiveScoreWrittenBackendScoringWrite posts payload", async () => {
     compKey: "comp2026",
     gameKey: "nrl-01-001",
     sourceEventId: "event-789",
-    sourcePath: "/Stats/comp2026/live_scores_v3/nrl-01-001/current",
+    sourcePath: "/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current",
     scopeKey: "comp:comp2026/game:nrl-01-001",
     commandId: "event_ZXZlbnQtNzg5",
   });

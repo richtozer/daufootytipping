@@ -2078,7 +2078,7 @@ class StatsViewModel extends ChangeNotifier {
     await _db
         .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
-        .child(liveScoresRoot)
+        .child(p.liveScoresBackendRoot)
         .update(updates);
     log(
       'StatsViewModel._writeLiveScoreToDb() Wrote live score current snapshot for game ${game.dbkey}',

@@ -1081,7 +1081,7 @@ void main() {
         'compKey': 'comp2026',
         'gameKey': 'nrl-01-001',
         'sourceEventId': 'event-live-1',
-        'sourcePath': '/Stats/comp2026/live_scores_v3/nrl-01-001/current',
+        'sourcePath': '/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current',
         'scopeKey': 'comp:comp2026/game:nrl-01-001',
         'commandId': 'event-live-1',
       });
@@ -1365,7 +1365,7 @@ void main() {
         },
       });
 
-      when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+      when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
           .thenReturn(mockLiveScoresRef);
       when(() => mockLiveScoresRef.once()).thenAnswer((_) async => mockLiveScoresSnapshot);
       when(() => mockLiveScoresSnapshot.value).thenReturn(null);
@@ -1519,7 +1519,7 @@ void main() {
           },
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
             .thenReturn(mockLiveScoresRef);
         when(() => mockLiveScoresRef.once())
             .thenAnswer((_) async => mockLiveScoresSnapshot);
@@ -1691,9 +1691,6 @@ void main() {
         final mockGamesSnapshot = MockDataSnapshot();
         final mockLiveScoresRef = MockDatabaseReference();
         final mockLiveScoresSnapshot = MockDataSnapshot();
-        final mockLiveScoreGameRef = MockDatabaseReference();
-        final mockLiveScoreGameSnapshot = MockDataSnapshot();
-        final mockBackendLiveScoreGameRef = MockDatabaseReference();
         final mockAllTippersRef = MockDatabaseReference();
         final mockAllTippersSnapshot = MockDataSnapshot();
         final mockAllTipsRef = MockDatabaseReference();
@@ -1711,7 +1708,7 @@ void main() {
           tipperId: null,
           gameKey: 'nrl-01-001',
           sourceEventId: 'event-live-1',
-          sourcePath: '/Stats/comp2026/live_scores_v3/nrl-01-001/current',
+          sourcePath: '/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current',
           scopeKey: 'comp:comp2026/game:nrl-01-001',
           commandId: 'event-live-1',
         );
@@ -1756,7 +1753,7 @@ void main() {
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
             .thenReturn(mockLiveScoresRef);
         when(() => mockLiveScoresRef.once())
             .thenAnswer((_) async => mockLiveScoresSnapshot);
@@ -1795,17 +1792,6 @@ void main() {
         when(() => mockLiveScoresSnapshot.value).thenReturn({
           'nrl-01-001': liveScoreGameValue,
         });
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3/nrl-01-001'))
-            .thenReturn(mockLiveScoreGameRef);
-        when(() => mockLiveScoreGameRef.once())
-            .thenAnswer((_) async => mockLiveScoreGameSnapshot);
-        when(() => mockLiveScoreGameSnapshot.value)
-            .thenReturn(liveScoreGameValue);
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1/nrl-01-001'))
-            .thenReturn(mockBackendLiveScoreGameRef);
-        when(() => mockBackendLiveScoreGameRef.set(any()))
-            .thenAnswer((_) async {});
-
         when(() => mockDb.ref('/DAUCompsGames/comp2026'))
             .thenReturn(mockGamesRef);
         when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
@@ -1894,9 +1880,6 @@ void main() {
         expect(paidGameStats['pctTipD'], 1.0);
         expect(freeGameStats['avgScoreTipCount'], 1);
         expect(freeGameStats['pctTipD'], 1.0);
-        verify(
-          () => mockBackendLiveScoreGameRef.set(liveScoreGameValue),
-        ).called(1);
         verify(() => mockIdempotencyRef.set(any())).called(1);
         verify(() => mockStatusRef.set(any())).called(1);
       },
@@ -1987,7 +1970,7 @@ void main() {
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
             .thenReturn(mockLiveScoresRef);
         when(() => mockLiveScoresRef.once())
             .thenAnswer((_) async => mockLiveScoresSnapshot);
@@ -2213,7 +2196,7 @@ void main() {
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_v3'))
+        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
             .thenReturn(mockLiveScoresRef);
         when(() => mockLiveScoresRef.once())
             .thenAnswer((_) async => mockLiveScoresSnapshot);

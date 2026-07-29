@@ -122,7 +122,8 @@ When full migration begins:
 - keep existing legacy stats paths for old clients
 - use a new backend-owned scoring branch as the authoritative validation target
 - dual-write only after validation
-- preserve `/Stats/.../live_scores_v3/` as the client-owned live-score input path unless redesigning that path explicitly
+- write live scores directly to `/Stats/.../live_scores_backend_v1/`; the old
+  client-owned live-score input branch has been retired
 
 ## Server-to-Client Status Broadcast (UI Progress Tracking)
 To replace the legacy client-side local progress state and support admin actions (like manual fixture downloads or full rescores), the backend will write real-time status updates to a dedicated path in the database:

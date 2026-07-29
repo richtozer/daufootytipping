@@ -88,10 +88,10 @@ const BACKEND_SCORING_COMMAND_SECRET_HEADER = "x-backend-scoring-secret";
 const STATS_PATH_ROOT = "/Stats";
 const TIPS_PATH_ROOT = "/AllTips";
 const GAMES_PATH_ROOT = "/DAUCompsGames";
-const LIVE_SCORES_V3_ROOT = "live_scores_v3";
+const LIVE_SCORES_BACKEND_ROOT = "live_scores_backend_v1";
 const LIVE_SCORE_CURRENT_KEY = "current";
 const LIVE_SCORE_CURRENT_TRIGGER_PATH =
-  `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_V3_ROOT}/{gameKey}/` +
+  `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_BACKEND_ROOT}/{gameKey}/` +
   LIVE_SCORE_CURRENT_KEY;
 const BACKEND_SCORING_REGION = "asia-southeast1";
 const backendScoringFunctions = functions.region(BACKEND_SCORING_REGION);
@@ -200,7 +200,7 @@ export function buildLiveScoreWrittenBackendScoringCommand(
   sourceEventId: string,
 ): BackendScoringCommandPayload {
   const sourcePath =
-    `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_V3_ROOT}/${gameKey}/` +
+    `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_BACKEND_ROOT}/${gameKey}/` +
     LIVE_SCORE_CURRENT_KEY;
   const commandId = buildBackendScoringCommandId(sourceEventId);
   return {

@@ -2012,14 +2012,6 @@ _handleOfficialScoreWrittenBackendScoringCommand({
   }
 
   try {
-    if (command.commandType == BackendScoringCommandType.liveScoreWritten) {
-      await _writeBackendLiveScoreShadow(
-        db: db,
-        compKey: command.compKey,
-        gameKey: command.gameKey!,
-      );
-    }
-
     final rebuildResult = await _rebuildBackendScoringRound(
       db: db,
       comp: comp,
@@ -2803,7 +2795,7 @@ Future<List<Game>> _loadBackendScoringGames({
   }
 
   final liveScoresSnapshot = await db
-      .ref('${paths.statsPathRoot}/${comp.dbkey}/${paths.liveScoresLegacyRoot}')
+      .ref('${paths.statsPathRoot}/${comp.dbkey}/${paths.liveScoresBackendRoot}')
       .once();
   final liveScoresByGame = _deserializeLiveScores(liveScoresSnapshot);
 
@@ -2857,22 +2849,6 @@ bool _isBackendScoringGameOutsideRegularComp(DAUComp comp, Game game) {
     return game.startTimeUTC.isAfter(comp.nrlRegularCompEndDateUTC!);
   }
   return false;
-}
-
-Future<void> _writeBackendLiveScoreShadow({
-  required dynamic db,
-  required String compKey,
-  required String gameKey,
-}) async {
-  final liveScoreSnapshot = await db
-      .ref('${paths.statsPathRoot}/$compKey/${paths.liveScoresLegacyRoot}/$gameKey')
-      .once();
-  await db
-      .ref(
-        '${paths.statsPathRoot}/$compKey/'
-        '${paths.liveScoresBackendRoot}/$gameKey',
-      )
-      .set(liveScoreSnapshot.value);
 }
 
 String _normalizeTeamLookupName(dynamic rawName) {
