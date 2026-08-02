@@ -123,6 +123,34 @@ void main() {
       verify(() => mockGamesVM.getGames()).called(2);
     });
 
+    test('game updates invalidate a previously calculated ladder', () async {
+      final now = DateTime.now().toUtc();
+      final a = t('nrl-a');
+      final b = t('nrl-b');
+      final teams = [a, b];
+      final games = <Game>[
+        g('nrl-01-001', a, b, 1, now.subtract(const Duration(hours: 24)), 12, 8),
+      ];
+
+      when(() => mockGamesVM.getGames()).thenAnswer((_) async => games);
+      when(() => mockTeamsVM.groupedTeams).thenReturn({'nrl': teams});
+
+      final initialLadder = await vm.getOrCalculateLeagueLadder(League.nrl);
+      expect(initialLadder, isNotNull);
+      expect(initialLadder!.teams.firstWhere((team) => team.dbkey == a.dbkey).played, 1);
+
+      games.add(
+        g('nrl-02-002', b, a, 2, now.subtract(const Duration(hours: 20)), 6, 10),
+      );
+      vm.gamesViewModelUpdatedForTest();
+
+      final updatedLadder = await vm.getOrCalculateLeagueLadder(League.nrl);
+      expect(updatedLadder, isNotNull);
+      expect(updatedLadder, isNot(same(initialLadder)));
+      expect(updatedLadder!.teams.firstWhere((team) => team.dbkey == a.dbkey).played, 2);
+      verify(() => mockGamesVM.getGames()).called(2);
+    });
+
     test('switching selected comp clears cached ladders', () async {
       final now = DateTime.now().toUtc();
       final a = t('nrl-a');
