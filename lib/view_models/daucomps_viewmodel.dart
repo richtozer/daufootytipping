@@ -286,7 +286,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         statsViewModel = di<StatsViewModel>();
         selectedTipperTipsViewModel = res.tipsViewModel;
 
-        gamesViewModel!.addListener(_otherViewModelUpdated);
+        gamesViewModel!.addListener(_gamesViewModelUpdated);
         statsViewModel!.addListener(_otherViewModelUpdated);
         selectedTipperTipsViewModel!.addListener(_otherViewModelUpdated);
         StartupProfiling.instant(
@@ -316,7 +316,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     gamesViewModel = res.gamesViewModel;
     statsViewModel = res.statsViewModel;
 
-    gamesViewModel!.addListener(_otherViewModelUpdated);
+    gamesViewModel!.addListener(_gamesViewModelUpdated);
     statsViewModel!.addListener(_otherViewModelUpdated);
   }
 
@@ -964,10 +964,18 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _gamesViewModelUpdated() {
+    clearLeagueLadderCache();
+    _otherViewModelUpdated();
+  }
+
+  @visibleForTesting
+  void gamesViewModelUpdatedForTest() => _gamesViewModelUpdated();
+
   /// Disposes child ViewModels (games, stats, tips) before re-initialization
   /// to prevent leaked Firebase stream subscriptions and listeners.
   void _disposeChildViewModels() {
-    gamesViewModel?.removeListener(_otherViewModelUpdated);
+    gamesViewModel?.removeListener(_gamesViewModelUpdated);
     gamesViewModel?.dispose();
     gamesViewModel = null;
 
