@@ -235,6 +235,29 @@ void main() {
       );
     });
 
+    test('configured check-fixture-url URL follows its dedicated provider', () {
+      String? configuredUrl = 'https://check-one.example.com';
+      final vm = DAUCompsViewModel(
+        null,
+        false,
+        skipInit: true,
+        cloudFunctionsBaseURLOverride: 'not-a-url',
+        adminCheckFixtureUrlURLProvider: () => configuredUrl,
+      );
+
+      expect(
+        vm.resolveConfiguredAdminCheckFixtureUrlURL(),
+        'https://check-one.example.com',
+      );
+
+      configuredUrl = 'https://check-two.example.com';
+
+      expect(
+        vm.resolveConfiguredAdminCheckFixtureUrlURL(),
+        'https://check-two.example.com',
+      );
+    });
+
     test('backend rescore loads a URL when the provider is not ready', () async {
       var loadCount = 0;
       final vm = DAUCompsViewModel(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -283,6 +284,26 @@ void main() {
         extractAdminFixtureDownloadCompKey(<Object?, Object?>{
           'compKey': 2026,
         }),
+        isNull,
+      );
+    });
+
+    test('extractAdminCheckFixtureUrlUrl accepts platform-channel maps', () {
+      expect(
+        extractAdminCheckFixtureUrlUrl(<Object?, Object?>{
+          'url': 'https://example.com/fixture.json',
+        }),
+        'https://example.com/fixture.json',
+      );
+      expect(
+        extractAdminCheckFixtureUrlUrl(<String, dynamic>{
+          'url': 'https://example.com/fixture.json',
+        }),
+        'https://example.com/fixture.json',
+      );
+      expect(extractAdminCheckFixtureUrlUrl(null), isNull);
+      expect(
+        extractAdminCheckFixtureUrlUrl(<Object?, Object?>{'url': 2026}),
         isNull,
       );
     });
@@ -1022,6 +1043,398 @@ void main() {
       expect(result.status, 'completed');
       expect(result.message, 'Backend rescore complete.');
     });
+  });
+
+  group('checkFixtureUrlActive tests', () {
+    test('rejects non-admin callers before checking the url', () async {
+      final db = DuckTypedDatabase({
+        '/AllTippers': {
+          'tipper-1': {'authuid': 'user123', 'tipperRole': 'user'},
+        },
+      });
+
+      await expectLater(
+        checkFixtureUrlActive(
+          authUid: 'user123',
+          url: 'https://example.com/fixture.json',
+          db: db,
+          checkUrl: (_) async => true,
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+    });
+
+    test('rejects a malformed url for an admin caller', () async {
+      final db = DuckTypedDatabase({
+        '/AllTippers': {
+          'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
+        },
+      });
+
+      await expectLater(
+        checkFixtureUrlActive(
+          authUid: 'admin123',
+          url: 'not a url',
+          db: db,
+          checkUrl: (_) async => true,
+        ),
+        throwsA(isA<InvalidArgumentError>()),
+      );
+    });
+
+    test(
+      'returns the checker result for an admin caller with a valid url',
+      () async {
+        final db = DuckTypedDatabase({
+          '/AllTippers': {
+            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
+          },
+        });
+        Uri? checkedUri;
+
+        final active = await checkFixtureUrlActive(
+          authUid: 'admin123',
+          url: 'https://example.com/fixture.json',
+          db: db,
+          checkUrl: (uri) async {
+            checkedUri = uri;
+            return false;
+          },
+          resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+        );
+
+        expect(active, isFalse);
+        expect(checkedUri, Uri.parse('https://example.com/fixture.json'));
+      },
+    );
+
+    test('rejects a non-http(s) scheme for an admin caller', () async {
+      final db = DuckTypedDatabase({
+        '/AllTippers': {
+          'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
+        },
+      });
+
+      await expectLater(
+        checkFixtureUrlActive(
+          authUid: 'admin123',
+          url: 'file:///etc/passwd',
+          db: db,
+          checkUrl: (_) async => true,
+        ),
+        throwsA(isA<InvalidArgumentError>()),
+      );
+    });
+
+    test(
+      'rejects a url whose literal host is a private/loopback address',
+      () async {
+        final db = DuckTypedDatabase({
+          '/AllTippers': {
+            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
+          },
+        });
+
+        await expectLater(
+          checkFixtureUrlActive(
+            authUid: 'admin123',
+            url: 'http://169.254.169.254/latest/meta-data/',
+            db: db,
+            checkUrl: (_) async => true,
+          ),
+          throwsA(isA<InvalidArgumentError>()),
+        );
+      },
+    );
+
+    test(
+      'rejects a url whose hostname resolves to a private address',
+      () async {
+        final db = DuckTypedDatabase({
+          '/AllTippers': {
+            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
+          },
+        });
+
+        await expectLater(
+          checkFixtureUrlActive(
+            authUid: 'admin123',
+            url: 'https://internal.example.com/fixture.json',
+            db: db,
+            checkUrl: (_) async => true,
+            resolveHost: (_) async => [InternetAddress('10.1.2.3')],
+          ),
+          throwsA(isA<InvalidArgumentError>()),
+        );
+      },
+    );
+  });
+
+  group('isAllowedFixtureUrlHost tests', () {
+    test('rejects known-blocked hostnames without a lookup', () async {
+      var lookupCalled = false;
+      final allowed = await isAllowedFixtureUrlHost(
+        Uri.parse('http://metadata.google.internal/computeMetadata/v1/'),
+        resolveHost: (_) async {
+          lookupCalled = true;
+          return [];
+        },
+      );
+
+      expect(allowed, isFalse);
+      expect(lookupCalled, isFalse);
+    });
+
+    test('rejects an IP-literal host without a lookup', () async {
+      var lookupCalled = false;
+      final allowed = await isAllowedFixtureUrlHost(
+        Uri.parse('http://127.0.0.1/fixture.json'),
+        resolveHost: (_) async {
+          lookupCalled = true;
+          return [];
+        },
+      );
+
+      expect(allowed, isFalse);
+      expect(lookupCalled, isFalse);
+    });
+
+    test('allows a public IP-literal host', () async {
+      final allowed = await isAllowedFixtureUrlHost(
+        Uri.parse('http://93.184.216.34/fixture.json'),
+      );
+
+      expect(allowed, isTrue);
+    });
+
+    test('rejects a hostname when every resolved address is blocked', () async {
+      final allowed = await isAllowedFixtureUrlHost(
+        Uri.parse('https://internal.example.com/fixture.json'),
+        resolveHost: (_) async => [InternetAddress('192.168.1.5')],
+      );
+
+      expect(allowed, isFalse);
+    });
+
+    test('allows a hostname when it resolves to a public address', () async {
+      final allowed = await isAllowedFixtureUrlHost(
+        Uri.parse('https://fixtures.example.com/fixture.json'),
+        resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+      );
+
+      expect(allowed, isTrue);
+    });
+
+    test('rejects a hostname when the lookup fails', () async {
+      final allowed = await isAllowedFixtureUrlHost(
+        Uri.parse('https://does-not-resolve.example.com/fixture.json'),
+        resolveHost: (_) async => throw Exception('lookup failed'),
+      );
+
+      expect(allowed, isFalse);
+    });
+  });
+
+  group('isDisallowedFixtureUrlAddress tests', () {
+    test('flags loopback, link-local, and multicast addresses', () {
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('127.0.0.1')),
+        isTrue,
+      );
+      expect(isDisallowedFixtureUrlAddress(InternetAddress('::1')), isTrue);
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('169.254.169.254')),
+        isTrue,
+      );
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('224.0.0.1')),
+        isTrue,
+      );
+    });
+
+    test('flags RFC1918 private ranges', () {
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('10.0.0.1')),
+        isTrue,
+      );
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('172.16.0.1')),
+        isTrue,
+      );
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('172.31.255.255')),
+        isTrue,
+      );
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('172.32.0.1')),
+        isFalse,
+      );
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('192.168.1.1')),
+        isTrue,
+      );
+    });
+
+    test('flags IPv6 unique-local addresses', () {
+      expect(isDisallowedFixtureUrlAddress(InternetAddress('fc00::1')), isTrue);
+      expect(isDisallowedFixtureUrlAddress(InternetAddress('fd12::1')), isTrue);
+    });
+
+    test('allows public addresses', () {
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('93.184.216.34')),
+        isFalse,
+      );
+      expect(
+        isDisallowedFixtureUrlAddress(InternetAddress('2606:2800:220:1::1')),
+        isFalse,
+      );
+    });
+  });
+
+  group('fetchFixtureUrlActive tests', () {
+    test('returns true for a 200 response with no redirect', () async {
+      final requestedUris = <Uri>[];
+
+      final active = await fetchFixtureUrlActive(
+        Uri.parse('https://example.com/fixture.json'),
+        resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+        fetchHop: (uri) async {
+          requestedUris.add(uri);
+          return const FixtureUrlHopResult(statusCode: 200);
+        },
+      );
+
+      expect(active, isTrue);
+      expect(requestedUris, [Uri.parse('https://example.com/fixture.json')]);
+    });
+
+    test('returns false for a non-redirect, non-200 response', () async {
+      final active = await fetchFixtureUrlActive(
+        Uri.parse('https://example.com/fixture.json'),
+        resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+        fetchHop: (_) async => const FixtureUrlHopResult(statusCode: 404),
+      );
+
+      expect(active, isFalse);
+    });
+
+    test(
+      'follows a redirect to an allowed host and returns the final result',
+      () async {
+        final requestedUris = <Uri>[];
+
+        final active = await fetchFixtureUrlActive(
+          Uri.parse('https://example.com/fixture.json'),
+          resolveHost: (host) async => [
+            if (host == 'example.com')
+              InternetAddress('93.184.216.34')
+            else
+              InternetAddress('93.184.216.35'),
+          ],
+          fetchHop: (uri) async {
+            requestedUris.add(uri);
+            if (uri.host == 'example.com') {
+              return const FixtureUrlHopResult(
+                statusCode: 302,
+                redirectLocation: 'https://cdn.example.com/fixture.json',
+              );
+            }
+            return const FixtureUrlHopResult(statusCode: 200);
+          },
+        );
+
+        expect(active, isTrue);
+        expect(requestedUris, [
+          Uri.parse('https://example.com/fixture.json'),
+          Uri.parse('https://cdn.example.com/fixture.json'),
+        ]);
+      },
+    );
+
+    test(
+      'resolves a relative redirect location against the current uri',
+      () async {
+        final requestedUris = <Uri>[];
+
+        final active = await fetchFixtureUrlActive(
+          Uri.parse('https://example.com/a/fixture.json'),
+          resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+          fetchHop: (uri) async {
+            requestedUris.add(uri);
+            if (requestedUris.length == 1) {
+              return const FixtureUrlHopResult(
+                statusCode: 301,
+                redirectLocation: '/b/fixture.json',
+              );
+            }
+            return const FixtureUrlHopResult(statusCode: 200);
+          },
+        );
+
+        expect(active, isTrue);
+        expect(requestedUris, [
+          Uri.parse('https://example.com/a/fixture.json'),
+          Uri.parse('https://example.com/b/fixture.json'),
+        ]);
+      },
+    );
+
+    test(
+      'rejects a redirect to a private/loopback address instead of following it',
+      () async {
+        final requestedUris = <Uri>[];
+
+        final active = await fetchFixtureUrlActive(
+          Uri.parse('https://example.com/fixture.json'),
+          resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+          fetchHop: (uri) async {
+            requestedUris.add(uri);
+            return const FixtureUrlHopResult(
+              statusCode: 302,
+              redirectLocation: 'http://169.254.169.254/latest/meta-data/',
+            );
+          },
+        );
+
+        expect(active, isFalse);
+        // Only the initial (allowed) host was ever actually requested — the
+        // disallowed redirect target must be rejected before being fetched.
+        expect(requestedUris, [Uri.parse('https://example.com/fixture.json')]);
+      },
+    );
+
+    test('gives up after exceeding the maximum redirect hops', () async {
+      var fetchCount = 0;
+
+      final active = await fetchFixtureUrlActive(
+        Uri.parse('https://example.com/fixture.json'),
+        resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+        fetchHop: (uri) async {
+          fetchCount += 1;
+          return FixtureUrlHopResult(
+            statusCode: 302,
+            redirectLocation: '$uri?hop=$fetchCount',
+          );
+        },
+      );
+
+      expect(active, isFalse);
+      expect(fetchCount, maxFixtureUrlRedirectHops + 1);
+    });
+
+    test(
+      'returns false when a redirect response has no location header',
+      () async {
+        final active = await fetchFixtureUrlActive(
+          Uri.parse('https://example.com/fixture.json'),
+          resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+          fetchHop: (_) async => const FixtureUrlHopResult(statusCode: 302),
+        );
+
+        expect(active, isFalse);
+      },
+    );
   });
 
   group('backend scoring command tests', () {

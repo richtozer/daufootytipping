@@ -107,6 +107,8 @@ void main() {
             p.cloudFunctionsBaseURLKey: _valueSnapshot('https://example.com'),
             p.adminScoringRescoreURLKey:
                 _valueSnapshot('https://rescore.example.com'),
+            p.adminCheckFixtureUrlURLKey:
+                _valueSnapshot('https://check-fixture-url.example.com'),
           },
         ),
       ),
@@ -120,6 +122,10 @@ void main() {
     expect(viewModel.googleClientId, 'client-id');
     expect(viewModel.cloudFunctionsBaseURL, 'https://example.com');
     expect(viewModel.adminScoringRescoreURL, 'https://rescore.example.com');
+    expect(
+      viewModel.adminCheckFixtureUrlURL,
+      'https://check-fixture-url.example.com',
+    );
 
     viewModel.dispose();
   });
@@ -141,6 +147,28 @@ void main() {
 
     expect(value, 'https://admin-scoring-rescore.example.com');
     expect(viewModel.adminScoringRescoreURL, value);
+    verify(() => childReference.get()).called(1);
+
+    viewModel.dispose();
+  });
+
+  test('loads the check-fixture-url URL directly when the cached snapshot lacks it', () async {
+    final childReference = MockDatabaseReference();
+    final snapshot = MockDataSnapshot();
+    when(() => mockDb.child(p.adminCheckFixtureUrlURLKey))
+        .thenReturn(childReference);
+    when(() => childReference.get()).thenAnswer((_) async => snapshot);
+    when(() => snapshot.value)
+        .thenReturn('https://admin-check-fixture-url.example.com');
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+    );
+
+    final value = await viewModel.loadAdminCheckFixtureUrlURL();
+
+    expect(value, 'https://admin-check-fixture-url.example.com');
+    expect(viewModel.adminCheckFixtureUrlURL, value);
     verify(() => childReference.get()).called(1);
 
     viewModel.dispose();

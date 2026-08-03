@@ -15,6 +15,13 @@ trigger region and avoid cross-region wrapper-to-worker calls.
 Check. Smoke test it from a valid app client or a debug-token-enabled simulator,
 not with raw `curl`.
 
+`admin-check-fixture-url` is the same kind of client/admin-app callable. It lets
+the admin app validate a fixture JSON URL server-side (avoiding browser CORS
+restrictions on the web build) before saving a DAUComp. Deploy it alongside
+`admin-fixture-download` and `admin-scoring-rescore`, then set its deployed URL
+in RTDB at `/AppConfig/adminCheckFixtureUrlURL` (see `ConfigViewModel.
+adminCheckFixtureUrlURL`), mirroring how `adminScoringRescoreURL` is configured.
+
 `backend-scoring-command` is an internal TypeScript-wrapper-to-Dart-worker HTTP
 endpoint. It intentionally uses the shared `x-backend-scoring-secret` header
 instead of App Check because callers are backend functions, not app clients.

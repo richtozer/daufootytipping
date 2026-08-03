@@ -50,6 +50,24 @@ class ConfigViewModel extends ChangeNotifier {
     return loadedValue;
   }
 
+  String? _adminCheckFixtureUrlURL;
+  String? get adminCheckFixtureUrlURL => _adminCheckFixtureUrlURL;
+
+  Future<String?> loadAdminCheckFixtureUrlURL() async {
+    final cachedValue = _adminCheckFixtureUrlURL;
+    if (cachedValue != null) {
+      return cachedValue;
+    }
+
+    final snapshot = await _db.child(p.adminCheckFixtureUrlURLKey).get();
+    final loadedValue = _parseOptionalString(snapshot.value);
+    if (loadedValue != null && loadedValue != _adminCheckFixtureUrlURL) {
+      _adminCheckFixtureUrlURL = loadedValue;
+      notifyListeners();
+    }
+    return loadedValue;
+  }
+
   Completer<void> _initialLoadCompleter = Completer<void>();
 
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -81,6 +99,7 @@ class ConfigViewModel extends ChangeNotifier {
       _googleClientId = null;
       _cloudFunctionsBaseURL = null;
       _adminScoringRescoreURL = null;
+      _adminCheckFixtureUrlURL = null;
     }
 
     _initialLoadCompleter = Completer<void>();
@@ -244,6 +263,9 @@ class ConfigViewModel extends ChangeNotifier {
     );
     _adminScoringRescoreURL = _parseOptionalString(
       _snapshotValue(snapshot, p.adminScoringRescoreURLKey),
+    );
+    _adminCheckFixtureUrlURL = _parseOptionalString(
+      _snapshotValue(snapshot, p.adminCheckFixtureUrlURLKey),
     );
   }
 

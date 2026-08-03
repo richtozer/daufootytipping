@@ -30,6 +30,10 @@ DAUCompsViewModel createAdminDauCompsViewModel({
         () => configViewModel.adminScoringRescoreURL,
     adminScoringRescoreURLLoader:
         configViewModel.loadAdminScoringRescoreURL,
+    adminCheckFixtureUrlURLProvider:
+        () => configViewModel.adminCheckFixtureUrlURL,
+    adminCheckFixtureUrlURLLoader:
+        configViewModel.loadAdminCheckFixtureUrlURL,
   );
 }
 

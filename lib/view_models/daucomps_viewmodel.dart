@@ -96,7 +96,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
   final DauCompsSnapshotApplier _snapshotApplier = const DauCompsSnapshotApplier();
   final LockManager _lockManager = const LockManager();
-  final UrlHealthChecker _urlHealthChecker = UrlHealthChecker();
+  late final UrlHealthChecker _urlHealthChecker;
   final AnalyticsService _analytics;
   final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
@@ -106,6 +106,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   final String? Function()? _cloudFunctionsBaseURLProvider;
   final String? Function()? _adminScoringRescoreURLProvider;
   final Future<String?> Function()? _adminScoringRescoreURLLoader;
+  final String? Function()? _adminCheckFixtureUrlURLProvider;
+  final Future<String?> Function()? _adminCheckFixtureUrlURLLoader;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -121,10 +123,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     AnalyticsService? analytics,
     TippersViewModel Function()? tippers,
     SelectionInitCoordinator? selectionInit,
+    UrlHealthChecker? urlHealthChecker,
     String? cloudFunctionsBaseURLOverride,
     String? Function()? cloudFunctionsBaseURLProvider,
     String? Function()? adminScoringRescoreURLProvider,
     Future<String?> Function()? adminScoringRescoreURLLoader,
+    String? Function()? adminCheckFixtureUrlURLProvider,
+    Future<String?> Function()? adminCheckFixtureUrlURLLoader,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
@@ -133,9 +138,21 @@ class DAUCompsViewModel extends ChangeNotifier {
         _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
         _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
         _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
+        _adminCheckFixtureUrlURLProvider = adminCheckFixtureUrlURLProvider,
+        _adminCheckFixtureUrlURLLoader = adminCheckFixtureUrlURLLoader,
         _cloudFunctionsBaseURLOverride =
             cloudFunctionsBaseURLOverride ??
             resolveDefaultCloudFunctionsBaseURLOverride() {
+    _urlHealthChecker =
+        urlHealthChecker ??
+        UrlHealthChecker(
+          remoteChecker: _checkFixtureUrlActiveViaCloudFunction,
+          // On web, a direct fallback would just recreate the browser CORS
+          // failure this backend proxy exists to avoid, and misreport a
+          // proxy/config outage as "URL not active". Non-web platforms can
+          // still fall back to a direct request.
+          allowDirectFallback: !kIsWeb,
+        );
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
@@ -156,6 +173,13 @@ class DAUCompsViewModel extends ChangeNotifier {
   void completeOtherViewModelsForTest() {
     if (!_otherViewModels.isCompleted) {
       _otherViewModels.complete();
+    }
+  }
+
+  @visibleForTesting
+  void completeInitialDAUCompLoadForTest() {
+    if (!_initialDAUCompLoadCompleter.isCompleted) {
+      _initialDAUCompLoadCompleter.complete();
     }
   }
   // --- End Testability additions ---
@@ -624,6 +648,52 @@ class DAUCompsViewModel extends ChangeNotifier {
     return resolveCloudFunctionsBaseURLValue(
       configValue: _adminScoringRescoreURLProvider?.call(),
       overrideValue: _cloudFunctionsBaseURLOverride,
+    );
+  }
+
+  @visibleForTesting
+  String? resolveConfiguredAdminCheckFixtureUrlURL() {
+    return resolveCloudFunctionsBaseURLValue(
+      configValue: _adminCheckFixtureUrlURLProvider?.call(),
+      overrideValue: _cloudFunctionsBaseURLOverride,
+    );
+  }
+
+  Future<bool> _checkFixtureUrlActiveViaCloudFunction(Uri uri) async {
+    var adminCheckFixtureUrlURL = resolveConfiguredAdminCheckFixtureUrlURL();
+    adminCheckFixtureUrlURL ??= parseCloudFunctionsBaseURLValue(
+      await _adminCheckFixtureUrlURLLoader?.call(),
+    );
+    if (adminCheckFixtureUrlURL == null || adminCheckFixtureUrlURL.isEmpty) {
+      throw StateError(
+        'Fixture URL health check backend is not configured. Set /AppConfig/adminCheckFixtureUrlURL.',
+      );
+    }
+
+    // Must match the deployed entrypoint id exactly (functions_dart/functions.yaml:
+    // admin-check-fixture-url — the Dart build tooling kebab-cases the
+    // in-source `name: 'adminCheckFixtureUrl'` when generating the Cloud
+    // Functions/Cloud Run deployment manifest, since Cloud Run service names
+    // must be lowercase-hyphenated). Production uses the full configured URL
+    // and ignores this, but the local Functions emulator branch of
+    // _adminCallable resolves callables by this literal, deployed name.
+    const functionName = 'admin-check-fixture-url';
+    final callable = _adminCallable(
+      functionName,
+      adminCheckFixtureUrlURL,
+      timeout: const Duration(seconds: 20),
+    );
+
+    log(
+      'DAUCompsViewModel_checkFixtureUrlActiveViaCloudFunction: checking $uri via $functionName.',
+    );
+    final result = await callable.call(<String, dynamic>{'url': uri.toString()});
+    final data = result.data;
+    if (data is Map && data['active'] is bool) {
+      return data['active'] as bool;
+    }
+    throw StateError(
+      'Unexpected $functionName response for $uri: $data',
     );
   }
 
@@ -1152,7 +1222,11 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   // URL health check via service
-  Future<bool> _isUriActive(String uri) async => _urlHealthChecker.isActive(Uri.parse(uri));
+  Future<bool> _isUriActiveIfChanged(String uri, {Uri? previousUri}) async =>
+      _urlHealthChecker.isActiveIfChanged(
+        Uri.parse(uri),
+        previousUri: previousUri,
+      );
 
   Future<Map<String, dynamic>> processAndSaveDauComp({
     required String name,
@@ -1164,8 +1238,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     required List<DAURound> currentRounds, // New parameter
   }) async {
     try {
-      bool aflURLActive = await _isUriActive(aflFixtureJsonURL);
-      bool nrlURLActive = await _isUriActive(nrlFixtureJsonURL);
+      bool aflURLActive = await _isUriActiveIfChanged(
+        aflFixtureJsonURL,
+        previousUri: existingComp?.aflFixtureJsonURL,
+      );
+      bool nrlURLActive = await _isUriActiveIfChanged(
+        nrlFixtureJsonURL,
+        previousUri: existingComp?.nrlFixtureJsonURL,
+      );
       log('aflURLActive = $aflURLActive');
       log('nrlURLActive = $nrlURLActive');
 

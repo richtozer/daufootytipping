@@ -127,6 +127,47 @@ void main(List<String> args) async {
       },
     );
 
+    firebase.https.onCall(
+      name: 'adminCheckFixtureUrl',
+      options: _adminCallableOptions,
+      (request, response) async {
+        logFunction('adminCheckFixtureUrl: callable invoked');
+        final auth = request.auth;
+        if (auth == null) {
+          logFunction('adminCheckFixtureUrl: missing callable auth');
+          throw UnauthenticatedError('User must be authenticated');
+        }
+
+        final dbHandle = await _openBackendScoringDatabase(
+          runtimeAdminApp: runtimeAdminApp,
+        );
+        try {
+          final url = extractAdminCheckFixtureUrlUrl(request.data);
+          if (url == null || url.isEmpty) {
+            throw InvalidArgumentError('Missing required parameter: url');
+          }
+
+          final active = await checkFixtureUrlActive(
+            authUid: auth.uid,
+            url: url,
+            db: dbHandle.database,
+          );
+
+          return CallableResult({'active': active});
+        } on HttpsError catch (e) {
+          logFunction('adminCheckFixtureUrl: callable error: $e');
+          rethrow;
+        } catch (e, stackTrace) {
+          logFunction(
+            'adminCheckFixtureUrl: unexpected failure: $e\n$stackTrace',
+          );
+          rethrow;
+        } finally {
+          await dbHandle.close();
+        }
+      },
+    );
+
     firebase.https.onRequest(
       name: 'backendScoringCommand',
       options: _backendScoringCommandOptions,
@@ -153,6 +194,14 @@ String? extractAdminFixtureDownloadCompKey(Object? data) {
   }
   final compKey = data['compKey'];
   return compKey is String ? compKey : null;
+}
+
+String? extractAdminCheckFixtureUrlUrl(Object? data) {
+  if (data is! Map) {
+    return null;
+  }
+  final url = data['url'];
+  return url is String ? url : null;
 }
 
 String resolveProjectId({Map<String, String>? environment}) {
@@ -1339,6 +1388,162 @@ Future<BackendScoringCommandResult> executeAdminScoringRescore({
     ),
     now: now,
   );
+}
+
+typedef FixtureUrlChecker = Future<bool> Function(Uri url);
+typedef FixtureUrlHostResolver =
+    Future<List<InternetAddress>> Function(String host);
+
+const Set<String> _blockedFixtureUrlHostnames = {
+  'localhost',
+  'metadata',
+  'metadata.google.internal',
+};
+
+Future<bool> checkFixtureUrlActive({
+  required String authUid,
+  required String url,
+  required dynamic db,
+  FixtureUrlChecker? checkUrl,
+  FixtureUrlHostResolver resolveHost = InternetAddress.lookup,
+}) async {
+  final roleSnapshot = await db.ref(paths.tippersPath).once();
+  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
+  if (role != 'admin') {
+    throw PermissionDeniedError('User is not authorized as admin');
+  }
+
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    throw InvalidArgumentError('url must be a valid absolute URL');
+  }
+  if (uri.scheme != 'http' && uri.scheme != 'https') {
+    throw InvalidArgumentError('url must use http or https');
+  }
+
+  if (!await isAllowedFixtureUrlHost(uri, resolveHost: resolveHost)) {
+    throw InvalidArgumentError('url host is not allowed');
+  }
+
+  final checker =
+      checkUrl ??
+      (target) => fetchFixtureUrlActive(target, resolveHost: resolveHost);
+  return checker(uri);
+}
+
+/// Rejects hosts that would let an authenticated admin use this
+/// server-side fetch as an SSRF probe of internal infrastructure (the cloud
+/// metadata service, loopback, or other private-network addresses).
+Future<bool> isAllowedFixtureUrlHost(
+  Uri uri, {
+  FixtureUrlHostResolver resolveHost = InternetAddress.lookup,
+}) async {
+  final host = uri.host.toLowerCase();
+  if (host.isEmpty || _blockedFixtureUrlHostnames.contains(host)) {
+    return false;
+  }
+
+  final literal = InternetAddress.tryParse(host);
+  if (literal != null) {
+    return !isDisallowedFixtureUrlAddress(literal);
+  }
+
+  try {
+    final addresses = await resolveHost(host);
+    if (addresses.isEmpty) {
+      return false;
+    }
+    return addresses.every(
+      (address) => !isDisallowedFixtureUrlAddress(address),
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+bool isDisallowedFixtureUrlAddress(InternetAddress address) {
+  if (address.isLoopback || address.isLinkLocal || address.isMulticast) {
+    return true;
+  }
+
+  final bytes = address.rawAddress;
+  if (address.type == InternetAddressType.IPv4 && bytes.length == 4) {
+    if (bytes[0] == 0) return true; // 0.0.0.0/8
+    if (bytes[0] == 10) return true; // 10.0.0.0/8
+    if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) {
+      return true; // 172.16.0.0/12
+    }
+    if (bytes[0] == 192 && bytes[1] == 168) return true; // 192.168.0.0/16
+  }
+  if (address.type == InternetAddressType.IPv6 && bytes.length == 16) {
+    if ((bytes[0] & 0xfe) == 0xfc) return true; // fc00::/7 unique local
+  }
+
+  return false;
+}
+
+/// Maximum number of redirect hops to follow — matches dart:io's own
+/// default [HttpClientRequest.maxRedirects].
+const int maxFixtureUrlRedirectHops = 5;
+
+class FixtureUrlHopResult {
+  final int statusCode;
+  final String? redirectLocation;
+  const FixtureUrlHopResult({required this.statusCode, this.redirectLocation});
+}
+
+typedef FixtureUrlHopFetcher = Future<FixtureUrlHopResult> Function(Uri uri);
+
+/// Fetches [url], following redirects manually so that every hop — not
+/// just the initially submitted URL — is checked against
+/// [isAllowedFixtureUrlHost]. A plain `http.get` follows redirects
+/// transparently, which would let a public URL redirect to a private or
+/// cloud-metadata address and bypass the SSRF guard in [checkFixtureUrlActive].
+Future<bool> fetchFixtureUrlActive(
+  Uri url, {
+  FixtureUrlHostResolver resolveHost = InternetAddress.lookup,
+  FixtureUrlHopFetcher fetchHop = _requestFixtureUrlHop,
+}) async {
+  var currentUri = url;
+  for (var hop = 0; hop <= maxFixtureUrlRedirectHops; hop++) {
+    if (!await isAllowedFixtureUrlHost(currentUri, resolveHost: resolveHost)) {
+      return false;
+    }
+
+    try {
+      final result = await fetchHop(currentUri);
+      if (result.statusCode >= 300 && result.statusCode < 400) {
+        final location = result.redirectLocation;
+        if (location == null) {
+          return false;
+        }
+        currentUri = currentUri.resolve(location);
+        continue;
+      }
+      return result.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  return false; // Exceeded maxFixtureUrlRedirectHops.
+}
+
+Future<FixtureUrlHopResult> _requestFixtureUrlHop(Uri uri) async {
+  final client = HttpClient();
+  try {
+    final request = await client.getUrl(uri).timeout(const Duration(seconds: 10));
+    request.followRedirects = false;
+    final response = await request.close().timeout(const Duration(seconds: 10));
+    final location = response.headers.value(HttpHeaders.locationHeader);
+    await response.drain<void>();
+    return FixtureUrlHopResult(
+      statusCode: response.statusCode,
+      redirectLocation: location,
+    );
+  } finally {
+    client.close(force: true);
+  }
 }
 
 String? resolveTipperRoleForAuthUid(Object? rawTippers, String authUid) {
