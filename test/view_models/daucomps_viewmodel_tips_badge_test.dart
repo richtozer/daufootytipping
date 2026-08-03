@@ -4,16 +4,20 @@ import 'package:test/test.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
+class MockKickoffRefreshScheduler extends Mock
+    implements KickoffRefreshScheduler {}
 class FakeDAURound extends Fake implements DAURound {}
 
 void main() {
   group('DAUCompsViewModel currentRoundOutstandingTipsCount', () {
     late DAUCompsViewModel vm;
     late MockTipsViewModel mockTipsViewModel;
+    late MockKickoffRefreshScheduler kickoffRefreshScheduler;
 
     DAURound round(int number, RoundState state) {
       final r = DAURound(
@@ -30,8 +34,47 @@ void main() {
     });
 
     setUp(() {
-      vm = DAUCompsViewModel(null, false, skipInit: true);
+      kickoffRefreshScheduler = MockKickoffRefreshScheduler();
+      when(
+        () => kickoffRefreshScheduler.schedule(
+          kickoffTimes: any(named: 'kickoffTimes'),
+          onRefresh: any(named: 'onRefresh'),
+        ),
+      ).thenReturn(null);
+      vm = DAUCompsViewModel(
+        null,
+        false,
+        skipInit: true,
+        kickoffRefreshScheduler: kickoffRefreshScheduler,
+      );
       mockTipsViewModel = MockTipsViewModel();
+    });
+
+    test('notifies listeners when the scheduled kickoff callback fires', () {
+      final comp = DAUComp(
+        dbkey: 'comp',
+        name: 'Comp',
+        aflFixtureJsonURL: Uri.parse('https://afl'),
+        nrlFixtureJsonURL: Uri.parse('https://nrl'),
+        daurounds: [round(1, RoundState.started)],
+      );
+      vm.setSelectedCompForTest(comp);
+      var notificationCount = 0;
+      vm.addListener(() => notificationCount++);
+
+      vm.gamesViewModelUpdatedForTest();
+      expect(notificationCount, 1);
+
+      final captured = verify(
+        () => kickoffRefreshScheduler.schedule(
+          kickoffTimes: any(named: 'kickoffTimes'),
+          onRefresh: captureAny(named: 'onRefresh'),
+        ),
+      ).captured;
+      final onRefresh = captured.single as void Function();
+      onRefresh();
+
+      expect(notificationCount, 2);
     });
 
     test('returns 0 when selected comp is null', () {

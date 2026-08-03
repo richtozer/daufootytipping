@@ -474,25 +474,9 @@ class TipsViewModel extends ChangeNotifier {
     return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
   }
 
-  int _numberOfTipsSubmittedForRoundAndLeague(DAURound round, League league) {
-    return _listOfTips.where((tip) {
-      // Attempt to get the round for the game, if it fails, return false
-      return tip!.game.getDAURound(selectedDAUComp) == round &&
-          tip.game.league == league;
-    }).length;
-  }
-
   int _numberOfTipsSubmittedForGames(Iterable<Game> games) {
     final gameDbKeys = games.map((game) => game.dbkey).toSet();
     return _listOfTips.where((tip) => tip != null && gameDbKeys.contains(tip.game.dbkey)).length;
-  }
-
-  // method to return count of outstanding tips for the supplied round and league
-  int numberOfOutstandingTipsForRoundAndLeague(DAURound round, League league) {
-    // Calculate the number of tips outstanding for this league round
-    int totalGames = round.getGamesForLeague(league).length;
-    int tipsSubmitted = _numberOfTipsSubmittedForRoundAndLeague(round, league);
-    return totalGames - tipsSubmitted;
   }
 
   // Outstanding tips for games that have not started yet (includes startingSoon).

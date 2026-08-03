@@ -24,6 +24,7 @@ import 'package:daufootytipping/services/fixture_download_service.dart';
 import 'package:daufootytipping/services/fixture_update_service.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/fixture_import_applier.dart';
+import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -101,6 +102,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
   final FixtureImportApplier _importApplier = const FixtureImportApplier();
+  final KickoffRefreshScheduler _kickoffRefreshScheduler;
   final SelectionInitCoordinator _selectionInit;
   final String? _cloudFunctionsBaseURLOverride;
   final String? Function()? _cloudFunctionsBaseURLProvider;
@@ -130,11 +132,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     Future<String?> Function()? adminScoringRescoreURLLoader,
     String? Function()? adminCheckFixtureUrlURLProvider,
     Future<String?> Function()? adminCheckFixtureUrlURLLoader,
+    KickoffRefreshScheduler? kickoffRefreshScheduler,
   })  : _repo = repo ?? FirebaseDauCompsRepository(),
         _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
         _analytics = analytics ?? FirebaseAnalyticsService(),
         _tippers = tippers ?? (() => di<TippersViewModel>()),
         _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
+        _kickoffRefreshScheduler =
+            kickoffRefreshScheduler ?? KickoffRefreshScheduler(),
         _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
         _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
         _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
@@ -225,11 +230,13 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     await _initializeAndResetViewModels(_adminMode);
+    _scheduleNextKickoffRefresh();
     notifyListeners();
   }
 
   Future<void> selectedTipperChanged() async {
     await _initializeAndResetViewModels(false);
+    _scheduleNextKickoffRefresh();
     notifyListeners();
   }
 
@@ -873,6 +880,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('Error in linkGamesWithRounds(): $e');
     } finally {
       _isLinkingGames = false;
+      _scheduleNextKickoffRefresh();
       notifyListeners();
     }
   }
@@ -1031,7 +1039,22 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   void _otherViewModelUpdated() {
     _clearGroupedGamesCache();
+    _scheduleNextKickoffRefresh();
     notifyListeners();
+  }
+
+  void _scheduleNextKickoffRefresh() {
+    _kickoffRefreshScheduler.schedule(
+      kickoffTimes: () =>
+          _selectedDAUComp?.daurounds.expand(
+            (round) => round.games.map((game) => game.startTimeUTC),
+          ) ??
+          const <DateTime>[],
+      onRefresh: () {
+        _clearGroupedGamesCache();
+        notifyListeners();
+      },
+    );
   }
 
   void _gamesViewModelUpdated() {
@@ -1063,6 +1086,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _daucompsStream.cancel();
+    _kickoffRefreshScheduler.dispose();
     _disposeChildViewModels();
     super.dispose();
   }

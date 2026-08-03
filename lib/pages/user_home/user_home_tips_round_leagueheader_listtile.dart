@@ -52,7 +52,10 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
     }
 
     final int tipsOutstanding = dauCompsViewModel.selectedTipperTipsViewModel!
-        .numberOfOutstandingTipsForRoundAndLeague(dauRound, league);
+        .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          dauRound,
+          league,
+        );
     final int? currentRoundNumber = dauCompsViewModel.selectedDAUComp
         ?.firstNotEndedRoundNumber();
     final bool showOutstandingBadge =
