@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -20,6 +21,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with RestorationMixin {
   final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
   final TippersViewModel _tippersViewModel = di<TippersViewModel>();
+  final OutstandingTipsAppBadgeController _appBadgeController =
+      OutstandingTipsAppBadgeController(AppBadgeService());
   late final RestorableInt _currentIndex = RestorableInt(0);
   bool _homeModelsReadyLogged = false;
   bool _tipsContentReadyTrackingStarted = false;
@@ -31,6 +34,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     _dauCompsViewModel.addListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.addListener(_handleHomeViewModelsUpdated);
     _outstandingTipsCount = _calculateOutstandingTipsCount();
+    unawaited(_syncAppBadge());
     _trackStartupMilestones();
     // Do NOT access _currentIndex.value here — the RestorableInt's
     // internal value is only initialised after registerForRestoration()
@@ -75,6 +79,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         _tippersViewModel.selectedTipper.isAnonymous &&
         _currentIndex.value == 0;
 
+    unawaited(_syncAppBadge(count: nextOutstandingTipsCount));
     _trackStartupMilestones();
 
     if (nextOutstandingTipsCount == _outstandingTipsCount &&
@@ -88,6 +93,14 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         _currentIndex.value = 1; // Anonymous users see Stats tab
       }
     });
+  }
+
+  Future<void> _syncAppBadge({int? count}) async {
+    await _appBadgeController.sync(
+      tipper: _tippersViewModel.selectedTipper,
+      comp: _dauCompsViewModel.selectedDAUComp,
+      outstandingCount: count ?? _outstandingTipsCount,
+    );
   }
 
   void _trackStartupMilestones() {

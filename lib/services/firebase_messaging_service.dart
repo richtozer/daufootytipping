@@ -32,8 +32,8 @@ class FirebaseMessagingService {
 
   Future<void> _initializeFirebaseMessagingInternal() async {
     try {
-      if (Platform.isIOS) {
-        await _requestIOSNotificationPermission();
+      if (Platform.isIOS || Platform.isAndroid) {
+        await _requestNotificationPermission();
       }
 
       await _retrieveToken();
@@ -151,7 +151,7 @@ class FirebaseMessagingService {
     }
   }
 
-  Future<void> _requestIOSNotificationPermission() async {
+  Future<void> _requestNotificationPermission() async {
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
       alert: true,
       badge: true,
@@ -159,7 +159,7 @@ class FirebaseMessagingService {
     );
 
     log(
-      'APNS user granted notification permission: ${settings.authorizationStatus}',
+      'User notification permission status: ${settings.authorizationStatus}',
     );
   }
 }
