@@ -115,6 +115,31 @@ void main() {
           reason: 'Round-trip conversion should preserve time within 1 second',
         );
       });
+
+      test('accepts the existing timestamp-string schema', () {
+        final parsed = FirebaseMessagingService.parseTokenUpdatedAt(
+          '2026-08-04T12:00:00Z',
+        );
+
+        expect(parsed, DateTime.utc(2026, 8, 4, 12));
+      });
+
+      test('tolerates a future object schema without aborting cleanup', () {
+        final parsed = FirebaseMessagingService.parseTokenUpdatedAt({
+          'updatedAt': '2026-08-04T12:00:00Z',
+          'platform': 'android',
+        });
+
+        expect(parsed, DateTime.utc(2026, 8, 4, 12));
+      });
+
+      test('returns null for malformed token metadata', () {
+        expect(FirebaseMessagingService.parseTokenUpdatedAt(42), isNull);
+        expect(
+          FirebaseMessagingService.parseTokenUpdatedAt('not-a-date'),
+          isNull,
+        );
+      });
     });
 
     group('Service structure validation', () {
@@ -133,6 +158,45 @@ void main() {
         expect(tokensPath, isA<String>());
         expect(tokensPath, isNotEmpty);
         expect(tokensPath.startsWith('/'), isTrue);
+      });
+    });
+
+    group('Outstanding tips badge messages', () {
+      test('parses a valid absolute count', () {
+        expect(
+          FirebaseMessagingService.outstandingTipsBadgeCount({
+            'type': FirebaseMessagingService.outstandingTipsBadgeMessageType,
+            'count': '4',
+          }),
+          4,
+        );
+      });
+
+      test('accepts zero so a background notification can be cancelled', () {
+        expect(
+          FirebaseMessagingService.outstandingTipsBadgeCount({
+            'type': FirebaseMessagingService.outstandingTipsBadgeMessageType,
+            'count': '0',
+          }),
+          0,
+        );
+      });
+
+      test('ignores unrelated and malformed messages', () {
+        expect(
+          FirebaseMessagingService.outstandingTipsBadgeCount({
+            'type': 'deadline_reminder',
+            'count': '4',
+          }),
+          isNull,
+        );
+        expect(
+          FirebaseMessagingService.outstandingTipsBadgeCount({
+            'type': FirebaseMessagingService.outstandingTipsBadgeMessageType,
+            'count': '-1',
+          }),
+          isNull,
+        );
       });
     });
 

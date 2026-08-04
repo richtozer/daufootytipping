@@ -32,6 +32,10 @@ const _scheduledFixtureDownloadOptions = HttpsOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
   timeoutSeconds: TimeoutSeconds(300),
 );
+const _appBadgeCountOptions = HttpsOptions(
+  region: Region(SupportedRegion.asiaSoutheast1),
+  timeoutSeconds: TimeoutSeconds(120),
+);
 const int _idempotencyPruneLimit = 500;
 const Duration _fixtureDownloadLockTtl = Duration(minutes: 10);
 
@@ -185,6 +189,15 @@ void main(List<String> args) async {
         runtimeAdminApp: runtimeAdminApp,
       ),
     );
+
+    firebase.https.onRequest(
+      name: 'appBadgeCount',
+      options: _appBadgeCountOptions,
+      (request) => _handleAppBadgeCountRequestWithRuntimeApp(
+        request,
+        runtimeAdminApp: runtimeAdminApp,
+      ),
+    );
   });
 }
 
@@ -240,6 +253,7 @@ String resolveDatabaseUrl({Map<String, String>? environment}) {
 }
 
 const String _backendScoringCommandSecretHeader = 'x-backend-scoring-secret';
+const String _appBadgeCommandSecretHeader = 'x-app-badge-secret';
 const List<String> _backendScoringCommandSecretEnvKeys = [
   'BACKEND_SCORING_COMMAND_SECRET',
   'DART_BACKEND_SCORING_COMMAND_SECRET',
@@ -248,6 +262,10 @@ const List<String> _backendScoringCommandSecretEnvKeys = [
 const List<String> _backendScoringCommandUrlEnvKeys = [
   'BACKEND_SCORING_COMMAND_URL',
   'DART_BACKEND_SCORING_COMMAND_URL',
+];
+const List<String> _appBadgeCommandSecretEnvKeys = [
+  'APP_BADGE_COMMAND_SECRET',
+  'DART_APP_BADGE_COMMAND_SECRET',
 ];
 const String _defaultProjectId = 'dau-footy-tipping-f8a42';
 const String _defaultFunctionRegion = 'asia-southeast1';
@@ -266,6 +284,20 @@ List<String> resolveBackendScoringCommandSecrets({
   final env = environment ?? Platform.environment;
   final secrets = <String>[];
   for (final key in _backendScoringCommandSecretEnvKeys) {
+    final value = env[key];
+    if (value != null && value.isNotEmpty && !secrets.contains(value)) {
+      secrets.add(value);
+    }
+  }
+  return secrets;
+}
+
+List<String> resolveAppBadgeCommandSecrets({
+  Map<String, String>? environment,
+}) {
+  final env = environment ?? Platform.environment;
+  final secrets = <String>[];
+  for (final key in _appBadgeCommandSecretEnvKeys) {
     final value = env[key];
     if (value != null && value.isNotEmpty && !secrets.contains(value)) {
       secrets.add(value);
@@ -374,6 +406,22 @@ bool isBackendScoringCommandAuthorized(
   var authorized = false;
   for (final secret in secrets) {
     authorized = _constantTimeStringEquals(providedSecret, secret) || authorized;
+  }
+  return authorized;
+}
+
+bool isAppBadgeCommandAuthorized(
+  Map<String, String> headers, {
+  required Iterable<String> expectedSecrets,
+}) {
+  final suppliedSecret = _headerValueCaseInsensitive(
+    headers,
+    _appBadgeCommandSecretHeader,
+  );
+  var authorized = false;
+  for (final secret in expectedSecrets) {
+    authorized =
+        _constantTimeStringEquals(suppliedSecret, secret) || authorized;
   }
   return authorized;
 }
@@ -534,6 +582,203 @@ Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
       'An unexpected error occurred.',
     );
   }
+}
+
+Future<Response> _handleAppBadgeCountRequestWithRuntimeApp(
+  dynamic request, {
+  required dynamic runtimeAdminApp,
+}) async {
+  try {
+    if (request.method.toUpperCase() != 'POST') {
+      return _backendScoringErrorResponse(
+        405,
+        'METHOD_NOT_ALLOWED',
+        'Method not allowed',
+      );
+    }
+
+    final commandSecrets = resolveAppBadgeCommandSecrets();
+    if (commandSecrets.isEmpty) {
+      return _backendScoringErrorResponse(
+        400,
+        'FAILED_PRECONDITION',
+        'App badge command secret is not configured',
+      );
+    }
+
+    final headers = normalizeHttpHeaders(request.headers);
+    if (!isAppBadgeCommandAuthorized(
+      headers,
+      expectedSecrets: commandSecrets,
+    )) {
+      throw PermissionDeniedError('Unauthorized app badge count request');
+    }
+
+    final bodyString = await request.readAsString();
+    if (bodyString.isEmpty) {
+      throw InvalidArgumentError('Request body is required');
+    }
+    final decoded = json.decode(bodyString);
+    if (decoded is! Map) {
+      throw InvalidArgumentError('Request body must be a JSON object');
+    }
+    final payload = Map<String, dynamic>.from(decoded);
+    final compKey = payload['compKey'];
+    if (compKey is! String || compKey.trim().isEmpty) {
+      throw InvalidArgumentError('compKey is required');
+    }
+    final requestedTipperIds = _parseRequestedAppBadgeTipperIds(
+      payload['tipperIds'],
+    );
+
+    final dbHandle = await _openBackendScoringDatabase(
+      runtimeAdminApp: runtimeAdminApp,
+    );
+    try {
+      final comp = await _loadBackendScoringComp(dbHandle.database, compKey);
+      final results = calculateOutstandingTipCounts(
+        comp: comp,
+        games: await _loadBackendScoringGames(
+          db: dbHandle.database,
+          comp: comp,
+        ),
+        allTippers: await _loadBackendScoringTippers(dbHandle.database),
+        tipsByTipperRaw: await _loadBackendScoringTipsByTipperRaw(
+          db: dbHandle.database,
+          compKey: compKey,
+        ),
+        now: DateTime.now().toUtc(),
+        requestedTipperIds: requestedTipperIds,
+      );
+      return Response.ok(
+        jsonEncode(<String, dynamic>{
+          'compKey': compKey,
+          'calculatedAt': DateTime.now().toUtc().toIso8601String(),
+          'counts': results,
+        }),
+        headers: _jsonHeaders,
+      );
+    } finally {
+      await dbHandle.close();
+    }
+  } on FormatException catch (error) {
+    return _backendScoringErrorResponse(
+      400,
+      'INVALID_ARGUMENT',
+      error.toString(),
+    );
+  } on InvalidArgumentError catch (error) {
+    return _backendScoringErrorResponse(
+      400,
+      'INVALID_ARGUMENT',
+      error.toString(),
+    );
+  } on PermissionDeniedError catch (error) {
+    return _backendScoringErrorResponse(
+      403,
+      'PERMISSION_DENIED',
+      error.toString(),
+    );
+  } on NotFoundError catch (error) {
+    return _backendScoringErrorResponse(
+      404,
+      'NOT_FOUND',
+      error.toString(),
+    );
+  } catch (error, stackTrace) {
+    developer.log(
+      'appBadgeCount: unhandled error',
+      name: 'appBadgeCount',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return _backendScoringErrorResponse(
+      500,
+      'INTERNAL',
+      'An unexpected error occurred.',
+    );
+  }
+}
+
+Set<String>? _parseRequestedAppBadgeTipperIds(Object? rawTipperIds) {
+  if (rawTipperIds == null) {
+    return null;
+  }
+  if (rawTipperIds is! List) {
+    throw InvalidArgumentError('tipperIds must be an array');
+  }
+  final result = <String>{};
+  for (final rawTipperId in rawTipperIds) {
+    if (rawTipperId is! String || rawTipperId.trim().isEmpty) {
+      throw InvalidArgumentError('tipperIds must contain non-empty strings');
+    }
+    result.add(rawTipperId);
+  }
+  return result;
+}
+
+Map<String, int> calculateOutstandingTipCounts({
+  required DAUComp comp,
+  required List<Game> games,
+  required List<Tipper> allTippers,
+  required Map<String, dynamic> tipsByTipperRaw,
+  required DateTime now,
+  Set<String>? requestedTipperIds,
+}) {
+  for (final round in comp.daurounds) {
+    round.games = games
+        .where(
+          (game) =>
+              game.isGameInRound(round) &&
+              !_isBackendScoringGameOutsideRegularComp(comp, game),
+        )
+        .toList();
+  }
+  const RoundsLinkingService().finalizeRoundsAndComputeUnassigned(
+    rounds: comp.daurounds,
+    allGames: games,
+    nrlCutoff: comp.nrlRegularCompEndDateUTC,
+    aflCutoff: comp.aflRegularCompEndDateUTC,
+    now: now,
+  );
+
+  final badgeRound = OutstandingTipsCalculator.appBadgeRoundForTime(
+    rounds: comp.daurounds,
+    now: now,
+  );
+
+  final tippersById = <String, Tipper>{
+    for (final tipper in allTippers)
+      if (tipper.dbkey != null) tipper.dbkey!: tipper,
+  };
+  final result = <String, int>{};
+  final targetTipperIds = requestedTipperIds ?? tippersById.keys.toSet();
+  for (final tipperId in targetTipperIds) {
+    final tipper = tippersById[tipperId];
+    final eligible = tipper != null &&
+        !tipper.isAnonymous &&
+        tipper.paidForComp(comp);
+    if (!eligible) {
+      if (requestedTipperIds != null) {
+        result[tipperId] = 0;
+      }
+      continue;
+    }
+
+    final submittedGameKeys = <String>{};
+    final rawTips = tipsByTipperRaw[tipperId];
+    if (rawTips is Map) {
+      submittedGameKeys.addAll(rawTips.keys.map((key) => key.toString()));
+    }
+    result[tipperId] = badgeRound == null
+        ? 0
+        : OutstandingTipsCalculator.countUpcomingUntippedGames(
+            games: badgeRound.games,
+            submittedGameKeys: submittedGameKeys,
+            now: now,
+          );
+  }
+  return result;
 }
 
 Future<Response> _handleScheduledFixtureDownloadRequestWithRuntimeApp(

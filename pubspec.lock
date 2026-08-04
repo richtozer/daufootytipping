@@ -241,6 +241,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.2"
+  dau_app_badge:
+    dependency: "direct main"
+    description:
+      path: "packages/dau_app_badge"
+      relative: true
+    source: path
+    version: "1.0.0"
   dau_shared:
     dependency: "direct main"
     description:

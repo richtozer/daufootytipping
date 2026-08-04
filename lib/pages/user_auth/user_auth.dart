@@ -9,6 +9,7 @@ import 'package:daufootytipping/pages/user_auth/user_auth_background.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -159,6 +160,12 @@ class UserAuthPageState extends State<UserAuthPage> {
   }
 
   Future<void> signOut() async {
+    if (!kIsWeb && di.isRegistered<FirebaseMessagingService>()) {
+      await di<FirebaseMessagingService>().unregisterCurrentToken(
+        tipperId: di<TippersViewModel>().authenticatedTipper?.dbkey,
+      );
+      await AppBadgeService().setCount(0);
+    }
     await FirebaseAuth.instance.signOut();
   }
 
@@ -319,7 +326,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                 TextButton(
                   onPressed: () async {
                     Navigator.of(context).pop();
-                    await FirebaseAuth.instance.signOut();
+                    await signOut();
                   },
                   child: const Text('Cancel'),
                 ),

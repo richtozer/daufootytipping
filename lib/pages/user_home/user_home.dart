@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         _tippersViewModel.selectedTipper.isAnonymous &&
         _currentIndex.value == 0;
 
-    unawaited(_syncAppBadge(count: nextOutstandingTipsCount));
+    unawaited(_syncAppBadge());
     _trackStartupMilestones();
 
     if (nextOutstandingTipsCount == _outstandingTipsCount &&
@@ -95,11 +95,11 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     });
   }
 
-  Future<void> _syncAppBadge({int? count}) async {
+  Future<void> _syncAppBadge() async {
     await _appBadgeController.sync(
       tipper: _tippersViewModel.selectedTipper,
       comp: _dauCompsViewModel.selectedDAUComp,
-      outstandingCount: count ?? _outstandingTipsCount,
+      outstandingCount: _dauCompsViewModel.appBadgeOutstandingTipsCount(),
     );
   }
 

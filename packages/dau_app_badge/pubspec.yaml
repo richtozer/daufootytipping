@@ -1,0 +1,21 @@
+name: dau_app_badge
+description: Native iOS and Android app badge support for DAU Tips.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.8.0 <4.0.0"
+  flutter: ">=3.29.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: coach.interview.dau_app_badge
+        pluginClass: DauAppBadgePlugin
+      ios:
+        pluginClass: DauAppBadgePlugin

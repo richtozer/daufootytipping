@@ -837,8 +837,10 @@ class TippersViewModel extends ChangeNotifier {
     }
 
     // wait for the token to be populated
-    FirebaseMessagingService? firebaseService = di<FirebaseMessagingService>();
+    FirebaseMessagingService firebaseService = di<FirebaseMessagingService>();
     await firebaseService.initialLoadComplete;
+
+    await firebaseService.registerTokenForTipper(_authenticatedTipper!);
 
     log(
       'TippersViewModel().registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${firebaseService.fbmToken?.substring(firebaseService.fbmToken!.length - 5)}',
@@ -849,6 +851,7 @@ class TippersViewModel extends ChangeNotifier {
   Future<String?> deleteAccount() async {
     try {
       await FirebaseAuth.instance.currentUser!.delete();
+      await _unregisterDeletedAccountToken();
       return null; // Success
     } catch (e) {
       if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
@@ -866,6 +869,7 @@ class TippersViewModel extends ChangeNotifier {
 
           // Retry account deletion after successful re-authentication
           await FirebaseAuth.instance.currentUser!.delete();
+          await _unregisterDeletedAccountToken();
           return null; // Success
         } catch (reauthError) {
           log(
@@ -878,6 +882,15 @@ class TippersViewModel extends ChangeNotifier {
         return 'Account deletion failed. Please try again.';
       }
     }
+  }
+
+  Future<void> _unregisterDeletedAccountToken() async {
+    if (!di.isRegistered<FirebaseMessagingService>()) {
+      return;
+    }
+    await di<FirebaseMessagingService>().unregisterCurrentToken(
+      tipperId: _authenticatedTipper?.dbkey,
+    );
   }
 
   Future<void> _reauthenticateWithApple() async {

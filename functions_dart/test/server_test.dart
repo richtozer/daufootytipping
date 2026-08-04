@@ -40,6 +40,58 @@ class DuckTypedSnapshot {
   final Object? value;
 }
 
+DAUComp _badgeTestComp(
+  DateTime now, {
+  DateTime? firstKickoff,
+  DateTime? lastKickoff,
+}) {
+  return DAUComp(
+    dbkey: 'comp-2026',
+    name: '2026',
+    aflFixtureJsonURL: Uri.parse('https://example.invalid/afl.json'),
+    nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl.json'),
+    daurounds: [
+      DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC:
+            firstKickoff ?? now.subtract(const Duration(days: 1)),
+        lastGameKickOffUTC: lastKickoff ?? now.add(const Duration(days: 2)),
+      ),
+    ],
+  );
+}
+
+Game _badgeTestGame(String key, DateTime startTime) {
+  final homeTeam = Team(dbkey: 'home', name: 'Home', league: League.nrl);
+  final awayTeam = Team(dbkey: 'away', name: 'Away', league: League.nrl);
+  return Game(
+    dbkey: key,
+    league: League.nrl,
+    homeTeam: homeTeam,
+    awayTeam: awayTeam,
+    location: 'Ground',
+    startTimeUTC: startTime,
+    fixtureRoundNumber: 1,
+    fixtureMatchNumber: 1,
+  );
+}
+
+Tipper _badgeTestTipper(
+  String key, {
+  DAUComp? comp,
+  bool isAnonymous = false,
+}) {
+  return Tipper(
+    dbkey: key,
+    compsPaidFor: comp == null ? [] : [comp],
+    authuid: 'auth-$key',
+    email: '$key@example.com',
+    name: key,
+    tipperRole: TipperRole.tipper,
+    isAnonymous: isAnonymous,
+  );
+}
+
 void main() {
   late MockDatabase mockDb;
   late MockDataSnapshot mockRoleSnapshot;
@@ -240,6 +292,30 @@ void main() {
       );
     });
 
+    test('app badge command secret supports rollover and header casing', () {
+      expect(
+        resolveAppBadgeCommandSecrets(environment: {
+          'APP_BADGE_COMMAND_SECRET': 'new-secret',
+          'DART_APP_BADGE_COMMAND_SECRET': 'old-secret',
+        }),
+        ['new-secret', 'old-secret'],
+      );
+      expect(
+        isAppBadgeCommandAuthorized(
+          {'X-App-Badge-Secret': 'old-secret'},
+          expectedSecrets: ['new-secret', 'old-secret'],
+        ),
+        isTrue,
+      );
+      expect(
+        isAppBadgeCommandAuthorized(
+          {'x-app-badge-secret': 'wrong'},
+          expectedSecrets: ['new-secret'],
+        ),
+        isFalse,
+      );
+    });
+
     test('normalizeHttpHeaders accepts string and multi-value headers', () {
       expect(
         normalizeHttpHeaders(<Object?, Object?>{
@@ -305,6 +381,109 @@ void main() {
       expect(
         extractAdminCheckFixtureUrlUrl(<Object?, Object?>{'url': 2026}),
         isNull,
+      );
+    });
+  });
+
+  group('outstanding app badge counts', () {
+    final now = DateTime.parse('2026-08-04T12:00:00Z');
+    late DAUComp comp;
+    late List<Game> games;
+    late List<Tipper> tippers;
+
+    setUp(() {
+      comp = _badgeTestComp(now);
+      games = [
+        _badgeTestGame('started', now.subtract(const Duration(minutes: 1))),
+        _badgeTestGame('soon', now.add(const Duration(hours: 1))),
+        _badgeTestGame('future', now.add(const Duration(days: 1))),
+      ];
+      tippers = [
+        _badgeTestTipper('paid', comp: comp),
+        _badgeTestTipper('unpaid'),
+        _badgeTestTipper('anonymous', comp: comp, isAnonymous: true),
+      ];
+    });
+
+    test('counts every upcoming game for a paid tipper with no tips', () {
+      expect(
+        calculateOutstandingTipCounts(
+          comp: comp,
+          games: games,
+          allTippers: tippers,
+          tipsByTipperRaw: const {},
+          now: now,
+          requestedTipperIds: {'paid'},
+        ),
+        {'paid': 2},
+      );
+    });
+
+    test('excludes submitted and started games', () {
+      expect(
+        calculateOutstandingTipCounts(
+          comp: comp,
+          games: games,
+          allTippers: tippers,
+          tipsByTipperRaw: {
+            'paid': {'soon': <String, dynamic>{}},
+          },
+          now: now,
+          requestedTipperIds: {'paid'},
+        ),
+        {'paid': 1},
+      );
+    });
+
+    test('bulk omits unpaid and anonymous tippers', () {
+      expect(
+        calculateOutstandingTipCounts(
+          comp: comp,
+          games: games,
+          allTippers: tippers,
+          tipsByTipperRaw: const {},
+          now: now,
+        ),
+        {'paid': 2},
+      );
+    });
+
+    test('targeted requests return zero for ineligible and missing tippers', () {
+      expect(
+        calculateOutstandingTipCounts(
+          comp: comp,
+          games: games,
+          allTippers: tippers,
+          tipsByTipperRaw: const {},
+          now: now,
+          requestedTipperIds: {'unpaid', 'anonymous', 'missing'},
+        ),
+        {'unpaid': 0, 'anonymous': 0, 'missing': 0},
+      );
+    });
+
+    test('returns zero before the round reaches its 48-hour badge window', () {
+      final futureComp = _badgeTestComp(
+        now,
+        firstKickoff: now.add(const Duration(hours: 49)),
+        lastKickoff: now.add(const Duration(days: 4)),
+      );
+      final futureGames = <Game>[
+        _badgeTestGame('future', now.add(const Duration(hours: 50))),
+      ];
+
+      expect(
+        calculateOutstandingTipCounts(
+          comp: futureComp,
+          games: futureGames,
+          allTippers: <Tipper>[
+            _badgeTestTipper('paid', comp: futureComp),
+          ],
+          tipsByTipperRaw: const {},
+          now: now,
+          requestedTipperIds: {'paid'},
+        ),
+        {'paid': 0},
       );
     });
   });

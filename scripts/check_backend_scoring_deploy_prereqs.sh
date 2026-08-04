@@ -31,14 +31,17 @@ check_env_file() {
 check_env_file \
   "$dart_env" \
   "Dart functions" \
-  BACKEND_SCORING_COMMAND_SECRET
+  BACKEND_SCORING_COMMAND_SECRET \
+  APP_BADGE_COMMAND_SECRET
 
 check_env_file \
   "$node_env" \
   "TypeScript functions" \
   BACKEND_SCORING_COMMAND_URL \
   BACKEND_SCORING_COMMAND_SECRET \
-  DART_FIXTURE_DOWNLOAD_COMMAND_URL
+  DART_FIXTURE_DOWNLOAD_COMMAND_URL \
+  APP_BADGE_COUNT_URL \
+  APP_BADGE_COMMAND_SECRET
 
 if [ "$missing" -ne 0 ]; then
   cat <<'EOF'
@@ -50,8 +53,13 @@ Expected ignored local files:
 - functions/.env with BACKEND_SCORING_COMMAND_URL,
   BACKEND_SCORING_COMMAND_SECRET, and DART_FIXTURE_DOWNLOAD_COMMAND_URL
 
+Outstanding tips app badges also require:
+- functions_dart/.env with APP_BADGE_COMMAND_SECRET
+- functions/.env with APP_BADGE_COUNT_URL and APP_BADGE_COMMAND_SECRET
+
 Do not commit actual secret values.
 See docs/backend-scoring-deploy.md for the first-deploy sequence.
+See docs/app-badge-deploy.md for the badge rollout sequence.
 EOF
   exit 1
 fi

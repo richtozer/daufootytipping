@@ -9,6 +9,13 @@ import {
 import {
   scheduledFixtureDownload as scheduledFixtureDownloadForwarder,
 } from "./fixture_download_scheduler";
+import {
+  kickoffOutstandingTipsAppBadge,
+  reconcileOutstandingTipsAppBadge,
+  tipperTokenCreatedAppBadge,
+  tipperWrittenAppBadge,
+  tipWrittenAppBadge,
+} from "./app_badge";
 
 import * as admin from "firebase-admin";
 
@@ -17,6 +24,11 @@ exports.tipWrittenBackendScoring = tipWrittenBackendScoring;
 exports.officialScoreWrittenBackendScoring = officialScoreWrittenBackendScoring;
 exports.liveScoreWrittenBackendScoring = liveScoreWrittenBackendScoring;
 exports.scheduledFixtureDownload = scheduledFixtureDownloadForwarder;
+exports.tipWrittenAppBadge = tipWrittenAppBadge;
+exports.tipperWrittenAppBadge = tipperWrittenAppBadge;
+exports.tipperTokenCreatedAppBadge = tipperTokenCreatedAppBadge;
+exports.kickoffOutstandingTipsAppBadge = kickoffOutstandingTipsAppBadge;
+exports.reconcileOutstandingTipsAppBadge = reconcileOutstandingTipsAppBadge;
 
 admin.initializeApp();
 

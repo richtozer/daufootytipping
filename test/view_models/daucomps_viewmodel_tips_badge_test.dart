@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
 class MockKickoffRefreshScheduler extends Mock
@@ -75,6 +76,42 @@ void main() {
       onRefresh();
 
       expect(notificationCount, 2);
+    });
+
+    test('schedules a refresh at the 48-hour badge activation boundary', () {
+      final firstKickoff = DateTime.parse('2030-01-05T12:00:00Z');
+      final badgeRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: firstKickoff,
+        lastGameKickOffUTC: firstKickoff.add(const Duration(days: 2)),
+      );
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[badgeRound],
+        ),
+      );
+
+      vm.gamesViewModelUpdatedForTest();
+
+      final captured = verify(
+        () => kickoffRefreshScheduler.schedule(
+          kickoffTimes: captureAny(named: 'kickoffTimes'),
+          onRefresh: any(named: 'onRefresh'),
+        ),
+      ).captured;
+      final refreshTimes = (captured.single as Iterable<DateTime> Function())();
+      expect(
+        refreshTimes,
+        contains(
+          firstKickoff.subtract(
+            OutstandingTipsCalculator.appBadgeActivationLeadTime,
+          ),
+        ),
+      );
     });
 
     test('returns 0 when selected comp is null', () {
@@ -218,6 +255,95 @@ void main() {
       ).thenReturn(-1);
 
       expect(vm.currentRoundOutstandingTipsCount(), 0);
+    });
+
+    test('app badge stays off until 48 hours before the next round', () {
+      final now = DateTime.parse('2030-01-01T12:00:00Z');
+      final nextRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.add(const Duration(hours: 49)),
+        lastGameKickOffUTC: now.add(const Duration(days: 3)),
+      );
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[nextRound],
+        ),
+      );
+      vm.selectedTipperTipsViewModel = mockTipsViewModel;
+
+      expect(vm.appBadgeOutstandingTipsCount(now), 0);
+      verifyNever(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          any(),
+          League.nrl,
+        ),
+      );
+      verifyNever(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          any(),
+          League.afl,
+        ),
+      );
+    });
+
+    test('app badge uses the next round inside its 48-hour window', () {
+      final now = DateTime.parse('2030-01-01T12:00:00Z');
+      final previousRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.subtract(const Duration(days: 4)),
+        lastGameKickOffUTC: now.subtract(const Duration(days: 3)),
+      )..roundState = RoundState.started;
+      final nextRound = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: now.add(const Duration(hours: 48)),
+        lastGameKickOffUTC: now.add(const Duration(days: 3)),
+      );
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[previousRound, nextRound],
+        ),
+      );
+      vm.selectedTipperTipsViewModel = mockTipsViewModel;
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          nextRound,
+          League.nrl,
+        ),
+      ).thenReturn(2);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          nextRound,
+          League.afl,
+        ),
+      ).thenReturn(3);
+
+      expect(vm.appBadgeOutstandingTipsCount(now), 5);
+      verifyNever(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          previousRound,
+          League.nrl,
+        ),
+      );
+      verifyNever(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          previousRound,
+          League.afl,
+        ),
+      );
     });
   });
 }

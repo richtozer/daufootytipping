@@ -149,6 +149,11 @@ export const sendHourlyReminders =
           android: {
             ttl: Math.floor(new Date(reminder.gameStartTimeUTC)
               .getTime() / 1000) - Math.floor(Date.now() / 1000),
+            notification: {
+              channelId: "tipping_reminders_v1",
+              icon: "ic_stat_tips",
+              sound: "default",
+            },
           },
         };
 

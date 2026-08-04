@@ -14,6 +14,7 @@ import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
 class _CachedCrossCompTip {
@@ -474,24 +475,19 @@ class TipsViewModel extends ChangeNotifier {
     return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
   }
 
-  int _numberOfTipsSubmittedForGames(Iterable<Game> games) {
-    final gameDbKeys = games.map((game) => game.dbkey).toSet();
-    return _listOfTips.where((tip) => tip != null && gameDbKeys.contains(tip.game.dbkey)).length;
-  }
-
   // Outstanding tips for games that have not started yet (includes startingSoon).
   int numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
     DAURound round,
     League league,
   ) {
-    final gamesToTip = round.getGamesForLeague(league).where(
-      (game) =>
-          game.gameState == GameState.notStarted ||
-          game.gameState == GameState.startingSoon,
+    return OutstandingTipsCalculator.countUpcomingUntippedGames(
+      games: round.getGamesForLeague(league),
+      submittedGameKeys: _listOfTips
+          .whereType<Tip>()
+          .map((tip) => tip.game.dbkey)
+          .toSet(),
+      now: DateTime.now().toUtc(),
     );
-    final tipsSubmitted = _numberOfTipsSubmittedForGames(gamesToTip);
-    final outstanding = gamesToTip.length - tipsSubmitted;
-    return outstanding > 0 ? outstanding : 0;
   }
 
   // method to return the number of margin tips for the supplied round and league

@@ -10,13 +10,22 @@ import 'package:watch_it/watch_it.dart';
 class MockFirebaseMessagingService extends Mock
     implements FirebaseMessagingService {}
 
+class FakeTipper extends Fake implements Tipper {}
+
 void main() {
   late MockFirebaseMessagingService messagingService;
+
+  setUpAll(() {
+    registerFallbackValue(FakeTipper());
+  });
 
   setUp(() {
     messagingService = MockFirebaseMessagingService();
     when(() => messagingService.initialLoadComplete).thenAnswer((_) async {});
     when(() => messagingService.fbmToken).thenReturn('token12345');
+    when(
+      () => messagingService.registerTokenForTipper(any()),
+    ).thenAnswer((_) async {});
 
     if (di.isRegistered<FirebaseMessagingService>()) {
       di.unregister<FirebaseMessagingService>();

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,8 @@ import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
 class FirebaseMessagingService {
+  static const String outstandingTipsBadgeMessageType =
+      'outstanding_tips_badge';
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   Future<void>? _initializationFuture;
 
@@ -20,6 +23,7 @@ class FirebaseMessagingService {
   DatabaseReference get databaseReference => configuredDatabaseRef();
   final FirebaseAuth auth = FirebaseAuth.instance;
   String? _fbmToken; // Initialize with null
+  String? _registeredTipperId;
 
   String? get fbmToken => _fbmToken;
 
@@ -45,14 +49,22 @@ class FirebaseMessagingService {
       // Listening for token refresh events
       _firebaseMessaging.onTokenRefresh.listen((newToken) async {
         log('New messaging token received, updating database.');
+        final oldToken = _fbmToken;
         _fbmToken = newToken;
+        if (oldToken != null &&
+            oldToken != newToken &&
+            _registeredTipperId != null) {
+          await _removeToken(_registeredTipperId!, oldToken);
+        }
         await _saveTokenToDatabase(newToken);
       });
 
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         log('Received a message while in the foreground: ${message.messageId}');
-        // Handle the message
+        if (outstandingTipsBadgeCount(message.data) != null) {
+          log('Foreground badge message received; live app state remains authoritative.');
+        }
       });
 
       // Handle background messages
@@ -103,8 +115,12 @@ class FirebaseMessagingService {
       for (final user in tokens.keys) {
         final userTokens = tokens[user] as Map<dynamic, dynamic>;
         for (final token in userTokens.keys) {
-          final tokenTimeStr = userTokens[token] as String;
-          final tokenTime = DateTime.parse(tokenTimeStr).millisecondsSinceEpoch;
+          final tokenUpdatedAt = parseTokenUpdatedAt(userTokens[token]);
+          if (tokenUpdatedAt == null) {
+            log('Skipping malformed token timestamp for tipper $user');
+            continue;
+          }
+          final tokenTime = tokenUpdatedAt.millisecondsSinceEpoch;
           if (tokenTime < staleTime) {
             await databaseReference
                 .child(p.tokensPath)
@@ -137,18 +153,98 @@ class FirebaseMessagingService {
           return;
         }
 
-        await databaseReference.child(p.tokensPath).child(tipper.dbkey!).update({
-          token: timeNow,
-        });
-        log(
-          'FirebaseMessagingService._saveTokenToDatabase() Token ending in ${token.substring(token.length - 4)} saved to database',
-        );
+        await registerTokenForTipper(tipper, token: token, updatedAt: timeNow);
       } else {
         log('User is not logged in, cannot save token');
       }
     } catch (e) {
       log('Failed to save token to database: $e');
     }
+  }
+
+  Future<void> registerTokenForTipper(
+    Tipper tipper, {
+    String? token,
+    String? updatedAt,
+  }) async {
+    final tokenToRegister = token ?? _fbmToken;
+    final tipperId = tipper.dbkey;
+    if (tokenToRegister == null || tipperId == null) {
+      return;
+    }
+
+    if (_registeredTipperId != null && _registeredTipperId != tipperId) {
+      await _removeToken(_registeredTipperId!, tokenToRegister);
+    }
+    await _removeTokenFromOtherTippers(tipperId, tokenToRegister);
+    await databaseReference.child(p.tokensPath).child(tipperId).update({
+      tokenToRegister: updatedAt ?? DateTime.now().toIso8601String(),
+    });
+    _registeredTipperId = tipperId;
+    log(
+      'FirebaseMessagingService.registerTokenForTipper() Token ending in ${tokenToRegister.substring(tokenToRegister.length - 4)} saved to database',
+    );
+  }
+
+  Future<void> unregisterCurrentToken({String? tipperId}) async {
+    final token = _fbmToken;
+    final ownerTipperId = tipperId ?? _registeredTipperId;
+    if (token == null || ownerTipperId == null) {
+      return;
+    }
+    await _removeToken(ownerTipperId, token);
+    if (_registeredTipperId == ownerTipperId) {
+      _registeredTipperId = null;
+    }
+  }
+
+  Future<void> _removeToken(String tipperId, String token) async {
+    await databaseReference
+        .child(p.tokensPath)
+        .child(tipperId)
+        .child(token)
+        .remove();
+    log(
+      'FirebaseMessagingService removed token ending in ${token.substring(token.length - 4)} for tipper $tipperId',
+    );
+  }
+
+  Future<void> _removeTokenFromOtherTippers(
+    String currentTipperId,
+    String token,
+  ) async {
+    final snapshot = await databaseReference.child(p.tokensPath).once();
+    final value = snapshot.snapshot.value;
+    if (value is! Map) {
+      return;
+    }
+    for (final entry in value.entries) {
+      final tipperId = entry.key.toString();
+      if (tipperId == currentTipperId || entry.value is! Map) {
+        continue;
+      }
+      final tokens = entry.value as Map<dynamic, dynamic>;
+      if (tokens.containsKey(token)) {
+        await _removeToken(tipperId, token);
+      }
+    }
+  }
+
+  static DateTime? parseTokenUpdatedAt(Object? value) {
+    final rawTimestamp = switch (value) {
+      String timestamp => timestamp,
+      Map<dynamic, dynamic> record => record['updatedAt'] as String?,
+      _ => null,
+    };
+    return rawTimestamp == null ? null : DateTime.tryParse(rawTimestamp);
+  }
+
+  static int? outstandingTipsBadgeCount(Map<String, dynamic> data) {
+    if (data['type'] != outstandingTipsBadgeMessageType) {
+      return null;
+    }
+    final count = int.tryParse(data['count']?.toString() ?? '');
+    return count != null && count >= 0 ? count : null;
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -165,7 +261,17 @@ class FirebaseMessagingService {
 }
 
 // Background message handler
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   log('Handling a background message: ${message.messageId}');
-  // Handle the message
+  final count = FirebaseMessagingService.outstandingTipsBadgeCount(
+    message.data,
+  );
+  if (count == null) {
+    return;
+  }
+  final didSetBadge = await AppBadgeService().setCount(count);
+  if (!didSetBadge) {
+    log('Background app badge update failed for count $count');
+  }
 }

@@ -26,6 +26,7 @@ import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
+import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -1037,6 +1038,33 @@ class DAUCompsViewModel extends ChangeNotifier {
     return outstanding > 0 ? outstanding : 0;
   }
 
+  int appBadgeOutstandingTipsCount([DateTime? now]) {
+    final comp = _selectedDAUComp;
+    final tipsViewModel = selectedTipperTipsViewModel;
+    if (comp == null || tipsViewModel == null) {
+      return 0;
+    }
+
+    final badgeRound = OutstandingTipsCalculator.appBadgeRoundForTime(
+      rounds: comp.daurounds,
+      now: now ?? DateTime.now().toUtc(),
+    );
+    if (badgeRound == null) {
+      return 0;
+    }
+
+    final outstanding =
+        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          badgeRound,
+          League.nrl,
+        ) +
+        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+          badgeRound,
+          League.afl,
+        );
+    return outstanding > 0 ? outstanding : 0;
+  }
+
   void _otherViewModelUpdated() {
     _clearGroupedGamesCache();
     _scheduleNextKickoffRefresh();
@@ -1045,11 +1073,20 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   void _scheduleNextKickoffRefresh() {
     _kickoffRefreshScheduler.schedule(
-      kickoffTimes: () =>
-          _selectedDAUComp?.daurounds.expand(
-            (round) => round.games.map((game) => game.startTimeUTC),
-          ) ??
-          const <DateTime>[],
+      kickoffTimes: () {
+        final rounds = _selectedDAUComp?.daurounds;
+        if (rounds == null) {
+          return const <DateTime>[];
+        }
+        return <DateTime>[
+          for (final round in rounds) ...<DateTime>[
+            round.firstGameKickOffUTC.subtract(
+              OutstandingTipsCalculator.appBadgeActivationLeadTime,
+            ),
+            ...round.games.map((game) => game.startTimeUTC),
+          ],
+        ];
+      },
       onRefresh: () {
         _clearGroupedGamesCache();
         notifyListeners();
