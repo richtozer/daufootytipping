@@ -18,7 +18,9 @@ server sends are disabled.
 
 The `app-badge-count` Dart endpoint is an internal TypeScript-to-Dart endpoint.
 It uses a dedicated `x-app-badge-secret` header rather than App Check because
-its callers are backend functions, not app clients.
+its callers are backend functions, not app clients. Its generated HTTPS trigger
+is publicly invokable at the Cloud Run IAM layer so those functions can reach
+it, while the shared secret remains the application-level authorization check.
 
 ## Required Ignored Runtime Configuration
 
@@ -36,6 +38,10 @@ After deploying the Dart codebase once, add to `functions/.env`:
 APP_BADGE_COUNT_URL=<deployed app-badge-count URL>
 APP_BADGE_COMMAND_SECRET=<same shared app-badge secret>
 ```
+
+Use the exact `run.app` Function URL printed by the Dart deployment. Do not
+substitute a `cloudfunctions.net` URL unless Firebase explicitly reports one for
+the deployed function.
 
 The code also accepts `DART_APP_BADGE_COUNT_URL` and
 `DART_APP_BADGE_COMMAND_SECRET`, but the `APP_BADGE_*` names are preferred.
