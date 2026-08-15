@@ -35,6 +35,7 @@ const _scheduledFixtureDownloadOptions = HttpsOptions(
 const _appBadgeCountOptions = HttpsOptions(
   region: Region(SupportedRegion.asiaSoutheast1),
   timeoutSeconds: TimeoutSeconds(120),
+  invoker: Invoker.public(),
 );
 const int _idempotencyPruneLimit = 500;
 const Duration _fixtureDownloadLockTtl = Duration(minutes: 10);
@@ -1910,6 +1911,12 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
         dbUpdates[
             '${paths.gamesPathRoot}/$compKey/${op.dbkey}/${entry.key}'] =
             entry.value;
+      }
+      if (op.attributes['HomeTeamScore'] != null &&
+          op.attributes['AwayTeamScore'] != null) {
+        dbUpdates[
+            '${paths.statsPathRoot}/$compKey/${paths.liveScoresBackendRoot}/${op.dbkey}'] =
+            null;
       }
       final homeTeam = op.attributes['HomeTeam'] as String?;
       final awayTeam = op.attributes['AwayTeam'] as String?;

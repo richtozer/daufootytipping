@@ -224,6 +224,54 @@ void main() {
   });
 
   testWidgets(
+    'does not show an endless spinner when an untipped game starts',
+    (tester) async {
+      Widget buildSubject() {
+        return MaterialApp(
+          home: Provider<StatsViewModel?>.value(
+            value: null,
+            child: Scaffold(
+              body: GameListItem(
+                game: game,
+                currentTipper: currentTipper,
+                currentDAUComp: currentComp,
+                allTipsViewModel: mockTipsViewModel,
+                isPercentStatsPage: false,
+                gameTipViewModel: mockGameTipViewModel,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      game = Game(
+        dbkey: game.dbkey,
+        league: game.league,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: DateTime.now().toUtc().subtract(
+          const Duration(minutes: 1),
+        ),
+        fixtureRoundNumber: game.fixtureRoundNumber,
+        fixtureMatchNumber: game.fixtureMatchNumber,
+        scoring: game.scoring,
+      );
+      when(() => mockGameTipViewModel.game).thenReturn(game);
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
+
+  testWidgets(
     'shows interim banner for crowdsourced scores even after live window',
     (tester) async {
       final liveScoredGame = Game(

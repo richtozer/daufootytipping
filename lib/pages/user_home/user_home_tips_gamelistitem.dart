@@ -478,10 +478,11 @@ class _GameListItemState extends State<GameListItem> {
     // Historical matchup cards removed - now available in team comparison page
 
     // For games underway or ended, add scoring tile at the start
-    if (gameTipsViewModelConsumer.game.gameState ==
-            GameState.startedResultNotKnown ||
-        gameTipsViewModelConsumer.game.gameState ==
-            GameState.startedResultKnown) {
+    if ((gameTipsViewModelConsumer.game.gameState ==
+                GameState.startedResultNotKnown ||
+            gameTipsViewModelConsumer.game.gameState ==
+                GameState.startedResultKnown) &&
+        gameTipsViewModelConsumer.tip != null) {
       cards.insert(0, scoringTileBuilder(gameTipsViewModelConsumer));
     }
 
@@ -491,13 +492,8 @@ class _GameListItemState extends State<GameListItem> {
   // Historical matchup card builder removed - functionality moved to team comparison page
 
   Widget scoringTileBuilder(GameTipViewModel gameTipsViewModelConsumer) {
-    final tip = gameTipsViewModelConsumer.tip;
-    if (tip == null) {
-      return CircularProgressIndicator(color: League.nrl.colour);
-    }
-
     return ScoringTile(
-      tip: tip,
+      tip: gameTipsViewModelConsumer.tip!,
       gameTipsViewModel: gameTipsViewModelConsumer,
       selectedDAUComp: widget.currentDAUComp,
     );
