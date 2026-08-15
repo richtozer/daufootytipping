@@ -592,5 +592,48 @@ void main() {
         expect(offset, 0);
       });
     });
+
+    test('startup offset into AFL activates its sticky header immediately', () {
+      final now = DateTime.now().toUtc();
+      final round = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.subtract(const Duration(hours: 1)),
+        lastGameKickOffUTC: now.add(const Duration(days: 1)),
+      )..roundState = RoundState.started;
+      round.games = [
+        makeGame(
+          dbkey: 'nrl-01-001',
+          league: League.nrl,
+          matchNumber: 1,
+          startTimeUTC: now.subtract(const Duration(hours: 1)),
+        ),
+        makeGame(
+          dbkey: 'afl-01-001',
+          league: League.afl,
+          matchNumber: 1,
+          startTimeUTC: now.add(const Duration(hours: 1)),
+        ),
+      ];
+      final comp = DAUComp(
+        name: 'c',
+        aflFixtureJsonURL: Uri.parse('https://afl'),
+        nrlFixtureJsonURL: Uri.parse('https://nrl'),
+        daurounds: [round],
+      );
+      final sections = buildTipsLeagueSections(selectedComp: comp);
+      const leadingExtent = 200.0;
+      final startupOffset =
+          leadingExtent + sections.first.bodyExtent + sections[1].headerExtent;
+
+      final activeIndex = activeStickyTipsLeagueSectionIndex(
+        sections: sections,
+        scrollOffset: startupOffset,
+        leadingExtent: leadingExtent,
+        topSafeInset: 24,
+      );
+
+      expect(activeIndex, 1);
+      expect(sections[activeIndex].league, League.afl);
+    });
   });
 }
