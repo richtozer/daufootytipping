@@ -154,6 +154,67 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'calculates comp rank change from round 22 while round 23 is underway',
+    () async {
+      final now = DateTime.now().toUtc();
+      comp.daurounds = List<DAURound>.generate(23, (index) {
+        final roundNumber = index + 1;
+        final isCurrentRound = roundNumber == 23;
+        return DAURound(
+          dAUroundNumber: roundNumber,
+          firstGameKickOffUTC: isCurrentRound
+              ? now.subtract(const Duration(hours: 1))
+              : now.subtract(Duration(days: 24 - roundNumber)),
+          lastGameKickOffUTC: isCurrentRound
+              ? now.add(const Duration(hours: 1))
+              : now.subtract(Duration(days: 23 - roundNumber, hours: 7)),
+        );
+      });
+
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Map<String, Map<String, int>>>{
+              '22': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 22, total: 10),
+                'tipper-2': _roundStatsJson(roundNumber: 22, total: 3),
+              },
+              '23': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 23, total: 6),
+                'tipper-2': _roundStatsJson(roundNumber: 23, total: 20),
+              },
+            },
+          ),
+        ),
+      );
+
+      final aliceEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == alice,
+      );
+      final bobEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == bob,
+      );
+
+      expect(aliceEntry.previousRank, 1);
+      expect(aliceEntry.rank, 2);
+      expect(aliceEntry.rankChange, -1);
+      expect(bobEntry.previousRank, 2);
+      expect(bobEntry.rank, 1);
+      expect(bobEntry.rankChange, 1);
+
+      viewModel.dispose();
+    },
+  );
 }
 
 Future<void> _settleBackgroundStats() async {

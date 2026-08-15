@@ -682,11 +682,21 @@ class StatsViewModel extends ChangeNotifier {
     // Get the most recent completed round
     int latestCompletedRound = selectedDAUComp.latestsCompletedRoundNumber();
 
+    // Live scoring can add stats for the round after the latest completed one.
+    // In that case CNG must compare the live ladder with the completed-round
+    // ladder, rather than skipping back an additional round.
+    final hasStatsAfterLatestCompletedRound = _allTipperRoundStats.keys.any(
+      (roundIndex) => roundIndex + 1 > latestCompletedRound,
+    );
+    final previousRankRound = hasStatsAfterLatestCompletedRound
+        ? latestCompletedRound
+        : latestCompletedRound - 1;
+
     // Calculate previous round ranks if there are any completed rounds
     Map<Tipper, int> previousRoundRanks = {};
-    if (latestCompletedRound > 1) {
+    if (previousRankRound > 0) {
       previousRoundRanks = _calculateCumulativeRankUpToRound(
-        latestCompletedRound - 1,
+        previousRankRound,
       );
     }
 
