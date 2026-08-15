@@ -913,6 +913,20 @@ void main() {
       expect(capturedUpdates, contains('/AllDAUComps/comp2026/lastFixtureUTC'));
       expect(capturedUpdates, contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'));
       expect(capturedUpdates, contains('/DAUCompsGames/comp2026/afl-01-001/HomeTeamScore'));
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/Stats/comp2026/live_scores_backend_v1/nrl-01-001',
+          null,
+        ),
+      );
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/Stats/comp2026/live_scores_backend_v1/afl-01-001',
+          null,
+        ),
+      );
     });
 
     test('scheduled fixture download records nothing_to_do when started games already have results', () async {

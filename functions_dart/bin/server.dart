@@ -1912,6 +1912,12 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
             '${paths.gamesPathRoot}/$compKey/${op.dbkey}/${entry.key}'] =
             entry.value;
       }
+      if (op.attributes['HomeTeamScore'] != null &&
+          op.attributes['AwayTeamScore'] != null) {
+        dbUpdates[
+            '${paths.statsPathRoot}/$compKey/${paths.liveScoresBackendRoot}/${op.dbkey}'] =
+            null;
+      }
       final homeTeam = op.attributes['HomeTeam'] as String?;
       final awayTeam = op.attributes['AwayTeam'] as String?;
       if (homeTeam != null) ensureTeamExists(homeTeam, op.league);
