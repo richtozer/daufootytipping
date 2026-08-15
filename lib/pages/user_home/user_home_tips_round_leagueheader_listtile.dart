@@ -46,6 +46,9 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
     if (gamesForLeague.isNotEmpty) {
       firstGameStart = gamesForLeague.first.startTimeUTC;
     }
+    final bool hasKnownResult = gamesForLeague.any(
+      (game) => game.gameState == GameState.startedResultKnown,
+    );
 
     if (dauCompsViewModel.selectedTipperTipsViewModel == null) {
       return const Center(child: CircularProgressIndicator());
@@ -192,7 +195,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                                     : Colors.black54,
                                                 fontWeight: FontWeight.bold,
                                               ),
-                                              'Rank: ${roundStats.rank}  ',
+                                              'Rank: ${hasKnownResult ? roundStats.rank : '?'}  ',
                                               softWrap: true,
                                               overflow: TextOverflow.ellipsis,
                                             ),
