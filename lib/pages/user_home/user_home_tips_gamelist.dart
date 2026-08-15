@@ -205,6 +205,35 @@ int activeTipsLeagueSectionIndex({
   return sections.length - 1;
 }
 
+int activeStickyTipsLeagueSectionIndex({
+  required List<TipsLeagueSection> sections,
+  required double scrollOffset,
+  required double leadingExtent,
+  required double topSafeInset,
+}) {
+  if (sections.isEmpty) {
+    return 0;
+  }
+
+  final stickyVisible = scrollOffset >= leadingExtent;
+  final referenceOffset = scrollOffset + (stickyVisible ? topSafeInset : 0);
+  var nextIndex = 0;
+  var nextHeaderTop = leadingExtent + sections.first.bodyExtent;
+
+  for (var index = 1; index < sections.length; index++) {
+    if (!stickyVisible) {
+      nextHeaderTop += sections[index - 1].headerExtent;
+    }
+    if (nextHeaderTop > referenceOffset) {
+      break;
+    }
+    nextIndex = index;
+    nextHeaderTop += sections[index].headerExtent + sections[index].bodyExtent;
+  }
+
+  return nextIndex;
+}
+
 List<Widget> buildRoundLeagueSectionSlivers({
   required TipsLeagueSection section,
   required int roundIndex,

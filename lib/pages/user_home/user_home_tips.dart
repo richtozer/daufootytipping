@@ -170,17 +170,7 @@ class TipsTabState extends State<TipsTab> {
       final clampedOffset = _pendingStartupOffset.clamp(0.0, maxScrollExtent);
       scrollController.jumpTo(clampedOffset);
       _syncStickyHeaderVisibility(scrollOffsetOverride: clampedOffset);
-      if (_startupTargetSectionIndex != null &&
-          (_pendingStartupOffset - clampedOffset).abs() <= 8) {
-        final targetSectionIndex = _startupTargetSectionIndex!;
-        if (_activeSectionIndex != targetSectionIndex) {
-          setState(() {
-            _activeSectionIndex = targetSectionIndex;
-          });
-        }
-      } else {
-        _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
-      }
+      _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
       _syncStickyHeaderPushUp(scrollOffsetOverride: clampedOffset);
 
       final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
@@ -312,23 +302,12 @@ class TipsTabState extends State<TipsTab> {
     final scrollOffset =
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
-    final stickyVisible = scrollOffset >= _welcomeSliverHeight;
-    final referenceOffset =
-        scrollOffset + (stickyVisible ? _topSafeInset : 0);
-
-    var nextIndex = 0;
-    for (var index = 1; index < sections.length; index++) {
-      if (_sectionHeaderTopOffset(
-            index,
-            stickyVisible: stickyVisible,
-            sections: sections,
-          ) <=
-          referenceOffset) {
-        nextIndex = index;
-      } else {
-        break;
-      }
-    }
+    final nextIndex = activeStickyTipsLeagueSectionIndex(
+      sections: sections,
+      scrollOffset: scrollOffset,
+      leadingExtent: _welcomeSliverHeight,
+      topSafeInset: _topSafeInset,
+    );
 
     if (_activeSectionIndex == nextIndex) {
       return false;
