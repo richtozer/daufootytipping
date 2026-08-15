@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/ladder_empty_state_card.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -98,7 +99,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           // _leagueLadder is already set above
           if (_leagueLadder == null &&
               ladderAvailability == LeagueLadderAvailability.insufficientData) {
-            _emptyMessage = 'Ladder will be available after Round 1 ends.';
+            _emptyMessage =
+                'Standings will appear once Round 1 is complete.';
           } else {
             _emptyMessage = 'No ladder data available.';
           }
@@ -707,27 +709,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   }
 
   Widget _buildEmptyStateCard(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-        child: SizedBox(
-          width: 320,
-          child: Card(
-            color: Colors.black38,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Text(
-                _emptyMessage ?? 'No ladder data available.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return LadderEmptyStateCard(
+      message: _emptyMessage ?? 'No ladder data is available yet.',
     );
   }
 
