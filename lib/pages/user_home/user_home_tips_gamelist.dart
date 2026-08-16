@@ -131,8 +131,8 @@ int targetStartupSectionIndex(
 typedef FirstUntippedGameIndexFn = int Function(List<Game> games);
 
 /// Returns an additional scroll offset within the target round to position
-/// at the first untipped game, or the first live game
-/// ([GameState.startedResultNotKnown]) if all games are tipped.
+/// at the first upcoming untipped game, or the first live game
+/// ([GameState.startedResultNotKnown]) if there are no upcoming untipped games.
 /// Returns 0 if neither condition applies.
 double intraRoundScrollRefinement({
   required DAUComp selectedComp,
@@ -150,13 +150,20 @@ double intraRoundScrollRefinement({
     (s) => s.roundIndex == section.roundIndex && s.league == League.afl,
   );
 
-  // First pass: find first untipped game across NRL then AFL.
-  final nrlUntippedIndex = firstUntippedGameIndex(nrlGames);
+  // First pass: find the first upcoming untipped game across NRL then AFL.
+  // Missing tips for games already underway are no longer actionable hints.
+  final nrlUntippedIndex = _firstUpcomingUntippedGameIndex(
+    nrlGames,
+    firstUntippedGameIndex,
+  );
   if (nrlUntippedIndex >= 0) {
     return nrlUntippedIndex * Game.gameCardHeight;
   }
 
-  final aflUntippedIndex = firstUntippedGameIndex(aflGames);
+  final aflUntippedIndex = _firstUpcomingUntippedGameIndex(
+    aflGames,
+    firstUntippedGameIndex,
+  );
   if (aflUntippedIndex >= 0 && aflSectionIndex >= 0) {
     final aflSection = sections[aflSectionIndex];
     return section.bodyExtent +
@@ -164,7 +171,8 @@ double intraRoundScrollRefinement({
         aflUntippedIndex * Game.gameCardHeight;
   }
 
-  // Second pass: find first live game across NRL then AFL.
+  // Second pass: find the first live game across NRL then AFL, regardless of
+  // whether the tipper submitted a tip for it.
   final allGames = [...nrlGames, ...aflGames];
   for (var i = 0; i < allGames.length; i++) {
     if (allGames[i].gameState == GameState.startedResultNotKnown) {
@@ -181,6 +189,28 @@ double intraRoundScrollRefinement({
   }
 
   return 0;
+}
+
+int _firstUpcomingUntippedGameIndex(
+  List<Game> games,
+  FirstUntippedGameIndexFn firstUntippedGameIndex,
+) {
+  final upcomingGames = <Game>[];
+  final originalIndexes = <int>[];
+  for (var i = 0; i < games.length; i++) {
+    final gameState = games[i].gameState;
+    if (gameState != GameState.startedResultNotKnown &&
+        gameState != GameState.startedResultKnown) {
+      upcomingGames.add(games[i]);
+      originalIndexes.add(i);
+    }
+  }
+
+  final upcomingIndex = firstUntippedGameIndex(upcomingGames);
+  if (upcomingIndex < 0 || upcomingIndex >= originalIndexes.length) {
+    return -1;
+  }
+  return originalIndexes[upcomingIndex];
 }
 
 int activeTipsLeagueSectionIndex({

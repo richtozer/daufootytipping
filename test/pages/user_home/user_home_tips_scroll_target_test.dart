@@ -338,6 +338,102 @@ void main() {
                 'not the live game (index 1)');
       });
 
+      test('skips an untipped game that has already started', () {
+        final now = DateTime.now().toUtc();
+        final r1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: now.subtract(const Duration(hours: 1)),
+          lastGameKickOffUTC: now.add(const Duration(days: 1)),
+        )..roundState = RoundState.started;
+        r1.games = [
+          makeGame(
+            dbkey: 'nrl-01-001',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: now.add(const Duration(days: 1)),
+          ),
+          makeGame(
+            dbkey: 'nrl-01-002',
+            league: League.nrl,
+            matchNumber: 2,
+            startTimeUTC: now.subtract(const Duration(hours: 1)),
+          ),
+          makeGame(
+            dbkey: 'nrl-01-003',
+            league: League.nrl,
+            matchNumber: 3,
+            startTimeUTC: now.add(const Duration(days: 1)),
+          ),
+        ];
+
+        final comp = DAUComp(
+          name: 'c',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: [r1],
+        );
+        final sections = buildTipsLeagueSections(selectedComp: comp);
+
+        final offset = intraRoundScrollRefinement(
+          selectedComp: comp,
+          sections: sections,
+          targetSectionIndex: 0,
+          firstUntippedGameIndex: (games) {
+            for (var i = 0; i < games.length; i++) {
+              if (games[i].dbkey == 'nrl-01-002' ||
+                  games[i].dbkey == 'nrl-01-003') {
+                return i;
+              }
+            }
+            return -1;
+          },
+        );
+
+        expect(offset, 2 * Game.gameCardHeight);
+      });
+
+      test('uses an untipped live game as the live fallback', () {
+        final now = DateTime.now().toUtc();
+        final r1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: now.subtract(const Duration(hours: 1)),
+          lastGameKickOffUTC: now.add(const Duration(days: 1)),
+        )..roundState = RoundState.started;
+        r1.games = [
+          makeGame(
+            dbkey: 'nrl-01-001',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: now.add(const Duration(days: 1)),
+          ),
+          makeGame(
+            dbkey: 'nrl-01-002',
+            league: League.nrl,
+            matchNumber: 2,
+            startTimeUTC: now.subtract(const Duration(hours: 1)),
+          ),
+        ];
+
+        final comp = DAUComp(
+          name: 'c',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: [r1],
+        );
+        final sections = buildTipsLeagueSections(selectedComp: comp);
+
+        final offset = intraRoundScrollRefinement(
+          selectedComp: comp,
+          sections: sections,
+          targetSectionIndex: 0,
+          firstUntippedGameIndex: (games) => games.indexWhere(
+            (game) => game.dbkey == 'nrl-01-002',
+          ),
+        );
+
+        expect(offset, 1 * Game.gameCardHeight);
+      });
+
       test('scrolls to live game when all games are tipped', () {
         final now = DateTime.now().toUtc();
 
