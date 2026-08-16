@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 import * as functions from "firebase-functions/v1";
 import {onSchedule} from "firebase-functions/v2/scheduler";
-import {database} from "firebase-admin";
+import {getDatabase} from "firebase-admin/database";
 import {getMessaging, Message, Messaging} from "firebase-admin/messaging";
 import {resolveLocalDartFunctionUrl} from "./local_emulator_functions";
 
@@ -429,7 +429,7 @@ function sameSnapshotValue(before: SnapshotLike, after: SnapshotLike): boolean {
 }
 
 function appBadgeDatabase(deps: AppBadgeDependencies): DatabaseLike {
-  return deps.db ?? database();
+  return deps.db ?? getDatabase();
 }
 
 function firstEnvironmentValue(

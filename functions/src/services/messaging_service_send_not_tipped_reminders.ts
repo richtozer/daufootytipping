@@ -1,5 +1,5 @@
 import {onSchedule} from "firebase-functions/v2/scheduler";
-import {database} from "firebase-admin";
+import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
 
 // Schedule: "20 21-9 * 3-9 *"
@@ -27,15 +27,15 @@ export const sendHourlyReminders =
     console
       .log("Checking for games between: ", now, " and ", threeHoursFromNow);
 
-    const compRef = database().ref("/AppConfig/currentDAUComp");
+    const compRef = getDatabase().ref("/AppConfig/currentDAUComp");
     const compSnapshot = await compRef.once("value");
     const compDBKey = compSnapshot.val();
 
-    const teamsRef = database().ref("/Teams");
+    const teamsRef = getDatabase().ref("/Teams");
     const teamsSnapshot = await teamsRef.once("value");
     const teams = teamsSnapshot.val();
 
-    const gamesRef = database().ref(`/DAUCompsGames/${compDBKey}`);
+    const gamesRef = getDatabase().ref(`/DAUCompsGames/${compDBKey}`);
     const gamesSnapshot = await gamesRef
       .orderByChild("DateUtc")
       .startAt(now)
@@ -57,7 +57,7 @@ export const sendHourlyReminders =
     const games = gamesSnapshot.val();
     const gameKeys = Object.keys(games);
 
-    const tokensRef = database().ref("/AllTippersTokens");
+    const tokensRef = getDatabase().ref("/AllTippersTokens");
     let tippersWithTokens;
     if (isTestingMode) {
       const tokensSnapshot = await tokensRef.child(testTipperId).once("value");
@@ -67,7 +67,7 @@ export const sendHourlyReminders =
       tippersWithTokens = tokensSnapshot.val();
     }
 
-    const tippersRef = database().ref("/AllTippers");
+    const tippersRef = getDatabase().ref("/AllTippers");
     const tippersSnapshot = await tippersRef.once("value");
     const tippers = tippersSnapshot.val();
 
@@ -83,7 +83,7 @@ export const sendHourlyReminders =
         let gamesNotTipped = 0;
 
         for (const gameKey of gameKeys) {
-          const tipRef = database()
+          const tipRef = getDatabase()
             .ref(`/AllTips/${compDBKey}/${tipperId}/${gameKey}`);
           const tipSnapshot = await tipRef.once("value");
 
