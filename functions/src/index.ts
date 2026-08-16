@@ -1,6 +1,6 @@
 // This is the entry point for the Firebase Functions
-import msgFunctionNotTipped =
-    require("./services/messaging_service_send_not_tipped_reminders");
+import {sendHourlyReminders} from
+  "./services/messaging_service_send_not_tipped_reminders";
 import {
   liveScoreWrittenBackendScoring,
   officialScoreWrittenBackendScoring,
@@ -17,9 +17,10 @@ import {
   tipWrittenAppBadge,
 } from "./app_badge";
 
-import * as admin from "firebase-admin";
+import {initializeApp} from "firebase-admin/app";
+import {getDatabase} from "firebase-admin/database";
 
-exports.sendReminders = msgFunctionNotTipped.sendHourlyReminders;
+exports.sendReminders = sendHourlyReminders;
 exports.tipWrittenBackendScoring = tipWrittenBackendScoring;
 exports.officialScoreWrittenBackendScoring = officialScoreWrittenBackendScoring;
 exports.liveScoreWrittenBackendScoring = liveScoreWrittenBackendScoring;
@@ -30,8 +31,8 @@ exports.tipperTokenCreatedAppBadge = tipperTokenCreatedAppBadge;
 exports.kickoffOutstandingTipsAppBadge = kickoffOutstandingTipsAppBadge;
 exports.reconcileOutstandingTipsAppBadge = reconcileOutstandingTipsAppBadge;
 
-admin.initializeApp();
+initializeApp();
 
 if (process.env.FUNCTIONS_EMULATOR) {
-  admin.database().useEmulator("localhost", 8000);
+  getDatabase().useEmulator("localhost", 8000);
 }

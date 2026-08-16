@@ -4,11 +4,14 @@
     "migrate:tiplogs": "node tools/firestore/migrate_tip_logs_to_tip_logs2.js"
   },
   "devDependencies": {
-    "node": "^22.0.0"
+    "node": "^22.23.2"
   },
   "dependencies": {
-    "firebase-admin": "^13.7.0",
-    "firebase-functions": "^7.0.6",
-    "typescript": "^5.8.2"
+    "firebase-admin": "^14.2.0",
+    "firebase-functions": "^7.3.2",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
