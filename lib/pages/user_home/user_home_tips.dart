@@ -204,6 +204,15 @@ class TipsTabState extends State<TipsTab> {
     _startupTargetSectionIndex = null;
   }
 
+  void resetToDefaultPosition() {
+    if (daucompsViewModel.selectedDAUComp == null) {
+      return;
+    }
+
+    _resetStartupScrollState();
+    _syncSelectedCompState();
+  }
+
   void _handleScrollChanged() {
     if (!mounted) {
       return;
