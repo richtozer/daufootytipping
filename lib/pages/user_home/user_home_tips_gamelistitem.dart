@@ -18,6 +18,7 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart'; // Added import
 import 'package:flutter_svg/svg.dart';
@@ -60,11 +61,19 @@ class _GameListItemState extends State<GameListItem> {
   String? _awayOrdinalRankLabel;
   bool _isLoadingLadderRank = false;
   int _ladderRequestVersion = 0;
+  late final ValueListenable<int> _leagueLadderRevision;
 
   @override
   void initState() {
     super.initState();
+    _leagueLadderRevision = di<DAUCompsViewModel>().leagueLadderRevision;
+    _leagueLadderRevision.addListener(_leagueLadderUpdated);
     _syncGameTipViewModel();
+    _scheduleLadderRankFetch();
+  }
+
+  void _leagueLadderUpdated() {
+    _resetLadderRanks();
     _scheduleLadderRankFetch();
   }
 
@@ -201,6 +210,7 @@ class _GameListItemState extends State<GameListItem> {
   @override
   void dispose() {
     _ladderRequestVersion++;
+    _leagueLadderRevision.removeListener(_leagueLadderUpdated);
     _disposeOwnedGameTipViewModel();
     super.dispose();
   }

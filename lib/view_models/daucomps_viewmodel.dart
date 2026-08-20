@@ -91,6 +91,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
   final Map<League, Future<LeagueLadder?>> _inFlightLadderCalculations = {};
   final Map<League, LeagueLadderAvailability> _cachedLadderAvailability = {};
+  final ValueNotifier<int> _leagueLadderRevision = ValueNotifier<int>(0);
+  ValueListenable<int> get leagueLadderRevision => _leagueLadderRevision;
   DAURound? _cachedGroupedGamesRound;
   List<Game>? _cachedGroupedGamesSource;
   int? _cachedGroupedGamesCount;
@@ -1096,6 +1098,7 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   void _gamesViewModelUpdated() {
     clearLeagueLadderCache();
+    _leagueLadderRevision.value++;
     _otherViewModelUpdated();
   }
 
@@ -1125,6 +1128,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     _daucompsStream.cancel();
     _kickoffRefreshScheduler.dispose();
     _disposeChildViewModels();
+    _leagueLadderRevision.dispose();
     super.dispose();
   }
 

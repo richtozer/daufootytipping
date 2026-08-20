@@ -138,11 +138,13 @@ void main() {
       final initialLadder = await vm.getOrCalculateLeagueLadder(League.nrl);
       expect(initialLadder, isNotNull);
       expect(initialLadder!.teams.firstWhere((team) => team.dbkey == a.dbkey).played, 1);
+      expect(vm.leagueLadderRevision.value, 0);
 
       games.add(
         g('nrl-02-002', b, a, 2, now.subtract(const Duration(hours: 20)), 6, 10),
       );
       vm.gamesViewModelUpdatedForTest();
+      expect(vm.leagueLadderRevision.value, 1);
 
       final updatedLadder = await vm.getOrCalculateLeagueLadder(League.nrl);
       expect(updatedLadder, isNotNull);

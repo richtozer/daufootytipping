@@ -7,6 +7,7 @@ import 'package:daufootytipping/pages/user_home/user_home_team_games_history_pag
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/ladder_empty_state_card.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -35,6 +36,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   int? _sortColumnIndex;
   bool _sortAscending = true;
   String? _comparisonTeamNamesText;
+  late final ValueListenable<int> _leagueLadderRevision;
 
   bool get _isComparisonMode =>
       widget.teamDbKeysToDisplay != null &&
@@ -43,8 +45,20 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   @override
   void initState() {
     super.initState();
+    _leagueLadderRevision = di<DAUCompsViewModel>().leagueLadderRevision;
+    _leagueLadderRevision.addListener(_leagueLadderUpdated);
     _fetchLadderData();
     _loadComparisonTeamNames();
+  }
+
+  void _leagueLadderUpdated() {
+    _fetchLadderData();
+  }
+
+  @override
+  void dispose() {
+    _leagueLadderRevision.removeListener(_leagueLadderUpdated);
+    super.dispose();
   }
 
   Future<void> _fetchLadderData() async {
