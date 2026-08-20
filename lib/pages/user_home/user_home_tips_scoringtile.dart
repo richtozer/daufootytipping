@@ -123,10 +123,7 @@ class ScoringTileState extends State<ScoringTile> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Flexible(
-                  child: Text(
-                    resultText,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(resultText, overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -166,7 +163,7 @@ class ScoringTileState extends State<ScoringTile> {
                           backgroundColor: Colors.orange,
                           content: Text(
                             style: TextStyle(color: Colors.black),
-                            'You did not tip this game and were automatically given a default tip of [Away] for this game.\n\n'
+                            'You did not tip this game and were automatically given a default tip of [Away].\n\n'
                             'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄',
                           ),
                         ),
@@ -201,10 +198,7 @@ class ScoringTileState extends State<ScoringTile> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Flexible(
-                  child: Text(
-                    pointsText,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(pointsText, overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),

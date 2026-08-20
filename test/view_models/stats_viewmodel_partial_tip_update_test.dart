@@ -85,6 +85,7 @@ void main() {
     when(() => gamesViewModel.removeListener(any())).thenReturn(null);
 
     when(() => tippersViewModel.selectedTipper).thenReturn(alice);
+    when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice]);
     when(() => tippersViewModel.isUserLinked).thenAnswer((_) async {});
     when(() => tippersViewModel.addListener(any())).thenReturn(null);
     when(() => tippersViewModel.removeListener(any())).thenReturn(null);

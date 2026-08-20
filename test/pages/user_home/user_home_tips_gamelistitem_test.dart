@@ -33,6 +33,7 @@ void main() {
   late DAUComp previousComp;
   late Tipper currentTipper;
   late LeagueLadder currentLadder;
+  late ValueNotifier<int> ladderRevision;
 
   LeagueLadder buildLadder(List<String> orderedTeamKeys) {
     return LeagueLadder(
@@ -51,6 +52,7 @@ void main() {
     mockDauCompsViewModel = MockDAUCompsViewModel();
     mockGameTipViewModel = MockGameTipViewModel();
     mockTipsViewModel = MockTipsViewModel();
+    ladderRevision = ValueNotifier<int>(0);
 
     final homeTeam = Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl);
     final awayTeam = Team(dbkey: 'nrl-away', name: 'Away', league: League.nrl);
@@ -103,6 +105,9 @@ void main() {
         forceRecalculate: any(named: 'forceRecalculate'),
       ),
     ).thenAnswer((_) async => currentLadder);
+    when(
+      () => mockDauCompsViewModel.leagueLadderRevision,
+    ).thenReturn(ladderRevision);
 
     when(() => mockGameTipViewModel.game).thenReturn(game);
     when(() => mockGameTipViewModel.tip).thenReturn(null);
@@ -150,6 +155,7 @@ void main() {
         forceRecalculate: false,
       ),
     ).called(1);
+    verify(() => mockDauCompsViewModel.leagueLadderRevision).called(1);
     verifyNoMoreInteractions(mockDauCompsViewModel);
   });
 
@@ -221,6 +227,51 @@ void main() {
         forceRecalculate: false,
       ),
     ).called(2);
+  });
+
+  testWidgets('refetches ladder ranks when fixture scores invalidate the ladder', (
+    tester,
+  ) async {
+    Widget buildSubject() => MaterialApp(
+      home: Provider<StatsViewModel?>.value(
+        value: null,
+        child: Scaffold(
+          body: GameListItem(
+            game: game,
+            currentTipper: currentTipper,
+            currentDAUComp: currentComp,
+            allTipsViewModel: mockTipsViewModel,
+            isPercentStatsPage: false,
+            gameTipViewModel: mockGameTipViewModel,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('1st'), findsOneWidget);
+    expect(find.text('2nd'), findsOneWidget);
+
+    currentLadder = buildLadder([
+      'nrl-filler-1',
+      'nrl-filler-2',
+      game.awayTeam.dbkey,
+      'nrl-filler-3',
+      game.homeTeam.dbkey,
+    ]);
+    ladderRevision.value++;
+
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('3rd'), findsOneWidget);
+    expect(find.text('5th'), findsOneWidget);
+    expect(find.text('1st'), findsNothing);
+    expect(find.text('2nd'), findsNothing);
   });
 
   testWidgets(
