@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -98,6 +99,10 @@ void main() {
       name: 'Tipper',
       tipperRole: TipperRole.tipper,
     );
+    registerFallbackValue(<Game>[]);
+    registerFallbackValue(tipper);
+    registerFallbackValue(round);
+    registerFallbackValue(League.nrl);
 
     when(() => dauCompsViewModel.selectedDAUComp).thenReturn(comp);
     when(() => dauCompsViewModel.gamesViewModel).thenReturn(null);
@@ -158,10 +163,6 @@ void main() {
     tester,
   ) async {
     final tipsViewModel = _MockTipsViewModel();
-    registerFallbackValue(<Game>[]);
-    registerFallbackValue(tipper);
-    registerFallbackValue(round);
-    registerFallbackValue(League.nrl);
     when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
     when(
       () => tipsViewModel.firstUntippedGameIndex(any(), any()),
@@ -200,6 +201,48 @@ void main() {
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(dynamicOffset, 0.1));
+  });
+
+  testWidgets('updates AFL sticky header to NRL on the second tap', (
+    tester,
+  ) async {
+    final tipsViewModel = _MockTipsViewModel();
+    when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+    when(
+      () => tipsViewModel.firstUntippedGameIndex(any(), any()),
+    ).thenAnswer((invocation) {
+      final games = invocation.positionalArguments.first as List<Game>;
+      return games.first.league == League.afl ? 1 : -1;
+    });
+    when(
+      () => tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+        any(),
+        any(),
+      ),
+    ).thenReturn(0);
+    when(
+      () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
+        any(),
+        any(),
+      ),
+    ).thenReturn(0);
+    when(
+      () => dauCompsViewModel.selectedTipperTipsViewModel,
+    ).thenReturn(tipsViewModel);
+
+    await pumpHome(tester);
+
+    TipsStickyHeader stickyHeader() => tester.widget<TipsStickyHeader>(
+      find.byType(TipsStickyHeader),
+    );
+
+    expect(stickyHeader().section.league, League.afl);
+
+    await tapTips(tester);
+    expect(stickyHeader().section.league, League.afl);
+
+    await tapTips(tester);
+    expect(stickyHeader().section.league, League.nrl);
   });
 
   testWidgets('includes a league section when that league has no games', (
