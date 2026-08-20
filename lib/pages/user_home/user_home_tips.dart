@@ -239,9 +239,21 @@ class TipsTabState extends State<TipsTab> {
 
     _resetStartupScrollState();
     _pendingStartupOffset = nextTarget.offset;
-    _activeSectionIndex = nextTarget.sectionIndex;
-    _syncStickyHeaderVisibility(scrollOffsetOverride: nextTarget.offset);
+    final nextActiveSectionIndex = activeStickyTipsLeagueSectionIndex(
+      sections: sections,
+      scrollOffset: nextTarget.offset,
+      leadingExtent: _welcomeSliverHeight,
+      topSafeInset: _topSafeInset,
+    );
+    final sectionChanged = _activeSectionIndex != nextActiveSectionIndex;
+    _activeSectionIndex = nextActiveSectionIndex;
+    final visibilityChanged = _updateStickyHeaderVisibility(
+      scrollOffsetOverride: nextTarget.offset,
+    );
     _syncStickyHeaderPushUp(scrollOffsetOverride: nextTarget.offset);
+    if (sectionChanged || visibilityChanged) {
+      setState(() {});
+    }
     _scheduleStartupScrollAttempt();
   }
 
