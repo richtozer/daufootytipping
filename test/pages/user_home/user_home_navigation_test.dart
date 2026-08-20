@@ -146,14 +146,14 @@ void main() {
     final nrlOffset = tipsState.scrollController.offset;
     final aflOffset = nrlOffset + 10 * Game.gameCardHeight;
 
-    tipsState.scrollController.jumpTo(nrlOffset + 400);
-    expect(tipsState.scrollController.offset, greaterThan(nrlOffset));
+    await tapTips(tester);
+    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
 
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
+    tipsState.scrollController.jumpTo(nrlOffset + 400);
+    expect(tipsState.scrollController.offset, greaterThan(nrlOffset));
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
@@ -188,11 +188,6 @@ void main() {
     final nrlOffset = dynamicOffset - Game.gameCardHeight;
     final aflOffset = nrlOffset + 10 * Game.gameCardHeight;
 
-    tipsState.scrollController.jumpTo(dynamicOffset + 400);
-
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(dynamicOffset, 0.1));
-
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
 
@@ -201,9 +196,14 @@ void main() {
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(dynamicOffset, 0.1));
+
+    tipsState.scrollController.jumpTo(dynamicOffset + 400);
+
+    await tapTips(tester);
+    expect(tipsState.scrollController.offset, closeTo(dynamicOffset, 0.1));
   });
 
-  testWidgets('updates AFL sticky header to NRL on the second tap', (
+  testWidgets('updates AFL sticky header to NRL on the next tap', (
     tester,
   ) async {
     final tipsViewModel = _MockTipsViewModel();
@@ -239,9 +239,6 @@ void main() {
     expect(stickyHeader().section.league, League.afl);
 
     await tapTips(tester);
-    expect(stickyHeader().section.league, League.afl);
-
-    await tapTips(tester);
     expect(stickyHeader().section.league, League.nrl);
   });
 
@@ -255,7 +252,8 @@ void main() {
     final aflOffset =
         nrlEmptySectionOffset + DAURound.noGamesCardHeight;
 
-    tipsState.scrollController.jumpTo(aflOffset + 400);
+    await tapTips(tester);
+    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
 
     await tapTips(tester);
     expect(
@@ -263,8 +261,7 @@ void main() {
       closeTo(nrlEmptySectionOffset, 0.1),
     );
 
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
+    tipsState.scrollController.jumpTo(aflOffset + 400);
 
     await tapTips(tester);
     expect(
@@ -287,7 +284,11 @@ void main() {
     const nrlOffset = 175.0;
     final aflOffset = nrlOffset + 10 * Game.gameCardHeight;
 
-    tipsState.scrollController.jumpTo(0);
+    await tapTips(tester);
+    expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
+
+    await tapTips(tester);
+    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
 
     await tapTips(tester);
     expect(
@@ -295,11 +296,7 @@ void main() {
       closeTo(endOfCompetitionOffset, 0.1),
     );
 
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
-
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
+    tipsState.scrollController.jumpTo(0);
 
     await tapTips(tester);
     expect(
