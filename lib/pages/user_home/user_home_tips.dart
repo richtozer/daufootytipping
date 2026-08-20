@@ -13,6 +13,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
+typedef _TipsScrollTarget = ({double offset, int sectionIndex});
+
 class TipsTab extends StatefulWidget {
   const TipsTab({super.key});
 
@@ -32,7 +34,7 @@ class TipsTabState extends State<TipsTab> {
   bool _startupScrollSettled = false;
   int _startupScrollRetryCount = 0;
   double _lastStartupMaxScrollExtent = -1;
-  int? _startupTargetSectionIndex;
+  int _navigationCycleIndex = 0;
   int _activeSectionIndex = 0;
   bool _showLoadingPlaceholder = true;
   bool _stickyHeaderVisible = false;
@@ -67,6 +69,7 @@ class TipsTabState extends State<TipsTab> {
     if (selectedComp == null) {
       _lastScrollSignature = null;
       _resetStartupScrollState();
+      _navigationCycleIndex = 0;
       _activeSectionIndex = 0;
       _stickyHeaderVisible = false;
       _cachedSections = const [];
@@ -109,6 +112,7 @@ class TipsTabState extends State<TipsTab> {
       _startupScrollSettled = false;
       _startupScrollRetryCount = 0;
       _lastStartupMaxScrollExtent = -1;
+      _navigationCycleIndex = 0;
     }
     if (_startupScrollSettled) {
       return;
@@ -119,33 +123,16 @@ class TipsTabState extends State<TipsTab> {
 
     _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
     final sections = _cachedSections;
-    final isCompComplete =
-        latestRoundNumber >= selectedComp.daurounds.length &&
-        sections.isNotEmpty;
-    if (isCompComplete) {
-      _pendingStartupOffset = _endFooterStartupOffset(sections);
-      _startupTargetSectionIndex = sections.length - 1;
-      _activeSectionIndex = _startupTargetSectionIndex!;
-      _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
-    } else {
-      final targetSectionIndex = _targetStartupSectionIndex(
-        selectedComp,
-        sections,
-      );
-      _startupTargetSectionIndex = targetSectionIndex;
-      _pendingStartupOffset = _startupScrollOffset(
-        sections: sections,
-        targetSectionIndex: targetSectionIndex,
-      ) + _intraRoundScrollRefinement(
-        selectedComp: selectedComp,
-        sections: sections,
-        targetSectionIndex: targetSectionIndex,
-      );
-      if (_activeSectionIndex != targetSectionIndex) {
-        _activeSectionIndex = targetSectionIndex;
-      }
-      _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
+    final defaultTarget = _defaultScrollTarget(
+      selectedComp: selectedComp,
+      sections: sections,
+      latestRoundNumber: latestRoundNumber,
+    );
+    _pendingStartupOffset = defaultTarget.offset;
+    if (_activeSectionIndex != defaultTarget.sectionIndex) {
+      _activeSectionIndex = defaultTarget.sectionIndex;
     }
+    _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
     _syncStickyHeaderPushUp(scrollOffsetOverride: _pendingStartupOffset);
 
     // A post-frame jump may already be queued from an earlier startup state.
@@ -201,16 +188,106 @@ class TipsTabState extends State<TipsTab> {
     _startupScrollSettled = false;
     _startupScrollRetryCount = 0;
     _lastStartupMaxScrollExtent = -1;
-    _startupTargetSectionIndex = null;
   }
 
-  void resetToDefaultPosition() {
-    if (daucompsViewModel.selectedDAUComp == null) {
+  void scrollToNextNavigationPosition() {
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null) {
       return;
     }
 
+    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
+    if (sections.isEmpty) {
+      return;
+    }
+    _cachedSections = sections;
+
+    final defaultTarget = _defaultScrollTarget(
+      selectedComp: selectedComp,
+      sections: sections,
+      latestRoundNumber: selectedComp.latestsCompletedRoundNumber(),
+    );
+    final targetRoundIndex = sections[defaultTarget.sectionIndex].roundIndex;
+    final leagueTargets = <_TipsScrollTarget>[
+      for (final league in const [League.nrl, League.afl])
+        if (_sectionIndexForRoundAndLeague(
+          sections: sections,
+          roundIndex: targetRoundIndex,
+          league: league,
+        ) case final sectionIndex when sectionIndex >= 0)
+          (
+            offset: _startupScrollOffset(
+              sections: sections,
+              targetSectionIndex: sectionIndex,
+            ),
+            sectionIndex: sectionIndex,
+          ),
+    ];
+    final defaultMatchesLeagueTarget = leagueTargets.any(
+      (target) => (target.offset - defaultTarget.offset).abs() <= 8,
+    );
+    final cycleTargets = defaultMatchesLeagueTarget
+        ? leagueTargets
+        : [defaultTarget, ...leagueTargets];
+    if (cycleTargets.isEmpty) {
+      return;
+    }
+
+    final nextTarget = cycleTargets[_navigationCycleIndex % cycleTargets.length];
+    _navigationCycleIndex =
+        (_navigationCycleIndex + 1) % cycleTargets.length;
+
     _resetStartupScrollState();
-    _syncSelectedCompState();
+    _pendingStartupOffset = nextTarget.offset;
+    _activeSectionIndex = nextTarget.sectionIndex;
+    _syncStickyHeaderVisibility(scrollOffsetOverride: nextTarget.offset);
+    _syncStickyHeaderPushUp(scrollOffsetOverride: nextTarget.offset);
+    _scheduleStartupScrollAttempt();
+  }
+
+  _TipsScrollTarget _defaultScrollTarget({
+    required DAUComp selectedComp,
+    required List<TipsLeagueSection> sections,
+    required int latestRoundNumber,
+  }) {
+    final isCompComplete =
+        latestRoundNumber >= selectedComp.daurounds.length &&
+        sections.isNotEmpty;
+    if (isCompComplete) {
+      return (
+        offset: _endFooterStartupOffset(sections),
+        sectionIndex: sections.length - 1,
+      );
+    }
+
+    final targetSectionIndex = _targetStartupSectionIndex(
+      selectedComp,
+      sections,
+    );
+    return (
+      offset:
+          _startupScrollOffset(
+            sections: sections,
+            targetSectionIndex: targetSectionIndex,
+          ) +
+          _intraRoundScrollRefinement(
+            selectedComp: selectedComp,
+            sections: sections,
+            targetSectionIndex: targetSectionIndex,
+          ),
+      sectionIndex: targetSectionIndex,
+    );
+  }
+
+  int _sectionIndexForRoundAndLeague({
+    required List<TipsLeagueSection> sections,
+    required int roundIndex,
+    required League league,
+  }) {
+    return sections.indexWhere(
+      (section) =>
+          section.roundIndex == roundIndex && section.league == league,
+    );
   }
 
   void _handleScrollChanged() {

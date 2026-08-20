@@ -58,7 +58,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
 
   void onTabTapped(int index) {
     if (index == 0 && _currentIndex.value == 0) {
-      _tipsTabKey.currentState?.resetToDefaultPosition();
+      _tipsTabKey.currentState?.scrollToNextNavigationPosition();
       return;
     }
 
