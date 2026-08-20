@@ -34,7 +34,6 @@ class TipsTabState extends State<TipsTab> {
   bool _startupScrollSettled = false;
   int _startupScrollRetryCount = 0;
   double _lastStartupMaxScrollExtent = -1;
-  int _navigationCycleIndex = 0;
   int _activeSectionIndex = 0;
   bool _showLoadingPlaceholder = true;
   bool _stickyHeaderVisible = false;
@@ -69,7 +68,6 @@ class TipsTabState extends State<TipsTab> {
     if (selectedComp == null) {
       _lastScrollSignature = null;
       _resetStartupScrollState();
-      _navigationCycleIndex = 0;
       _activeSectionIndex = 0;
       _stickyHeaderVisible = false;
       _cachedSections = const [];
@@ -112,7 +110,6 @@ class TipsTabState extends State<TipsTab> {
       _startupScrollSettled = false;
       _startupScrollRetryCount = 0;
       _lastStartupMaxScrollExtent = -1;
-      _navigationCycleIndex = 0;
     }
     if (_startupScrollSettled) {
       return;
@@ -233,9 +230,19 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
-    final nextTarget = cycleTargets[_navigationCycleIndex % cycleTargets.length];
-    _navigationCycleIndex =
-        (_navigationCycleIndex + 1) % cycleTargets.length;
+    final maxScrollExtent = scrollController.hasClients
+        ? scrollController.position.maxScrollExtent
+        : double.infinity;
+    final currentOffset = scrollController.hasClients
+        ? scrollController.offset
+        : 0.0;
+    final currentTargetIndex = cycleTargets.indexWhere((target) {
+      final reachableOffset = target.offset.clamp(0.0, maxScrollExtent);
+      return (currentOffset - reachableOffset).abs() <= 8;
+    });
+    final nextTarget = currentTargetIndex == -1
+        ? cycleTargets.first
+        : cycleTargets[(currentTargetIndex + 1) % cycleTargets.length];
 
     _resetStartupScrollState();
     _pendingStartupOffset = nextTarget.offset;
