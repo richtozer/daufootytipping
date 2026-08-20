@@ -76,6 +76,7 @@ void main() {
     );
 
     when(() => tippersViewModel.selectedTipper).thenReturn(alice);
+    when(() => tippersViewModel.tippers).thenReturn(<Tipper>[alice, bob]);
     when(() => tippersViewModel.isUserLinked).thenAnswer((_) async {});
     when(() => tippersViewModel.addListener(any())).thenReturn(null);
     when(() => tippersViewModel.removeListener(any())).thenReturn(null);

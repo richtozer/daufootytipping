@@ -26,6 +26,7 @@ import 'package:synchronized/synchronized.dart';
 const String statsPathRootLocal = p.statsPathRoot;
 
 class StatsViewModel extends ChangeNotifier {
+  final Map<int, Map<String, RoundStats>> _roundStatsByTipperDbKey = {};
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
   Map<int, Map<Tipper, RoundStats>> get allTipperRoundStats =>
       _allTipperRoundStats;
@@ -100,7 +101,7 @@ class StatsViewModel extends ChangeNotifier {
     // add a listener for the tipper viewmodel, do a re-calculation of the leaderboards
     // if the tippers change
 
-    di<TippersViewModel>().addListener(_updateLeaderAndRoundAndRank);
+    di<TippersViewModel>().addListener(_handleTippersUpdated);
 
     _listenToScores();
   }
@@ -164,39 +165,24 @@ class StatsViewModel extends ChangeNotifier {
     try {
       if (event.snapshot.exists) {
         final dbData = _roundStatsRowsFromSnapshot(event.snapshot.value);
-        // Deserialize the round points into _allTipperRoundStats
+        // Retain rows by database key so they survive tipper snapshot ordering.
         for (final row in dbData.entries) {
           final roundIndex = row.key;
           final roundPointsJson = row.value;
-          Map<Tipper, RoundStats> roundPoints = {};
+          final roundPoints = <String, RoundStats>{};
 
-          // Collect all futures
-          List<Future<void>> futures = [];
-          for (var entry in roundPointsJson.entries) {
-            futures.add(
-              di<TippersViewModel>().findTipper(entry.key).then((tipper) {
-                var roundStats = RoundStats.fromJson(
-                  Map<String, dynamic>.from(
-                    entry.value as Map<dynamic, dynamic>,
-                  ),
-                  fallbackRoundNumber: roundIndex + 1,
-                );
-                if (tipper != null) {
-                  roundPoints[tipper] = roundStats;
-                } else {
-                  log(
-                    'StatsViewModel() Tipper ${entry.key} not found in _handleEventRoundPoints',
-                  );
-                }
-              }),
+          for (final entry in roundPointsJson.entries) {
+            roundPoints[entry.key.toString()] = RoundStats.fromJson(
+              Map<String, dynamic>.from(
+                entry.value as Map<dynamic, dynamic>,
+              ),
+              fallbackRoundNumber: roundIndex + 1,
             );
           }
 
-          // Wait for all futures to complete
-          await Future.wait(futures);
-
-          _allTipperRoundStats[roundIndex] = roundPoints;
+          _roundStatsByTipperDbKey[roundIndex] = roundPoints;
         }
+        _relinkRoundStatsToCurrentTippers();
 
         log(
           'StatsViewModel._handleEventRoundPoints() Loaded round points for ${_allTipperRoundStats.length} rounds',
@@ -215,6 +201,7 @@ class StatsViewModel extends ChangeNotifier {
       await _updateLeaderAndRoundAndRank();
     } catch (e, stackTrace) {
       log('Error listening to /$statsPathRootLocal/$_roundStatsReadRoot: $e');
+      _roundStatsByTipperDbKey.clear();
       _allTipperRoundStats.clear(); // Rollback partial updates
       if (!_initialRoundPointsLoadCompleted.isCompleted) {
         _initialRoundPointsLoadCompleted.completeError(e, stackTrace);
@@ -266,6 +253,34 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Completer<void>? _updateLock;
+
+  void _handleTippersUpdated() {
+    _relinkRoundStatsToCurrentTippers();
+    unawaited(_updateLeaderAndRoundAndRank());
+  }
+
+  void _relinkRoundStatsToCurrentTippers() {
+    final currentTippersByDbKey = <String, Tipper>{
+      for (final tipper in di<TippersViewModel>().tippers)
+        if (tipper.dbkey != null) tipper.dbkey!: tipper,
+    };
+    final relinkedStats = <int, Map<Tipper, RoundStats>>{};
+
+    for (final roundEntry in _roundStatsByTipperDbKey.entries) {
+      final roundStats = <Tipper, RoundStats>{};
+      for (final tipperEntry in roundEntry.value.entries) {
+        final currentTipper = currentTippersByDbKey[tipperEntry.key];
+        if (currentTipper != null) {
+          roundStats[currentTipper] = tipperEntry.value;
+        }
+      }
+      relinkedStats[roundEntry.key] = roundStats;
+    }
+
+    _allTipperRoundStats
+      ..clear()
+      ..addAll(relinkedStats);
+  }
 
   Future<void> _updateLeaderAndRoundAndRank() async {
     if (_updateLock != null) {
@@ -1071,7 +1086,7 @@ class StatsViewModel extends ChangeNotifier {
   @override
   void dispose() {
     if (di.isRegistered<TippersViewModel>()) {
-      di<TippersViewModel>().removeListener(_updateLeaderAndRoundAndRank);
+      di<TippersViewModel>().removeListener(_handleTippersUpdated);
     }
     if (_hasRoundPointsListener) {
       _allRoundPointsStream.cancel();
@@ -1085,6 +1100,7 @@ class StatsViewModel extends ChangeNotifier {
       _gameStatsStream.cancel();
       _hasGameStatsListener = false;
     }
+    _roundStatsByTipperDbKey.clear();
     _allTipperRoundStats.clear();
     super.dispose();
   }
