@@ -21,6 +21,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with RestorationMixin {
   final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
   final TippersViewModel _tippersViewModel = di<TippersViewModel>();
+  final GlobalKey<TipsTabState> _tipsTabKey = GlobalKey<TipsTabState>();
   final OutstandingTipsAppBadgeController _appBadgeController =
       OutstandingTipsAppBadgeController(AppBadgeService());
   late final RestorableInt _currentIndex = RestorableInt(0);
@@ -56,12 +57,21 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   }
 
   void onTabTapped(int index) {
+    if (index == 0 && _currentIndex.value == 0) {
+      _tipsTabKey.currentState?.resetToDefaultPosition();
+      return;
+    }
+
     setState(() {
       _currentIndex.value = index;
     });
   }
 
-  List<Widget> content() => const [TipsTab(), StatsTab(), Profile()];
+  List<Widget> content() => [
+    TipsTab(key: _tipsTabKey),
+    const StatsTab(),
+    const Profile(),
+  ];
 
   int _calculateOutstandingTipsCount() {
     if (_tippersViewModel.selectedTipper.isAnonymous) {
