@@ -617,11 +617,18 @@ class StatsViewModel extends ChangeNotifier {
     return gamesStatsEntry[game.dbkey];
   }
 
-  void getGamesStatsEntry(Game game, bool forceUpdate) async {
+  void getGamesStatsEntry(Game game, bool forceUpdate) {
+    unawaited(loadGamesStatsEntry(game, forceUpdate));
+  }
+
+  Future<GameStatsEntry?> loadGamesStatsEntry(
+    Game game,
+    bool forceUpdate,
+  ) async {
     // Fast path avoids rebuilding every card when it reappears during scroll.
     final GameStatsEntry? cached = gameStatsEntryFor(game);
     if (cached != null && !forceUpdate) {
-      return;
+      return cached;
     }
 
     GameStatsEntry? dbEntry;
@@ -656,7 +663,7 @@ class StatsViewModel extends ChangeNotifier {
             error: error,
             stackTrace: stackTrace,
           );
-          return;
+          return gameStatsEntryFor(game);
         }
 
         final retryDelay = _gameStatsRetryDelays[attempt];
@@ -671,13 +678,14 @@ class StatsViewModel extends ChangeNotifier {
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 
     if (dbEntry == null) {
-      return;
+      return previousEntry;
     }
 
     gamesStatsEntry[game.dbkey] = dbEntry;
     if (previousEntry != dbEntry) {
       notifyListeners();
     }
+    return dbEntry;
   }
 
   Future<GameStatsEntry?> _getGameStatsEntry(Game game) async {

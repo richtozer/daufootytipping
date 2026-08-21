@@ -14,11 +14,13 @@ class TipChoice extends StatelessWidget {
     this.isPercentStatsPage, {
     super.key,
     this.gameStatsEntry,
+    this.percentStatsLoadComplete = false,
   });
 
   final GameTipViewModel gameTipViewModel;
   final bool isPercentStatsPage;
   final GameStatsEntry? gameStatsEntry;
+  final bool percentStatsLoadComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +50,7 @@ class TipChoice extends StatelessWidget {
                             gameTipViewModel,
                             gameStatsEntry,
                             context,
+                            percentStatsLoadComplete,
                           ),
                     const SizedBox(width: 8),
                     !isPercentStatsPage
@@ -61,6 +64,7 @@ class TipChoice extends StatelessWidget {
                             gameTipViewModel,
                             gameStatsEntry,
                             context,
+                            percentStatsLoadComplete,
                           ),
                   ],
                 ),
@@ -79,6 +83,7 @@ class TipChoice extends StatelessWidget {
                           gameTipViewModel,
                           gameStatsEntry,
                           context,
+                          percentStatsLoadComplete,
                         ),
                 ],
               ),
@@ -96,6 +101,7 @@ class TipChoice extends StatelessWidget {
                           gameTipViewModel,
                           gameStatsEntry,
                           context,
+                          percentStatsLoadComplete,
                         ),
                   const SizedBox(width: 8),
                   !isPercentStatsPage
@@ -109,6 +115,7 @@ class TipChoice extends StatelessWidget {
                           gameTipViewModel,
                           gameStatsEntry,
                           context,
+                          percentStatsLoadComplete,
                         ),
                 ],
               ),
@@ -267,6 +274,7 @@ class TipChoice extends StatelessWidget {
     GameTipViewModel gameTipsViewModel,
     GameStatsEntry? gameStatsEntry,
     BuildContext context,
+    bool loadComplete,
   ) {
     var buttonText = '?';
     double? percentageForOption;
@@ -301,7 +309,7 @@ class TipChoice extends StatelessWidget {
               option
           ? const Icon(Icons.emoji_events, color: Colors.black)
           : null,
-      label: percentageForOption == null
+      label: percentageForOption == null && !loadComplete
           ? const SizedBox(
               width: 20,
               height: 20,

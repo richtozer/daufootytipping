@@ -552,7 +552,7 @@ class _PercentStatsTipChoice extends StatefulWidget {
 }
 
 class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
-  String? _requestedGameKey;
+  Future<GameStatsEntry?>? _gameStatsLoad;
 
   @override
   void initState() {
@@ -569,10 +569,6 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
     final bool statsViewModelChanged =
         oldWidget.statsViewModel != widget.statsViewModel;
 
-    if (gameChanged) {
-      _requestedGameKey = null;
-    }
-
     if (gameChanged || statsViewModelChanged) {
       _requestPercentStatsIfNeeded();
     }
@@ -581,29 +577,44 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   void _requestPercentStatsIfNeeded() {
     final statsViewModel = widget.statsViewModel;
     if (statsViewModel == null) {
+      _gameStatsLoad = null;
       return;
     }
 
-    final gameKey = widget.gameTipViewModel.game.dbkey;
-    if (_requestedGameKey == gameKey) {
+    if (widget.gameStatsEntry != null) {
+      _gameStatsLoad = Future<GameStatsEntry?>.value(widget.gameStatsEntry);
       return;
     }
 
-    _requestedGameKey = gameKey;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _requestedGameKey != gameKey) {
-        return;
-      }
-      statsViewModel.getGamesStatsEntry(widget.gameTipViewModel.game, false);
-    });
+    _gameStatsLoad = statsViewModel.loadGamesStatsEntry(
+      widget.gameTipViewModel.game,
+      false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return TipChoice(
-      widget.gameTipViewModel,
-      true,
-      gameStatsEntry: widget.gameStatsEntry,
+    final listenerEntry = widget.gameStatsEntry;
+    if (listenerEntry != null) {
+      return TipChoice(
+        widget.gameTipViewModel,
+        true,
+        gameStatsEntry: listenerEntry,
+        percentStatsLoadComplete: true,
+      );
+    }
+
+    return FutureBuilder<GameStatsEntry?>(
+      future: _gameStatsLoad,
+      builder: (context, snapshot) {
+        return TipChoice(
+          widget.gameTipViewModel,
+          true,
+          gameStatsEntry: snapshot.data,
+          percentStatsLoadComplete:
+              snapshot.connectionState == ConnectionState.done,
+        );
+      },
     );
   }
 }
