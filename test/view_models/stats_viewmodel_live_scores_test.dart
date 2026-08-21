@@ -449,6 +449,43 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'caches game stats before the matching fixture is loaded',
+    () async {
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: rootDb,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleGameStatsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-04-999': <String, Object?>{
+                'pctTipA': 0.0,
+                'pctTipB': 0.625,
+                'pctTipC': 0.0,
+                'pctTipD': 0.375,
+                'pctTipE': 0.0,
+              },
+            },
+          ),
+        ),
+      );
+
+      expect(
+        viewModel.gamesStatsEntry['nrl-04-999']?.percentageTippedHome,
+        0.625,
+      );
+      verifyNever(() => gamesViewModel.findGame('nrl-04-999'));
+
+      viewModel.dispose();
+    },
+  );
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {
