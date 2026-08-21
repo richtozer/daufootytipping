@@ -17,10 +17,12 @@ import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:synchronized/synchronized.dart';
+import 'package:daufootytipping/services/startup_app_check.dart';
 
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
@@ -43,12 +45,20 @@ class StatsViewModel extends ChangeNotifier {
 
   final DatabaseReference _db;
   final List<Duration> _gameStatsRetryDelays;
+  final List<Duration> _gameStatsListenerRetryDelays;
+  final Future<void> Function() _refreshProtectedResourceAccess;
+  final Lock _gameStatsListenerLock = Lock();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundPointsStream;
   late StreamSubscription<DatabaseEvent> _gameStatsStream;
   bool _hasLiveScoresListener = false;
   bool _hasRoundPointsListener = false;
   bool _hasGameStatsListener = false;
+  String? _gameStatsListenerSubKey;
+  int _gameStatsListenerGeneration = 0;
+  int _gameStatsListenerReconnectAttempts = 0;
+  Timer? _gameStatsListenerReconnectTimer;
+  bool _disposed = false;
 
   final DAUComp selectedDAUComp;
 
@@ -88,8 +98,22 @@ class StatsViewModel extends ChangeNotifier {
       Duration(seconds: 1),
       Duration(seconds: 2),
     ],
+    List<Duration> gameStatsListenerRetryDelays = const [
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+      Duration(seconds: 15),
+      Duration(seconds: 30),
+    ],
+    Future<void> Function()? refreshProtectedResourceAccess,
   }) : _db = database ?? configuredDatabaseRef(),
-       _gameStatsRetryDelays = gameStatsRetryDelays {
+       _gameStatsRetryDelays = gameStatsRetryDelays,
+       _gameStatsListenerRetryDelays = gameStatsListenerRetryDelays,
+       _refreshProtectedResourceAccess =
+           refreshProtectedResourceAccess ??
+           (() async {
+             await FirebaseAppCheck.instance.getToken(true);
+           }) {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
     log(
       'StatsViewModel scoring reads: backend=true '
@@ -143,29 +167,124 @@ class StatsViewModel extends ChangeNotifier {
     await _listenToGameStats();
   }
 
-  Future<void> _listenToGameStats() async {
-    if (_hasGameStatsListener) {
+  Future<void> _listenToGameStats({bool forceReconnect = false}) {
+    return _gameStatsListenerLock.synchronized(() async {
+      await di<TippersViewModel>().isUserLinked;
+      if (_disposed) {
+        return;
+      }
+
+      final isPaid = di<TippersViewModel>().selectedTipper.paidForComp(
+        selectedDAUComp,
+      );
+      final subKey = isPaid ? 'paid' : 'free';
+      if (_hasGameStatsListener &&
+          !forceReconnect &&
+          _gameStatsListenerSubKey == subKey) {
+        _isSelectedTipperPaidUpMember = isPaid;
+        return;
+      }
+
+      final cohortChanged =
+          _gameStatsListenerSubKey != null &&
+          _gameStatsListenerSubKey != subKey;
+      final generation = ++_gameStatsListenerGeneration;
+      if (_hasGameStatsListener) {
+        await _gameStatsStream.cancel();
+        _hasGameStatsListener = false;
+      }
+      if (_disposed) {
+        return;
+      }
+
+      if (cohortChanged) {
+        gamesStatsEntry.clear();
+        _gameStatsListenerReconnectAttempts = 0;
+        notifyListeners();
+      }
+
+      _isSelectedTipperPaidUpMember = isPaid;
+      _gameStatsListenerSubKey = subKey;
+      _gameStatsStream = _db
+          .child(statsPathRootLocal)
+          .child(selectedDAUComp.dbkey!)
+          .child(_gameStatsReadRoot)
+          .child(subKey)
+          .onValue
+          .listen(
+            (event) {
+              if (_disposed || generation != _gameStatsListenerGeneration) {
+                return;
+              }
+              _gameStatsListenerReconnectTimer?.cancel();
+              _gameStatsListenerReconnectTimer = null;
+              _gameStatsListenerReconnectAttempts = 0;
+              unawaited(_handleEventGameStats(event));
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              _handleGameStatsListenerError(
+                error,
+                stackTrace,
+                generation,
+              );
+            },
+          );
+      _hasGameStatsListener = true;
+    });
+  }
+
+  void _handleGameStatsListenerError(
+    Object error,
+    StackTrace stackTrace,
+    int generation,
+  ) {
+    log(
+      'StatsViewModel() Error listening to game stats: $error',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    if (_disposed || generation != _gameStatsListenerGeneration) {
       return;
     }
 
-    await di<TippersViewModel>().isUserLinked;
-    _isSelectedTipperPaidUpMember = di<TippersViewModel>().selectedTipper
-        .paidForComp(selectedDAUComp);
-
-    final subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
-    _gameStatsStream = _db
-        .child(statsPathRootLocal)
-        .child(selectedDAUComp.dbkey!)
-        .child(_gameStatsReadRoot)
-        .child(subKey)
-        .onValue
-        .listen(
-          _handleEventGameStats,
-          onError: (error) {
-            log('StatsViewModel() Error listening to game stats: $error');
-          },
+    final isProtectedResourceError =
+        StartupAppCheckSupport.isRetryableProtectedResourceError(error);
+    final isTransientDisconnect =
+        CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+          error,
         );
-    _hasGameStatsListener = true;
+    if (!isProtectedResourceError && !isTransientDisconnect) {
+      return;
+    }
+
+    final retryIndex = _gameStatsListenerReconnectAttempts <
+            _gameStatsListenerRetryDelays.length
+        ? _gameStatsListenerReconnectAttempts
+        : _gameStatsListenerRetryDelays.length - 1;
+    final retryDelay = _gameStatsListenerRetryDelays.isEmpty
+        ? Duration.zero
+        : _gameStatsListenerRetryDelays[retryIndex];
+    _gameStatsListenerReconnectAttempts += 1;
+    _gameStatsListenerReconnectTimer?.cancel();
+    _gameStatsListenerReconnectTimer = Timer(retryDelay, () async {
+      if (_disposed || generation != _gameStatsListenerGeneration) {
+        return;
+      }
+      if (isProtectedResourceError) {
+        try {
+          await _refreshProtectedResourceAccess();
+        } catch (refreshError, refreshStackTrace) {
+          log(
+            'StatsViewModel() Failed to refresh protected resource access: $refreshError',
+            error: refreshError,
+            stackTrace: refreshStackTrace,
+          );
+        }
+      }
+      if (!_disposed && generation == _gameStatsListenerGeneration) {
+        await _listenToGameStats(forceReconnect: true);
+      }
+    });
   }
 
   Future<void> _handleEventRoundPoints(DatabaseEvent event) async {
@@ -263,6 +382,7 @@ class StatsViewModel extends ChangeNotifier {
 
   void _handleTippersUpdated() {
     _relinkRoundStatsToCurrentTippers();
+    unawaited(_listenToGameStats());
     unawaited(_updateLeaderAndRoundAndRank());
   }
 
@@ -510,15 +630,29 @@ class StatsViewModel extends ChangeNotifier {
         dbEntry = await _getGameStatsEntry(game);
         break;
       } catch (error, stackTrace) {
-        if (!CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
-          error,
-        )) {
+        final isProtectedResourceError =
+            StartupAppCheckSupport.isRetryableProtectedResourceError(error);
+        final isTransientDisconnect = CrashlyticsErrorClassifier
+            .isTransientRealtimeDatabaseDisconnect(error);
+        if (!isProtectedResourceError && !isTransientDisconnect) {
           rethrow;
+        }
+
+        if (isProtectedResourceError) {
+          try {
+            await _refreshProtectedResourceAccess();
+          } catch (refreshError, refreshStackTrace) {
+            log(
+              'Failed to refresh protected resource access while reading game stats for game: ${game.dbkey}',
+              error: refreshError,
+              stackTrace: refreshStackTrace,
+            );
+          }
         }
 
         if (attempt >= _gameStatsRetryDelays.length) {
           log(
-            'Transient Realtime Database disconnect while reading game stats for game: ${game.dbkey}; retries exhausted.',
+            'Retryable Realtime Database error while reading game stats for game: ${game.dbkey}; retries exhausted.',
             error: error,
             stackTrace: stackTrace,
           );
@@ -527,7 +661,7 @@ class StatsViewModel extends ChangeNotifier {
 
         final retryDelay = _gameStatsRetryDelays[attempt];
         log(
-          'Transient Realtime Database disconnect while reading game stats for game: ${game.dbkey}; retrying in ${retryDelay.inMilliseconds}ms.',
+          'Retryable Realtime Database error while reading game stats for game: ${game.dbkey}; retrying in ${retryDelay.inMilliseconds}ms.',
           error: error,
           stackTrace: stackTrace,
         );
@@ -1103,6 +1237,10 @@ class StatsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _gameStatsListenerGeneration += 1;
+    _gameStatsListenerReconnectTimer?.cancel();
+    _gameStatsListenerReconnectTimer = null;
     if (di.isRegistered<TippersViewModel>()) {
       di<TippersViewModel>().removeListener(_handleTippersUpdated);
     }
