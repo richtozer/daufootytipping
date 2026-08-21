@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -13,6 +15,7 @@ import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -227,6 +230,73 @@ void main() {
     expect(find.text('0.32 / 2'), findsOneWidget);
     verify(() => providerDatabase.get()).called(1);
     verifyNever(() => database.get());
+  });
+
+  testWidgets('retries average points when the first stats read disconnects', (
+    tester,
+  ) async {
+    final providerDatabase = MockDatabaseReference();
+    when(() => providerDatabase.child(any())).thenReturn(providerDatabase);
+    var readCount = 0;
+    final secondReadCompleted = Completer<void>();
+    when(() => providerDatabase.get()).thenAnswer((_) async {
+      readCount++;
+      if (readCount == 1) {
+        throw FirebaseException(
+          plugin: 'firebase_database',
+          code: 'disconnected',
+          message:
+              'The operation had to be aborted due to a network disconnect.',
+        );
+      }
+      secondReadCompleted.complete();
+      return _snapshot(
+        exists: true,
+        value: <String, Object?>{
+          'avgScore': 0.316,
+          'avgScoreTipCount': 57,
+        },
+      );
+    });
+    final providerStatsViewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: providerDatabase,
+      autoInitialize: false,
+      gameStatsRetryDelays: const [Duration.zero],
+    );
+    addTearDown(providerStatsViewModel.dispose);
+    final tip = Tip(
+      dbkey: 'tip-1',
+      game: game,
+      tipper: tipper,
+      tip: GameResult.d,
+      submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: providerStatsViewModel,
+          child: Scaffold(
+            body: ScoringTile(
+              tip: tip,
+              gameTipsViewModel: FakeGameTipViewModel(game: game, tip: tip),
+              selectedDAUComp: comp,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('? / 2'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await secondReadCompleted.future;
+    await tester.pump();
+
+    expect(find.text('0.32 / 2'), findsOneWidget);
+    expect(find.text('? / 2'), findsNothing);
+    verify(() => providerDatabase.get()).called(2);
   });
 
   testWidgets('refetches average points when fixture scores finalize the game', (
