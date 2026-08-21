@@ -164,9 +164,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
           ChangeNotifierProvider<DAUCompsViewModel>.value(
             value: daucompsViewModel,
           ),
-          ChangeNotifierProvider<StatsViewModel?>.value(
-            value: daucompsViewModel.statsViewModel,
-          ),
         ],
         child: Theme(
           data: myTheme,
@@ -181,8 +178,10 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                 officialFixtureScoresOnly: true,
               );
 
-              return SelectedCompBanner(
-                child: Scaffold(
+              return ChangeNotifierProvider<StatsViewModel?>.value(
+                value: daucompsViewmodelConsumer.statsViewModel,
+                child: SelectedCompBanner(
+                  child: Scaffold(
                 floatingActionButton: FloatingActionButton.small(
                   backgroundColor: fabBackgroundColor,
                   foregroundColor: fabForegroundColor,
@@ -258,6 +257,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                     ],
                   ),
                 ),
+                  ),
                 ),
               );
             },

@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/ladder_team.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
@@ -23,6 +24,7 @@ import 'package:watch_it/watch_it.dart';
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 class MockGameTipViewModel extends Mock implements GameTipViewModel {}
 class MockTipsViewModel extends Mock implements TipsViewModel {}
+class MockStatsViewModel extends Mock implements StatsViewModel {}
 
 void main() {
   late MockDAUCompsViewModel mockDauCompsViewModel;
@@ -272,6 +274,62 @@ void main() {
     expect(find.text('5th'), findsOneWidget);
     expect(find.text('1st'), findsNothing);
     expect(find.text('2nd'), findsNothing);
+  });
+
+  testWidgets('replaces percentage spinners when game stats arrive', (
+    tester,
+  ) async {
+    final statsViewModel = MockStatsViewModel();
+    GameStatsEntry? gameStatsEntry;
+    late VoidCallback statsListener;
+    when(() => statsViewModel.addListener(any())).thenAnswer((invocation) {
+      statsListener = invocation.positionalArguments[0] as VoidCallback;
+    });
+    when(() => statsViewModel.removeListener(any())).thenReturn(null);
+    when(
+      () => statsViewModel.gameStatsEntryFor(game),
+    ).thenAnswer((_) => gameStatsEntry);
+    when(
+      () => statsViewModel.getGamesStatsEntry(game, false),
+    ).thenReturn(null);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: GameListItem(
+              game: game,
+              currentTipper: currentTipper,
+              currentDAUComp: currentComp,
+              allTipsViewModel: mockTipsViewModel,
+              isPercentStatsPage: true,
+              gameTipViewModel: mockGameTipViewModel,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNWidgets(5));
+    verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+
+    gameStatsEntry = GameStatsEntry(
+      percentageTippedHomeMargin: 0.035,
+      percentageTippedHome: 0.772,
+      percentageTippedDraw: 0,
+      percentageTippedAway: 0.193,
+      percentageTippedAwayMargin: 0,
+    );
+    statsListener();
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('3.5%'), findsOneWidget);
+    expect(find.text('77.2%'), findsOneWidget);
+    expect(find.text('0.0%'), findsNWidgets(2));
+    expect(find.text('19.3%'), findsOneWidget);
   });
 
   testWidgets(
