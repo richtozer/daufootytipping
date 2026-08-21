@@ -160,6 +160,7 @@ class GameTipViewModel extends ChangeNotifier {
     // if the tip has changed, then update the tip and notify listeners
     if (!_isEquivalentTip(newTip, _tip)) {
       _tip = newTip;
+      _syncTipGameScoring();
       log(
         'GameTipsViewModel._tipsUpdated() Notify listeners called for game ${game.homeTeam.name} v ${game.awayTeam.name}, ${game.gameState}. ',
       );
@@ -229,6 +230,7 @@ class GameTipViewModel extends ChangeNotifier {
     if (_disposed) {
       return;
     }
+    _syncTipGameScoring();
 
     // flag our initial load as complete
     if (!_initialLoadCompleter.isCompleted) {
@@ -241,6 +243,10 @@ class GameTipViewModel extends ChangeNotifier {
     if (_initialLoadCompleter.isCompleted) {
       await _fetchHistoricalTipStats();
     }
+  }
+
+  void _syncTipGameScoring() {
+    _tip?.game.scoring = game.scoring;
   }
 
   Future<void> _fetchHistoricalTipStats() async {

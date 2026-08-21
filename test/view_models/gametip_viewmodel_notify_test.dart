@@ -202,6 +202,43 @@ void main() {
       vm.dispose();
     });
 
+    test('syncs fixture scoring onto a tip loaded with a stale game', () async {
+      final scoredGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 4)),
+        homeScore: 14,
+        awayScore: 8,
+      );
+      final staleTipGame = buildGame(
+        startTimeUTC: scoredGame.startTimeUTC,
+        homeScore: null,
+        awayScore: null,
+      );
+      final staleTip = Tip(
+        dbkey: scoredGame.dbkey,
+        game: staleTipGame,
+        tipper: tipper,
+        tip: GameResult.b,
+        submittedTimeUTC: DateTime.now().toUtc(),
+      );
+      when(
+        () => mockTipsViewModel.findTip(any(), any()),
+      ).thenAnswer((_) async => staleTip);
+
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        scoredGame,
+        mockTipsViewModel,
+        database: mockDb,
+      );
+      await settleAsyncWork();
+
+      expect(vm.tip?.game.scoring, same(scoredGame.scoring));
+      expect(vm.tip?.getMaxPointsCalculated(), 2);
+
+      vm.dispose();
+    });
+
     test(
       'does not notify when the streamed tip only differs by dbkey or milliseconds',
       () async {

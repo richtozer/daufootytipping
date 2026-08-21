@@ -32,6 +32,12 @@ class FakeGameTipViewModel extends ChangeNotifier
   @override
   Tip? get tip => _tip;
 
+  void updateGame(Game updatedGame) {
+    game = updatedGame;
+    _tip.game.scoring = updatedGame.scoring;
+    notifyListeners();
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -171,6 +177,123 @@ void main() {
 
     expect(find.text('1.7 / 2'), findsOneWidget);
     expect(find.text('? / 2'), findsNothing);
+  });
+
+  testWidgets('fetches average points through the StatsViewModel it watches', (
+    tester,
+  ) async {
+    final providerDatabase = MockDatabaseReference();
+    when(() => providerDatabase.child(any())).thenReturn(providerDatabase);
+    when(() => providerDatabase.get()).thenAnswer(
+      (_) async => _snapshot(
+        exists: true,
+        value: <String, Object?>{
+          'avgScore': 0.316,
+          'avgScoreTipCount': 57,
+        },
+      ),
+    );
+    final providerStatsViewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: providerDatabase,
+      autoInitialize: false,
+    );
+    addTearDown(providerStatsViewModel.dispose);
+    final tip = Tip(
+      dbkey: 'tip-1',
+      game: game,
+      tipper: tipper,
+      tip: GameResult.d,
+      submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: providerStatsViewModel,
+          child: Scaffold(
+            body: ScoringTile(
+              tip: tip,
+              gameTipsViewModel: FakeGameTipViewModel(game: game, tip: tip),
+              selectedDAUComp: comp,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('0.32 / 2'), findsOneWidget);
+    verify(() => providerDatabase.get()).called(1);
+    verifyNever(() => database.get());
+  });
+
+  testWidgets('refetches average points when fixture scores finalize the game', (
+    tester,
+  ) async {
+    final unscoredGame = Game(
+      dbkey: game.dbkey,
+      league: game.league,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: game.startTimeUTC,
+      fixtureRoundNumber: game.fixtureRoundNumber,
+      fixtureMatchNumber: game.fixtureMatchNumber,
+      scoring: Scoring(),
+    );
+    final tip = Tip(
+      dbkey: 'tip-1',
+      game: unscoredGame,
+      tipper: tipper,
+      tip: GameResult.b,
+      submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
+    );
+    final gameTipViewModel = FakeGameTipViewModel(
+      game: unscoredGame,
+      tip: tip,
+    );
+    var fixtureFinalized = false;
+    when(() => database.get()).thenAnswer((_) async {
+      if (!fixtureFinalized) {
+        return _snapshot(exists: false, value: null);
+      }
+      return _snapshot(
+        exists: true,
+        value: <String, Object?>{
+          'avgScore': 1.684,
+          'avgScoreTipCount': 1,
+        },
+      );
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: ScoringTile(
+              tip: tip,
+              gameTipsViewModel: gameTipViewModel,
+              selectedDAUComp: comp,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('? / 0'), findsOneWidget);
+
+    fixtureFinalized = true;
+    gameTipViewModel.updateGame(game);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('1.7 / 2'), findsOneWidget);
+    expect(find.text('? / 0'), findsNothing);
+    verify(() => database.get()).called(2);
   });
 
   testWidgets('uses cached average points after game object replacement', (
