@@ -65,6 +65,7 @@ class TipsTabItemExtentCache {
 List<TipsLeagueSection> buildTipsLeagueSections({
   required DAUComp selectedComp,
   int? roundCount,
+  bool officialFixtureScoresOnly = false,
 }) {
   final sections = <TipsLeagueSection>[];
   final totalRounds = roundCount ?? selectedComp.daurounds.length;
@@ -72,6 +73,14 @@ List<TipsLeagueSection> buildTipsLeagueSections({
   for (var roundIndex = 0; roundIndex < totalRounds; roundIndex++) {
     final dauRound = selectedComp.daurounds[roundIndex];
     for (final league in const [League.nrl, League.afl]) {
+      final games = gamesForTipsLeagueSection(
+        dauRound,
+        league,
+        officialFixtureScoresOnly: officialFixtureScoresOnly,
+      );
+      if (officialFixtureScoresOnly && games.isEmpty) {
+        continue;
+      }
       sections.add(
         TipsLeagueSection(
           roundIndex: roundIndex,
@@ -80,16 +89,32 @@ List<TipsLeagueSection> buildTipsLeagueSections({
             dauRound,
             league,
           ),
-          bodyExtent: TipsTabItemExtentCache.leagueGamesExtent(
-            dauRound,
-            league,
-          ),
+          bodyExtent: games.isEmpty
+              ? DAURound.noGamesCardHeight
+              : games.length * Game.gameCardHeight,
         ),
       );
     }
   }
 
   return sections;
+}
+
+List<Game> gamesForTipsLeagueSection(
+  DAURound dauRound,
+  League league, {
+  bool officialFixtureScoresOnly = false,
+}) {
+  final games = dauRound.getGamesForLeague(league);
+  if (!officialFixtureScoresOnly) {
+    return games;
+  }
+  return games.where(_hasOfficialFixtureScore).toList();
+}
+
+bool _hasOfficialFixtureScore(Game game) {
+  return game.scoring?.homeTeamScore != null &&
+      game.scoring?.awayTeamScore != null;
 }
 
 /// Returns the section index for the round the tips page should initially
@@ -276,7 +301,11 @@ List<Widget> buildRoundLeagueSectionSlivers({
 }) {
   final selectedComp = dauCompsViewModel.selectedDAUComp!;
   final dauRound = selectedComp.daurounds[roundIndex];
-  final leagueGames = dauRound.getGamesForLeague(league);
+  final leagueGames = gamesForTipsLeagueSection(
+    dauRound,
+    league,
+    officialFixtureScoresOnly: isPercentStatsPage,
+  );
   final tipsViewModel = dauCompsViewModel.selectedTipperTipsViewModel;
   final bodyExtent = section.bodyExtent;
 

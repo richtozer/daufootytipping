@@ -178,7 +178,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
               }
               final sections = buildTipsLeagueSections(
                 selectedComp: selectedComp,
-                roundCount: latestRoundNumber,
+                officialFixtureScoresOnly: true,
               );
 
               return SelectedCompBanner(

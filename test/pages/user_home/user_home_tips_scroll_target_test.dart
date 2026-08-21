@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -29,6 +30,90 @@ void main() {
         fixtureMatchNumber: matchNumber,
       );
     }
+
+    group('percentage-tipped visibility', () {
+      test('includes officially scored games before the round has ended', () {
+        final now = DateTime.now().toUtc();
+        final scoredGame = makeGame(
+          dbkey: 'afl-24-204',
+          league: League.afl,
+          matchNumber: 204,
+          startTimeUTC: now.subtract(const Duration(hours: 1)),
+        )..scoring = Scoring(homeTeamScore: 80, awayTeamScore: 103);
+        final unscoredGame = makeGame(
+          dbkey: 'afl-24-205',
+          league: League.afl,
+          matchNumber: 205,
+          startTimeUTC: now.add(const Duration(hours: 1)),
+        );
+        final round = DAURound(
+          dAUroundNumber: 24,
+          firstGameKickOffUTC: scoredGame.startTimeUTC,
+          lastGameKickOffUTC: unscoredGame.startTimeUTC,
+          games: [scoredGame, unscoredGame],
+        )..roundState = RoundState.started;
+        final comp = DAUComp(
+          name: 'Test Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: [round],
+        );
+
+        final visibleGames = gamesForTipsLeagueSection(
+          round,
+          League.afl,
+          officialFixtureScoresOnly: true,
+        );
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          officialFixtureScoresOnly: true,
+        );
+
+        expect(visibleGames, [scoredGame]);
+        expect(sections, hasLength(1));
+        expect(sections.single.league, League.afl);
+        expect(sections.single.bodyExtent, Game.gameCardHeight);
+      });
+
+      test('excludes games that only have interim scores', () {
+        final now = DateTime.now().toUtc();
+        final liveGame = makeGame(
+          dbkey: 'nrl-24-204',
+          league: League.nrl,
+          matchNumber: 204,
+          startTimeUTC: now.subtract(const Duration(hours: 1)),
+        )..scoring = Scoring(
+            crowdSourcedScores: [
+              CrowdSourcedScore(
+                now,
+                ScoringTeam.home,
+                'tipper-1',
+                20,
+                false,
+              ),
+            ],
+          );
+        final round = DAURound(
+          dAUroundNumber: 24,
+          firstGameKickOffUTC: liveGame.startTimeUTC,
+          lastGameKickOffUTC: liveGame.startTimeUTC,
+          games: [liveGame],
+        );
+        final comp = DAUComp(
+          name: 'Test Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: [round],
+        );
+
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          officialFixtureScoresOnly: true,
+        );
+
+        expect(sections, isEmpty);
+      });
+    });
 
     group('targetStartupSectionIndex', () {
       test('targets round with live games when previous round ended recently',
