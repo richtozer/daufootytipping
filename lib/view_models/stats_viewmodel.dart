@@ -42,6 +42,7 @@ class StatsViewModel extends ChangeNotifier {
       List<Game>.unmodifiable(_gamesWithLiveScores);
 
   final DatabaseReference _db;
+  final List<Duration> _gameStatsRetryDelays;
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundPointsStream;
   late StreamSubscription<DatabaseEvent> _gameStatsStream;
@@ -82,7 +83,13 @@ class StatsViewModel extends ChangeNotifier {
     this.gamesViewModel, {
     DatabaseReference? database,
     bool autoInitialize = true,
-  }) : _db = database ?? configuredDatabaseRef() {
+    List<Duration> gameStatsRetryDelays = const [
+      Duration(milliseconds: 250),
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+    ],
+  }) : _db = database ?? configuredDatabaseRef(),
+       _gameStatsRetryDelays = gameStatsRetryDelays {
     log('StatsViewModel(ALL TIPPERS) for comp: ${selectedDAUComp.dbkey}');
     log(
       'StatsViewModel scoring reads: backend=true '
@@ -500,21 +507,35 @@ class StatsViewModel extends ChangeNotifier {
       return;
     }
 
-    final GameStatsEntry? dbEntry;
-    try {
-      dbEntry = await _getGameStatsEntry(game);
-    } catch (error, stackTrace) {
-      if (CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
-        error,
-      )) {
+    GameStatsEntry? dbEntry;
+    for (var attempt = 0;; attempt++) {
+      try {
+        dbEntry = await _getGameStatsEntry(game);
+        break;
+      } catch (error, stackTrace) {
+        if (!CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+          error,
+        )) {
+          rethrow;
+        }
+
+        if (attempt >= _gameStatsRetryDelays.length) {
+          log(
+            'Transient Realtime Database disconnect while reading game stats for game: ${game.dbkey}; retries exhausted.',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          return;
+        }
+
+        final retryDelay = _gameStatsRetryDelays[attempt];
         log(
-          'Transient Realtime Database disconnect while reading game stats for game: ${game.dbkey}',
+          'Transient Realtime Database disconnect while reading game stats for game: ${game.dbkey}; retrying in ${retryDelay.inMilliseconds}ms.',
           error: error,
           stackTrace: stackTrace,
         );
-        return;
+        await Future<void>.delayed(retryDelay);
       }
-      rethrow;
     }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 

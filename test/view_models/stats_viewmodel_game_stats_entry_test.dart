@@ -93,6 +93,7 @@ void main() {
         null,
         database: database,
         autoInitialize: false,
+        gameStatsRetryDelays: const [],
       );
 
       when(() => database.get()).thenAnswer((_) async {
@@ -117,6 +118,59 @@ void main() {
       expect(uncaughtErrors, isEmpty);
       expect(viewModel.gamesStatsEntry, isEmpty);
       verify(() => database.get()).called(1);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'getGamesStatsEntry retries a transient startup disconnect',
+    () async {
+      final listenersNotified = Completer<void>();
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+        gameStatsRetryDelays: const [Duration.zero],
+      );
+      viewModel.addListener(() {
+        if (!listenersNotified.isCompleted) {
+          listenersNotified.complete();
+        }
+      });
+      var readCount = 0;
+
+      when(() => database.get()).thenAnswer((_) async {
+        readCount++;
+        if (readCount == 1) {
+          throw FirebaseException(
+            plugin: 'firebase_database',
+            code: 'disconnected',
+            message:
+                'The operation had to be aborted due to a network disconnect.',
+          );
+        }
+        return _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'pctTipA': 0.035,
+            'pctTipB': 0.772,
+            'pctTipC': 0.0,
+            'pctTipD': 0.193,
+            'pctTipE': 0.0,
+          },
+        );
+      });
+
+      viewModel.getGamesStatsEntry(game, false);
+      await listenersNotified.future;
+
+      expect(
+        viewModel.gameStatsEntryFor(game)?.percentageTippedHome,
+        0.772,
+      );
+      verify(() => database.get()).called(2);
 
       viewModel.dispose();
     },
