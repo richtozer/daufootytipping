@@ -442,19 +442,11 @@ class StatsViewModel extends ChangeNotifier {
       bool changed = false;
       for (final entry in value.entries) {
         final gameDbKey = entry.key as String;
-        final game = await gamesViewModel?.findGame(gameDbKey);
-        if (game == null) {
-          log(
-            'StatsViewModel._handleEventGameStats() Game $gameDbKey not found locally. Skipping game stats entry.',
-          );
-          continue;
-        }
-
         final gameStatsEntry = GameStatsEntry.fromJson(
           Map<String, dynamic>.from(entry.value as Map),
         );
-        final previousEntry = gamesStatsEntry[game.dbkey];
-        gamesStatsEntry[game.dbkey] = gameStatsEntry;
+        final previousEntry = gamesStatsEntry[gameDbKey];
+        gamesStatsEntry[gameDbKey] = gameStatsEntry;
         if (previousEntry != gameStatsEntry) {
           changed = true;
         }
@@ -516,7 +508,6 @@ class StatsViewModel extends ChangeNotifier {
     for (var attempt = 0;; attempt++) {
       try {
         dbEntry = await _getGameStatsEntry(game);
-        break;
       } catch (error, stackTrace) {
         if (!CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
           error,
@@ -540,13 +531,24 @@ class StatsViewModel extends ChangeNotifier {
           stackTrace: stackTrace,
         );
         await Future<void>.delayed(retryDelay);
+        continue;
       }
+
+      if (dbEntry != null) {
+        break;
+      }
+
+      if (attempt >= _gameStatsRetryDelays.length) {
+        return;
+      }
+
+      final retryDelay = _gameStatsRetryDelays[attempt];
+      log(
+        'Game stats were not available for game: ${game.dbkey}; retrying in ${retryDelay.inMilliseconds}ms.',
+      );
+      await Future<void>.delayed(retryDelay);
     }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
-
-    if (dbEntry == null) {
-      return;
-    }
 
     gamesStatsEntry[game.dbkey] = dbEntry;
     if (previousEntry != dbEntry) {
