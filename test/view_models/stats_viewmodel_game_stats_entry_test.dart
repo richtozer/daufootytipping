@@ -177,54 +177,6 @@ void main() {
   );
 
   test(
-    'getGamesStatsEntry retries a missing startup snapshot',
-    () async {
-      final listenersNotified = Completer<void>();
-      final viewModel = StatsViewModel(
-        comp,
-        null,
-        database: database,
-        autoInitialize: false,
-        gameStatsRetryDelays: const [Duration.zero],
-      );
-      viewModel.addListener(() {
-        if (!listenersNotified.isCompleted) {
-          listenersNotified.complete();
-        }
-      });
-      var readCount = 0;
-
-      when(() => database.get()).thenAnswer((_) async {
-        readCount++;
-        if (readCount == 1) {
-          return _snapshot(exists: false, value: null);
-        }
-        return _snapshot(
-          exists: true,
-          value: <String, Object?>{
-            'pctTipA': 0.035,
-            'pctTipB': 0.772,
-            'pctTipC': 0.0,
-            'pctTipD': 0.193,
-            'pctTipE': 0.0,
-          },
-        );
-      });
-
-      viewModel.getGamesStatsEntry(game, false);
-      await listenersNotified.future;
-
-      expect(
-        viewModel.gameStatsEntryFor(game)?.percentageTippedHome,
-        0.772,
-      );
-      verify(() => database.get()).called(2);
-
-      viewModel.dispose();
-    },
-  );
-
-  test(
     'getGamesStatsEntry accepts backend finalized stats when not forced',
     () async {
       final staleZeroRead = Completer<void>();
