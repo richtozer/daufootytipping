@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
@@ -280,6 +282,7 @@ void main() {
     tester,
   ) async {
     final statsViewModel = MockStatsViewModel();
+    final directLoad = Completer<GameStatsEntry?>();
     GameStatsEntry? gameStatsEntry;
     late VoidCallback statsListener;
     when(() => statsViewModel.addListener(any())).thenAnswer((invocation) {
@@ -290,8 +293,8 @@ void main() {
       () => statsViewModel.gameStatsEntryFor(game),
     ).thenAnswer((_) => gameStatsEntry);
     when(
-      () => statsViewModel.getGamesStatsEntry(game, false),
-    ).thenReturn(null);
+      () => statsViewModel.loadGamesStatsEntry(game, false),
+    ).thenAnswer((_) => directLoad.future);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -313,7 +316,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsNWidgets(5));
-    verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+    verify(() => statsViewModel.loadGamesStatsEntry(game, false)).called(1);
 
     gameStatsEntry = GameStatsEntry(
       percentageTippedHomeMargin: 0.035,
@@ -323,6 +326,7 @@ void main() {
       percentageTippedAwayMargin: 0,
     );
     statsListener();
+    directLoad.complete(gameStatsEntry);
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -331,6 +335,88 @@ void main() {
     expect(find.text('0.0%'), findsNWidgets(2));
     expect(find.text('19.3%'), findsOneWidget);
   });
+
+  testWidgets(
+    'renders first percentage card from its direct stats read',
+    (tester) async {
+      final statsViewModel = MockStatsViewModel();
+      final directEntry = GameStatsEntry(
+        percentageTippedHomeMargin: 0.035,
+        percentageTippedHome: 0.772,
+        percentageTippedDraw: 0,
+        percentageTippedAway: 0.193,
+        percentageTippedAwayMargin: 0,
+      );
+      when(() => statsViewModel.addListener(any())).thenReturn(null);
+      when(() => statsViewModel.removeListener(any())).thenReturn(null);
+      when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
+      when(
+        () => statsViewModel.loadGamesStatsEntry(game, false),
+      ).thenAnswer((_) async => directEntry);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider<StatsViewModel?>.value(
+            value: statsViewModel,
+            child: Scaffold(
+              body: GameListItem(
+                game: game,
+                currentTipper: currentTipper,
+                currentDAUComp: currentComp,
+                allTipsViewModel: mockTipsViewModel,
+                isPercentStatsPage: true,
+                gameTipViewModel: mockGameTipViewModel,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('3.5%'), findsOneWidget);
+      expect(find.text('77.2%'), findsOneWidget);
+      expect(find.text('19.3%'), findsOneWidget);
+      verify(
+        () => statsViewModel.loadGamesStatsEntry(game, false),
+      ).called(1);
+    },
+  );
+
+  testWidgets(
+    'replaces percentage spinners when the direct read completes missing',
+    (tester) async {
+      final statsViewModel = MockStatsViewModel();
+      when(() => statsViewModel.addListener(any())).thenReturn(null);
+      when(() => statsViewModel.removeListener(any())).thenReturn(null);
+      when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
+      when(
+        () => statsViewModel.loadGamesStatsEntry(game, false),
+      ).thenAnswer((_) async => null);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider<StatsViewModel?>.value(
+            value: statsViewModel,
+            child: Scaffold(
+              body: GameListItem(
+                game: game,
+                currentTipper: currentTipper,
+                currentDAUComp: currentComp,
+                allTipsViewModel: mockTipsViewModel,
+                isPercentStatsPage: true,
+                gameTipViewModel: mockGameTipViewModel,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('?'), findsNWidgets(5));
+    },
+  );
 
   testWidgets('requests percentage stats when stats view model becomes ready', (
     tester,
@@ -342,8 +428,8 @@ void main() {
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
     when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
     when(
-      () => statsViewModel.getGamesStatsEntry(game, false),
-    ).thenReturn(null);
+      () => statsViewModel.loadGamesStatsEntry(game, false),
+    ).thenAnswer((_) async => null);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -369,13 +455,13 @@ void main() {
     );
     await tester.pump();
 
-    verifyNever(() => statsViewModel.getGamesStatsEntry(game, false));
+    verifyNever(() => statsViewModel.loadGamesStatsEntry(game, false));
 
     currentStatsViewModel.value = statsViewModel;
     await tester.pump();
     await tester.pump();
 
-    verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+    verify(() => statsViewModel.loadGamesStatsEntry(game, false)).called(1);
   });
 
   testWidgets(
