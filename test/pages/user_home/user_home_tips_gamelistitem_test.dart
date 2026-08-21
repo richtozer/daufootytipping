@@ -332,6 +332,52 @@ void main() {
     expect(find.text('19.3%'), findsOneWidget);
   });
 
+  testWidgets('requests percentage stats when stats view model becomes ready', (
+    tester,
+  ) async {
+    final statsViewModel = MockStatsViewModel();
+    final currentStatsViewModel = ValueNotifier<StatsViewModel?>(null);
+    addTearDown(currentStatsViewModel.dispose);
+    when(() => statsViewModel.addListener(any())).thenReturn(null);
+    when(() => statsViewModel.removeListener(any())).thenReturn(null);
+    when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
+    when(
+      () => statsViewModel.getGamesStatsEntry(game, false),
+    ).thenReturn(null);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<StatsViewModel?>(
+          valueListenable: currentStatsViewModel,
+          builder: (context, value, child) {
+            return ChangeNotifierProvider<StatsViewModel?>.value(
+              value: value,
+              child: Scaffold(
+                body: GameListItem(
+                  game: game,
+                  currentTipper: currentTipper,
+                  currentDAUComp: currentComp,
+                  allTipsViewModel: mockTipsViewModel,
+                  isPercentStatsPage: true,
+                  gameTipViewModel: mockGameTipViewModel,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    verifyNever(() => statsViewModel.getGamesStatsEntry(game, false));
+
+    currentStatsViewModel.value = statsViewModel;
+    await tester.pump();
+    await tester.pump();
+
+    verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+  });
+
   testWidgets(
     'does not show an endless spinner when an untipped game starts',
     (tester) async {
