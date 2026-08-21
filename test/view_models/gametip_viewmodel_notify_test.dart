@@ -1,5 +1,6 @@
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -198,6 +199,56 @@ void main() {
       expect(notifications, 1);
       expect(vm.homeTeamScore, 14);
       expect(vm.awayTeamScore, 8);
+
+      vm.dispose();
+    });
+
+    test('notifies when live scores mutate the current game in place', () async {
+      final currentGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
+        homeScore: null,
+        awayScore: null,
+      );
+      when(
+        () => mockGamesViewModel.findGame(currentGame.dbkey),
+      ).thenAnswer((_) async => currentGame);
+
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        currentGame,
+        mockTipsViewModel,
+        database: mockDb,
+      );
+      var notifications = 0;
+      vm.addListener(() {
+        notifications++;
+      });
+      await settleAsyncWork();
+      notifications = 0;
+
+      currentGame.scoring!.crowdSourcedScores = [
+        CrowdSourcedScore(
+          DateTime.now().toUtc(),
+          ScoringTeam.home,
+          tipper.dbkey!,
+          6,
+          false,
+        ),
+        CrowdSourcedScore(
+          DateTime.now().toUtc(),
+          ScoringTeam.away,
+          tipper.dbkey!,
+          4,
+          false,
+        ),
+      ];
+      gamesListener();
+      await settleAsyncWork();
+
+      expect(notifications, 1);
+      expect(vm.homeTeamScore, 6);
+      expect(vm.awayTeamScore, 4);
 
       vm.dispose();
     });

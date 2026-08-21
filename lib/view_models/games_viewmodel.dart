@@ -325,6 +325,10 @@ class GamesViewModel extends ChangeNotifier {
     await _applyGamesSnapshot(await _db.child(_gamesPath).get());
   }
 
+  void liveScoresUpdated() {
+    notifyListeners();
+  }
+
   Future<Game?> findGame(String gameDbKey) async {
     await initialLoadComplete;
     return _games.firstWhereOrNull((game) => game.dbkey == gameDbKey);

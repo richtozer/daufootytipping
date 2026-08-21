@@ -68,6 +68,7 @@ class GameTipViewModel extends ChangeNotifier {
   int? get homeTeamScore => _homeTeamScore;
   int? _awayTeamScore;
   int? get awayTeamScore => _awayTeamScore;
+  late GameState _gameState;
 
   final DatabaseReference _db;
   final TipAnalyticsLogger _logAnalyticsEvent;
@@ -105,6 +106,9 @@ class GameTipViewModel extends ChangeNotifier {
   })  : _db = database ?? configuredDatabaseRef(),
         _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
         _writeTipLog = writeTipLog {
+    _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
+    _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
+    _gameState = game.gameState;
     _listensToGamesViewModel =
         _currentDAUComp.latestsCompletedRoundNumber() <
         _currentDAUComp.daurounds.length;
@@ -184,14 +188,9 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   void _gamesViewModelUpdated() async {
-    final previousGame = game;
-    final previousHomeScore = previousGame.scoring?.currentScore(
-      ScoringTeam.home,
-    );
-    final previousAwayScore = previousGame.scoring?.currentScore(
-      ScoringTeam.away,
-    );
-    final previousGameState = previousGame.gameState;
+    final previousHomeScore = _homeTeamScore;
+    final previousAwayScore = _awayTeamScore;
+    final previousGameState = _gameState;
 
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     if (_disposed) {
@@ -201,6 +200,7 @@ class GameTipViewModel extends ChangeNotifier {
 
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
+    _gameState = game.gameState;
 
     final scoresChanged =
         previousHomeScore != _homeTeamScore ||

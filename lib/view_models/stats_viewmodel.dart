@@ -359,6 +359,7 @@ class StatsViewModel extends ChangeNotifier {
         var dbData = event.snapshot.value as Map<dynamic, dynamic>;
         final gamesWithLiveScores = <Game>[];
         final staleLiveScoreGameDbKeys = <String>[];
+        bool liveScoresChanged = false;
 
         for (var entry in dbData.entries) {
           final gameDbKey = entry.key as String;
@@ -390,6 +391,7 @@ class StatsViewModel extends ChangeNotifier {
           } else {
             game.scoring?.crowdSourcedScores = scoring.crowdSourcedScores;
           }
+          liveScoresChanged = true;
 
           gamesWithLiveScores.add(game);
 
@@ -402,6 +404,9 @@ class StatsViewModel extends ChangeNotifier {
           ..clear()
           ..addAll(gamesWithLiveScores);
 
+        if (liveScoresChanged) {
+          gamesViewModel?.liveScoresUpdated();
+        }
         notifyListeners();
 
       } else {
