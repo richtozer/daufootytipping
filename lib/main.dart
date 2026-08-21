@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,6 +12,7 @@ import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/app_resume_refresh_coordinator.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -240,10 +242,49 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   String? _registeredActiveCompKey;
   bool? _registeredCreateLinkedTipper;
   bool _coreWarmupScheduled = false;
+  late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
+
+  @override
+  void initState() {
+    super.initState();
+    _resumeRefreshCoordinator = AppResumeRefreshCoordinator(
+      refresh: _refreshFixtureDataAfterResume,
+      resumeDelay: const Duration(milliseconds: 500),
+      retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
+      shouldRetry:
+          CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect,
+      onError: (error, stackTrace) {
+        log(
+          'Failed to refresh fixture data after app resume: $error',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    unawaited(_resumeRefreshCoordinator.handleLifecycleState(state));
+  }
+
+  Future<void> _refreshFixtureDataAfterResume() async {
+    if (!di.isRegistered<DAUCompsViewModel>()) {
+      return;
+    }
+    await di<DAUCompsViewModel>().refreshFixtureDataFromServer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   void _scheduleCoreViewModelWarmup() {
     if (_coreWarmupScheduled) {

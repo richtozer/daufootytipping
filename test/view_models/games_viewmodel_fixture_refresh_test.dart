@@ -241,6 +241,52 @@ void main() {
     },
   );
 
+  test('refreshFromServer applies fixture scores missed by the stream', () async {
+    final viewModel = GamesViewModel(
+      comp,
+      dauCompsViewModel,
+      teamsViewModel: teamsViewModel,
+      database: rootDb,
+      postWriteRefreshTimeout: const Duration(milliseconds: 50),
+    );
+
+    await settleAsyncWork();
+    gamesController.add(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'nrl-01-001': gameJson(homeScore: null, awayScore: null),
+          },
+        ),
+      ),
+    );
+    await viewModel.initialLoadComplete;
+    await settleAsyncWork();
+    expect(
+      (await viewModel.findGame('nrl-01-001'))?.scoring?.homeTeamScore,
+      isNull,
+    );
+
+    when(() => gamesRef.get()).thenAnswer(
+      (_) async => _snapshot(
+        exists: true,
+        value: <String, Object?>{
+          'nrl-01-001': gameJson(homeScore: 14, awayScore: 8),
+        },
+      ),
+    );
+
+    await viewModel.refreshFromServer();
+
+    final refreshedGame = await viewModel.findGame('nrl-01-001');
+    expect(refreshedGame?.scoring?.homeTeamScore, 14);
+    expect(refreshedGame?.scoring?.awayTeamScore, 8);
+    verify(() => gamesRef.get()).called(1);
+
+    viewModel.dispose();
+  });
+
   test(
     'saveBatchOfGameAttributes writes fixture score updates and leaves scoring to backend triggers',
     () async {

@@ -243,6 +243,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refreshFixtureDataFromServer() async {
+    final currentGamesViewModel = gamesViewModel;
+    if (currentGamesViewModel == null) {
+      return;
+    }
+
+    await currentGamesViewModel.refreshFromServer();
+  }
+
   bool isSelectedCompActiveComp() {
     return _selectedDAUComp == _activeDAUComp;
   }
