@@ -28,13 +28,59 @@ class ScoringTile extends StatefulWidget {
 }
 
 class ScoringTileState extends State<ScoringTile> {
+  late bool _hadOfficialFixtureScore;
+  late StatsViewModel _statsViewModel;
+
   @override
   void initState() {
     super.initState();
-    di<StatsViewModel>().getGamesStatsEntry(
+    _statsViewModel = context.read<StatsViewModel?>() ?? di<StatsViewModel>();
+    _hadOfficialFixtureScore = _hasOfficialFixtureScore(
+      widget.gameTipsViewModel.game,
+    );
+    widget.gameTipsViewModel.addListener(_handleGameTipUpdated);
+    _statsViewModel.getGamesStatsEntry(
       widget.gameTipsViewModel.game,
       false,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant ScoringTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.gameTipsViewModel == widget.gameTipsViewModel) {
+      return;
+    }
+
+    oldWidget.gameTipsViewModel.removeListener(_handleGameTipUpdated);
+    _hadOfficialFixtureScore = _hasOfficialFixtureScore(
+      widget.gameTipsViewModel.game,
+    );
+    widget.gameTipsViewModel.addListener(_handleGameTipUpdated);
+    _statsViewModel.getGamesStatsEntry(
+      widget.gameTipsViewModel.game,
+      false,
+    );
+  }
+
+  void _handleGameTipUpdated() {
+    final game = widget.gameTipsViewModel.game;
+    final hasOfficialFixtureScore = _hasOfficialFixtureScore(game);
+    if (hasOfficialFixtureScore && !_hadOfficialFixtureScore) {
+      _statsViewModel.getGamesStatsEntry(game, true);
+    }
+    _hadOfficialFixtureScore = hasOfficialFixtureScore;
+  }
+
+  bool _hasOfficialFixtureScore(Game game) {
+    return game.scoring?.homeTeamScore != null &&
+        game.scoring?.awayTeamScore != null;
+  }
+
+  @override
+  void dispose() {
+    widget.gameTipsViewModel.removeListener(_handleGameTipUpdated);
+    super.dispose();
   }
 
   @override
