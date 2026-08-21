@@ -514,14 +514,19 @@ class _GameListItemState extends State<GameListItem> {
   }
 
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return Selector<StatsViewModel?, GameStatsEntry?>(
-      selector: (_, statsViewModel) =>
-          statsViewModel?.gameStatsEntryFor(gameTipsViewModelConsumer.game),
-      builder: (context, gameStatsEntry, child) {
+    return Selector<StatsViewModel?,
+        ({StatsViewModel? viewModel, GameStatsEntry? entry})>(
+      selector: (_, statsViewModel) => (
+        viewModel: statsViewModel,
+        entry: statsViewModel?.gameStatsEntryFor(
+          gameTipsViewModelConsumer.game,
+        ),
+      ),
+      builder: (context, statsSelection, child) {
         return _PercentStatsTipChoice(
           gameTipViewModel: gameTipsViewModelConsumer,
-          statsViewModel: context.read<StatsViewModel?>(),
-          gameStatsEntry: gameStatsEntry,
+          statsViewModel: statsSelection.viewModel,
+          gameStatsEntry: statsSelection.entry,
         );
       },
     );
