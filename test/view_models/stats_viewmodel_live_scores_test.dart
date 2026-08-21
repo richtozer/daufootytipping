@@ -229,6 +229,7 @@ void main() {
         viewModel.gamesWithLiveScores.single.scoring?.crowdSourcedScores?.length,
         2,
       );
+      verify(() => gamesViewModel.liveScoresUpdated()).called(1);
       verifyNever(() => staleGameRef.remove());
       verifyNever(() => activeGameRef.remove());
 
