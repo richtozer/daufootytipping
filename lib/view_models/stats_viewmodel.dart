@@ -508,6 +508,7 @@ class StatsViewModel extends ChangeNotifier {
     for (var attempt = 0;; attempt++) {
       try {
         dbEntry = await _getGameStatsEntry(game);
+        break;
       } catch (error, stackTrace) {
         if (!CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
           error,
@@ -531,24 +532,13 @@ class StatsViewModel extends ChangeNotifier {
           stackTrace: stackTrace,
         );
         await Future<void>.delayed(retryDelay);
-        continue;
       }
-
-      if (dbEntry != null) {
-        break;
-      }
-
-      if (attempt >= _gameStatsRetryDelays.length) {
-        return;
-      }
-
-      final retryDelay = _gameStatsRetryDelays[attempt];
-      log(
-        'Game stats were not available for game: ${game.dbkey}; retrying in ${retryDelay.inMilliseconds}ms.',
-      );
-      await Future<void>.delayed(retryDelay);
     }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
+
+    if (dbEntry == null) {
+      return;
+    }
 
     gamesStatsEntry[game.dbkey] = dbEntry;
     if (previousEntry != dbEntry) {
