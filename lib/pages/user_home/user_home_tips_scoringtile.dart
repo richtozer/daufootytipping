@@ -113,7 +113,11 @@ class ScoringTileState extends State<ScoringTile> {
                     selector: (_, statsViewModel) =>
                         statsViewModel?.gameStatsEntryFor(game),
                     builder: (_, gameStatsEntry, _) {
-                      return _buildAveragePointsRow(gameStatsEntry, tip);
+                      return _buildAveragePointsRow(
+                        game,
+                        gameStatsEntry,
+                        tip,
+                      );
                     },
                   ),
                 ],
@@ -226,8 +230,9 @@ class ScoringTileState extends State<ScoringTile> {
   }
 
   Widget _buildPointsText(Game game, Tip? tip) {
-    final pointsText =
-        '${tip?.getTipPointsCalculated()} / ${tip?.getMaxPointsCalculated()}';
+    final pointsText = _hasGameResult(game)
+        ? '${tip?.getTipPointsCalculated()} / ${tip?.getMaxPointsCalculated()}'
+        : '? / ?';
 
     return Padding(
       padding: const EdgeInsets.all(2.0),
@@ -254,11 +259,21 @@ class ScoringTileState extends State<ScoringTile> {
     );
   }
 
-  Widget _buildAveragePointsRow(GameStatsEntry? gameStatsEntry, Tip? tip) {
+  Widget _buildAveragePointsRow(
+    Game game,
+    GameStatsEntry? gameStatsEntry,
+    Tip? tip,
+  ) {
     final averagePoints = gameStatsEntry?.averagePoints;
-    final averageText = averagePoints != null
-        ? '${averagePoints.toStringAsPrecision(2)} / ${tip?.getMaxPointsCalculated()}'
-        : '? / ${tip?.getMaxPointsCalculated()}';
+    late final String averageText;
+    if (!_hasGameResult(game)) {
+      averageText = '? / ?';
+    } else if (averagePoints != null) {
+      averageText =
+          '${averagePoints.toStringAsPrecision(2)} / ${tip?.getMaxPointsCalculated()}';
+    } else {
+      averageText = '? / ${tip?.getMaxPointsCalculated()}';
+    }
 
     return Padding(
       padding: const EdgeInsets.all(2.0),
@@ -287,5 +302,11 @@ class ScoringTileState extends State<ScoringTile> {
         ],
       ),
     );
+  }
+
+  bool _hasGameResult(Game game) {
+    final scoring = game.scoring;
+    return scoring != null &&
+        scoring.getGameResultCalculated(game.league) != GameResult.z;
   }
 }

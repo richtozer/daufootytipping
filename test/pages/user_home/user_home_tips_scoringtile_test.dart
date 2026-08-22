@@ -310,7 +310,7 @@ void main() {
     verify(() => providerDatabase.get()).called(2);
   });
 
-  testWidgets('refetches average points when fixture scores finalize the game', (
+  testWidgets('shows unknown points until fixture scores finalize the game', (
     tester,
   ) async {
     final unscoredGame = Game(
@@ -370,7 +370,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('? / 0'), findsOneWidget);
+    expect(find.text('? / ?'), findsNWidgets(2));
+    expect(find.text('0 / 0'), findsNothing);
+    expect(find.text('? / 0'), findsNothing);
 
     fixtureFinalized = true;
     gameTipViewModel.updateGame(game);
@@ -378,8 +380,97 @@ void main() {
     await tester.pump();
 
     expect(find.text('1.7 / 2'), findsOneWidget);
-    expect(find.text('? / 0'), findsNothing);
+    expect(find.text('? / ?'), findsNothing);
     verify(() => database.get()).called(2);
+  });
+
+  testWidgets('reveals points when an interim live score is entered', (
+    tester,
+  ) async {
+    final unscoredGame = Game(
+      dbkey: game.dbkey,
+      league: game.league,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: game.startTimeUTC,
+      fixtureRoundNumber: game.fixtureRoundNumber,
+      fixtureMatchNumber: game.fixtureMatchNumber,
+      scoring: Scoring(),
+    );
+    final tip = Tip(
+      dbkey: 'tip-1',
+      game: unscoredGame,
+      tipper: tipper,
+      tip: GameResult.b,
+      submittedTimeUTC: DateTime.utc(2026, 5, 10, 10),
+    );
+    final gameTipViewModel = FakeGameTipViewModel(
+      game: unscoredGame,
+      tip: tip,
+    );
+    statsViewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry(
+      percentageTippedHomeMargin: 0,
+      percentageTippedHome: 1,
+      percentageTippedDraw: 0,
+      percentageTippedAway: 0,
+      percentageTippedAwayMargin: 0,
+      averagePoints: 1.0,
+      averagePointsTipCount: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: ScoringTile(
+              tip: tip,
+              gameTipsViewModel: gameTipViewModel,
+              selectedDAUComp: comp,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('? / ?'), findsNWidgets(2));
+
+    gameTipViewModel.updateGame(
+      Game(
+        dbkey: game.dbkey,
+        league: game.league,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: game.startTimeUTC,
+        fixtureRoundNumber: game.fixtureRoundNumber,
+        fixtureMatchNumber: game.fixtureMatchNumber,
+        scoring: Scoring(
+          crowdSourcedScores: [
+            CrowdSourcedScore(
+              DateTime.utc(2026, 5, 10, 13),
+              ScoringTeam.home,
+              tipper.dbkey!,
+              12,
+              false,
+            ),
+            CrowdSourcedScore(
+              DateTime.utc(2026, 5, 10, 13),
+              ScoringTeam.away,
+              tipper.dbkey!,
+              10,
+              false,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(find.text('1.0 / 2'), findsOneWidget);
+    expect(find.text('? / ?'), findsNothing);
   });
 
   testWidgets('uses cached average points after game object replacement', (
