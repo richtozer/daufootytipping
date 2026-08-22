@@ -36,6 +36,7 @@ class StatsViewModel extends ChangeNotifier {
       _allTipperRoundStats;
 
   final List<Game> _gamesWithLiveScores = [];
+  final Map<String, List<CrowdSourcedScore>> _liveScoresByGameDbKey = {};
 
   /// Whether any current scores are based on crowd-sourced live scores
   /// rather than official fixture scores.
@@ -49,12 +50,14 @@ class StatsViewModel extends ChangeNotifier {
   final List<Duration> _gameStatsRetryDelays;
   final Future<void> Function() _refreshProtectedResourceAccess;
   final Lock _gameStatsListenerLock = Lock();
+  final Lock _liveScoreReconcileLock = Lock();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
   late StreamSubscription<DatabaseEvent> _allRoundPointsStream;
   late StreamSubscription<DatabaseEvent> _gameStatsStream;
   bool _hasLiveScoresListener = false;
   bool _hasRoundPointsListener = false;
   bool _hasGameStatsListener = false;
+  bool _hasGamesListener = false;
   String? _gameStatsListenerSubKey;
   bool _disposed = false;
 
@@ -118,11 +121,16 @@ class StatsViewModel extends ChangeNotifier {
   void _initialize() async {
     // make sure the tippers viewmodel is initialized
     await di<TippersViewModel>().initialLoadComplete;
+    if (_disposed) {
+      return;
+    }
 
     // add a listener for the tipper viewmodel, do a re-calculation of the leaderboards
     // if the tippers change
 
     di<TippersViewModel>().addListener(_handleTippersUpdated);
+    gamesViewModel?.addListener(_handleGamesUpdated);
+    _hasGamesListener = gamesViewModel != null;
 
     _listenToScores();
   }
@@ -317,6 +325,13 @@ class StatsViewModel extends ChangeNotifier {
     unawaited(_updateLeaderAndRoundAndRank());
   }
 
+  void _handleGamesUpdated() {
+    if (_liveScoresByGameDbKey.isEmpty && _gamesWithLiveScores.isEmpty) {
+      return;
+    }
+    unawaited(_reconcileLiveScoresWithCurrentGames());
+  }
+
   void _relinkRoundStatsToCurrentTippers() {
     final currentTippersByDbKey = <String, Tipper>{
       for (final tipper in di<TippersViewModel>().tippers)
@@ -406,67 +421,33 @@ class StatsViewModel extends ChangeNotifier {
 
   Future<void> _handleEventLiveScores(DatabaseEvent event) async {
     try {
+      final previousLiveScoreGameDbKeys = _liveScoresByGameDbKey.keys.toSet();
+      final nextLiveScoresByGameDbKey = <String, List<CrowdSourcedScore>>{};
+
       if (event.snapshot.exists) {
         var dbData = event.snapshot.value as Map<dynamic, dynamic>;
-        final gamesWithLiveScores = <Game>[];
-        final staleLiveScoreGameDbKeys = <String>[];
-        bool liveScoresChanged = false;
 
         for (var entry in dbData.entries) {
           final gameDbKey = entry.key as String;
-          final game = await gamesViewModel?.findGame(gameDbKey);
-          if (game == null) {
-            log(
-              'StatsViewModel._handleEventLiveScores() Game $gameDbKey not found locally. Skipping live score entry.',
-            );
-            continue;
-          }
-
-          if (_hasOfficialFixtureScores(game)) {
-            staleLiveScoreGameDbKeys.add(gameDbKey);
-            log(
-              'StatsViewModel._handleEventLiveScores() Ignoring stale live score for game $gameDbKey because official fixture scores exist.',
-            );
-            continue;
-          }
-
           final liveScoreEntry = Map<String, dynamic>.from(entry.value as Map);
           final currentLiveScore = liveScoreEntry['current'] is Map
               ? Map<String, dynamic>.from(liveScoreEntry['current'] as Map)
               : liveScoreEntry;
-          var scoring = Scoring.fromJson(currentLiveScore);
-          if (game.scoring == null) {
-            game.scoring = Scoring(
-              crowdSourcedScores: scoring.crowdSourcedScores,
-            );
-          } else {
-            game.scoring?.crowdSourcedScores = scoring.crowdSourcedScores;
+          final crowdSourcedScores = Scoring.fromJson(
+            currentLiveScore,
+          ).crowdSourcedScores;
+          if (crowdSourcedScores != null && crowdSourcedScores.isNotEmpty) {
+            nextLiveScoresByGameDbKey[gameDbKey] = crowdSourcedScores;
           }
-          liveScoresChanged = true;
-
-          gamesWithLiveScores.add(game);
-
-          log(
-            'StatsViewModel._handleEventLiveScores() Loaded live score for game ${game.dbkey}',
-          );
-        }
-
-        _gamesWithLiveScores
-          ..clear()
-          ..addAll(gamesWithLiveScores);
-
-        if (liveScoresChanged) {
-          gamesViewModel?.liveScoresUpdated();
-        }
-        notifyListeners();
-
-      } else {
-        // All live scores have been deleted (e.g. official scores arrived)
-        if (_gamesWithLiveScores.isNotEmpty) {
-          _gamesWithLiveScores.clear();
-          notifyListeners();
         }
       }
+
+      _liveScoresByGameDbKey
+        ..clear()
+        ..addAll(nextLiveScoresByGameDbKey);
+      await _reconcileLiveScoresWithCurrentGames(
+        previousLiveScoreGameDbKeys: previousLiveScoreGameDbKeys,
+      );
     } catch (e) {
       log(
         'StatsViewModel._handleEventLiveScores() Error listening to /$statsPathRootLocal/live_scores: $e',
@@ -477,6 +458,85 @@ class StatsViewModel extends ChangeNotifier {
         _initialLiveScoreLoadCompleter.complete();
       }
     }
+  }
+
+  Future<void> _reconcileLiveScoresWithCurrentGames({
+    Set<String> previousLiveScoreGameDbKeys = const <String>{},
+  }) {
+    return _liveScoreReconcileLock.synchronized(() async {
+      if (_disposed) {
+        return;
+      }
+
+      final gamesWithLiveScores = <Game>[];
+      var gameScoringChanged = false;
+      final gameDbKeys = <String>{
+        ...previousLiveScoreGameDbKeys,
+        ..._liveScoresByGameDbKey.keys,
+      };
+
+      for (final gameDbKey in gameDbKeys) {
+        final game = await gamesViewModel?.findGame(gameDbKey);
+        if (_disposed) {
+          return;
+        }
+        if (game == null) {
+          log(
+            'StatsViewModel._reconcileLiveScoresWithCurrentGames() Game $gameDbKey not found locally. Skipping live score entry.',
+          );
+          continue;
+        }
+
+        final crowdSourcedScores = _liveScoresByGameDbKey[gameDbKey];
+        if (crowdSourcedScores == null) {
+          if (game.scoring?.crowdSourcedScores != null) {
+            game.scoring?.crowdSourcedScores = null;
+            gameScoringChanged = true;
+          }
+          continue;
+        }
+
+        if (_hasOfficialFixtureScores(game)) {
+          log(
+            'StatsViewModel._reconcileLiveScoresWithCurrentGames() Ignoring stale live score for game $gameDbKey because official fixture scores exist.',
+          );
+          continue;
+        }
+
+        if (game.scoring == null) {
+          game.scoring = Scoring(crowdSourcedScores: crowdSourcedScores);
+          gameScoringChanged = true;
+        } else if (!identical(
+          game.scoring?.crowdSourcedScores,
+          crowdSourcedScores,
+        )) {
+          game.scoring?.crowdSourcedScores = crowdSourcedScores;
+          gameScoringChanged = true;
+        }
+        gamesWithLiveScores.add(game);
+
+        log(
+          'StatsViewModel._reconcileLiveScoresWithCurrentGames() Loaded live score for game ${game.dbkey}',
+        );
+      }
+
+      final gamesWithLiveScoresChanged = !listEquals(
+        _gamesWithLiveScores,
+        gamesWithLiveScores,
+      );
+      if (gamesWithLiveScoresChanged) {
+        _gamesWithLiveScores
+          ..clear()
+          ..addAll(gamesWithLiveScores);
+      }
+
+      if (gameScoringChanged) {
+        gamesViewModel?.liveScoresUpdated();
+      }
+      if (gameScoringChanged || gamesWithLiveScoresChanged) {
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> _handleEventGameStats(DatabaseEvent event) async {
@@ -1211,6 +1271,10 @@ class StatsViewModel extends ChangeNotifier {
     if (di.isRegistered<TippersViewModel>()) {
       di<TippersViewModel>().removeListener(_handleTippersUpdated);
     }
+    if (_hasGamesListener) {
+      gamesViewModel?.removeListener(_handleGamesUpdated);
+      _hasGamesListener = false;
+    }
     if (_hasRoundPointsListener) {
       _allRoundPointsStream.cancel();
       _hasRoundPointsListener = false;
@@ -1225,12 +1289,19 @@ class StatsViewModel extends ChangeNotifier {
     }
     _roundStatsByTipperDbKey.clear();
     _allTipperRoundStats.clear();
+    _liveScoresByGameDbKey.clear();
+    _gamesWithLiveScores.clear();
     super.dispose();
   }
 
   @visibleForTesting
   Future<void> handleLiveScoresEventForTest(DatabaseEvent event) {
     return _handleEventLiveScores(event);
+  }
+
+  @visibleForTesting
+  Future<void> reconcileLiveScoresWithCurrentGamesForTest() {
+    return _reconcileLiveScoresWithCurrentGames();
   }
 
   void sortRoundWinnersByNRL(bool ascending) {
