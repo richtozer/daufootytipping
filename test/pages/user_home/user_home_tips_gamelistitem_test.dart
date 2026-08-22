@@ -13,11 +13,13 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
+import 'package:daufootytipping/services/percent_stats_diagnostics.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
@@ -50,6 +52,7 @@ void main() {
   }
 
   setUp(() async {
+    PercentStatsDiagnostics.resetForTest();
     await di.reset();
     di.allowReassignment = true;
 
@@ -289,6 +292,7 @@ void main() {
       statsListener = invocation.positionalArguments[0] as VoidCallback;
     });
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
+    when(() => statsViewModel.gamesStatsEntry).thenReturn({});
     when(
       () => statsViewModel.gameStatsEntryFor(game),
     ).thenAnswer((_) => gameStatsEntry);
@@ -349,6 +353,7 @@ void main() {
       );
       when(() => statsViewModel.addListener(any())).thenReturn(null);
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
+      when(() => statsViewModel.gamesStatsEntry).thenReturn({});
       when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
       when(
         () => statsViewModel.loadGamesStatsEntry(game, false),
@@ -377,6 +382,10 @@ void main() {
       expect(find.text('3.5%'), findsOneWidget);
       expect(find.text('77.2%'), findsOneWidget);
       expect(find.text('19.3%'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('percent-stats-diagnostics-a')),
+        findsOneWidget,
+      );
       verify(
         () => statsViewModel.loadGamesStatsEntry(game, false),
       ).called(1);
@@ -389,6 +398,7 @@ void main() {
       final statsViewModel = MockStatsViewModel();
       when(() => statsViewModel.addListener(any())).thenReturn(null);
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
+      when(() => statsViewModel.gamesStatsEntry).thenReturn({});
       when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
       when(
         () => statsViewModel.loadGamesStatsEntry(game, false),
@@ -418,6 +428,83 @@ void main() {
     },
   );
 
+  testWidgets('copies diagnostics by long-pressing a resolved question mark', (
+    tester,
+  ) async {
+    final statsViewModel = MockStatsViewModel();
+    when(() => statsViewModel.addListener(any())).thenReturn(null);
+    when(() => statsViewModel.removeListener(any())).thenReturn(null);
+    when(() => statsViewModel.gamesStatsEntry).thenReturn({});
+    when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
+    when(
+      () => statsViewModel.loadGamesStatsEntry(game, false),
+    ).thenAnswer((_) async => null);
+
+    MethodCall? clipboardCall;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardCall = call;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: GameListItem(
+              game: game,
+              currentTipper: currentTipper,
+              currentDAUComp: currentComp,
+              allTipsViewModel: mockTipsViewModel,
+              isPercentStatsPage: true,
+              sectionGameIndex: 0,
+              gameTipViewModel: mockGameTipViewModel,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.longPress(
+      find.byKey(const ValueKey('percent-stats-diagnostics-a')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('% tipped diagnostics'), findsOneWidget);
+    final report = tester
+        .widget<SelectableText>(
+          find.byKey(const ValueKey('percent-stats-diagnostics-report')),
+        )
+        .data!;
+    expect(report, contains('"gameKey":'));
+    expect(report, contains('"sectionGameIndex": 0'));
+    expect(report, contains('"bulkMapContainsKey": false'));
+
+    await tester.tap(
+      find.byKey(const ValueKey('copy-percent-stats-diagnostics')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(clipboardCall?.method, 'Clipboard.setData');
+    expect(
+      (clipboardCall?.arguments as Map<Object?, Object?>)['text'],
+      report,
+    );
+    expect(find.text('Diagnostics copied'), findsOneWidget);
+  });
+
   testWidgets('requests percentage stats when stats view model becomes ready', (
     tester,
   ) async {
@@ -426,6 +513,7 @@ void main() {
     addTearDown(currentStatsViewModel.dispose);
     when(() => statsViewModel.addListener(any())).thenReturn(null);
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
+    when(() => statsViewModel.gamesStatsEntry).thenReturn({});
     when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
     when(
       () => statsViewModel.loadGamesStatsEntry(game, false),

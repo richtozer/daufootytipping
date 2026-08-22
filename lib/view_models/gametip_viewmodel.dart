@@ -11,6 +11,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/percent_stats_diagnostics.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -188,6 +189,7 @@ class GameTipViewModel extends ChangeNotifier {
   }
 
   void _gamesViewModelUpdated() async {
+    final previousGame = game;
     final previousHomeScore = _homeTeamScore;
     final previousAwayScore = _awayTeamScore;
     final previousGameState = _gameState;
@@ -206,6 +208,27 @@ class GameTipViewModel extends ChangeNotifier {
         previousHomeScore != _homeTeamScore ||
         previousAwayScore != _awayTeamScore;
     final gameStateChanged = previousGameState != game.gameState;
+
+    if (PercentStatsDiagnostics.isTracking(game.dbkey)) {
+      PercentStatsDiagnostics.record(
+        'game-tip-view-model.fixture-refresh',
+        gameKey: game.dbkey,
+        details: <String, Object?>{
+          'gameTipViewModelIdentity': identityHashCode(this),
+          'previousGameIdentity': identityHashCode(previousGame),
+          'refreshedGameIdentity': identityHashCode(game),
+          'sameGameObject': identical(previousGame, game),
+          'previousGameKey': PercentStatsDiagnostics.keyFingerprint(
+            previousGame.dbkey,
+          ),
+          'refreshedGameKey': PercentStatsDiagnostics.keyFingerprint(
+            game.dbkey,
+          ),
+          'scoresChanged': scoresChanged,
+          'gameStateChanged': gameStateChanged,
+        },
+      );
+    }
 
     if (!scoresChanged && !gameStateChanged) {
       log(

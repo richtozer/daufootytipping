@@ -18,8 +18,10 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
+import 'package:daufootytipping/services/percent_stats_diagnostics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart'; // Added import
 import 'package:flutter_svg/svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -34,6 +36,7 @@ class GameListItem extends StatefulWidget {
     required this.currentDAUComp,
     required this.allTipsViewModel,
     required this.isPercentStatsPage,
+    this.sectionGameIndex,
     this.gameTipViewModel, // Optional for testing
   });
 
@@ -42,6 +45,7 @@ class GameListItem extends StatefulWidget {
   final DAUComp currentDAUComp;
   final TipsViewModel allTipsViewModel;
   final bool isPercentStatsPage;
+  final int? sectionGameIndex;
   final GameTipViewModel? gameTipViewModel; // Optional for testing
 
   @override
@@ -69,6 +73,7 @@ class _GameListItemState extends State<GameListItem> {
     _leagueLadderRevision = di<DAUCompsViewModel>().leagueLadderRevision;
     _leagueLadderRevision.addListener(_leagueLadderUpdated);
     _syncGameTipViewModel();
+    _recordCardLifecycle('game-card.init');
     _scheduleLadderRankFetch();
   }
 
@@ -108,6 +113,55 @@ class _GameListItemState extends State<GameListItem> {
       _resetLadderRanks();
       _scheduleLadderRankFetch();
     }
+
+    if (widget.isPercentStatsPage &&
+        (!identical(oldWidget.game, widget.game) ||
+            oldWidget.gameTipViewModel != widget.gameTipViewModel ||
+            oldWidget.sectionGameIndex != widget.sectionGameIndex)) {
+      PercentStatsDiagnostics.record(
+        'game-card.did-update-widget',
+        gameKey: widget.game.dbkey,
+        details: <String, Object?>{
+          'competitionKey': widget.currentDAUComp.dbkey,
+          'sectionGameIndex': widget.sectionGameIndex,
+          'oldWidgetGameIdentity': identityHashCode(oldWidget.game),
+          'newWidgetGameIdentity': identityHashCode(widget.game),
+          'sameWidgetGameObject': identical(oldWidget.game, widget.game),
+          'oldWidgetGameKey': PercentStatsDiagnostics.keyFingerprint(
+            oldWidget.game.dbkey,
+          ),
+          'newWidgetGameKey': PercentStatsDiagnostics.keyFingerprint(
+            widget.game.dbkey,
+          ),
+          'gameTipViewModelIdentity': identityHashCode(gameTipsViewModel),
+          'gameTipViewModelGameIdentity': identityHashCode(
+            gameTipsViewModel.game,
+          ),
+        },
+      );
+    }
+  }
+
+  void _recordCardLifecycle(String stage) {
+    if (!widget.isPercentStatsPage) {
+      return;
+    }
+    PercentStatsDiagnostics.record(
+      stage,
+      gameKey: widget.game.dbkey,
+      details: <String, Object?>{
+        'competitionKey': widget.currentDAUComp.dbkey,
+        'league': widget.game.league.name,
+        'fixtureRoundNumber': widget.game.fixtureRoundNumber,
+        'fixtureMatchNumber': widget.game.fixtureMatchNumber,
+        'sectionGameIndex': widget.sectionGameIndex,
+        'widgetGameIdentity': identityHashCode(widget.game),
+        'gameTipViewModelIdentity': identityHashCode(gameTipsViewModel),
+        'gameTipViewModelGameIdentity': identityHashCode(
+          gameTipsViewModel.game,
+        ),
+      },
+    );
   }
 
   Future<void> _fetchAndSetLadderRanks() async {
@@ -516,17 +570,55 @@ class _GameListItemState extends State<GameListItem> {
   Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
     return Selector<StatsViewModel?,
         ({StatsViewModel? viewModel, GameStatsEntry? entry})>(
-      selector: (_, statsViewModel) => (
-        viewModel: statsViewModel,
-        entry: statsViewModel?.gameStatsEntryFor(
-          gameTipsViewModelConsumer.game,
-        ),
-      ),
+      selector: (_, statsViewModel) {
+        final game = gameTipsViewModelConsumer.game;
+        final entry = statsViewModel?.gameStatsEntryFor(game);
+        PercentStatsDiagnostics.record(
+          'selector.select',
+          gameKey: game.dbkey,
+          details: <String, Object?>{
+            'competitionKey': widget.currentDAUComp.dbkey,
+            'sectionGameIndex': widget.sectionGameIndex,
+            'gameIdentity': identityHashCode(game),
+            'gameTipViewModelIdentity': identityHashCode(
+              gameTipsViewModelConsumer,
+            ),
+            'statsViewModelIdentity': statsViewModel == null
+                ? null
+                : identityHashCode(statsViewModel),
+            'bulkMapContainsKey':
+                statsViewModel?.gamesStatsEntry.containsKey(game.dbkey),
+            'bulkMapKeyCount': statsViewModel?.gamesStatsEntry.length,
+            'selectedEntryPresent': entry != null,
+          },
+        );
+        return (viewModel: statsViewModel, entry: entry);
+      },
       builder: (context, statsSelection, child) {
+        final game = gameTipsViewModelConsumer.game;
+        PercentStatsDiagnostics.record(
+          'selector.build',
+          gameKey: game.dbkey,
+          details: <String, Object?>{
+            'competitionKey': widget.currentDAUComp.dbkey,
+            'sectionGameIndex': widget.sectionGameIndex,
+            'gameIdentity': identityHashCode(game),
+            'gameTipViewModelIdentity': identityHashCode(
+              gameTipsViewModelConsumer,
+            ),
+            'statsViewModelIdentity': statsSelection.viewModel == null
+                ? null
+                : identityHashCode(statsSelection.viewModel!),
+            'selectedEntryPresent': statsSelection.entry != null,
+          },
+        );
         return _PercentStatsTipChoice(
           gameTipViewModel: gameTipsViewModelConsumer,
+          listGame: widget.game,
           statsViewModel: statsSelection.viewModel,
           gameStatsEntry: statsSelection.entry,
+          competitionKey: widget.currentDAUComp.dbkey,
+          sectionGameIndex: widget.sectionGameIndex,
         );
       },
     );
@@ -539,13 +631,19 @@ class _GameListItemState extends State<GameListItem> {
 class _PercentStatsTipChoice extends StatefulWidget {
   const _PercentStatsTipChoice({
     required this.gameTipViewModel,
+    required this.listGame,
     required this.statsViewModel,
+    required this.competitionKey,
+    required this.sectionGameIndex,
     this.gameStatsEntry,
   });
 
   final GameTipViewModel gameTipViewModel;
+  final Game listGame;
   final StatsViewModel? statsViewModel;
   final GameStatsEntry? gameStatsEntry;
+  final String? competitionKey;
+  final int? sectionGameIndex;
 
   @override
   State<_PercentStatsTipChoice> createState() => _PercentStatsTipChoiceState();
@@ -553,10 +651,12 @@ class _PercentStatsTipChoice extends StatefulWidget {
 
 class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   Future<GameStatsEntry?>? _gameStatsLoad;
+  String? _lastRecordedRenderState;
 
   @override
   void initState() {
     super.initState();
+    _recordWidgetState('percent-widget.init');
     _requestPercentStatsIfNeeded();
   }
 
@@ -569,6 +669,30 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
     final bool statsViewModelChanged =
         oldWidget.statsViewModel != widget.statsViewModel;
 
+    if (!identical(oldWidget.listGame, widget.listGame) ||
+        !identical(
+          oldWidget.gameTipViewModel.game,
+          widget.gameTipViewModel.game,
+        ) ||
+        statsViewModelChanged ||
+        oldWidget.gameStatsEntry != widget.gameStatsEntry) {
+      _recordWidgetState(
+        'percent-widget.did-update',
+        extra: <String, Object?>{
+          'oldListGameIdentity': identityHashCode(oldWidget.listGame),
+          'newListGameIdentity': identityHashCode(widget.listGame),
+          'oldStatsViewModelIdentity': oldWidget.statsViewModel == null
+              ? null
+              : identityHashCode(oldWidget.statsViewModel!),
+          'newStatsViewModelIdentity': widget.statsViewModel == null
+              ? null
+              : identityHashCode(widget.statsViewModel!),
+          'oldEntryPresent': oldWidget.gameStatsEntry != null,
+          'newEntryPresent': widget.gameStatsEntry != null,
+        },
+      );
+    }
+
     if (gameChanged || statsViewModelChanged) {
       _requestPercentStatsIfNeeded();
     }
@@ -578,17 +702,213 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
     final statsViewModel = widget.statsViewModel;
     if (statsViewModel == null) {
       _gameStatsLoad = null;
+      _recordWidgetState('direct-request.skipped-no-view-model');
       return;
     }
 
     if (widget.gameStatsEntry != null) {
       _gameStatsLoad = Future<GameStatsEntry?>.value(widget.gameStatsEntry);
+      _recordWidgetState('direct-request.skipped-bulk-entry-present');
       return;
     }
 
-    _gameStatsLoad = statsViewModel.loadGamesStatsEntry(
-      widget.gameTipViewModel.game,
-      false,
+    final game = widget.gameTipViewModel.game;
+    _recordWidgetState('direct-request.created');
+    _gameStatsLoad = _loadPercentStats(statsViewModel, game);
+  }
+
+  Future<GameStatsEntry?> _loadPercentStats(
+    StatsViewModel statsViewModel,
+    Game game,
+  ) async {
+    try {
+      final entry = await statsViewModel.loadGamesStatsEntry(game, false);
+      PercentStatsDiagnostics.record(
+        'direct-request.future-complete',
+        gameKey: game.dbkey,
+        details: <String, Object?>{
+          'competitionKey': widget.competitionKey,
+          'sectionGameIndex': widget.sectionGameIndex,
+          'gameIdentity': identityHashCode(game),
+          'gameTipViewModelIdentity': identityHashCode(
+            widget.gameTipViewModel,
+          ),
+          'statsViewModelIdentity': identityHashCode(statsViewModel),
+          'entryPresent': entry != null,
+          'bulkMapContainsKey': statsViewModel.gamesStatsEntry.containsKey(
+            game.dbkey,
+          ),
+          'bulkMapKeyCount': statsViewModel.gamesStatsEntry.length,
+        },
+      );
+      return entry;
+    } catch (error) {
+      PercentStatsDiagnostics.record(
+        'direct-request.future-error',
+        gameKey: game.dbkey,
+        details: <String, Object?>{
+          'competitionKey': widget.competitionKey,
+          'sectionGameIndex': widget.sectionGameIndex,
+          'gameIdentity': identityHashCode(game),
+          'gameTipViewModelIdentity': identityHashCode(
+            widget.gameTipViewModel,
+          ),
+          'statsViewModelIdentity': identityHashCode(statsViewModel),
+          'errorType': error.runtimeType.toString(),
+        },
+      );
+      rethrow;
+    }
+  }
+
+  void _recordWidgetState(
+    String stage, {
+    Map<String, Object?> extra = const {},
+  }) {
+    final game = widget.gameTipViewModel.game;
+    final statsViewModel = widget.statsViewModel;
+    PercentStatsDiagnostics.record(
+      stage,
+      gameKey: game.dbkey,
+      details: <String, Object?>{
+        'competitionKey': widget.competitionKey,
+        'league': game.league.name,
+        'fixtureRoundNumber': game.fixtureRoundNumber,
+        'fixtureMatchNumber': game.fixtureMatchNumber,
+        'sectionGameIndex': widget.sectionGameIndex,
+        'listGameIdentity': identityHashCode(widget.listGame),
+        'gameIdentity': identityHashCode(game),
+        'gameTipViewModelIdentity': identityHashCode(
+          widget.gameTipViewModel,
+        ),
+        'statsViewModelIdentity': statsViewModel == null
+            ? null
+            : identityHashCode(statsViewModel),
+        'listenerEntryPresent': widget.gameStatsEntry != null,
+        'bulkMapContainsKey': statsViewModel?.gamesStatsEntry.containsKey(
+          game.dbkey,
+        ),
+        'bulkMapKeyCount': statsViewModel?.gamesStatsEntry.length,
+        ...extra,
+      },
+    );
+  }
+
+  void _recordRenderState(
+    String renderState, {
+    required bool renderedEntryPresent,
+  }) {
+    if (_lastRecordedRenderState == renderState) {
+      return;
+    }
+    _lastRecordedRenderState = renderState;
+    _recordWidgetState(
+      'percent-widget.render',
+      extra: <String, Object?>{
+        'renderState': renderState,
+        'renderedEntryPresent': renderedEntryPresent,
+      },
+    );
+  }
+
+  Future<void> _showDiagnostics() async {
+    final game = widget.gameTipViewModel.game;
+    final statsViewModel = widget.statsViewModel;
+    final bulkKeys = statsViewModel?.gamesStatsEntry.keys ?? const <String>[];
+    PercentStatsDiagnostics.record(
+      'diagnostics.opened',
+      gameKey: game.dbkey,
+      details: <String, Object?>{
+        'competitionKey': widget.competitionKey,
+        'sectionGameIndex': widget.sectionGameIndex,
+        'statsViewModelIdentity': statsViewModel == null
+            ? null
+            : identityHashCode(statsViewModel),
+        'bulkMapContainsKey': statsViewModel?.gamesStatsEntry.containsKey(
+          game.dbkey,
+        ),
+        'bulkMapKeyCount': statsViewModel?.gamesStatsEntry.length,
+      },
+    );
+    final report = PercentStatsDiagnostics.buildReport(
+      gameKey: game.dbkey,
+      currentState: <String, Object?>{
+        'platform': defaultTargetPlatform.name,
+        'buildMode': kReleaseMode
+            ? 'release'
+            : kProfileMode
+            ? 'profile'
+            : 'debug',
+        'competitionKey': widget.competitionKey,
+        'league': game.league.name,
+        'fixtureRoundNumber': game.fixtureRoundNumber,
+        'fixtureMatchNumber': game.fixtureMatchNumber,
+        'sectionGameIndex': widget.sectionGameIndex,
+        'listGameIdentity': identityHashCode(widget.listGame),
+        'gameIdentity': identityHashCode(game),
+        'sameListAndViewModelGame': identical(widget.listGame, game),
+        'gameTipViewModelIdentity': identityHashCode(
+          widget.gameTipViewModel,
+        ),
+        'statsViewModelIdentity': statsViewModel == null
+            ? null
+            : identityHashCode(statsViewModel),
+        'listenerEntryPresent': widget.gameStatsEntry != null,
+        'bulkMapContainsKey': statsViewModel?.gamesStatsEntry.containsKey(
+          game.dbkey,
+        ),
+        'bulkMapKeyCount': statsViewModel?.gamesStatsEntry.length,
+        'nearMatchingBulkKeys':
+            PercentStatsDiagnostics.nearMatchingKeyFingerprints(
+              game.dbkey,
+              bulkKeys,
+            ),
+      },
+    );
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('% tipped diagnostics'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                report,
+                key: const ValueKey('percent-stats-diagnostics-report'),
+                style: Theme.of(dialogContext).textTheme.bodySmall,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+            TextButton(
+              key: const ValueKey('copy-percent-stats-diagnostics'),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: report));
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                Navigator.of(dialogContext).pop();
+                if (!mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Diagnostics copied')),
+                );
+              },
+              child: const Text('Copy diagnostics'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -596,23 +916,30 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   Widget build(BuildContext context) {
     final listenerEntry = widget.gameStatsEntry;
     if (listenerEntry != null) {
+      _recordRenderState('listener-entry', renderedEntryPresent: true);
       return TipChoice(
         widget.gameTipViewModel,
         true,
         gameStatsEntry: listenerEntry,
         percentStatsLoadComplete: true,
+        onPercentStatsDiagnosticsRequested: _showDiagnostics,
       );
     }
 
     return FutureBuilder<GameStatsEntry?>(
       future: _gameStatsLoad,
       builder: (context, snapshot) {
+        _recordRenderState(
+          'future-${snapshot.connectionState.name}-${snapshot.data != null}',
+          renderedEntryPresent: snapshot.data != null,
+        );
         return TipChoice(
           widget.gameTipViewModel,
           true,
           gameStatsEntry: snapshot.data,
           percentStatsLoadComplete:
               snapshot.connectionState == ConnectionState.done,
+          onPercentStatsDiagnosticsRequested: _showDiagnostics,
         );
       },
     );
