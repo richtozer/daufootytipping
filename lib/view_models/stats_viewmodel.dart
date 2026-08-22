@@ -609,6 +609,10 @@ class StatsViewModel extends ChangeNotifier {
           Map<String, dynamic>.from(entry.value as Map),
         );
         final previousEntry = gamesStatsEntry[gameDbKey];
+        if (!gameStatsEntry.hasCompleteStats &&
+            previousEntry?.hasCompleteStats == true) {
+          continue;
+        }
         gamesStatsEntry[gameDbKey] = gameStatsEntry;
         if (previousEntry != gameStatsEntry) {
           changed = true;
@@ -702,7 +706,7 @@ class StatsViewModel extends ChangeNotifier {
   ) async {
     // Fast path avoids rebuilding every card when it reappears during scroll.
     final GameStatsEntry? cached = gameStatsEntryFor(game);
-    if (cached != null && !forceUpdate) {
+    if (cached?.hasCompleteStats == true && !forceUpdate) {
       PercentStatsDiagnostics.record(
         'direct-load.fast-path',
         gameKey: game.dbkey,
@@ -762,7 +766,7 @@ class StatsViewModel extends ChangeNotifier {
     }
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 
-    if (dbEntry == null) {
+    if (dbEntry == null || !dbEntry.hasCompleteStats) {
       PercentStatsDiagnostics.record(
         'direct-load.complete-missing',
         gameKey: game.dbkey,
@@ -773,9 +777,12 @@ class StatsViewModel extends ChangeNotifier {
           'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
           'bulkMapKeyCount': gamesStatsEntry.length,
           'previousEntryPresent': previousEntry != null,
+          'previousEntryComplete': previousEntry?.hasCompleteStats,
+          'readEntryPresent': dbEntry != null,
+          'readEntryComplete': dbEntry?.hasCompleteStats,
         },
       );
-      return previousEntry;
+      return previousEntry?.hasCompleteStats == true ? previousEntry : null;
     }
 
     gamesStatsEntry[game.dbkey] = dbEntry;

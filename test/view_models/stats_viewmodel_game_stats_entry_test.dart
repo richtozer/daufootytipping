@@ -159,6 +159,8 @@ void main() {
             'pctTipC': 0.0,
             'pctTipD': 0.193,
             'pctTipE': 0.0,
+            'avgScore': 0.0,
+            'avgScoreTipCount': 1,
           },
         );
       });
@@ -215,6 +217,8 @@ void main() {
             'pctTipC': 0.0,
             'pctTipD': 0.193,
             'pctTipE': 0.0,
+            'avgScore': 0.0,
+            'avgScoreTipCount': 1,
           },
         );
       });
@@ -266,6 +270,7 @@ void main() {
             'pctTipD': 0.0,
             'pctTipE': 0.0,
             'avgScore': 0.0,
+            'avgScoreTipCount': 1,
           },
         );
       });
@@ -386,6 +391,11 @@ void main() {
 
       await readStarted.future;
       viewModel.gamesStatsEntry[completedGame.dbkey] = GameStatsEntry(
+        percentageTippedHomeMargin: 0,
+        percentageTippedHome: 1,
+        percentageTippedDraw: 0,
+        percentageTippedAway: 0,
+        percentageTippedAwayMargin: 0,
         averagePoints: 1.25,
         averagePointsTipCount: 1,
       );
@@ -414,6 +424,11 @@ void main() {
         autoInitialize: false,
       );
       viewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry(
+        percentageTippedHomeMargin: 0,
+        percentageTippedHome: 1,
+        percentageTippedDraw: 0,
+        percentageTippedAway: 0,
+        percentageTippedAwayMargin: 0,
         averagePoints: 1.0,
         averagePointsTipCount: 1,
       );
@@ -511,6 +526,40 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test('loadGamesStatsEntry repairs an incomplete cached entry', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+    );
+    viewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry();
+    when(() => database.get()).thenAnswer(
+      (_) async => _snapshot(
+        exists: true,
+        value: <String, Object?>{
+          'pctTipA': 0.035,
+          'pctTipB': 0.772,
+          'pctTipC': 0.0,
+          'pctTipD': 0.193,
+          'pctTipE': 0.0,
+          'avgScore': 1.25,
+          'avgScoreTipCount': 57,
+        },
+      ),
+    );
+
+    final repaired = await viewModel.loadGamesStatsEntry(game, false);
+
+    expect(repaired?.hasCompleteStats, isTrue);
+    expect(repaired?.percentageTippedHome, 0.772);
+    expect(repaired?.averagePoints, 1.25);
+    expect(viewModel.gameStatsEntryFor(game), same(repaired));
+    verify(() => database.get()).called(1);
+
+    viewModel.dispose();
+  });
 }
 
 MockDataSnapshot _snapshot({

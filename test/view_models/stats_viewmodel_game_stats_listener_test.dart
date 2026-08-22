@@ -123,7 +123,13 @@ void main() {
     expect(freeStatsEvents.hasListener, isTrue);
     expect(paidStatsEvents.hasListener, isFalse);
     viewModel.gamesStatsEntry['nrl-01-001'] = GameStatsEntry(
+      percentageTippedHomeMargin: 0,
       percentageTippedHome: 1,
+      percentageTippedDraw: 0,
+      percentageTippedAway: 0,
+      percentageTippedAwayMargin: 0,
+      averagePoints: 1,
+      averagePointsTipCount: 1,
     );
 
     viewer = _tipper(paidFor: comp);
@@ -133,6 +139,39 @@ void main() {
     expect(freeStatsEvents.hasListener, isFalse);
     expect(paidStatsEvents.hasListener, isTrue);
     expect(viewModel.gamesStatsEntry, isEmpty);
+
+    viewModel.dispose();
+  });
+
+  test('does not replace complete stats with a partial listener entry', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      null,
+      database: root,
+      autoInitialize: false,
+      refreshProtectedResourceAccess: () async {},
+    );
+    final completeEntry = GameStatsEntry(
+      percentageTippedHomeMargin: 0,
+      percentageTippedHome: 0.625,
+      percentageTippedDraw: 0,
+      percentageTippedAway: 0.375,
+      percentageTippedAwayMargin: 0,
+      averagePoints: 1.5,
+      averagePointsTipCount: 57,
+    );
+    viewModel.gamesStatsEntry['nrl-01-001'] = completeEntry;
+    final snapshot = MockDataSnapshot();
+    final event = MockDatabaseEvent();
+    when(() => snapshot.exists).thenReturn(true);
+    when(() => snapshot.value).thenReturn(<String, Object?>{
+      'nrl-01-001': <String, Object?>{'avgScore': 0.0},
+    });
+    when(() => event.snapshot).thenReturn(snapshot);
+
+    await viewModel.handleGameStatsEventForTest(event);
+
+    expect(viewModel.gamesStatsEntry['nrl-01-001'], same(completeEntry));
 
     viewModel.dispose();
   });

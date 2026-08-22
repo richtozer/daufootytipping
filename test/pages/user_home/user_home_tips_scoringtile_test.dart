@@ -182,7 +182,7 @@ void main() {
     expect(find.text('? / 2'), findsNothing);
   });
 
-  testWidgets('fetches average points through the StatsViewModel it watches', (
+  testWidgets('repairs an incomplete cached average through its StatsViewModel', (
     tester,
   ) async {
     final providerDatabase = MockDatabaseReference();
@@ -191,6 +191,11 @@ void main() {
       (_) async => _snapshot(
         exists: true,
         value: <String, Object?>{
+          'pctTipA': 0.0,
+          'pctTipB': 0.25,
+          'pctTipC': 0.0,
+          'pctTipD': 0.75,
+          'pctTipE': 0.0,
           'avgScore': 0.316,
           'avgScoreTipCount': 57,
         },
@@ -202,6 +207,7 @@ void main() {
       database: providerDatabase,
       autoInitialize: false,
     );
+    providerStatsViewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry();
     addTearDown(providerStatsViewModel.dispose);
     final tip = Tip(
       dbkey: 'tip-1',
@@ -253,6 +259,11 @@ void main() {
       return _snapshot(
         exists: true,
         value: <String, Object?>{
+          'pctTipA': 0.0,
+          'pctTipB': 0.25,
+          'pctTipC': 0.0,
+          'pctTipD': 0.75,
+          'pctTipE': 0.0,
           'avgScore': 0.316,
           'avgScoreTipCount': 57,
         },
@@ -332,6 +343,11 @@ void main() {
       return _snapshot(
         exists: true,
         value: <String, Object?>{
+          'pctTipA': 0.0,
+          'pctTipB': 0.25,
+          'pctTipC': 0.0,
+          'pctTipD': 0.75,
+          'pctTipE': 0.0,
           'avgScore': 1.684,
           'avgScoreTipCount': 1,
         },
@@ -389,6 +405,11 @@ void main() {
     );
 
     statsViewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry(
+      percentageTippedHomeMargin: 0,
+      percentageTippedHome: 1,
+      percentageTippedDraw: 0,
+      percentageTippedAway: 0,
+      percentageTippedAwayMargin: 0,
       averagePoints: 0.0,
       averagePointsTipCount: 57,
     );
