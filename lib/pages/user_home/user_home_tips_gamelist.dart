@@ -366,7 +366,6 @@ List<Widget> buildRoundLeagueSectionSlivers({
               currentDAUComp: selectedComp,
               allTipsViewModel: tipsViewModel,
               isPercentStatsPage: isPercentStatsPage,
-              sectionGameIndex: index,
             ),
           );
         }, childCount: leagueGames.length),

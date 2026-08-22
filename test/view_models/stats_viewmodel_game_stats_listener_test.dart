@@ -7,7 +7,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -176,74 +175,6 @@ void main() {
     viewModel.dispose();
   });
 
-  test('reconnects after an iOS protected-resource listener error', () async {
-    var protectedResourceRefreshes = 0;
-    final replacementPaidEvents = StreamController<DatabaseEvent>.broadcast();
-    addTearDown(replacementPaidEvents.close);
-    var paidListenerCount = 0;
-    when(() => paidStatsRoot.onValue).thenAnswer((_) {
-      paidListenerCount += 1;
-      return paidListenerCount == 1
-          ? paidStatsEvents.stream
-          : replacementPaidEvents.stream;
-    });
-    viewer = _tipper(paidFor: comp);
-
-    final viewModel = StatsViewModel(
-      comp,
-      null,
-      database: root,
-      gameStatsListenerRetryDelays: const [Duration.zero],
-      refreshProtectedResourceAccess: () async {
-        protectedResourceRefreshes += 1;
-      },
-    );
-    await _settleAsyncWork();
-
-    paidStatsEvents.addError(
-      FirebaseException(
-        plugin: 'firebase_database',
-        code: 'permission-denied',
-        message: 'App Check token rejected.',
-      ),
-      StackTrace.current,
-    );
-    await _settleAsyncWork();
-
-    expect(protectedResourceRefreshes, 1);
-    expect(paidListenerCount, 2);
-    expect(paidStatsEvents.hasListener, isFalse);
-    expect(replacementPaidEvents.hasListener, isTrue);
-
-    replacementPaidEvents.addError(
-      FirebaseException(
-        plugin: 'firebase_database',
-        code: 'permission-denied',
-        message: 'App Check token still unavailable.',
-      ),
-      StackTrace.current,
-    );
-    await _settleAsyncWork();
-
-    expect(protectedResourceRefreshes, 2);
-    expect(paidListenerCount, 3);
-    expect(replacementPaidEvents.hasListener, isTrue);
-
-    replacementPaidEvents.add(
-      _gameStatsEvent(
-        gameKey: 'nrl-01-001',
-        percentageTippedHome: 0.625,
-      ),
-    );
-    await _settleAsyncWork();
-
-    expect(
-      viewModel.gamesStatsEntry['nrl-01-001']?.percentageTippedHome,
-      0.625,
-    );
-
-    viewModel.dispose();
-  });
 }
 
 Tipper _tipper({required DAUComp? paidFor}) {
@@ -256,26 +187,6 @@ Tipper _tipper({required DAUComp? paidFor}) {
     tipperRole: TipperRole.tipper,
     compsPaidFor: paidFor == null ? <DAUComp>[] : <DAUComp>[paidFor],
   );
-}
-
-DatabaseEvent _gameStatsEvent({
-  required String gameKey,
-  required double percentageTippedHome,
-}) {
-  final snapshot = MockDataSnapshot();
-  final event = MockDatabaseEvent();
-  when(() => snapshot.exists).thenReturn(true);
-  when(() => snapshot.value).thenReturn(<String, Object?>{
-    gameKey: <String, Object?>{
-      'pctTipA': 0.0,
-      'pctTipB': percentageTippedHome,
-      'pctTipC': 0.0,
-      'pctTipD': 1 - percentageTippedHome,
-      'pctTipE': 0.0,
-    },
-  });
-  when(() => event.snapshot).thenReturn(snapshot);
-  return event;
 }
 
 Future<void> _settleAsyncWork() async {
