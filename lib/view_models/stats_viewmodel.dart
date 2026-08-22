@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
-import 'package:daufootytipping/services/percent_stats_diagnostics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -28,6 +27,8 @@ import 'package:daufootytipping/services/startup_app_check.dart';
 // Use shared root; keep versioned leaves local to file for clarity
 const String statsPathRootLocal = p.statsPathRoot;
 
+enum GameStatsLoadState { notRequested, loading, resolved }
+
 class StatsViewModel extends ChangeNotifier {
   final Map<int, Map<String, RoundStats>> _roundStatsByTipperDbKey = {};
   final Map<int, Map<Tipper, RoundStats>> _allTipperRoundStats = {};
@@ -46,7 +47,6 @@ class StatsViewModel extends ChangeNotifier {
 
   final DatabaseReference _db;
   final List<Duration> _gameStatsRetryDelays;
-  final List<Duration> _gameStatsListenerRetryDelays;
   final Future<void> Function() _refreshProtectedResourceAccess;
   final Lock _gameStatsListenerLock = Lock();
   late StreamSubscription<DatabaseEvent> _liveScoresStream;
@@ -56,9 +56,6 @@ class StatsViewModel extends ChangeNotifier {
   bool _hasRoundPointsListener = false;
   bool _hasGameStatsListener = false;
   String? _gameStatsListenerSubKey;
-  int _gameStatsListenerGeneration = 0;
-  int _gameStatsListenerReconnectAttempts = 0;
-  Timer? _gameStatsListenerReconnectTimer;
   bool _disposed = false;
 
   final DAUComp selectedDAUComp;
@@ -99,17 +96,9 @@ class StatsViewModel extends ChangeNotifier {
       Duration(seconds: 1),
       Duration(seconds: 2),
     ],
-    List<Duration> gameStatsListenerRetryDelays = const [
-      Duration(seconds: 1),
-      Duration(seconds: 2),
-      Duration(seconds: 5),
-      Duration(seconds: 15),
-      Duration(seconds: 30),
-    ],
     Future<void> Function()? refreshProtectedResourceAccess,
   }) : _db = database ?? configuredDatabaseRef(),
        _gameStatsRetryDelays = gameStatsRetryDelays,
-       _gameStatsListenerRetryDelays = gameStatsListenerRetryDelays,
        _refreshProtectedResourceAccess =
            refreshProtectedResourceAccess ??
            (() async {
@@ -168,7 +157,7 @@ class StatsViewModel extends ChangeNotifier {
     await _listenToGameStats();
   }
 
-  Future<void> _listenToGameStats({bool forceReconnect = false}) {
+  Future<void> _listenToGameStats() {
     return _gameStatsListenerLock.synchronized(() async {
       await di<TippersViewModel>().isUserLinked;
       if (_disposed) {
@@ -180,7 +169,6 @@ class StatsViewModel extends ChangeNotifier {
       );
       final subKey = isPaid ? 'paid' : 'free';
       if (_hasGameStatsListener &&
-          !forceReconnect &&
           _gameStatsListenerSubKey == subKey) {
         _isSelectedTipperPaidUpMember = isPaid;
         return;
@@ -189,7 +177,6 @@ class StatsViewModel extends ChangeNotifier {
       final cohortChanged =
           _gameStatsListenerSubKey != null &&
           _gameStatsListenerSubKey != subKey;
-      final generation = ++_gameStatsListenerGeneration;
       if (_hasGameStatsListener) {
         await _gameStatsStream.cancel();
         _hasGameStatsListener = false;
@@ -200,22 +187,12 @@ class StatsViewModel extends ChangeNotifier {
 
       if (cohortChanged) {
         gamesStatsEntry.clear();
-        _gameStatsListenerReconnectAttempts = 0;
+        _gameStatsLoadStates.clear();
         notifyListeners();
       }
 
       _isSelectedTipperPaidUpMember = isPaid;
       _gameStatsListenerSubKey = subKey;
-      PercentStatsDiagnostics.record(
-        'bulk-listener.attach',
-        details: <String, Object?>{
-          'competitionKey': selectedDAUComp.dbkey,
-          'statsViewModelIdentity': identityHashCode(this),
-          'listenerGeneration': generation,
-          'cohort': subKey,
-          'forceReconnect': forceReconnect,
-        },
-      );
       _gameStatsStream = _db
           .child(statsPathRootLocal)
           .child(selectedDAUComp.dbkey!)
@@ -224,91 +201,20 @@ class StatsViewModel extends ChangeNotifier {
           .onValue
           .listen(
             (event) {
-              if (_disposed || generation != _gameStatsListenerGeneration) {
+              if (_disposed) {
                 return;
               }
-              _gameStatsListenerReconnectTimer?.cancel();
-              _gameStatsListenerReconnectTimer = null;
-              _gameStatsListenerReconnectAttempts = 0;
-              PercentStatsDiagnostics.record(
-                'bulk-listener.event',
-                details: <String, Object?>{
-                  'competitionKey': selectedDAUComp.dbkey,
-                  'statsViewModelIdentity': identityHashCode(this),
-                  'listenerGeneration': generation,
-                  'cohort': subKey,
-                  'snapshotPath':
-                      '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_gameStatsReadRoot/$subKey',
-                  'snapshotExists': event.snapshot.exists,
-                  'snapshotValueType': event.snapshot.value.runtimeType
-                      .toString(),
-                },
-              );
               unawaited(_handleEventGameStats(event));
             },
             onError: (Object error, StackTrace stackTrace) {
-              _handleGameStatsListenerError(
-                error,
-                stackTrace,
-                generation,
+              log(
+                'StatsViewModel() Error listening to game stats: $error',
+                error: error,
+                stackTrace: stackTrace,
               );
             },
           );
       _hasGameStatsListener = true;
-    });
-  }
-
-  void _handleGameStatsListenerError(
-    Object error,
-    StackTrace stackTrace,
-    int generation,
-  ) {
-    log(
-      'StatsViewModel() Error listening to game stats: $error',
-      error: error,
-      stackTrace: stackTrace,
-    );
-    if (_disposed || generation != _gameStatsListenerGeneration) {
-      return;
-    }
-
-    final isProtectedResourceError =
-        StartupAppCheckSupport.isRetryableProtectedResourceError(error);
-    final isTransientDisconnect =
-        CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
-          error,
-        );
-    if (!isProtectedResourceError && !isTransientDisconnect) {
-      return;
-    }
-
-    final retryIndex = _gameStatsListenerReconnectAttempts <
-            _gameStatsListenerRetryDelays.length
-        ? _gameStatsListenerReconnectAttempts
-        : _gameStatsListenerRetryDelays.length - 1;
-    final retryDelay = _gameStatsListenerRetryDelays.isEmpty
-        ? Duration.zero
-        : _gameStatsListenerRetryDelays[retryIndex];
-    _gameStatsListenerReconnectAttempts += 1;
-    _gameStatsListenerReconnectTimer?.cancel();
-    _gameStatsListenerReconnectTimer = Timer(retryDelay, () async {
-      if (_disposed || generation != _gameStatsListenerGeneration) {
-        return;
-      }
-      if (isProtectedResourceError) {
-        try {
-          await _refreshProtectedResourceAccess();
-        } catch (refreshError, refreshStackTrace) {
-          log(
-            'StatsViewModel() Failed to refresh protected resource access: $refreshError',
-            error: refreshError,
-            stackTrace: refreshStackTrace,
-          );
-        }
-      }
-      if (!_disposed && generation == _gameStatsListenerGeneration) {
-        await _listenToGameStats(forceReconnect: true);
-      }
     });
   }
 
@@ -576,32 +482,14 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> _handleEventGameStats(DatabaseEvent event) async {
     try {
       if (!event.snapshot.exists) {
-        PercentStatsDiagnostics.record(
-          'bulk-merge.missing-snapshot',
-          details: <String, Object?>{
-            'competitionKey': selectedDAUComp.dbkey,
-            'statsViewModelIdentity': identityHashCode(this),
-            'snapshotPath':
-                '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_gameStatsReadRoot/${_gameStatsListenerSubKey ?? 'unknown'}',
-          },
-        );
         return;
       }
 
       final value = event.snapshot.value;
       if (value is! Map) {
-        PercentStatsDiagnostics.record(
-          'bulk-merge.unexpected-value',
-          details: <String, Object?>{
-            'competitionKey': selectedDAUComp.dbkey,
-            'statsViewModelIdentity': identityHashCode(this),
-            'snapshotValueType': value.runtimeType.toString(),
-          },
-        );
         return;
       }
 
-      final rawKeys = value.keys.whereType<String>().toSet();
       bool changed = false;
       for (final entry in value.entries) {
         final gameDbKey = entry.key as String;
@@ -619,40 +507,8 @@ class StatsViewModel extends ChangeNotifier {
         }
       }
 
-      PercentStatsDiagnostics.record(
-        'bulk-merge.complete',
-        details: <String, Object?>{
-          'competitionKey': selectedDAUComp.dbkey,
-          'statsViewModelIdentity': identityHashCode(this),
-          'rawKeyCount': rawKeys.length,
-          'bulkMapKeyCount': gamesStatsEntry.length,
-          'changed': changed,
-        },
-      );
-      for (final trackedGameKey
-          in PercentStatsDiagnostics.trackedGameKeys) {
-        PercentStatsDiagnostics.record(
-          'bulk-merge.membership',
-          gameKey: trackedGameKey,
-          details: <String, Object?>{
-            'competitionKey': selectedDAUComp.dbkey,
-            'statsViewModelIdentity': identityHashCode(this),
-            'rawSnapshotContainsKey': rawKeys.contains(trackedGameKey),
-            'bulkMapContainsKey': gamesStatsEntry.containsKey(trackedGameKey),
-            'bulkMapKeyCount': gamesStatsEntry.length,
-          },
-        );
-      }
-
       if (changed) {
         notifyListeners();
-        PercentStatsDiagnostics.record(
-          'bulk-merge.notified',
-          details: <String, Object?>{
-            'competitionKey': selectedDAUComp.dbkey,
-            'statsViewModelIdentity': identityHashCode(this),
-          },
-        );
       }
     } catch (e) {
       log(
@@ -691,32 +547,52 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   final Map<String, GameStatsEntry> gamesStatsEntry = {};
+  final Map<String, GameStatsLoadState> _gameStatsLoadStates = {};
 
   GameStatsEntry? gameStatsEntryFor(Game game) {
     return gamesStatsEntry[game.dbkey];
   }
 
-  void getGamesStatsEntry(Game game, bool forceUpdate) {
-    unawaited(loadGamesStatsEntry(game, forceUpdate));
+  GameStatsLoadState gameStatsLoadStateFor(Game game) {
+    return _gameStatsLoadStates[game.dbkey] ??
+        GameStatsLoadState.notRequested;
   }
 
-  Future<GameStatsEntry?> loadGamesStatsEntry(
+  void getGamesStatsEntry(Game game, bool forceUpdate) {
+    final cached = gameStatsEntryFor(game);
+    if (!forceUpdate && cached?.hasCompleteStats == true) {
+      return;
+    }
+    final loadState = gameStatsLoadStateFor(game);
+    if (loadState == GameStatsLoadState.loading) {
+      return;
+    }
+
+    _gameStatsLoadStates[game.dbkey] = GameStatsLoadState.loading;
+    unawaited(_loadGamesStatsEntryAndNotify(game, forceUpdate));
+  }
+
+  Future<void> _loadGamesStatsEntryAndNotify(
+    Game game,
+    bool forceUpdate,
+  ) async {
+    try {
+      await _loadGamesStatsEntry(game, forceUpdate);
+    } finally {
+      _gameStatsLoadStates[game.dbkey] = GameStatsLoadState.resolved;
+      if (!_disposed) {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<GameStatsEntry?> _loadGamesStatsEntry(
     Game game,
     bool forceUpdate,
   ) async {
     // Fast path avoids rebuilding every card when it reappears during scroll.
     final GameStatsEntry? cached = gameStatsEntryFor(game);
     if (cached?.hasCompleteStats == true && !forceUpdate) {
-      PercentStatsDiagnostics.record(
-        'direct-load.fast-path',
-        gameKey: game.dbkey,
-        details: <String, Object?>{
-          'competitionKey': selectedDAUComp.dbkey,
-          'gameIdentity': identityHashCode(game),
-          'statsViewModelIdentity': identityHashCode(this),
-          'bulkMapKeyCount': gamesStatsEntry.length,
-        },
-      );
       return cached;
     }
 
@@ -767,40 +643,10 @@ class StatsViewModel extends ChangeNotifier {
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 
     if (dbEntry == null || !dbEntry.hasCompleteStats) {
-      PercentStatsDiagnostics.record(
-        'direct-load.complete-missing',
-        gameKey: game.dbkey,
-        details: <String, Object?>{
-          'competitionKey': selectedDAUComp.dbkey,
-          'gameIdentity': identityHashCode(game),
-          'statsViewModelIdentity': identityHashCode(this),
-          'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
-          'bulkMapKeyCount': gamesStatsEntry.length,
-          'previousEntryPresent': previousEntry != null,
-          'previousEntryComplete': previousEntry?.hasCompleteStats,
-          'readEntryPresent': dbEntry != null,
-          'readEntryComplete': dbEntry?.hasCompleteStats,
-        },
-      );
       return previousEntry?.hasCompleteStats == true ? previousEntry : null;
     }
 
     gamesStatsEntry[game.dbkey] = dbEntry;
-    if (previousEntry != dbEntry) {
-      notifyListeners();
-    }
-    PercentStatsDiagnostics.record(
-      'direct-load.complete-present',
-      gameKey: game.dbkey,
-      details: <String, Object?>{
-        'competitionKey': selectedDAUComp.dbkey,
-        'gameIdentity': identityHashCode(game),
-        'statsViewModelIdentity': identityHashCode(this),
-        'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
-        'bulkMapKeyCount': gamesStatsEntry.length,
-        'notified': previousEntry != dbEntry,
-      },
-    );
     return dbEntry;
   }
 
@@ -817,37 +663,7 @@ class StatsViewModel extends ChangeNotifier {
         .child(_gameStatsReadRoot)
         .child(subKey)
         .child(game.dbkey);
-    final diagnosticPath =
-        '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_gameStatsReadRoot/$subKey/${game.dbkey}';
-    PercentStatsDiagnostics.record(
-      'direct-read.start',
-      gameKey: game.dbkey,
-      details: <String, Object?>{
-        'competitionKey': selectedDAUComp.dbkey,
-        'gameIdentity': identityHashCode(game),
-        'statsViewModelIdentity': identityHashCode(this),
-        'cohort': subKey,
-        'snapshotPath': diagnosticPath,
-        'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
-        'bulkMapKeyCount': gamesStatsEntry.length,
-      },
-    );
     final snapshot = await gameStatsReference.get();
-    PercentStatsDiagnostics.record(
-      'direct-read.snapshot',
-      gameKey: game.dbkey,
-      details: <String, Object?>{
-        'competitionKey': selectedDAUComp.dbkey,
-        'gameIdentity': identityHashCode(game),
-        'statsViewModelIdentity': identityHashCode(this),
-        'cohort': subKey,
-        'snapshotPath': diagnosticPath,
-        'snapshotExists': snapshot.exists,
-        'snapshotValueType': snapshot.value.runtimeType.toString(),
-        'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
-        'bulkMapKeyCount': gamesStatsEntry.length,
-      },
-    );
 
     return _gameStatsEntryFromSnapshot(snapshot);
   }
@@ -1392,9 +1208,6 @@ class StatsViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _gameStatsListenerGeneration += 1;
-    _gameStatsListenerReconnectTimer?.cancel();
-    _gameStatsListenerReconnectTimer = null;
     if (di.isRegistered<TippersViewModel>()) {
       di<TippersViewModel>().removeListener(_handleTippersUpdated);
     }

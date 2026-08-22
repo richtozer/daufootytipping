@@ -83,6 +83,55 @@ void main() {
     await di.reset();
   });
 
+  test('tracks and deduplicates an in-flight game stats read', () async {
+    final readStarted = Completer<void>();
+    final readResult = Completer<DataSnapshot>();
+    final listenersNotified = Completer<void>();
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+    );
+    viewModel.addListener(() {
+      if (!listenersNotified.isCompleted) {
+        listenersNotified.complete();
+      }
+    });
+    when(() => database.get()).thenAnswer((_) {
+      if (!readStarted.isCompleted) {
+        readStarted.complete();
+      }
+      return readResult.future;
+    });
+
+    expect(
+      viewModel.gameStatsLoadStateFor(game),
+      GameStatsLoadState.notRequested,
+    );
+
+    viewModel.getGamesStatsEntry(game, false);
+    viewModel.getGamesStatsEntry(game, false);
+
+    expect(
+      viewModel.gameStatsLoadStateFor(game),
+      GameStatsLoadState.loading,
+    );
+    await readStarted.future;
+    verify(() => database.get()).called(1);
+
+    readResult.complete(_snapshot(exists: false, value: null));
+    await listenersNotified.future;
+
+    expect(
+      viewModel.gameStatsLoadStateFor(game),
+      GameStatsLoadState.resolved,
+    );
+    expect(viewModel.gameStatsEntryFor(game), isNull);
+
+    viewModel.dispose();
+  });
+
   test(
     'getGamesStatsEntry swallows transient database disconnects',
     () async {
@@ -527,7 +576,7 @@ void main() {
     },
   );
 
-  test('loadGamesStatsEntry repairs an incomplete cached entry', () async {
+  test('getGamesStatsEntry repairs an incomplete cached entry', () async {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
@@ -549,8 +598,16 @@ void main() {
         },
       ),
     );
+    final listenersNotified = Completer<void>();
+    viewModel.addListener(() {
+      if (!listenersNotified.isCompleted) {
+        listenersNotified.complete();
+      }
+    });
 
-    final repaired = await viewModel.loadGamesStatsEntry(game, false);
+    viewModel.getGamesStatsEntry(game, false);
+    await listenersNotified.future;
+    final repaired = viewModel.gameStatsEntryFor(game);
 
     expect(repaired?.hasCompleteStats, isTrue);
     expect(repaired?.percentageTippedHome, 0.772);
