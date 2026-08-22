@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
+import 'package:daufootytipping/services/percent_stats_diagnostics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -205,6 +206,16 @@ class StatsViewModel extends ChangeNotifier {
 
       _isSelectedTipperPaidUpMember = isPaid;
       _gameStatsListenerSubKey = subKey;
+      PercentStatsDiagnostics.record(
+        'bulk-listener.attach',
+        details: <String, Object?>{
+          'competitionKey': selectedDAUComp.dbkey,
+          'statsViewModelIdentity': identityHashCode(this),
+          'listenerGeneration': generation,
+          'cohort': subKey,
+          'forceReconnect': forceReconnect,
+        },
+      );
       _gameStatsStream = _db
           .child(statsPathRootLocal)
           .child(selectedDAUComp.dbkey!)
@@ -219,6 +230,20 @@ class StatsViewModel extends ChangeNotifier {
               _gameStatsListenerReconnectTimer?.cancel();
               _gameStatsListenerReconnectTimer = null;
               _gameStatsListenerReconnectAttempts = 0;
+              PercentStatsDiagnostics.record(
+                'bulk-listener.event',
+                details: <String, Object?>{
+                  'competitionKey': selectedDAUComp.dbkey,
+                  'statsViewModelIdentity': identityHashCode(this),
+                  'listenerGeneration': generation,
+                  'cohort': subKey,
+                  'snapshotPath':
+                      '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_gameStatsReadRoot/$subKey',
+                  'snapshotExists': event.snapshot.exists,
+                  'snapshotValueType': event.snapshot.value.runtimeType
+                      .toString(),
+                },
+              );
               unawaited(_handleEventGameStats(event));
             },
             onError: (Object error, StackTrace stackTrace) {
@@ -551,14 +576,32 @@ class StatsViewModel extends ChangeNotifier {
   Future<void> _handleEventGameStats(DatabaseEvent event) async {
     try {
       if (!event.snapshot.exists) {
+        PercentStatsDiagnostics.record(
+          'bulk-merge.missing-snapshot',
+          details: <String, Object?>{
+            'competitionKey': selectedDAUComp.dbkey,
+            'statsViewModelIdentity': identityHashCode(this),
+            'snapshotPath':
+                '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_gameStatsReadRoot/${_gameStatsListenerSubKey ?? 'unknown'}',
+          },
+        );
         return;
       }
 
       final value = event.snapshot.value;
       if (value is! Map) {
+        PercentStatsDiagnostics.record(
+          'bulk-merge.unexpected-value',
+          details: <String, Object?>{
+            'competitionKey': selectedDAUComp.dbkey,
+            'statsViewModelIdentity': identityHashCode(this),
+            'snapshotValueType': value.runtimeType.toString(),
+          },
+        );
         return;
       }
 
+      final rawKeys = value.keys.whereType<String>().toSet();
       bool changed = false;
       for (final entry in value.entries) {
         final gameDbKey = entry.key as String;
@@ -572,8 +615,40 @@ class StatsViewModel extends ChangeNotifier {
         }
       }
 
+      PercentStatsDiagnostics.record(
+        'bulk-merge.complete',
+        details: <String, Object?>{
+          'competitionKey': selectedDAUComp.dbkey,
+          'statsViewModelIdentity': identityHashCode(this),
+          'rawKeyCount': rawKeys.length,
+          'bulkMapKeyCount': gamesStatsEntry.length,
+          'changed': changed,
+        },
+      );
+      for (final trackedGameKey
+          in PercentStatsDiagnostics.trackedGameKeys) {
+        PercentStatsDiagnostics.record(
+          'bulk-merge.membership',
+          gameKey: trackedGameKey,
+          details: <String, Object?>{
+            'competitionKey': selectedDAUComp.dbkey,
+            'statsViewModelIdentity': identityHashCode(this),
+            'rawSnapshotContainsKey': rawKeys.contains(trackedGameKey),
+            'bulkMapContainsKey': gamesStatsEntry.containsKey(trackedGameKey),
+            'bulkMapKeyCount': gamesStatsEntry.length,
+          },
+        );
+      }
+
       if (changed) {
         notifyListeners();
+        PercentStatsDiagnostics.record(
+          'bulk-merge.notified',
+          details: <String, Object?>{
+            'competitionKey': selectedDAUComp.dbkey,
+            'statsViewModelIdentity': identityHashCode(this),
+          },
+        );
       }
     } catch (e) {
       log(
@@ -628,6 +703,16 @@ class StatsViewModel extends ChangeNotifier {
     // Fast path avoids rebuilding every card when it reappears during scroll.
     final GameStatsEntry? cached = gameStatsEntryFor(game);
     if (cached != null && !forceUpdate) {
+      PercentStatsDiagnostics.record(
+        'direct-load.fast-path',
+        gameKey: game.dbkey,
+        details: <String, Object?>{
+          'competitionKey': selectedDAUComp.dbkey,
+          'gameIdentity': identityHashCode(game),
+          'statsViewModelIdentity': identityHashCode(this),
+          'bulkMapKeyCount': gamesStatsEntry.length,
+        },
+      );
       return cached;
     }
 
@@ -678,6 +763,18 @@ class StatsViewModel extends ChangeNotifier {
     final GameStatsEntry? previousEntry = gamesStatsEntry[game.dbkey];
 
     if (dbEntry == null) {
+      PercentStatsDiagnostics.record(
+        'direct-load.complete-missing',
+        gameKey: game.dbkey,
+        details: <String, Object?>{
+          'competitionKey': selectedDAUComp.dbkey,
+          'gameIdentity': identityHashCode(game),
+          'statsViewModelIdentity': identityHashCode(this),
+          'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
+          'bulkMapKeyCount': gamesStatsEntry.length,
+          'previousEntryPresent': previousEntry != null,
+        },
+      );
       return previousEntry;
     }
 
@@ -685,6 +782,18 @@ class StatsViewModel extends ChangeNotifier {
     if (previousEntry != dbEntry) {
       notifyListeners();
     }
+    PercentStatsDiagnostics.record(
+      'direct-load.complete-present',
+      gameKey: game.dbkey,
+      details: <String, Object?>{
+        'competitionKey': selectedDAUComp.dbkey,
+        'gameIdentity': identityHashCode(game),
+        'statsViewModelIdentity': identityHashCode(this),
+        'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
+        'bulkMapKeyCount': gamesStatsEntry.length,
+        'notified': previousEntry != dbEntry,
+      },
+    );
     return dbEntry;
   }
 
@@ -695,13 +804,43 @@ class StatsViewModel extends ChangeNotifier {
         .paidForComp(selectedDAUComp);
 
     String subKey = _isSelectedTipperPaidUpMember! ? 'paid' : 'free';
-    final snapshot = await _db
+    final gameStatsReference = _db
         .child(statsPathRootLocal)
         .child(selectedDAUComp.dbkey!)
         .child(_gameStatsReadRoot)
         .child(subKey)
-        .child(game.dbkey)
-        .get();
+        .child(game.dbkey);
+    final diagnosticPath =
+        '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_gameStatsReadRoot/$subKey/${game.dbkey}';
+    PercentStatsDiagnostics.record(
+      'direct-read.start',
+      gameKey: game.dbkey,
+      details: <String, Object?>{
+        'competitionKey': selectedDAUComp.dbkey,
+        'gameIdentity': identityHashCode(game),
+        'statsViewModelIdentity': identityHashCode(this),
+        'cohort': subKey,
+        'snapshotPath': diagnosticPath,
+        'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
+        'bulkMapKeyCount': gamesStatsEntry.length,
+      },
+    );
+    final snapshot = await gameStatsReference.get();
+    PercentStatsDiagnostics.record(
+      'direct-read.snapshot',
+      gameKey: game.dbkey,
+      details: <String, Object?>{
+        'competitionKey': selectedDAUComp.dbkey,
+        'gameIdentity': identityHashCode(game),
+        'statsViewModelIdentity': identityHashCode(this),
+        'cohort': subKey,
+        'snapshotPath': diagnosticPath,
+        'snapshotExists': snapshot.exists,
+        'snapshotValueType': snapshot.value.runtimeType.toString(),
+        'bulkMapContainsKey': gamesStatsEntry.containsKey(game.dbkey),
+        'bulkMapKeyCount': gamesStatsEntry.length,
+      },
+    );
 
     return _gameStatsEntryFromSnapshot(snapshot);
   }

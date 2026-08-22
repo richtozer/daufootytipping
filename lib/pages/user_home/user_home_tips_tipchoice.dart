@@ -15,12 +15,14 @@ class TipChoice extends StatelessWidget {
     super.key,
     this.gameStatsEntry,
     this.percentStatsLoadComplete = false,
+    this.onPercentStatsDiagnosticsRequested,
   });
 
   final GameTipViewModel gameTipViewModel;
   final bool isPercentStatsPage;
   final GameStatsEntry? gameStatsEntry;
   final bool percentStatsLoadComplete;
+  final VoidCallback? onPercentStatsDiagnosticsRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -269,7 +271,7 @@ class TipChoice extends StatelessWidget {
     );
   }
 
-  ChoiceChip generatePercentStatsChip(
+  Widget generatePercentStatsChip(
     GameResult option,
     GameTipViewModel gameTipsViewModel,
     GameStatsEntry? gameStatsEntry,
@@ -301,7 +303,7 @@ class TipChoice extends StatelessWidget {
       buttonText = '${(percentageForOption * 100).toStringAsFixed(1)}%';
     }
 
-    return ChoiceChip.elevated(
+    final chip = ChoiceChip.elevated(
       avatar:
           gameTipsViewModel.game.scoring?.getGameResultCalculated(
                 gameTipsViewModel.game.league,
@@ -326,6 +328,16 @@ class TipChoice extends StatelessWidget {
       selectedColor: Colors.lightGreen[500],
       selected:
           gameTipsViewModel.tip != null && gameTipsViewModel.tip!.tip == option,
+    );
+    if (!loadComplete || onPercentStatsDiagnosticsRequested == null) {
+      return chip;
+    }
+
+    return GestureDetector(
+      key: ValueKey('percent-stats-diagnostics-${option.name}'),
+      behavior: HitTestBehavior.opaque,
+      onLongPress: onPercentStatsDiagnosticsRequested,
+      child: chip,
     );
   }
 }
