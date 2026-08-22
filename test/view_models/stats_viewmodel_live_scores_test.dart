@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -12,6 +15,7 @@ import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
@@ -304,6 +308,154 @@ void main() {
   );
 
   test(
+    'reapplies cached live scores to a replacement game instance',
+    () async {
+      Game canonicalGame = activeGame;
+      when(
+        () => gamesViewModel.findGame('nrl-04-025'),
+      ).thenAnswer((_) async => canonicalGame);
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: rootDb,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleLiveScoresEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-04-025': liveScoreJson(homeScore: 24, awayScore: 44),
+            },
+          ),
+        ),
+      );
+      expect(
+        canonicalGame.scoring?.currentScore(ScoringTeam.home),
+        24,
+      );
+      expect(
+        canonicalGame.scoring?.currentScore(ScoringTeam.away),
+        44,
+      );
+
+      canonicalGame = buildGame(
+        dbKey: 'nrl-04-025',
+        league: League.nrl,
+        fixtureRoundNumber: 4,
+        fixtureMatchNumber: 25,
+        homeScore: null,
+        awayScore: null,
+      );
+      await viewModel.reconcileLiveScoresWithCurrentGamesForTest();
+
+      expect(
+        canonicalGame.scoring?.currentScore(ScoringTeam.home),
+        24,
+      );
+      expect(
+        canonicalGame.scoring?.currentScore(ScoringTeam.away),
+        44,
+      );
+      expect(viewModel.gamesWithLiveScores.single, same(canonicalGame));
+      verify(() => gamesViewModel.liveScoresUpdated()).called(2);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'automatically reapplies cached live scores when the games listener fires',
+    () async {
+      final roundStatsListenerRef = MockDatabaseReference();
+      final gameStatsRef = MockDatabaseReference();
+      final paidGameStatsRef = MockDatabaseReference();
+      final liveScoreEvents = StreamController<DatabaseEvent>.broadcast();
+      addTearDown(liveScoreEvents.close);
+      late VoidCallback gamesListener;
+      Game canonicalGame = activeGame;
+
+      when(
+        () => rootDb.child(
+          '$statsPathRootLocal/${comp.dbkey}/${p.roundStatsBackendRoot}',
+        ),
+      ).thenReturn(roundStatsListenerRef);
+      when(
+        () => rootDb.child(
+          '$statsPathRootLocal/${comp.dbkey}/${p.liveScoresBackendRoot}',
+        ),
+      ).thenReturn(liveScoresRef);
+      when(
+        () => roundStatsListenerRef.onValue,
+      ).thenAnswer((_) => const Stream<DatabaseEvent>.empty());
+      when(
+        () => liveScoresRef.onValue,
+      ).thenAnswer((_) => liveScoreEvents.stream);
+      when(
+        () => compRef.child(p.gameStatsBackendRoot),
+      ).thenReturn(gameStatsRef);
+      when(() => gameStatsRef.child('paid')).thenReturn(paidGameStatsRef);
+      when(
+        () => paidGameStatsRef.onValue,
+      ).thenAnswer((_) => const Stream<DatabaseEvent>.empty());
+      when(
+        () => tippersViewModel.initialLoadComplete,
+      ).thenAnswer((_) async {});
+      when(() => tippersViewModel.addListener(any())).thenReturn(null);
+      when(() => tippersViewModel.removeListener(any())).thenReturn(null);
+      when(() => gamesViewModel.addListener(any())).thenAnswer((invocation) {
+        gamesListener = invocation.positionalArguments.single as VoidCallback;
+      });
+      when(() => gamesViewModel.removeListener(any())).thenReturn(null);
+      when(
+        () => gamesViewModel.findGame('nrl-04-025'),
+      ).thenAnswer((_) async => canonicalGame);
+
+      final viewModel = StatsViewModel(
+        comp,
+        gamesViewModel,
+        database: rootDb,
+      );
+      addTearDown(viewModel.dispose);
+      await _settleAsyncWork();
+
+      liveScoreEvents.add(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Object?>{
+              'nrl-04-025': liveScoreJson(homeScore: 24, awayScore: 44),
+            },
+          ),
+        ),
+      );
+      await _settleAsyncWork();
+
+      canonicalGame = buildGame(
+        dbKey: 'nrl-04-025',
+        league: League.nrl,
+        fixtureRoundNumber: 4,
+        fixtureMatchNumber: 25,
+        homeScore: null,
+        awayScore: null,
+      );
+      gamesListener();
+      await _settleAsyncWork();
+
+      expect(
+        canonicalGame.scoring?.currentScore(ScoringTeam.home),
+        24,
+      );
+      expect(
+        canonicalGame.scoring?.currentScore(ScoringTeam.away),
+        44,
+      );
+      expect(viewModel.gamesWithLiveScores.single, same(canonicalGame));
+    },
+  );
+
+  test(
     'submitLiveScores writes a game-level current snapshot in one update',
     () async {
       final viewModel = StatsViewModel(
@@ -502,4 +654,10 @@ MockDataSnapshot _snapshot({
   when(() => snapshot.exists).thenReturn(exists);
   when(() => snapshot.value).thenReturn(value);
   return snapshot;
+}
+
+Future<void> _settleAsyncWork() async {
+  for (var i = 0; i < 6; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
