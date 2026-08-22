@@ -328,6 +328,8 @@ void main() {
       percentageTippedDraw: 0,
       percentageTippedAway: 0.193,
       percentageTippedAwayMargin: 0,
+      averagePoints: 1.25,
+      averagePointsTipCount: 57,
     );
     statsListener();
     directLoad.complete(gameStatsEntry);
@@ -341,7 +343,7 @@ void main() {
   });
 
   testWidgets(
-    'renders first percentage card from its direct stats read',
+    'repairs an incomplete first percentage card with a direct stats read',
     (tester) async {
       final statsViewModel = MockStatsViewModel();
       final directEntry = GameStatsEntry(
@@ -350,11 +352,15 @@ void main() {
         percentageTippedDraw: 0,
         percentageTippedAway: 0.193,
         percentageTippedAwayMargin: 0,
+        averagePoints: 1.25,
+        averagePointsTipCount: 57,
       );
       when(() => statsViewModel.addListener(any())).thenReturn(null);
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
       when(() => statsViewModel.gamesStatsEntry).thenReturn({});
-      when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
+      when(
+        () => statsViewModel.gameStatsEntryFor(game),
+      ).thenReturn(GameStatsEntry());
       when(
         () => statsViewModel.loadGamesStatsEntry(game, false),
       ).thenAnswer((_) async => directEntry);

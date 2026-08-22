@@ -590,6 +590,7 @@ class _GameListItemState extends State<GameListItem> {
                 statsViewModel?.gamesStatsEntry.containsKey(game.dbkey),
             'bulkMapKeyCount': statsViewModel?.gamesStatsEntry.length,
             'selectedEntryPresent': entry != null,
+            'selectedEntryComplete': entry?.hasCompleteStats,
           },
         );
         return (viewModel: statsViewModel, entry: entry);
@@ -610,6 +611,7 @@ class _GameListItemState extends State<GameListItem> {
                 ? null
                 : identityHashCode(statsSelection.viewModel!),
             'selectedEntryPresent': statsSelection.entry != null,
+            'selectedEntryComplete': statsSelection.entry?.hasCompleteStats,
           },
         );
         return _PercentStatsTipChoice(
@@ -706,7 +708,7 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
       return;
     }
 
-    if (widget.gameStatsEntry != null) {
+    if (widget.gameStatsEntry?.hasCompleteStats == true) {
       _gameStatsLoad = Future<GameStatsEntry?>.value(widget.gameStatsEntry);
       _recordWidgetState('direct-request.skipped-bulk-entry-present');
       return;
@@ -735,6 +737,7 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
           ),
           'statsViewModelIdentity': identityHashCode(statsViewModel),
           'entryPresent': entry != null,
+          'entryComplete': entry?.hasCompleteStats,
           'bulkMapContainsKey': statsViewModel.gamesStatsEntry.containsKey(
             game.dbkey,
           ),
@@ -785,6 +788,7 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
             ? null
             : identityHashCode(statsViewModel),
         'listenerEntryPresent': widget.gameStatsEntry != null,
+        'listenerEntryComplete': widget.gameStatsEntry?.hasCompleteStats,
         'bulkMapContainsKey': statsViewModel?.gamesStatsEntry.containsKey(
           game.dbkey,
         ),
@@ -854,6 +858,7 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
             ? null
             : identityHashCode(statsViewModel),
         'listenerEntryPresent': widget.gameStatsEntry != null,
+        'listenerEntryComplete': widget.gameStatsEntry?.hasCompleteStats,
         'bulkMapContainsKey': statsViewModel?.gamesStatsEntry.containsKey(
           game.dbkey,
         ),
@@ -915,7 +920,7 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   @override
   Widget build(BuildContext context) {
     final listenerEntry = widget.gameStatsEntry;
-    if (listenerEntry != null) {
+    if (listenerEntry?.hasCompleteStats == true) {
       _recordRenderState('listener-entry', renderedEntryPresent: true);
       return TipChoice(
         widget.gameTipViewModel,

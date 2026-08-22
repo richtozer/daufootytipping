@@ -40,6 +40,22 @@ void main() {
       expect(from, equals(e));
     });
 
+    test('hasCompleteStats requires every backend field and accepts zero', () {
+      expect(GameStatsEntry().hasCompleteStats, isFalse);
+      expect(
+        GameStatsEntry(
+          percentageTippedHomeMargin: 0,
+          percentageTippedHome: 0,
+          percentageTippedDraw: 0,
+          percentageTippedAway: 0,
+          percentageTippedAwayMargin: 0,
+          averagePoints: 0,
+          averagePointsTipCount: 0,
+        ).hasCompleteStats,
+        isTrue,
+      );
+    });
+
     test('equality holds when fields match', () {
       final a = GameStatsEntry(percentageTippedHome: 1.0);
       final b = GameStatsEntry(percentageTippedHome: 1.0);

@@ -35,6 +35,15 @@ class GameStatsEntry {
     return value != null ? double.parse(value.toStringAsFixed(3)) : null;
   }
 
+  bool get hasCompleteStats =>
+      percentageTippedHomeMargin != null &&
+      percentageTippedHome != null &&
+      percentageTippedDraw != null &&
+      percentageTippedAway != null &&
+      percentageTippedAwayMargin != null &&
+      averagePoints != null &&
+      averagePointsTipCount != null;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
