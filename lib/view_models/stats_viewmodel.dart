@@ -872,22 +872,39 @@ class StatsViewModel extends ChangeNotifier {
     return ranks;
   }
 
+  int _latestScoredRoundNumber() {
+    final maxRoundNumber = selectedDAUComp.daurounds.length;
+    var latestRoundNumber = 0;
+
+    for (final roundEntry in _allTipperRoundStats.entries) {
+      final roundNumber = roundEntry.key + 1;
+      if (roundNumber > maxRoundNumber) {
+        continue;
+      }
+
+      final hasScoring = roundEntry.value.values.any(
+        (stats) =>
+            stats.aflMaxPoints > 0 ||
+            stats.nrlMaxPoints > 0 ||
+            stats.aflPoints != 0 ||
+            stats.nrlPoints != 0,
+      );
+      if (hasScoring && roundNumber > latestRoundNumber) {
+        latestRoundNumber = roundNumber;
+      }
+    }
+
+    return latestRoundNumber;
+  }
+
   void _updateLeaderboardForComp() {
     // Create a map to accumulate points for each tipper
     Map<Tipper, LeaderboardEntry> leaderboardMap = {};
 
-    // Get the most recent completed round
-    int latestCompletedRound = selectedDAUComp.latestsCompletedRoundNumber();
-
-    // Live scoring can add stats for the round after the latest completed one.
-    // In that case CNG must compare the live ladder with the completed-round
-    // ladder, rather than skipping back an additional round.
-    final hasStatsAfterLatestCompletedRound = _allTipperRoundStats.keys.any(
-      (roundIndex) => roundIndex + 1 > latestCompletedRound,
-    );
-    final previousRankRound = hasStatsAfterLatestCompletedRound
-        ? latestCompletedRound
-        : latestCompletedRound - 1;
+    // Use the scoring data itself to identify the current ladder round. Round
+    // schedules can overlap the completion grace period, and backend snapshots
+    // can contain all-zero structural rows for future rounds.
+    final previousRankRound = _latestScoredRoundNumber() - 1;
 
     // Calculate previous round ranks if there are any completed rounds
     Map<Tipper, int> previousRoundRanks = {};

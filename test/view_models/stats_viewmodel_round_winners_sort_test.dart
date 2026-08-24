@@ -216,6 +216,189 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'leaves rank change unknown when round one has no previous round',
+    () async {
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Map<String, Map<String, int>>>{
+              '1': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 1, total: 10),
+                'tipper-2': _roundStatsJson(roundNumber: 1, total: 3),
+              },
+            },
+          ),
+        ),
+      );
+
+      final aliceEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == alice,
+      );
+      final bobEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == bob,
+      );
+
+      expect(aliceEntry.rank, 1);
+      expect(aliceEntry.previousRank, isNull);
+      expect(aliceEntry.rankChange, isNull);
+      expect(bobEntry.rank, 2);
+      expect(bobEntry.previousRank, isNull);
+      expect(bobEntry.rankChange, isNull);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'compares the latest scored round with the previous overlapping round',
+    () async {
+      final now = DateTime.now().toUtc();
+      comp.daurounds = List<DAURound>.generate(23, (index) {
+        final roundNumber = index + 1;
+        return DAURound(
+          dAUroundNumber: roundNumber,
+          firstGameKickOffUTC: switch (roundNumber) {
+            22 => now.subtract(const Duration(hours: 5)),
+            23 => now.subtract(const Duration(hours: 1)),
+            _ => now.subtract(Duration(days: 24 - roundNumber)),
+          },
+          lastGameKickOffUTC: switch (roundNumber) {
+            22 => now.subtract(const Duration(hours: 2)),
+            23 => now.add(const Duration(hours: 1)),
+            _ => now.subtract(Duration(days: 23 - roundNumber, hours: 7)),
+          },
+        );
+      });
+
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Map<String, Map<String, int>>>{
+              '21': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 21, total: 10),
+                'tipper-2': _roundStatsJson(roundNumber: 21, total: 3),
+              },
+              '22': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 22, total: 0),
+                'tipper-2': _roundStatsJson(roundNumber: 22, total: 20),
+              },
+              '23': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 23, total: 20),
+                'tipper-2': _roundStatsJson(roundNumber: 23, total: 0),
+              },
+            },
+          ),
+        ),
+      );
+
+      final aliceEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == alice,
+      );
+      final bobEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == bob,
+      );
+
+      expect(aliceEntry.previousRank, 2);
+      expect(aliceEntry.rank, 1);
+      expect(aliceEntry.rankChange, 1);
+      expect(bobEntry.previousRank, 1);
+      expect(bobEntry.rank, 2);
+      expect(bobEntry.rankChange, -1);
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'ignores unscored structural tail rounds when calculating rank change',
+    () async {
+      final now = DateTime.now().toUtc();
+      comp.daurounds = List<DAURound>.generate(26, (index) {
+        final roundNumber = index + 1;
+        return DAURound(
+          dAUroundNumber: roundNumber,
+          firstGameKickOffUTC: roundNumber >= 24
+              ? now.add(Duration(days: roundNumber - 19))
+              : now.subtract(Duration(days: 24 - roundNumber)),
+          lastGameKickOffUTC: roundNumber >= 24
+              ? now.add(Duration(days: roundNumber - 18))
+              : now.subtract(Duration(days: 23 - roundNumber, hours: 7)),
+        );
+      });
+
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Map<String, Map<String, int>>>{
+              '22': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 22, total: 10),
+                'tipper-2': _roundStatsJson(roundNumber: 22, total: 3),
+              },
+              '23': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 23, total: 0),
+                'tipper-2': _roundStatsJson(roundNumber: 23, total: 20),
+              },
+              for (final roundNumber in <int>[24, 25, 26])
+                '$roundNumber': <String, Map<String, int>>{
+                  'tipper-1': _roundStatsJson(
+                    roundNumber: roundNumber,
+                    total: 0,
+                    hasScoring: false,
+                  ),
+                  'tipper-2': _roundStatsJson(
+                    roundNumber: roundNumber,
+                    total: 0,
+                    hasScoring: false,
+                  ),
+                },
+            },
+          ),
+        ),
+      );
+
+      final aliceEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == alice,
+      );
+      final bobEntry = viewModel.compLeaderboard.singleWhere(
+        (entry) => entry.tipper == bob,
+      );
+
+      expect(aliceEntry.previousRank, 1);
+      expect(aliceEntry.rank, 2);
+      expect(aliceEntry.rankChange, -1);
+      expect(bobEntry.previousRank, 2);
+      expect(bobEntry.rank, 1);
+      expect(bobEntry.rankChange, 1);
+
+      viewModel.dispose();
+    },
+  );
 }
 
 Future<void> _settleBackgroundStats() async {
@@ -259,15 +442,16 @@ List<Object?> _roundPointsPayload({
 Map<String, int> _roundStatsJson({
   required int roundNumber,
   required int total,
+  bool hasScoring = true,
 }) {
   return RoundStats(
     roundNumber: roundNumber,
     aflPoints: 0,
-    aflMaxPoints: 1,
+    aflMaxPoints: hasScoring ? 1 : 0,
     aflMarginTips: 0,
     aflMarginUPS: 0,
     nrlPoints: total,
-    nrlMaxPoints: total + 1,
+    nrlMaxPoints: hasScoring ? total + 1 : 0,
     nrlMarginTips: 0,
     nrlMarginUPS: 0,
     rank: 0,
