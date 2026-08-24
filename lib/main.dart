@@ -11,6 +11,7 @@ import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/app_resume_data_refresher.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/app_resume_refresh_coordinator.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
@@ -246,13 +247,30 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   String? _registeredActiveCompKey;
   bool? _registeredCreateLinkedTipper;
   bool _coreWarmupScheduled = false;
+  late final AppResumeDataRefresher _resumeDataRefresher;
   late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
 
   @override
   void initState() {
     super.initState();
+    _resumeDataRefresher = AppResumeDataRefresher(
+      platform: defaultTargetPlatform,
+      reconnectRealtimeDatabase: _reconnectRealtimeDatabaseAfterResume,
+      refreshFixtureData: _refreshFixtureDataAfterResume,
+      reconnectRetryDelays: const [
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+      ],
+      onReconnectError: (error, stackTrace) {
+        log(
+          'Android resume RTDB reconnect failed; continuing with fixture refresh: $error',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
     _resumeRefreshCoordinator = AppResumeRefreshCoordinator(
-      refresh: _refreshFixtureDataAfterResume,
+      refresh: _resumeDataRefresher.refresh,
       resumeDelay: const Duration(milliseconds: 500),
       retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
       shouldRetry:
@@ -273,11 +291,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     unawaited(_resumeRefreshCoordinator.handleLifecycleState(state));
   }
 
+  Future<void> _reconnectRealtimeDatabaseAfterResume() async {
+    final stopwatch = Stopwatch()..start();
+    log('Android resume RTDB reconnect started');
+    await restartRealtimeDatabaseConnection();
+    log(
+      'Android resume RTDB reconnect completed in '
+      '${stopwatch.elapsedMilliseconds}ms',
+    );
+  }
+
   Future<void> _refreshFixtureDataAfterResume() async {
     if (!di.isRegistered<DAUCompsViewModel>()) {
+      log('App resume fixture refresh skipped; DAUCompsViewModel not ready');
       return;
     }
+    final stopwatch = Stopwatch()..start();
+    log('App resume fixture refresh started');
     await di<DAUCompsViewModel>().refreshFixtureDataFromServer();
+    log(
+      'App resume fixture refresh completed in '
+      '${stopwatch.elapsedMilliseconds}ms',
+    );
   }
 
   @override

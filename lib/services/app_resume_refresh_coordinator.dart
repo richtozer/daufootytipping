@@ -22,6 +22,10 @@ class AppResumeRefreshCoordinator {
   bool _refreshInProgress = false;
 
   Future<void> handleLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.inactive) {
+      return;
+    }
+
     if (state != AppLifecycleState.resumed) {
       _wasBackgrounded = true;
       return;

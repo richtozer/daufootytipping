@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
@@ -35,6 +37,47 @@ FirebaseDatabase get configuredRealtimeDatabase =>
 DatabaseReference configuredDatabaseRef([String? path]) {
   final FirebaseDatabase database = configuredRealtimeDatabase;
   return path == null ? database.ref() : database.ref(path);
+}
+
+/// Restarts the native Realtime Database transport and waits until the SDK
+/// reports a live server connection. Listeners and queued writes are retained.
+Future<void> restartRealtimeDatabaseConnection({
+  FirebaseDatabase? database,
+  Duration connectionTimeout = const Duration(seconds: 10),
+}) async {
+  final FirebaseDatabase target = database ?? configuredRealtimeDatabase;
+  await target.goOffline();
+  await target.goOnline();
+  await _waitUntilRealtimeDatabaseConnected(
+    target,
+    timeout: connectionTimeout,
+  );
+}
+
+Future<void> _waitUntilRealtimeDatabaseConnected(
+  FirebaseDatabase database, {
+  required Duration timeout,
+}) async {
+  final Completer<void> connected = Completer<void>();
+  late final StreamSubscription<DatabaseEvent> subscription;
+  subscription = database.ref('.info/connected').onValue.listen(
+    (event) {
+      if (event.snapshot.value == true && !connected.isCompleted) {
+        connected.complete();
+      }
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      if (!connected.isCompleted) {
+        connected.completeError(error, stackTrace);
+      }
+    },
+  );
+
+  try {
+    await connected.future.timeout(timeout);
+  } finally {
+    await subscription.cancel();
+  }
 }
 
 /// Applies native Realtime Database persistence settings in platform-specific
