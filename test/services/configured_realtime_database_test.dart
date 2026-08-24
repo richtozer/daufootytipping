@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -8,16 +10,22 @@ class MockFirebaseDatabase extends Mock implements FirebaseDatabase {}
 
 class MockDatabaseReference extends Mock implements DatabaseReference {}
 
+class MockDatabaseEvent extends Mock implements DatabaseEvent {}
+
+class MockDataSnapshot extends Mock implements DataSnapshot {}
+
 void main() {
   late MockFirebaseDatabase mockDatabase;
   late MockDatabaseReference mockRootReference;
   late MockDatabaseReference mockPathReference;
+  late MockDatabaseReference mockConnectedReference;
 
   setUp(() {
     ConfiguredRealtimeDatabase.resetForTest();
     mockDatabase = MockFirebaseDatabase();
     mockRootReference = MockDatabaseReference();
     mockPathReference = MockDatabaseReference();
+    mockConnectedReference = MockDatabaseReference();
   });
 
   test('throws when accessed before configuration', () {
@@ -34,6 +42,59 @@ void main() {
     expect(configuredRealtimeDatabase, same(mockDatabase));
     expect(configuredDatabaseRef(), same(mockRootReference));
     expect(configuredDatabaseRef('ConfigRoot'), same(mockPathReference));
+  });
+
+  test('waits for the database to report connected after going online', () async {
+    final connectionEvents = StreamController<DatabaseEvent>.broadcast();
+    final connectedEvent = MockDatabaseEvent();
+    final connectedSnapshot = MockDataSnapshot();
+    when(() => mockDatabase.goOffline()).thenAnswer((_) async {});
+    when(() => mockDatabase.goOnline()).thenAnswer((_) async {});
+    when(
+      () => mockDatabase.ref('.info/connected'),
+    ).thenReturn(mockConnectedReference);
+    when(
+      () => mockConnectedReference.onValue,
+    ).thenAnswer((_) => connectionEvents.stream);
+    when(() => connectedEvent.snapshot).thenReturn(connectedSnapshot);
+    when(() => connectedSnapshot.value).thenReturn(true);
+    ConfiguredRealtimeDatabase.configure(mockDatabase);
+
+    var refreshCompleted = false;
+    final refresh = restartRealtimeDatabaseConnection().then(
+      (_) => refreshCompleted = true,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(refreshCompleted, isFalse);
+    connectionEvents.add(connectedEvent);
+    await refresh;
+
+    verifyInOrder([
+      () => mockDatabase.goOffline(),
+      () => mockDatabase.goOnline(),
+    ]);
+    expect(refreshCompleted, isTrue);
+    await connectionEvents.close();
+  });
+
+  test('times out when the database does not reconnect', () async {
+    when(() => mockDatabase.goOffline()).thenAnswer((_) async {});
+    when(() => mockDatabase.goOnline()).thenAnswer((_) async {});
+    when(
+      () => mockDatabase.ref('.info/connected'),
+    ).thenReturn(mockConnectedReference);
+    when(
+      () => mockConnectedReference.onValue,
+    ).thenAnswer((_) => const Stream<DatabaseEvent>.empty());
+
+    await expectLater(
+      restartRealtimeDatabaseConnection(
+        database: mockDatabase,
+        connectionTimeout: Duration.zero,
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
   });
 
   group('configureRealtimeDatabasePersistence', () {

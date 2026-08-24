@@ -33,6 +33,20 @@ void main() {
     expect(refreshCount, 1);
   });
 
+  test('does not refresh after an inactive-only interruption', () async {
+    var refreshCount = 0;
+    final coordinator = AppResumeRefreshCoordinator(
+      refresh: () async {
+        refreshCount++;
+      },
+    );
+
+    await coordinator.handleLifecycleState(AppLifecycleState.inactive);
+    await coordinator.handleLifecycleState(AppLifecycleState.resumed);
+
+    expect(refreshCount, 0);
+  });
+
   test('does not overlap resume refreshes', () async {
     var refreshCount = 0;
     final refreshStarted = Completer<void>();
