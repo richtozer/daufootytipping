@@ -200,7 +200,12 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          roundStats.rankChange > 0
+                                          !hasKnownResult
+                                              ? const Icon(
+                                                  color: Colors.green,
+                                                  Icons.sync_alt,
+                                                )
+                                              : roundStats.rankChange > 0
                                               ? const Icon(
                                                   color: Colors.green,
                                                   Icons.arrow_upward,
@@ -222,7 +227,9 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                                     : Colors.black54,
                                                 fontWeight: FontWeight.bold,
                                               ),
-                                              '${roundStats.rankChange}',
+                                              hasKnownResult
+                                                  ? '${roundStats.rankChange}'
+                                                  : '?',
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),

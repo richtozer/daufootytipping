@@ -75,7 +75,7 @@ void main() {
       nrlMarginTips: 0,
       nrlMarginUPS: 0,
       rank: 1,
-      rankChange: 0,
+      rankChange: 4,
       nrlTipsOutstanding: 0,
       aflTipsOutstanding: 0,
     );
@@ -123,5 +123,9 @@ void main() {
 
     expect(find.text('Rank: ?  '), findsOneWidget);
     expect(find.text('Rank: 1  '), findsNothing);
+    expect(find.byIcon(Icons.sync_alt), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_upward), findsNothing);
+    expect(find.text('?'), findsOneWidget);
+    expect(find.text('4'), findsNothing);
   });
 }
