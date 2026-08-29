@@ -46,7 +46,8 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
     if (gamesForLeague.isNotEmpty) {
       firstGameStart = gamesForLeague.first.startTimeUTC;
     }
-    final bool hasKnownResult = gamesForLeague.any(
+    // Rank is live/provisional once any game in this league has a result.
+    final bool hasScoredGame = gamesForLeague.any(
       (game) => game.gameState == GameState.startedResultKnown,
     );
 
@@ -157,6 +158,31 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                     return const SizedBox.shrink();
                                   }
 
+                                  final String rankLabel;
+                                  final String rankChangeLabel;
+                                  final IconData rankChangeIcon;
+                                  final Color rankChangeColor;
+                                  if (!hasScoredGame) {
+                                    rankLabel = '?';
+                                    rankChangeLabel = '?';
+                                    rankChangeIcon = Icons.sync_alt;
+                                    rankChangeColor = Colors.green;
+                                  } else {
+                                    rankLabel = '${roundStats.rank}';
+                                    rankChangeLabel =
+                                        '${roundStats.rankChange}';
+                                    if (roundStats.rankChange > 0) {
+                                      rankChangeIcon = Icons.arrow_upward;
+                                      rankChangeColor = Colors.green;
+                                    } else if (roundStats.rankChange < 0) {
+                                      rankChangeIcon = Icons.arrow_downward;
+                                      rankChangeColor = Colors.red;
+                                    } else {
+                                      rankChangeIcon = Icons.sync_alt;
+                                      rankChangeColor = Colors.green;
+                                    }
+                                  }
+
                                   return Column(
                                     children: [
                                       Text(
@@ -195,25 +221,15 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                                     : Colors.black54,
                                                 fontWeight: FontWeight.bold,
                                               ),
-                                              'Rank: ${hasKnownResult ? roundStats.rank : '?'}  ',
+                                              'Rank: $rankLabel  ',
                                               softWrap: true,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          roundStats.rankChange > 0
-                                              ? const Icon(
-                                                  color: Colors.green,
-                                                  Icons.arrow_upward,
-                                                )
-                                              : roundStats.rankChange < 0
-                                              ? const Icon(
-                                                  color: Colors.red,
-                                                  Icons.arrow_downward,
-                                                )
-                                              : const Icon(
-                                                  color: Colors.green,
-                                                  Icons.sync_alt,
-                                                ),
+                                          Icon(
+                                            rankChangeIcon,
+                                            color: rankChangeColor,
+                                          ),
                                           Flexible(
                                             child: Text(
                                               style: TextStyle(
@@ -222,7 +238,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                                     : Colors.black54,
                                                 fontWeight: FontWeight.bold,
                                               ),
-                                              '${roundStats.rankChange}',
+                                              rankChangeLabel,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),

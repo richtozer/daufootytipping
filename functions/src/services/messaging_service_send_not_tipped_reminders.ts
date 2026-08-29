@@ -1,6 +1,8 @@
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
+import {isReminderGameWithinCompCutoff} from
+  "./reminder_game_eligibility";
 
 // Schedule: "20 21-9 * 3-9 *"
 // Minute 20 Twenty minutes past the hour
@@ -27,8 +29,8 @@ export const sendHourlyReminders =
     console
       .log("Checking for games between: ", now, " and ", threeHoursFromNow);
 
-    const compRef = getDatabase().ref("/AppConfig/currentDAUComp");
-    const compSnapshot = await compRef.once("value");
+    const currentCompRef = getDatabase().ref("/AppConfig/currentDAUComp");
+    const compSnapshot = await currentCompRef.once("value");
     const compDBKey = compSnapshot.val();
 
     const teamsRef = getDatabase().ref("/Teams");
@@ -46,16 +48,33 @@ export const sendHourlyReminders =
       console.log("No games in the specified time range " +
         "found at " + gamesRef + ". Ending processing.");
       return;
-    } else {
-      console.log("Found the following games in the specified time range:");
-      gamesSnapshot.forEach((game) => {
-        console.log("game: %s v %s, startDate: %s", game.val().HomeTeam,
-          game.val().AwayTeam, game.val().DateUtc);
-      });
     }
 
     const games = gamesSnapshot.val();
-    const gameKeys = Object.keys(games);
+    const compConfigSnapshot = await getDatabase()
+      .ref(`/AllDAUComps/${compDBKey}`)
+      .once("value");
+    const compCutoffs = compConfigSnapshot.val() ?? {};
+    const gameKeys = Object.keys(games).filter((gameKey) =>
+      isReminderGameWithinCompCutoff(
+        gameKey,
+        games[gameKey].DateUtc,
+        compCutoffs,
+      ),
+    );
+
+    if (gameKeys.length === 0) {
+      console.log("No games in the specified time range are within the " +
+        "competition cutoffs. Ending processing.");
+      return;
+    }
+
+    console.log("Found the following games in the specified time range " +
+      "and competition cutoffs:");
+    for (const gameKey of gameKeys) {
+      console.log("game: %s v %s, startDate: %s", games[gameKey].HomeTeam,
+        games[gameKey].AwayTeam, games[gameKey].DateUtc);
+    }
 
     const tokensRef = getDatabase().ref("/AllTippersTokens");
     let tippersWithTokens;
