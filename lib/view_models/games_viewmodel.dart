@@ -3,11 +3,13 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -83,14 +85,23 @@ class GamesViewModel extends ChangeNotifier {
   String get _gamesPath => '${p.gamesPathRoot}/${selectedDAUComp.dbkey}';
 
   void _queueGamesSnapshotProcessing(DataSnapshot snapshot) {
+    if (AppResumeDiagnostics.enabled) {
+      AppResumeDiagnostics.record(
+        'games_listener_snapshot_received',
+        details: _snapshotDiagnosticDetails(snapshot),
+      );
+    }
     _gamesSnapshotProcessing = _gamesSnapshotProcessing
         .catchError((Object error, StackTrace stackTrace) {
           log('GamesViewModel_handleEvent: recovering after error: $error');
         })
-        .then((_) => _applyGamesSnapshot(snapshot));
+        .then((_) => _applyGamesSnapshot(snapshot, source: 'listener'));
   }
 
-  Future<void> _applyGamesSnapshot(DataSnapshot snapshot) async {
+  Future<void> _applyGamesSnapshot(
+    DataSnapshot snapshot, {
+    required String source,
+  }) async {
     try {
       final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
       final dynamic rawValue = snapshot.value;
@@ -183,6 +194,12 @@ class GamesViewModel extends ChangeNotifier {
 
       // Link games with rounds
       await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
+      if (AppResumeDiagnostics.enabled) {
+        AppResumeDiagnostics.record(
+          'games_model_applied',
+          details: _currentGamesDiagnosticDetails(source: source),
+        );
+      }
       _completePendingGamesRefresh();
     } catch (e, stackTrace) {
       log('Error in GamesViewModel_handleEvent: $e');
@@ -192,6 +209,12 @@ class GamesViewModel extends ChangeNotifier {
     } finally {
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
+      if (AppResumeDiagnostics.enabled) {
+        AppResumeDiagnostics.record(
+          'games_notify_listeners',
+          details: <String, Object?>{'source': source},
+        );
+      }
     }
   }
 
@@ -302,7 +325,10 @@ class GamesViewModel extends ChangeNotifier {
         log(
           'GamesViewModel_saveBatchOfGameAttributes: timed out waiting for refreshed games snapshot after DB update. Loading current snapshot directly.',
         );
-        await _applyGamesSnapshot(await _db.child(_gamesPath).get());
+        await _applyGamesSnapshot(
+          await _db.child(_gamesPath).get(),
+          source: 'post_write_direct_get',
+        );
       } finally {
         if (identical(_pendingGamesRefreshCompleter, refreshCompleter)) {
           _pendingGamesRefreshCompleter = null;
@@ -322,7 +348,78 @@ class GamesViewModel extends ChangeNotifier {
   Future<void> refreshFromServer() async {
     await _teamsViewModel.initialLoadComplete;
     await _dauCompsViewModel.initialDAUCompLoadComplete;
-    await _applyGamesSnapshot(await _db.child(_gamesPath).get());
+    final DataSnapshot snapshot = await _db.child(_gamesPath).get();
+    if (AppResumeDiagnostics.enabled) {
+      AppResumeDiagnostics.record(
+        'fixture_get_returned',
+        details: _snapshotDiagnosticDetails(snapshot),
+        requireActiveAttempt: true,
+      );
+    }
+    await _applyGamesSnapshot(snapshot, source: 'resume_get');
+  }
+
+  Map<String, Object?> _snapshotDiagnosticDetails(DataSnapshot snapshot) {
+    final dynamic rawValue = snapshot.value;
+    final Map<dynamic, dynamic>? rawGames = rawValue is Map ? rawValue : null;
+    final List<Map<String, Object?>> recentGames = <Map<String, Object?>>[];
+    for (final Game game in _recentGamesForDiagnostics()) {
+      final dynamic rawGame = rawGames?[game.dbkey];
+      final Map<dynamic, dynamic>? rawGameMap = rawGame is Map ? rawGame : null;
+      recentGames.add(<String, Object?>{
+        'gameKey': game.dbkey,
+        'startUtc': game.startTimeUTC.toUtc().toIso8601String(),
+        'homeScore': rawGameMap?['HomeTeamScore'],
+        'awayScore': rawGameMap?['AwayTeamScore'],
+      });
+    }
+    return <String, Object?>{
+      'compDbKey': selectedDAUComp.dbkey,
+      'exists': snapshot.exists,
+      'entryCount': rawGames?.length ?? 0,
+      'recentGames': recentGames,
+    };
+  }
+
+  Map<String, Object?> _currentGamesDiagnosticDetails({
+    required String source,
+  }) {
+    return <String, Object?>{
+      'source': source,
+      'compDbKey': selectedDAUComp.dbkey,
+      'gameCount': _games.length,
+      'recentGames': _recentGamesForDiagnostics()
+          .map(
+            (game) => <String, Object?>{
+              'gameKey': game.dbkey,
+              'startUtc': game.startTimeUTC.toUtc().toIso8601String(),
+              'gameState': game.gameState.name,
+              'officialHomeScore': game.scoring?.homeTeamScore,
+              'officialAwayScore': game.scoring?.awayTeamScore,
+              'displayedHomeScore': game.scoring?.currentScore(
+                ScoringTeam.home,
+              ),
+              'displayedAwayScore': game.scoring?.currentScore(
+                ScoringTeam.away,
+              ),
+              'liveScoreCount': game.scoring?.crowdSourcedScores?.length ?? 0,
+            },
+          )
+          .toList(),
+    };
+  }
+
+  Iterable<Game> _recentGamesForDiagnostics() {
+    final DateTime nowUtc = DateTime.now().toUtc();
+    final DateTime earliestUtc = nowUtc.subtract(const Duration(days: 8));
+    final DateTime latestUtc = nowUtc.add(const Duration(days: 2));
+    return _games
+        .where(
+          (game) =>
+              !game.startTimeUTC.toUtc().isBefore(earliestUtc) &&
+              !game.startTimeUTC.toUtc().isAfter(latestUtc),
+        )
+        .take(40);
   }
 
   void liveScoresUpdated() {

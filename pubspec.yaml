@@ -66,6 +66,7 @@ dependencies:
   modal_bottom_sheet: ^3.0.0
   package_info_plus: ^9.0.0
   path: ^1.9.0
+  path_provider: ^2.1.5
   provider: ^6.1.1
   scrollable_positioned_list: ^0.3.8
   shared_preferences: ^2.2.2

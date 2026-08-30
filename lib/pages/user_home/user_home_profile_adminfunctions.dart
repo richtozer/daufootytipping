@@ -3,6 +3,8 @@ import 'dart:developer';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
+import 'package:daufootytipping/pages/user_home/user_home_resume_diagnostics.dart';
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +73,17 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                   );
                 },
               ),
+              if (AppResumeDiagnostics.enabled)
+                OutlinedButton(
+                  child: const Text('Android Resume Diagnostics'),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ResumeDiagnosticsPage(),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         ),
