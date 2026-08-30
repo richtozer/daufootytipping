@@ -18,6 +18,7 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart'; // Added import
@@ -394,11 +395,13 @@ class _GameListItemState extends State<GameListItem> {
               scoring?.homeTeamScore != null && scoring?.awayTeamScore != null;
 
           if (hasCrowdSourcedScore && !hasFinalFixtureScore) {
+            _recordGamePresentation(game, 'interim_score_banner');
             return _buildInterimScoreBanner(context, gameDetailsCard);
           }
 
           // if game is more than 3 hours in the past, don't show any banner
           if (game.startTimeUTC.difference(DateTime.now()).inHours < -3) {
+            _recordGamePresentation(game, 'past_game_card');
             return gameDetailsCard;
           }
 
@@ -416,13 +419,16 @@ class _GameListItemState extends State<GameListItem> {
               break;
             case GameState.startedResultKnown:
               // return standard gameDetailsCard with no banner overlay
+              _recordGamePresentation(game, 'final_game_card');
               return gameDetailsCard;
             case GameState.notStarted:
               // return standard gameDetailsCard with no banner overlay
+              _recordGamePresentation(game, 'not_started_game_card');
               return gameDetailsCard;
           }
 
           // return gameDetailsCard with banner overlay
+          _recordGamePresentation(game, 'status_banner_$bannerMessage');
           return Banner(
             color: bannerColor,
             location: BannerLocation.topEnd,
@@ -431,6 +437,22 @@ class _GameListItemState extends State<GameListItem> {
           );
         },
       ),
+    );
+  }
+
+  void _recordGamePresentation(Game game, String presentation) {
+    if (!AppResumeDiagnostics.enabled) {
+      return;
+    }
+    AppResumeDiagnostics.recordGamePresentation(
+      gameKey: game.dbkey,
+      presentation: presentation,
+      gameState: game.gameState.name,
+      officialHomeScore: game.scoring?.homeTeamScore,
+      officialAwayScore: game.scoring?.awayTeamScore,
+      displayedHomeScore: game.scoring?.currentScore(ScoringTeam.home),
+      displayedAwayScore: game.scoring?.currentScore(ScoringTeam.away),
+      liveScoreCount: game.scoring?.crowdSourcedScores?.length ?? 0,
     );
   }
 
