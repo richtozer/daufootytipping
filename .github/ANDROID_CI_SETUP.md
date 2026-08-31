@@ -98,6 +98,38 @@ android/
 
 Check your builds at: `https://github.com/YOUR_USERNAME/daufootytipping/actions`
 
+## Android Resume Diagnostic Testing
+
+The Android workflow compiles builds from `testing` with:
+
+```text
+--dart-define=ANDROID_RESUME_DIAGNOSTICS=true
+```
+
+Builds from `main` explicitly set the same value to `false`, so the diagnostic recorder, native RTDB logging, and admin diagnostics page are not included in production behavior.
+
+### Install the internal build
+
+1. Wait for **Android Play Build and Deploy** on the `testing` branch to finish successfully.
+2. On the physical Android test device, use a Google account enrolled in the app's Play internal-testing track.
+3. Open Google Play, update the app, and confirm the installed version/build matches the `testing` branch version in `pubspec.yaml`.
+4. Sign in with an app administrator account. The Profile admin options should contain **Android Resume Diagnostics**. Its presence confirms the diagnostic flag is active.
+
+### Capture the long-background failure
+
+1. Open the Tips page while the target game has live/interim scores and record the displayed values and UTC/local time.
+2. Press Home or lock the screen. Do not swipe the app away, force-stop it, or reboot the device.
+3. While the app remains backgrounded, confirm the backend fixture changes to finalized official scores.
+4. Leave the existing app process backgrounded for the intended interval. Test a shorter Doze/device-idle cycle first, then repeat overnight or for several days.
+5. Resume directly into the existing app process and record whether the Tips page changes from interim to finalized without navigation or force quit.
+6. Before force-quitting, open **Profile → Admin functions → Android Resume Diagnostics**, tap reload, then copy the newline-delimited JSON trace.
+7. Save the trace with the device model, Android version, app build, background duration, network type/changes, battery optimization setting, exact game keys, and screenshots.
+8. After preserving the stale-resume trace, force-quit and reopen the app. Copy the trace again so the cold-start sequence can be compared with the failed resume.
+
+The first question for every run is whether the stale-data problem still reproduces with diagnostics enabled. The diagnostic `/.info/connected` observer can influence RTDB activity. If the diagnostic build does not reproduce, do not treat that as proof of a fix; compare it with a capture build that omits that observer while retaining native logging and the remaining breadcrumbs.
+
+Traces survive force quit. Normal events are retained for 14 days, anomalous events for 30 days, and startup pruning enforces the 5,000-event limit.
+
 ## 🐛 Troubleshooting
 
 ### Common Issues:

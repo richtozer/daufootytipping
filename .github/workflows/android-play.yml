@@ -103,6 +103,17 @@ jobs:
           echo "build_name=$build_name" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve Android resume diagnostics mode
+        id: resume_diagnostics
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/testing" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Android resume diagnostics enabled for testing build."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Android resume diagnostics disabled for non-testing build."
+          fi
+
       - name: Configure Android signing for release builds
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
         env:
@@ -132,15 +143,27 @@ jobs:
 
       - name: Build APK (Debug) for non-main branches
         if: github.ref != 'refs/heads/main'
-        run: flutter build apk --debug --build-name "${{ steps.app_version.outputs.build_name }}" --build-number "${{ steps.app_version.outputs.build_number }}"
+        run: >-
+          flutter build apk --debug
+          --build-name "${{ steps.app_version.outputs.build_name }}"
+          --build-number "${{ steps.app_version.outputs.build_number }}"
+          --dart-define=ANDROID_RESUME_DIAGNOSTICS=${{ steps.resume_diagnostics.outputs.enabled }}
 
       - name: Build APK (Release) for main branch
         if: github.ref == 'refs/heads/main'
-        run: flutter build apk --release --build-name "${{ steps.app_version.outputs.build_name }}" --build-number "${{ steps.app_version.outputs.build_number }}"
+        run: >-
+          flutter build apk --release
+          --build-name "${{ steps.app_version.outputs.build_name }}"
+          --build-number "${{ steps.app_version.outputs.build_number }}"
+          --dart-define=ANDROID_RESUME_DIAGNOSTICS=${{ steps.resume_diagnostics.outputs.enabled }}
 
       - name: Build AAB (Release) for testing/main branches
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
-        run: flutter build appbundle --release --build-name "${{ steps.app_version.outputs.build_name }}" --build-number "${{ steps.app_version.outputs.build_number }}"
+        run: >-
+          flutter build appbundle --release
+          --build-name "${{ steps.app_version.outputs.build_name }}"
+          --build-number "${{ steps.app_version.outputs.build_number }}"
+          --dart-define=ANDROID_RESUME_DIAGNOSTICS=${{ steps.resume_diagnostics.outputs.enabled }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6

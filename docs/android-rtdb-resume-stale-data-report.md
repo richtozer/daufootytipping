@@ -287,6 +287,8 @@ An instrumentation-only implementation is now available in the working tree. It 
 --dart-define=ANDROID_RESUME_DIAGNOSTICS=true
 ```
 
+The Android CI workflow enables this flag for APK and AAB artifacts built from `testing` and explicitly disables it for builds from `main`. Consequently, the Google Play internal-track build contains the diagnostic recorder and admin export page, while the production build does not.
+
 The diagnostic build retains build 702's reconnect timing, retries, failure fall-through, and fixture refresh behavior. It adds:
 
 - a process identifier and correlated resume-attempt identifier;
