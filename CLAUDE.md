@@ -135,6 +135,11 @@ flutter test                             # MANDATORY - must pass
 flutter test test/path/to/test_file.dart # Run a single test file
 dart format lib/                         # MANDATORY - must pass
 
+# Backend tests
+npm --prefix functions test              # TypeScript functions (node:test)
+(cd functions_dart && dart test)         # Dart functions
+(cd packages/dau_shared && dart test)    # Shared package
+
 # Firebase deployment
 firebase deploy --only hosting
 flutter build appbundle

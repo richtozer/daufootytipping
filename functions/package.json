@@ -2,6 +2,7 @@
   "name": "functions",
   "scripts": {
     "lint": "eslint .",
+    "test": "npm run build && node --test lib/*.test.js",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "dev": "npm run build && firebase emulators:start --inspect-functions --only functions",
