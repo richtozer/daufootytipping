@@ -77,11 +77,14 @@ require_key() {
   fi
 }
 
-if [ "$target" = "dart" ] || [ "$target" = "all" ]; then
-  if require_file "$dart_env" "Dart functions"; then
-    require_key "$dart_env" "Dart functions" BACKEND_SCORING_COMMAND_SECRET secret
-    require_key "$dart_env" "Dart functions" APP_BADGE_COMMAND_SECRET secret
-  fi
+# The Dart secrets are required for every target, not just a Dart deploy: the
+# worker needs them to run, and deploying the TypeScript side needs their values
+# to verify against what the wrappers will send. Requiring only that the file
+# exists is not enough - an empty or partial file would silently skip the
+# comparison below.
+if require_file "$dart_env" "Dart functions"; then
+  require_key "$dart_env" "Dart functions" BACKEND_SCORING_COMMAND_SECRET secret
+  require_key "$dart_env" "Dart functions" APP_BADGE_COMMAND_SECRET secret
 fi
 
 if [ "$target" = "default" ] || [ "$target" = "all" ]; then
@@ -96,21 +99,9 @@ fi
 
 # The wrapper authenticates to the Dart worker with a shared header secret, so
 # deploying either side with a secret the other does not share fails every
-# wrapper call at runtime. Deploying the TypeScript side therefore cannot be
-# verified at all without the Dart env file to compare against.
-if [ "$target" = "default" ] || [ "$target" = "all" ]; then
-  if [ ! -f "$dart_env" ]; then
-    echo "Cannot verify the shared secret: missing $dart_env"
-    echo "  The TypeScript wrappers authenticate to the Dart worker with a shared"
-    echo "  header secret. Without the Dart env file there is nothing to compare"
-    echo "  against, so a mismatch would only surface as 401s in production."
-    missing=1
-  fi
-fi
-
-# Compare whenever both files are present, for every target: deploying one side
-# alone still has to agree with the other side's configuration.
-# Values are compared, never shown.
+# wrapper call at runtime. Compare whenever both files are present, for every
+# target: deploying one side alone still has to agree with the other side's
+# configuration. Values are compared, never shown.
 if [ -f "$dart_env" ] && [ -f "$node_env" ]; then
   for secret_key in BACKEND_SCORING_COMMAND_SECRET APP_BADGE_COMMAND_SECRET; do
     dart_secret="$(env_value "$dart_env" "$secret_key" || true)"
