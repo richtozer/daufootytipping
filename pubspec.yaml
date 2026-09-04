@@ -39,6 +39,9 @@ dependencies:
   cloud_functions: ^6.4.0
   collection: ^1.18.0
   crypto: ^3.0.6
+  # Asset-only: supplies the CupertinoIcons font family referenced by
+  # cupertino_ui (via material_ui). Never imported directly - do not remove.
+  cupertino_icons: ^1.0.9
   data_table_2: ^3.0.0
   dio: ^5.3.4
   email_validator: ^3.0.0
