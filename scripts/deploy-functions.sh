@@ -110,6 +110,24 @@ if [ "$assume_yes" -eq 0 ]; then
   fi
 fi
 
+# Building for deployment leaves a Linux bin/server behind, but that path is what
+# start_local_backend.sh executes, so a deploy would silently break the local
+# emulator until someone rebuilt it. Restore the native build on the way out,
+# whether the deploy succeeded, failed, or was interrupted.
+restore_native_build=0
+restore_native() {
+  [ "$restore_native_build" -eq 1 ] || return 0
+  echo
+  echo "Restoring the native bin/server for local emulator use..."
+  # --skip-manifest: functions.yaml was generated and verified at Step 2.
+  if ! bash "$repo_root/scripts/build_dart_functions.sh" native --skip-manifest; then
+    echo "WARNING: could not restore the native bin/server. The local emulator"
+    echo "         will fail until you run:"
+    echo "         bash scripts/build_dart_functions.sh native"
+  fi
+}
+trap restore_native EXIT
+
 echo "Step 1: Checking backend scoring deploy prerequisites..."
 bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh" "$only"
 
@@ -147,6 +165,7 @@ if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
   # would compile against a manifest the tests above never saw.
   echo "Step 4: Building Dart Cloud Functions for Linux deployment..."
   bash "$repo_root/scripts/build_dart_functions.sh" linux --skip-manifest
+  restore_native_build=1
 fi
 
 echo "Step 5: Deploying ${targets}..."
