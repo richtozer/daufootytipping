@@ -63,8 +63,13 @@ require_key() {
   if [ "$kind" = "url" ]; then
     case "$value" in
       https://*) ;;
-      http://127.0.0.1*|http://localhost*)
-        echo "Note: $key points at a local emulator, not a deployed URL." ;;
+      http://127.0.0.1*|http://localhost*|http://0.0.0.0*|http://[::1]*)
+        # Only the deploy path runs this script, and a loopback address is not
+        # reachable from Cloud Run - every wrapper call would fail.
+        echo "Invalid $key in $label env file: points at a local emulator."
+        echo "  Loopback addresses are unreachable from Cloud Run. Use the"
+        echo "  deployed https:// URL."
+        missing=1 ;;
       *)
         echo "Invalid $key in $label env file: must be an https:// URL."
         missing=1 ;;
@@ -89,9 +94,23 @@ if [ "$target" = "default" ] || [ "$target" = "all" ]; then
   fi
 fi
 
-# The wrapper authenticates to the Dart worker with a shared header secret. If
-# the two runtimes disagree, every wrapper call fails with 401 at runtime, so
-# compare them whenever both files are present. Values are compared, never shown.
+# The wrapper authenticates to the Dart worker with a shared header secret, so
+# deploying either side with a secret the other does not share fails every
+# wrapper call at runtime. Deploying the TypeScript side therefore cannot be
+# verified at all without the Dart env file to compare against.
+if [ "$target" = "default" ] || [ "$target" = "all" ]; then
+  if [ ! -f "$dart_env" ]; then
+    echo "Cannot verify the shared secret: missing $dart_env"
+    echo "  The TypeScript wrappers authenticate to the Dart worker with a shared"
+    echo "  header secret. Without the Dart env file there is nothing to compare"
+    echo "  against, so a mismatch would only surface as 401s in production."
+    missing=1
+  fi
+fi
+
+# Compare whenever both files are present, for every target: deploying one side
+# alone still has to agree with the other side's configuration.
+# Values are compared, never shown.
 if [ -f "$dart_env" ] && [ -f "$node_env" ]; then
   for secret_key in BACKEND_SCORING_COMMAND_SECRET APP_BADGE_COMMAND_SECRET; do
     dart_secret="$(env_value "$dart_env" "$secret_key" || true)"
