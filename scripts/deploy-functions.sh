@@ -111,21 +111,27 @@ if [ "$assume_yes" -eq 0 ]; then
 fi
 
 echo "Step 1: Checking backend scoring deploy prerequisites..."
-bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh"
+bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh" "$only"
 
 if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
+  # Generate the manifest BEFORE testing. deployment_manifest_test.dart asserts
+  # against the tracked functions.yaml, so testing first would validate the old
+  # manifest and then deploy a freshly generated, untested one.
+  echo "Step 2: Generating the deployment manifest..."
+  (cd "$repo_root/functions_dart" && dart run build_runner build)
+
   # The TypeScript codebase is gated by the firebase.json predeploy hooks
   # (lint, build, test). The Dart codebase has no predeploy entry, so gate it
   # here instead. dau_shared is included because functions_dart depends on it.
-  echo "Step 2: Running Dart tests..."
-  (cd "$repo_root/packages/dau_shared" && dart test)
+  echo "Step 3: Running Dart analyzer and tests..."
+  (cd "$repo_root/packages/dau_shared" && dart analyze && dart test)
   (cd "$repo_root/functions_dart" && dart analyze && dart test)
 
-  echo "Step 3: Building Dart Cloud Functions for Linux deployment..."
+  echo "Step 4: Building Dart Cloud Functions for Linux deployment..."
   bash "$repo_root/scripts/build_dart_functions.sh" linux
 fi
 
-echo "Step 4: Deploying ${targets}..."
+echo "Step 5: Deploying ${targets}..."
 firebase deploy --only "$targets"
 
 echo
