@@ -26,6 +26,7 @@ import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
+import 'package:dau_shared/constants/function_endpoints.dart';
 import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -519,7 +520,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       );
     }
 
-    const functionName = 'admin-scoring-rescore';
+    const functionName = adminScoringRescoreEndpoint;
     final callable = _adminCallable(
       functionName,
       adminScoringRescoreURL,
@@ -582,7 +583,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       _isDownloading = true;
       notifyListeners();
       try {
-        const functionName = 'admin-fixture-download';
+        const functionName = adminFixtureDownloadEndpoint;
         final callable = _adminCallable(
           functionName,
           cloudFunctionsBaseURL,
@@ -689,14 +690,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       );
     }
 
-    // Must match the deployed entrypoint id exactly (functions_dart/functions.yaml:
-    // admin-check-fixture-url — the Dart build tooling kebab-cases the
-    // in-source `name: 'adminCheckFixtureUrl'` when generating the Cloud
-    // Functions/Cloud Run deployment manifest, since Cloud Run service names
-    // must be lowercase-hyphenated). Production uses the full configured URL
-    // and ignores this, but the local Functions emulator branch of
-    // _adminCallable resolves callables by this literal, deployed name.
-    const functionName = 'admin-check-fixture-url';
+    // Shared with functions_dart/bin/server.dart via dau_shared, so client and
+    // server bind to one definition of the deployed endpoint id. Production
+    // uses the full configured URL and ignores this, but the local Functions
+    // emulator branch of _adminCallable resolves callables by this name.
+    const functionName = adminCheckFixtureUrlEndpoint;
     final callable = _adminCallable(
       functionName,
       adminCheckFixtureUrlURL,

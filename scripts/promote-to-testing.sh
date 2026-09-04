@@ -95,15 +95,6 @@ git merge --no-edit development
 echo "Step 4: Deploying Firebase Hosting preview channel 'test-web'..."
 firebase hosting:channel:deploy test-web
 
-echo "Step 4a: Checking backend scoring deploy prerequisites..."
-bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh"
-
-echo "Step 4b: Building Dart Cloud Functions for Linux deployment..."
-bash "$repo_root/scripts/build_dart_functions.sh" linux
-
-echo "Step 4c: Deploying Firebase Cloud Functions codebases..."
-firebase deploy --only functions:default,functions:dart_functions
-
 echo "Step 5: Switching back to development..."
 git checkout development
 switched_to_testing=0
@@ -123,3 +114,23 @@ git push origin testing development
 echo "Step 9: Done."
 echo "Merged development -> testing, deployed preview channel 'test-web', returned to development, committed version ${new_version}, and pushed both branches."
 echo "The testing push will now trigger the Android Play workflow and deploy the testing build to the Google Play internal track."
+
+echo
+echo "=============================================================="
+echo "REMINDER: Cloud Functions were NOT deployed."
+echo "=============================================================="
+echo "This script only promotes the client and the 'test-web' hosting"
+echo "preview channel. The backend still runs whatever was last deployed"
+echo "to $(firebase use 2>/dev/null | head -1 | tr -d '\r')."
+echo
+echo "If this promote contains function changes the testing build needs,"
+echo "deploy them deliberately:"
+echo
+echo "    scripts/deploy-functions.sh                 # both codebases"
+echo "    scripts/deploy-functions.sh --only dart     # functions_dart only"
+echo "    scripts/deploy-functions.sh --only default  # TypeScript only"
+echo
+echo "That deploys to PRODUCTION - Firebase Functions have no preview"
+echo "channel, so testers and real users share one backend. Function"
+echo "changes must stay backward compatible with the client on main."
+echo "=============================================================="

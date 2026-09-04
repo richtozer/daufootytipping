@@ -300,6 +300,8 @@ async function requestBadgeCounts(
 ): Promise<BadgeCountResponse> {
   const environment = deps.environment ?? process.env;
   const commandUrl = deps.commandUrl ??
+    // Mirrors appBadgeCountEndpoint in
+    // packages/dau_shared/lib/constants/function_endpoints.dart - keep in sync.
     resolveLocalDartFunctionUrl("app-badge-count", environment) ??
     firstEnvironmentValue(COMMAND_URL_ENV_KEYS, environment);
   const commandSecret = deps.commandSecret ??

@@ -64,8 +64,7 @@ two-step sequence.
 2. Build and deploy Dart functions:
 
    ```bash
-   bash scripts/build_dart_functions.sh linux
-   firebase deploy --only functions:dart_functions
+   scripts/deploy-functions.sh --only dart
    ```
 
 3. Find the deployed `backend-scoring-command` HTTPS URL in Firebase Console or
@@ -81,13 +80,13 @@ two-step sequence.
 5. Verify local deploy prerequisite files:
 
    ```bash
-   bash scripts/check_backend_scoring_deploy_prereqs.sh
+   bash scripts/check_backend_scoring_deploy_prereqs.sh default
    ```
 
 6. Deploy TypeScript wrappers:
 
    ```bash
-   firebase deploy --only functions:default
+   scripts/deploy-functions.sh --only default
    ```
 
 After this first deployment, the Dart HTTPS URL should remain stable. Future
@@ -103,8 +102,7 @@ When moving backend scoring from `us-central1` to `asia-southeast1`:
 1. Deploy Dart functions first:
 
    ```bash
-   bash scripts/build_dart_functions.sh linux
-   firebase deploy --only functions:dart_functions
+   scripts/deploy-functions.sh --only dart
    ```
 
 2. Get the new `asia-southeast1` `backend-scoring-command` HTTPS URL.
@@ -120,7 +118,7 @@ When moving backend scoring from `us-central1` to `asia-southeast1`:
 4. Deploy TypeScript wrappers:
 
    ```bash
-   firebase deploy --only functions:default
+   scripts/deploy-functions.sh --only default
    ```
 
 5. Smoke test the new region before deleting old regional functions.

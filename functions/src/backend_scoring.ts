@@ -492,6 +492,9 @@ export function resolveBackendScoringCommandUrl(
     return overrideUrl.trim();
   }
 
+  // Deployed Dart endpoint id. Mirrors backendScoringCommandEndpoint in
+  // packages/dau_shared/lib/constants/function_endpoints.dart - TypeScript
+  // cannot import it, so keep these in sync by hand.
   const localEmulatorUrl = resolveLocalDartFunctionUrl(
     "backend-scoring-command",
     environment,

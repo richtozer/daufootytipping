@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Deploys the Cloud Functions codebases to the active Firebase project.
+#
+# This is deliberately NOT part of promote-to-testing.sh. Firebase Functions
+# have no preview channel the way Hosting does, so every deploy here is a
+# PRODUCTION deploy: TestFlight/Play-internal testers and real users share one
+# backend. Function changes must stay backward compatible with the client
+# version currently on main.
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
+
+# Support user-level npm global installs when the caller's shell startup files
+# have not been loaded into the current environment.
+if [ -d "$HOME/.npm-global/bin" ]; then
+  export PATH="$HOME/.npm-global/bin:$PATH"
+fi
+if [ -d "$HOME/dev/tooling/flutter/bin" ]; then
+  export PATH="$HOME/dev/tooling/flutter/bin:$PATH"
+fi
+
+usage() {
+  cat <<'EOF'
+Usage: deploy-functions.sh [--only default|dart|all] [--yes] [--allow-dirty]
+
+  --only default   Deploy the TypeScript codebase only (functions/)
+  --only dart      Deploy the Dart codebase only (functions_dart/)
+  --only all       Deploy both (default)
+  --yes            Skip the confirmation prompt
+  --allow-dirty    Permit deploying with uncommitted changes
+
+Deploys to the active Firebase project. Run 'firebase use' to check or change it.
+EOF
+}
+
+only="all"
+assume_yes=0
+allow_dirty=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --only)
+      [ $# -ge 2 ] || { echo "Error: --only requires a value." >&2; usage >&2; exit 1; }
+      only="$2"
+      shift 2
+      ;;
+    --yes) assume_yes=1; shift ;;
+    --allow-dirty) allow_dirty=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Error: unknown argument '$1'." >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+case "$only" in
+  default|dart|all) ;;
+  *) echo "Error: --only must be one of: default, dart, all." >&2; exit 1 ;;
+esac
+
+if ! command -v firebase >/dev/null 2>&1; then
+  echo "Error: firebase CLI is not installed or not on PATH."
+  echo "PATH=$PATH"
+  echo "If installed with npm, ensure the global npm bin directory is on PATH."
+  exit 1
+fi
+
+if [ "$allow_dirty" -eq 0 ]; then
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "Error: working tree is not clean. Commit or stash first so the deployed"
+    echo "commit is recorded and recoverable, or pass --allow-dirty."
+    git status --short
+    exit 1
+  fi
+fi
+
+project="$(firebase use 2>/dev/null | head -1 | tr -d '\r')"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+commit="$(git rev-parse HEAD)"
+short_commit="$(git rev-parse --short HEAD)"
+
+targets=""
+case "$only" in
+  default) targets="functions:default" ;;
+  dart)    targets="functions:dart_functions" ;;
+  all)     targets="functions:default,functions:dart_functions" ;;
+esac
+
+echo
+echo "About to deploy Cloud Functions to PRODUCTION."
+echo "  Project:   ${project}"
+echo "  Codebases: ${targets}"
+echo "  Branch:    ${branch}"
+echo "  Commit:    ${short_commit}"
+if [ "$allow_dirty" -eq 1 ] && { ! git diff --quiet || ! git diff --cached --quiet; }; then
+  echo "  WARNING:   working tree is dirty - the deployed code is not this commit."
+fi
+echo
+echo "Test clients and real users share this backend. Confirm the change is"
+echo "backward compatible with the client version currently on main."
+echo
+
+if [ "$assume_yes" -eq 0 ]; then
+  printf "Type 'deploy' to continue: "
+  read -r reply
+  if [ "$reply" != "deploy" ]; then
+    echo "Aborted."
+    exit 1
+  fi
+fi
+
+# Building for deployment leaves a Linux bin/server behind, but that path is what
+# start_local_backend.sh executes, so a deploy would silently break the local
+# emulator until someone rebuilt it. Restore the native build on the way out,
+# whether the deploy succeeded, failed, or was interrupted.
+restore_native_build=0
+restore_native() {
+  [ "$restore_native_build" -eq 1 ] || return 0
+  echo
+  echo "Restoring the native bin/server for local emulator use..."
+  # --skip-manifest: functions.yaml was generated and verified at Step 2.
+  if ! bash "$repo_root/scripts/build_dart_functions.sh" native --skip-manifest; then
+    echo "WARNING: could not restore the native bin/server. The local emulator"
+    echo "         will fail until you run:"
+    echo "         bash scripts/build_dart_functions.sh native"
+  fi
+}
+trap restore_native EXIT
+
+echo "Step 1: Checking backend scoring deploy prerequisites..."
+bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh" "$only"
+
+if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
+  # Generate the manifest BEFORE testing. deployment_manifest_test.dart asserts
+  # against the tracked functions.yaml, so testing first would validate the old
+  # manifest and then deploy a freshly generated, untested one.
+  echo "Step 2: Generating the deployment manifest..."
+  (cd "$repo_root/functions_dart" && dart run build_runner build)
+
+  # The dirty-tree guard ran before this, so a regenerated manifest could go out
+  # uncommitted - and the commit this script reports as deployed would not
+  # contain what was actually deployed, breaking the rollback path below.
+  if [ "$allow_dirty" -eq 0 ] && ! git diff --quiet -- functions_dart/functions.yaml; then
+    echo
+    echo "Error: regenerating functions.yaml changed it, so the tracked manifest"
+    echo "was stale. Deploying now would ship a manifest that is not in ${short_commit}."
+    echo
+    git --no-pager diff --stat -- functions_dart/functions.yaml
+    echo
+    echo "Review and commit the regenerated manifest, then deploy again. If any"
+    echo "endpoint id changed, that renames a deployed function - see"
+    echo "packages/dau_shared/lib/constants/function_endpoints.dart."
+    exit 1
+  fi
+
+  # The TypeScript codebase is gated by the firebase.json predeploy hooks
+  # (lint, build, test). The Dart codebase has no predeploy entry, so gate it
+  # here instead. dau_shared is included because functions_dart depends on it.
+  echo "Step 3: Running Dart analyzer and tests..."
+  (cd "$repo_root/packages/dau_shared" && dart analyze && dart test)
+  (cd "$repo_root/functions_dart" && dart analyze && dart test)
+
+  # --skip-manifest: already generated and verified at Step 2. Regenerating here
+  # would compile against a manifest the tests above never saw.
+  echo "Step 4: Building Dart Cloud Functions for Linux deployment..."
+  bash "$repo_root/scripts/build_dart_functions.sh" linux --skip-manifest
+  restore_native_build=1
+fi
+
+echo "Step 5: Deploying ${targets}..."
+firebase deploy --only "$targets"
+
+echo
+echo "Done. Deployed ${targets} from ${short_commit} (${branch}) to ${project}."
+echo
+echo "There is no one-command rollback for Cloud Functions. To revert, redeploy"
+echo "the previous known-good commit:"
+echo
+echo "    git stash                     # if you have local changes"
+echo "    git checkout <previous-sha>"
+echo "    scripts/deploy-functions.sh --only ${only}"
+echo "    git checkout ${branch}"
