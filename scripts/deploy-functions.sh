@@ -114,11 +114,18 @@ echo "Step 1: Checking backend scoring deploy prerequisites..."
 bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh"
 
 if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
-  echo "Step 2: Building Dart Cloud Functions for Linux deployment..."
+  # The TypeScript codebase is gated by the firebase.json predeploy hooks
+  # (lint, build, test). The Dart codebase has no predeploy entry, so gate it
+  # here instead. dau_shared is included because functions_dart depends on it.
+  echo "Step 2: Running Dart tests..."
+  (cd "$repo_root/packages/dau_shared" && dart test)
+  (cd "$repo_root/functions_dart" && dart analyze && dart test)
+
+  echo "Step 3: Building Dart Cloud Functions for Linux deployment..."
   bash "$repo_root/scripts/build_dart_functions.sh" linux
 fi
 
-echo "Step 3: Deploying ${targets}..."
+echo "Step 4: Deploying ${targets}..."
 firebase deploy --only "$targets"
 
 echo
