@@ -151,9 +151,20 @@ scripts/promote-to-testing.sh
 
 # Increment build number only (updates pubspec.yaml version):
 scripts/bump_build_number.sh
+
+# Deploy Cloud Functions (PRODUCTION - deliberate, separate step):
+scripts/deploy-functions.sh                 # both codebases
+scripts/deploy-functions.sh --only dart     # functions_dart only
+scripts/deploy-functions.sh --only default  # TypeScript only
 ```
 
 Precondition for `promote-to-testing.sh`: must be on `development` with a clean working tree.
+
+`promote-to-testing.sh` does NOT deploy Cloud Functions. Firebase Functions have no
+preview channel the way Hosting does, so every function deploy is a production deploy:
+TestFlight/Play-internal testers and real users share one backend. Deploy them
+deliberately with `deploy-functions.sh`, and keep function changes backward compatible
+with the client version currently on `main`.
 
 ### Current State (See TODO.md)
 - Test suite currently passes (`flutter test --no-pub`)
