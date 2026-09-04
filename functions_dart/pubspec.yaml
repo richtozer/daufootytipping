@@ -23,3 +23,7 @@ dependency_overrides:
 dev_dependencies:
   test: ^1.32.0
   mocktail: ^1.0.3
+  # Required by scripts/build_dart_functions.sh, which generates functions.yaml
+  # (the deployment manifest) via firebase_functions:spec_builder. Not imported
+  # by any Dart source - do not remove as "unused".
+  build_runner: ^2.16.1

@@ -690,11 +690,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
 
     // Must match the deployed entrypoint id exactly (functions_dart/functions.yaml:
-    // admin-check-fixture-url — the Dart build tooling kebab-cases the
-    // in-source `name: 'adminCheckFixtureUrl'` when generating the Cloud
-    // Functions/Cloud Run deployment manifest, since Cloud Run service names
-    // must be lowercase-hyphenated). Production uses the full configured URL
-    // and ignores this, but the local Functions emulator branch of
+    // admin-check-fixture-url). server.dart declares that hyphenated id
+    // verbatim as its `name:`, because Cloud Run service names must be
+    // lowercase-hyphenated. Production uses the full configured URL and
+    // ignores this, but the local Functions emulator branch of
     // _adminCallable resolves callables by this literal, deployed name.
     const functionName = 'admin-check-fixture-url';
     final callable = _adminCallable(

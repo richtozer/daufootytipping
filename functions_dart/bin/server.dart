@@ -78,8 +78,13 @@ void main(List<String> args) async {
   await runFunctions((firebase) {
     final runtimeAdminApp = firebase.adminApp;
 
+    // The name: values below are the DEPLOYED endpoint ids and are declared
+    // verbatim in hyphenated form. firebase_functions 0.7 lowercases the name
+    // as-is (0.6 kebab-cased camelCase for you), so renaming these to camelCase
+    // would silently rename every deployed function and break the Flutter
+    // client and the TypeScript functions that call these by name.
     firebase.https.onCall(
-      name: 'adminFixtureDownload',
+      name: 'admin-fixture-download',
       options: _adminCallableOptions,
       (request, response) async {
         logFunction('adminFixtureDownload: callable invoked');
@@ -134,7 +139,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onCall(
-      name: 'adminScoringRescore',
+      name: 'admin-scoring-rescore',
       options: _adminCallableOptions,
       (request, response) async {
         final auth = request.auth;
@@ -167,7 +172,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onCall(
-      name: 'adminCheckFixtureUrl',
+      name: 'admin-check-fixture-url',
       options: _adminCallableOptions,
       (request, response) async {
         logFunction('adminCheckFixtureUrl: callable invoked');
@@ -208,7 +213,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onRequest(
-      name: 'backendScoringCommand',
+      name: 'backend-scoring-command',
       options: _backendScoringCommandOptions,
       (request) => _handleBackendScoringCommandRequestWithRuntimeApp(
         request,
@@ -217,7 +222,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onRequest(
-      name: 'scheduledFixtureDownload',
+      name: 'scheduled-fixture-download',
       options: _scheduledFixtureDownloadOptions,
       (request) => _handleScheduledFixtureDownloadRequestWithRuntimeApp(
         request,
@@ -226,7 +231,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onRequest(
-      name: 'appBadgeCount',
+      name: 'app-badge-count',
       options: _appBadgeCountOptions,
       (request) => _handleAppBadgeCountRequestWithRuntimeApp(
         request,
