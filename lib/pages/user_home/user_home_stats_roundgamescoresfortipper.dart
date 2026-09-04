@@ -12,8 +12,10 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide DataCell, DataColumn, DataRow;
 import 'package:flutter_svg/svg.dart';
+import 'package:material_ui/material_ui.dart'
+    show DataCell, DataColumn, DataRow;
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundGameScoresForTipper extends StatefulWidget {

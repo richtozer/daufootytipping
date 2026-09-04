@@ -4,8 +4,9 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide DataCell;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:material_ui/material_ui.dart' show DataCell;
 import 'package:watch_it/watch_it.dart';
 
 
