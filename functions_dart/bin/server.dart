@@ -84,7 +84,7 @@ void main(List<String> args) async {
     // would silently rename every deployed function and break the Flutter
     // client and the TypeScript functions that call these by name.
     firebase.https.onCall(
-      name: 'admin-fixture-download',
+      name: adminFixtureDownloadEndpoint,
       options: _adminCallableOptions,
       (request, response) async {
         logFunction('adminFixtureDownload: callable invoked');
@@ -139,7 +139,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onCall(
-      name: 'admin-scoring-rescore',
+      name: adminScoringRescoreEndpoint,
       options: _adminCallableOptions,
       (request, response) async {
         final auth = request.auth;
@@ -172,7 +172,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onCall(
-      name: 'admin-check-fixture-url',
+      name: adminCheckFixtureUrlEndpoint,
       options: _adminCallableOptions,
       (request, response) async {
         logFunction('adminCheckFixtureUrl: callable invoked');
@@ -213,7 +213,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onRequest(
-      name: 'backend-scoring-command',
+      name: backendScoringCommandEndpoint,
       options: _backendScoringCommandOptions,
       (request) => _handleBackendScoringCommandRequestWithRuntimeApp(
         request,
@@ -222,7 +222,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onRequest(
-      name: 'scheduled-fixture-download',
+      name: scheduledFixtureDownloadEndpoint,
       options: _scheduledFixtureDownloadOptions,
       (request) => _handleScheduledFixtureDownloadRequestWithRuntimeApp(
         request,
@@ -231,7 +231,7 @@ void main(List<String> args) async {
     );
 
     firebase.https.onRequest(
-      name: 'app-badge-count',
+      name: appBadgeCountEndpoint,
       options: _appBadgeCountOptions,
       (request) => _handleAppBadgeCountRequestWithRuntimeApp(
         request,

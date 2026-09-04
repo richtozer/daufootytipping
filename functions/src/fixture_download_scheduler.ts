@@ -60,6 +60,8 @@ export async function forwardScheduledFixtureDownload(
   const environment = deps.environment ?? process.env;
   const commandUrl =
     deps.commandUrl ??
+    // Mirrors scheduledFixtureDownloadEndpoint in
+    // packages/dau_shared/lib/constants/function_endpoints.dart - keep in sync.
     resolveLocalDartFunctionUrl("scheduled-fixture-download", environment) ??
     resolveScheduledFixtureDownloadEnv(
       DEFAULT_COMMAND_URL_ENV_KEYS,
