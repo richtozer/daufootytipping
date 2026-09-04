@@ -120,6 +120,22 @@ if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
   echo "Step 2: Generating the deployment manifest..."
   (cd "$repo_root/functions_dart" && dart run build_runner build)
 
+  # The dirty-tree guard ran before this, so a regenerated manifest could go out
+  # uncommitted - and the commit this script reports as deployed would not
+  # contain what was actually deployed, breaking the rollback path below.
+  if [ "$allow_dirty" -eq 0 ] && ! git diff --quiet -- functions_dart/functions.yaml; then
+    echo
+    echo "Error: regenerating functions.yaml changed it, so the tracked manifest"
+    echo "was stale. Deploying now would ship a manifest that is not in ${short_commit}."
+    echo
+    git --no-pager diff --stat -- functions_dart/functions.yaml
+    echo
+    echo "Review and commit the regenerated manifest, then deploy again. If any"
+    echo "endpoint id changed, that renames a deployed function - see"
+    echo "packages/dau_shared/lib/constants/function_endpoints.dart."
+    exit 1
+  fi
+
   # The TypeScript codebase is gated by the firebase.json predeploy hooks
   # (lint, build, test). The Dart codebase has no predeploy entry, so gate it
   # here instead. dau_shared is included because functions_dart depends on it.
@@ -127,8 +143,10 @@ if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
   (cd "$repo_root/packages/dau_shared" && dart analyze && dart test)
   (cd "$repo_root/functions_dart" && dart analyze && dart test)
 
+  # --skip-manifest: already generated and verified at Step 2. Regenerating here
+  # would compile against a manifest the tests above never saw.
   echo "Step 4: Building Dart Cloud Functions for Linux deployment..."
-  bash "$repo_root/scripts/build_dart_functions.sh" linux
+  bash "$repo_root/scripts/build_dart_functions.sh" linux --skip-manifest
 fi
 
 echo "Step 5: Deploying ${targets}..."
