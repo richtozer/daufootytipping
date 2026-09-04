@@ -1,4 +1,3 @@
-/* eslint-disable require-jsdoc */
 import * as functions from "firebase-functions/v1";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {getDatabase} from "firebase-admin/database";

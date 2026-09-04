@@ -1,4 +1,3 @@
-/* eslint-disable require-jsdoc */
 const DEFAULT_PROJECT_ID = "dau-footy-tipping-f8a42";
 const DEFAULT_REGION = "asia-southeast1";
 const DEFAULT_FUNCTIONS_EMULATOR_ORIGIN = "http://127.0.0.1:9229";

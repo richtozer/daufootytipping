@@ -8,6 +8,9 @@
     "search.exclude": {
         "**/build/**": true
     },
+    "gradle.nestedProjects": [
+        "android"
+    ],
     "githubIssues.queries": [
         {
             "label": "My Issues",

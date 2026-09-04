@@ -7,18 +7,19 @@ environment:
   sdk: '>=3.9.0 <4.0.0'
 
 dependencies:
-  firebase_functions: ^0.6.0
-  firebase_admin: ^0.3.1+4
+  firebase_functions: ^0.7.0
+  firebase_admin: ^0.3.1+5
   firebase_dart: ^1.6.2
   http: ^1.2.0
-  intl: ^0.20.2
+  intl: ^0.20.3
   dau_shared:
     path: ../packages/dau_shared
 
 dependency_overrides:
+  # firebase_admin still constrains googleapis to ^15 while
+  # firebase_functions 0.7 requires ^16.
   googleapis: ^16.0.0
 
 dev_dependencies:
-  test: ^1.25.15
+  test: ^1.32.0
   mocktail: ^1.0.3
-  build_runner: ^2.4.9

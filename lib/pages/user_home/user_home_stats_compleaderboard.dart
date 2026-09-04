@@ -8,7 +8,9 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundpointsfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide DataCell, DataColumn, DataRow;
+import 'package:material_ui/material_ui.dart'
+    show DataCell, DataColumn, DataRow;
 import 'package:watch_it/watch_it.dart';
 
 class StatCompLeaderboard extends StatefulWidget {

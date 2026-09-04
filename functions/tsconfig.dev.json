@@ -4,6 +4,6 @@
     "checkJs": false
   },
   "include": [
-    ".eslintrc.js"
+    "eslint.config.js"
   ]
 }

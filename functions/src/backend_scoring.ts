@@ -1,4 +1,3 @@
-/* eslint-disable require-jsdoc */
 import * as functions from "firebase-functions/v1";
 import {resolveLocalDartFunctionUrl} from "./local_emulator_functions";
 

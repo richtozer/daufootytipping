@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:firebase_functions/firebase_functions.dart' hide DataSnapshot;
 import 'package:firebase_dart/database.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dau_shared/dau_shared.dart';
