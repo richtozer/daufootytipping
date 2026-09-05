@@ -1,12 +1,18 @@
 # Android Realtime Database Resume Staleness
 
-**Status:** Unresolved. The two shipped resume fixes have not solved the problem on a physical Android device. Investigate and reproduce before making another production change.
+**Status:** Unresolved, with a successful instrumented reproduction and completed independent review. Build 708 captured the failure end to end on a physical Pixel and showed that only a new Android process restored the games stream. The next candidate adds instrumentation only; no further recovery behavior has been selected.
 
-**Report updated:** 30 August 2026
+**Report updated:** 5 September 2026
+
+**Testing after 6 September 2026:** the comp closes and organic score changes stop, but the defect remains fully reproducible using self-authored writes to a dedicated test node or test competition. One boundary does break: cards constructed after the final round completes never subscribe to games updates, so the widget-level check silently stops being meaningful — most importantly after a cold start. Read *Post-season testing* before designing the next reproduction.
 
 ## Executive summary
 
-After the app remains in the background for an extended period, an Android client can resume with stale Firebase Realtime Database (RTDB) state and continue displaying it. The latest field observation was on a Google Pixel after the app had been backgrounded for several days: the Tips page still showed Saturday's live/interim game scores, while the iOS app showed the finalized fixture scores. The Android app did not recover through normal foreground use; force-quitting and reopening it was the only workaround found.
+After the app remains in the background for an extended period, an Android client can resume with stale Firebase Realtime Database (RTDB) state and continue displaying it. An instrumented release build reproduced the fault on a physical Google Pixel after an approximately 11-hour-51-minute background interval. The affected Friday fixtures had no crowd-sourced scores, the iOS client already showed the finalized official scores, and the Pixel continued to show missing official results.
+
+The retained trace shows that the lifecycle handler ran, but `/.info/connected` remained `false`. Each resume pipeline exhausted all three 10-second `goOffline()`/`goOnline()` reconnect waits and then executed the fixture `get()`. Those reads returned the stale persisted snapshot in 18-50 ms, which `GamesViewModel` applied and the Tips widgets rendered correctly. Eight resume pipelines, a confirmed external `/AppConfig` probe, normal foreground use, and an Android Airplane-mode network transition did not refresh the games data.
+
+After a Settings-level **Force stop**, a new process first emitted the same stale persisted games snapshot, then received the finalized server snapshot about 2.14 seconds later. This is the first captured stale-to-fresh comparison. It rules out the lifecycle gate, model application, and widget presentation as the primary failure in this reproduction, and narrows the problem to games-path synchronization state retained by the old Android process.
 
 This is now confirmed to persist after both resume-related fixes:
 
@@ -24,7 +30,7 @@ Both approaches are covered by unit tests, but neither has demonstrated the requ
 - The client did not appear to receive or process newer backend data that should have refreshed the UI.
 - Build 700 behaved the same as the versions before the first resume fix.
 
-### Latest report after the Android reconnect fix
+### Earlier report after the Android reconnect fix
 
 - Device: physical Google Pixel.
 - Background duration: several days.
@@ -33,7 +39,110 @@ Both approaches are covered by unit tests, but neither has demonstrated the requ
 - The Android app did not self-correct through normal use.
 - Force-quitting and reopening the Android app loaded the finalized state.
 
-The exact Android build number, Pixel model, Android version, battery-optimization settings, and background duration were not captured in the report and should be recorded in the next reproduction.
+The exact Android build number, Pixel model, Android version, battery-optimization settings, and background duration were not captured in that earlier report. The later instrumented reproduction below captured the build and background interval, but the Pixel model variant, Android version, and battery/background-restriction settings remain to be recorded.
+
+## Instrumented physical-Pixel reproduction — 4-5 September 2026
+
+### Test conditions
+
+- Device: physical Google Pixel; exact model and Android version were not recorded.
+- App: release-mode diagnostic build `1.4.0+708`.
+- Process under test: `android-1788527640452948`.
+- RTDB competition key: `-OlgMBuUZb3lUFu-MqNC`.
+- App process started: `2026-09-04T13:14:00.554113Z`.
+- App backgrounded: `2026-09-04T13:14:45.411667Z`.
+- First failing resume: `2026-09-05T01:05:39.962459Z`, approximately 11 hours 51 minutes later.
+- The reporter stated that the Friday games had finalized approximately nine hours before observation.
+- The iOS client showed finalized scores at the same time.
+- The affected games had no crowd-sourced/live scores. This removed live-score reconciliation as a possible source of the stale presentation.
+
+The principal affected fixtures in the trace were:
+
+| Game key | Stale Android value | Final value after cold start |
+| --- | --- | --- |
+| `nrl-27-198` | official scores `null` / `null` | `20` / `24` |
+| `nrl-27-199` | official scores `null` / `null` | `50` / `20` |
+| `afl-26-212` | official scores `null` / `null` | `107` / `74` |
+
+### Controlled sequence and observations
+
+| Step | Action | Observation |
+| --- | --- | --- |
+| 1 | Resume the long-backgrounded Pixel and inspect the Tips page. | The games were rendered as `startedResultNotKnown`, with null official and displayed scores and `liveScoreCount: 0`. |
+| 2 | Allow the build-708 resume pipeline to run without intervention. | `/.info/connected` reported `false`; three reconnect attempts each timed out after 10 seconds; the fallback games `get()` returned stale values in 26 ms and reapplied them. |
+| 3 | Repeat foreground/background captures while preserving the process. | The same pattern repeated. Across the complete experiment, eight resume pipelines in the old process made 24 timed-out reconnect attempts. None logged `connected: true` or a fresh games-listener snapshot. |
+| 4 | Load/refresh a current web page in Chrome, return to Dau, and wait. | The Tips scores remained stale. The general-network check was not separately instrumented in the Dau trace, so its result relies on the reporter's execution of the workflow. |
+| 5 | Add an inert `resumeProbe` child under `/AppConfig` from the backend while the Pixel remained on the stale Tips page. | At the exact confirmed probe timestamp, `2026-09-05T01:25:52Z`, all Tips game widgets rebuilt with no resume attempt or games-model notification. They rendered the same stale values. The diagnostic build did not log ConfigViewModel snapshots directly, so attribution to the probe is timestamp correlation, albeit confirmed by the reporter. |
+| 6 | Turn Airplane mode on for 10 seconds, turn it off, restore connectivity, background and reopen Dau, and wait. | Two further resume attempts still reported `connected: false`, exhausted all reconnect retries, received no games-listener event, and returned the stale games snapshot from `get()` in 27 ms and 26 ms. |
+| 7 | Force-stop Dau through Android Settings without clearing cache or storage, then relaunch it. | A new process was created. It first rendered persisted stale data, then received and rendered the finalized scores roughly two seconds later. |
+
+The repeated old-process fixture reads were extremely fast despite the SDK reporting disconnected. Representative completions were 18-50 ms, including 26 ms on the first captured failure, 27 ms after the network transition, and 50 ms immediately before force stop. That timing, the absent connection event, and the unchanged values are consistent with cache fallback rather than a successful server round trip.
+
+All eight old-process attempts had the same connection and data outcome:
+
+| Attempt | Started UTC | Failed reconnects | `connected: true` observed | Approx. games `get()` time | Affected scores returned |
+| --- | --- | ---: | --- | ---: | --- |
+| 1 | `01:05:39.962` | 3 | No | 26 ms | null / null |
+| 2 | `01:07:28.446` | 3 | No | 31 ms | null / null |
+| 3 | `01:15:36.653` | 3 | No | 25 ms | null / null |
+| 4 | `01:20:01.218` | 3 | No | 20 ms | null / null |
+| 5 | `01:23:39.950` | 3 | No | 18 ms | null / null |
+| 6 | `01:31:10.324` | 3 | No | 27 ms | null / null |
+| 7 | `01:32:37.188` | 3 | No | 26 ms | null / null |
+| 8 | `01:36:26.275` | 3 | No | 50 ms | null / null |
+
+### Decisive cold-start boundary
+
+Immediately before force stop, the old process completed resume attempt 8:
+
+```text
+01:36:26.274Z  attempt_started (old process)
+01:36:26.285Z  sdk_reported_connection_state: false
+01:36:59.818Z  third reconnect timed out; retries exhausted
+01:36:59.868Z  fixture_get_returned: affected official scores still null
+01:36:59.906Z  GamesViewModel applied the stale resume_get snapshot
+```
+
+The process was then force-stopped and relaunched:
+
+```text
+01:37:14.832Z  process_started (new process android-1788572234816239)
+01:37:15.006Z  initial listener snapshot/model application used persisted stale values
+01:37:17.155Z  games listener received finalized values
+01:37:17.158Z  GamesViewModel applied finalized values and notified listeners
+```
+
+Fresh data therefore arrived approximately 2.32 seconds after process start and 2.14 seconds after the initial stale listener snapshot. The reporter observed the Tips scores change at approximately the same time.
+
+### Boundaries established by this reproduction
+
+| Boundary | Result |
+| --- | --- |
+| Android lifecycle callback and coordinator gating | Worked: every qualifying return logged a complete resume attempt. |
+| Android reconnect helper | Failed: `goOffline()`/`goOnline()` never produced `/.info/connected == true` in the retained process. |
+| Explicit fixture `get()` | Completed but returned the old games snapshot while disconnected. |
+| Games listener in the retained process | Never delivered the finalized fixtures during the observed failure. |
+| `GamesViewModel` snapshot application | Worked: it accurately applied the snapshot it was given, whether stale or fresh. |
+| Tips presentation | Worked: widgets accurately rendered null stale values and later the finalized cold-start values. |
+| Live/crowd-score reconciliation | Not involved: `liveScoreCount` was zero for the affected fixtures. |
+| Android network transition | Did not repair the retained process. |
+| New Android process | Recovered: stale disk cache was followed by a fresh listener snapshot within about two seconds. |
+
+### What this confirms—and what it does not
+
+This reproduction confirms that build 708's resume mitigation does not repair the failing process. It also confirms that the failure is upstream of `GamesViewModel` application and widget rendering: no finalized games snapshot reached those layers until process recreation.
+
+The `/AppConfig` probe adds an important qualification. A backend config mutation was followed at the same timestamp by a full UI rebuild, while the games listener remained silent. This suggests that the process was not uniformly incapable of reacting to all RTDB-backed state. However, because the diagnostic build did not record the config snapshot itself or retain native logcat, the next reviewer should treat this as strong correlated evidence rather than direct proof of a healthy shared RTDB transport.
+
+The evidence does **not** yet identify whether the retained fault is:
+
+- a native games query/listener registration that has become stuck;
+- broader native RTDB connection state with unusual local/config-event behavior;
+- a Dart subscription that remains present but is no longer represented correctly in the native sync tree;
+- an authentication, App Check, DNS, or token-refresh condition visible only in native logs; or
+- a FlutterFire/native SDK defect matching one of the upstream reports.
+
+It does show that repeatedly calling `goOffline()`/`goOnline()` on the same `FirebaseDatabase` instance, waiting for `/.info/connected`, issuing `get()` on the listened games path, and inducing an Android network transition are not sufficient recovery mechanisms for this captured state.
 
 ## Expected behavior
 
@@ -132,13 +241,13 @@ Tests added for this attempt verify:
 
 These tests compile and pass, but they use mocks and controlled streams. They do not prove that native RTDB listeners have resynchronized, that the subsequent fixture read is fresh, or that the Android UI has consumed the new state after a multi-day suspension.
 
-## What the latest observation tells us
+## What the earlier uninstrumented observation suggested
 
 The Tips game card displays the interim-score banner only when crowd-sourced/live scores exist and at least one official fixture score is missing. When both official scores exist, the official values take precedence and stale live scores are ignored by the reconciliation logic.
 
-Therefore, the latest symptom strongly suggests that the Android in-memory `Game` still lacked at least one finalized official score after resume. It is less consistent with a simple repaint failure or a stale live-score overlay on top of an otherwise current fixture. This is an inference from the current UI and model logic; it needs runtime evidence from the affected device.
+The symptom suggested that the Android in-memory `Game` still lacked at least one finalized official score after resume. It was less consistent with a simple repaint failure or a stale live-score overlay on top of an otherwise current fixture.
 
-The force-quit result is also important. A cold start recreates the Flutter object graph, native Firebase client state, subscriptions, and in-memory models, and it successfully obtained the finalized fixture. That narrows the fault toward state retained across Android background/resume rather than absent or incorrect backend data. It does not yet distinguish among:
+Before instrumentation, force quit only narrowed the fault toward state retained across Android background/resume. At that point the evidence did not distinguish among:
 
 - the expected lifecycle callback never running;
 - the coordinator deciding no background transition occurred;
@@ -149,18 +258,28 @@ The force-quit result is also important. A cold start recreates the Flutter obje
 - listeners failing to resume or being attached to stale state; or
 - the model updating without the visible Tips dependency rebuilding.
 
-## Known gaps in the current implementation and evidence
+The build-708 reproduction has now resolved most of these alternatives for the captured incident: the handler ran; `get()` returned stale values; no fresh games event arrived; the model applied exactly what it received; no rollback occurred; and the widgets rendered the model accurately. The unresolved boundary is inside or immediately below the retained games subscription/native RTDB synchronization state.
 
-1. **No physical-device proof.** The fixes were not validated through a controlled, long-background reproduction on a physical Android device before promotion.
-2. **No durable resume telemetry.** Current messages use developer logging. We do not have field evidence showing the lifecycle states, whether the handler ran, connection result, fixture values returned, model update, listener events, or UI rebuild for the failed resume.
-3. **`/.info/connected` is only a transport signal.** It confirms that the SDK reports a live connection; it does not prove that every existing listener has caught up or that a later snapshot cannot overwrite the explicitly refreshed model.
-4. **Only the fixture path is explicitly refreshed.** Tips, stats, tippers, and live-score paths continue to depend on their existing listeners. The connection restart affects the whole database instance, but the post-reconnect verification checks only fixtures.
-5. **Mocks cannot model Android persistence and process suspension.** The current tests establish call ordering and application logic, not native SDK behavior under Doze, socket suspension, process retention, or disk-cache fallback.
-6. **The successful force quit has not been instrumented.** We know cold start repairs the display, but not which cold-start event or read differs from resume.
-7. **Reconnect failure is deliberately hidden from the refresh path.** Each connection wait can run for 10 seconds. With three attempts and the one- and two-second delays, the code can spend approximately 33 seconds failing to reconnect, log the final failure, and then continue to `get()`. If the native client remains disconnected, that read can fall back to stale cache and look like a successful refresh.
-8. **Lifecycle delivery is not guaranteed.** The coordinator only refreshes after it observes `hidden`, `paused`, or `detached`; it intentionally ignores `inactive`. [Flutter documents](https://api.flutter.dev/flutter/dart-ui/AppLifecycleState.html) that applications should not assume every lifecycle notification will be delivered. A missing background event could therefore cause the resume to be skipped entirely. A second resume received while a refresh is already running is also dropped rather than queued.
-9. **Long-lived subscriptions are not recreated or health-checked.** The Android transport restart retains the Dart games, tips, and stats subscriptions. Their current listeners do not provide enough error or generation telemetry to show whether they resumed correctly.
-10. **The presentation boundary is not traced.** The fixture refresh can succeed while a downstream card still fails to consume it. In particular, individual `GameTipViewModel` instances only subscribe directly to games updates while the competition is considered to have active rounds. This is a lower-confidence explanation than a stuck connection, but the existing evidence cannot rule it out.
+## Known gaps after the instrumented reproduction
+
+1. **No native logcat from the failure window.** Native RTDB logging was enabled, but the phone was not attached to ADB. The durable JSON trace therefore lacks native connection, authentication, App Check, DNS, token-refresh, and sync-tree details.
+2. **~~The resolved native Android SDK version is not recorded.~~ Resolved.** An earlier revision of this report stated `firebase_database` 12.4.2; that was wrong. Verified against `pubspec.lock` at build-708 commit `0c4bf52` and the resolved plugin sources, build 708 used:
+
+   | Component | Version |
+   | --- | --- |
+   | `firebase_database` (Dart) | 12.5.0 |
+   | `firebase_core` (Dart) | 4.14.0 |
+   | Firebase Android BoM | 34.18.0 |
+   | `com.google.firebase:firebase-database` (native) | 22.0.1 |
+
+   The BoM is set by `FirebaseSDKVersion=34.18.0` in the `firebase_core` plugin's `android/gradle.properties`, and the project does not override it; the native `firebase-database` version follows from that BoM. The remaining task is to compare these versions against upstream defect reports and release notes, not to determine them.
+3. **The config probe is correlated rather than directly traced.** The exact probe timestamp matches an otherwise unexplained full widget rebuild, but build 708 does not record ConfigViewModel snapshots or the probe value.
+4. **Games subscription generations are not logged.** The trace shows no games event, but does not identify the native listener registration/generation or prove whether it remained registered below the Dart subscription.
+5. **Other long-lived RTDB listeners were not individually traced.** The config result suggests non-uniform behavior, but Tips, Stats, and Tippers stream health was not recorded at the same boundary.
+6. **Device conditions remain incomplete.** Exact Pixel model, Android version, battery optimization, background restriction, network type, VPN, and Private DNS settings were not recorded.
+7. **The current failure fall-through remains misleading.** After approximately 33 seconds of failed reconnect attempts, the code continues to a cache-capable `get()` and reports the fixture refresh as completed even though no connection was established.
+8. **Mocks cannot reproduce this state.** Existing tests establish call order and application behavior, but not native Android process retention, persistence, or listener recovery.
+9. **The widget boundary stops being observable for newly built cards once the season ends.** `GameTipViewModel` decides once, in its constructor, whether to subscribe to `GamesViewModel`, and that decision is false for instances constructed after the final round completes. Existing instances keep working; new ones — notably every card in a process created by a cold start, which is how the September stale-to-fresh transition was proved — do not. A widget-level null result then fails to distinguish a broken fix from a subscription that was never created. See *Post-season testing* for the required workaround. This did not affect the September reproduction, which failed upstream of the model.
 
 ## Independent read-only audit
 
@@ -173,16 +292,16 @@ Two upstream reports closely resemble the observed pattern:
 
 Those reports describe Android clients that remain disconnected after backgrounding or an explicit disconnect, where `goOnline()` does not restore `/.info/connected` and an app restart does. They were closed without a demonstrated SDK fix, so they are supporting evidence for a hypothesis, not confirmation that this app has the same defect.
 
-The dependency lock currently resolves `firebase_database` 12.4.2. The next investigation should capture the resolved native Android Firebase Database version from the actual failing build and compare its behavior with the upstream reports. The official Android [`Query.get()` documentation](https://firebase.google.com/docs/reference/android/com/google/firebase/database/Query#get()) is also important: it describes a server request that may fall back to local cache when the client cannot obtain server data. That behavior fits the masked-failure path above.
+~~The dependency lock currently resolves `firebase_database` 12.4.2.~~ **Corrected:** build 708 resolved `firebase_database` 12.5.0 on native `firebase-database` 22.0.1 via Firebase BoM 34.18.0 — see *Known gaps* item 2 for the verified table. The next investigation should compare that specific native version's behavior with the upstream reports. The official Android [`Query.get()` documentation](https://firebase.google.com/docs/reference/android/com/google/firebase/database/Query#get()) is also important: it describes a server request that may fall back to local cache when the client cannot obtain server data. That behavior fits the masked-failure path above.
 
-The audit ranked the current hypotheses as follows:
+Before device telemetry, the audit ranked the hypotheses as follows:
 
 1. Native Android RTDB connection remains stuck; all reconnect waits fail, then the fixture read falls back to stale persisted data.
 2. The lifecycle coordinator never sees the required background event, so no resume work runs.
 3. The explicit refresh gets current data but a stale listener event subsequently rolls the model back.
 4. The model becomes current but the visible game-card/view-model chain does not rebuild from it.
 
-This order is a starting point for evidence collection, not a conclusion.
+The build-708 reproduction strongly supports hypothesis 1 for this incident. It directly rules out hypothesis 2, found no evidence for hypothesis 3, and rules out hypothesis 4 as the primary cause because the same widgets rendered finalized values as soon as a fresh cold-start snapshot reached the model.
 
 ## Relevant older history
 
@@ -250,38 +369,21 @@ flutterfire#17769            closed 2025-11-20
 
 The corrected state of the upstream evidence is therefore weaker than either version of this section implied: four closed issues, none with a demonstrated fix, of which only one (#2590) closely matches this app's symptom. That is enough to say the defect class is real and recurring, and enough to say a Dart-level `goOffline()`/`goOnline()` retry loop cannot be assumed to succeed where a near-identical report shows it did not. It is **not** enough to justify another speculative behavioral change. If anything it argues the opposite: the upstream corpus cannot settle this, so the next move must be first-party evidence captured on the affected device.
 
-This does not change the report's own conclusion or its priority ordering. The strongest-supported account remains the one already stated in the existing audit above: the native connection may stay stuck after suspension, build 702 masks that by continuing to a cache-capable `get()` regardless, and force quit recovers by rebuilding the native client — and none of that can be confirmed without the device telemetry the report already calls for. This section's contribution is narrower than first written: a plausible, unconfirmed refinement of *why* the masked failure looks the way it does (`get()` reading through an unresynced listener), not new proof, and not a replacement for capturing lifecycle/connection/read telemetry on a physical device.
+At the time this section was written, that account still required device evidence. The 4-5 September build-708 reproduction now confirms the observable sequence: the retained process remains SDK-disconnected during the resume attempts, the cache-capable `get()` supplies stale data, and a new process receives a fresh games-listener snapshot. It still does not establish the internal native cause or prove the narrower active-listener short-circuit mechanism proposed above.
 
-## Investigation requested before another fix
+## Independent review outcome
 
-The next agent should remain in diagnosis mode until it can identify where the expected flow diverges on a physical Pixel. A useful investigation should produce evidence for each boundary below:
+The independent review agreed that the next build should remain in diagnosis mode and corrected three overstatements made while interpreting the first trace:
 
-1. **Reproduce deliberately and classify the diagnostic effect.** Use a release/profile build on a physical Pixel, establish known interim fixture/live-score values, background the app, finalize the fixture in the backend, then resume. Start with shorter intervals and Doze simulation before repeating a genuine long-background test. Record whether the stale-data failure still reproduces with diagnostics enabled before interpreting the trace. A successful reproduction is usable evidence; a non-reproduction is ambiguous because the diagnostic connection observer may itself wake or heal RTDB activity. If diagnostics appear to suppress the problem, compare with a capture build that retains native logging and the other breadcrumbs but omits the pre-reconnect `/.info/connected` observer.
-2. **Capture the complete lifecycle sequence.** Record every `AppLifecycleState`, timestamps, whether `_wasBackgrounded` was set, and whether the refresh was skipped because the view model was not registered.
-3. **Correlate one resume attempt end to end.** Add a durable resume-attempt identifier to connection state changes, reconnect timing, fixture-read start/end/error, game keys and official-score presence, `GamesViewModel` notifications, live-score reconciliation, and the displayed game's values. Do not rely only on `dart:developer.log`, because the current field failures have no retained trace.
-4. **Compare data sources.** At the moment of failure, compare the current backend fixture, the explicit `get()` result, the next games listener event, the in-memory `Game`, the live-score cache, and the values observed by the Tips widget.
-5. **Look for rollback after refresh.** Determine whether a current explicit snapshot is applied and then replaced or mutated by a stale listener event.
-6. **Compare resume with cold start.** Capture the same sequence after force quit to identify the first point at which cold start differs.
-7. **Check platform conditions.** Record Android version, Pixel model, app build, network type and transition, battery optimization, background restriction, and whether the OS retained or recreated the process.
-8. **Exercise Android suspension deliberately.** Test screen lock and Home-button backgrounding separately, use Android Doze/device-idle tooling for faster cycles, and then repeat with a natural overnight or multi-day interval.
-9. **Collect native evidence.** Enable verbose native RTDB logging in a diagnostic build and capture Android logs alongside app-level breadcrumbs. Include authentication/App Check token events, connection false-to-true transitions, network changes, and battery restrictions.
-10. **Use an integration/device test for the eventual regression gate.** Unit tests should remain, but the acceptance criterion must be a physical Android stale-to-fresh transition without force quit.
+1. The build-708 `/.info/connected` observer ended with each resume pipeline. It was not running when the `/AppConfig` probe was written 99 seconds after attempt 5, so the trace does not prove that the config event occurred while the SDK reported disconnected. The old client retained state that prevented games synchronization, but the evidence does not yet distinguish games-listener state from shared transport state.
+2. The post-season `GameTipViewModel` subscription decision is per instance and is made at construction. Existing instances keep listening; instances created after the completion threshold never start listening. This matters most on the cold-start comparison leg.
+3. Build 708's resolved versions are `firebase_database` 12.5.0, `firebase_core` 4.14.0, Firebase Android BoM 34.18.0, and native `firebase-database` 22.0.1.
 
-A compact decision matrix for each reproduction is:
+The agreed next experiment is therefore a continuously observed connection state plus backend-written nonces on both an existing listener and a newly attached listener. The trace must also record observer attachment and cancellation so readers can see exactly which time windows contain connection evidence. No further production behavior change should be selected merely from the fact that force stop works. Process recreation resets several layers at once; the smallest failed layer still needs to be identified.
 
-```text
-Did the lifecycle handler run?
-    -> Did RTDB report a new live connection?
-        -> Did get() contain the final fixture?
-            -> Did GamesViewModel contain the final fixture?
-                -> Did the linked round/card render the final fixture?
-```
+## Diagnostic implementation used in the reproduction
 
-The first failed boundary distinguishes lifecycle, transport/cache, listener/model, and presentation failures before another fix is selected.
-
-## Diagnostic implementation prepared for review
-
-An instrumentation-only implementation is now available in the working tree. It is disabled by default and activates only in an Android build compiled with:
+The instrumentation is disabled by default and activates only in an Android build compiled with:
 
 ```text
 --dart-define=ANDROID_RESUME_DIAGNOSTICS=true
@@ -310,6 +412,94 @@ The connection observer is not passive. Attaching any RTDB listener may influenc
 
 No conditional reconnect, listener recreation, second Firebase app, retry change, or other proposed mitigation is included in this diagnostic change.
 
+### Build-709 diagnostic experiment
+
+The build-709 candidate extends the recorder without changing recovery behavior:
+
+- every resume-attempt connection observer records its generation, attachment, cancellation request, successful cancellation, error, and unexpected completion;
+- every games listener records a generation across attachment, snapshot receipt, model application, error, completion, cancellation request, and successful cancellation;
+- the existing `/AppConfig` listener records only whether `resumeProbe` is present and its value, avoiding unrelated config values;
+- the diagnostics page can manually attach an extended `/.info/connected` observer and a fresh listener at `/Diagnostics/androidResumeProbe`;
+- both extended subscriptions share a probe identifier and generation, and record their complete attachment/cancellation lifetime; and
+- the client never writes either probe value. Both nonces must be written externally from the backend or Firebase console.
+
+The extended probe is deliberately manual. Do not start it before the long background interval: adding listeners could influence RTDB connection activity and suppress the fault being investigated. Use this sequence:
+
+1. Leave the diagnostic build in the background long enough to reproduce the stale-data state.
+2. Resume and confirm that the games UI is stale. Do not force-stop the app.
+3. Open **Android Resume Diagnostics**, copy the trace as a before-state, and press **Start probe**.
+4. From the backend, write a unique **bare string or number** nonce to `/Diagnostics/androidResumeProbe`. Do not write a map or list: the recorder deliberately replaces structured probe values with their type name to keep the trace bounded.
+5. Write a different unique bare string or number nonce to `/AppConfig/resumeProbe`.
+6. If the selected competition is a dedicated test competition, change a known test fixture's official score to a unique test value. Do not mutate a canonical production or historical fixture. The games-listener trace records the received score and generation.
+7. Wait at least one minute without triggering another resume pipeline, reload the diagnostics page, press **Stop probe**, and copy the complete trace.
+8. Only after the trace is safely copied should the process be force-stopped for the cold-start comparison.
+
+Interpret the simultaneous probe window as follows:
+
+| Extended connection state | Fresh diagnostic listener | Existing config listener | Existing games listener | Interpretation |
+| --- | --- | --- | --- | --- |
+| `false` throughout | no nonce | no nonce | no update | Supports a shared retained transport/client failure. |
+| `false` throughout | receives backend nonce | no backend nonce | no update | The connection indicator is contradicted by confirmed server delivery. New work succeeds while existing registrations remain stale. |
+| `false` throughout | receives backend nonce | receives backend nonce | no update | The connection indicator is contradicted by confirmed server delivery; the existing config registration is alive and the games registration is specifically stale. |
+| `false` throughout | receives backend nonce | receives backend nonce | receives test score and UI updates | The connection indicator is contradicted by confirmed server delivery and cannot be used as the recovery gate in this state. |
+| `true` or transitions to `true` | receives nonce | receives nonce | no update | Supports a games-listener or games-query registration failure. |
+| `true` or transitions to `true` | receives nonce | no nonce | no update | Supports multiple stale existing registrations rather than a failure to create new work. |
+| `true` or transitions to `true` | receives nonce | receives nonce | receives new snapshot, UI remains stale | Moves the fault above RTDB into model/view-model/widget propagation. |
+| `true` or transitions to `true` | receives nonce | receives nonce | receives test score and UI updates | Starting the extended probe coincided with full client recovery; the diagnostic listener attachment may itself have repaired the retained state. |
+| any | listener error | any | any | Interpret the recorded error first; verify rules, authentication, and App Check before drawing a transport conclusion. |
+
+A fresh listener may itself prompt RTDB to reconnect. If the connection observer changes to `true` immediately after the fresh listener attaches, that is evidence from the experiment, not proof that the pre-probe client was healthy. The observer lifetime and generation fields are required when interpreting every nonce timestamp.
+
+## Post-season testing: what still works, and one gate that breaks the UI boundary
+
+The 2026 comp closes on 6 September 2026. Organic fixture-score changes stop at that point. **This does not close the testing window for this defect**, but it does invalidate one boundary unless deliberately worked around.
+
+### The reproduction does not require live season data
+
+The failure needs only three things, none of them season-dependent:
+
+1. a long background interval on a physical Android device;
+2. a server-side write to a path the client is listening to; and
+3. the client failing to observe that write.
+
+A write made from the Firebase console or the app's admin screens is indistinguishable, from the RTDB client's perspective, from one made by the fixture update service. The games-path failure itself — not merely the `/AppConfig` probe — therefore remains fully reproducible after the season ends.
+
+**Write to a dedicated test node or test competition, not to canonical scores.** Historical fixture values feed stats, ladders, and leaderboards, and returning clients still read them after the season. A test comp isolates the experiment from that blast radius and, per the gate discussion below, is needed anyway to keep the widget boundary observable. Being the only active client is an advantage: no interference and no user-visible risk. Backend deploys are also unblocked once the comp closes, so any experiment needing a function change becomes cheaper rather than harder.
+
+### The gate that breaks post-season UI verification
+
+`GameTipViewModel` decides once, in its constructor, whether to observe `GamesViewModel` at all (`lib/view_models/gametip_viewmodel.dart:112-114`):
+
+```dart
+_listensToGamesViewModel =
+    _currentDAUComp.latestsCompletedRoundNumber() <
+    _currentDAUComp.daurounds.length;
+```
+
+`latestsCompletedRoundNumber()` (`packages/dau_shared/lib/models/daucomp.dart:56-72`) returns the highest round number whose last kickoff is more than six hours in the past. Once the final round clears that window it equals `daurounds.length` and the comparison becomes false.
+
+**The decision is per-instance and made once, at construction.** An earlier revision of this section claimed that every `GameTipViewModel` "stops subscribing" six hours after the final kickoff. That was wrong, and the correction matters for how the next test is designed:
+
+- instances constructed *before* the threshold keep their games subscription for their whole lifetime, and continue to update normally;
+- instances constructed *after* it never subscribe at all.
+
+So the failure is not a moment when live cards go dark. It is a property of newly built cards — which means **it bites hardest on the cold-start leg of the comparison**, the exact leg this investigation depends on. In the September reproduction, the force-stop relaunch is what proved fresh data reaching the widgets; run that same relaunch after the season ends and every `GameTipViewModel` in the new process is constructed past the threshold, so an unchanged card would prove nothing.
+
+`TipsViewModel` does still observe `GamesViewModel` (`lib/view_models/tips_viewmodel.dart:73,90`), and `GameTipViewModel` observes `TipsViewModel`, so a rebuild can still be triggered indirectly. That path is not a substitute: `_tipsUpdated` refreshes `_tip` and then calls `_syncTipGameScoring()`, which assigns the card's *existing* `game.scoring` onto the tip. Only `_gamesViewModelUpdated` — the gated path — replaces the `Game` the card renders from. An indirect notification can therefore repaint a card without changing the scores it shows.
+
+**Consequence:** a post-season widget-boundary null result does not distinguish a broken fix from a subscription that was never created. The acceptance criterion "resuming updates the Tips page" is unsatisfiable as written for any card built after the threshold.
+
+This gate is not implicated as the cause of the September reproduction — that failure was established at the RTDB layer, upstream of the model, with the games listener silent and the last observed `/.info/connected` reading false. It is a separate hazard affecting testing conducted after the season ends.
+
+### Required workaround
+
+Either of the following restores a valid test, in order of preference:
+
+1. **Create a test competition whose rounds extend past the current date.** This keeps the gate open and preserves full end-to-end verification, including the widget boundary and the acceptance criteria below unchanged. Preferred, since it costs one admin-created comp and restores the complete signal.
+2. **Verify at the model boundary instead of the UI.** The diagnostic trace records `games_listener_snapshot_received` and `games_model_applied` independently of any widget, which is sufficient to diagnose the RTDB fault. The September reproduction already established that the model-to-widget path renders correctly once fresh data reaches it, so this is a sound substitute for diagnosis — but it does not exercise the presentation boundary, so it cannot on its own satisfy the acceptance criteria.
+
+Whichever is chosen must be stated explicitly in the next reproduction record, because a widget-boundary null result means something entirely different before and after the season ends.
+
 ## Acceptance criteria for a future fix
 
 A future change should not be promoted solely because mocked tests pass. It should demonstrate all of the following:
@@ -320,5 +510,7 @@ A future change should not be promoted solely because mocked tests pass. It shou
 - the behavior is repeatable after a long background interval or a validated equivalent Android suspension scenario;
 - iOS behavior remains unchanged; and
 - automated coverage protects the specific failure point identified by the investigation.
+
+**Post-season qualification.** The second criterion depends on `GameTipViewModel` observing `GamesViewModel`, which is disabled once the final round has completed (see the preceding section). After 6 September 2026 this criterion can only be satisfied against a competition with rounds extending past the current date. Substituting a model-boundary check does not satisfy it, and a fix must not be promoted on model-boundary evidence alone — the widget boundary is where two of the four original hypotheses lived.
 
 Until that evidence exists, the issue should be treated as open and the current reconnect logic as an unsuccessful mitigation rather than a verified fix.

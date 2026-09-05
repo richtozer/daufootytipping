@@ -24,6 +24,7 @@ class GamesViewModel extends ChangeNotifier {
   List<Game> _games = [];
   final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _gamesStream;
+  int _gamesListenerGeneration = 0;
   Future<void> _gamesSnapshotProcessing = Future<void>.value();
   Completer<void>? _pendingGamesRefreshCompleter;
 
@@ -74,33 +75,89 @@ class GamesViewModel extends ChangeNotifier {
 
   // Database listeners
   void _listenToGames() {
-    _gamesStream = _db
-        .child(_gamesPath)
-        .onValue
-        .listen((event) {
-          _queueGamesSnapshotProcessing(event.snapshot);
-        });
+    final int listenerGeneration = ++_gamesListenerGeneration;
+    final DatabaseReference gamesReference = _db.child(_gamesPath);
+    final Zone listenerErrorZone = Zone.current;
+    _gamesStream = gamesReference.onValue.listen(
+      (event) {
+        _queueGamesSnapshotProcessing(
+          event.snapshot,
+          listenerGeneration: listenerGeneration,
+        );
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (AppResumeDiagnostics.enabled) {
+          AppResumeDiagnostics.record(
+            'games_listener_error',
+            details: <String, Object?>{
+              'compDbKey': selectedDAUComp.dbkey,
+              'gamesPath': _gamesPath,
+              'listenerGeneration': listenerGeneration,
+              'error': error.toString(),
+            },
+            anomalous: true,
+          );
+        }
+        listenerErrorZone.handleUncaughtError(error, stackTrace);
+      },
+      onDone: () {
+        if (AppResumeDiagnostics.enabled) {
+          AppResumeDiagnostics.record(
+            'games_listener_done',
+            details: <String, Object?>{
+              'compDbKey': selectedDAUComp.dbkey,
+              'gamesPath': _gamesPath,
+              'listenerGeneration': listenerGeneration,
+            },
+            anomalous: true,
+          );
+        }
+      },
+    );
+    if (AppResumeDiagnostics.enabled) {
+      AppResumeDiagnostics.record(
+        'games_listener_attached',
+        details: <String, Object?>{
+          'compDbKey': selectedDAUComp.dbkey,
+          'gamesPath': _gamesPath,
+          'listenerGeneration': listenerGeneration,
+        },
+      );
+    }
   }
 
   String get _gamesPath => '${p.gamesPathRoot}/${selectedDAUComp.dbkey}';
 
-  void _queueGamesSnapshotProcessing(DataSnapshot snapshot) {
+  void _queueGamesSnapshotProcessing(
+    DataSnapshot snapshot, {
+    required int listenerGeneration,
+  }) {
     if (AppResumeDiagnostics.enabled) {
       AppResumeDiagnostics.record(
         'games_listener_snapshot_received',
-        details: _snapshotDiagnosticDetails(snapshot),
+        details: <String, Object?>{
+          ..._snapshotDiagnosticDetails(snapshot),
+          'listenerGeneration': listenerGeneration,
+        },
       );
     }
     _gamesSnapshotProcessing = _gamesSnapshotProcessing
         .catchError((Object error, StackTrace stackTrace) {
           log('GamesViewModel_handleEvent: recovering after error: $error');
         })
-        .then((_) => _applyGamesSnapshot(snapshot, source: 'listener'));
+        .then(
+          (_) => _applyGamesSnapshot(
+            snapshot,
+            source: 'listener',
+            listenerGeneration: listenerGeneration,
+          ),
+        );
   }
 
   Future<void> _applyGamesSnapshot(
     DataSnapshot snapshot, {
     required String source,
+    int? listenerGeneration,
   }) async {
     try {
       final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
@@ -197,7 +254,10 @@ class GamesViewModel extends ChangeNotifier {
       if (AppResumeDiagnostics.enabled) {
         AppResumeDiagnostics.record(
           'games_model_applied',
-          details: _currentGamesDiagnosticDetails(source: source),
+          details: _currentGamesDiagnosticDetails(
+            source: source,
+            listenerGeneration: listenerGeneration,
+          ),
         );
       }
       _completePendingGamesRefresh();
@@ -312,7 +372,7 @@ class GamesViewModel extends ChangeNotifier {
       }
       await initialLoadComplete;
       // turn off listeners
-      await _gamesStream.cancel();
+      await _cancelGamesListener(reason: 'batch_write');
       await _db.update(updates);
       updates.clear();
       // turn listeners back on
@@ -383,9 +443,11 @@ class GamesViewModel extends ChangeNotifier {
 
   Map<String, Object?> _currentGamesDiagnosticDetails({
     required String source,
+    int? listenerGeneration,
   }) {
     return <String, Object?>{
       'source': source,
+      'listenerGeneration': listenerGeneration,
       'compDbKey': selectedDAUComp.dbkey,
       'gameCount': _games.length,
       'recentGames': _recentGamesForDiagnostics()
@@ -420,6 +482,43 @@ class GamesViewModel extends ChangeNotifier {
               !game.startTimeUTC.toUtc().isAfter(latestUtc),
         )
         .take(40);
+  }
+
+  Future<void> _cancelGamesListener({required String reason}) async {
+    final int listenerGeneration = _gamesListenerGeneration;
+    final Map<String, Object?> details = <String, Object?>{
+      'compDbKey': selectedDAUComp.dbkey,
+      'gamesPath': _gamesPath,
+      'listenerGeneration': listenerGeneration,
+      'reason': reason,
+    };
+    if (AppResumeDiagnostics.enabled) {
+      AppResumeDiagnostics.record(
+        'games_listener_cancel_requested',
+        details: details,
+      );
+    }
+    try {
+      await _gamesStream.cancel();
+      if (AppResumeDiagnostics.enabled) {
+        AppResumeDiagnostics.record(
+          'games_listener_cancelled',
+          details: details,
+        );
+      }
+    } catch (error) {
+      if (AppResumeDiagnostics.enabled) {
+        AppResumeDiagnostics.record(
+          'games_listener_cancel_failed',
+          details: <String, Object?>{
+            ...details,
+            'error': error.toString(),
+          },
+          anomalous: true,
+        );
+      }
+      rethrow;
+    }
   }
 
   void liveScoresUpdated() {
@@ -833,7 +932,7 @@ class GamesViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _gamesStream.cancel(); // stop listening to stream
+    unawaited(_cancelGamesListener(reason: 'view_model_disposed'));
     if (_ownsTeamsViewModel) {
       _teamsViewModel.dispose();
     }
