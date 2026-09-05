@@ -1,6 +1,6 @@
 # Android Realtime Database Resume Staleness
 
-**Status:** Unresolved, with a successful instrumented reproduction. Build 708 captured the failure end to end on a physical Pixel and showed that only a new Android process restored the games stream. Obtain independent review before making another behavioral change.
+**Status:** Unresolved, with a successful instrumented reproduction and completed independent review. Build 708 captured the failure end to end on a physical Pixel and showed that only a new Android process restored the games stream. The next candidate adds instrumentation only; no further recovery behavior has been selected.
 
 **Report updated:** 5 September 2026
 
@@ -371,19 +371,15 @@ The corrected state of the upstream evidence is therefore weaker than either ver
 
 At the time this section was written, that account still required device evidence. The 4-5 September build-708 reproduction now confirms the observable sequence: the retained process remains SDK-disconnected during the resume attempts, the cache-capable `get()` supplies stale data, and a new process receives a fresh games-listener snapshot. It still does not establish the internal native cause or prove the narrower active-listener short-circuit mechanism proposed above.
 
-## Independent review requested before another fix
+## Independent review outcome
 
-The next agent should review the captured evidence and remain in diagnosis mode. In particular, it should:
+The independent review agreed that the next build should remain in diagnosis mode and corrected three overstatements made while interpreting the first trace:
 
-1. Validate or challenge the interpretation of the eight old-process resume attempts and the cold-start stale-to-fresh transition.
-2. Explain how the time-correlated `/AppConfig` event can rebuild the UI while the games listener remains silent and `/.info/connected` reports false during every measured resume attempt.
-3. Inspect `GamesViewModel` subscription construction, cancellation, error handling, and native registration across app lifecycle and `goOffline()`/`goOnline()`.
-4. Resolve the exact native Android Firebase Database SDK in build 708 and compare it with relevant upstream defects and release notes.
-5. Decide what evidence would distinguish a stuck Dart/native games subscription from a stuck shared native connection. Candidate experiments include tracing listener generations, explicitly canceling/recreating the games subscription, or using a genuinely independent second `FirebaseApp`/`FirebaseDatabase` instance for a diagnostic server read. These are behavioral experiments, not fixes, and should be reviewed before implementation.
-6. Specify a native-log capture procedure for the next reproduction, including auth/App Check token events, `.info/connected`, DNS/network changes, and RTDB listen/unlisten operations.
-7. Preserve the physical-device acceptance gate: a future fix must demonstrate stale-to-fresh recovery in the same process without force stop.
+1. The build-708 `/.info/connected` observer ended with each resume pipeline. It was not running when the `/AppConfig` probe was written 99 seconds after attempt 5, so the trace does not prove that the config event occurred while the SDK reported disconnected. The old client retained state that prevented games synchronization, but the evidence does not yet distinguish games-listener state from shared transport state.
+2. The post-season `GameTipViewModel` subscription decision is per instance and is made at construction. Existing instances keep listening; instances created after the completion threshold never start listening. This matters most on the cold-start comparison leg.
+3. Build 708's resolved versions are `firebase_database` 12.5.0, `firebase_core` 4.14.0, Firebase Android BoM 34.18.0, and native `firebase-database` 22.0.1.
 
-No further production behavior change should be selected merely from the fact that force stop works. Process recreation resets several layers at once; the reviewer should identify the smallest failed layer before recommending a recovery mechanism.
+The agreed next experiment is therefore a continuously observed connection state plus backend-written nonces on both an existing listener and a newly attached listener. The trace must also record observer attachment and cancellation so readers can see exactly which time windows contain connection evidence. No further production behavior change should be selected merely from the fact that force stop works. Process recreation resets several layers at once; the smallest failed layer still needs to be identified.
 
 ## Diagnostic implementation used in the reproduction
 
@@ -415,6 +411,44 @@ Admins can open **Android Resume Diagnostics** from the Profile admin options an
 The connection observer is not passive. Attaching any RTDB listener may influence native connection activity, and the pre-reconnect observer is a real behavioral delta from the failing production build. The first capture question is therefore **"does the stale-data problem still reproduce with diagnostics enabled?"** The trace explicitly records `connection_observer_attached`, and its values are named `sdk_reported_connection_state`; they represent the SDK's local belief, not independent proof that the socket or data listeners are healthy. If the problem does not reproduce, that run cannot be treated as evidence that the production issue is fixed.
 
 No conditional reconnect, listener recreation, second Firebase app, retry change, or other proposed mitigation is included in this diagnostic change.
+
+### Build-709 diagnostic experiment
+
+The build-709 candidate extends the recorder without changing recovery behavior:
+
+- every resume-attempt connection observer records its generation, attachment, cancellation request, successful cancellation, error, and unexpected completion;
+- every games listener records a generation across attachment, snapshot receipt, model application, error, completion, cancellation request, and successful cancellation;
+- the existing `/AppConfig` listener records only whether `resumeProbe` is present and its value, avoiding unrelated config values;
+- the diagnostics page can manually attach an extended `/.info/connected` observer and a fresh listener at `/Diagnostics/androidResumeProbe`;
+- both extended subscriptions share a probe identifier and generation, and record their complete attachment/cancellation lifetime; and
+- the client never writes either probe value. Both nonces must be written externally from the backend or Firebase console.
+
+The extended probe is deliberately manual. Do not start it before the long background interval: adding listeners could influence RTDB connection activity and suppress the fault being investigated. Use this sequence:
+
+1. Leave the diagnostic build in the background long enough to reproduce the stale-data state.
+2. Resume and confirm that the games UI is stale. Do not force-stop the app.
+3. Open **Android Resume Diagnostics**, copy the trace as a before-state, and press **Start probe**.
+4. From the backend, write a unique **bare string or number** nonce to `/Diagnostics/androidResumeProbe`. Do not write a map or list: the recorder deliberately replaces structured probe values with their type name to keep the trace bounded.
+5. Write a different unique bare string or number nonce to `/AppConfig/resumeProbe`.
+6. If the selected competition is a dedicated test competition, change a known test fixture's official score to a unique test value. Do not mutate a canonical production or historical fixture. The games-listener trace records the received score and generation.
+7. Wait at least one minute without triggering another resume pipeline, reload the diagnostics page, press **Stop probe**, and copy the complete trace.
+8. Only after the trace is safely copied should the process be force-stopped for the cold-start comparison.
+
+Interpret the simultaneous probe window as follows:
+
+| Extended connection state | Fresh diagnostic listener | Existing config listener | Existing games listener | Interpretation |
+| --- | --- | --- | --- | --- |
+| `false` throughout | no nonce | no nonce | no update | Supports a shared retained transport/client failure. |
+| `false` throughout | receives backend nonce | no backend nonce | no update | The connection indicator is contradicted by confirmed server delivery. New work succeeds while existing registrations remain stale. |
+| `false` throughout | receives backend nonce | receives backend nonce | no update | The connection indicator is contradicted by confirmed server delivery; the existing config registration is alive and the games registration is specifically stale. |
+| `false` throughout | receives backend nonce | receives backend nonce | receives test score and UI updates | The connection indicator is contradicted by confirmed server delivery and cannot be used as the recovery gate in this state. |
+| `true` or transitions to `true` | receives nonce | receives nonce | no update | Supports a games-listener or games-query registration failure. |
+| `true` or transitions to `true` | receives nonce | no nonce | no update | Supports multiple stale existing registrations rather than a failure to create new work. |
+| `true` or transitions to `true` | receives nonce | receives nonce | receives new snapshot, UI remains stale | Moves the fault above RTDB into model/view-model/widget propagation. |
+| `true` or transitions to `true` | receives nonce | receives nonce | receives test score and UI updates | Starting the extended probe coincided with full client recovery; the diagnostic listener attachment may itself have repaired the retained state. |
+| any | listener error | any | any | Interpret the recorded error first; verify rules, authentication, and App Check before drawing a transport conclusion. |
+
+A fresh listener may itself prompt RTDB to reconnect. If the connection observer changes to `true` immediately after the fresh listener attaches, that is evidence from the experiment, not proof that the pre-probe client was healthy. The observer lifetime and generation fields are required when interpreting every nonce timestamp.
 
 ## Post-season testing: what still works, and one gate that breaks the UI boundary
 

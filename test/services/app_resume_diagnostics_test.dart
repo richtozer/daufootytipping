@@ -1,7 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class MockFirebaseDatabase extends Mock implements FirebaseDatabase {}
+
+class MockDatabaseReference extends Mock implements DatabaseReference {}
+
+class MockDatabaseEvent extends Mock implements DatabaseEvent {}
+
+class MockDataSnapshot extends Mock implements DataSnapshot {}
 
 class MemoryResumeDiagnosticsStorage implements ResumeDiagnosticsStorage {
   List<String> values = <String>[];
@@ -205,4 +216,91 @@ void main() {
       );
     });
   });
+
+  group('AppResumeDiagnostics connection observer', () {
+    late MemoryResumeDiagnosticsStorage storage;
+    late ResumeDiagnosticsRecorder recorder;
+    late MockFirebaseDatabase database;
+    late MockDatabaseReference connectionReference;
+    late StreamController<DatabaseEvent> connectionEvents;
+
+    setUp(() async {
+      await AppResumeDiagnostics.resetForTest();
+      storage = MemoryResumeDiagnosticsStorage();
+      recorder = ResumeDiagnosticsRecorder(
+        storage: storage,
+        processId: 'process-observer-test',
+        now: () => DateTime.utc(2026, 9, 5, 14),
+      );
+      await recorder.initialize();
+      AppResumeDiagnostics.installRecorderForTest(recorder);
+
+      database = MockFirebaseDatabase();
+      connectionReference = MockDatabaseReference();
+      connectionEvents = StreamController<DatabaseEvent>.broadcast();
+      when(() => database.ref('.info/connected')).thenReturn(
+        connectionReference,
+      );
+      when(() => connectionReference.onValue).thenAnswer(
+        (_) => connectionEvents.stream,
+      );
+    });
+
+    tearDown(() async {
+      await AppResumeDiagnostics.resetForTest();
+      await connectionEvents.close();
+    });
+
+    test('records attach, sample, and cancel events for one generation', () async {
+      AppResumeDiagnostics.beginAttempt(database: database);
+      connectionEvents.add(_databaseEvent(value: false));
+      await Future<void>.delayed(Duration.zero);
+
+      AppResumeDiagnostics.finishAttempt(anomalous: true);
+      await Future<void>.delayed(Duration.zero);
+      await recorder.flush();
+
+      final List<ResumeDiagnosticEvent> events = await recorder.readEvents();
+      expect(
+        events.map((event) => event.stage),
+        containsAll(<String>[
+          'connection_observer_attached',
+          'sdk_reported_connection_state',
+          'connection_observer_cancel_requested',
+          'connection_observer_cancelled',
+        ]),
+      );
+      for (final ResumeDiagnosticEvent event in events.where(
+        (event) => event.stage.startsWith('connection_observer') ||
+            event.stage == 'sdk_reported_connection_state',
+      )) {
+        expect(event.details['observerGeneration'], 1);
+        expect(event.details['observerKind'], 'resume_attempt');
+      }
+      expect(
+        events
+            .singleWhere(
+              (event) => event.stage == 'sdk_reported_connection_state',
+            )
+            .details['connected'],
+        isFalse,
+      );
+      expect(
+        events
+            .singleWhere(
+              (event) => event.stage == 'connection_observer_cancelled',
+            )
+            .details['reason'],
+        'resume_attempt_finished',
+      );
+    });
+  });
+}
+
+MockDatabaseEvent _databaseEvent({required Object? value}) {
+  final MockDatabaseEvent event = MockDatabaseEvent();
+  final MockDataSnapshot snapshot = MockDataSnapshot();
+  when(() => event.snapshot).thenReturn(snapshot);
+  when(() => snapshot.value).thenReturn(value);
+  return event;
 }

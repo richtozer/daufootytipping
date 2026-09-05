@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
+
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -128,6 +130,23 @@ class ConfigViewModel extends ChangeNotifier {
         final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
         final Stopwatch processingStopwatch = Stopwatch()..start();
         final dynamic rawValue = event.snapshot.value;
+        if (AppResumeDiagnostics.enabled) {
+          final bool probePresent =
+              rawValue is Map &&
+              rawValue.containsKey(AppResumeDiagnostics.configProbeKey);
+          AppResumeDiagnostics.record(
+            'config_listener_snapshot_received',
+            details: <String, Object?>{
+              'exists': event.snapshot.exists,
+              'resumeProbePresent': probePresent,
+              'resumeProbe': probePresent
+                  ? AppResumeDiagnostics.probeValueForDiagnostics(
+                      rawValue[AppResumeDiagnostics.configProbeKey],
+                    )
+                  : null,
+            },
+          );
+        }
         final int? payloadBytes = StartupProfiling.estimatePayloadBytes(
           rawValue,
         );

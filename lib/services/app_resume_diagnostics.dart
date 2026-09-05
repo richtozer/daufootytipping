@@ -3,12 +3,19 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 
 import 'app_resume_diagnostics_storage.dart';
 
 export 'app_resume_diagnostics_storage.dart' show ResumeDiagnosticsStorage;
 
 typedef ResumeDiagnosticsClock = DateTime Function();
+typedef ResumeProbeEventRecorder =
+    void Function(
+      String stage,
+      Map<String, Object?> details,
+      bool anomalous,
+    );
 
 class ResumeDiagnosticEvent {
   const ResumeDiagnosticEvent({
@@ -276,6 +283,217 @@ class ResumeDiagnosticsRecorder {
   }
 }
 
+class RealtimeDatabaseDiagnosticProbe {
+  RealtimeDatabaseDiagnosticProbe({
+    required FirebaseDatabase database,
+    required ResumeProbeEventRecorder recordEvent,
+    ResumeDiagnosticsClock? now,
+    this.probePath = '/Diagnostics/androidResumeProbe',
+  }) : _database = database,
+       _recordEvent = recordEvent,
+       _now = now ?? DateTime.now;
+
+  final FirebaseDatabase _database;
+  final ResumeProbeEventRecorder _recordEvent;
+  final ResumeDiagnosticsClock _now;
+  final String probePath;
+
+  StreamSubscription<DatabaseEvent>? _connectionSubscription;
+  StreamSubscription<DatabaseEvent>? _probeSubscription;
+  int _generationCounter = 0;
+  int? _activeGeneration;
+  String? _activeProbeId;
+
+  bool get active => _activeGeneration != null;
+
+  Future<void> start() async {
+    if (active) {
+      _emit(
+        'extended_probe_start_ignored_already_active',
+        details: _identityDetails(),
+      );
+      return;
+    }
+
+    final int generation = ++_generationCounter;
+    final String probeId =
+        'probe-${_now().toUtc().microsecondsSinceEpoch}-$generation';
+    _activeGeneration = generation;
+    _activeProbeId = probeId;
+    final Map<String, Object?> identity = _identityDetails();
+    _emit('extended_probe_started', details: identity);
+
+    try {
+      final DatabaseReference connectionReference = _database.ref(
+        '.info/connected',
+      );
+      _connectionSubscription = connectionReference.onValue.listen(
+        (event) {
+          final Object? value = event.snapshot.value;
+          _emit(
+            'extended_probe_connection_state',
+            details: <String, Object?>{
+              ...identity,
+              'connected': value is bool ? value : null,
+            },
+          );
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _emit(
+            'extended_probe_connection_observer_error',
+            details: <String, Object?>{
+              ...identity,
+              'error': error.toString(),
+            },
+            anomalous: true,
+          );
+        },
+        onDone: () {
+          _emit(
+            'extended_probe_connection_observer_done',
+            details: identity,
+            anomalous: true,
+          );
+        },
+      );
+      _emit(
+        'extended_probe_connection_observer_attached',
+        details: identity,
+      );
+
+      final DatabaseReference probeReference = _database.ref(probePath);
+      _probeSubscription = probeReference.onValue.listen(
+        (event) {
+          _emit(
+            'extended_probe_fresh_listener_snapshot',
+            details: <String, Object?>{
+              ...identity,
+              'exists': event.snapshot.exists,
+              'value': AppResumeDiagnostics.probeValueForDiagnostics(
+                event.snapshot.value,
+              ),
+            },
+          );
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _emit(
+            'extended_probe_fresh_listener_error',
+            details: <String, Object?>{
+              ...identity,
+              'error': error.toString(),
+            },
+            anomalous: true,
+          );
+        },
+        onDone: () {
+          _emit(
+            'extended_probe_fresh_listener_done',
+            details: identity,
+            anomalous: true,
+          );
+        },
+      );
+      _emit('extended_probe_fresh_listener_attached', details: identity);
+    } catch (error) {
+      _emit(
+        'extended_probe_start_failed',
+        details: <String, Object?>{
+          ..._identityDetails(),
+          'error': error.toString(),
+        },
+        anomalous: true,
+      );
+      await stop(reason: 'start_failed');
+      rethrow;
+    }
+  }
+
+  Future<void> stop({String reason = 'manual'}) async {
+    final int? generation = _activeGeneration;
+    final String? probeId = _activeProbeId;
+    if (generation == null || probeId == null) {
+      return;
+    }
+
+    final Map<String, Object?> identity = <String, Object?>{
+      'probeId': probeId,
+      'observerGeneration': generation,
+      'probePath': probePath,
+    };
+    final StreamSubscription<DatabaseEvent>? connectionSubscription =
+        _connectionSubscription;
+    final StreamSubscription<DatabaseEvent>? probeSubscription =
+        _probeSubscription;
+    _connectionSubscription = null;
+    _probeSubscription = null;
+    _activeGeneration = null;
+    _activeProbeId = null;
+
+    await _cancelSubscription(
+      subscription: connectionSubscription,
+      observer: 'connection',
+      reason: reason,
+      identity: identity,
+    );
+    await _cancelSubscription(
+      subscription: probeSubscription,
+      observer: 'fresh_listener',
+      reason: reason,
+      identity: identity,
+    );
+    _emit(
+      'extended_probe_stopped',
+      details: <String, Object?>{...identity, 'reason': reason},
+    );
+  }
+
+  Future<void> _cancelSubscription({
+    required StreamSubscription<DatabaseEvent>? subscription,
+    required String observer,
+    required String reason,
+    required Map<String, Object?> identity,
+  }) async {
+    if (subscription == null) {
+      return;
+    }
+    final Map<String, Object?> details = <String, Object?>{
+      ...identity,
+      'observer': observer,
+      'reason': reason,
+    };
+    _emit('extended_probe_observer_cancel_requested', details: details);
+    try {
+      await subscription.cancel();
+      _emit('extended_probe_observer_cancelled', details: details);
+    } catch (error) {
+      _emit(
+        'extended_probe_observer_cancel_failed',
+        details: <String, Object?>{
+          ...details,
+          'error': error.toString(),
+        },
+        anomalous: true,
+      );
+    }
+  }
+
+  Map<String, Object?> _identityDetails() {
+    return <String, Object?>{
+      'probeId': _activeProbeId,
+      'observerGeneration': _activeGeneration,
+      'probePath': probePath,
+    };
+  }
+
+  void _emit(
+    String stage, {
+    Map<String, Object?> details = const <String, Object?>{},
+    bool anomalous = false,
+  }) {
+    _recordEvent(stage, details, anomalous);
+  }
+}
+
 class AppResumeDiagnostics {
   AppResumeDiagnostics._();
 
@@ -283,13 +501,32 @@ class AppResumeDiagnostics {
     'ANDROID_RESUME_DIAGNOSTICS',
     defaultValue: false,
   );
+  static const String diagnosticProbePath =
+      '/Diagnostics/androidResumeProbe';
+  static const String configProbeKey = 'resumeProbe';
 
   static ResumeDiagnosticsRecorder? _recorder;
   static StreamSubscription<DatabaseEvent>? _connectionSubscription;
+  static RealtimeDatabaseDiagnosticProbe? _extendedProbe;
+  static int _connectionObserverGenerationCounter = 0;
+  static int? _activeConnectionObserverGeneration;
   static bool? _latestSdkReportedConnected;
   static DateTime? _latestConnectionSampleUtc;
 
   static bool get enabled => _recorder != null;
+  static bool get extendedProbeActive => _extendedProbe?.active ?? false;
+
+  static Object? probeValueForDiagnostics(Object? value) {
+    if (value == null || value is num || value is bool) {
+      return value;
+    }
+    if (value is String) {
+      return value.length <= 256
+          ? value
+          : '${value.substring(0, 256)}<truncated>';
+    }
+    return '<${value.runtimeType}>';
+  }
 
   static Future<void> initialize({
     required Map<String, Object?> processDetails,
@@ -347,11 +584,18 @@ class AppResumeDiagnostics {
     final StreamSubscription<DatabaseEvent>? previousSubscription =
         _connectionSubscription;
     if (previousSubscription != null) {
-      unawaited(previousSubscription.cancel());
+      unawaited(
+        _cancelConnectionObserver(
+          previousSubscription,
+          generation: _activeConnectionObserverGeneration,
+          reason: 'replaced_by_resume_attempt',
+        ),
+      );
     }
+    final int observerGeneration = ++_connectionObserverGenerationCounter;
+    _activeConnectionObserverGeneration = observerGeneration;
     _latestSdkReportedConnected = null;
     _latestConnectionSampleUtc = null;
-    record('connection_observer_attached');
     _connectionSubscription = database.ref('.info/connected').onValue.listen(
       (event) {
         final bool? connected = event.snapshot.value is bool
@@ -361,15 +605,40 @@ class AppResumeDiagnostics {
         _latestConnectionSampleUtc = DateTime.now().toUtc();
         record(
           'sdk_reported_connection_state',
-          details: <String, Object?>{'connected': connected},
+          details: <String, Object?>{
+            'connected': connected,
+            'observerGeneration': observerGeneration,
+            'observerKind': 'resume_attempt',
+          },
         );
       },
       onError: (Object error, StackTrace stackTrace) {
         record(
           'connection_observer_error',
-          details: <String, Object?>{'error': error.toString()},
+          details: <String, Object?>{
+            'error': error.toString(),
+            'observerGeneration': observerGeneration,
+            'observerKind': 'resume_attempt',
+          },
           anomalous: true,
         );
+      },
+      onDone: () {
+        record(
+          'connection_observer_done',
+          details: <String, Object?>{
+            'observerGeneration': observerGeneration,
+            'observerKind': 'resume_attempt',
+          },
+          anomalous: true,
+        );
+      },
+    );
+    record(
+      'connection_observer_attached',
+      details: <String, Object?>{
+        'observerGeneration': observerGeneration,
+        'observerKind': 'resume_attempt',
       },
     );
   }
@@ -389,12 +658,72 @@ class AppResumeDiagnostics {
   }
 
   static void finishAttempt({bool anomalous = false}) {
-    _recorder?.finishAttempt(anomalous: anomalous);
     final StreamSubscription<DatabaseEvent>? subscription =
         _connectionSubscription;
     _connectionSubscription = null;
+    final int? generation = _activeConnectionObserverGeneration;
+    _activeConnectionObserverGeneration = null;
     if (subscription != null) {
-      unawaited(subscription.cancel());
+      unawaited(
+        _cancelConnectionObserver(
+          subscription,
+          generation: generation,
+          reason: 'resume_attempt_finished',
+        ),
+      );
+    }
+    _recorder?.finishAttempt(anomalous: anomalous);
+  }
+
+  static Future<void> startExtendedProbe({
+    required FirebaseDatabase database,
+  }) async {
+    if (_recorder == null) {
+      return;
+    }
+    final RealtimeDatabaseDiagnosticProbe probe =
+        _extendedProbe ??= RealtimeDatabaseDiagnosticProbe(
+          database: database,
+          probePath: diagnosticProbePath,
+          recordEvent: (stage, details, anomalous) {
+            record(
+              stage,
+              details: details,
+              anomalous: anomalous,
+              attachToActiveAttempt: false,
+            );
+          },
+        );
+    await probe.start();
+  }
+
+  static Future<void> stopExtendedProbe({String reason = 'manual'}) async {
+    await _extendedProbe?.stop(reason: reason);
+  }
+
+  static Future<void> _cancelConnectionObserver(
+    StreamSubscription<DatabaseEvent> subscription, {
+    required int? generation,
+    required String reason,
+  }) async {
+    final Map<String, Object?> details = <String, Object?>{
+      'observerGeneration': generation,
+      'observerKind': 'resume_attempt',
+      'reason': reason,
+    };
+    record('connection_observer_cancel_requested', details: details);
+    try {
+      await subscription.cancel();
+      record('connection_observer_cancelled', details: details);
+    } catch (error) {
+      record(
+        'connection_observer_cancel_failed',
+        details: <String, Object?>{
+          ...details,
+          'error': error.toString(),
+        },
+        anomalous: true,
+      );
     }
   }
 
@@ -431,6 +760,26 @@ class AppResumeDiagnostics {
 
   static Future<List<ResumeDiagnosticEvent>> readEvents() async {
     return _recorder?.readEvents() ?? const <ResumeDiagnosticEvent>[];
+  }
+
+  @visibleForTesting
+  static void installRecorderForTest(ResumeDiagnosticsRecorder recorder) {
+    _recorder = recorder;
+  }
+
+  @visibleForTesting
+  static Future<void> resetForTest() async {
+    await _extendedProbe?.stop(reason: 'test_reset');
+    _extendedProbe = null;
+    final StreamSubscription<DatabaseEvent>? connectionSubscription =
+        _connectionSubscription;
+    _connectionSubscription = null;
+    await connectionSubscription?.cancel();
+    _connectionObserverGenerationCounter = 0;
+    _activeConnectionObserverGeneration = null;
+    _latestSdkReportedConnected = null;
+    _latestConnectionSampleUtc = null;
+    _recorder = null;
   }
 }
 

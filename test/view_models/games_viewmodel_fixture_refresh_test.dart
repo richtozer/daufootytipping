@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
@@ -33,6 +34,25 @@ class FakeTipper extends Fake implements Tipper {}
 class FakeGame extends Fake implements Game {}
 
 class FakeTeam extends Fake implements Team {}
+
+class MemoryGamesDiagnosticsStorage implements ResumeDiagnosticsStorage {
+  final List<String> values = <String>[];
+
+  @override
+  Future<void> appendLine(String encodedEvent) async {
+    values.add(encodedEvent);
+  }
+
+  @override
+  Future<List<String>> readLines() async => List<String>.from(values);
+
+  @override
+  Future<void> replaceLines(List<String> encodedEvents) async {
+    values
+      ..clear()
+      ..addAll(encodedEvents);
+  }
+}
 
 void main() {
   late MockDatabaseReference rootDb;
@@ -182,6 +202,62 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test('records games listener generation from attach through cancel', () async {
+    final MemoryGamesDiagnosticsStorage storage =
+        MemoryGamesDiagnosticsStorage();
+    final ResumeDiagnosticsRecorder recorder = ResumeDiagnosticsRecorder(
+      storage: storage,
+      processId: 'games-diagnostics-test',
+    );
+    await recorder.initialize();
+    AppResumeDiagnostics.installRecorderForTest(recorder);
+    addTearDown(AppResumeDiagnostics.resetForTest);
+
+    final GamesViewModel viewModel = GamesViewModel(
+      comp,
+      dauCompsViewModel,
+      teamsViewModel: teamsViewModel,
+      database: rootDb,
+    );
+    await settleAsyncWork();
+    gamesController.add(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'nrl-01-001': gameJson(homeScore: 14, awayScore: 8),
+          },
+        ),
+      ),
+    );
+    await viewModel.initialLoadComplete;
+    await settleAsyncWork();
+
+    viewModel.dispose();
+    await settleAsyncWork();
+    await recorder.flush();
+
+    final List<ResumeDiagnosticEvent> events = await recorder.readEvents();
+    for (final String stage in <String>[
+      'games_listener_attached',
+      'games_listener_snapshot_received',
+      'games_model_applied',
+      'games_listener_cancel_requested',
+      'games_listener_cancelled',
+    ]) {
+      final ResumeDiagnosticEvent event = events.singleWhere(
+        (event) => event.stage == stage,
+      );
+      expect(event.details['listenerGeneration'], 1);
+    }
+    expect(
+      events
+          .singleWhere((event) => event.stage == 'games_listener_cancelled')
+          .details['reason'],
+      'view_model_disposed',
+    );
+  });
 
   test(
     'saveBatchOfGameAttributes waits for refreshed stream snapshot without client rescoring',
