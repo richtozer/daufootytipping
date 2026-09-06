@@ -109,6 +109,98 @@ void main() {
       );
     });
 
+    test('enforces the event limit while the process is running', () async {
+      final MemoryResumeDiagnosticsStorage limitedStorage =
+          MemoryResumeDiagnosticsStorage();
+      final ResumeDiagnosticsRecorder limitedRecorder =
+          ResumeDiagnosticsRecorder(
+            storage: limitedStorage,
+            processId: 'limited-process',
+            now: () => nowUtc,
+            maxEvents: 3,
+          );
+      await limitedRecorder.initialize();
+
+      for (int index = 0; index < 5; index++) {
+        await limitedRecorder.record('event-$index');
+      }
+
+      final List<ResumeDiagnosticEvent> events =
+          await limitedRecorder.readEvents();
+      expect(events.map((event) => event.stage), <String>[
+        'event-2',
+        'event-3',
+        'event-4',
+      ]);
+      expect(limitedStorage.replaceCount, greaterThan(0));
+    });
+
+    test('enforces the byte limit while the process is running', () async {
+      const int maxStoredBytes = 1000;
+      final MemoryResumeDiagnosticsStorage limitedStorage =
+          MemoryResumeDiagnosticsStorage();
+      final ResumeDiagnosticsRecorder limitedRecorder =
+          ResumeDiagnosticsRecorder(
+            storage: limitedStorage,
+            processId: 'byte-limited-process',
+            now: () => nowUtc,
+            maxStoredBytes: maxStoredBytes,
+          );
+      await limitedRecorder.initialize();
+
+      for (int index = 0; index < 10; index++) {
+        await limitedRecorder.record(
+          'event-$index',
+          details: <String, Object?>{
+            'payload': List<String>.filled(200, 'x').join(),
+          },
+        );
+      }
+
+      final List<ResumeDiagnosticEvent> events =
+          await limitedRecorder.readEvents();
+      final int persistedBytes = limitedStorage.values.fold<int>(
+        0,
+        (total, line) => total + utf8.encode(line).length + 1,
+      );
+      expect(persistedBytes, lessThanOrEqualTo(maxStoredBytes));
+      expect(events.map((event) => event.stage), contains('event-9'));
+      expect(events.length, lessThan(11));
+      expect(limitedStorage.replaceCount, greaterThan(0));
+    });
+
+    test('exports complete JSONL as bounded line-safe chunks', () async {
+      for (int index = 0; index < 8; index++) {
+        await recorder.record(
+          'chunk-event-$index',
+          details: <String, Object?>{
+            'payload': List<String>.filled(100, 'x').join(),
+          },
+        );
+      }
+
+      final String completeExport = await recorder.exportText();
+      final List<String> chunks = await recorder.exportTextChunks(
+        maxChunkBytes: 500,
+      );
+
+      expect(chunks.length, greaterThan(1));
+      expect(chunks.join('\n'), completeExport);
+      for (final String chunk in chunks) {
+        expect(utf8.encode(chunk).length, lessThanOrEqualTo(500));
+        for (final String line in chunk.split('\n')) {
+          expect(jsonDecode(line), isA<Map<String, dynamic>>());
+        }
+      }
+    });
+
+    test('rejects a non-positive export chunk size', () async {
+      expect(
+        () => recorder.exportTextChunks(maxChunkBytes: 0),
+        throwsArgumentError,
+      );
+    });
+
     test('retains an anomalous attempt longer than benign events', () async {
       recorder.beginAttempt();
       await recorder.record('reconnect_attempt_failed', anomalous: true);

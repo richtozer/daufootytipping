@@ -75,6 +75,7 @@ class ResumeDiagnosticsRecorder {
     this.activeAttemptAfterFinish = const Duration(minutes: 1),
     this.unattachedDedupeWindow = const Duration(minutes: 1),
     this.maxEvents = 5000,
+    this.maxStoredBytes = 4 * 1024 * 1024,
   }) : _storage = storage,
        _processId = processId,
        _now = now ?? DateTime.now;
@@ -87,6 +88,7 @@ class ResumeDiagnosticsRecorder {
   final Duration activeAttemptAfterFinish;
   final Duration unattachedDedupeWindow;
   final int maxEvents;
+  final int maxStoredBytes;
 
   final List<ResumeDiagnosticEvent> _events = <ResumeDiagnosticEvent>[];
   final Set<String> _attemptDedupeKeys = <String>{};
@@ -94,6 +96,7 @@ class ResumeDiagnosticsRecorder {
   Future<void> _pendingWrites = Future<void>.value();
   bool _initialized = false;
   int _sequence = 0;
+  int _storedBytes = 0;
   int _attemptCounter = 0;
   String? _activeAttemptId;
   DateTime? _activeAttemptExpiresUtc;
@@ -142,9 +145,15 @@ class ResumeDiagnosticsRecorder {
           .map((event) => event.sequence)
           .reduce((a, b) => a > b ? a : b);
     }
+    _storedBytes = _events.fold<int>(
+      0,
+      (total, event) => total + _eventStorageBytes(event),
+    );
     final int eventCountBeforePruning = _events.length;
-    _pruneEvents(_now().toUtc());
-    if (storageNeedsRewrite || _events.length != eventCountBeforePruning) {
+    final bool eventsPruned = _pruneEvents(_now().toUtc());
+    if (storageNeedsRewrite ||
+        eventsPruned ||
+        _events.length != eventCountBeforePruning) {
       await _storage.replaceLines(
         _events.map((event) => event.encode()).toList(),
       );
@@ -241,14 +250,62 @@ class ResumeDiagnosticsRecorder {
     return events.map((event) => event.encode()).join('\n');
   }
 
+  Future<List<String>> exportTextChunks({
+    int maxChunkBytes = 200 * 1024,
+  }) async {
+    if (maxChunkBytes <= 0) {
+      throw ArgumentError.value(
+        maxChunkBytes,
+        'maxChunkBytes',
+        'must be greater than zero',
+      );
+    }
+
+    final List<ResumeDiagnosticEvent> events = await readEvents();
+    final List<String> chunks = <String>[];
+    final List<String> currentLines = <String>[];
+    int currentBytes = 0;
+
+    for (final ResumeDiagnosticEvent event in events) {
+      final String encodedEvent = event.encode();
+      final int encodedBytes = utf8.encode(encodedEvent).length;
+      final int separatorBytes = currentLines.isEmpty ? 0 : 1;
+      if (currentLines.isNotEmpty &&
+          currentBytes + separatorBytes + encodedBytes > maxChunkBytes) {
+        chunks.add(currentLines.join('\n'));
+        currentLines.clear();
+        currentBytes = 0;
+      }
+      if (currentLines.isNotEmpty) {
+        currentBytes++;
+      }
+      currentLines.add(encodedEvent);
+      currentBytes += encodedBytes;
+    }
+
+    if (currentLines.isNotEmpty) {
+      chunks.add(currentLines.join('\n'));
+    }
+    return List<String>.unmodifiable(chunks);
+  }
+
   Future<void> flush() => _pendingWrites;
 
   Future<void> _appendAndPersist(ResumeDiagnosticEvent event) async {
+    final String encodedEvent = event.encode();
     _events.add(event);
-    await _storage.appendLine(event.encode());
+    _storedBytes += utf8.encode(encodedEvent).length + 1;
+    if (_pruneEvents(event.utc)) {
+      await _storage.replaceLines(
+        _events.map((storedEvent) => storedEvent.encode()).toList(),
+      );
+      return;
+    }
+    await _storage.appendLine(encodedEvent);
   }
 
-  void _pruneEvents(DateTime nowUtc) {
+  bool _pruneEvents(DateTime nowUtc) {
+    bool eventsPruned = false;
     final Set<String> anomalousAttemptIds = _events
         .where((event) => event.anomalous)
         .map((event) => event.attemptId)
@@ -262,18 +319,46 @@ class ResumeDiagnosticsRecorder {
       final Duration retention = event.anomalous || belongsToAnomalousAttempt
           ? anomalousRetention
           : normalRetention;
-      return nowUtc.difference(event.utc) > retention;
+      final bool expired = nowUtc.difference(event.utc) > retention;
+      if (expired) {
+        _storedBytes -= _eventStorageBytes(event);
+      }
+      eventsPruned = eventsPruned || expired;
+      return expired;
     });
 
     while (_events.length > maxEvents) {
-      final int normalEventIndex = _events.indexWhere(
-        (event) =>
-            !event.anomalous &&
-            (event.attemptId == null ||
-                !anomalousAttemptIds.contains(event.attemptId)),
+      final ResumeDiagnosticEvent removed = _removeOldestPreferredEvent(
+        anomalousAttemptIds,
       );
-      _events.removeAt(normalEventIndex >= 0 ? normalEventIndex : 0);
+      _storedBytes -= _eventStorageBytes(removed);
+      eventsPruned = true;
     }
+
+    while (_events.isNotEmpty && _storedBytes > maxStoredBytes) {
+      final ResumeDiagnosticEvent removed = _removeOldestPreferredEvent(
+        anomalousAttemptIds,
+      );
+      _storedBytes -= _eventStorageBytes(removed);
+      eventsPruned = true;
+    }
+    return eventsPruned;
+  }
+
+  ResumeDiagnosticEvent _removeOldestPreferredEvent(
+    Set<String> anomalousAttemptIds,
+  ) {
+    final int normalEventIndex = _events.indexWhere(
+      (event) =>
+          !event.anomalous &&
+          (event.attemptId == null ||
+              !anomalousAttemptIds.contains(event.attemptId)),
+    );
+    return _events.removeAt(normalEventIndex >= 0 ? normalEventIndex : 0);
+  }
+
+  int _eventStorageBytes(ResumeDiagnosticEvent event) {
+    return utf8.encode(event.encode()).length + 1;
   }
 
   void _ensureInitialized() {
@@ -756,6 +841,13 @@ class AppResumeDiagnostics {
 
   static Future<String> exportText() async {
     return _recorder?.exportText() ?? '';
+  }
+
+  static Future<List<String>> exportTextChunks({
+    int maxChunkBytes = 200 * 1024,
+  }) async {
+    return _recorder?.exportTextChunks(maxChunkBytes: maxChunkBytes) ??
+        const <String>[];
   }
 
   static Future<List<ResumeDiagnosticEvent>> readEvents() async {
