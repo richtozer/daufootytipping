@@ -15,13 +15,14 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(context) {
+    final DAUCompsViewModel dauCompsViewModel = watch(
+      di<DAUCompsViewModel>(),
+    );
     String selectedTipper =
         watch(di<TippersViewModel>()).selectedTipper.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
     // grab teamViewModel from gamesViewModel
-    final teamsViewModel = watch(
-      di<DAUCompsViewModel>(),
-    ).gamesViewModel?.teamsViewModel;
+    final teamsViewModel = dauCompsViewModel.gamesViewModel?.teamsViewModel;
     return SizedBox(
       width: 300,
       child: Card(
@@ -79,7 +80,10 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const ResumeDiagnosticsPage(),
+                        builder: (context) => ResumeDiagnosticsPage(
+                          selectedCompDbKey:
+                              dauCompsViewModel.selectedDAUComp?.dbkey,
+                        ),
                       ),
                     );
                   },
