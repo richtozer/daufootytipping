@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
@@ -579,6 +581,342 @@ class RealtimeDatabaseDiagnosticProbe {
   }
 }
 
+typedef SecondaryRealtimeDatabaseClientFactory =
+    Future<SecondaryRealtimeDatabaseDiagnosticClient> Function(
+      String appName,
+      ResumeProbeEventRecorder recordEvent,
+    );
+
+class SecondaryRealtimeDatabaseDiagnosticClient {
+  SecondaryRealtimeDatabaseDiagnosticClient({
+    required this.appName,
+    required this.database,
+    required Future<void> Function() dispose,
+  }) : _dispose = dispose;
+
+  final String appName;
+  final FirebaseDatabase database;
+  final Future<void> Function() _dispose;
+
+  Future<void> dispose() => _dispose();
+}
+
+/// Creates a completely separate Firebase app/database client for diagnosis.
+///
+/// This probe never replaces the primary database or any application listener.
+/// It exists only to establish whether new RTDB client state can synchronize
+/// while the retained primary client remains stale.
+class SecondaryRealtimeDatabaseDiagnosticProbe {
+  SecondaryRealtimeDatabaseDiagnosticProbe({
+    required SecondaryRealtimeDatabaseClientFactory clientFactory,
+    required ResumeProbeEventRecorder recordEvent,
+    required this.gamesPath,
+    ResumeDiagnosticsClock? now,
+    this.diagnosticProbePath = '/Diagnostics/androidResumeProbe',
+    this.configProbePath = '/AppConfig/resumeProbe',
+  }) : _clientFactory = clientFactory,
+       _recordEvent = recordEvent,
+       _now = now ?? DateTime.now;
+
+  final SecondaryRealtimeDatabaseClientFactory _clientFactory;
+  final ResumeProbeEventRecorder _recordEvent;
+  final ResumeDiagnosticsClock _now;
+  final String gamesPath;
+  final String diagnosticProbePath;
+  final String configProbePath;
+
+  final Map<String, StreamSubscription<DatabaseEvent>> _subscriptions =
+      <String, StreamSubscription<DatabaseEvent>>{};
+  SecondaryRealtimeDatabaseDiagnosticClient? _client;
+  int _generationCounter = 0;
+  int? _activeGeneration;
+  String? _activeProbeId;
+  String? _activeAppName;
+
+  bool get active => _activeGeneration != null;
+
+  Future<void> start() async {
+    if (active) {
+      _emit(
+        'secondary_probe_start_ignored_already_active',
+        details: _identityDetails(),
+      );
+      return;
+    }
+
+    final int generation = ++_generationCounter;
+    final int timestamp = _now().toUtc().microsecondsSinceEpoch;
+    _activeGeneration = generation;
+    _activeProbeId = 'secondary-probe-$timestamp-$generation';
+    _activeAppName = 'android-resume-diagnostics-$timestamp-$generation';
+    final Map<String, Object?> identity = _identityDetails();
+    _emit('secondary_probe_started', details: identity);
+
+    try {
+      final SecondaryRealtimeDatabaseDiagnosticClient client =
+          await _clientFactory(
+            _activeAppName!,
+            (stage, details, anomalous) {
+              _emit(
+                stage,
+                details: <String, Object?>{...identity, ...details},
+                anomalous: anomalous,
+              );
+            },
+          );
+      _client = client;
+      _emit(
+        'secondary_probe_client_ready',
+        details: <String, Object?>{
+          ...identity,
+          'clientAppName': client.appName,
+        },
+      );
+      _attachObservers(client.database, identity);
+    } catch (error) {
+      _emit(
+        'secondary_probe_start_failed',
+        details: <String, Object?>{
+          ...identity,
+          'error': error.toString(),
+        },
+        anomalous: true,
+      );
+      await stop(reason: 'start_failed');
+      rethrow;
+    }
+  }
+
+  void _attachObservers(
+    FirebaseDatabase database,
+    Map<String, Object?> identity,
+  ) {
+    _attachObserver(
+      database: database,
+      path: '.info/connected',
+      observer: 'connection',
+      identity: identity,
+      snapshotDetails: (snapshot) {
+        final Object? value = snapshot.value;
+        return <String, Object?>{
+          'connected': value is bool ? value : null,
+        };
+      },
+    );
+    _attachObserver(
+      database: database,
+      path: diagnosticProbePath,
+      observer: 'diagnostic_probe',
+      identity: identity,
+      snapshotDetails: _scalarSnapshotDetails,
+    );
+    _attachObserver(
+      database: database,
+      path: configProbePath,
+      observer: 'config_probe',
+      identity: identity,
+      snapshotDetails: _scalarSnapshotDetails,
+    );
+    _attachObserver(
+      database: database,
+      path: gamesPath,
+      observer: 'games',
+      identity: identity,
+      snapshotDetails: _gamesSnapshotDetails,
+    );
+  }
+
+  void _attachObserver({
+    required FirebaseDatabase database,
+    required String path,
+    required String observer,
+    required Map<String, Object?> identity,
+    required Map<String, Object?> Function(DataSnapshot snapshot)
+    snapshotDetails,
+  }) {
+    final Map<String, Object?> observerDetails = <String, Object?>{
+      ...identity,
+      'observer': observer,
+      'path': path,
+    };
+    final StreamSubscription<DatabaseEvent> subscription = database
+        .ref(path)
+        .onValue
+        .listen(
+          (event) {
+            _emit(
+              'secondary_probe_${observer}_snapshot',
+              details: <String, Object?>{
+                ...observerDetails,
+                ...snapshotDetails(event.snapshot),
+              },
+            );
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            _emit(
+              'secondary_probe_observer_error',
+              details: <String, Object?>{
+                ...observerDetails,
+                'error': error.toString(),
+              },
+              anomalous: true,
+            );
+          },
+          onDone: () {
+            _emit(
+              'secondary_probe_observer_done',
+              details: observerDetails,
+              anomalous: true,
+            );
+          },
+        );
+    _subscriptions[observer] = subscription;
+    _emit('secondary_probe_observer_attached', details: observerDetails);
+  }
+
+  Map<String, Object?> _scalarSnapshotDetails(DataSnapshot snapshot) {
+    return <String, Object?>{
+      'exists': snapshot.exists,
+      'value': AppResumeDiagnostics.probeValueForDiagnostics(snapshot.value),
+    };
+  }
+
+  Map<String, Object?> _gamesSnapshotDetails(DataSnapshot snapshot) {
+    final Object? rawValue = snapshot.value;
+    final Map<Object?, Object?>? rawGames = rawValue is Map
+        ? Map<Object?, Object?>.from(rawValue)
+        : null;
+    final DateTime nowUtc = _now().toUtc();
+    final DateTime earliestUtc = nowUtc.subtract(const Duration(days: 8));
+    final DateTime latestUtc = nowUtc.add(const Duration(days: 2));
+    final List<Map<String, Object?>> recentGames = <Map<String, Object?>>[];
+
+    for (final MapEntry<Object?, Object?> entry
+        in rawGames?.entries ?? const <MapEntry<Object?, Object?>>[]) {
+      final Object? rawGameValue = entry.value;
+      if (rawGameValue is! Map) {
+        continue;
+      }
+      final Map<Object?, Object?> rawGame = Map<Object?, Object?>.from(
+        rawGameValue,
+      );
+      final Object? rawDateUtc = rawGame['DateUtc'];
+      final DateTime? startUtc = rawDateUtc is String
+          ? DateTime.tryParse(rawDateUtc)?.toUtc()
+          : null;
+      if (startUtc == null ||
+          startUtc.isBefore(earliestUtc) ||
+          startUtc.isAfter(latestUtc)) {
+        continue;
+      }
+      recentGames.add(<String, Object?>{
+        'gameKey': entry.key?.toString(),
+        'startUtc': startUtc.toIso8601String(),
+        'homeScore': rawGame['HomeTeamScore'],
+        'awayScore': rawGame['AwayTeamScore'],
+      });
+    }
+    recentGames.sort(
+      (a, b) => (a['startUtc'] as String).compareTo(b['startUtc'] as String),
+    );
+
+    return <String, Object?>{
+      'exists': snapshot.exists,
+      'entryCount': rawGames?.length ?? 0,
+      'recentGames': recentGames.take(40).toList(),
+    };
+  }
+
+  Future<void> stop({String reason = 'manual'}) async {
+    final int? generation = _activeGeneration;
+    final String? probeId = _activeProbeId;
+    if (generation == null || probeId == null) {
+      return;
+    }
+
+    final Map<String, Object?> identity = _identityDetails();
+    final Map<String, StreamSubscription<DatabaseEvent>> subscriptions =
+        Map<String, StreamSubscription<DatabaseEvent>>.from(_subscriptions);
+    final SecondaryRealtimeDatabaseDiagnosticClient? client = _client;
+    _subscriptions.clear();
+    _client = null;
+    _activeGeneration = null;
+    _activeProbeId = null;
+    _activeAppName = null;
+
+    for (final MapEntry<String, StreamSubscription<DatabaseEvent>> entry
+        in subscriptions.entries) {
+      final Map<String, Object?> details = <String, Object?>{
+        ...identity,
+        'observer': entry.key,
+        'reason': reason,
+      };
+      _emit('secondary_probe_observer_cancel_requested', details: details);
+      try {
+        await entry.value.cancel();
+        _emit('secondary_probe_observer_cancelled', details: details);
+      } catch (error) {
+        _emit(
+          'secondary_probe_observer_cancel_failed',
+          details: <String, Object?>{
+            ...details,
+            'error': error.toString(),
+          },
+          anomalous: true,
+        );
+      }
+    }
+
+    if (client != null) {
+      _emit(
+        'secondary_probe_client_dispose_requested',
+        details: <String, Object?>{...identity, 'reason': reason},
+      );
+      try {
+        await client.dispose();
+        _emit(
+          'secondary_probe_client_disposed',
+          details: <String, Object?>{...identity, 'reason': reason},
+        );
+      } catch (error) {
+        _emit(
+          'secondary_probe_client_dispose_failed',
+          details: <String, Object?>{
+            ...identity,
+            'reason': reason,
+            'error': error.toString(),
+          },
+          anomalous: true,
+        );
+      }
+    }
+
+    _emit(
+      'secondary_probe_stopped',
+      details: <String, Object?>{...identity, 'reason': reason},
+    );
+  }
+
+  Map<String, Object?> _identityDetails() {
+    return <String, Object?>{
+      'probeId': _activeProbeId,
+      'observerGeneration': _activeGeneration,
+      'secondaryAppName': _activeAppName,
+      'diagnosticProbePath': diagnosticProbePath,
+      'configProbePath': configProbePath,
+      'gamesPath': gamesPath,
+    };
+  }
+
+  void _emit(
+    String stage, {
+    Map<String, Object?> details = const <String, Object?>{},
+    bool anomalous = false,
+  }) {
+    _recordEvent(stage, details, anomalous);
+  }
+}
+
 class AppResumeDiagnostics {
   AppResumeDiagnostics._();
 
@@ -593,6 +931,7 @@ class AppResumeDiagnostics {
   static ResumeDiagnosticsRecorder? _recorder;
   static StreamSubscription<DatabaseEvent>? _connectionSubscription;
   static RealtimeDatabaseDiagnosticProbe? _extendedProbe;
+  static SecondaryRealtimeDatabaseDiagnosticProbe? _secondaryProbe;
   static int _connectionObserverGenerationCounter = 0;
   static int? _activeConnectionObserverGeneration;
   static bool? _latestSdkReportedConnected;
@@ -600,6 +939,7 @@ class AppResumeDiagnostics {
 
   static bool get enabled => _recorder != null;
   static bool get extendedProbeActive => _extendedProbe?.active ?? false;
+  static bool get secondaryProbeActive => _secondaryProbe?.active ?? false;
 
   static Object? probeValueForDiagnostics(Object? value) {
     if (value == null || value is num || value is bool) {
@@ -786,6 +1126,176 @@ class AppResumeDiagnostics {
     await _extendedProbe?.stop(reason: reason);
   }
 
+  static Future<void> startSecondaryProbe({required String gamesPath}) async {
+    if (_recorder == null) {
+      return;
+    }
+    if (!extendedProbeActive) {
+      record(
+        'secondary_probe_started_without_primary_probe',
+        details: <String, Object?>{'gamesPath': gamesPath},
+        anomalous: true,
+        attachToActiveAttempt: false,
+      );
+    }
+    final SecondaryRealtimeDatabaseDiagnosticProbe probe =
+        _secondaryProbe ??= SecondaryRealtimeDatabaseDiagnosticProbe(
+          gamesPath: gamesPath,
+          clientFactory: _createSecondaryDiagnosticClient,
+          recordEvent: (stage, details, anomalous) {
+            record(
+              stage,
+              details: details,
+              anomalous: anomalous,
+              attachToActiveAttempt: false,
+            );
+          },
+        );
+    await probe.start();
+  }
+
+  static Future<void> stopSecondaryProbe({String reason = 'manual'}) async {
+    await _secondaryProbe?.stop(reason: reason);
+    _secondaryProbe = null;
+  }
+
+  static Future<SecondaryRealtimeDatabaseDiagnosticClient>
+  _createSecondaryDiagnosticClient(
+    String appName,
+    ResumeProbeEventRecorder recordEvent,
+  ) async {
+    FirebaseApp? app;
+    try {
+      recordEvent(
+        'secondary_probe_firebase_app_initializing',
+        const <String, Object?>{},
+        false,
+      );
+      app = await Firebase.initializeApp(
+        name: appName,
+        options: Firebase.app().options,
+      );
+      recordEvent(
+        'secondary_probe_firebase_app_initialized',
+        <String, Object?>{
+          'projectId': app.options.projectId,
+          'databaseUrlPresent': app.options.databaseURL?.isNotEmpty ?? false,
+        },
+        false,
+      );
+
+      final FirebaseAppCheck appCheck = FirebaseAppCheck.instanceFor(app: app);
+      try {
+        final bool useDebugProvider = kDebugMode || kProfileMode;
+        recordEvent(
+          'secondary_probe_app_check_activation_started',
+          <String, Object?>{
+            'provider': useDebugProvider ? 'debug' : 'play_integrity',
+          },
+          false,
+        );
+        await appCheck.activate(
+          providerAndroid: useDebugProvider
+              ? const AndroidDebugProvider()
+              : const AndroidPlayIntegrityProvider(),
+        );
+        recordEvent(
+          'secondary_probe_app_check_activation_completed',
+          const <String, Object?>{},
+          false,
+        );
+      } catch (error) {
+        recordEvent(
+          'secondary_probe_app_check_activation_failed',
+          <String, Object?>{'error': error.toString()},
+          true,
+        );
+      }
+
+      try {
+        recordEvent(
+          'secondary_probe_app_check_token_refresh_started',
+          const <String, Object?>{},
+          false,
+        );
+        final AppCheckTokenResult? tokenResult = await appCheck
+            .getTokenResult(true)
+            .timeout(const Duration(seconds: 20));
+        recordEvent(
+          'secondary_probe_app_check_token_refresh_completed',
+          <String, Object?>{
+            'tokenReady': tokenResult?.token.isNotEmpty ?? false,
+            'expirationUtc': tokenResult?.expirationTime
+                ?.toUtc()
+                .toIso8601String(),
+          },
+          tokenResult?.token.isEmpty ?? true,
+        );
+      } catch (error) {
+        recordEvent(
+          'secondary_probe_app_check_token_refresh_failed',
+          <String, Object?>{'error': error.toString()},
+          true,
+        );
+      }
+
+      final FirebaseDatabase database = FirebaseDatabase.instanceFor(
+        app: app,
+        databaseURL: app.options.databaseURL,
+      );
+      database.setPersistenceEnabled(false);
+      recordEvent(
+        'secondary_probe_database_created',
+        const <String, Object?>{'persistenceEnabled': false},
+        false,
+      );
+      try {
+        database.setLoggingEnabled(true);
+        recordEvent(
+          'secondary_probe_native_logging_enabled',
+          const <String, Object?>{},
+          false,
+        );
+      } catch (error) {
+        recordEvent(
+          'secondary_probe_native_logging_failed',
+          <String, Object?>{'error': error.toString()},
+          true,
+        );
+      }
+
+      return SecondaryRealtimeDatabaseDiagnosticClient(
+        appName: appName,
+        database: database,
+        dispose: () async {
+          try {
+            await database.goOffline();
+          } finally {
+            await app!.delete();
+          }
+        },
+      );
+    } catch (error) {
+      recordEvent(
+        'secondary_probe_client_creation_failed',
+        <String, Object?>{'error': error.toString()},
+        true,
+      );
+      if (app != null) {
+        try {
+          await app.delete();
+        } catch (deleteError) {
+          recordEvent(
+            'secondary_probe_failed_app_cleanup',
+            <String, Object?>{'error': deleteError.toString()},
+            true,
+          );
+        }
+      }
+      rethrow;
+    }
+  }
+
   static Future<void> _cancelConnectionObserver(
     StreamSubscription<DatabaseEvent> subscription, {
     required int? generation,
@@ -863,6 +1373,8 @@ class AppResumeDiagnostics {
   static Future<void> resetForTest() async {
     await _extendedProbe?.stop(reason: 'test_reset');
     _extendedProbe = null;
+    await _secondaryProbe?.stop(reason: 'test_reset');
+    _secondaryProbe = null;
     final StreamSubscription<DatabaseEvent>? connectionSubscription =
         _connectionSubscription;
     _connectionSubscription = null;

@@ -2,11 +2,17 @@ import 'dart:convert';
 
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class ResumeDiagnosticsPage extends StatefulWidget {
-  const ResumeDiagnosticsPage({super.key});
+  const ResumeDiagnosticsPage({
+    required this.selectedCompDbKey,
+    super.key,
+  });
+
+  final String? selectedCompDbKey;
 
   @override
   State<ResumeDiagnosticsPage> createState() => _ResumeDiagnosticsPageState();
@@ -85,6 +91,41 @@ class _ResumeDiagnosticsPageState extends State<ResumeDiagnosticsPage> {
     }
   }
 
+  Future<void> _setSecondaryProbeActive(bool active) async {
+    final String? compDbKey = widget.selectedCompDbKey;
+    if (active && (compDbKey == null || compDbKey.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No competition is selected.')),
+      );
+      return;
+    }
+    setState(() {
+      _probeOperationInProgress = true;
+    });
+    try {
+      if (active) {
+        await AppResumeDiagnostics.startSecondaryProbe(
+          gamesPath: '${p.gamesPathRoot}/$compDbKey',
+        );
+      } else {
+        await AppResumeDiagnostics.stopSecondaryProbe();
+      }
+      _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Secondary client probe failed: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _probeOperationInProgress = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,7 +165,9 @@ class _ResumeDiagnosticsPageState extends State<ResumeDiagnosticsPage> {
                     ),
                     const SizedBox(height: 8),
                     FilledButton.icon(
-                      onPressed: _probeOperationInProgress
+                      onPressed:
+                          _probeOperationInProgress ||
+                              AppResumeDiagnostics.secondaryProbeActive
                           ? null
                           : () => _setExtendedProbeActive(
                               !AppResumeDiagnostics.extendedProbeActive,
@@ -138,6 +181,44 @@ class _ResumeDiagnosticsPageState extends State<ResumeDiagnosticsPage> {
                         AppResumeDiagnostics.extendedProbeActive
                             ? 'Stop probe'
                             : 'Start probe',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Secondary Firebase client',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'After the primary probe is running, start this client. '
+                      'It uses a separate FirebaseApp with persistence disabled '
+                      'and observes connection, probe, config, and games data. '
+                      'Selected competition: '
+                      '${widget.selectedCompDbKey ?? "none"}.',
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed:
+                          _probeOperationInProgress ||
+                              (!AppResumeDiagnostics.secondaryProbeActive &&
+                                  (widget.selectedCompDbKey == null ||
+                                      !AppResumeDiagnostics
+                                          .extendedProbeActive))
+                          ? null
+                          : () => _setSecondaryProbeActive(
+                              !AppResumeDiagnostics.secondaryProbeActive,
+                            ),
+                      icon: Icon(
+                        AppResumeDiagnostics.secondaryProbeActive
+                            ? Icons.stop_circle_outlined
+                            : Icons.hub_outlined,
+                      ),
+                      label: Text(
+                        AppResumeDiagnostics.secondaryProbeActive
+                            ? 'Stop secondary client'
+                            : 'Start secondary client',
                       ),
                     ),
                   ],

@@ -1,8 +1,8 @@
 # Android Realtime Database Resume Staleness
 
-**Status:** Unresolved, with a successful instrumented reproduction and completed independent review. Build 708 captured the failure end to end on a physical Pixel and showed that only a new Android process restored the games stream. The next candidate adds instrumentation only; no further recovery behavior has been selected.
+**Status:** Unresolved, with successful instrumented reproductions and completed independent review. Builds 708 and 709 captured the failure on a physical Pixel and showed that only a new Android process restored synchronization. The next candidate adds a manually started secondary Firebase client experiment only; no further recovery behavior has been selected.
 
-**Report updated:** 5 September 2026
+**Report updated:** 7 September 2026
 
 **Testing after 6 September 2026:** the comp closes and organic score changes stop, but the defect remains fully reproducible using self-authored writes to a dedicated test node or test competition. One boundary does break: cards constructed after the final round completes never subscribe to games updates, so the widget-level check silently stops being meaningful — most importantly after a cold start. Read *Post-season testing* before designing the next reproduction.
 
@@ -143,6 +143,24 @@ The evidence does **not** yet identify whether the retained fault is:
 - a FlutterFire/native SDK defect matching one of the upstream reports.
 
 It does show that repeatedly calling `goOffline()`/`goOnline()` on the same `FirebaseDatabase` instance, waiting for `/.info/connected`, issuing `get()` on the listened games path, and inducing an Android network transition are not sufficient recovery mechanisms for this captured state.
+
+## Continuous-observer reproduction — 6-7 September 2026
+
+Build 709 added a manually started observer whose lifetime was independent of a resume attempt. On the retained process `android-1788589418149094`, the probe ran continuously from `2026-09-06T18:01:34.124633Z` until `18:13:58.631081Z`. It attached both `/.info/connected` and a new listener at `/Diagnostics/androidResumeProbe` before reporting `connected: false`.
+
+During that twelve-minute window:
+
+- the connection observer never reported `true`;
+- the new diagnostic-path listener never delivered even an initial snapshot;
+- the existing config and games listeners delivered no snapshots;
+- a qualifying resume at `18:09:25Z` made three ten-second reconnect attempts, all of which timed out; and
+- the subsequent games `get()` returned the same stale 422-entry cache in 22 ms and reapplied null scores.
+
+The intended REST write to `/Diagnostics/androidResumeProbe` was rejected with `Missing appcheck token`, so this run does **not** prove how the fresh listener would respond to a confirmed backend nonce. Its failure to complete initial synchronization still shows that creating a new listener on the retained primary `FirebaseDatabase` instance did not repair that client. This eliminates listener-only recreation as the next candidate remedy, but it does not distinguish a dead socket from a live socket on which the SDK declines to send work because of authentication, App Check, or other internal connection state.
+
+Installing build 710 recreated the process. At `2026-09-07T03:52:59.523917Z`, the new process first received the persisted 422-entry snapshot and rendered stale games. At `03:53:04.317880Z`, its games listener received the current 426-entry server snapshot and applied all recent final scores. The config listener similarly moved from its persisted probe value to the current value. Build 710 contained only diagnostic retention and chunked-export changes; the reconnect and refresh implementation was byte-identical to build 708. The recovery therefore came from process recreation, not a transport fix.
+
+The precise conclusion is that the retained primary Firebase client failed to synchronize. The trace does not establish whether its underlying socket was dead or whether a higher native state machine prevented authentication/listen work from being sent. Native logcat captured while the fault is active remains the highest-value evidence for that distinction.
 
 ## Expected behavior
 
@@ -449,6 +467,42 @@ Interpret the simultaneous probe window as follows:
 | any | listener error | any | any | Interpret the recorded error first; verify rules, authentication, and App Check before drawing a transport conclusion. |
 
 A fresh listener may itself prompt RTDB to reconnect. If the connection observer changes to `true` immediately after the fresh listener attaches, that is evidence from the experiment, not proof that the pre-probe client was healthy. The observer lifetime and generation fields are required when interpreting every nonce timestamp.
+
+### Next diagnostic candidate: independent Firebase client
+
+The build-709 result rules out recreating a listener on the retained primary client, while repeated `goOffline()`/`goOnline()` cycles have already failed. Before attempting the much larger change needed to replace the application's database references and view-model graph, the next diagnostic build creates a second named `FirebaseApp` only when an admin presses **Start secondary client**.
+
+The secondary client:
+
+- uses the same Firebase options and RTDB URL but a unique app name;
+- activates App Check independently (Play Integrity in release builds) and records forced-token readiness without recording the token;
+- creates its own `FirebaseDatabase` with persistence disabled;
+- attaches independent listeners for `/.info/connected`, `/Diagnostics/androidResumeProbe`, `/AppConfig/resumeProbe`, and the selected competition's games path;
+- logs bounded recent-game scores, listener errors, and complete observer/client lifetimes; and
+- never replaces the primary database, refreshes application models, writes backend data, or changes the visible Tips UI.
+
+Run it only after the stale condition is visible and the primary extended probe is running. Capture native RTDB logcat before starting the secondary client, since creating it is a behavioral experiment that may add authentication and network activity. Then start the secondary client, wait for its initial snapshots, and write scalar backend nonces where App Check-authorized tooling permits.
+
+Because persistence is disabled before any reference is created, the secondary client starts with no RTDB data cache. Any snapshot it delivers for the diagnostic, config, or games data paths therefore came through that secondary client's server synchronization rather than persisted local data. `/.info/connected` is different: it remains SDK-generated connection metadata and is not itself a server data snapshot.
+
+Two operational preconditions are mandatory before committing to another long-background cycle:
+
+1. **Healthy control:** immediately after installing the candidate, start the primary probe and then the secondary client while the app is healthy. Confirm `tokenReady: true`, secondary `connected: true`, and initial snapshots from the diagnostic, config, and games observers. Stop the secondary client before stopping the primary probe, and export the trace. Do not begin the long-background run if this control fails.
+2. **Authorized nonce write:** verify a scalar write to `/Diagnostics/androidResumeProbe` before backgrounding the app. `scripts/set_android_resume_probe_nonce.sh` uses the authenticated Firebase CLI against only that diagnostic path and reads the value back. It contains no credential; the operator must already be logged into the project. The REST call used in build 709 is not an acceptable substitute because App Check rejected it.
+
+The nonce path was validated on 7 September 2026: the script successfully wrote and read back the scalar `control-20260907-secondary-client`. Leave that value in place for the healthy control's initial-snapshot check, then use a new unique scalar for the stale-client experiment.
+
+Interpretation:
+
+| Primary client | Secondary client | Interpretation |
+| --- | --- | --- |
+| remains disconnected/stale | obtains App Check token, connects, and receives current snapshots | The failure is scoped above process networking and below the application graph. A complete fix could rebuild or indirect every captured database reference. A smaller partial mitigation could use the fresh client for a one-shot recovery read and apply that snapshot to `GamesViewModel`, while accepting that primary live listeners remain wedged until cold start. |
+| remains disconnected/stale | App Check activation or token refresh fails | Investigate Play Integrity/App Check before changing RTDB reference ownership. |
+| remains disconnected/stale | token succeeds but connection/listeners remain silent | The fault may be process/network-stack-wide or shared below the Firebase app instance; recreating Dart/native database objects is not justified. |
+| recovers when secondary client starts | secondary also connects | Starting independent Firebase activity may have repaired shared lower-level state. Repeat before selecting a fix and correlate native logs. |
+| any | explicit listener error | Interpret the recorded error first; do not infer transport state from silence. |
+
+The one-shot recovery read is deliberately not part of this diagnostic candidate. If the secondary client succeeds, it becomes a lower-blast-radius option for correcting the stale fixture UI while the larger reference-ownership redesign is evaluated. It would not restore ongoing config, tips, stats, or games streaming and must not be described as full client recovery.
 
 ## Post-season testing: what still works, and one gate that breaks the UI boundary
 
