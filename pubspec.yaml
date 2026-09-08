@@ -42,7 +42,7 @@ dependencies:
   # Asset-only: supplies the CupertinoIcons font family referenced by
   # cupertino_ui (via material_ui). Never imported directly - do not remove.
   cupertino_icons: ^1.0.9
-  data_table_2: ^3.0.0
+  data_table_2: ^2.8.0
   dio: ^5.3.4
   email_validator: ^3.0.0
   firebase_analytics: ^12.5.0
@@ -62,7 +62,6 @@ dependencies:
   google_sign_in: ^7.2.0
   intl: ^0.20.2
   json_diff: ^0.2.1
-  material_ui: ^1.1.1
   modal_bottom_sheet: ^3.0.0
   package_info_plus: ^10.2.1
   path: ^1.9.0
