@@ -114,6 +114,54 @@ void main() {
       );
     });
 
+    test('schedules badge activation from an overridden round start', () {
+      final firstKickoff = DateTime.parse('2030-01-05T12:00:00Z');
+      final overrideStart = firstKickoff.subtract(const Duration(days: 1));
+      final badgeRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: firstKickoff,
+        lastGameKickOffUTC: firstKickoff.add(const Duration(days: 2)),
+        adminOverrideRoundStartDate: overrideStart,
+      );
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[badgeRound],
+        ),
+      );
+
+      vm.gamesViewModelUpdatedForTest();
+
+      final captured = verify(
+        () => kickoffRefreshScheduler.schedule(
+          kickoffTimes: captureAny(named: 'kickoffTimes'),
+          onRefresh: any(named: 'onRefresh'),
+        ),
+      ).captured;
+      final refreshTimes = (captured.single as Iterable<DateTime> Function())();
+      expect(
+        refreshTimes,
+        contains(
+          overrideStart.subtract(
+            OutstandingTipsCalculator.appBadgeActivationLeadTime,
+          ),
+        ),
+      );
+      expect(
+        refreshTimes,
+        isNot(
+          contains(
+            firstKickoff.subtract(
+              OutstandingTipsCalculator.appBadgeActivationLeadTime,
+            ),
+          ),
+        ),
+      );
+    });
+
     test('returns 0 when selected comp is null', () {
       vm.selectedTipperTipsViewModel = mockTipsViewModel;
 

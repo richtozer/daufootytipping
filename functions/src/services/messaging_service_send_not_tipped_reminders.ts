@@ -1,8 +1,8 @@
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
-import {isReminderGameWithinCompCutoff} from
-  "./reminder_game_eligibility";
+import {isGameWithinCompCutoff} from
+  "./game_comp_eligibility";
 
 // Schedule: "20 21-9 * 3-9 *"
 // Minute 20 Twenty minutes past the hour
@@ -56,7 +56,7 @@ export const sendHourlyReminders =
       .once("value");
     const compCutoffs = compConfigSnapshot.val() ?? {};
     const gameKeys = Object.keys(games).filter((gameKey) =>
-      isReminderGameWithinCompCutoff(
+      isGameWithinCompCutoff(
         gameKey,
         games[gameKey].DateUtc,
         compCutoffs,

@@ -1089,7 +1089,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
         return <DateTime>[
           for (final round in rounds) ...<DateTime>[
-            round.firstGameKickOffUTC.subtract(
+            round.getRoundStartDate().subtract(
               OutstandingTipsCalculator.appBadgeActivationLeadTime,
             ),
             ...round.games.map((game) => game.startTimeUTC),

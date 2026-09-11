@@ -11,12 +11,12 @@ class OutstandingTipsCalculator {
     required DateTime now,
   }) {
     for (final round in rounds) {
-      final activationTime = round.firstGameKickOffUTC.subtract(
+      final activationTime = round.getRoundStartDate().subtract(
         appBadgeActivationLeadTime,
       );
       final isActivated = !now.isBefore(activationTime);
       final hasNotPassedLastKickoff = !now.isAfter(
-        round.lastGameKickOffUTC,
+        round.getRoundEndDate(),
       );
       if (isActivated && hasNotPassedLastKickoff) {
         return round;

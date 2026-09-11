@@ -96,6 +96,47 @@ void main() {
         isNull,
       );
     });
+
+    test('uses the admin override start for badge activation', () {
+      final round = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.add(const Duration(hours: 72)),
+        lastGameKickOffUTC: now.add(const Duration(days: 4)),
+        adminOverrideRoundStartDate: now.add(const Duration(hours: 48)),
+      );
+
+      expect(
+        OutstandingTipsCalculator.appBadgeRoundForTime(
+          rounds: <DAURound>[round],
+          now: now,
+        ),
+        same(round),
+      );
+    });
+
+    test('uses the admin override end for badge deactivation', () {
+      final round = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.subtract(const Duration(days: 2)),
+        lastGameKickOffUTC: now,
+        adminOverrideRoundEndDate: now.add(const Duration(hours: 1)),
+      );
+
+      expect(
+        OutstandingTipsCalculator.appBadgeRoundForTime(
+          rounds: <DAURound>[round],
+          now: now.add(const Duration(minutes: 30)),
+        ),
+        same(round),
+      );
+      expect(
+        OutstandingTipsCalculator.appBadgeRoundForTime(
+          rounds: <DAURound>[round],
+          now: now.add(const Duration(hours: 1, microseconds: 1)),
+        ),
+        isNull,
+      );
+    });
   });
 }
 
