@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:daufootytipping/widgets/tips/tips_choice_panel.dart';
 
 class TipChoice extends StatelessWidget {
   const TipChoice(
@@ -26,97 +27,16 @@ class TipChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    !isPercentStatsPage
-                        ? generateChoiceChip(
-                            GameResult.a,
-                            gameTipViewModel,
-                            context,
-                          )
-                        : generatePercentStatsChip(
-                            GameResult.a,
-                            gameTipViewModel,
-                            gameStatsEntry,
-                            context,
-                          ),
-                    const SizedBox(width: 8),
-                    !isPercentStatsPage
-                        ? generateChoiceChip(
-                            GameResult.b,
-                            gameTipViewModel,
-                            context,
-                          )
-                        : generatePercentStatsChip(
-                            GameResult.b,
-                            gameTipViewModel,
-                            gameStatsEntry,
-                            context,
-                          ),
-                  ],
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  !isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.c,
-                          gameTipViewModel,
-                          context,
-                        )
-                      : generatePercentStatsChip(
-                          GameResult.c,
-                          gameTipViewModel,
-                          gameStatsEntry,
-                          context,
-                        ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  !isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.d,
-                          gameTipViewModel,
-                          context,
-                        )
-                      : generatePercentStatsChip(
-                          GameResult.d,
-                          gameTipViewModel,
-                          gameStatsEntry,
-                          context,
-                        ),
-                  const SizedBox(width: 8),
-                  !isPercentStatsPage
-                      ? generateChoiceChip(
-                          GameResult.e,
-                          gameTipViewModel,
-                          context,
-                        )
-                      : generatePercentStatsChip(
-                          GameResult.e,
-                          gameTipViewModel,
-                          gameStatsEntry,
-                          context,
-                        ),
-                ],
-              ),
-            ],
-          ),
-        ),
+        TipsChoicePanel(children: [
+          for (final option in [
+            GameResult.a, GameResult.b, GameResult.c, GameResult.d, GameResult.e,
+          ])
+            !isPercentStatsPage
+                ? generateChoiceChip(option, gameTipViewModel, context)
+                : generatePercentStatsChip(
+                    option, gameTipViewModel, gameStatsEntry, context,
+                  ),
+        ]),
         if (gameTipViewModel.savingTip)
           Positioned.fill(
             child: Container(
