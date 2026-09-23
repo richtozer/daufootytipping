@@ -59,6 +59,8 @@ class TipsCardDisplay {
   final bool canTip;
 
   String label(GameResult value) => league == League.afl ? value.afl : value.nrl;
+  static const options = [GameResult.a, GameResult.b, GameResult.c, GameResult.d, GameResult.e];
+  List<String> get choiceLabels => options.map(label).toList();
   bool get hasResult => status == TipsStatus.live || status == TipsStatus.interim ||
       status == TipsStatus.finalScore;
   List<String> get resultLines => [
@@ -85,6 +87,7 @@ class TipsCardDisplay {
   TipsCardContent content(TextTheme theme) => TipsCardContent(
     home: home.text(theme), away: away.text(theme), info: info,
     results: hasResult ? resultSpans(theme) : [],
+    choiceLabels: choiceLabels,
     editable: status == TipsStatus.live || status == TipsStatus.interim,
   );
 }
@@ -180,6 +183,8 @@ class AdaptiveTipsCard extends StatelessWidget {
               child: IgnorePointer(child: Text(message,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color))))])
           : Banner(message: message, color: color,
+              textStyle: const Banner(message: '', location: BannerLocation.topEnd)
+                  .textStyle.copyWith(fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily),
               location: BannerLocation.topEnd, child: card);
     }
     return SizedBox(height: layout.cardExtent, child: card);
@@ -220,7 +225,7 @@ class AdaptiveTipsCard extends StatelessWidget {
   Widget _choices(BuildContext context, bool percentages) {
     final trophySize = TipsCardLayout.scaledIconSize(
         MediaQuery.textScalerOf(context), Theme.of(context).textTheme, size: 18);
-    final options = [GameResult.a, GameResult.b, GameResult.c, GameResult.d, GameResult.e];
+    const options = TipsCardDisplay.options;
     return Stack(children: [
       TipsChoicePanel(arrangement: layout.choices, children: [
         for (var index = 0; index < options.length; index++)

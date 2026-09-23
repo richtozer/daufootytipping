@@ -8,7 +8,9 @@ enum TipsChoiceArrangement { inline, paired, vertical }
 /// The exact styled content rendered by one card, grouped for height measurement.
 class TipsCardContent {
   const TipsCardContent({required this.home, required this.away,
-    required this.info, required this.results, required this.editable});
+    required this.info, required this.results, required this.editable,
+    required this.choiceLabels});
+  final List<String> choiceLabels;
   final TextSpan home;
   final TextSpan away;
   final String info;
@@ -42,7 +44,6 @@ class TipsCardLayout {
   static const double viewportFraction = 0.8;
   static const double standardTeamWidth = 135;
   static const double standardExtent = 128;
-  static const labels = ['Home 31+', 'Home', 'Draw', 'Away', 'Away 31+'];
 
   static double teamLogoSize(TextScaler scaler, TextTheme theme) {
     return scaledIconSize(scaler, theme, size: 25);
@@ -82,7 +83,10 @@ class TipsCardLayout {
     Size measureText(String text, TextStyle style, [double maxWidth = double.infinity]) =>
         measureSpan(TextSpan(text: text, style: style), maxWidth);
 
-    final chipWidths = labels.map((s) => measureText(s, label).width + 22).toList();
+    final labels = cards.expand((card) => card.choiceLabels).toSet();
+    final chipWidths = List.generate(5, (index) => cards.fold<double>(0,
+        (width, card) => math.max(width,
+            measureText(card.choiceLabels[index], label).width + 22)));
     // Include the result trophy and a loaded percentage's full footprint.
     final percentLabelWidth = math.max(measureText('100.0%', label).width,
         labels.fold<double>(0, (width, text) => math.max(width, measureText(text, info).width)));
@@ -93,7 +97,8 @@ class TipsCardLayout {
       math.max(chipWidths[0] + chipWidths[1], chipWidths[3] + chipWidths[4])) + 24;
     // Normal chips retain their existing visible dimensions; adaptive chips
     // reserve at least 48 logical pixels per row for larger text/touch access.
-    final textHeight = measureText('Home 31+', label).height;
+    final textHeight = labels.fold<double>(0, (height, text) =>
+        math.max(height, measureText(text, label).height));
     final compactChipHeight = math.max(32.0, textHeight + 16);
     final adaptiveChipHeight = math.max(48.0, textHeight + 16);
     final largestName = cards.fold<double>(0, (value, card) => math.max(value,
@@ -129,7 +134,8 @@ class TipsCardLayout {
       TipsChoiceArrangement.inline => chipHeight + 8,
       TipsChoiceArrangement.paired => chipHeight * 3 + 8,
       TipsChoiceArrangement.vertical => 5.0 * math.max(chipHeight,
-          measureText('Home 31+', label, panelWidth - 24).height + 16) + 24,
+          labels.fold<double>(0, (height, text) => math.max(height,
+              measureText(text, label, panelWidth - 24).height)) + 16) + 24,
     };
     // Inner card margins are 8 px; results add 2 px padding on each side.
     final resultWidth = carouselWidth * viewportFraction - 12;

@@ -21,6 +21,37 @@ void main() {
   setUpAll(loadTipsFonts);
   final samples = tipsSamples(selections: {}, saving: {});
 
+  test('measurement receives league labels and responds to longer labels', () {
+    expect(samples.first.choiceLabels.first, GameResult.a.afl);
+    expect(samples.last.choiceLabels.first, GameResult.a.nrl);
+    final card = samples.last.content(_theme.textTheme);
+    TipsCardLayout measure(List<String> labels) => TipsCardLayout.measure(
+      width: 1280, textScaler: TextScaler.noScaling, textTheme: _theme.textTheme,
+      textDirection: TextDirection.ltr, cards: [TipsCardContent(
+        home: card.home, away: card.away, info: card.info, results: card.results,
+        editable: card.editable, choiceLabels: labels)]);
+    expect(measure([for (final label in card.choiceLabels) '$label extra margin']).wideMinWidth,
+        greaterThan(measure(card.choiceLabels).wideMinWidth));
+  });
+
+  testWidgets('paired buttons at 2.5x need more than the 390px carousel provides', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final card = samples.last;
+    await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(
+      body: MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(2.5)),
+        child: AdaptiveTipsCard(data: card, layout: _layout(1600, 2.5, samples),
+          activePanel: TipsPanel.tips, onPanelChanged: (_) {}, onTip: (_) {})),
+    )));
+    await tester.pumpAndSettle();
+    final chips = find.byType(ChoiceChip);
+    final needed = tester.getSize(chips.at(0)).width + tester.getSize(chips.at(1)).width + 32;
+    expect(needed, greaterThan((390 - 8) * TipsCardLayout.viewportFraction));
+    expect(tester.takeException(), isNull);
+  });
+
   test('one tall result row does not reserve four tall rows', () {
     final theme = _theme.textTheme;
     final short = TextSpan(text: 'Result: Home', style: theme.bodyMedium);
@@ -30,7 +61,7 @@ void main() {
           textTheme: theme, textDirection: TextDirection.ltr, percentStats: percent,
           cards: [TipsCardContent(home: TextSpan(text: 'A', style: theme.titleMedium),
             away: TextSpan(text: 'B', style: theme.titleMedium), info: '',
-            results: results, editable: false)]);
+            results: results, editable: false, choiceLabels: samples.first.choiceLabels)]);
     final mixed = measure([tall, short, short, short]);
     final repeated = measure([tall, tall, tall, tall]);
     expect(mixed.mode, TipsCardMode.standard);

@@ -113,4 +113,26 @@ The full-suite run above predates these refinements.
 5. Hinge-specific layout is not implemented. Confirm real reported display
    features before adding posture-specific behavior.
 
-No commits, pushes, merges or releases have been made. No bulk formatter was run.
+## Review follow-ups
+
+- Local checkpoint `71de084` preserves the reviewed prototype before these changes.
+- Layout measurement now receives each card's league-derived choice labels from
+  the same GameResult options used by rendering, with regression coverage for
+  longer labels. No separate AFL-margin strings remain in the layout calculator.
+- Added 18 multi-round list snapshots: 360/768/1280 px × 1.0/1.5 text,
+  each at startup, a round boundary, and after jumping to the first tippable game.
+  Navigation assertions check target visibility beneath the pinned header.
+  These baseline the prototype, not the as-yet-unmodified production navigation.
+- The rendered NRL paired row at 2.5× needs approximately 309.3 px including
+  margins and spacing. At a 390 px display the carousel provides only 305.6 px.
+  The paired threshold therefore remains unchanged: lowering it alone would
+  overflow. A further reduction in whitespace needs a separately reviewed change
+  to button spacing or carousel width, while preserving uniform panel heights.
+- List goldens load Material icons; ribbon text explicitly uses the app font
+  rather than the test renderer's default font. Status placement is unchanged.
+- Final follow-up verification: analysis reports no issues and all 454 tests
+  pass, including comparison against the 18 new list goldens. The headless
+  font environment still displays the sample header's upward-arrow character
+  as a fallback glyph; native font rendering remains a device-review item.
+
+No pushes, merges or releases have been made. No bulk formatter was run.

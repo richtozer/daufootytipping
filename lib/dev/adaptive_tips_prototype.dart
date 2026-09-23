@@ -149,7 +149,8 @@ class _AdaptiveTipsPrototypeState extends State<AdaptiveTipsPrototype> {
                       'Measured minimums: standard ${layout.standardMinWidth.ceil()}, '
                       'wide ${layout.wideMinWidth.ceil()}', textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 12)))),
-                  Expanded(child: ColoredBox(color: const Color(0xffd9e5d7),
+                  Expanded(child: RepaintBoundary(key: const Key('sample-list-visual'),
+                    child: ColoredBox(color: const Color(0xffd9e5d7),
                     child: CustomScrollView(key: const Key('sample-list'), controller: _scroll,
                       slivers: [for (var round = 0; round < 3; round++)
                         SliverMainAxisGroup(slivers: [
@@ -177,7 +178,7 @@ class _AdaptiveTipsPrototypeState extends State<AdaptiveTipsPrototype> {
                         ]),
                       ],
                     ),
-                  )),
+                  ))),
                 ]);
               }),
             ),
