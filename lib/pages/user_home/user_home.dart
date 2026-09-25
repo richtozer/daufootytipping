@@ -8,6 +8,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -204,8 +205,15 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       backgroundColor: !isDarkMode
                           ? Colors.white54
                           : Colors.black54,
-                      body: Center(
-                        child: destinationContent[_currentIndex.value],
+                      body: AppContentWidth(
+                        daurounds:
+                            dauCompsViewModelConsumer
+                                .selectedDAUComp
+                                ?.daurounds ??
+                            const [],
+                        child: Center(
+                          child: destinationContent[_currentIndex.value],
+                        ),
                       ),
                       bottomNavigationBar: NavigationBar(
                         indicatorColor: navIndicatorColor,

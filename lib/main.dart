@@ -32,7 +32,9 @@ import 'package:flutter_localizations/flutter_localizations.dart'
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
+
 import 'firebase_options.dart';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 
 Future<void> main() async {
@@ -100,8 +102,8 @@ Future<void> main() async {
         'FIREBASE_APPCHECK_DEBUG_TOKEN set to a fixed token from WEB_APP_CHECK_DEBUG_TOKEN',
       );
     } else {
-      final Object? existingAppCheckDebugToken =
-          firebase_app_check_debug_token.getFirebaseAppCheckDebugToken();
+      final Object? existingAppCheckDebugToken = firebase_app_check_debug_token
+          .getFirebaseAppCheckDebugToken();
 
       if (existingAppCheckDebugToken is String &&
           existingAppCheckDebugToken.isNotEmpty) {
@@ -182,8 +184,8 @@ Future<void> main() async {
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-      final bool fatal = CrashlyticsErrorClassifier
-          .shouldRecordPlatformErrorAsFatal(error);
+      final bool fatal =
+          CrashlyticsErrorClassifier.shouldRecordPlatformErrorAsFatal(error);
       FirebaseCrashlytics.instance.recordError(
         error,
         stack,
@@ -277,10 +279,7 @@ Future<void> main() async {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({
-    super.key,
-    this.cloudFunctionsBaseURLOverride,
-  });
+  const MyApp({super.key, this.cloudFunctionsBaseURLOverride});
 
   final String? cloudFunctionsBaseURLOverride;
 
@@ -302,10 +301,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       platform: defaultTargetPlatform,
       reconnectRealtimeDatabase: _reconnectRealtimeDatabaseAfterResume,
       refreshFixtureData: _refreshFixtureDataAfterResume,
-      reconnectRetryDelays: const [
-        Duration(seconds: 1),
-        Duration(seconds: 2),
-      ],
+      reconnectRetryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
       onReconnectError: (error, stackTrace) {
         log(
           'Android resume RTDB reconnect failed; continuing with fixture refresh: $error',
@@ -371,9 +367,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
       AppResumeDiagnostics.record(
         'reconnect_completed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-        },
+        details: <String, Object?>{'elapsedMs': stopwatch.elapsedMilliseconds},
       );
     } catch (error) {
       AppResumeDiagnostics.record(
@@ -408,9 +402,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
       AppResumeDiagnostics.record(
         'fixture_refresh_completed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-        },
+        details: <String, Object?>{'elapsedMs': stopwatch.elapsedMilliseconds},
       );
     } catch (error) {
       AppResumeDiagnostics.record(
@@ -504,12 +496,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         () => DAUCompsViewModel(
           activeCompKey,
           false,
-          cloudFunctionsBaseURLOverride:
-              widget.cloudFunctionsBaseURLOverride,
-          cloudFunctionsBaseURLProvider:
-              () => configViewModel.cloudFunctionsBaseURL,
-          adminScoringRescoreURLProvider:
-              () => configViewModel.adminScoringRescoreURL,
+          cloudFunctionsBaseURLOverride: widget.cloudFunctionsBaseURLOverride,
+          cloudFunctionsBaseURLProvider: () =>
+              configViewModel.cloudFunctionsBaseURL,
+          adminScoringRescoreURLProvider: () =>
+              configViewModel.adminScoringRescoreURL,
           adminScoringRescoreURLLoader:
               configViewModel.loadAdminScoringRescoreURL,
         ),
@@ -529,67 +520,48 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: LayoutBuilder(
-        builder: (context, constraints) {
-          // Set the maximum width of the app
-          const maxWidth = 500.0; // Adjust this value as needed
-          // Calculate the width to be used, ensuring it does not exceed maxWidth
-          final width = constraints.maxWidth > maxWidth
-              ? maxWidth
-              : constraints.maxWidth;
+      // The shell no longer caps the app. Each screen owns its width, so the
+      // tips list can use a tablet's display while forms stay readable.
+      home: Consumer<ConfigViewModel>(
+        builder: (context, configViewModel, child) {
+          return FutureBuilder<void>(
+            future: configViewModel.initialLoadComplete,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return _StartupLoadingScreen(spinnerColor: League.afl.colour);
+              }
 
-          return Center(
-            child: SizedBox(
-              width: width,
-              child: Consumer<ConfigViewModel>(
-                builder: (context, configViewModel, child) {
-                  return FutureBuilder<void>(
-                    future: configViewModel.initialLoadComplete,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return _StartupLoadingScreen(
-                          spinnerColor: League.afl.colour,
-                        );
-                      }
+              if (snapshot.hasError) {
+                return LoginIssueScreen(
+                  message: 'Unexpected startup error. ${snapshot.error}',
+                  displaySignOutButton: false,
+                  onRetry: () {
+                    configViewModel.retryInitialLoad();
+                  },
+                );
+              }
 
-                      if (snapshot.hasError) {
-                        return LoginIssueScreen(
-                          message:
-                              'Unexpected startup error. ${snapshot.error}',
-                          displaySignOutButton: false,
-                          onRetry: () {
-                            configViewModel.retryInitialLoad();
-                          },
-                        );
-                      }
+              // if required config is missing, display error
+              if (!configViewModel.hasRequiredBootstrapConfig) {
+                // display LoginErrorScreen
+                return LoginIssueScreen(
+                  message: 'Unexpected startup error. Contact support: https://interview.coach/tipping',
+                  displaySignOutButton: false,
+                  onRetry: () {
+                    configViewModel.retryInitialLoad();
+                  },
+                );
+              } else {
+                _registerCoreViewModelsIfNeeded(configViewModel);
 
-                      // if required config is missing, display error
-                      if (!configViewModel.hasRequiredBootstrapConfig) {
-                        // display LoginErrorScreen
-                        return LoginIssueScreen(
-                          message:
-                              'Unexpected startup error. Contact support: https://interview.coach/tipping',
-                          displaySignOutButton: false,
-                          onRetry: () {
-                            configViewModel.retryInitialLoad();
-                          },
-                        );
-                      } else {
-                        _registerCoreViewModelsIfNeeded(configViewModel);
-
-                        return UserAuthPage(
-                          configViewModel.minAppVersion,
-                          isUserLoggingOut: false,
-                          createLinkedTipper:
-                              configViewModel.createLinkedTipper!,
-                          googleClientId: configViewModel.googleClientId ?? '',
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
+                return UserAuthPage(
+                  configViewModel.minAppVersion,
+                  isUserLoggingOut: false,
+                  createLinkedTipper: configViewModel.createLinkedTipper!,
+                  googleClientId: configViewModel.googleClientId ?? '',
+                );
+              }
+            },
           );
         },
       ),
@@ -608,9 +580,7 @@ class _StartupLoadingScreen extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset('assets/grass_background_blurred.webp', fit: BoxFit.cover),
-        Center(
-          child: CircularProgressIndicator(color: spinnerColor),
-        ),
+        Center(child: CircularProgressIndicator(color: spinnerColor)),
       ],
     );
   }

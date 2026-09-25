@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:flutter/foundation.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -113,7 +114,11 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
         _socialAuthError = 'Google sign-in failed.';
       });
     } catch (e, stackTrace) {
-      log('Google sign-in failed unexpectedly', error: e, stackTrace: stackTrace);
+      log(
+        'Google sign-in failed unexpectedly',
+        error: e,
+        stackTrace: stackTrace,
+      );
       setState(() {
         _socialAuthError = 'Google sign-in failed.';
       });
@@ -442,8 +447,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (mounted) {
         setState(() {
-          _emailAuthInfo =
-              'If an account exists for this email, a password reset link has been sent to your inbox.';
+          _emailAuthInfo = 'If an account exists for this email, a password reset link has been sent to your inbox.';
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -518,137 +522,107 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
         ? 'Reset'
         : 'Sign In';
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Center(child: AppIcon()),
-              const SizedBox(height: 20),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: bodyTextColor),
-              ),
-              const SizedBox(height: 16),
-              if (defaultTargetPlatform == TargetPlatform.iOS) ...[
-                if (_supportsAppleSignIn) ...[
-                  _buildAppleAuthButton(),
-                  const SizedBox(height: 8),
-                ],
-                _buildGoogleAuthButton(),
-              ] else ...[
-                _buildGoogleAuthButton(),
-                if (_supportsAppleSignIn) ...[
-                  const SizedBox(height: 8),
-                  _buildAppleAuthButton(),
-                ],
-              ],
-              if (_socialAuthError != null)
-                Card(
-                  color: Colors.red.shade100,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Text(
-                      _socialAuthError!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.red.shade900),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: _isAuthInProgress
-                    ? null
-                    : () {
-                        setState(() {
-                          _isEmailAuthExpanded = !_isEmailAuthExpanded;
-                          _emailAuthError = null;
-                          _emailAuthInfo = null;
-                          _isPasswordResetMode = false;
-                        });
-                      },
-                child: Text(
-                  emailAuthToggleText,
+    return FormContentWidth(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Center(child: AppIcon()),
+                const SizedBox(height: 20),
+                Text(
+                  subtitle,
                   textAlign: TextAlign.center,
-                  style: linkTextStyle,
+                  style: TextStyle(color: bodyTextColor),
                 ),
-              ),
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 200),
-                crossFadeState: _isEmailAuthExpanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                firstChild: const SizedBox.shrink(),
-                secondChild: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      emailAuthDescription,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: bodyTextColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      textCapitalization: TextCapitalization.none,
-                      autofillHints: const <String>[
-                        AutofillHints.email,
-                        AutofillHints.username,
-                      ],
-                      textInputAction: isPasswordResetMode
-                          ? TextInputAction.done
-                          : TextInputAction.next,
-                      onSubmitted: (_) {
-                        if (isPasswordResetMode) {
-                          if (!_isAuthInProgress) {
-                            _sendPasswordReset();
-                          }
-                        } else {
-                          FocusScope.of(context).nextFocus();
-                        }
-                      },
-                      style: inputTextStyle,
-                      cursorColor: colorScheme.primary,
-                      decoration: InputDecoration(
-                        hintText: 'Email',
-                        hintStyle: TextStyle(color: inputLabelColor),
-                        filled: true,
-                        fillColor: inputFillColor,
-                        border: const OutlineInputBorder(),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: inputBorderColor),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: colorScheme.primary,
-                            width: 2,
-                          ),
-                        ),
+                const SizedBox(height: 16),
+                if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                  if (_supportsAppleSignIn) ...[
+                    _buildAppleAuthButton(),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildGoogleAuthButton(),
+                ] else ...[
+                  _buildGoogleAuthButton(),
+                  if (_supportsAppleSignIn) ...[
+                    const SizedBox(height: 8),
+                    _buildAppleAuthButton(),
+                  ],
+                ],
+                if (_socialAuthError != null)
+                  Card(
+                    color: Colors.red.shade100,
+                    child: Padding(
+                      padding: const EdgeInsets.all(10.0),
+                      child: Text(
+                        _socialAuthError!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.red.shade900),
                       ),
                     ),
-                    if (!isPasswordResetMode) ...[
-                      const SizedBox(height: 10),
+                  ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _isAuthInProgress
+                      ? null
+                      : () {
+                          setState(() {
+                            _isEmailAuthExpanded = !_isEmailAuthExpanded;
+                            _emailAuthError = null;
+                            _emailAuthInfo = null;
+                            _isPasswordResetMode = false;
+                          });
+                        },
+                  child: Text(
+                    emailAuthToggleText,
+                    textAlign: TextAlign.center,
+                    style: linkTextStyle,
+                  ),
+                ),
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 200),
+                  crossFadeState: _isEmailAuthExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        emailAuthDescription,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: bodyTextColor),
+                      ),
+                      const SizedBox(height: 12),
                       TextField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        autofillHints: const <String>[AutofillHints.password],
-                        textInputAction: TextInputAction.done,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textCapitalization: TextCapitalization.none,
+                        autofillHints: const <String>[
+                          AutofillHints.email,
+                          AutofillHints.username,
+                        ],
+                        textInputAction: isPasswordResetMode
+                            ? TextInputAction.done
+                            : TextInputAction.next,
                         onSubmitted: (_) {
-                          if (!_isAuthInProgress) {
-                            _signInOrRegisterWithEmail();
+                          if (isPasswordResetMode) {
+                            if (!_isAuthInProgress) {
+                              _sendPasswordReset();
+                            }
+                          } else {
+                            FocusScope.of(context).nextFocus();
                           }
                         },
                         style: inputTextStyle,
                         cursorColor: colorScheme.primary,
                         decoration: InputDecoration(
-                          hintText: 'Password',
+                          hintText: 'Email',
                           hintStyle: TextStyle(color: inputLabelColor),
                           filled: true,
                           fillColor: inputFillColor,
@@ -664,203 +638,237 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                           ),
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          minimumSize: const Size(0, 38),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: _isAuthInProgress
-                            ? null
-                            : isPasswordResetMode
-                            ? _sendPasswordReset
-                            : _signInOrRegisterWithEmail,
-                        child: Text(emailPrimaryActionText),
-                      ),
-                    ),
-                    if (_emailAuthError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Card(
-                          color: Colors.red.shade100,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10.0),
-                            child: Text(
-                              _emailAuthError!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.red.shade900),
+                      if (!isPasswordResetMode) ...[
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          autofillHints: const <String>[AutofillHints.password],
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) {
+                            if (!_isAuthInProgress) {
+                              _signInOrRegisterWithEmail();
+                            }
+                          },
+                          style: inputTextStyle,
+                          cursorColor: colorScheme.primary,
+                          decoration: InputDecoration(
+                            hintText: 'Password',
+                            hintStyle: TextStyle(color: inputLabelColor),
+                            filled: true,
+                            fillColor: inputFillColor,
+                            border: const OutlineInputBorder(),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: colorScheme.primary,
+                                width: 2,
+                              ),
                             ),
                           ),
                         ),
+                      ],
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primary,
+                            foregroundColor: Theme.of(context)
+                                .colorScheme
+                                .onPrimary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            minimumSize: const Size(0, 38),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: _isAuthInProgress
+                              ? null
+                              : isPasswordResetMode
+                              ? _sendPasswordReset
+                              : _signInOrRegisterWithEmail,
+                          child: Text(emailPrimaryActionText),
+                        ),
                       ),
-                    if (_emailAuthInfo != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Card(
-                          color: const Color(0xFFE8F0FE),
-                          child: Padding(
-                            padding: const EdgeInsets.all(10.0),
-                            child: Text(
-                              _emailAuthInfo!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Color(0xFF1A73E8)),
+                      if (_emailAuthError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Card(
+                            color: Colors.red.shade100,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                _emailAuthError!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.red.shade900),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    if (!_isRegisterMode && !isPasswordResetMode)
+                      if (_emailAuthInfo != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Card(
+                            color: const Color(0xFFE8F0FE),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                _emailAuthInfo!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Color(0xFF1A73E8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (!_isRegisterMode && !isPasswordResetMode)
+                        TextButton(
+                          onPressed: _isAuthInProgress
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _isPasswordResetMode = true;
+                                    _emailAuthError = null;
+                                    _emailAuthInfo = null;
+                                  });
+                                },
+                          child: Text('Forgot password?', style: linkTextStyle),
+                        ),
+                      if (!_isRegisterMode && isPasswordResetMode)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: GestureDetector(
+                              onTap: _isAuthInProgress
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _isPasswordResetMode = false;
+                                        _emailAuthError = null;
+                                        _emailAuthInfo = null;
+                                      });
+                                    },
+                              child: Text(
+                                'Back to sign in',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: bodyTextColor,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       TextButton(
                         onPressed: _isAuthInProgress
                             ? null
                             : () {
                                 setState(() {
-                                  _isPasswordResetMode = true;
+                                  _isRegisterMode = !_isRegisterMode;
                                   _emailAuthError = null;
                                   _emailAuthInfo = null;
+                                  _isPasswordResetMode = false;
                                 });
                               },
-                        child: Text('Forgot password?', style: linkTextStyle),
-                      ),
-                    if (!_isRegisterMode && isPasswordResetMode)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: GestureDetector(
-                            onTap: _isAuthInProgress
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _isPasswordResetMode = false;
-                                      _emailAuthError = null;
-                                      _emailAuthInfo = null;
-                                    });
-                                  },
-                            child: Text(
-                              'Back to sign in',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: bodyTextColor,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
+                        child: Text(
+                          _isRegisterMode
+                              ? 'Already have an account? Sign in'
+                              : 'Need an email account? Register',
+                          style: linkTextStyle,
                         ),
                       ),
-                    TextButton(
+                    ],
+                  ),
+                ),
+                if (kIsWeb)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: TextButton(
                       onPressed: _isAuthInProgress
                           ? null
-                          : () {
-                              setState(() {
-                                _isRegisterMode = !_isRegisterMode;
-                                _emailAuthError = null;
-                                _emailAuthInfo = null;
-                                _isPasswordResetMode = false;
-                              });
+                          : () async {
+                              try {
+                                await FirebaseAuth.instance.signInAnonymously();
+                                log('Signed in anonymously via text link');
+                              } catch (e) {
+                                log(
+                                  'Error signing in anonymously via text link: $e',
+                                );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Anonymous sign-in failed: ${e.toString()}',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                       child: Text(
-                        _isRegisterMode
-                            ? 'Already have an account? Sign in'
-                            : 'Need an email account? Register',
-                        style: linkTextStyle,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (kIsWeb)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: TextButton(
-                    onPressed: _isAuthInProgress
-                        ? null
-                        : () async {
-                            try {
-                              await FirebaseAuth.instance.signInAnonymously();
-                              log('Signed in anonymously via text link');
-                            } catch (e) {
-                              log(
-                                'Error signing in anonymously via text link: $e',
-                              );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Anonymous sign-in failed: ${e.toString()}',
-                                    ),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                    child: Text(
-                      'Tap here to view Stats',
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        color: bodyTextColor,
+                        'Tap here to view Stats',
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          color: bodyTextColor,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isHelpExpanded = !_isHelpExpanded;
-                  });
-                },
-                child: Text('Need help? Tap here.', style: linkTextStyle),
-              ),
-              if (_isHelpExpanded)
-                FutureBuilder<PackageInfo>(
-                  future: PackageInfo.fromPlatform(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Loading...',
-                          style: TextStyle(color: footerTextColor),
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-                    } else if (snapshot.hasError) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: Unknown',
-                          style: TextStyle(color: footerTextColor),
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-                    } else {
-                      final PackageInfo packageInfo = snapshot.data!;
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                          style: TextStyle(color: footerTextColor),
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-                    }
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isHelpExpanded = !_isHelpExpanded;
+                    });
                   },
+                  child: Text('Need help? Tap here.', style: linkTextStyle),
                 ),
-            ],
+                if (_isHelpExpanded)
+                  FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Loading...',
+                            style: TextStyle(color: footerTextColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      } else if (snapshot.hasError) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: Unknown',
+                            style: TextStyle(color: footerTextColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      } else {
+                        final PackageInfo packageInfo = snapshot.data!;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                            style: TextStyle(color: footerTextColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+              ],
+            ),
           ),
         ),
       ),
