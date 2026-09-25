@@ -34,7 +34,7 @@ void main() {
         greaterThan(measure(card.choiceLabels).wideMinWidth));
   });
 
-  testWidgets('stacked panels use more width while standard and wide stay unchanged', (tester) async {
+  testWidgets('all layouts use ninety percent carousel width', (tester) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -48,15 +48,15 @@ void main() {
     await tester.pumpAndSettle();
     final chips = find.byType(ChoiceChip);
     final needed = tester.getSize(chips.at(0)).width + tester.getSize(chips.at(1)).width + 32;
-    expect(needed, greaterThan((390 - 8) * TipsCardLayout.viewportFraction));
+    expect(needed, lessThan((390 - 8) * TipsCardLayout.viewportFraction));
     final compact = _layout(390, 2.5, samples);
     expect(compact.carouselViewportFraction, 0.9);
     expect(compact.choices, TipsChoiceArrangement.paired);
     expect(compact.cardExtent, lessThan(540));
     expect(needed, lessThanOrEqualTo((390 - 8) * compact.carouselViewportFraction));
-    expect(_layout(390, 1, samples).carouselViewportFraction, 0.8);
+    expect(_layout(390, 1, samples).carouselViewportFraction, 0.9);
     expect(_layout(390, 3.2, samples).carouselViewportFraction, 0.9);
-    expect(_layout(1600, 1, samples).carouselViewportFraction, 0.8);
+    expect(_layout(1600, 1, samples).carouselViewportFraction, 0.9);
     expect(_layout(390, 2.5, samples, percentStats: true).carouselViewportFraction, 0.9);
     expect(tester.takeException(), isNull);
   });

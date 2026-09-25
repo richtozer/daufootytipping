@@ -43,7 +43,7 @@ class TipsCardLayout {
   final double standardMinWidth;
   final double wideMinWidth;
 
-  static const double viewportFraction = 0.8;
+  static const double viewportFraction = 0.9;
   static const double standardTeamWidth = 135;
   static const double standardExtent = 128;
 
@@ -125,9 +125,8 @@ class TipsCardLayout {
     // the rendered footprint for stacked mode (covered by layout tests).
     final requiredPairedWidth = mode == TipsCardMode.stacked && !percentStats
         ? pairedWidth - 16 : pairedWidth;
-    // Zoom hides neighbouring panels at rest. In stacked mode prioritise
-    // content width over that empty strip; standard/wide retain their layout.
-    final fraction = mode == TipsCardMode.stacked ? 0.9 : viewportFraction;
+    // All layouts prioritise content width over the empty neighbouring strip.
+    const fraction = viewportFraction;
     final panelWidth = math.max(1.0, carouselWidth * fraction - 24);
     final arrangement = mode == TipsCardMode.wide ? TipsChoiceArrangement.inline
         : carouselWidth * fraction >= requiredPairedWidth

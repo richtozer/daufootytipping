@@ -167,3 +167,12 @@ behaviour, explicitly accepted for this prototype decision.
 
 The previous experiment is saved in checkpoint `9259f5f`. Updated stacked
 goldens cover the selected design; the standard/wide references are unchanged.
+
+### Follow-up: apply 90% to every layout
+
+Richard subsequently requested the same ratio for standard and wide mode.
+All prototype carousel panels now use 0.90. Width thresholds and panel text
+measurements use that same ratio, so standard and wide arrangements can become
+available at narrower widths. This supersedes the standard/wide exception above.
+Updated list goldens capture the intentional change; the original production
+card golden remains unchanged because live integration is still pending.
