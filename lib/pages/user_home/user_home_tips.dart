@@ -693,7 +693,8 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
     _cardLayoutKey = key;
-    _cardLayout = TipsCardLayout.measure(
+    final previousExtent = _cardLayout?.cardExtent;
+    final nextLayout = TipsCardLayout.measure(
       width: width,
       textScaler: textScaler,
       textTheme: textTheme,
@@ -703,6 +704,27 @@ class TipsTabState extends State<TipsTab> {
           card.content(textTheme),
       ],
     );
+    _cardLayout = nextLayout;
+
+    if (previousExtent == nextLayout.cardExtent) {
+      return;
+    }
+    // The cached sections describe the previous row height, and the sticky
+    // header is positioned from them. Rebuild in this same frame, before the
+    // slivers below read them, so the header never sits against stale offsets
+    // waiting for the next view model notification to correct it.
+    _cachedSections = buildTipsLeagueSections(
+      selectedComp: selectedComp,
+      cardExtent: nextLayout.cardExtent,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _syncStickyHeaderVisibility();
+      _syncActiveSectionIndex();
+      _syncStickyHeaderPushUp();
+    });
   }
 
   String _buildItemExtentCacheKey(DAUComp selectedComp) {

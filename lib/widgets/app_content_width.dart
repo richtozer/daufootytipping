@@ -54,18 +54,25 @@ class AppContentWidth extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Horizontal display insets -- a folding phone's hinge side, a landscape
+    // notch -- belong to the content, not to the background: the backdrop
+    // bleeds under them while nothing interactive does.
+    final insets = MediaQuery.paddingOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final available = constraints.maxWidth;
+        final available = constraints.maxWidth - insets.left - insets.right;
         final maxWidth = maxContentWidth(
           context: context,
           daurounds: daurounds,
           availableWidth: available,
         );
-        return Center(
-          child: SizedBox(
-            width: available > maxWidth ? maxWidth : available,
-            child: child,
+        return Padding(
+          padding: EdgeInsets.only(left: insets.left, right: insets.right),
+          child: Center(
+            child: SizedBox(
+              width: available > maxWidth ? maxWidth : available,
+              child: child,
+            ),
           ),
         );
       },
@@ -105,7 +112,22 @@ class AppPageWidth extends StatelessWidget {
         ? di<DAUCompsViewModel>().selectedDAUComp?.daurounds ??
               const <DAURound>[]
         : const <DAURound>[];
-    return AppContentWidth(daurounds: daurounds, child: child);
+    // The page is narrower than the display, so something has to fill the
+    // sides. Bleed the same background the tabs use rather than leaving the
+    // route's own backdrop showing as bars.
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: RepaintBoundary(
+            child: Image(
+              image: AssetImage('assets/grass_background_blurred.webp'),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        AppContentWidth(daurounds: daurounds, child: child),
+      ],
+    );
   }
 }
 
