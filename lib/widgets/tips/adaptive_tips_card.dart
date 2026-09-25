@@ -134,7 +134,7 @@ class AdaptiveTipsCard extends StatelessWidget {
       carouselController: controller,
       options: CarouselOptions(
         height: layout.carouselHeight,
-        viewportFraction: TipsCardLayout.viewportFraction,
+        viewportFraction: layout.carouselViewportFraction,
         initialPage: page,
         enlargeFactor: 1, enlargeCenterPage: true,
         enlargeStrategy: CenterPageEnlargeStrategy.zoom,

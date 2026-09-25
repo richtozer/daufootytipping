@@ -136,3 +136,19 @@ The full-suite run above predates these refinements.
   as a fallback glyph; native font rendering remains a device-review item.
 
 No pushes, merges or releases have been made. No bulk formatter was run.
+
+## Stacked peek experiment — 25 September
+
+Stacked mode now permits a viewport fraction of 0.82 instead of 0.80 only when
+the additional width allows paired buttons. Other cases keep 0.80, including
+all standard and wide layouts. Button spacing and uniform panel heights are
+unchanged. Plain stacked button measurements remove the legacy 16 px excess
+allowance, checked against the app's rendered chip widths. Percentage-chip
+allowances remain unchanged.
+
+At 390 px and 2.5×, this provides 313.24 px for the approximately 309.3 px
+paired row. Each side's reserved peek shrinks from 38.2 to 34.38 px. The earlier
+conclusion that this setting must use vertical buttons is superseded by this
+experiment. Tests cover adjacent widths/text sizes and three additional list
+goldens at this exact setting. Whether the smaller peek remains a sufficiently
+clear swipe cue still needs human interaction review.

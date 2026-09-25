@@ -5,8 +5,8 @@ import '../../support/load_tips_fonts.dart';
 
 void main() {
   setUpAll(() => loadTipsFonts(includeFallbacks: true));
-  for (final width in [360, 768, 1280]) {
-    for (final scale in [1.0, 1.5]) {
+  for (final width in [360, 768, 1280, 390]) {
+    for (final scale in width == 390 ? [2.5] : [1.0, 1.5]) {
       testWidgets('multi-round list $width at $scale', (tester) async {
         tester.view.physicalSize = const Size(1600, 1100);
         tester.view.devicePixelRatio = 1;

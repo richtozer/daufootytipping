@@ -22,6 +22,7 @@ class TipsCardContent {
 /// TextPainter uses the actual scaler rather than assuming linear font scaling.
 class TipsCardLayout {
   const TipsCardLayout({
+    this.carouselViewportFraction = viewportFraction,
     required this.mode,
     required this.choices,
     required this.cardExtent,
@@ -33,6 +34,7 @@ class TipsCardLayout {
   });
 
   final TipsCardMode mode;
+  final double carouselViewportFraction;
   final TipsChoiceArrangement choices;
   final double cardExtent;
   final double carouselHeight;
@@ -118,9 +120,19 @@ class TipsCardLayout {
     final matchupWidth = mode == TipsCardMode.wide ? inlineTeamWidth : scaledTeamWidth;
     final carouselWidth = mode == TipsCardMode.stacked
         ? width - 8 : width - 8 - matchupWidth;
-    final panelWidth = math.max(1.0, carouselWidth * viewportFraction - 24);
+    // The legacy allowance exceeds the rendered plain paired row by 16 px
+    // with the app's chip theme. Keep the legacy standard breakpoint, but use
+    // the rendered footprint for stacked mode (covered by layout tests).
+    final requiredPairedWidth = mode == TipsCardMode.stacked && !percentStats
+        ? pairedWidth - 16 : pairedWidth;
+    // Borrow at most one percent of the carousel width from each side's peek,
+    // and only when that saves two button rows. Standard/wide stay unchanged.
+    final fraction = mode == TipsCardMode.stacked &&
+        carouselWidth * viewportFraction < requiredPairedWidth &&
+        carouselWidth * 0.82 >= requiredPairedWidth ? 0.82 : viewportFraction;
+    final panelWidth = math.max(1.0, carouselWidth * fraction - 24);
     final arrangement = mode == TipsCardMode.wide ? TipsChoiceArrangement.inline
-        : carouselWidth * viewportFraction >= pairedWidth
+        : carouselWidth * fraction >= requiredPairedWidth
             ? TipsChoiceArrangement.paired : TipsChoiceArrangement.vertical;
     final percentageContentWidth = math.min(percentLabelWidth,
         math.max(1.0, panelWidth - 72 - trophyGrowth));
@@ -138,7 +150,7 @@ class TipsCardLayout {
               measureText(text, label, panelWidth - 24).height)) + 16) + 24,
     };
     // Inner card margins are 8 px; results add 2 px padding on each side.
-    final resultWidth = carouselWidth * viewportFraction - 12;
+    final resultWidth = carouselWidth * fraction - 12;
     double resultHeight(TipsCardContent card) {
       if (card.results.isEmpty) return 0;
       if (mode != TipsCardMode.wide) {
@@ -181,6 +193,7 @@ class TipsCardLayout {
         ? math.max(standardExtent - 8, math.max(panelHeight, matchupHeight))
         : math.max(panelHeight, mode == TipsCardMode.wide ? matchupHeight : 0.0);
     return TipsCardLayout(
+      carouselViewportFraction: fraction,
       mode: mode, choices: arrangement,
       cardExtent: carouselHeight + 8 +
           (mode == TipsCardMode.stacked ? matchupHeight : 0),

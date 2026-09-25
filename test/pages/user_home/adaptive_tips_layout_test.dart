@@ -34,7 +34,7 @@ void main() {
         greaterThan(measure(card.choiceLabels).wideMinWidth));
   });
 
-  testWidgets('paired buttons at 2.5x need more than the 390px carousel provides', (tester) async {
+  testWidgets('a smaller peek fits paired buttons at 390px and 2.5x', (tester) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -49,6 +49,13 @@ void main() {
     final chips = find.byType(ChoiceChip);
     final needed = tester.getSize(chips.at(0)).width + tester.getSize(chips.at(1)).width + 32;
     expect(needed, greaterThan((390 - 8) * TipsCardLayout.viewportFraction));
+    final compact = _layout(390, 2.5, samples);
+    expect(compact.carouselViewportFraction, 0.82);
+    expect(compact.choices, TipsChoiceArrangement.paired);
+    expect(compact.cardExtent, lessThan(540));
+    expect(needed, lessThanOrEqualTo((390 - 8) * compact.carouselViewportFraction));
+    expect(_layout(390, 1, samples).carouselViewportFraction, 0.8);
+    expect(_layout(390, 3.2, samples).carouselViewportFraction, 0.8);
     expect(tester.takeException(), isNull);
   });
 
@@ -91,7 +98,8 @@ void main() {
   for (final (width, scale) in [
     (240.0, 1.0), (320.0, 1.0), (360.0, 1.0), (390.0, 1.0),
     (768.0, 1.0), (844.0, 1.0), (1280.0, 1.0),
-    (240.0, 2.0), (240.0, 3.2), (390.0, 1.5), (390.0, 2.5), (390.0, 3.2), (1280.0, 2.0),
+    (240.0, 2.0), (240.0, 3.2), (390.0, 1.5), (390.0, 2.4), (390.0, 2.5),
+    (390.0, 2.6), (380.0, 2.5), (400.0, 2.5), (390.0, 3.2), (1280.0, 2.0),
   ]) {
     testWidgets('all panel states fit at width $width, text $scale', (tester) async {
       var errorDetails = '';
