@@ -1,6 +1,6 @@
 # Adaptive Tips Tab — implementation review
 
-22 September 2026. Review of [the exported brief](DESIGN-adaptive-tips-tab.md)
+22 September 2026. Review of [the brief](https://claude.ai/code/artifact/c478cca0-8c97-4fd2-908e-44cc747bd787)
 against the current code and Richard's discussion with the implementing agent.
 
 The exported brief remains unchanged: its shared document is the living copy.

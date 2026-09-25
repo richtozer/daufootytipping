@@ -3,7 +3,7 @@
 23 September 2026. Branch: `codex/adaptive-tips-prototype`, based on `793751a`.
 
 This is the working prototype checkpoint before integration into the live Tips
-and Stats lists. The [exported brief](DESIGN-adaptive-tips-tab.md) is unchanged;
+and Stats lists. The [brief](https://claude.ai/code/artifact/c478cca0-8c97-4fd2-908e-44cc747bd787) is unchanged;
 [the review notes](REVIEW-adaptive-tips-tab.md) remain proposed amendments for its
 living copy. The user authorized starting this prototype after that review.
 
