@@ -5,6 +5,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundmissingtips
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/svg.dart';
@@ -56,9 +57,7 @@ class StatsTab extends StatelessWidget {
                     // Navigate to the comp leaderboard
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const StatCompLeaderboard(),
-                      ),
+                      appPageRoute((context) => const StatCompLeaderboard()),
                     );
                   },
                   child: const Row(
@@ -88,9 +87,7 @@ class StatsTab extends StatelessWidget {
                     // Navigate to missing tips
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const StatRoundWinners(),
-                      ),
+                      appPageRoute((context) => const StatRoundWinners()),
                     );
                   },
                   child: const Row(
@@ -118,9 +115,7 @@ class StatsTab extends StatelessWidget {
                     // Navigate to the percent tipped
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => StatPercentTipped(),
-                      ),
+                      appPageRoute((context) => StatPercentTipped()),
                     );
                   },
                   child: Row(
@@ -150,8 +145,8 @@ class StatsTab extends StatelessWidget {
                     // Navigate to the round winners
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => RoundMissingTipsStats(
+                      appPageRoute(
+                        (context) => RoundMissingTipsStats(
                           selectedComp.firstNotEndedRoundNumber(),
                         ),
                       ),
@@ -183,8 +178,8 @@ class StatsTab extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const LeagueLadderPage(
+                      appPageRoute(
+                        (context) => const LeagueLadderPage(
                           league: League.nrl, // Pass League.nrl
                         ),
                       ),
@@ -219,8 +214,8 @@ class StatsTab extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const LeagueLadderPage(
+                      appPageRoute(
+                        (context) => const LeagueLadderPage(
                           league: League.afl, // Pass League.afl
                         ),
                       ),

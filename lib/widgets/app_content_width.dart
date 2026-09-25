@@ -2,6 +2,8 @@ import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/material.dart';
+import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:watch_it/watch_it.dart';
 
 /// The width a form or message stays readable at. Sign-in, error and loading
 /// screens keep this regardless of how much room the display offers.
@@ -86,4 +88,31 @@ class FormContentWidth extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The content width for a page pushed on top of the home tabs, so a detail
+/// page is laid out as wide as the tab it came from rather than stretching to
+/// fill the display. Reads the selected competition itself, because a pushed
+/// page is only reachable once one is loaded.
+class AppPageWidth extends StatelessWidget {
+  const AppPageWidth({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final daurounds = di.isRegistered<DAUCompsViewModel>()
+        ? di<DAUCompsViewModel>().selectedDAUComp?.daurounds ??
+              const <DAURound>[]
+        : const <DAURound>[];
+    return AppContentWidth(daurounds: daurounds, child: child);
+  }
+}
+
+/// A route whose page keeps the app's content width. Use in place of
+/// [MaterialPageRoute] so detail pages match the tabs they were opened from.
+MaterialPageRoute<T> appPageRoute<T>(WidgetBuilder builder) {
+  return MaterialPageRoute<T>(
+    builder: (context) => AppPageWidth(child: builder(context)),
+  );
 }

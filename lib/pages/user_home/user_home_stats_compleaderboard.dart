@@ -8,6 +8,7 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundpointsfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -152,15 +153,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     final fabBackgroundColor = isDarkMode
         ? const Color(0xFF4E7A36)
         : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
+    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
       floatingActionButton: FloatingActionButton.small(
         backgroundColor: fabBackgroundColor,
         foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         onPressed: () {
           Navigator.pop(context);
         },
@@ -170,138 +168,136 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-          children: [
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Hero(
-                          tag: 'trophy',
-                          child: Icon(Icons.emoji_events, size: 50),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Comp Leaderboard',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
+            children: [
+              if (orientation == Orientation.portrait)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Hero(
+                            tag: 'trophy',
+                            child: Icon(Icons.emoji_events, size: 50),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Comp Leaderboard',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round points. Tap column headings to sort.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey[600]),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+              LiveScoresWarningCard(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: DataTable2(
+                    border: TableBorder.all(
+                      width: 1.0,
+                      color: Colors.grey.shade300,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round points. Tap column headings to sort.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: Colors.grey[600]),
+                    sortColumnIndex: sortColumnIndex,
+                    sortAscending: isAscending,
+                    columnSpacing: 0,
+                    horizontalMargin: 0,
+                    minWidth: 600,
+                    fixedTopRows: 1,
+                    fixedLeftColumns: orientation == Orientation.portrait
+                        ? 1
+                        : 0,
+                    showCheckboxColumn: false,
+                    isHorizontalScrollBarVisible: true,
+                    isVerticalScrollBarVisible: true,
+                    columns: getColumns(columns),
+                    rows: List<DataRow>.generate(
+                      sortedLeaderboard.length,
+                      (index) => DataRow(
+                        color: sortedLeaderboard[index].tipper.dbkey == dbkey
+                            ? WidgetStateProperty.resolveWith((states) => color)
+                            : WidgetStateProperty.resolveWith(
+                                (states) => Colors.transparent,
+                              ),
+                        cells: [
+                          DataCell(
+                            Row(
+                              children: [
+                                const Icon(Icons.arrow_forward, size: 15),
+                                avatarPic(sortedLeaderboard[index].tipper),
+                                Expanded(
+                                  child: Text(
+                                    softWrap: false,
+                                    sortedLeaderboard[index].tipper.name,
+                                    overflow: TextOverflow.fade,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(sortedLeaderboard[index].rank.toString()),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            _buildRankChangeCell(sortedLeaderboard[index]),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(sortedLeaderboard[index].total.toString()),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(sortedLeaderboard[index].nRL.toString()),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(sortedLeaderboard[index].aFL.toString()),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(
+                              sortedLeaderboard[index].numRoundsWon.toString(),
+                            ),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(
+                              (sortedLeaderboard[index].aflMargins +
+                                      sortedLeaderboard[index].nrlMargins)
+                                  .toString(),
+                            ),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                          DataCell(
+                            Text(
+                              (sortedLeaderboard[index].aflUPS +
+                                      sortedLeaderboard[index].nrlUPS)
+                                  .toString(),
+                            ),
+                            onTap: () => onTipperTapped(context, index),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            LiveScoresWarningCard(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(5.0),
-                child: DataTable2(
-                  border: TableBorder.all(
-                    width: 1.0,
-                    color: Colors.grey.shade300,
-                  ),
-                  sortColumnIndex: sortColumnIndex,
-                  sortAscending: isAscending,
-                  columnSpacing: 0,
-                  horizontalMargin: 0,
-                  minWidth: 600,
-                  fixedTopRows: 1,
-                  fixedLeftColumns: orientation == Orientation.portrait ? 1 : 0,
-                  showCheckboxColumn: false,
-                  isHorizontalScrollBarVisible: true,
-                  isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns),
-                  rows: List<DataRow>.generate(
-                    sortedLeaderboard.length,
-                    (index) => DataRow(
-                      color: sortedLeaderboard[index].tipper.dbkey == dbkey
-                          ? WidgetStateProperty.resolveWith((states) => color)
-                          : WidgetStateProperty.resolveWith(
-                              (states) => Colors.transparent,
-                            ),
-                      cells: [
-                        DataCell(
-                          Row(
-                            children: [
-                              const Icon(Icons.arrow_forward, size: 15),
-                              avatarPic(sortedLeaderboard[index].tipper),
-                              Expanded(
-                                child: Text(
-                                  softWrap: false,
-                                  sortedLeaderboard[index].tipper.name,
-                                  overflow: TextOverflow.fade,
-                                ),
-                              ),
-                            ],
-                          ),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(sortedLeaderboard[index].rank.toString()),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          _buildRankChangeCell(sortedLeaderboard[index]),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(sortedLeaderboard[index].total.toString()),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(sortedLeaderboard[index].nRL.toString()),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(sortedLeaderboard[index].aFL.toString()),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(
-                            sortedLeaderboard[index].numRoundsWon.toString(),
-                          ),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(
-                            (sortedLeaderboard[index].aflMargins +
-                                    sortedLeaderboard[index].nrlMargins)
-                                .toString(),
-                          ),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                        DataCell(
-                          Text(
-                            (sortedLeaderboard[index].aflUPS +
-                                    sortedLeaderboard[index].nrlUPS)
-                                .toString(),
-                          ),
-                          onTap: () => onTipperTapped(context, index),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
-            ),
             ],
           ),
         ),
@@ -312,9 +308,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   void onTipperTapped(BuildContext context, int index) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) =>
-            StatRoundPointsForTipper(sortedLeaderboard[index].tipper),
+      appPageRoute(
+        (context) => StatRoundPointsForTipper(sortedLeaderboard[index].tipper),
       ),
     );
   }

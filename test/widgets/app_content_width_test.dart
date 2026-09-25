@@ -138,6 +138,35 @@ void main() {
     expect(after, before);
   });
 
+  testWidgets('a pushed detail page keeps the tab width', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () => Navigator.of(
+              context,
+            ).push<void>(appPageRoute<void>((context) => const Text('detail'))),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('detail'), findsOneWidget);
+    // Detail pages are pushed as siblings of the home route, so they are
+    // outside the tabs' own bound and need the route to carry it.
+    expect(
+      find.ancestor(
+        of: find.text('detail'),
+        matching: find.byType(AppContentWidth),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a longer venue does widen it', (tester) async {
     late double short;
     late double long;

@@ -7,6 +7,7 @@ import 'package:daufootytipping/pages/user_home/user_home_resume_diagnostics.dar
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -15,9 +16,7 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(context) {
-    final DAUCompsViewModel dauCompsViewModel = watch(
-      di<DAUCompsViewModel>(),
-    );
+    final DAUCompsViewModel dauCompsViewModel = watch(di<DAUCompsViewModel>());
     String selectedTipper =
         watch(di<TippersViewModel>()).selectedTipper.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
@@ -46,29 +45,25 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
               OutlinedButton(
                 child: const Text('Admin DAU Comps'),
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const DAUCompsListPage(),
-                    ),
-                  );
+                  Navigator.of(
+                    context,
+                  ).push(appPageRoute((context) => const DAUCompsListPage()));
                 },
               ),
               OutlinedButton(
                 child: const Text('Admin Tippers'),
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const TippersAdminPage(),
-                    ),
-                  );
+                  Navigator.of(
+                    context,
+                  ).push(appPageRoute((context) => const TippersAdminPage()));
                 },
               ),
               OutlinedButton(
                 child: const Text('Admin Teams'),
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
+                    appPageRoute(
+                      (context) =>
                           TeamsListPage(teamsViewModel: teamsViewModel!),
                     ),
                   );
@@ -79,8 +74,8 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                   child: const Text('Android Resume Diagnostics'),
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => ResumeDiagnosticsPage(
+                      appPageRoute(
+                        (context) => ResumeDiagnosticsPage(
                           selectedCompDbKey:
                               dauCompsViewModel.selectedDAUComp?.dbkey,
                         ),

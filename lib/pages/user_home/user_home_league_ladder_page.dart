@@ -8,6 +8,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/ladder_empty_state_card.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/foundation.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -103,8 +104,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           teams: filteredTeams,
         );
       } else {
-        _leagueLadder =
-            calculatedLadder; // Use the ladder as is (either full or already null)
+        _leagueLadder = calculatedLadder; // Use the ladder as is (either full or already null)
       }
 
       // Important: Check if mounted again before setState after async gap
@@ -113,8 +113,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           // _leagueLadder is already set above
           if (_leagueLadder == null &&
               ladderAvailability == LeagueLadderAvailability.insufficientData) {
-            _emptyMessage =
-                'Standings will appear once Round 1 is complete.';
+            _emptyMessage = 'Standings will appear once Round 1 is complete.';
           } else {
             _emptyMessage = 'No ladder data available.';
           }
@@ -309,9 +308,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
 
   @override
   Widget build(BuildContext context) {
-    Orientation orientation = MediaQuery.of(
-      context,
-    ).orientation; // Get orientation
+    Orientation orientation = MediaQuery.of(context)
+        .orientation; // Get orientation
     final String? comparisonTeamNames = _comparisonTeamNames();
     final int? seasonYear = _configuredSeasonYear();
 
@@ -425,9 +423,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                               widget.teamDbKeysToDisplay!.isNotEmpty)
                           ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
                           : _ladderColourExplanation(seasonYear),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: Colors.grey[600]),
                     ),
                   ),
 
@@ -543,157 +540,161 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                     _onSort(columnIndex, ascending),
                               ),
                             ],
-                            rows: List<DataRow>.generate(_leagueLadder!.teams.length, (
-                              index,
-                            ) {
-                              final ladderTeam = _leagueLadder!
-                                  .teams[index]; // This is a LadderTeam object
-                              final int? originalRank = ladderTeam.originalRank;
-                          final LeagueLadderHighlightBand highlightBand =
-                              originalRank == null
-                              ? LeagueLadderHighlightBand.none
-                              : _leagueLadder!.highlightBandForRank(
-                                  originalRank,
-                                  seasonYear: seasonYear,
+                            rows: List<DataRow>.generate(
+                              _leagueLadder!.teams.length,
+                              (index) {
+                                final ladderTeam = _leagueLadder!.teams[index]; // This is a LadderTeam object
+                                final int? originalRank =
+                                    ladderTeam.originalRank;
+                                final LeagueLadderHighlightBand highlightBand =
+                                    originalRank == null
+                                    ? LeagueLadderHighlightBand.none
+                                    : _leagueLadder!.highlightBandForRank(
+                                        originalRank,
+                                        seasonYear: seasonYear,
+                                      );
+
+                                // Create a Team object for navigation
+                                final Team teamForHistory = Team(
+                                  dbkey: ladderTeam.dbkey,
+                                  name: ladderTeam.teamName,
+                                  logoURI: ladderTeam.logoURI,
+                                  league: widget.league, // widget.league is the League object of the current ladder page
                                 );
 
-                          // Create a Team object for navigation
-                          final Team teamForHistory = Team(
-                                dbkey: ladderTeam.dbkey,
-                                name: ladderTeam.teamName,
-                                logoURI: ladderTeam.logoURI,
-                                league: widget
-                                    .league, // widget.league is the League object of the current ladder page
-                              );
-
-                              void navigateToHistory() {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => TeamGamesHistoryPage(
-                                      team: teamForHistory,
-                                      league: widget.league,
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              return DataRow(
-                                color: WidgetStateProperty.resolveWith<Color?>((
-                                  Set<WidgetState> states,
-                                ) {
-                                  return _rowHighlightColor(
+                                void navigateToHistory() {
+                                  Navigator.push(
                                     context,
-                                    highlightBand,
+                                    appPageRoute(
+                                      (context) => TeamGamesHistoryPage(
+                                        team: teamForHistory,
+                                        league: widget.league,
+                                      ),
+                                    ),
                                   );
-                                }),
-                                cells: <DataCell>[
-                                  DataCell(
-                                    Row(
-                                      children: [
-                                        // add a arrow icon to indicate navigation to another page
-                                        Icon(
-                                          Icons.arrow_forward,
-                                          size: 16,
-                                          color: Colors.grey,
+                                }
+
+                                return DataRow(
+                                  color:
+                                      WidgetStateProperty.resolveWith<Color?>((
+                                        Set<WidgetState> states,
+                                      ) {
+                                        return _rowHighlightColor(
+                                          context,
+                                          highlightBand,
+                                        );
+                                      }),
+                                  cells: <DataCell>[
+                                    DataCell(
+                                      Row(
+                                        children: [
+                                          // add a arrow icon to indicate navigation to another page
+                                          Icon(
+                                            Icons.arrow_forward,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                          Text(
+                                            ladderTeam.originalRank
+                                                    ?.toString() ??
+                                                '-',
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Row(
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 6.0,
+                                            ),
+                                            child: Hero(
+                                              tag:
+                                                  "team_icon_${ladderTeam.dbkey}",
+                                              child: _buildTeamLogo(ladderTeam),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              ladderTeam.teamName,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.played.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.points.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.won.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.lost.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.drawn.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.byes.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.pointsFor.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.pointsAgainst.toString(),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        ladderTeam.percentage.toStringAsFixed(
+                                          2,
                                         ),
-                                    Text(
-                                      ladderTeam.originalRank?.toString() ??
-                                          '-',
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      onTap: navigateToHistory,
                                     ),
                                   ],
-                                ),
-                                onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Row(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 6.0,
-                                          ),
-                                          child: Hero(
-                                            tag:
-                                                "team_icon_${ladderTeam.dbkey}",
-                                            child: _buildTeamLogo(ladderTeam),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            ladderTeam.teamName,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.played.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.points.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.won.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.lost.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.drawn.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.byes.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.pointsFor.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.pointsAgainst.toString(),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      ladderTeam.percentage.toStringAsFixed(2),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                    onTap: navigateToHistory,
-                                  ),
-                                ],
-                              );
-                            }),
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),

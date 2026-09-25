@@ -17,6 +17,7 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_submit.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/foundation.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart'; // Added import
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -327,8 +328,8 @@ class _GameListItemState extends State<GameListItem> {
     }
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => LeagueLadderPage(
+      appPageRoute(
+        (context) => LeagueLadderPage(
           league: game.league,
           teamDbKeysToDisplay: [game.homeTeam.dbkey, game.awayTeam.dbkey],
           customTitle: "League Leaderboard comparison.",

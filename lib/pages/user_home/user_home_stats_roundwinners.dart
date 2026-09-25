@@ -7,6 +7,7 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
@@ -67,8 +68,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
           final fabBackgroundColor = isDarkMode
               ? const Color(0xFF4E7A36)
               : Colors.lightGreen[200];
-          final fabForegroundColor =
-              isDarkMode ? Colors.white : Colors.black87;
+          final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
           return SelectedCompBanner(
             child: Scaffold(
               floatingActionButton: FloatingActionButton.small(
@@ -124,9 +124,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
                                   'Round winners grouped by round. Tap a row to see the full round leaderboard.',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(color: Colors.grey[600]),
                                 ),
                               ),
@@ -148,9 +146,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                             horizontalMargin: 0,
                             minWidth: 600,
                             fixedTopRows: 1,
-                            fixedLeftColumns: orientation == Orientation.portrait
-                                ? 2
-                                : 0,
+                            fixedLeftColumns:
+                                orientation == Orientation.portrait ? 2 : 0,
                             showCheckboxColumn: false,
                             isHorizontalScrollBarVisible: true,
                             isVerticalScrollBarVisible: true,
@@ -265,7 +262,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                                           alignment: Alignment.centerRight,
                                           color: currentColor,
                                           child: Text(
-                                            (winner.aflMargins + winner.nrlMargins)
+                                            (winner.aflMargins +
+                                                    winner.nrlMargins)
                                                 .toString(),
                                           ),
                                         ),
@@ -310,9 +308,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   void onRowTapped(BuildContext context, RoundWinnerEntry winner) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StatRoundLeaderboard(winner.roundNumber),
-      ),
+      appPageRoute((context) => StatRoundLeaderboard(winner.roundNumber)),
     );
   }
 
@@ -354,27 +350,21 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .asMap()
-      .entries
-      .map(
-        (entry) {
-          int index = entry.key;
-          String column = entry.value;
-          return DataColumn2(
-            fixedWidth: column == 'Winner' ? 150 : 50,
-            numeric: column == 'Winner' || column == 'Round' ? false : true,
-            label: Text(column),
-            onSort: (columnIndex, ascending) => onSort(index, ascending),
-          );
-        },
-      )
-      .toList();
+  List<DataColumn> getColumns(List<String> columns) =>
+      columns.asMap().entries.map((entry) {
+        int index = entry.key;
+        String column = entry.value;
+        return DataColumn2(
+          fixedWidth: column == 'Winner' ? 150 : 50,
+          numeric: column == 'Winner' || column == 'Round' ? false : true,
+          label: Text(column),
+          onSort: (columnIndex, ascending) => onSort(index, ascending),
+        );
+      }).toList();
 
   Widget avatarPic(Tipper tipper, int roundNumber) {
     return Hero(
-      tag:
-          '$roundNumber-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      tag: '$roundNumber-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,
         text: tipper.name,

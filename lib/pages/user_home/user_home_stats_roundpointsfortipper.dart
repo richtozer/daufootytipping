@@ -9,6 +9,7 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -104,7 +105,9 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
         sortedPoints!.sort(
           (a, b) => ascending
               ? (a.nrlPoints + a.aflPoints).compareTo(b.nrlPoints + b.aflPoints)
-              : (b.nrlPoints + b.aflPoints).compareTo(a.nrlPoints + a.aflPoints),
+              : (b.nrlPoints + b.aflPoints).compareTo(
+                  a.nrlPoints + a.aflPoints,
+                ),
         );
         break;
       case 2:
@@ -168,16 +171,13 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     final fabBackgroundColor = isDarkMode
         ? const Color(0xFF4E7A36)
         : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
+    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.small(
         backgroundColor: fabBackgroundColor,
         foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         onPressed: () {
           Navigator.pop(context);
         },
@@ -187,84 +187,82 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-          children: [
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        avatarPic(widget.statsTipper),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Round Points',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4.0),
-                                child: Text(
-                                  widget.statsTipper.name,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(color: Colors.grey[700]),
+            children: [
+              if (orientation == Orientation.portrait)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          avatarPic(widget.statsTipper),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Round Points',
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              ),
-                            ],
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    widget.statsTipper.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(color: Colors.grey[700]),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Tap a row to see tips for that round.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: Colors.grey[600]),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            LiveScoresWarningCard(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(5.0),
-                child: DataTable2(
-                  border: TableBorder.all(
-                    width: 1.0,
-                    color: Colors.grey.shade300,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Tap a row to see tips for that round.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
                   ),
-                  sortColumnIndex: sortColumnIndex,
-                  sortAscending: isAscending,
-                  columnSpacing: 0,
-                  horizontalMargin: 0,
-                  minWidth: 600,
-                  fixedTopRows: 1,
-                  fixedLeftColumns: orientation == Orientation.portrait ? 1 : 0,
-                  showCheckboxColumn: false,
-                  isHorizontalScrollBarVisible: true,
-                  isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns, points),
-                  rows: List<DataRow>.generate(
-                    points.length,
-                    (index) => buildDataRow(points, index),
-                  ).toList(),
+                ),
+              LiveScoresWarningCard(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: DataTable2(
+                    border: TableBorder.all(
+                      width: 1.0,
+                      color: Colors.grey.shade300,
+                    ),
+                    sortColumnIndex: sortColumnIndex,
+                    sortAscending: isAscending,
+                    columnSpacing: 0,
+                    horizontalMargin: 0,
+                    minWidth: 600,
+                    fixedTopRows: 1,
+                    fixedLeftColumns: orientation == Orientation.portrait
+                        ? 1
+                        : 0,
+                    showCheckboxColumn: false,
+                    isHorizontalScrollBarVisible: true,
+                    isVerticalScrollBarVisible: true,
+                    columns: getColumns(columns, points),
+                    rows: List<DataRow>.generate(
+                      points.length,
+                      (index) => buildDataRow(points, index),
+                    ).toList(),
+                  ),
                 ),
               ),
-            ),
             ],
           ),
         ),
@@ -286,8 +284,8 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => StatRoundGameScoresForTipper(
+              appPageRoute(
+                (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
                   roundPoints.roundNumber,
                 ),
@@ -300,8 +298,8 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => StatRoundGameScoresForTipper(
+              appPageRoute(
+                (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
                   roundPoints.roundNumber,
                 ),
@@ -314,8 +312,8 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => StatRoundGameScoresForTipper(
+              appPageRoute(
+                (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
                   roundPoints.roundNumber,
                 ),
@@ -328,8 +326,8 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => StatRoundGameScoresForTipper(
+              appPageRoute(
+                (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
                   roundPoints.roundNumber,
                 ),
@@ -338,15 +336,19 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
           },
         ),
         DataCell(
-          Text((roundPoints.aflMarginTips + roundPoints.nrlMarginTips).toString()),
+          Text(
+            (roundPoints.aflMarginTips + roundPoints.nrlMarginTips).toString(),
+          ),
         ),
         DataCell(
-          Text((roundPoints.aflMarginUPS + roundPoints.nrlMarginUPS).toString()),
+          Text(
+            (roundPoints.aflMarginUPS + roundPoints.nrlMarginUPS).toString(),
+          ),
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => StatRoundGameScoresForTipper(
+              appPageRoute(
+                (context) => StatRoundGameScoresForTipper(
                   widget.statsTipper,
                   roundPoints.roundNumber,
                 ),

@@ -12,6 +12,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -50,21 +51,16 @@ class Profile extends StatelessWidget with WatchItMixin {
               List<DAUComp> compsForDropdown = [];
               if (profileTipper != null) {
                 compsForDropdown.addAll(profileTipper.compsPaidFor);
-                DAUComp? activeDAUComp =
-                    di<DAUCompsViewModel>().activeDAUComp;
+                DAUComp? activeDAUComp = di<DAUCompsViewModel>().activeDAUComp;
                 if (activeDAUComp != null &&
                     !compsForDropdown.contains(activeDAUComp)) {
                   compsForDropdown.add(activeDAUComp);
                 }
               }
-              compsForDropdown.sort(
-                (a, b) => b.name.compareTo(a.name),
-              );
+              compsForDropdown.sort((a, b) => b.name.compareTo(a.name));
 
               if (profileTipper == null) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
+                return const Center(child: CircularProgressIndicator());
               }
 
               // Local non-nullable reference for use in closures
@@ -148,14 +144,13 @@ class Profile extends StatelessWidget with WatchItMixin {
                                     ),
                                     onPressed: () {
                                       Navigator.of(context).pushReplacement(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const UserAuthPage(
-                                                null,
-                                                isUserLoggingOut: true,
-                                                createLinkedTipper: false,
-                                                googleClientId: '',
-                                              ),
+                                        appPageRoute(
+                                          (context) => const UserAuthPage(
+                                            null,
+                                            isUserLoggingOut: true,
+                                            createLinkedTipper: false,
+                                            googleClientId: '',
+                                          ),
                                         ),
                                       );
                                     },
@@ -178,61 +173,66 @@ class Profile extends StatelessWidget with WatchItMixin {
                         ChangeNotifierProvider<DAUCompsViewModel>.value(
                           value: di<DAUCompsViewModel>(),
                           child: Consumer<DAUCompsViewModel>(
-                            builder: (context, dauCompsViewModelConsumer, child) {
-                              if (dauCompsViewModelConsumer.activeDAUComp ==
-                                  null) {
-                                return Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: SizedBox(
-                                    width: 250,
-                                    child: Text(
-                                      'There are no active competitions. Contact support: https://interview.coach/tipping.',
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                return Column(
-                                  children: [
-                                    SizedBox(
-                                      width: 300,
-                                      child: Text(
-                                        'Tipper in a previous year? Select it below to revisit your tips and stats: ',
-                                        textAlign: TextAlign.center,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
+                            builder:
+                                (context, dauCompsViewModelConsumer, child) {
+                                  if (dauCompsViewModelConsumer.activeDAUComp ==
+                                      null) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: SizedBox(
+                                        width: 250,
+                                        child: Text(
+                                          'There are no active competitions. Contact support: https://interview.coach/tipping.',
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium,
+                                        ),
                                       ),
-                                    ),
-                                    DropdownButton<DAUComp>(
-                                      value: selectedDAUComp,
-                                      icon: const Icon(Icons.arrow_downward),
-                                      onChanged: (DAUComp? newValue) {
-                                        // update the current comp in the view model
-                                        dauCompsViewModelConsumer
-                                            .changeDisplayedDAUComp(
-                                              newValue!,
-                                              false,
-                                            );
-                                      },
-                                      items: compsForDropdown
-                                          .map<DropdownMenuItem<DAUComp>>((
-                                            DAUComp comp,
-                                          ) {
-                                            return DropdownMenuItem<DAUComp>(
-                                              value: comp,
-                                              child: Text(comp.name),
-                                            );
-                                          })
-                                          .toList(),
-                                    ),
-                                  ],
-                                );
-                              }
-                            },
+                                    );
+                                  } else {
+                                    return Column(
+                                      children: [
+                                        SizedBox(
+                                          width: 300,
+                                          child: Text(
+                                            'Tipper in a previous year? Select it below to revisit your tips and stats: ',
+                                            textAlign: TextAlign.center,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                        ),
+                                        DropdownButton<DAUComp>(
+                                          value: selectedDAUComp,
+                                          icon: const Icon(
+                                            Icons.arrow_downward,
+                                          ),
+                                          onChanged: (DAUComp? newValue) {
+                                            // update the current comp in the view model
+                                            dauCompsViewModelConsumer
+                                                .changeDisplayedDAUComp(
+                                                  newValue!,
+                                                  false,
+                                                );
+                                          },
+                                          items: compsForDropdown
+                                              .map<DropdownMenuItem<DAUComp>>((
+                                                DAUComp comp,
+                                              ) {
+                                                return DropdownMenuItem<
+                                                  DAUComp
+                                                >(
+                                                  value: comp,
+                                                  child: Text(comp.name),
+                                                );
+                                              })
+                                              .toList(),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
                           ),
                         ),
                         Row(
@@ -296,15 +296,13 @@ class Profile extends StatelessWidget with WatchItMixin {
                                             Navigator.of(
                                               context,
                                             ).pushReplacement(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const UserAuthPage(
-                                                      null,
-                                                      isUserDeletingAccount:
-                                                          true,
-                                                      createLinkedTipper: false,
-                                                      googleClientId: '',
-                                                    ),
+                                              appPageRoute(
+                                                (context) => const UserAuthPage(
+                                                  null,
+                                                  isUserDeletingAccount: true,
+                                                  createLinkedTipper: false,
+                                                  googleClientId: '',
+                                                ),
                                               ),
                                             );
                                           },
@@ -455,9 +453,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                       if (isNewTipper) {
                         if (context.mounted) {
                           Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const HomePage(),
-                            ),
+                            appPageRoute((context) => const HomePage()),
                           );
                         }
                       } else {
