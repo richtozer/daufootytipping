@@ -146,11 +146,7 @@ class AdaptiveTipsCard extends StatelessWidget {
           child: switch (panel) {
             TipsPanel.tips => _choices(context, false),
             TipsPanel.percentages => _choices(context, true),
-            TipsPanel.info => Card(child: Center(child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(data.info, style: Theme.of(context).textTheme.labelSmall,
-                textAlign: TextAlign.center),
-            ))),
+            TipsPanel.info => _info(context),
             TipsPanel.result => _result(context),
           },
         ),
@@ -288,6 +284,41 @@ class AdaptiveTipsCard extends StatelessWidget {
     }
     painter.dispose();
     return width;
+  }
+
+  Widget _info(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    return Card(child: Padding(padding: const EdgeInsets.all(8),
+      child: LayoutBuilder(builder: (context, bounds) {
+        final small = theme.labelSmall!;
+        final target = theme.bodyMedium!;
+        final painter = TextPainter(textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context), textAlign: TextAlign.center);
+        bool fits(TextStyle style) {
+          painter.text = TextSpan(text: data.info, style: style);
+          painter.layout(maxWidth: bounds.maxWidth);
+          return painter.height <= bounds.maxHeight;
+        }
+        var style = target;
+        if (!fits(target)) {
+          var low = 0.0;
+          var high = 1.0;
+          // Fill the existing space, without changing shared card heights or
+          // reducing text below its previous size. Respect the user's scaler.
+          for (var step = 0; step < 12; step++) {
+            final middle = (low + high) / 2;
+            if (fits(TextStyle.lerp(small, target, middle)!)) {
+              low = middle;
+            } else {
+              high = middle;
+            }
+          }
+          style = TextStyle.lerp(small, target, low)!;
+        }
+        painter.dispose();
+        return Center(child: Text(data.info, style: style, textAlign: TextAlign.center));
+      }),
+    ));
   }
 
   Widget _result(BuildContext context) {
