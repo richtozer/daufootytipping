@@ -125,11 +125,9 @@ class TipsCardLayout {
     // the rendered footprint for stacked mode (covered by layout tests).
     final requiredPairedWidth = mode == TipsCardMode.stacked && !percentStats
         ? pairedWidth - 16 : pairedWidth;
-    // Borrow at most one percent of the carousel width from each side's peek,
-    // and only when that saves two button rows. Standard/wide stay unchanged.
-    final fraction = mode == TipsCardMode.stacked &&
-        carouselWidth * viewportFraction < requiredPairedWidth &&
-        carouselWidth * 0.82 >= requiredPairedWidth ? 0.82 : viewportFraction;
+    // Zoom hides neighbouring panels at rest. In stacked mode prioritise
+    // content width over that empty strip; standard/wide retain their layout.
+    final fraction = mode == TipsCardMode.stacked ? 0.9 : viewportFraction;
     final panelWidth = math.max(1.0, carouselWidth * fraction - 24);
     final arrangement = mode == TipsCardMode.wide ? TipsChoiceArrangement.inline
         : carouselWidth * fraction >= requiredPairedWidth

@@ -152,3 +152,18 @@ conclusion that this setting must use vertical buttons is superseded by this
 experiment. Tests cover adjacent widths/text sizes and three additional list
 goldens at this exact setting. Whether the smaller peek remains a sufficiently
 clear swipe cue still needs human interaction review.
+
+## Selected design — wider stacked panels
+
+Richard selected option 2 following the review: stop reserving as much width
+for neighbouring pages that the inherited zoom effect hides at rest. This
+supersedes the conditional 0.82 experiment above. All stacked panels now use
+0.90, including the percentage surface; standard and wide retain 0.80.
+At 390 px the active page receives 343.8 px before its internal margins.
+Swiping, zoom, button spacing and shared panel heights are retained. The
+rendered-width correction remains independent of the viewport decision.
+No new static swipe cue is introduced; discoverability remains inherited
+behaviour, explicitly accepted for this prototype decision.
+
+The previous experiment is saved in checkpoint `9259f5f`. Updated stacked
+goldens cover the selected design; the standard/wide references are unchanged.
