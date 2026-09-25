@@ -1,4 +1,5 @@
 import 'dart:developer';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
@@ -8,7 +9,10 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/models/game.dart';
 import 'package:flutter/material.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
+import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -39,8 +43,11 @@ class TipsTabState extends State<TipsTab> {
   bool _stickyHeaderVisible = false;
   double _topSafeInset = 0;
   List<TipsLeagueSection> _cachedSections = const [];
-  final ValueNotifier<double> _stickyHeaderPushUpOffset =
-      ValueNotifier<double>(0);
+  TipsCardLayout? _cardLayout;
+  String? _cardLayoutKey;
+  final ValueNotifier<double> _stickyHeaderPushUpOffset = ValueNotifier<double>(
+    0,
+  );
 
   @override
   void initState() {
@@ -80,7 +87,10 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
-    _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
+    _cachedSections = buildTipsLeagueSections(
+      selectedComp: selectedComp,
+      cardExtent: _cardExtent,
+    );
     _syncSelectedCompState();
     if (!_startupScrollPending) {
       _syncActiveSectionIndex();
@@ -104,7 +114,8 @@ class TipsTabState extends State<TipsTab> {
         daucompsViewModel.selectedTipperTipsViewModel?.isInitialLoadComplete ??
         false;
     final nextScrollSignature =
-        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:${_buildItemExtentCacheKey(selectedComp)}';
+        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:$_cardExtent:'
+        '${_buildItemExtentCacheKey(selectedComp)}';
     if (_lastScrollSignature != nextScrollSignature) {
       _lastScrollSignature = nextScrollSignature;
       _startupScrollSettled = false;
@@ -118,7 +129,10 @@ class TipsTabState extends State<TipsTab> {
       'TipsPageBody._syncSelectedCompState() latestRoundNumber: $latestRoundNumber',
     );
 
-    _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
+    _cachedSections = buildTipsLeagueSections(
+      selectedComp: selectedComp,
+      cardExtent: _cardExtent,
+    );
     final sections = _cachedSections;
     final defaultTarget = _defaultScrollTarget(
       selectedComp: selectedComp,
@@ -193,7 +207,10 @@ class TipsTabState extends State<TipsTab> {
       return;
     }
 
-    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
+    final sections = buildTipsLeagueSections(
+      selectedComp: selectedComp,
+      cardExtent: _cardExtent,
+    );
     if (sections.isEmpty) {
       return;
     }
@@ -208,10 +225,11 @@ class TipsTabState extends State<TipsTab> {
     final leagueTargets = <_TipsScrollTarget>[
       for (final league in const [League.nrl, League.afl])
         if (_sectionIndexForRoundAndLeague(
-          sections: sections,
-          roundIndex: targetRoundIndex,
-          league: league,
-        ) case final sectionIndex when sectionIndex >= 0)
+              sections: sections,
+              roundIndex: targetRoundIndex,
+              league: league,
+            )
+            case final sectionIndex when sectionIndex >= 0)
           (
             offset: _startupScrollOffset(
               sections: sections,
@@ -304,8 +322,7 @@ class TipsTabState extends State<TipsTab> {
     required League league,
   }) {
     return sections.indexWhere(
-      (section) =>
-          section.roundIndex == roundIndex && section.league == league,
+      (section) => section.roundIndex == roundIndex && section.league == league,
     );
   }
 
@@ -361,6 +378,7 @@ class TipsTabState extends State<TipsTab> {
       targetSectionIndex: targetSectionIndex,
       firstUntippedGameIndex: (games) =>
           tipsViewModel.firstUntippedGameIndex(games, tipper),
+      cardExtent: _cardExtent,
     );
   }
 
@@ -468,8 +486,7 @@ class TipsTabState extends State<TipsTab> {
       stickyVisible: true,
       sections: sections,
     );
-    final distanceToNextHeader =
-        nextHeaderTop - (scrollOffset + _topSafeInset);
+    final distanceToNextHeader = nextHeaderTop - (scrollOffset + _topSafeInset);
     final nextPushUp = (stickyHeight - distanceToNextHeader).clamp(
       0.0,
       stickyHeight,
@@ -521,118 +538,170 @@ class TipsTabState extends State<TipsTab> {
       );
     }
 
-    return KeyboardListener(
-      focusNode: focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<DAUCompsViewModel>.value(
-            value: daucompsViewModel,
-          ),
-        ],
-        child: Theme(
-          data: myTheme,
-          child: Consumer<DAUCompsViewModel>(
-            builder: (context, daucompsViewmodelConsumer, client) {
-              final sections = _cachedSections;
-              if (sections.isEmpty) {
-                return ChangeNotifierProvider<StatsViewModel?>.value(
-                  value: daucompsViewmodelConsumer.statsViewModel,
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    restorationId: 'tipsListView',
-                    slivers: const [SliverToBoxAdapter(child: EndFooter())],
-                  ),
-                );
-              }
-              final stickySection =
-                  sections[_activeSectionIndex.clamp(0, sections.length - 1)];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _syncCardLayout(context, constraints.maxWidth);
+        final cardLayout = _cardLayout;
+        if (cardLayout == null) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.orange),
+          );
+        }
+        return KeyboardListener(
+          focusNode: focusNode,
+          autofocus: true,
+          onKeyEvent: _handleKeyEvent,
+          child: MultiProvider(
+            providers: [
+              ChangeNotifierProvider<DAUCompsViewModel>.value(
+                value: daucompsViewModel,
+              ),
+            ],
+            child: Theme(
+              data: myTheme,
+              child: Consumer<DAUCompsViewModel>(
+                builder: (context, daucompsViewmodelConsumer, client) {
+                  final sections = _cachedSections;
+                  if (sections.isEmpty) {
+                    return ChangeNotifierProvider<StatsViewModel?>.value(
+                      value: daucompsViewmodelConsumer.statsViewModel,
+                      child: CustomScrollView(
+                        controller: scrollController,
+                        restorationId: 'tipsListView',
+                        slivers: const [SliverToBoxAdapter(child: EndFooter())],
+                      ),
+                    );
+                  }
+                  final stickySection =
+                      sections[_activeSectionIndex.clamp(
+                        0,
+                        sections.length - 1,
+                      )];
 
-              return ChangeNotifierProvider<StatsViewModel?>.value(
-                value: daucompsViewmodelConsumer.statsViewModel,
-                child: Stack(
-                  children: [
-                    CustomScrollView(
-                      controller: scrollController,
-                      restorationId: 'tipsListView',
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: _welcomeSliverHeight,
-                            child: Column(
-                              children: [
-                                SizedBox(height: _topSafeInset),
-                                Expanded(
-                                  child: WelcomeHeader(
-                                    daucompsViewmodelConsumer:
-                                        daucompsViewmodelConsumer,
-                                  ),
+                  return ChangeNotifierProvider<StatsViewModel?>.value(
+                    value: daucompsViewmodelConsumer.statsViewModel,
+                    child: Stack(
+                      children: [
+                        CustomScrollView(
+                          controller: scrollController,
+                          restorationId: 'tipsListView',
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: SizedBox(
+                                height: _welcomeSliverHeight,
+                                child: Column(
+                                  children: [
+                                    SizedBox(height: _topSafeInset),
+                                    Expanded(
+                                      child: WelcomeHeader(
+                                        daucompsViewmodelConsumer:
+                                            daucompsViewmodelConsumer,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
+                            ),
+                            for (
+                              var sectionIndex = 0;
+                              sectionIndex < sections.length;
+                              sectionIndex++
+                            )
+                              ...buildRoundLeagueSectionSlivers(
+                                section: sections[sectionIndex],
+                                roundIndex: sections[sectionIndex].roundIndex,
+                                league: sections[sectionIndex].league,
+                                dauCompsViewModel: daucompsViewmodelConsumer,
+                                currentTipper:
+                                    di<TippersViewModel>().selectedTipper,
+                                isPercentStatsPage: false,
+                                showInlineHeader:
+                                    sectionIndex != 0 || !_stickyHeaderVisible,
+                                hideInlineHeaderVisual:
+                                    _stickyHeaderVisible &&
+                                    sectionIndex == _activeSectionIndex,
+                                layout: cardLayout,
+                              ),
+                            const SliverToBoxAdapter(child: EndFooter()),
+                          ],
+                        ),
+                        if (_stickyHeaderVisible)
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: IgnorePointer(
+                              child: ValueListenableBuilder<double>(
+                                valueListenable: _stickyHeaderPushUpOffset,
+                                builder: (context, pushUpOffset, child) {
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(height: _topSafeInset),
+                                      Transform.translate(
+                                        offset: Offset(0, -pushUpOffset),
+                                        child: child,
+                                      ),
+                                    ],
+                                  );
+                                },
+                                child: TipsStickyHeader(
+                                  section: stickySection,
+                                  dauCompsViewModel: daucompsViewmodelConsumer,
+                                  currentTipper:
+                                      di<TippersViewModel>().selectedTipper,
+                                  isPercentStatsPage: false,
+                                  topPadding: 0,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        for (
-                          var sectionIndex = 0;
-                          sectionIndex < sections.length;
-                          sectionIndex++
-                        )
-                          ...buildRoundLeagueSectionSlivers(
-                            section: sections[sectionIndex],
-                            roundIndex: sections[sectionIndex].roundIndex,
-                            league: sections[sectionIndex].league,
-                            dauCompsViewModel: daucompsViewmodelConsumer,
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper,
-                            isPercentStatsPage: false,
-                            showInlineHeader:
-                                sectionIndex != 0 || !_stickyHeaderVisible,
-                            hideInlineHeaderVisual:
-                                _stickyHeaderVisible &&
-                                sectionIndex == _activeSectionIndex,
-                          ),
-                        const SliverToBoxAdapter(child: EndFooter()),
                       ],
                     ),
-                    if (_stickyHeaderVisible)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: IgnorePointer(
-                          child: ValueListenableBuilder<double>(
-                            valueListenable: _stickyHeaderPushUpOffset,
-                            builder: (context, pushUpOffset, child) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(height: _topSafeInset),
-                                  Transform.translate(
-                                    offset: Offset(0, -pushUpOffset),
-                                    child: child,
-                                  ),
-                                ],
-                              );
-                            },
-                            child: TipsStickyHeader(
-                              section: stickySection,
-                              dauCompsViewModel: daucompsViewmodelConsumer,
-                              currentTipper:
-                                  di<TippersViewModel>().selectedTipper,
-                              isPercentStatsPage: false,
-                              topPadding: 0,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+
+  /// The measured row height every scroll offset in this tab is built from.
+  /// Exposed so navigation tests assert against the same value the list uses
+  /// rather than a constant that no longer describes the row.
+  double get cardExtent => _cardExtent;
+
+  /// The measured row height, or the legacy constant before the first layout
+  /// pass. Offsets built from the fallback are corrected by the startup scroll
+  /// retry once the real measurement arrives.
+  double get _cardExtent => _cardLayout?.cardExtent ?? Game.gameCardHeight;
+
+  /// Measures once per competition, width and text scale. The width comes from
+  /// the list's own constraints and never from MediaQuery: the app shell caps
+  /// the content, so the window is a different box from the card.
+  void _syncCardLayout(BuildContext context, double width) {
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null || width <= 0) {
+      return;
+    }
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textTheme = Theme.of(context).textTheme;
+    final key = '${selectedComp.dbkey}:$width:${textScaler.scale(16)}';
+    if (key == _cardLayoutKey && _cardLayout != null) {
+      return;
+    }
+    _cardLayoutKey = key;
+    _cardLayout = TipsCardLayout.measure(
+      width: width,
+      textScaler: textScaler,
+      textTheme: textTheme,
+      textDirection: Directionality.of(context),
+      cards: [
+        for (final card in tipsMeasurementCards(selectedComp.daurounds))
+          card.content(textTheme),
+      ],
     );
   }
 
@@ -694,8 +763,7 @@ class WelcomeHeader extends StatelessWidget {
       iconSize: 64,
       title:
           'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
-      body:
-          'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
+      body: 'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
     );
   }
 }

@@ -13,6 +13,9 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/load_tips_fonts.dart';
+
 import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -23,6 +26,7 @@ class _MockTippersViewModel extends Mock implements TippersViewModel {}
 class _MockTipsViewModel extends Mock implements TipsViewModel {}
 
 void main() {
+  setUpAll(loadTipsFonts);
   late _MockDAUCompsViewModel dauCompsViewModel;
   late _MockTippersViewModel tippersViewModel;
   late DAURound round;
@@ -56,34 +60,36 @@ void main() {
       league: League.afl,
     );
     final now = DateTime.now().toUtc();
-    round = DAURound(
-      dAUroundNumber: 1,
-      firstGameKickOffUTC: now.add(const Duration(days: 1)),
-      lastGameKickOffUTC: now.add(const Duration(days: 2)),
-    )..games = [
-        for (var index = 0; index < 10; index++)
-          Game(
-            dbkey: 'nrl-$index',
-            league: League.nrl,
-            homeTeam: nrlHome,
-            awayTeam: nrlAway,
-            location: 'Test Ground',
-            startTimeUTC: now.add(Duration(days: 1, hours: index)),
-            fixtureRoundNumber: 1,
-            fixtureMatchNumber: index + 1,
-          ),
-        for (var index = 0; index < 10; index++)
-          Game(
-            dbkey: 'afl-$index',
-            league: League.afl,
-            homeTeam: aflHome,
-            awayTeam: aflAway,
-            location: 'Test Ground',
-            startTimeUTC: now.add(Duration(days: 1, hours: index)),
-            fixtureRoundNumber: 1,
-            fixtureMatchNumber: index + 1,
-          ),
-      ];
+    round =
+        DAURound(
+            dAUroundNumber: 1,
+            firstGameKickOffUTC: now.add(const Duration(days: 1)),
+            lastGameKickOffUTC: now.add(const Duration(days: 2)),
+          )
+          ..games = [
+            for (var index = 0; index < 10; index++)
+              Game(
+                dbkey: 'nrl-$index',
+                league: League.nrl,
+                homeTeam: nrlHome,
+                awayTeam: nrlAway,
+                location: 'Test Ground',
+                startTimeUTC: now.add(Duration(days: 1, hours: index)),
+                fixtureRoundNumber: 1,
+                fixtureMatchNumber: index + 1,
+              ),
+            for (var index = 0; index < 10; index++)
+              Game(
+                dbkey: 'afl-$index',
+                league: League.afl,
+                homeTeam: aflHome,
+                awayTeam: aflAway,
+                location: 'Test Ground',
+                startTimeUTC: now.add(Duration(days: 1, hours: index)),
+                fixtureRoundNumber: 1,
+                fixtureMatchNumber: index + 1,
+              ),
+          ];
     final comp = DAUComp(
       dbkey: 'comp-1',
       name: 'Test Comp 2026',
@@ -144,7 +150,7 @@ void main() {
   ) async {
     final tipsState = await pumpHome(tester);
     final nrlOffset = tipsState.scrollController.offset;
-    final aflOffset = nrlOffset + 10 * Game.gameCardHeight;
+    final aflOffset = nrlOffset + 10 * tipsState.cardExtent;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
@@ -164,14 +170,14 @@ void main() {
   ) async {
     final tipsViewModel = _MockTipsViewModel();
     when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+    when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
+        .thenReturn(1);
     when(
-      () => tipsViewModel.firstUntippedGameIndex(any(), any()),
-    ).thenReturn(1);
-    when(
-      () => tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-        any(),
-        any(),
-      ),
+      () =>
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            any(),
+            any(),
+          ),
     ).thenReturn(0);
     when(
       () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
@@ -179,14 +185,13 @@ void main() {
         any(),
       ),
     ).thenReturn(0);
-    when(
-      () => dauCompsViewModel.selectedTipperTipsViewModel,
-    ).thenReturn(tipsViewModel);
+    when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+        .thenReturn(tipsViewModel);
 
     final tipsState = await pumpHome(tester);
     final dynamicOffset = tipsState.scrollController.offset;
-    final nrlOffset = dynamicOffset - Game.gameCardHeight;
-    final aflOffset = nrlOffset + 10 * Game.gameCardHeight;
+    final nrlOffset = dynamicOffset - tipsState.cardExtent;
+    final aflOffset = nrlOffset + 10 * tipsState.cardExtent;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
@@ -208,17 +213,17 @@ void main() {
   ) async {
     final tipsViewModel = _MockTipsViewModel();
     when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+    when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
+        .thenAnswer((invocation) {
+          final games = invocation.positionalArguments.first as List<Game>;
+          return games.first.league == League.afl ? 1 : -1;
+        });
     when(
-      () => tipsViewModel.firstUntippedGameIndex(any(), any()),
-    ).thenAnswer((invocation) {
-      final games = invocation.positionalArguments.first as List<Game>;
-      return games.first.league == League.afl ? 1 : -1;
-    });
-    when(
-      () => tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-        any(),
-        any(),
-      ),
+      () =>
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            any(),
+            any(),
+          ),
     ).thenReturn(0);
     when(
       () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
@@ -226,15 +231,13 @@ void main() {
         any(),
       ),
     ).thenReturn(0);
-    when(
-      () => dauCompsViewModel.selectedTipperTipsViewModel,
-    ).thenReturn(tipsViewModel);
+    when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+        .thenReturn(tipsViewModel);
 
     await pumpHome(tester);
 
-    TipsStickyHeader stickyHeader() => tester.widget<TipsStickyHeader>(
-      find.byType(TipsStickyHeader),
-    );
+    TipsStickyHeader stickyHeader() =>
+        tester.widget<TipsStickyHeader>(find.byType(TipsStickyHeader));
 
     expect(stickyHeader().section.league, League.afl);
 
@@ -249,8 +252,7 @@ void main() {
 
     final tipsState = await pumpHome(tester);
     final nrlEmptySectionOffset = tipsState.scrollController.offset;
-    final aflOffset =
-        nrlEmptySectionOffset + DAURound.noGamesCardHeight;
+    final aflOffset = nrlEmptySectionOffset + DAURound.noGamesCardHeight;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
@@ -282,7 +284,7 @@ void main() {
     final tipsState = await pumpHome(tester);
     final endOfCompetitionOffset = tipsState.scrollController.offset;
     const nrlOffset = 175.0;
-    final aflOffset = nrlOffset + 10 * Game.gameCardHeight;
+    final aflOffset = nrlOffset + 10 * tipsState.cardExtent;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));

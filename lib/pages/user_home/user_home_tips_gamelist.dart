@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/material.dart';
 
 const double kTipsWelcomeHeaderHeight = 175;
@@ -28,14 +29,14 @@ class TipsLeagueSection {
 class TipsTabItemExtentCache {
   const TipsTabItemExtentCache._();
 
-  static List<double> buildExtents(DAUComp selectedComp) {
+  static List<double> buildExtents(DAUComp selectedComp, double cardExtent) {
     final extents = <double>[kTipsWelcomeHeaderHeight];
 
     for (final dauRound in selectedComp.daurounds) {
       extents.add(leagueHeaderExtent(dauRound, League.nrl));
-      extents.add(leagueGamesExtent(dauRound, League.nrl));
+      extents.add(leagueGamesExtent(dauRound, League.nrl, cardExtent));
       extents.add(leagueHeaderExtent(dauRound, League.afl));
-      extents.add(leagueGamesExtent(dauRound, League.afl));
+      extents.add(leagueGamesExtent(dauRound, League.afl, cardExtent));
     }
 
     extents.add(kTipsEndFooterHeight);
@@ -53,17 +54,22 @@ class TipsTabItemExtentCache {
     return DAURound.leagueHeaderHeight;
   }
 
-  static double leagueGamesExtent(DAURound dauRound, League league) {
+  static double leagueGamesExtent(
+    DAURound dauRound,
+    League league,
+    double cardExtent,
+  ) {
     final games = dauRound.getGamesForLeague(league);
     if (games.isEmpty) {
       return DAURound.noGamesCardHeight;
     }
-    return games.length * Game.gameCardHeight;
+    return games.length * cardExtent;
   }
 }
 
 List<TipsLeagueSection> buildTipsLeagueSections({
   required DAUComp selectedComp,
+  required double cardExtent,
   int? roundCount,
   bool officialFixtureScoresOnly = false,
 }) {
@@ -91,7 +97,7 @@ List<TipsLeagueSection> buildTipsLeagueSections({
           ),
           bodyExtent: games.isEmpty
               ? DAURound.noGamesCardHeight
-              : games.length * Game.gameCardHeight,
+              : games.length * cardExtent,
         ),
       );
     }
@@ -128,7 +134,8 @@ int targetStartupSectionIndex(
     return 0;
   }
 
-  final activeRoundNumber = selectedComp.latestRoundWithGamesCompletedOrUnderway();
+  final activeRoundNumber = selectedComp
+      .latestRoundWithGamesCompletedOrUnderway();
   final hasStartedRound =
       activeRoundNumber > 0 &&
       activeRoundNumber <= selectedComp.daurounds.length &&
@@ -140,14 +147,11 @@ int targetStartupSectionIndex(
 
   // Round numbers are 1-based; section roundIndex is 0-based.
   // When no round is active (0), clamp keeps it at index 0.
-  final targetRoundIndex = (targetRoundNumber > 0
-      ? targetRoundNumber - 1
-      : 0)
+  final targetRoundIndex = (targetRoundNumber > 0 ? targetRoundNumber - 1 : 0)
       .clamp(0, selectedComp.daurounds.length - 1);
   final targetSectionIndex = sections.indexWhere(
     (section) =>
-        section.roundIndex == targetRoundIndex &&
-        section.league == League.nrl,
+        section.roundIndex == targetRoundIndex && section.league == League.nrl,
   );
   return targetSectionIndex == -1 ? 0 : targetSectionIndex;
 }
@@ -164,6 +168,7 @@ double intraRoundScrollRefinement({
   required List<TipsLeagueSection> sections,
   required int targetSectionIndex,
   required FirstUntippedGameIndexFn firstUntippedGameIndex,
+  required double cardExtent,
 }) {
   final section = sections[targetSectionIndex];
   final dauRound = selectedComp.daurounds[section.roundIndex];
@@ -182,7 +187,7 @@ double intraRoundScrollRefinement({
     firstUntippedGameIndex,
   );
   if (nrlUntippedIndex >= 0) {
-    return nrlUntippedIndex * Game.gameCardHeight;
+    return nrlUntippedIndex * cardExtent;
   }
 
   final aflUntippedIndex = _firstUpcomingUntippedGameIndex(
@@ -193,7 +198,7 @@ double intraRoundScrollRefinement({
     final aflSection = sections[aflSectionIndex];
     return section.bodyExtent +
         aflSection.headerExtent +
-        aflUntippedIndex * Game.gameCardHeight;
+        aflUntippedIndex * cardExtent;
   }
 
   // Second pass: find the first live game across NRL then AFL, regardless of
@@ -202,13 +207,13 @@ double intraRoundScrollRefinement({
   for (var i = 0; i < allGames.length; i++) {
     if (allGames[i].gameState == GameState.startedResultNotKnown) {
       if (i < nrlGames.length) {
-        return i * Game.gameCardHeight;
+        return i * cardExtent;
       }
       if (aflSectionIndex >= 0) {
         final aflSection = sections[aflSectionIndex];
         return section.bodyExtent +
             aflSection.headerExtent +
-            (i - nrlGames.length) * Game.gameCardHeight;
+            (i - nrlGames.length) * cardExtent;
       }
     }
   }
@@ -291,6 +296,7 @@ int activeStickyTipsLeagueSectionIndex({
 
 List<Widget> buildRoundLeagueSectionSlivers({
   required TipsLeagueSection section,
+  required TipsCardLayout layout,
   required int roundIndex,
   required League league,
   required DAUCompsViewModel dauCompsViewModel,
@@ -355,12 +361,13 @@ List<Widget> buildRoundLeagueSectionSlivers({
       )
     else
       SliverFixedExtentList(
-        itemExtent: Game.gameCardHeight,
+        itemExtent: layout.cardExtent,
         delegate: SliverChildBuilderDelegate((context, index) {
           final game = leagueGames[index];
           return RepaintBoundary(
             child: GameListItem(
               key: ValueKey(game.dbkey),
+              layout: layout,
               game: game,
               currentTipper: currentTipper,
               currentDAUComp: selectedComp,

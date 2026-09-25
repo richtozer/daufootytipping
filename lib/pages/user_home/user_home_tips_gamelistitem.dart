@@ -1,11 +1,8 @@
 import 'dart:developer'; // For log()
-import 'dart:math' as math;
 
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -14,15 +11,14 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_gameinfo.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_scoringtile.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_tipchoice.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_submit.dart';
+import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
+import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart'; // Added import
-import 'package:flutter_svg/svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -30,6 +26,7 @@ import 'package:watch_it/watch_it.dart';
 class GameListItem extends StatefulWidget {
   const GameListItem({
     super.key,
+    required this.layout,
     required this.game,
     required this.currentTipper,
     required this.currentDAUComp,
@@ -38,6 +35,7 @@ class GameListItem extends StatefulWidget {
     this.gameTipViewModel, // Optional for testing
   });
 
+  final TipsCardLayout layout;
   final Game game;
   final Tipper currentTipper;
   final DAUComp currentDAUComp;
@@ -54,6 +52,10 @@ class _GameListItemState extends State<GameListItem> {
   static const String _noRankLabel = '';
 
   GameTipViewModel? _ownedGameTipsViewModel;
+
+  /// Remembered by identity, not index: the result panel is inserted
+  /// ahead of the others once a game starts.
+  TipsPanel? _activePanel;
   GameTipViewModel get gameTipsViewModel =>
       widget.gameTipViewModel ?? _ownedGameTipsViewModel!;
 
@@ -109,7 +111,6 @@ class _GameListItemState extends State<GameListItem> {
       _resetLadderRanks();
       _scheduleLadderRankFetch();
     }
-
   }
 
   Future<void> _fetchAndSetLadderRanks() async {
@@ -223,219 +224,115 @@ class _GameListItemState extends State<GameListItem> {
       value: gameTipsViewModel,
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
-          // Use new state variables for rank labels
-          final String displayHomeRank = _isLoadingLadderRank
-              ? _loadingRankLabel
-              : (_homeOrdinalRankLabel ?? _noRankLabel);
-          final String displayAwayRank = _isLoadingLadderRank
-              ? _loadingRankLabel
-              : (_awayOrdinalRankLabel ?? _noRankLabel);
-
-          // Reference to the game for easier access in onTap
-          final Game game = gameTipsViewModelConsumer.game;
-
-          Widget gameDetailsCard = Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+          if (!widget.isPercentStatsPage) {
+            return _card(context, gameTipsViewModelConsumer);
+          }
+          return Selector<
+            StatsViewModel?,
+            ({
+              StatsViewModel? viewModel,
+              GameStatsEntry? entry,
+              GameStatsLoadState loadState,
+            })
+          >(
+            selector: (_, statsViewModel) {
+              final game = gameTipsViewModelConsumer.game;
+              return (
+                viewModel: statsViewModel,
+                entry: statsViewModel?.gameStatsEntryFor(game),
+                loadState:
+                    statsViewModel?.gameStatsLoadStateFor(game) ??
+                    GameStatsLoadState.notRequested,
+              );
+            },
+            builder: (context, statsSelection, child) => _PercentStatsRequest(
+              gameTipViewModel: gameTipsViewModelConsumer,
+              statsViewModel: statsSelection.viewModel,
+              gameStatsEntry: statsSelection.entry,
+              builder: (entry, loading) => _card(
+                context,
+                gameTipsViewModelConsumer,
+                gameStatsEntry: entry,
+                percentStatsLoading: loading,
+              ),
             ),
-            color: Colors.white70,
-            surfaceTintColor: League.nrl.colour,
-            child: Row(
-              children: [
-                gameTipsViewModelConsumer.game.gameState ==
-                        GameState.startedResultNotKnown
-                    ? Tooltip(
-                        message: 'Tap here to edit scoring for this game',
-                        child: GestureDetector(
-                          onTap: () => showMaterialModalBottomSheet(
-                            expand: false,
-                            context: context,
-                            builder: (context) => LiveScoringModal(
-                              gameTipsViewModelConsumer.tip!,
-                            ),
-                          ),
-                          child: SizedBox(
-                            width: Game.teamVersusTeamWidth,
-                            child: _TeamVersusDisplay(
-                              gameTipsViewModelConsumer:
-                                  gameTipsViewModelConsumer,
-                              displayHomeRank: '', // No rank in this branch
-                              displayAwayRank: '', // No rank in this branch
-                              homeTeamScoreWidget: liveScoringHome(
-                                gameTipsViewModelConsumer.game,
-                                context,
-                              ),
-                              awayTeamScoreWidget: liveScoringAway(
-                                gameTipsViewModelConsumer.game,
-                                context,
-                              ),
-                              middleRowWidget: liveScoringEdit(context),
-                              teamNameTextStyle: Theme.of(
-                                context,
-                              ).textTheme.titleMedium!,
-                              rankTextStyle: Theme.of(
-                                context,
-                              ).textTheme.labelSmall!,
-                            ),
-                          ),
-                        ),
-                      )
-                    : SizedBox(
-                        width: Game.teamVersusTeamWidth,
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => LeagueLadderPage(
-                                  league: game.league,
-                                  teamDbKeysToDisplay: [
-                                    game.homeTeam.dbkey,
-                                    game.awayTeam.dbkey,
-                                  ],
-                                  customTitle:
-                                      "League Leaderboard comparison.", // Updated title
-                                ),
-                              ),
-                            );
-                          },
-                          child: _TeamVersusDisplay(
-                            gameTipsViewModelConsumer:
-                                gameTipsViewModelConsumer,
-                            displayHomeRank: displayHomeRank,
-                            displayAwayRank: displayAwayRank,
-                            homeTeamScoreWidget: fixtureScoringHome(
-                              gameTipsViewModelConsumer,
-                            ),
-                            awayTeamScoreWidget: fixtureScoringAway(
-                              gameTipsViewModelConsumer,
-                            ),
-                            middleRowWidget: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Hero(
-                                  tag:
-                                      "team_icon_${gameTipsViewModelConsumer.game.homeTeam.dbkey}",
-                                  child: SvgPicture.asset(
-                                    gameTipsViewModelConsumer
-                                            .game
-                                            .homeTeam
-                                            .logoURI ??
-                                        (gameTipsViewModelConsumer
-                                                    .game
-                                                    .league ==
-                                                League.nrl
-                                            ? League.nrl.logo
-                                            : League.afl.logo),
-                                    width: 25,
-                                    height: 25,
-                                  ),
-                                ),
-                                const Text(textAlign: TextAlign.left, ' V '),
-                                Hero(
-                                  tag:
-                                      "team_icon_${gameTipsViewModelConsumer.game.awayTeam.dbkey}",
-                                  child: SvgPicture.asset(
-                                    gameTipsViewModelConsumer
-                                            .game
-                                            .awayTeam
-                                            .logoURI ??
-                                        (gameTipsViewModelConsumer
-                                                    .game
-                                                    .league ==
-                                                League.nrl
-                                            ? League.nrl.logo
-                                            : League.afl.logo),
-                                    width: 25,
-                                    height: 25,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            teamNameTextStyle: Theme.of(
-                              context,
-                            ).textTheme.titleMedium!,
-                            rankTextStyle: Theme.of(
-                              context,
-                            ).textTheme.labelSmall!,
-                          ),
-                        ),
-                      ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      CarouselSlider(
-                        options: CarouselOptions(
-                          height: Game.gameCardHeight - 8,
-                          enlargeFactor: 1.0,
-                          enlargeCenterPage: true,
-                          enlargeStrategy: CenterPageEnlargeStrategy.zoom,
-                          enableInfiniteScroll: false,
-                          // Removed historical data fetching
-                          onPageChanged: (index, reason) {}, // No longer needed
-                        ),
-                        items: carouselItems(
-                          gameTipsViewModelConsumer,
-                          widget.isPercentStatsPage,
-                        ),
-                        carouselController:
-                            gameTipsViewModelConsumer.controller,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-
-          final scoring = game.scoring;
-          final hasCrowdSourcedScore =
-              scoring?.crowdSourcedScores?.isNotEmpty ?? false;
-          final hasFinalFixtureScore =
-              scoring?.homeTeamScore != null && scoring?.awayTeamScore != null;
-
-          if (hasCrowdSourcedScore && !hasFinalFixtureScore) {
-            _recordGamePresentation(game, 'interim_score_banner');
-            return _buildInterimScoreBanner(context, gameDetailsCard);
-          }
-
-          // if game is more than 3 hours in the past, don't show any banner
-          if (game.startTimeUTC.difference(DateTime.now()).inHours < -3) {
-            _recordGamePresentation(game, 'past_game_card');
-            return gameDetailsCard;
-          }
-
-          String bannerMessage;
-          Color bannerColor;
-
-          switch (game.gameState) {
-            case GameState.startingSoon:
-              bannerMessage = "Game today";
-              bannerColor = Colors.orange;
-              break;
-            case GameState.startedResultNotKnown:
-              bannerMessage = "Live";
-              bannerColor = League.afl.colour;
-              break;
-            case GameState.startedResultKnown:
-              // return standard gameDetailsCard with no banner overlay
-              _recordGamePresentation(game, 'final_game_card');
-              return gameDetailsCard;
-            case GameState.notStarted:
-              // return standard gameDetailsCard with no banner overlay
-              _recordGamePresentation(game, 'not_started_game_card');
-              return gameDetailsCard;
-          }
-
-          // return gameDetailsCard with banner overlay
-          _recordGamePresentation(game, 'status_banner_$bannerMessage');
-          return Banner(
-            color: bannerColor,
-            location: BannerLocation.topEnd,
-            message: bannerMessage,
-            child: gameDetailsCard,
           );
         },
+      ),
+    );
+  }
+
+  Widget _card(
+    BuildContext context,
+    GameTipViewModel gameTipsViewModelConsumer, {
+    GameStatsEntry? gameStatsEntry,
+    bool percentStatsLoading = false,
+  }) {
+    final String displayHomeRank = _isLoadingLadderRank
+        ? _loadingRankLabel
+        : (_homeOrdinalRankLabel ?? _noRankLabel);
+    final String displayAwayRank = _isLoadingLadderRank
+        ? _loadingRankLabel
+        : (_awayOrdinalRankLabel ?? _noRankLabel);
+
+    final data = tipsCardDisplayFor(
+      gameTipViewModel: gameTipsViewModelConsumer,
+      homeRank: displayHomeRank,
+      awayRank: displayAwayRank,
+      gameStatsEntry: gameStatsEntry,
+      percentStatsLoading: percentStatsLoading,
+      // Permission is checked when a tip is submitted, as it always has been:
+      // the buttons stay live and explain themselves rather than going flat.
+      canTip: true,
+    );
+    _recordGamePresentation(gameTipsViewModelConsumer.game, data.status.name);
+
+    final panels = widget.isPercentStatsPage
+        ? const [TipsPanel.percentages]
+        : [
+            if (data.hasResult) TipsPanel.result,
+            TipsPanel.tips,
+            TipsPanel.info,
+          ];
+    final active = _activePanel != null && panels.contains(_activePanel)
+        ? _activePanel!
+        : panels.first;
+
+    return AdaptiveTipsCard(
+      data: data,
+      layout: widget.layout,
+      percentStats: widget.isPercentStatsPage,
+      activePanel: active,
+      onPanelChanged: (panel) => _activePanel = panel,
+      onTip: widget.isPercentStatsPage
+          ? null
+          : (option) => submitTip(context, gameTipsViewModelConsumer, option),
+      onMatchup: () => _openMatchup(context, gameTipsViewModelConsumer),
+    );
+  }
+
+  void _openMatchup(
+    BuildContext context,
+    GameTipViewModel gameTipsViewModelConsumer,
+  ) {
+    final game = gameTipsViewModelConsumer.game;
+    if (game.gameState == GameState.startedResultNotKnown &&
+        gameTipsViewModelConsumer.tip != null) {
+      showMaterialModalBottomSheet(
+        expand: false,
+        context: context,
+        builder: (context) => LiveScoringModal(gameTipsViewModelConsumer.tip!),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LeagueLadderPage(
+          league: game.league,
+          teamDbKeysToDisplay: [game.homeTeam.dbkey, game.awayTeam.dbkey],
+          customTitle: "League Leaderboard comparison.",
+        ),
       ),
     );
   }
@@ -456,130 +353,30 @@ class _GameListItemState extends State<GameListItem> {
     );
   }
 
-  Widget _buildInterimScoreBanner(BuildContext context, Widget child) {
-    return Stack(
-      clipBehavior: Clip.hardEdge,
-      children: [
-        Banner(
-          color: Colors.grey.shade600,
-          location: BannerLocation.topEnd,
-          message: '* Interim',
-          child: child,
-        ),
-        Positioned(
-          top: 0,
-          right: 0,
-          width: 78,
-          height: 78,
-          child: Transform.rotate(
-            angle: math.pi / 4,
-            child: Tooltip(
-              message: 'Scores are based on interim live score data.',
-              child: Semantics(
-                button: true,
-                label: 'Interim score warning',
-                child: InkWell(
-                  onTap: () =>
-                      LiveScoresWarningCard.showLiveScoreDetails(context),
-                  child: const SizedBox.expand(),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> carouselItems(
-    GameTipViewModel gameTipsViewModelConsumer,
-    bool isPercentStatsPage,
-  ) {
-    if (isPercentStatsPage) {
-      return [gameStatsCard(gameTipsViewModelConsumer)];
-    }
-
-    // Always add the base cards for the game
-    List<Widget> cards = [
-      gameTipCard(gameTipsViewModelConsumer), // Tip Choice card
-      GameInfo(
-        gameTipsViewModelConsumer.game,
-        gameTipsViewModelConsumer,
-      ), // Game Info card
-    ];
-
-    // Historical matchup cards removed - now available in team comparison page
-
-    // For games underway or ended, add scoring tile at the start
-    if ((gameTipsViewModelConsumer.game.gameState ==
-                GameState.startedResultNotKnown ||
-            gameTipsViewModelConsumer.game.gameState ==
-                GameState.startedResultKnown) &&
-        gameTipsViewModelConsumer.tip != null) {
-      cards.insert(0, scoringTileBuilder(gameTipsViewModelConsumer));
-    }
-
-    return cards;
-  }
-
-  // Historical matchup card builder removed - functionality moved to team comparison page
-
-  Widget scoringTileBuilder(GameTipViewModel gameTipsViewModelConsumer) {
-    return ScoringTile(
-      tip: gameTipsViewModelConsumer.tip!,
-      gameTipsViewModel: gameTipsViewModelConsumer,
-      selectedDAUComp: widget.currentDAUComp,
-    );
-  }
-
-  Widget gameTipCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return TipChoice(gameTipsViewModelConsumer, false);
-  }
-
-  Widget gameStatsCard(GameTipViewModel gameTipsViewModelConsumer) {
-    return Selector<StatsViewModel?,
-        ({StatsViewModel? viewModel, GameStatsEntry? entry, GameStatsLoadState loadState})>(
-      selector: (_, statsViewModel) {
-        final game = gameTipsViewModelConsumer.game;
-        final entry = statsViewModel?.gameStatsEntryFor(game);
-        final loadState = statsViewModel?.gameStatsLoadStateFor(game) ??
-            GameStatsLoadState.notRequested;
-        return (
-          viewModel: statsViewModel,
-          entry: entry,
-          loadState: loadState,
-        );
-      },
-      builder: (context, statsSelection, child) {
-        return _PercentStatsTipChoice(
-          gameTipViewModel: gameTipsViewModelConsumer,
-          statsViewModel: statsSelection.viewModel,
-          gameStatsEntry: statsSelection.entry,
-        );
-      },
-    );
-  }
-
   // _initLeagueLadder is now _fetchAndSetLadderRanks
   // _buildNewHistoricalMatchupsCard has been removed.
 }
 
-class _PercentStatsTipChoice extends StatefulWidget {
-  const _PercentStatsTipChoice({
+/// Keeps the percentage request lifecycle the stats tab has always had, and
+/// hands the loaded entry to the caller rather than rendering it.
+class _PercentStatsRequest extends StatefulWidget {
+  const _PercentStatsRequest({
     required this.gameTipViewModel,
     required this.statsViewModel,
-    this.gameStatsEntry,
+    required this.gameStatsEntry,
+    required this.builder,
   });
 
   final GameTipViewModel gameTipViewModel;
   final StatsViewModel? statsViewModel;
   final GameStatsEntry? gameStatsEntry;
+  final Widget Function(GameStatsEntry? entry, bool loading) builder;
 
   @override
-  State<_PercentStatsTipChoice> createState() => _PercentStatsTipChoiceState();
+  State<_PercentStatsRequest> createState() => _PercentStatsRequestState();
 }
 
-class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
+class _PercentStatsRequestState extends State<_PercentStatsRequest> {
   @override
   void initState() {
     super.initState();
@@ -587,14 +384,13 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
   }
 
   @override
-  void didUpdateWidget(covariant _PercentStatsTipChoice oldWidget) {
+  void didUpdateWidget(covariant _PercentStatsRequest oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final bool gameChanged =
+    final gameChanged =
         oldWidget.gameTipViewModel.game.dbkey !=
         widget.gameTipViewModel.game.dbkey;
-    final bool statsViewModelChanged =
+    final statsViewModelChanged =
         oldWidget.statsViewModel != widget.statsViewModel;
-
     if (gameChanged || statsViewModelChanged) {
       _requestPercentStatsIfNeeded();
     }
@@ -605,190 +401,22 @@ class _PercentStatsTipChoiceState extends State<_PercentStatsTipChoice> {
     if (statsViewModel == null) {
       return;
     }
-
     if (widget.gameStatsEntry?.hasCompleteStats == true) {
       return;
     }
-
     statsViewModel.getGamesStatsEntry(widget.gameTipViewModel.game, false);
   }
 
   @override
   Widget build(BuildContext context) {
     final entry = widget.gameStatsEntry;
+    final complete = entry?.hasCompleteStats == true;
     final loadState = widget.statsViewModel?.gameStatsLoadStateFor(
       widget.gameTipViewModel.game,
     );
-    return TipChoice(
-      widget.gameTipViewModel,
-      true,
-      gameStatsEntry: entry?.hasCompleteStats == true ? entry : null,
-      percentStatsLoading:
-          entry?.hasCompleteStats != true &&
-          loadState == GameStatsLoadState.loading,
+    return widget.builder(
+      complete ? entry : null,
+      !complete && loadState == GameStatsLoadState.loading,
     );
   }
-}
-
-class _TeamDisplayRow extends StatelessWidget {
-  const _TeamDisplayRow({
-    required this.teamName,
-    this.teamRank,
-    required this.scoreWidget,
-    required this.gameState,
-    required this.textStyle,
-    required this.rankTextStyle,
-  });
-
-  final String teamName;
-  final String? teamRank;
-  final Widget scoreWidget;
-  final GameState gameState;
-  final TextStyle textStyle;
-  final TextStyle rankTextStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (teamRank != null &&
-            teamRank!.isNotEmpty &&
-            (gameState == GameState.notStarted ||
-                gameState == GameState.startingSoon)) ...[
-          Text(
-            teamRank!,
-            style: rankTextStyle,
-            textScaler: const TextScaler.linear(0.9),
-            textAlign: TextAlign.left,
-            softWrap: true,
-          ),
-          const SizedBox(width: 5),
-        ],
-        Flexible(
-          child: Text(
-            teamName,
-            style: textStyle,
-            textAlign: TextAlign.left,
-            overflow: TextOverflow.fade,
-            softWrap: false,
-          ),
-        ),
-        const SizedBox(width: 5),
-        scoreWidget,
-      ],
-    );
-  }
-}
-
-class _TeamVersusDisplay extends StatelessWidget {
-  const _TeamVersusDisplay({
-    required this.gameTipsViewModelConsumer,
-    required this.displayHomeRank,
-    required this.displayAwayRank,
-    required this.homeTeamScoreWidget,
-    required this.awayTeamScoreWidget,
-    required this.middleRowWidget,
-    required this.teamNameTextStyle,
-    required this.rankTextStyle,
-  });
-
-  final GameTipViewModel gameTipsViewModelConsumer;
-  final String displayHomeRank;
-  final String displayAwayRank;
-  final Widget homeTeamScoreWidget;
-  final Widget awayTeamScoreWidget;
-  final Widget middleRowWidget;
-  final TextStyle teamNameTextStyle;
-  final TextStyle rankTextStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool showExtra = shouldShowTextTeamInfo(context);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _TeamDisplayRow(
-          teamName: gameTipsViewModelConsumer.game.homeTeam.name,
-          teamRank: showExtra ? displayHomeRank : null,
-          scoreWidget: showExtra
-              ? homeTeamScoreWidget
-              : const SizedBox.shrink(),
-          gameState: gameTipsViewModelConsumer.game.gameState,
-          textStyle: teamNameTextStyle,
-          rankTextStyle: rankTextStyle,
-        ),
-        // Always show middleRowWidget to ensure Hero widgets are present for animation
-        // but make it invisible when showExtra is false
-        showExtra
-            ? middleRowWidget
-            : Opacity(
-                opacity: 0.0,
-                child: SizedBox(
-                  height: 0,
-                  child: IgnorePointer(child: middleRowWidget),
-                ),
-              ),
-        _TeamDisplayRow(
-          teamName: gameTipsViewModelConsumer.game.awayTeam.name,
-          teamRank: showExtra ? displayAwayRank : null,
-          scoreWidget: showExtra
-              ? awayTeamScoreWidget
-              : const SizedBox.shrink(),
-          gameState: gameTipsViewModelConsumer.game.gameState,
-          textStyle: teamNameTextStyle,
-          rankTextStyle: rankTextStyle,
-        ),
-      ],
-    );
-  }
-}
-
-bool shouldShowTextTeamInfo(BuildContext context) {
-  final width = MediaQuery.of(context).size.width;
-  final textScaler = MediaQuery.of(context).textScaler;
-  // Hide if width is less than 340 or text scale is large
-  return width > 340 && (textScaler.scale(1.0) < 1.3);
-}
-
-Widget liveScoringHome(Game consumerTipGame, BuildContext context) {
-  return Text(
-    style: const TextStyle(fontWeight: FontWeight.w800),
-    ' ${consumerTipGame.scoring?.currentScore(ScoringTeam.home) ?? '0'}',
-  );
-}
-
-Widget liveScoringAway(Game consumerTipGame, BuildContext context) {
-  return Text(
-    style: const TextStyle(fontWeight: FontWeight.w800),
-    '${consumerTipGame.scoring?.currentScore(ScoringTeam.away) ?? '0'} ',
-  );
-}
-
-Widget liveScoringEdit(BuildContext context) {
-  return SizedBox(width: 30, child: const Icon(Icons.edit));
-}
-
-Widget fixtureScoringHome(GameTipViewModel consumerTipGameViewModel) {
-  return Text(
-    '${consumerTipGameViewModel.game.scoring!.homeTeamScore ?? ''}',
-    style: consumerTipGameViewModel.game.scoring!.didHomeTeamWin()
-        ? TextStyle(
-            backgroundColor: Colors.lightGreen[200],
-            fontWeight: FontWeight.w900,
-          )
-        : TextStyle(fontWeight: FontWeight.w600),
-  );
-}
-
-Widget fixtureScoringAway(GameTipViewModel consumerTipGameViewModel) {
-  return Text(
-    '${consumerTipGameViewModel.game.scoring!.awayTeamScore ?? ''}',
-    style: consumerTipGameViewModel.game.scoring!.didAwayTeamWin()
-        ? TextStyle(
-            backgroundColor: Colors.lightGreen[200],
-            fontWeight: FontWeight.w900,
-          )
-        : TextStyle(fontWeight: FontWeight.w600),
-  );
 }

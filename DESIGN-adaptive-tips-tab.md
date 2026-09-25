@@ -1,6 +1,6 @@
 # Adaptive Tips Tab — Implementation Brief
 
-As of 22 September 2026; three corrections applied 23 September 2026 (marked inline). Reviewed and written by Claude (Opus 5) for Richard Tozer.
+As of 22 September 2026; corrections applied 23 September 2026 and the carousel-peek and app-width decisions recorded 25 September 2026 (all marked inline). Reviewed and written by Claude (Opus 5) for Richard Tozer.
 
 > **This file is a snapshot.** The living copy is the shared doc at
 > <https://claude.ai/code/artifact/c478cca0-8c97-4fd2-908e-44cc747bd787> — edits and
@@ -39,7 +39,7 @@ Three layouts, chosen from the card's available width and the current text scale
 
 Rules agreed with Richard:
 
-- Standard is the visual baseline. On a typical phone at default text size, users should see close to no change — team panel, button arrangement, styling and swipe behaviour all preserved.
+- Standard preserves the current phone arrangement — team panel, button arrangement, styling and swipe behaviour.
 - Swiping between Tips, Result and Info stays. Visible segment controls were considered and set aside.
 - The two halves adapt independently. There is a useful middle ground where the matchup sits above the current button arrangement; dropping straight from standard to five stacked buttons makes cards needlessly tall.
 - "Smallest components" means simpler grouping, not smaller text or smaller touch targets. Keep the user's chosen text size and let the card grow.
@@ -50,9 +50,71 @@ Rules agreed with Richard:
 
 Transition thresholds come from measurement in the prototype, not from guessed device categories. Print the measured minimum width for each layout so it can be hardcoded with confidence.
 
+### Carousel peek and layout breakpoints — decided 25 September 2026
+
+The carousel viewport fraction is **0.9 in all three modes**, not 0.8. This affects production, not just the prototype.
+
+The 20% strip the old value reserved showed nothing. `enlargeCenterPage: true` with `CenterPageEnlargeStrategy.zoom` scales the off-centre pages small enough that they sit inside the reserved strip rather than filling it, so at rest the strip is empty card background. The same absence appears in the baseline screenshots above, so it is inherited from production rather than introduced here. The peek was notional, and the width it cost was real.
+
+What it bought: at 390px and 2.5× text the tip buttons stay in the paired 2 / 1 / 2 arrangement instead of dropping to five stacked rows, and the card falls from 561px to 481px.
+
+**The breakpoints moved with it.** They are derived by dividing content width by the fraction:
+
+```
+wideMin = inlineTeamWidth + inlineChoicesWidth / fraction + 8
+```
+
+A larger fraction divides by more, so the threshold drops. `wideMinWidth` at 1.0× went from 801 to at most 768, and 768px — iPad portrait — flipped from standard to wide: inline matchup, results reflowed to two rows, roughly double the games per screen. Phone widths (360, 390) stay standard with a slightly wider panel, so the standard-baseline rule above still holds.
+
+That flip is accepted: wide at tablet width is what wide mode is for, and nothing is hidden. It must be pinned by test rather than left as a property of the formula — see the checklist below.
+
+**Still open:** with no visible peek in any mode, nothing statically tells a user that Result, Info and Tips sit behind a swipe. That predates this work and applies to the shipped app. Making the peek real — reducing `enlargeFactor`, changing the enlarge strategy, or trimming the panel `Card` margin — remains available and would be a separate decision.
+
+## App width policy and integration sequence — decided 25 September 2026
+
+The 500px cap at `main.dart:535` was an expedient fix to stop the phone layout stretching across a desktop browser, not a considered constraint. It wraps `MaterialApp.home`, so all three tabs are capped and centred.
+
+**The rule replacing it: the app grows until the game card fits inline — the wide arrangement — and no further.** Past that width, extra space only stretches whitespace. Where a display is too narrow to reach the inline threshold, the app uses what is available and stays standard or stacked.
+
+Measured against the prototype's sample data. These are sample numbers, not universal limits; real comp data will shift them.
+
+| Text scale | Standard from | Wide from | Mode at 500px |
+| --- | --- | --- | --- |
+| 1.0× | 334 | 743 | standard |
+| 1.5× | 458 | 986 | standard |
+| 2.0× | 582 | 1234 | stacked |
+| 2.5× | 707 | 1482 | stacked |
+| 3.2× | 881 | 1829 | stacked |
+
+### Deriving the width without making the app resize itself
+
+`wideMinWidth` comes from `TipsCardLayout.measure()`, which reads team names, ranks and scores — all of which change. Team names are stored data (`team.dart:20`), not a fixed list, so a hardcoded worst case would drift from reality. Measure a **bounded worst case per field** rather than current values:
+
+- **Team name** — widest across all teams in the loaded comp, not just the visible games.
+- **Rank** — the widest ordinal string, which is bounded.
+- **Score** — a fixed three-digit allowance, never the live number.
+
+The width is then a function of comp and text scale alone. Recompute on comp load and on text-scale change, cache otherwise. A score ticking from 98 to 105 can never move it.
+
+**One measurement, not two.** The cap and the mode decision must come from the same call. If they disagree by a rounding step, the app sits at its own maximum width still rendering stacked — the most irritating possible failure, and invisible to the current tests. Size the gutter above the threshold so the wide layout never sits at its exact minimum.
+
+### Six screens sit outside the cap
+
+`LeagueLadderPage`, `TeamGamesHistoryPage`, `StatRoundGameScoresForTipper`, `StatRoundLeaderboard`, `StatPercentTipped` and `RoundMissingTipsStats` are pushed as siblings of `home` in MaterialApp's Navigator, so the wrapper never reaches them and they render full-width today. Holding the shell consistent across tabs does not cover them, because they are not tabs. At 500px that inconsistency reads as an accident; at a deliberate 743 it will read as a bug. Decide whether the policy applies to them.
+
+A consistent outer width does not require every screen's content to stretch. The shell and navigation can hold one width while forms and profile content stay narrower inside it.
+
+### Sequence
+
+1. **Integrate the adaptive Tips card under the existing 500px cap.** This carries the real risk — extent cache, startup scroll, sticky-header arithmetic — and is independent of width policy. Stacked already engages at 500px from 2× text, so large-text users benefit immediately; wide stays dormant.
+2. **Replace the cap with the derived maximum.** This is also what switches wide on, so the two are one change, reviewed together.
+3. **Review Stats, Profile and the pushed pages at the new width.** `DataTable2` was repaired recently in `8e90843` and needs its own check.
+
+This makes wide mode load-bearing: it defines the app's width policy rather than being an optional extra.
+
 ## Baseline screenshots: the states that must survive
 
-Four phone screenshots from the end of the 2026 comp, at default text size. They document states a synthetic gallery would not produce, so use them twice over: as the reference for "standard, unchanged", and as the sample-data matrix the prototype has to cover. They carry Richard's own rank, points and tips — worth knowing before the doc is shared further.
+Four phone screenshots from the end of the 2026 comp, at default text size. They document states a synthetic gallery would not produce, so use them twice over: as the reference for the current standard arrangement, and as the sample-data matrix the prototype has to cover. They carry Richard's own rank, points and tips — worth knowing before the doc is shared further.
 
 ![Tips tab, NRL round 25: final results, two No Result games and a Live banner](screenshots/tips-baseline-2026-09-22/IMG_4375.png)
 
@@ -111,7 +173,7 @@ Keep `SliverFixedExtentList`. Compute the card extent once per list build from t
 
 Every offset calculation in the next section keeps working, because they all reference one constant — parameterise that constant and they come along. Wide mode then gets a genuinely shorter card, roughly one row instead of three, so landscape and tablets show more games per screen. That is a real gain the earlier discussion missed.
 
-What you give up is per-game height variation: inside one layout mode every card is as tall as the tallest content in that mode. That is already what happens today at 128px, and the stated goal is that standard users see almost no change — so this sits closer to the goal than measured heights, not further from it.
+What you give up is per-game height variation: inside one layout mode every card is as tall as the tallest content in that mode. That is already what happens today at 128px, so it stays closer to the current phone arrangement than measured heights would.
 
 Sketch:
 
@@ -155,7 +217,7 @@ None of these came up in the earlier discussion. All line references are in `lib
 
 **Hero tag collisions.** The code keeps an invisible zero-height copy of the logo row at `user_home_tips_gamelistitem.dart:725-732`, purely so the `team_icon_<dbkey>` Hero tags always exist for the ladder-page transition. If wide mode renders the matchup inline while that hidden copy survives, you get duplicate Hero tags in one subtree and Flutter throws. Rule: exactly one Hero per team per route. Re-test the ladder push in all three layouts.
 
-**Touch targets contradict "unchanged".** The chips use `materialTapTargetSize: MaterialTapTargetSize.shrinkWrap` with zero padding, at `user_home_tips_tipchoice.dart:158` and `:317` — already below the 48dp guideline. "Keep touch targets easy to tap" and "standard looks identical" cannot both hold. Richard decides which wins; raise it rather than quietly picking.
+**Touch targets versus preserving the standard arrangement.** The chips use `materialTapTargetSize: MaterialTapTargetSize.shrinkWrap` with zero padding, at `user_home_tips_tipchoice.dart:158` and `:317` — already below the 48dp guideline. Enlarging them changes the standard phone arrangement, so the two goals pull against each other. Richard decides which wins; raise it rather than quietly picking.
 
 **Percent-stats mode.** The same card renders on the Stats tab with `isPercentStatsPage: true`: `carouselItems()` returns a single card (`:498`) and `TipChoice` draws percentage chips instead of choice chips. Every layout change hits two surfaces. Budget for it.
 
@@ -181,9 +243,9 @@ Preserve across rotation: the selected tip, the active panel identity, and the g
 
 ## Baseline, done, and review points
 
-**Write goldens before you branch.** The acceptance bar is "standard phones look almost unchanged", and nothing today can enforce it — `test/screenshots/` holds manual PNGs from July 2025, not goldens. The baseline screenshots above are a human reference, not a gate. Add golden tests for the Tips tab on `development`, commit them, then branch. Without them the thing Richard cares about most is judged by eyeball across a worktree boundary.
+**Write goldens before you branch.** Nothing today can detect an unintended layout change — `test/screenshots/` holds manual PNGs from July 2025, not goldens. The baseline screenshots above are a human reference, not a gate. Add golden tests for the Tips tab on `development`, commit them, then branch. Without them every layout shift is judged by eyeball across a worktree boundary.
 
-Minimum matrix: 360, 768 and 1280 logical px, at text scale 1.0 and 1.5. The standard-mode goldens must still pass unchanged at the end.
+Minimum matrix: 360, 768 and 1280 logical px, at text scale 1.0 and 1.5. Expect goldens to move whenever a measurement changes — open the regenerated image and confirm the change was intended before committing it.
 
 **Prototype against a multi-round list, not isolated cards.** Sticky round headers, startup scroll and jump-to-untipped are where this breaks, and none of them show up in a single-card gallery.
 
@@ -193,13 +255,15 @@ Definition of done, per CLAUDE.md:
 - [ ] `flutter test` passes, including the updated extent and scroll-target tests
 - [ ] `dart format lib/` clean
 - [ ] `cspell "**"` clean
-- [ ] Standard-mode goldens unchanged
+- [ ] Phone widths still render the standard layout — stacked team panel, 2 / 1 / 2 buttons (a golden may shift with panel width; the arrangement must not)
+- [ ] Absolute-width mode assertions pin which layout each width class gets — 360, 390, 430 standard; 768, 834, 1024; 1280 wide — so a formula change that moves a breakpoint fails a test instead of silently rewriting a golden
+- [ ] Width policy pinned by assertion — a 2000px window at 1.0× text yields the derived content width with Tips in wide mode, and the width does not move when a score changes
 - [ ] No `dynamic`, no `!` without justification, no TODOs, no old code left beside new
 - [ ] Verified on web, iPad and a phone: portrait and landscape, default and large text
 
 Outcomes to judge against:
 
-1. Standard phones look essentially unchanged.
+1. The standard phone arrangement is preserved: team panel, 2 / 1 / 2 buttons, swipe behaviour.
 2. Narrow widths and large text stay fully usable, with nothing hidden.
 3. Resizing, rotating and swiping preserve the selected tip, the active panel and the visible game, with no jumps.
 

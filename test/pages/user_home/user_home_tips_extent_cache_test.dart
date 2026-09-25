@@ -73,7 +73,7 @@ void main() {
         daurounds: [round1, round2],
       );
 
-      final extents = TipsTabItemExtentCache.buildExtents(comp);
+      final extents = TipsTabItemExtentCache.buildExtents(comp, Game.gameCardHeight);
 
       expect(
         extents,

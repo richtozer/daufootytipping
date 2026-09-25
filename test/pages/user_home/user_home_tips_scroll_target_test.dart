@@ -66,6 +66,7 @@ void main() {
         );
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           officialFixtureScoresOnly: true,
         );
 
@@ -77,22 +78,24 @@ void main() {
 
       test('excludes games that only have interim scores', () {
         final now = DateTime.now().toUtc();
-        final liveGame = makeGame(
-          dbkey: 'nrl-24-204',
-          league: League.nrl,
-          matchNumber: 204,
-          startTimeUTC: now.subtract(const Duration(hours: 1)),
-        )..scoring = Scoring(
-            crowdSourcedScores: [
-              CrowdSourcedScore(
-                now,
-                ScoringTeam.home,
-                'tipper-1',
-                20,
-                false,
-              ),
-            ],
-          );
+        final liveGame =
+            makeGame(
+                dbkey: 'nrl-24-204',
+                league: League.nrl,
+                matchNumber: 204,
+                startTimeUTC: now.subtract(const Duration(hours: 1)),
+              )
+              ..scoring = Scoring(
+                crowdSourcedScores: [
+                  CrowdSourcedScore(
+                    now,
+                    ScoringTeam.home,
+                    'tipper-1',
+                    20,
+                    false,
+                  ),
+                ],
+              );
         final round = DAURound(
           dAUroundNumber: 24,
           firstGameKickOffUTC: liveGame.startTimeUTC,
@@ -108,6 +111,7 @@ void main() {
 
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           officialFixtureScoresOnly: true,
         );
 
@@ -116,89 +120,98 @@ void main() {
     });
 
     group('targetStartupSectionIndex', () {
-      test('targets round with live games when previous round ended recently',
-          () {
-        final now = DateTime.now().toUtc();
+      test(
+        'targets round with live games when previous round ended recently',
+        () {
+          final now = DateTime.now().toUtc();
 
-        // Round 1: games ended but last kickoff was only 3h ago,
-        // so latestsCompletedRoundNumber (which requires +6h) returns 0.
-        // However latestRoundWithGamesCompletedOrUnderway sees it as ended.
-        final r1 = DAURound(
-          dAUroundNumber: 1,
-          firstGameKickOffUTC: now.subtract(const Duration(hours: 5)),
-          lastGameKickOffUTC: now.subtract(const Duration(hours: 3)),
-        )..roundState = RoundState.allGamesEnded;
-        r1.games = [
-          makeGame(
-            dbkey: 'nrl-r1-01',
-            league: League.nrl,
-            matchNumber: 1,
-            startTimeUTC: now.subtract(const Duration(hours: 5)),
-          ),
-          makeGame(
-            dbkey: 'afl-r1-01',
-            league: League.afl,
-            matchNumber: 1,
-            startTimeUTC: now.subtract(const Duration(hours: 3)),
-          ),
-        ];
+          // Round 1: games ended but last kickoff was only 3h ago,
+          // so latestsCompletedRoundNumber (which requires +6h) returns 0.
+          // However latestRoundWithGamesCompletedOrUnderway sees it as ended.
+          final r1 = DAURound(
+            dAUroundNumber: 1,
+            firstGameKickOffUTC: now.subtract(const Duration(hours: 5)),
+            lastGameKickOffUTC: now.subtract(const Duration(hours: 3)),
+          )..roundState = RoundState.allGamesEnded;
+          r1.games = [
+            makeGame(
+              dbkey: 'nrl-r1-01',
+              league: League.nrl,
+              matchNumber: 1,
+              startTimeUTC: now.subtract(const Duration(hours: 5)),
+            ),
+            makeGame(
+              dbkey: 'afl-r1-01',
+              league: League.afl,
+              matchNumber: 1,
+              startTimeUTC: now.subtract(const Duration(hours: 3)),
+            ),
+          ];
 
-        // Round 2: has a live game (started 1h ago)
-        final r2 = DAURound(
-          dAUroundNumber: 2,
-          firstGameKickOffUTC: now.subtract(const Duration(hours: 1)),
-          lastGameKickOffUTC: now.add(const Duration(days: 1)),
-        )..roundState = RoundState.started;
-        r2.games = [
-          makeGame(
-            dbkey: 'nrl-r2-01',
-            league: League.nrl,
-            matchNumber: 1,
-            startTimeUTC: now.subtract(const Duration(hours: 1)),
-          ),
-          makeGame(
-            dbkey: 'afl-r2-01',
-            league: League.afl,
-            matchNumber: 1,
-            startTimeUTC: now.add(const Duration(days: 1)),
-          ),
-        ];
+          // Round 2: has a live game (started 1h ago)
+          final r2 = DAURound(
+            dAUroundNumber: 2,
+            firstGameKickOffUTC: now.subtract(const Duration(hours: 1)),
+            lastGameKickOffUTC: now.add(const Duration(days: 1)),
+          )..roundState = RoundState.started;
+          r2.games = [
+            makeGame(
+              dbkey: 'nrl-r2-01',
+              league: League.nrl,
+              matchNumber: 1,
+              startTimeUTC: now.subtract(const Duration(hours: 1)),
+            ),
+            makeGame(
+              dbkey: 'afl-r2-01',
+              league: League.afl,
+              matchNumber: 1,
+              startTimeUTC: now.add(const Duration(days: 1)),
+            ),
+          ];
 
-        // Round 3: not started
-        final r3 = DAURound(
-          dAUroundNumber: 3,
-          firstGameKickOffUTC: now.add(const Duration(days: 7)),
-          lastGameKickOffUTC: now.add(const Duration(days: 8)),
-        )..roundState = RoundState.notStarted;
-        r3.games = [
-          makeGame(
-            dbkey: 'nrl-r3-01',
-            league: League.nrl,
-            matchNumber: 1,
-            startTimeUTC: now.add(const Duration(days: 7)),
-          ),
-        ];
+          // Round 3: not started
+          final r3 = DAURound(
+            dAUroundNumber: 3,
+            firstGameKickOffUTC: now.add(const Duration(days: 7)),
+            lastGameKickOffUTC: now.add(const Duration(days: 8)),
+          )..roundState = RoundState.notStarted;
+          r3.games = [
+            makeGame(
+              dbkey: 'nrl-r3-01',
+              league: League.nrl,
+              matchNumber: 1,
+              startTimeUTC: now.add(const Duration(days: 7)),
+            ),
+          ];
 
-        final comp = DAUComp(
-          name: 'Test Comp',
-          aflFixtureJsonURL: Uri.parse('https://afl'),
-          nrlFixtureJsonURL: Uri.parse('https://nrl'),
-          daurounds: [r1, r2, r3],
-        );
+          final comp = DAUComp(
+            name: 'Test Comp',
+            aflFixtureJsonURL: Uri.parse('https://afl'),
+            nrlFixtureJsonURL: Uri.parse('https://nrl'),
+            daurounds: [r1, r2, r3],
+          );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+          final sections = buildTipsLeagueSections(
+            selectedComp: comp,
+            cardExtent: Game.gameCardHeight,
+          );
 
-        final sectionIndex = targetStartupSectionIndex(comp, sections);
+          final sectionIndex = targetStartupSectionIndex(comp, sections);
 
-        // latestsCompletedRoundNumber() would return 0 here (round 1
-        // ended only 3h ago, needs +6h), defaulting to round 1.
-        // latestRoundWithGamesCompletedOrUnderway() returns 2 (round 2
-        // is started), so we should target round 2 (roundIndex 1).
-        expect(sections[sectionIndex].roundIndex, 1,
-            reason: 'Should target round index 1 (round 2) which has live '
+          // latestsCompletedRoundNumber() would return 0 here (round 1
+          // ended only 3h ago, needs +6h), defaulting to round 1.
+          // latestRoundWithGamesCompletedOrUnderway() returns 2 (round 2
+          // is started), so we should target round 2 (roundIndex 1).
+          expect(
+            sections[sectionIndex].roundIndex,
+            1,
+            reason:
+                'Should target round index 1 (round 2) which has live '
                 'games, not round index 0 which '
-                'latestsCompletedRoundNumber defaults to');
-      });
+                'latestsCompletedRoundNumber defaults to',
+          );
+        },
+      );
 
       test('targets round with live games, not just completed rounds', () {
         final now = DateTime.now().toUtc();
@@ -267,14 +280,21 @@ void main() {
           daurounds: [r1, r2, r3],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final sectionIndex = targetStartupSectionIndex(comp, sections);
 
         // Should target round 2 (the round with live games)
-        expect(sections[sectionIndex].roundIndex, 1,
-            reason: 'Should target round index 1 (round 2) which has live '
-                'games, not round index 0 (round 1) which is completed');
+        expect(
+          sections[sectionIndex].roundIndex,
+          1,
+          reason:
+              'Should target round index 1 (round 2) which has live '
+              'games, not round index 0 (round 1) which is completed',
+        );
       });
 
       test('targets first upcoming round when latest round has ended', () {
@@ -343,13 +363,20 @@ void main() {
           daurounds: [r1, r2, r3, r4],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final sectionIndex = targetStartupSectionIndex(comp, sections);
 
-        expect(sections[sectionIndex].roundIndex, 3,
-            reason: 'Should target round index 3 (round 4), not the start '
-                'of round 3 once round 3 has fully ended.');
+        expect(
+          sections[sectionIndex].roundIndex,
+          3,
+          reason:
+              'Should target round index 3 (round 4), not the start '
+              'of round 3 once round 3 has fully ended.',
+        );
       });
 
       test('returns 0 for empty sections', () {
@@ -402,10 +429,14 @@ void main() {
           daurounds: [r1],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           // Game 0 is untipped
@@ -418,9 +449,13 @@ void main() {
         );
 
         // Should scroll to game 0 (the untipped game), not game 1 (live)
-        expect(offset, 0 * Game.gameCardHeight,
-            reason: 'Should scroll to the untipped game (index 0), '
-                'not the live game (index 1)');
+        expect(
+          offset,
+          0 * Game.gameCardHeight,
+          reason:
+              'Should scroll to the untipped game (index 0), '
+              'not the live game (index 1)',
+        );
       });
 
       test('skips an untipped game that has already started', () {
@@ -457,10 +492,14 @@ void main() {
           nrlFixtureJsonURL: Uri.parse('https://nrl'),
           daurounds: [r1],
         );
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           firstUntippedGameIndex: (games) {
@@ -505,15 +544,18 @@ void main() {
           nrlFixtureJsonURL: Uri.parse('https://nrl'),
           daurounds: [r1],
         );
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
-          firstUntippedGameIndex: (games) => games.indexWhere(
-            (game) => game.dbkey == 'nrl-01-002',
-          ),
+          firstUntippedGameIndex: (games) =>
+              games.indexWhere((game) => game.dbkey == 'nrl-01-002'),
         );
 
         expect(offset, 1 * Game.gameCardHeight);
@@ -555,19 +597,27 @@ void main() {
           daurounds: [r1],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           firstUntippedGameIndex: (_) => -1, // all tipped
         );
 
         // All tipped, so should scroll to the live game at index 1
-        expect(offset, 1 * Game.gameCardHeight,
-            reason: 'Should scroll to the live game (index 1) '
-                'when all games are tipped');
+        expect(
+          offset,
+          1 * Game.gameCardHeight,
+          reason:
+              'Should scroll to the live game (index 1) '
+              'when all games are tipped',
+        );
       });
 
       test('falls back to untipped game when no games are live', () {
@@ -606,10 +656,14 @@ void main() {
           daurounds: [r1],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           // Second NRL game is untipped
@@ -655,26 +709,31 @@ void main() {
           daurounds: [r1],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
         final nrlSection = sections[0];
         final aflSection = sections[1];
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           firstUntippedGameIndex: (_) => -1, // all tipped
         );
 
         // Should scroll past NRL body + AFL header to reach the AFL live game
-        final expectedOffset =
-            nrlSection.bodyExtent + aflSection.headerExtent;
-        expect(offset, expectedOffset,
-            reason: 'Should scroll to the live AFL game');
+        final expectedOffset = nrlSection.bodyExtent + aflSection.headerExtent;
+        expect(
+          offset,
+          expectedOffset,
+          reason: 'Should scroll to the live AFL game',
+        );
       });
 
-      test(
-          'scrolls to live AFL game when NRL game is done and all tipped', () {
+      test('scrolls to live AFL game when NRL game is done and all tipped', () {
         final now = DateTime.now().toUtc();
 
         // Scenario: Round 3 has one NRL game that finished 3h ago with
@@ -706,10 +765,16 @@ void main() {
         r1.games = [nrlDoneGame, aflLiveGame];
 
         // Verify preconditions
-        expect(nrlDoneGame.gameState, GameState.startedResultKnown,
-            reason: 'NRL game should be done with known result');
-        expect(aflLiveGame.gameState, GameState.startedResultNotKnown,
-            reason: 'AFL game should be live');
+        expect(
+          nrlDoneGame.gameState,
+          GameState.startedResultKnown,
+          reason: 'NRL game should be done with known result',
+        );
+        expect(
+          aflLiveGame.gameState,
+          GameState.startedResultNotKnown,
+          reason: 'AFL game should be live',
+        );
 
         final comp = DAUComp(
           name: 'c',
@@ -718,23 +783,30 @@ void main() {
           daurounds: [r1],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
         final nrlSection = sections[0];
         final aflSection = sections[1];
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           firstUntippedGameIndex: (_) => -1, // all tipped
         );
 
         // Should scroll past NRL body + AFL header to reach the AFL live game
-        final expectedOffset =
-            nrlSection.bodyExtent + aflSection.headerExtent;
-        expect(offset, expectedOffset,
-            reason: 'Should scroll to the live AFL game, not stay at '
-                'the completed NRL game');
+        final expectedOffset = nrlSection.bodyExtent + aflSection.headerExtent;
+        expect(
+          offset,
+          expectedOffset,
+          reason:
+              'Should scroll to the live AFL game, not stay at '
+              'the completed NRL game',
+        );
       });
 
       test('returns 0 when no live and no untipped games', () {
@@ -761,10 +833,14 @@ void main() {
           daurounds: [r1],
         );
 
-        final sections = buildTipsLeagueSections(selectedComp: comp);
+        final sections = buildTipsLeagueSections(
+          selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
+        );
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
+          cardExtent: Game.gameCardHeight,
           sections: sections,
           targetSectionIndex: 0,
           firstUntippedGameIndex: (_) => -1, // all tipped
@@ -801,7 +877,10 @@ void main() {
         nrlFixtureJsonURL: Uri.parse('https://nrl'),
         daurounds: [round],
       );
-      final sections = buildTipsLeagueSections(selectedComp: comp);
+      final sections = buildTipsLeagueSections(
+        selectedComp: comp,
+        cardExtent: Game.gameCardHeight,
+      );
       const leadingExtent = 200.0;
       final startupOffset =
           leadingExtent + sections.first.bodyExtent + sections[1].headerExtent;
