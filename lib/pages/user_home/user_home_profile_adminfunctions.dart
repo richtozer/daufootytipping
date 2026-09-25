@@ -22,8 +22,8 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
     // grab teamViewModel from gamesViewModel
     final teamsViewModel = dauCompsViewModel.gamesViewModel?.teamsViewModel;
-    return SizedBox(
-      width: 300,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Card(
         // is dark mode use grey[800] else grey[200]
         color: Theme.of(context).brightness == Brightness.dark
@@ -34,55 +34,62 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
           padding: const EdgeInsets.all(8.0),
           child: Column(
             children: [
-              const SizedBox(
-                width: 300,
-                child: Text(
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.normal),
-                  'Only admins can see these options: ',
-                ),
+              const Text(
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.normal),
+                'Only admins can see these options: ',
               ),
-              OutlinedButton(
-                child: const Text('Admin DAU Comps'),
-                onPressed: () {
-                  Navigator.of(
-                    context,
-                  ).push(appPageRoute((context) => const DAUCompsListPage()));
-                },
-              ),
-              OutlinedButton(
-                child: const Text('Admin Tippers'),
-                onPressed: () {
-                  Navigator.of(
-                    context,
-                  ).push(appPageRoute((context) => const TippersAdminPage()));
-                },
-              ),
-              OutlinedButton(
-                child: const Text('Admin Teams'),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    appPageRoute(
-                      (context) =>
-                          TeamsListPage(teamsViewModel: teamsViewModel!),
-                    ),
-                  );
-                },
-              ),
-              if (AppResumeDiagnostics.enabled)
-                OutlinedButton(
-                  child: const Text('Android Resume Diagnostics'),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      appPageRoute(
-                        (context) => ResumeDiagnosticsPage(
-                          selectedCompDbKey:
-                              dauCompsViewModel.selectedDAUComp?.dbkey,
+              const SizedBox(height: 8),
+              // Buttons flow into rows where there is width and stack where
+              // there is not, rather than always running down the page.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  OutlinedButton(
+                    child: const Text('Admin DAU Comps'),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        appPageRoute((context) => const DAUCompsListPage()),
+                      );
+                    },
+                  ),
+                  OutlinedButton(
+                    child: const Text('Admin Tippers'),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        appPageRoute((context) => const TippersAdminPage()),
+                      );
+                    },
+                  ),
+                  OutlinedButton(
+                    child: const Text('Admin Teams'),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        appPageRoute(
+                          (context) =>
+                              TeamsListPage(teamsViewModel: teamsViewModel!),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
+                  if (AppResumeDiagnostics.enabled)
+                    OutlinedButton(
+                      child: const Text('Android Resume Diagnostics'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          appPageRoute(
+                            (context) => ResumeDiagnosticsPage(
+                              selectedCompDbKey:
+                                  dauCompsViewModel.selectedDAUComp?.dbkey,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
             ],
           ),
         ),
