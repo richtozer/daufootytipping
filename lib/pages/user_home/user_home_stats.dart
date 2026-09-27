@@ -45,6 +45,15 @@ class StatsTab extends StatelessWidget {
                   ),
                   child: Card(
                     margin: const EdgeInsets.all(4),
+                    // Same treatment as the tips game card, so the backdrop
+                    // reads through this surface and the rows' own cards sit
+                    // opaque on top of it. Both layers at the theme default
+                    // left them white on white and indistinguishable.
+                    color: Colors.white70,
+                    surfaceTintColor: League.nrl.colour,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Column(
                       children: <Widget>[
                         Card(
