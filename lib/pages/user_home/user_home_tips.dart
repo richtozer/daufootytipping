@@ -646,6 +646,8 @@ class TipsTabState extends State<TipsTab> {
                                   );
                                 },
                                 child: TipsStickyHeader(
+                                  inlineRoundLabel:
+                                      cardLayout.mode == TipsCardMode.wide,
                                   section: stickySection,
                                   dauCompsViewModel: daucompsViewmodelConsumer,
                                   currentTipper:

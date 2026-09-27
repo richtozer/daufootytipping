@@ -329,6 +329,7 @@ List<Widget> buildRoundLeagueSectionSlivers({
               maintainState: true,
               child: RepaintBoundary(
                 child: RoundLeagueHeaderListTile(
+                  inlineRoundLabel: layout.mode == TipsCardMode.wide,
                   league: league,
                   logoWidth: 50,
                   logoHeight: 50,
@@ -386,6 +387,7 @@ class TipsStickyHeader extends StatelessWidget {
     required this.dauCompsViewModel,
     required this.currentTipper,
     required this.isPercentStatsPage,
+    this.inlineRoundLabel = false,
     this.topPadding = 0,
     this.backgroundColor,
     super.key,
@@ -395,6 +397,7 @@ class TipsStickyHeader extends StatelessWidget {
   final DAUCompsViewModel dauCompsViewModel;
   final Tipper currentTipper;
   final bool isPercentStatsPage;
+  final bool inlineRoundLabel;
   final double topPadding;
   final Color? backgroundColor;
 
@@ -409,6 +412,7 @@ class TipsStickyHeader extends StatelessWidget {
         height: section.headerExtent,
         child: RepaintBoundary(
           child: RoundLeagueHeaderListTile(
+            inlineRoundLabel: inlineRoundLabel,
             league: section.league,
             logoWidth: 50,
             logoHeight: 50,

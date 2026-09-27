@@ -24,11 +24,16 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
     required this.dauCompsViewModel,
     required this.selectedTipper,
     required this.isPercentStatsPage,
+    this.inlineRoundLabel = false,
     this.margin = const EdgeInsets.all(4.0),
     this.backgroundColor,
     super.key,
   });
 
+  /// Lets 'Round' sit beside its number where the width allows, rather
+  /// than always stacking. Set for the wide arrangement only, so the
+  /// familiar phone header is unchanged.
+  final bool inlineRoundLabel;
   final League league;
   final double logoWidth;
   final double logoHeight;
@@ -92,9 +97,17 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
             padding: const EdgeInsets.all(10.0),
             child: Row(
               children: [
-                SizedBox(
-                  width: 86,
-                  child: Column(
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: 86,
+                    // A tight bound keeps the label stacked; a looser one lets
+                    // it sit inline when the text size leaves room for it.
+                    maxWidth: inlineRoundLabel ? 200 : 86,
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
                     children: [
                       Text(
                         'Round',
