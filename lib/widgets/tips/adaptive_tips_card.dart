@@ -509,13 +509,26 @@ class AdaptiveTipsCard extends StatelessWidget {
       );
     }
 
+    // Break by meaning rather than wherever the width runs out: the result and
+    // the tip belong together, as do the two point totals. All four sit on one
+    // line where they fit, and fall to two balanced lines where they do not.
+    Widget group(Iterable<TextSpan> texts) => Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 12,
+      children: [for (final text in texts) line(text)],
+    );
+    final half = (lines.length / 2).ceil();
+
     return Card(
       child: layout.mode == TipsCardMode.wide
           ? Center(
               child: Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 12,
-                children: [for (final text in lines) line(text)],
+                children: [
+                  group(lines.take(half)),
+                  if (lines.length > half) group(lines.skip(half)),
+                ],
               ),
             )
           : Column(
