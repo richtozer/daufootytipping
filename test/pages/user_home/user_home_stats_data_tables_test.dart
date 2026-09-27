@@ -1,9 +1,11 @@
 import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
@@ -27,6 +29,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
+import '../../support/load_tips_fonts.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -39,6 +42,7 @@ class MockTeamsViewModel extends Mock implements TeamsViewModel {}
 class MockTippersViewModel extends Mock implements TippersViewModel {}
 
 void main() {
+  setUpAll(() => loadTipsFonts(includeFallbacks: true));
   late MockDAUCompsViewModel dauCompsViewModel;
   late MockGamesViewModel gamesViewModel;
   late MockStatsViewModel statsViewModel;
@@ -105,11 +109,157 @@ void main() {
     await di.reset();
   });
 
+  Map<Tipper, RoundStats> populateRound() {
+    final data = <Tipper, RoundStats>{};
+    for (var i = 0; i < 24; i++) {
+      final tipper = i == 0 ? selectedTipper : Tipper(
+        dbkey: 'member-$i', compsPaidFor: <DAUComp>[],
+        authuid: 'auth-member-$i', email: 'member-$i@example.com',
+        name: i == 1 ? 'Alexandra Long Tipper Name' : 'Member $i',
+        tipperRole: TipperRole.tipper,
+      );
+      data[tipper] = RoundStats.fromJson({
+        'aS': 24 - i, 'nS': 30 - i, 'aMt': i % 4, 'nMt': i % 3,
+        'aMu': i % 2, 'nMu': i % 3,
+      })..rank = i + 1;
+    }
+    when(() => statsViewModel.getRoundLeaderBoard(any())).thenAnswer((_) => data);
+    return data;
+  }
+
+  Future<void> pumpRound(WidgetTester tester, {
+    double width = 360, double scale = 1, int round = 1,
+  }) async {
+    tester.view.physicalSize = Size(width, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(fontFamily: 'Roboto'),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+        child: child!,
+      ),
+      home: RepaintBoundary(
+        key: const Key('round-page'),
+        child: StatRoundLeaderboard(round),
+      ),
+    ));
+    await tester.pumpAndSettle();
+  }
+
+  for (final width in [360.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round leaderboard golden $width/$scale', (tester) async {
+        populateRound();
+        await pumpRound(tester, width: width, scale: scale);
+        expect(tester.takeException(), isNull);
+        await expectLater(find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/round-leaderboard-${width.toInt()}-$scale.png'));
+      });
+    }
+  }
+
+  testWidgets('round rows survive resize and unchanged ticks, refresh changed values',
+      (tester) async {
+    final data = populateRound();
+    await pumpRound(tester);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured
+        .cast<VoidCallback>();
+    void notify() {
+      for (final listener in listeners) {
+        listener();
+      }
+    }
+    notify();
+    await tester.pump();
+    expect(identical(table().rows, original), isTrue);
+    await pumpRound(tester, width: 1280);
+    expect(identical(table().rows, original), isTrue);
+    data[selectedTipper]!.nrlPoints = 99;
+    notify();
+    await tester.pump();
+    expect(identical(table().rows, original), isFalse);
+    expect(table().rows.first.cells[3].text, '99');
+    expect(table().rows.first.colour,
+      Theme.of(tester.element(find.byType(AppTable))).highlightColor);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round sorting preserves rank and league rules after notifications',
+      (tester) async {
+    populateRound();
+    await pumpRound(tester, width: 768);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    expect(table().rows.first.cells.first.text, 'Test Tipper');
+    await tester.tap(find.text('Rank'));
+    await tester.pump();
+    expect(table().rows.first.cells[1].text, '24');
+    await tester.tap(find.text('NRL'));
+    await tester.pump();
+    expect(table().rows.first.cells[3].text, '7');
+    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured;
+    for (final listener in listeners.cast<VoidCallback>()) {
+      listener();
+    }
+    await tester.pump();
+    expect(table().rows.first.cells[3].text, '7');
+    await tester.tap(find.text('Total'));
+    await tester.pump();
+    expect(table().rows.first.cells[1].text, '1');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('whole round row opens the correct tipper and round', (tester) async {
+    populateRound();
+    await pumpRound(tester, width: 768, round: 25);
+    // Tap the numeric total, not the name; the entire row is interactive.
+    await tester.tap(find.text('54'));
+    await tester.pumpAndSettle();
+    final destination = tester.widget<StatRoundGameScoresForTipper>(
+      find.byType(StatRoundGameScoresForTipper));
+    expect(destination.statsTipper, selectedTipper);
+    expect(destination.roundNumberToDisplay, 25);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round change refreshes the retained page state', (tester) async {
+    populateRound();
+    await pumpRound(tester);
+    await pumpRound(tester, round: 2);
+    verify(() => statsViewModel.getRoundLeaderBoard(2)).called(1);
+    expect(find.text('Round 2 Leaderboard'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('narrow round page keeps names frozen and headings pinned', (tester) async {
+    populateRound();
+    await pumpRound(tester, scale: 1.5);
+    final nameX = tester.getTopLeft(find.text('Name')).dx;
+    final nameY = tester.getTopLeft(find.text('Name')).dy;
+    final totalX = tester.getTopLeft(find.text('Total')).dx;
+    final horizontal = tester.widget<SingleChildScrollView>(
+      find.byType(SingleChildScrollView)).controller!;
+    expect(horizontal.position.maxScrollExtent, greaterThan(0));
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dx, nameX);
+    expect(tester.getTopLeft(find.text('Total')).dx, lessThan(totalX));
+    expect(tester.getRect(find.text('UPS')).right, lessThan(346));
+    final vertical = tester.widget<ListView>(find.byType(ListView)).controller!;
+    vertical.jumpTo(300);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dy, nameY);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('competition leaderboard renders its DataTable2', (tester) async {
     await _expectPageRendersTable(tester, const StatCompLeaderboard());
   });
 
-  testWidgets('round leaderboard renders its DataTable2', (tester) async {
+  testWidgets('round leaderboard renders its AppTable', (tester) async {
     await _expectPageRendersTable(tester, const StatRoundLeaderboard(1));
   });
 
@@ -242,5 +392,5 @@ Future<void> _expectPageRendersTable(
   }
 
   expect(tester.takeException(), isNull);
-  expect(find.byType(DataTable2), findsOneWidget);
+  expect(find.byType(page is StatRoundLeaderboard ? AppTable : DataTable2), findsOneWidget);
 }

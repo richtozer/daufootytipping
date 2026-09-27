@@ -1,4 +1,4 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -9,6 +9,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresf
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundLeaderboard extends StatefulWidget {
@@ -28,15 +29,83 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   bool isAscending = true;
   int? sortColumnIndex = 1;
 
-  final List<String> columns = [
-    'Name',
-    "Rank",
-    'Total',
-    'NRL',
-    'AFL',
-    'Margins',
-    'UPS',
+  static const columns = [
+    AppColumn.text('Name', grow: true, sortable: true),
+    AppColumn.numeric('Rank', sortable: true),
+    AppColumn.numeric('Total', sortable: true),
+    AppColumn.numeric('NRL', sortable: true),
+    AppColumn.numeric('AFL', sortable: true),
+    AppColumn.numeric('Margins', sortable: true),
+    AppColumn.numeric('UPS', sortable: true),
   ];
+  List<Object?> _renderedValues = const [];
+  Tipper? _renderedTipper;
+  Color? _renderedHighlight;
+  List<AppRow> _rows = const [];
+
+  // Preserve list identity through resize/rebuild so AppTable reuses metrics.
+  List<AppRow> _tableRows(BuildContext context) {
+    final selectedTipper = di<TippersViewModel>().selectedTipper;
+    final highlight = Theme.of(context).highlightColor;
+    // Snapshot primitives: StatsViewModel may update existing model objects.
+    final values = <Object?>[
+      widget.roundNumberToDisplay,
+      for (final entry in roundLeaderboard.entries) ...[
+        entry.key, entry.key.name, entry.key.photoURL,
+        entry.value.rank, entry.value.aflPoints, entry.value.nrlPoints,
+        entry.value.aflMarginTips, entry.value.nrlMarginTips,
+        entry.value.aflMarginUPS, entry.value.nrlMarginUPS,
+      ],
+    ];
+    if (listEquals(_renderedValues, values) &&
+        _renderedTipper == selectedTipper && _renderedHighlight == highlight) {
+      return _rows;
+    }
+    _renderedValues = values;
+    _renderedTipper = selectedTipper;
+    _renderedHighlight = highlight;
+    _rows = [
+      for (final entry in roundLeaderboard.entries)
+        AppRow(
+          key: ValueKey(entry.key.dbkey),
+          colour: entry.key == selectedTipper ? highlight : Colors.transparent,
+          onTap: () => Navigator.push(
+            context,
+            appPageRoute((context) => StatRoundGameScoresForTipper(
+              entry.key, widget.roundNumberToDisplay,
+            )),
+          ),
+          cells: [
+            AppCell.text(
+              entry.key.name,
+              leadingSize: const Size(45, 30),
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.arrow_forward, size: 15),
+                  avatarPic(entry.key, widget.roundNumberToDisplay),
+                ],
+              ),
+            ),
+            AppCell.text(entry.value.rank.toString()),
+            AppCell.text((entry.value.aflPoints + entry.value.nrlPoints).toString()),
+            AppCell.text(entry.value.nrlPoints.toString()),
+            AppCell.text(entry.value.aflPoints.toString()),
+            AppCell.text((entry.value.aflMarginTips + entry.value.nrlMarginTips).toString()),
+            AppCell.text((entry.value.aflMarginUPS + entry.value.nrlMarginUPS).toString()),
+          ],
+        ),
+    ];
+    return _rows;
+  }
+
+  @override
+  void didUpdateWidget(covariant StatRoundLeaderboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.roundNumberToDisplay != widget.roundNumberToDisplay) {
+      _loadLeaderboard();
+    }
+  }
 
   @override
   void initState() {
@@ -137,96 +206,15 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(5.0),
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
+                  child: AppTable(
+                    columns: columns,
+                    rows: _tableRows(context),
+                    frozenLeading: 1,
+                    sort: AppSort(
+                      column: sortColumnIndex ?? 1,
+                      ascending: isAscending,
                     ),
-                    sortColumnIndex: sortColumnIndex,
-                    sortAscending: isAscending,
-                    columnSpacing: 0,
-                    // Edge margin keeps the last column's values clear of the vertical
-                    // scrollbar, which overlays the viewport.
-                    horizontalMargin: 14,
-                    minWidth: 600,
-                    fixedTopRows: 1,
-                    // Frozen columns are disabled: data_table_2 subtracts a fixed column's
-                    // width from the budget but still divides the remainder by every
-                    // column, so roughly one column's width goes unallocated and opens a
-                    // gap. Landscape never showed it because it froze nothing.
-                    fixedLeftColumns: 0,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: true,
-                    isVerticalScrollBarVisible: true,
-                    columns: getColumns(columns),
-                    rows: roundLeaderboard.entries.map((
-                      MapEntry<Tipper, RoundStats> entry,
-                    ) {
-                      return DataRow(
-                        color:
-                            entry.key == di<TippersViewModel>().selectedTipper
-                            ? WidgetStateProperty.resolveWith(
-                                (states) => Theme.of(context).highlightColor,
-                              )
-                            : WidgetStateProperty.resolveWith(
-                                (states) => Colors.transparent,
-                              ),
-                        cells: [
-                          DataCell(
-                            Row(
-                              children: [
-                                const Icon(Icons.arrow_forward, size: 15),
-                                avatarPic(
-                                  entry.key,
-                                  widget.roundNumberToDisplay,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    softWrap: false,
-                                    entry.key.name,
-                                    overflow: TextOverflow.fade,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                appPageRoute(
-                                  (context) => StatRoundGameScoresForTipper(
-                                    entry.key,
-                                    widget.roundNumberToDisplay,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          DataCell(Text(entry.value.rank.toString())),
-                          DataCell(
-                            Text(
-                              (entry.value.aflPoints + entry.value.nrlPoints)
-                                  .toString(),
-                            ),
-                          ),
-                          DataCell(Text(entry.value.nrlPoints.toString())),
-                          DataCell(Text(entry.value.aflPoints.toString())),
-                          DataCell(
-                            Text(
-                              (entry.value.aflMarginTips +
-                                      entry.value.nrlMarginTips)
-                                  .toString(),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              (entry.value.aflMarginUPS +
-                                      entry.value.nrlMarginUPS)
-                                  .toString(),
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
+                    onSort: onSort,
                   ),
                 ),
               ),
@@ -381,22 +369,6 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       isAscending = ascending;
     });
   }
-
-  List<DataColumn> getColumns(List<String> columns) =>
-      columns.asMap().entries.map((entry) {
-        int index = entry.key;
-        String column = entry.value;
-        return DataColumn2(
-          fixedWidth: column == 'Name'
-              ? 150
-              : column == '#\nrounds\nwon' || column == 'Margins'
-              ? 75
-              : 55,
-          numeric: column == 'Name' ? false : true,
-          label: Text(column),
-          onSort: (columnIndex, ascending) => onSort(index, ascending),
-        );
-      }).toList();
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(

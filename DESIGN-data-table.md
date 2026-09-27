@@ -2,9 +2,10 @@
 
 ## Status
 
-Component-only implementation ready for review, 27 September 2026. Written
-after two `data_table_2` defects were worked around rather than fixed.
-No production callers have been converted; migration remains a separate step.
+AppTable and its first production caller, the round leaderboard, are implemented
+on 27 September 2026. Written after two `data_table_2` defects were worked around
+rather than fixed. Native iPad/Duo review remains outstanding before converting
+the remaining seven tables.
 
 ## Why not keep `data_table_2`, and why not fork it
 
@@ -228,3 +229,36 @@ accessible tap action and one keyboard focus target per row.
 
 Review follow-up validation: analysis is clean and all 490 tests pass, including
 27 table checks. All six component goldens still match without regeneration.
+
+### Step 2: round leaderboard
+
+`StatRoundLeaderboard` now uses AppTable with a frozen Name column and measured
+numeric columns. Existing sorting rules, current-tipper highlighting, avatar
+Heroes, back navigation and live-score warning remain. Tapping anywhere in a
+row opens that tipper's round details. Changing the round on retained page state
+reloads its data.
+
+The caller retains its column and row lists across resize and unchanged stats
+notifications. It compares an ordered snapshot of displayed primitive values,
+including name/photo and round, so changes to mutable scoring models invalidate
+the rows. This small comparison still runs on rebuild; expensive text measurement
+is reused when values, selection and highlight colour are unchanged. Changed
+data correctly triggers measurement again.
+
+Six additional goldens render the production round leaderboard at widths
+360/768/1280 and text scales 1.0/1.5. At 360, these fixtures have table headings
+approximately 92/116 px tall. At 1.5 the UPS column needs horizontal scrolling;
+the Name column remains frozen. These measurements differ from the component
+fixture because heading labels and available widths differ. This page has its
+own round title above the table; it does not embed the Tips list's sticky round
+header.
+
+Page tests cover sorting across notifications, changed and unchanged data,
+resize cache reuse, selection highlighting, whole-row navigation, round changes,
+and frozen names/pinned headings during scrolling. Native iPad and iPhone Duo
+portrait/landscape usability review remains a manual checkpoint, especially the
+vertical space consumed by headings. No device validation is claimed.
+
+Validation: analysis clean; full suite 500 passing, followed by 20 passing
+page checks after adding the final frozen-column/pinned-heading assertion.
+The other seven callers and the package dependency remain unchanged.
