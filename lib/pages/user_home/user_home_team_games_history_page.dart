@@ -294,9 +294,11 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                           horizontalMargin: 0,
                           minWidth: 520,
                           fixedTopRows: 1,
-                          fixedLeftColumns: orientation == Orientation.portrait
-                              ? 1
-                              : 0,
+                          // Frozen columns are disabled: data_table_2 subtracts a fixed column's
+                          // width from the budget but still divides the remainder by every
+                          // column, so roughly one column's width goes unallocated and opens a
+                          // gap. Landscape never showed it because it froze nothing.
+                          fixedLeftColumns: 0,
                           showCheckboxColumn: false,
                           isHorizontalScrollBarVisible: true,
                           isVerticalScrollBarVisible: true,
