@@ -188,6 +188,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                   final sections = buildTipsLeagueSections(
                     selectedComp: selectedComp,
                     cardExtent: cardLayout.cardExtent,
+                    headerExtent: cardLayout.headerExtent,
                     officialFixtureScoresOnly: true,
                   );
 

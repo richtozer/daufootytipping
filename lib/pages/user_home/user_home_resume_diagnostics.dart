@@ -7,10 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class ResumeDiagnosticsPage extends StatefulWidget {
-  const ResumeDiagnosticsPage({
-    required this.selectedCompDbKey,
-    super.key,
-  });
+  const ResumeDiagnosticsPage({required this.selectedCompDbKey, super.key});
 
   final String? selectedCompDbKey;
 
@@ -244,8 +241,7 @@ class _ResumeDiagnosticsPageState extends State<ResumeDiagnosticsPage> {
                     ),
                   );
                 }
-                final List<String> chunks =
-                    snapshot.data ?? const <String>[];
+                final List<String> chunks = snapshot.data ?? const <String>[];
                 if (chunks.isEmpty) {
                   return const Center(
                     child: Padding(

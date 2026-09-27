@@ -29,55 +29,59 @@ void main() {
       );
     }
 
-    test('builds welcome, per-league, and footer extents from round structure', () {
-      final round1 = DAURound(
-        dAUroundNumber: 1,
-        firstGameKickOffUTC: DateTime.parse('2026-03-01T00:00:00Z'),
-        lastGameKickOffUTC: DateTime.parse('2026-03-02T00:00:00Z'),
-      );
-      round1.games = [
-        game(
-          dbkey: 'nrl-01-001',
-          league: League.nrl,
-          matchNumber: 1,
-          startTimeUTC: DateTime.parse('2026-03-01T10:00:00Z'),
-        ),
-        game(
-          dbkey: 'afl-01-001',
-          league: League.afl,
-          matchNumber: 1,
-          startTimeUTC: DateTime.parse('2026-03-01T12:00:00Z'),
-        ),
-        game(
-          dbkey: 'afl-01-002',
-          league: League.afl,
-          matchNumber: 2,
-          startTimeUTC: DateTime.parse('2026-03-01T14:00:00Z'),
-        ),
-      ];
-      round1.roundState = RoundState.allGamesEnded;
+    test(
+      'builds welcome, per-league, and footer extents from round structure',
+      () {
+        final round1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.parse('2026-03-01T00:00:00Z'),
+          lastGameKickOffUTC: DateTime.parse('2026-03-02T00:00:00Z'),
+        );
+        round1.games = [
+          game(
+            dbkey: 'nrl-01-001',
+            league: League.nrl,
+            matchNumber: 1,
+            startTimeUTC: DateTime.parse('2026-03-01T10:00:00Z'),
+          ),
+          game(
+            dbkey: 'afl-01-001',
+            league: League.afl,
+            matchNumber: 1,
+            startTimeUTC: DateTime.parse('2026-03-01T12:00:00Z'),
+          ),
+          game(
+            dbkey: 'afl-01-002',
+            league: League.afl,
+            matchNumber: 2,
+            startTimeUTC: DateTime.parse('2026-03-01T14:00:00Z'),
+          ),
+        ];
+        round1.roundState = RoundState.allGamesEnded;
 
-      final round2 = DAURound(
-        dAUroundNumber: 2,
-        firstGameKickOffUTC: DateTime.parse('2026-03-08T00:00:00Z'),
-        lastGameKickOffUTC: DateTime.parse('2026-03-09T00:00:00Z'),
-      );
-      round2.games = [];
-      round2.roundState = RoundState.noGames;
+        final round2 = DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: DateTime.parse('2026-03-08T00:00:00Z'),
+          lastGameKickOffUTC: DateTime.parse('2026-03-09T00:00:00Z'),
+        );
+        round2.games = [];
+        round2.roundState = RoundState.noGames;
 
-      final comp = DAUComp(
-        dbkey: 'comp-1',
-        name: 'Comp',
-        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
-        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
-        daurounds: [round1, round2],
-      );
+        final comp = DAUComp(
+          dbkey: 'comp-1',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+          nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+          daurounds: [round1, round2],
+        );
 
-      final extents = TipsTabItemExtentCache.buildExtents(comp, Game.gameCardHeight);
+        final extents = TipsTabItemExtentCache.buildExtents(
+          comp,
+          Game.gameCardHeight,
+          DAURound.leagueHeaderHeight,
+        );
 
-      expect(
-        extents,
-        [
+        expect(extents, [
           kTipsWelcomeHeaderHeight,
           DAURound.leagueHeaderEndedHeight,
           Game.gameCardHeight,
@@ -88,8 +92,8 @@ void main() {
           DAURound.leagueHeaderHeight,
           DAURound.noGamesCardHeight,
           kTipsEndFooterHeight,
-        ],
-      );
-    });
+        ]);
+      },
+    );
   });
 }

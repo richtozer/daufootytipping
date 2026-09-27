@@ -354,9 +354,8 @@ class _LeagueLadderHistoricalMatchupsState
                   Expanded(
                     child: Text(
                       'Historical Matchups',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -368,9 +367,8 @@ class _LeagueLadderHistoricalMatchupsState
                   padding: const EdgeInsets.only(top: 8.0),
                   child: Text(
                     'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: Colors.grey[600]),
                   ),
                 ),
               const SizedBox(height: 8),

@@ -9,6 +9,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
@@ -90,6 +91,7 @@ class TipsTabState extends State<TipsTab> {
     _cachedSections = buildTipsLeagueSections(
       selectedComp: selectedComp,
       cardExtent: _cardExtent,
+      headerExtent: _headerExtent,
     );
     _syncSelectedCompState();
     if (!_startupScrollPending) {
@@ -132,6 +134,7 @@ class TipsTabState extends State<TipsTab> {
     _cachedSections = buildTipsLeagueSections(
       selectedComp: selectedComp,
       cardExtent: _cardExtent,
+      headerExtent: _headerExtent,
     );
     final sections = _cachedSections;
     final defaultTarget = _defaultScrollTarget(
@@ -210,6 +213,7 @@ class TipsTabState extends State<TipsTab> {
     final sections = buildTipsLeagueSections(
       selectedComp: selectedComp,
       cardExtent: _cardExtent,
+      headerExtent: _headerExtent,
     );
     if (sections.isEmpty) {
       return;
@@ -675,6 +679,9 @@ class TipsTabState extends State<TipsTab> {
   /// rather than a constant that no longer describes the row.
   double get cardExtent => _cardExtent;
 
+  double get _headerExtent =>
+      _cardLayout?.headerExtent ?? DAURound.leagueHeaderHeight;
+
   /// The measured row height, or the legacy constant before the first layout
   /// pass. Offsets built from the fallback are corrected by the startup scroll
   /// retry once the real measurement arrives.
@@ -696,6 +703,7 @@ class TipsTabState extends State<TipsTab> {
     }
     _cardLayoutKey = key;
     final previousExtent = _cardLayout?.cardExtent;
+    final previousHeaderExtent = _cardLayout?.headerExtent;
     final nextLayout = TipsCardLayout.measure(
       width: width,
       textScaler: textScaler,
@@ -708,7 +716,8 @@ class TipsTabState extends State<TipsTab> {
     );
     _cardLayout = nextLayout;
 
-    if (previousExtent == nextLayout.cardExtent) {
+    if (previousExtent == nextLayout.cardExtent &&
+        previousHeaderExtent == nextLayout.headerExtent) {
       return;
     }
     // The cached sections describe the previous row height, and the sticky
@@ -718,6 +727,7 @@ class TipsTabState extends State<TipsTab> {
     _cachedSections = buildTipsLeagueSections(
       selectedComp: selectedComp,
       cardExtent: nextLayout.cardExtent,
+      headerExtent: nextLayout.headerExtent,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {

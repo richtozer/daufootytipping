@@ -75,26 +75,19 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
     );
   }
 
-  Widget buildScaffold(
-    BuildContext context,
-    String name,
-    Color color,
-  ) {
+  Widget buildScaffold(BuildContext context, String name, Color color) {
     Orientation orientation = MediaQuery.of(context).orientation;
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     final fabBackgroundColor = isDarkMode
         ? const Color(0xFF4E7A36)
         : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
+    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
       floatingActionButton: FloatingActionButton.small(
         backgroundColor: fabBackgroundColor,
         foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         onPressed: () {
           Navigator.pop(context);
         },
@@ -122,9 +115,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                         Expanded(
                           child: Text(
                             name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
+                            style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -138,9 +129,8 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                 padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
                 child: Text(
                   'Total of ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)} tips outstanding across all tippers.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: Colors.grey[600]),
                 ),
               ),
 
@@ -341,8 +331,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-      tag:
-          '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      tag: '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,
         text: tipper.name,

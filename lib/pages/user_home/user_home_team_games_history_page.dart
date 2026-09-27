@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
-
 class TeamGamesHistoryPage extends StatefulWidget {
   final Team team;
   final League league;
@@ -217,170 +216,167 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
 
     return SelectedCompBanner(
       child: Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () => Navigator.pop(context),
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.black87,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+        floatingActionButton: FloatingActionButton.small(
+          onPressed: () => Navigator.pop(context),
+          backgroundColor: Colors.lightGreen[200],
+          foregroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: const Icon(Icons.arrow_back),
         ),
-        child: const Icon(Icons.arrow_back),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Hero(
-                          tag: 'team_icon_${widget.team.dbkey}',
-                          child: SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: widget.team.logoURI != null &&
-                                    widget.team.logoURI!.isNotEmpty
-                                ? SvgPicture.asset(
-                                    widget.team.logoURI!,
-                                    placeholderBuilder: (context) =>
-                                        const Icon(Icons.shield),
-                                  )
-                                : const Icon(Icons.shield),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            '${widget.team.name} - Game History',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: Colors.grey[600]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(child: Text('Error: $_error'))
-                : _gameHistory.isEmpty
-                ? const Center(
-                    child: Text('No game history available for this team.'),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.all(5.0),
-                    child: DataTable2(
-                      border: TableBorder.all(
-                        width: 1.0,
-                        color: Colors.grey.shade300,
-                      ),
-                      columnSpacing: 0,
-                      horizontalMargin: 0,
-                      minWidth: 520,
-                      fixedTopRows: 1,
-                      fixedLeftColumns: orientation == Orientation.portrait
-                          ? 1
-                          : 0,
-                      showCheckboxColumn: false,
-                      isHorizontalScrollBarVisible: true,
-                      isVerticalScrollBarVisible: true,
-                      sortColumnIndex: _sortColumnIndex,
-                      sortAscending: _sortAscending,
-                      dataRowHeight: 48.0,
-                      headingRowHeight: 40.0,
-                      columns: [
-                        DataColumn2(
-                          fixedWidth: 90,
-                          label: const Text(
-                            'Date',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          onSort: _onSort,
-                        ),
-                        DataColumn2(
-                          fixedWidth: 80,
-                          label: const Text(
-                            'Result',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          onSort: _onSort,
-                        ),
-                        DataColumn2(
-                          size: ColumnSize.L,
-                          label: const Text(
-                            'Opponent',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          onSort: _onSort,
-                        ),
-                        DataColumn2(
-                          fixedWidth: 80,
-                          label: const Text(
-                            'Score',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          onSort: _onSort,
-                        ),
-                        DataColumn2(
-                          fixedWidth: 100,
-                          label: const Text(
-                            'Round',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          onSort: _onSort,
-                        ),
-                      ],
-                      rows: _gameHistory.map((game) {
-                        return DataRow2(
-                          cells: [
-                            DataCell(Text(_formatDate(game.gameDate))),
-                            DataCell(_buildResultCell(game)),
-                            DataCell(_buildOpponentCell(game)),
-                            DataCell(
-                              Text(
-                                '${game.teamScore} - ${game.opponentScore}',
-                                textAlign: TextAlign.center,
-                              ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (orientation == Orientation.portrait)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Hero(
+                            tag: 'team_icon_${widget.team.dbkey}',
+                            child: SizedBox(
+                              width: 50,
+                              height: 50,
+                              child:
+                                  widget.team.logoURI != null &&
+                                      widget.team.logoURI!.isNotEmpty
+                                  ? SvgPicture.asset(
+                                      widget.team.logoURI!,
+                                      placeholderBuilder: (context) =>
+                                          const Icon(Icons.shield),
+                                    )
+                                  : const Icon(Icons.shield),
                             ),
-                            DataCell(
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _buildHomeAwayBadge(game),
-                                  const SizedBox(width: 6),
-                                  Text('R${game.roundNumber}'),
-                                ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${widget.team.name} - Game History',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                    ? Center(child: Text('Error: $_error'))
+                    : _gameHistory.isEmpty
+                    ? const Center(
+                        child: Text('No game history available for this team.'),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(5.0),
+                        child: DataTable2(
+                          border: TableBorder.all(
+                            width: 1.0,
+                            color: Colors.grey.shade300,
+                          ),
+                          columnSpacing: 0,
+                          horizontalMargin: 0,
+                          minWidth: 520,
+                          fixedTopRows: 1,
+                          fixedLeftColumns: orientation == Orientation.portrait
+                              ? 1
+                              : 0,
+                          showCheckboxColumn: false,
+                          isHorizontalScrollBarVisible: true,
+                          isVerticalScrollBarVisible: true,
+                          sortColumnIndex: _sortColumnIndex,
+                          sortAscending: _sortAscending,
+                          dataRowHeight: 48.0,
+                          headingRowHeight: 40.0,
+                          columns: [
+                            DataColumn2(
+                              fixedWidth: 90,
+                              label: const Text(
+                                'Date',
+                                style: TextStyle(fontWeight: FontWeight.bold),
                               ),
+                              onSort: _onSort,
+                            ),
+                            DataColumn2(
+                              fixedWidth: 80,
+                              label: const Text(
+                                'Result',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              onSort: _onSort,
+                            ),
+                            DataColumn2(
+                              size: ColumnSize.L,
+                              label: const Text(
+                                'Opponent',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              onSort: _onSort,
+                            ),
+                            DataColumn2(
+                              fixedWidth: 80,
+                              label: const Text(
+                                'Score',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              onSort: _onSort,
+                            ),
+                            DataColumn2(
+                              fixedWidth: 100,
+                              label: const Text(
+                                'Round',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              onSort: _onSort,
                             ),
                           ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                          rows: _gameHistory.map((game) {
+                            return DataRow2(
+                              cells: [
+                                DataCell(Text(_formatDate(game.gameDate))),
+                                DataCell(_buildResultCell(game)),
+                                DataCell(_buildOpponentCell(game)),
+                                DataCell(
+                                  Text(
+                                    '${game.teamScore} - ${game.opponentScore}',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildHomeAwayBadge(game),
+                                      const SizedBox(width: 6),
+                                      Text('R${game.roundNumber}'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+              ),
+            ],
           ),
-          ],
         ),
-      ),
       ),
     );
   }

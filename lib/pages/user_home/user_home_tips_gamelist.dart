@@ -29,13 +29,17 @@ class TipsLeagueSection {
 class TipsTabItemExtentCache {
   const TipsTabItemExtentCache._();
 
-  static List<double> buildExtents(DAUComp selectedComp, double cardExtent) {
+  static List<double> buildExtents(
+    DAUComp selectedComp,
+    double cardExtent,
+    double headerExtent,
+  ) {
     final extents = <double>[kTipsWelcomeHeaderHeight];
 
     for (final dauRound in selectedComp.daurounds) {
-      extents.add(leagueHeaderExtent(dauRound, League.nrl));
+      extents.add(leagueHeaderExtent(dauRound, League.nrl, headerExtent));
       extents.add(leagueGamesExtent(dauRound, League.nrl, cardExtent));
-      extents.add(leagueHeaderExtent(dauRound, League.afl));
+      extents.add(leagueHeaderExtent(dauRound, League.afl, headerExtent));
       extents.add(leagueGamesExtent(dauRound, League.afl, cardExtent));
     }
 
@@ -43,15 +47,18 @@ class TipsTabItemExtentCache {
     return extents;
   }
 
-  static double leagueHeaderExtent(DAURound dauRound, League league) {
-    final games = dauRound.getGamesForLeague(league);
-    if (games.isEmpty) {
-      return DAURound.leagueHeaderHeight;
+  static double leagueHeaderExtent(
+    DAURound dauRound,
+    League league,
+    double headerExtent,
+  ) {
+    // A round whose games have all ended shows one extra line of summary.
+    if (dauRound.getGamesForLeague(league).isNotEmpty &&
+        dauRound.roundState == RoundState.allGamesEnded) {
+      return headerExtent +
+          (DAURound.leagueHeaderEndedHeight - DAURound.leagueHeaderHeight);
     }
-    if (dauRound.roundState == RoundState.allGamesEnded) {
-      return DAURound.leagueHeaderEndedHeight;
-    }
-    return DAURound.leagueHeaderHeight;
+    return headerExtent;
   }
 
   static double leagueGamesExtent(
@@ -70,6 +77,7 @@ class TipsTabItemExtentCache {
 List<TipsLeagueSection> buildTipsLeagueSections({
   required DAUComp selectedComp,
   required double cardExtent,
+  required double headerExtent,
   int? roundCount,
   bool officialFixtureScoresOnly = false,
 }) {
@@ -94,6 +102,7 @@ List<TipsLeagueSection> buildTipsLeagueSections({
           headerExtent: TipsTabItemExtentCache.leagueHeaderExtent(
             dauRound,
             league,
+            headerExtent,
           ),
           bodyExtent: games.isEmpty
               ? DAURound.noGamesCardHeight

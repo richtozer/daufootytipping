@@ -101,7 +101,9 @@ class _StatRoundGameScoresForTipperState
 
     roundToDisplay = selectedComp.daurounds[widget.roundNumberToDisplay - 1];
 
-    final groupedGames = dauCompsViewModel.groupGamesIntoLeagues(roundToDisplay);
+    final groupedGames = dauCompsViewModel.groupGamesIntoLeagues(
+      roundToDisplay,
+    );
     final filteredGames = <League, List<Game>>{
       League.nrl: List<Game>.from(groupedGames[League.nrl] ?? const <Game>[]),
       League.afl: List<Game>.from(groupedGames[League.afl] ?? const <Game>[]),
@@ -168,16 +170,13 @@ class _StatRoundGameScoresForTipperState
     final fabBackgroundColor = isDarkMode
         ? const Color(0xFF4E7A36)
         : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
+    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.small(
         backgroundColor: fabBackgroundColor,
         foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         onPressed: () {
           Navigator.pop(context);
         },
@@ -205,18 +204,14 @@ class _StatRoundGameScoresForTipperState
                           children: [
                             Text(
                               'Round ${widget.roundNumberToDisplay} Games',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
+                              style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
                                 widget.statsTipper.name,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
+                                style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(color: Colors.grey[700]),
                               ),
                             ),
@@ -226,36 +221,36 @@ class _StatRoundGameScoresForTipperState
                     ],
                   ),
                 ),
-            LiveScoresWarningCard(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(5.0),
-                child: DataTable2(
-                  border: TableBorder.all(
-                    width: 1.0,
-                    color: Colors.grey.shade300,
+              LiveScoresWarningCard(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: DataTable2(
+                    border: TableBorder.all(
+                      width: 1.0,
+                      color: Colors.grey.shade300,
+                    ),
+                    columnSpacing: 0,
+                    horizontalMargin: 0,
+                    minWidth: 800,
+                    fixedTopRows: 1,
+                    showCheckboxColumn: false,
+                    isHorizontalScrollBarVisible: false,
+                    isVerticalScrollBarVisible: true,
+                    columns: getColumns(columns),
+                    rows: [
+                      _buildLeagueHeaderRow(context, League.nrl),
+                      ...List<DataRow>.generate(nrlGames?.length ?? 0, (index) {
+                        return buildDataRow(nrlGames!, index);
+                      }),
+                      _buildLeagueHeaderRow(context, League.afl),
+                      ...List<DataRow>.generate(aflGames?.length ?? 0, (index) {
+                        return buildDataRow(aflGames!, index);
+                      }),
+                    ],
                   ),
-                  columnSpacing: 0,
-                  horizontalMargin: 0,
-                  minWidth: 800,
-                  fixedTopRows: 1,
-                  showCheckboxColumn: false,
-                  isHorizontalScrollBarVisible: false,
-                  isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns),
-                  rows: [
-                    _buildLeagueHeaderRow(context, League.nrl),
-                    ...List<DataRow>.generate(nrlGames?.length ?? 0, (index) {
-                      return buildDataRow(nrlGames!, index);
-                    }),
-                    _buildLeagueHeaderRow(context, League.afl),
-                    ...List<DataRow>.generate(aflGames?.length ?? 0, (index) {
-                      return buildDataRow(aflGames!, index);
-                    }),
-                  ],
                 ),
               ),
-            ),
               const SizedBox(height: 100),
             ],
           ),
@@ -271,13 +266,17 @@ class _StatRoundGameScoresForTipperState
           Row(
             children: [
               SvgPicture.asset(league.logo, width: 20, height: 20),
-              Text(league.name.toUpperCase(), style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                league.name.toUpperCase(),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ],
           ),
         ),
         ...List<DataCell>.generate(
           columns.length - 1,
-          (_) => DataCell(Text('', style: Theme.of(context).textTheme.titleLarge)),
+          (_) =>
+              DataCell(Text('', style: Theme.of(context).textTheme.titleLarge)),
         ),
       ],
     );
@@ -324,12 +323,8 @@ class _StatRoundGameScoresForTipperState
                 : '${tip.tip.nrl} (${tip.tip.name})',
           ),
         ),
-        DataCell(
-          Text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
-        ),
-        DataCell(
-          Text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
-        ),
+        DataCell(Text(tip?.getTipPointsCalculated().toString() ?? 'loading..')),
+        DataCell(Text(tip?.getMaxPointsCalculated().toString() ?? 'loading..')),
       ],
     );
   }
@@ -352,8 +347,7 @@ class _StatRoundGameScoresForTipperState
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-      tag:
-          '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      tag: '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
 
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,

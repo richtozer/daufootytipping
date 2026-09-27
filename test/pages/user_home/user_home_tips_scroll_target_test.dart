@@ -67,6 +67,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
           officialFixtureScoresOnly: true,
         );
 
@@ -112,6 +113,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
           officialFixtureScoresOnly: true,
         );
 
@@ -194,6 +196,7 @@ void main() {
           final sections = buildTipsLeagueSections(
             selectedComp: comp,
             cardExtent: Game.gameCardHeight,
+            headerExtent: DAURound.leagueHeaderHeight,
           );
 
           final sectionIndex = targetStartupSectionIndex(comp, sections);
@@ -283,6 +286,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final sectionIndex = targetStartupSectionIndex(comp, sections);
@@ -366,6 +370,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final sectionIndex = targetStartupSectionIndex(comp, sections);
@@ -432,6 +437,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final offset = intraRoundScrollRefinement(
@@ -495,6 +501,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final offset = intraRoundScrollRefinement(
@@ -547,6 +554,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final offset = intraRoundScrollRefinement(
@@ -600,6 +608,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final offset = intraRoundScrollRefinement(
@@ -659,6 +668,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final offset = intraRoundScrollRefinement(
@@ -712,6 +722,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
         final nrlSection = sections[0];
         final aflSection = sections[1];
@@ -786,6 +797,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
         final nrlSection = sections[0];
         final aflSection = sections[1];
@@ -836,6 +848,7 @@ void main() {
         final sections = buildTipsLeagueSections(
           selectedComp: comp,
           cardExtent: Game.gameCardHeight,
+          headerExtent: DAURound.leagueHeaderHeight,
         );
 
         final offset = intraRoundScrollRefinement(
@@ -880,6 +893,7 @@ void main() {
       final sections = buildTipsLeagueSections(
         selectedComp: comp,
         cardExtent: Game.gameCardHeight,
+        headerExtent: DAURound.leagueHeaderHeight,
       );
       const leadingExtent = 200.0;
       final startupOffset =
