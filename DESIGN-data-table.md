@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed, not started. Written 27 September 2026 after two `data_table_2`
-defects were worked around rather than fixed. Implementation is a separate
-piece of work with its own review.
+Component-only implementation ready for review, 27 September 2026. Written
+after two `data_table_2` defects were worked around rather than fixed.
+No production callers have been converted; migration remains a separate step.
 
 ## Why not keep `data_table_2`, and why not fork it
 
@@ -140,3 +140,91 @@ not assume a passing golden covers a production table.
 
 Leave the bottom navigation padding, the sticky header's translucency, and the
 `lib/dev/` prototype harness alone. They are separate threads.
+
+## Component checkpoint
+
+Import `lib/widgets/app_table/app_table.dart`. This exports the models and the
+pure `AppTableLayout.measure` function alongside the widget. Place the widget
+in a bounded area (normally `Expanded`). A rendered example:
+
+```dart
+AppTable(
+  columns: const [
+    AppColumn.text('Name', grow: true, sortable: true),
+    AppColumn.numeric('Points', sortable: true),
+  ],
+  rows: const [
+    AppRow(cells: [AppCell.text('Alex'), AppCell.text('42')]),
+  ],
+  frozenLeading: 1,
+  sort: const AppSort(column: 1, ascending: false),
+  onSort: (column, ascending) { /* update caller-owned sorting */ },
+)
+```
+
+`AppCell.text` optionally accepts a style and a leading widget with its
+declared `leadingSize`, for avatars or navigation icons. `AppCell.widget`
+requires an `intrinsicSize` and a semantic label; its declared size must match
+the widget at the current text scale. Custom widgets are not silently shrunk.
+Truncated text retains its full label through tooltips and semantics. Sort
+direction labels can be localized through widget arguments.
+
+The measurement pass tries natural widths, compact padding, wrapped/rotated
+headings and text elision, then horizontal scrolling. Remaining width goes to
+`grow` columns, or evenly to all columns when none grow. Numeric cell text is
+not shortened to make a table fit. Sort indicators keep an upright arrow when
+their heading text rotates.
+
+The renderer uses explicit-width rows instead of an intrinsically sized Table.
+One horizontal viewport contains a pinned heading and a lazy vertical list.
+Frozen cells counteract the horizontal offset within each row: they share the
+same widths and vertical position as the scrolling cells, without synchronizing
+separate vertical lists. A 14 px trailing lane reserves the vertical scrollbar;
+horizontal scrolling adds a separate bottom lane. No package is added.
+
+Two edge policies to review before migration:
+
+- If freezing the requested columns would leave less than 48 px for the
+  scrolling region, the effective frozen count is reduced. Columns remain
+  accessible through horizontal scrolling.
+- In a very short viewport with large text, the heading retains a pinned
+  viewport but becomes vertically scrollable itself so rows remain accessible.
+  Text is not reduced to fit.
+
+Checks are under `test/widgets/app_table_*`: pure measurement assertions,
+sorting and row taps, frozen rows during both-axis scrolling, scrollbar lanes,
+full-name semantics, custom cell footprints, empty data, RTL/resize, short
+landscape panes and lazy row construction. Six goldens render AppTable itself
+at 360/768/1280 px and 1.0/1.5 text scale. They are component baselines, not
+coverage of the future migrated production pages. No native-device validation
+or performance benchmark is claimed by this checkpoint.
+
+Validation on 27 September: `flutter analyze --no-pub` reports no issues;
+`flutter test --no-pub` passes all 484 tests, including 21 new table checks.
+The existing production pages and the `data_table_2` dependency are unchanged.
+
+### Step 1 review follow-up
+
+Content extraction now lives in `AppTableMetrics.extract`: it measures all
+cells once and retains per-column maxima, minimum widths, row height, heading
+sizes and individual cell footprints. `AppTableLayout.resolve` accepts those
+metrics and a viewport width without reading any rows. The original `measure`
+entry point remains a convenience for one-off pure measurements.
+
+AppTable owns a single-entry `AppTableMeasurementCache`, keyed by row-list and
+column-list identity, text scaler, direction, and heading/body styles. Callers
+must replace lists when their contents change and retain them for unrelated
+rebuilds. In-place mutation is not supported. Recreating lists on every parent
+build remains correct but forfeits caching; migration should preserve stable
+lists between data changes. Row taps, colours and sorting remain caller-owned.
+Tests assert cache reuse/invalidation and zero row reads during width resolution;
+no release-mode frame-time claim is made.
+
+Rotated sortable headings now reserve at least the sort icon width. Body text
+gets a tooltip only when its measured footprint exceeds the allocated space;
+custom icon/widget cells retain descriptive tooltips. Short tables do not
+request a persistent vertical thumb. The two visual row surfaces share one
+accessible tap action and one keyboard focus target per row.
+
+Review follow-up validation: analysis is clean and all 490 tests pass, including
+27 table checks. All six component goldens still match without regeneration.
