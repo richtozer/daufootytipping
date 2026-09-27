@@ -429,11 +429,14 @@ class TipsStickyHeader extends StatelessWidget {
             dauCompsViewModel: dauCompsViewModel,
             selectedTipper: currentTipper,
             isPercentStatsPage: isPercentStatsPage,
+            // Opaque: this is the one header that has cards scrolling beneath
+            // it, and there is no blur here for translucency to serve -- any
+            // alpha just lets the card underneath ghost through the text.
+            // The inline headers keep their translucency; nothing passes under
+            // those.
             backgroundColor:
                 backgroundColor ??
-                (isPercentStatsPage
-                    ? Colors.white12
-                    : Colors.black.withValues(alpha: 0.82)),
+                (isPercentStatsPage ? Colors.white12 : Colors.black),
           ),
         ),
       ),
