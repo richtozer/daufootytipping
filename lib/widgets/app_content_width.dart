@@ -128,13 +128,15 @@ class AppPageWidth extends StatelessWidget {
           ),
         ),
         // Pushed pages do not set their own scaffold colour, so overriding it
-        // here lets the backdrop through with the same veil the tabs use,
-        // rather than an opaque panel sitting on top of it.
+        // here lets the backdrop through rather than an opaque panel sitting
+        // on top of it. The veil is heavier than the tabs use: these pages are
+        // dense tables with no card of their own to sit on, and the tabs get a
+        // second opaque layer from their cards that a table never has.
         Theme(
           data: Theme.of(context).copyWith(
             scaffoldBackgroundColor: isDarkMode
-                ? Colors.black54
-                : Colors.white54,
+                ? Colors.black.withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
           ),
           child: AppContentWidth(daurounds: daurounds, child: child),
         ),
