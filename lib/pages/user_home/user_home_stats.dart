@@ -57,7 +57,10 @@ class StatsTab extends StatelessWidget {
                     child: Column(
                       children: <Widget>[
                         Card(
-                          margin: const EdgeInsets.all(8.0),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 3.0,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               // Navigate to the comp leaderboard
@@ -86,7 +89,10 @@ class StatsTab extends StatelessWidget {
                           ),
                         ),
                         Card(
-                          margin: const EdgeInsets.all(8.0),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 3.0,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               // Navigate to missing tips
@@ -115,7 +121,10 @@ class StatsTab extends StatelessWidget {
                           ),
                         ),
                         Card(
-                          margin: const EdgeInsets.all(8.0),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 3.0,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               // Navigate to the percent tipped
@@ -142,7 +151,10 @@ class StatsTab extends StatelessWidget {
                           ),
                         ),
                         Card(
-                          margin: const EdgeInsets.all(8.0),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 3.0,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               // Navigate to the round winners
@@ -173,7 +185,10 @@ class StatsTab extends StatelessWidget {
                           ),
                         ),
                         Card(
-                          margin: const EdgeInsets.all(8.0),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 3.0,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               Navigator.push(
@@ -212,7 +227,10 @@ class StatsTab extends StatelessWidget {
                           ),
                         ),
                         Card(
-                          margin: const EdgeInsets.all(8.0),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 3.0,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               Navigator.push(
