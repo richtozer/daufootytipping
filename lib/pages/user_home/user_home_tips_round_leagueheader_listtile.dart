@@ -126,15 +126,23 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                     : Expanded(
                         // Compute from live game state rather than cached
                         // roundState, which is only set during initial linking.
-                        child: !gamesForLeague.any(
-                          (game) =>
-                              game.gameState ==
-                                  GameState.startedResultNotKnown ||
-                              game.gameState == GameState.startedResultKnown,
-                        )
-                            ? Column(
+                        child:
+                            !gamesForLeague.any(
+                              (game) =>
+                                  game.gameState ==
+                                      GameState.startedResultNotKnown ||
+                                  game.gameState ==
+                                      GameState.startedResultKnown,
+                            )
+                            ? Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 16,
+                                runSpacing: 2,
                                 children: [
-                                  KickoffCountdown(kickoffDate: firstGameStart!),
+                                  KickoffCountdown(
+                                    kickoffDate: firstGameStart!,
+                                  ),
                                   Text(
                                     style: const TextStyle(
                                       color: Colors.white70,
@@ -183,7 +191,12 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                     }
                                   }
 
-                                  return Column(
+                                  return Wrap(
+                                    alignment: WrapAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 16,
+                                    runSpacing: 2,
                                     children: [
                                       Text(
                                         style: TextStyle(
@@ -210,6 +223,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                         textAlign: TextAlign.center,
                                       ),
                                       Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [

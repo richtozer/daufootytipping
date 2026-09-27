@@ -215,69 +215,88 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                           child: destinationContent[_currentIndex.value],
                         ),
                       ),
-                      bottomNavigationBar: NavigationBar(
-                        indicatorColor: navIndicatorColor,
-                        indicatorShape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        onDestinationSelected: (int index) {
-                          onTabTapped(index);
-                        },
-                        selectedIndex: _currentIndex.value,
-                        height: 60,
-                        destinations: [
-                          (() {
-                            final isAnonymous = tippersViewModelConsumer
-                                .selectedTipper
-                                .isAnonymous;
-                            const tipsTabIcon = SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: Center(
-                                child: Icon(Icons.sports_rugby_outlined),
+                      // The bar's surface spans the display while its
+                      // destinations stay grouped, rather than drifting
+                      // to the far corners of a tablet.
+                      bottomNavigationBar: ColoredBox(
+                        color: Theme.of(context).colorScheme.surfaceContainer,
+                        child: Align(
+                          alignment: Alignment.center,
+                          // Size to the bar rather than the space available:
+                          // a Center here would fill the whole scaffold.
+                          heightFactor: 1,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: kFormContentWidth,
+                            ),
+                            child: NavigationBar(
+                              backgroundColor: Colors.transparent,
+                              indicatorColor: navIndicatorColor,
+                              indicatorShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
                               ),
-                            );
-                            final tipsIcon = _outstandingTipsCount > 0
-                                ? Badge.count(
-                                    count: _outstandingTipsCount,
-                                    backgroundColor: Colors.red[800],
-                                    largeSize: 20,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 2,
+                              onDestinationSelected: (int index) {
+                                onTabTapped(index);
+                              },
+                              selectedIndex: _currentIndex.value,
+                              height: 60,
+                              destinations: [
+                                (() {
+                                  final isAnonymous = tippersViewModelConsumer
+                                      .selectedTipper
+                                      .isAnonymous;
+                                  const tipsTabIcon = SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: Center(
+                                      child: Icon(Icons.sports_rugby_outlined),
                                     ),
-                                    textStyle: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    child: tipsTabIcon,
-                                  )
-                                : tipsTabIcon;
+                                  );
+                                  final tipsIcon = _outstandingTipsCount > 0
+                                      ? Badge.count(
+                                          count: _outstandingTipsCount,
+                                          backgroundColor: Colors.red[800],
+                                          largeSize: 20,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2,
+                                          ),
+                                          textStyle: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                          child: tipsTabIcon,
+                                        )
+                                      : tipsTabIcon;
 
-                            return NavigationDestination(
-                              icon: tipsIcon,
-                              selectedIcon: tipsIcon,
-                              enabled: !isAnonymous,
-                              label: MediaQuery.of(context).size.width > 400
-                                  ? 'T  I  P  S'
-                                  : 'TIPS',
-                            );
-                          })(),
-                          NavigationDestination(
-                            enabled: true,
-                            icon: const Icon(Icons.auto_graph),
-                            label: MediaQuery.of(context).size.width > 400
-                                ? 'S  T  A  T  S'
-                                : 'STATS',
+                                  return NavigationDestination(
+                                    icon: tipsIcon,
+                                    selectedIcon: tipsIcon,
+                                    enabled: !isAnonymous,
+                                    label:
+                                        MediaQuery.of(context).size.width > 400
+                                        ? 'T  I  P  S'
+                                        : 'TIPS',
+                                  );
+                                })(),
+                                NavigationDestination(
+                                  enabled: true,
+                                  icon: const Icon(Icons.auto_graph),
+                                  label: MediaQuery.of(context).size.width > 400
+                                      ? 'S  T  A  T  S'
+                                      : 'STATS',
+                                ),
+                                NavigationDestination(
+                                  icon: Icon(Icons.person),
+                                  label: MediaQuery.of(context).size.width > 400
+                                      ? 'P  R  O  F  I  L  E'
+                                      : 'PROFILE',
+                                ),
+                              ],
+                            ),
                           ),
-                          NavigationDestination(
-                            icon: Icon(Icons.person),
-                            label: MediaQuery.of(context).size.width > 400
-                                ? 'P  R  O  F  I  L  E'
-                                : 'PROFILE',
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
