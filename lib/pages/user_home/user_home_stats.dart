@@ -35,17 +35,22 @@ class StatsTab extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: <Widget>[
-        orientation == Orientation.portrait
-            ? HeaderWidget(
-                // if they are a paid tipper for the active comp, then display the header as
-                // 'DAU Stats' otherwise just 'Stats'
-                text: paidTipper ? 'DAU Stats' : 'Stats',
-                leadingIconAvatar: const Hero(
-                  tag: 'stats',
-                  child: Icon(Icons.auto_graph, size: 40),
-                ),
-              )
-            : const Text('Stats'),
+        // The heading shares the rows' width so it sits above their left
+        // edge rather than drifting off to the side of the display.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kFormContentWidth),
+          child: orientation == Orientation.portrait
+              ? HeaderWidget(
+                  // if they are a paid tipper for the active comp, then display the header as
+                  // 'DAU Stats' otherwise just 'Stats'
+                  text: paidTipper ? 'DAU Stats' : 'Stats',
+                  leadingIconAvatar: const Hero(
+                    tag: 'stats',
+                    child: Icon(Icons.auto_graph, size: 40),
+                  ),
+                )
+              : const Text('Stats'),
+        ),
         // Keep the rows at a readable width: stretched across a tablet the
         // forward arrow drifts a long way from the label it belongs to.
         ConstrainedBox(
