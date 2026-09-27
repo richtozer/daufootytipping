@@ -1,15 +1,12 @@
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
-import 'package:daufootytipping/pages/user_home/user_home_header.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_percent_tipped.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundmissingtipsstats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart';
 
@@ -26,12 +23,6 @@ class StatsTab extends StatelessWidget {
       );
     }
 
-    Orientation orientation = MediaQuery.of(context).orientation;
-
-    bool paidTipper = di<TippersViewModel>().selectedTipper.paidForComp(
-      selectedComp,
-    );
-
     // Bottom aligned so the rows stay within thumb reach, but a short
     // viewport -- a folded phone, landscape -- has to reach every row, so the
     // column scrolls and holds the viewport height instead of overflowing.
@@ -44,24 +35,8 @@ class StatsTab extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                // The heading shares the rows' width so it sits above their left
-                // edge rather than drifting off to the side of the display.
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: kFormContentWidth,
-                  ),
-                  child: orientation == Orientation.portrait
-                      ? HeaderWidget(
-                          // if they are a paid tipper for the active comp, then display the header as
-                          // 'DAU Stats' otherwise just 'Stats'
-                          text: paidTipper ? 'DAU Stats' : 'Stats',
-                          leadingIconAvatar: const Hero(
-                            tag: 'stats',
-                            child: Icon(Icons.auto_graph, size: 40),
-                          ),
-                        )
-                      : const Text('Stats'),
-                ),
+                // No page title: the bottom navigation already names this
+                // tab, and the heading only cost vertical space.
                 // Keep the rows at a readable width: stretched across a tablet the
                 // forward arrow drifts a long way from the label it belongs to.
                 ConstrainedBox(
