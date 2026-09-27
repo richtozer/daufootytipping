@@ -115,6 +115,8 @@ class AppPageWidth extends StatelessWidget {
     // The page is narrower than the display, so something has to fill the
     // sides. Bleed the same background the tabs use rather than leaving the
     // route's own backdrop showing as bars.
+    final isDarkMode =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return Stack(
       children: [
         const Positioned.fill(
@@ -125,7 +127,17 @@ class AppPageWidth extends StatelessWidget {
             ),
           ),
         ),
-        AppContentWidth(daurounds: daurounds, child: child),
+        // Pushed pages do not set their own scaffold colour, so overriding it
+        // here lets the backdrop through with the same veil the tabs use,
+        // rather than an opaque panel sitting on top of it.
+        Theme(
+          data: Theme.of(context).copyWith(
+            scaffoldBackgroundColor: isDarkMode
+                ? Colors.black54
+                : Colors.white54,
+          ),
+          child: AppContentWidth(daurounds: daurounds, child: child),
+        ),
       ],
     );
   }
