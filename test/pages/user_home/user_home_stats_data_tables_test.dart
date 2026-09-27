@@ -12,6 +12,7 @@ import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
@@ -410,7 +411,11 @@ void main() {
       Theme.of(cellTextContext).textTheme.bodyMedium?.color,
     );
   });
-  Future<void> pumpStatsTab(WidgetTester tester, Size size) async {
+  Future<void> pumpStatsTab(
+    WidgetTester tester,
+    Size size, {
+    double scale = 1,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -418,6 +423,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(fontFamily: 'Roboto'),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
         home: ChangeNotifierProvider<DAUCompsViewModel>.value(
           value: dauCompsViewModel,
           child: const Scaffold(body: StatsTab()),
@@ -426,6 +436,28 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('league ladders pair side by side on one line', (tester) async {
+    await pumpStatsTab(tester, const Size(900, 1400));
+    final nrl = tester.getRect(find.text('NRL Ladder\nTeam rankings'));
+    final afl = tester.getRect(find.text('AFL Ladder\nTeam rankings'));
+    expect(nrl.top, afl.top);
+    expect(afl.left, greaterThan(nrl.right));
+    // Each takes about half, so neither spans the full content width.
+    expect(nrl.width, lessThan(kFormContentWidth / 2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('paired ladders survive a narrow pane at large text', (
+    tester,
+  ) async {
+    await pumpStatsTab(tester, const Size(360, 900), scale: 1.5);
+    expect(tester.takeException(), isNull);
+    final nrl = tester.getRect(find.text('NRL Ladder\nTeam rankings'));
+    final afl = tester.getRect(find.text('AFL Ladder\nTeam rankings'));
+    expect(nrl.top, afl.top);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('stats menu scrolls on a short viewport instead of overflowing', (
     tester,

@@ -184,83 +184,30 @@ class StatsTab extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 3.0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
+                        // The two ladders are the shortest rows here, so
+                        // they pair up rather than each taking a full line.
+                        // That gives a vertically constrained pane a row back.
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ladderCard(
                                 context,
-                                appPageRoute(
-                                  (context) => const LeagueLadderPage(
-                                    league: League.nrl, // Pass League.nrl
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Row(
-                              // Removed const here because Hero is not const
-                              children: [
-                                Hero(
-                                  // Added Hero widget
-                                  tag: "nrl_league_logo_hero", // Updated tag
-                                  child: SvgPicture.asset(
-                                    // Replaced Icon with SvgPicture
-                                    'assets/nrl.svg',
-                                    width: 30,
-                                    height: 40,
-                                  ),
-                                ),
-                                const SizedBox(
-                                  height: 64,
-                                  width: 16,
-                                ), // Added const here
-                                const Expanded(
-                                  // Added const here
-                                  child: Text('NRL Ladder\nTeam rankings'),
-                                ),
-                                Icon(Icons.arrow_forward),
-                              ],
+                                league: League.nrl,
+                                asset: 'assets/nrl.svg',
+                                heroTag: 'nrl_league_logo_hero',
+                                label: 'NRL Ladder\nTeam rankings',
+                              ),
                             ),
-                          ),
-                        ),
-                        Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 3.0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
+                            Expanded(
+                              child: _ladderCard(
                                 context,
-                                appPageRoute(
-                                  (context) => const LeagueLadderPage(
-                                    league: League.afl, // Pass League.afl
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Row(
-                              children: [
-                                // Replace the Icon with the AFL SVG logo in black and white
-                                Hero(
-                                  tag: "afl_league_logo_hero", // Updated tag
-                                  child: SvgPicture.asset(
-                                    'assets/afl.svg',
-                                    width: 30,
-                                    height: 40,
-                                  ),
-                                ),
-                                SizedBox(height: 64, width: 16),
-                                Expanded(
-                                  child: Text('AFL Ladder\nTeam rankings'),
-                                ),
-                                Icon(Icons.arrow_forward),
-                              ],
+                                league: League.afl,
+                                asset: 'assets/afl.svg',
+                                heroTag: 'afl_league_logo_hero',
+                                label: 'AFL Ladder\nTeam rankings',
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -270,6 +217,42 @@ class StatsTab extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// One league ladder row. Half width, so it carries a tighter gap than the
+  /// full-width rows and holds its label to two lines rather than pushing a
+  /// third past the row height.
+  Widget _ladderCard(
+    BuildContext context, {
+    required League league,
+    required String asset,
+    required String heroTag,
+    required String label,
+  }) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            appPageRoute((context) => LeagueLadderPage(league: league)),
+          );
+        },
+        child: Row(
+          children: [
+            Hero(
+              tag: heroTag,
+              child: SvgPicture.asset(asset, width: 30, height: 40),
+            ),
+            const SizedBox(height: 64, width: 8),
+            Expanded(
+              child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+            ),
+            const Icon(Icons.arrow_forward),
+          ],
         ),
       ),
     );
