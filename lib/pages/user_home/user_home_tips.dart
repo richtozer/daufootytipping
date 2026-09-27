@@ -29,6 +29,10 @@ class TipsTab extends StatefulWidget {
 
 class TipsTabState extends State<TipsTab> {
   static const int _maxStartupScrollRetries = 120;
+
+  /// How long the first startup jump will wait for the list to stop growing
+  /// before going anyway. Roughly two seconds of frames.
+  static const int maxStartupHoldFrames = 120;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
   late ScrollController scrollController;
@@ -39,6 +43,14 @@ class TipsTabState extends State<TipsTab> {
   bool _startupScrollSettled = false;
   int _startupScrollRetryCount = 0;
   double _lastStartupMaxScrollExtent = -1;
+  int _startupHoldFrames = 0;
+  bool _hasJumpedOnce = false;
+
+  /// Height seen on the previous held frame. Separate from
+  /// [_lastStartupMaxScrollExtent], which the post-jump settle check owns:
+  /// writing that one here would tell it the height had already settled and
+  /// stop it correcting for the shrink the first jump itself causes.
+  double _holdPreviousMaxScrollExtent = -1;
   int _activeSectionIndex = 0;
   bool _showLoadingPlaceholder = true;
   bool _stickyHeaderVisible = false;
@@ -159,7 +171,10 @@ class TipsTabState extends State<TipsTab> {
     _scheduleStartupScrollAttempt();
   }
 
-  void _scheduleStartupScrollAttempt() {
+  /// [allowHold] is false when the caller already knows the list is built --
+  /// the navigation cycle reuses this machinery on a settled page, where
+  /// waiting for the height to stop moving would only cost it a frame.
+  void _scheduleStartupScrollAttempt({bool allowHold = true}) {
     _startupScrollPending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startupScrollPending = false;
@@ -168,8 +183,27 @@ class TipsTabState extends State<TipsTab> {
       }
 
       final maxScrollExtent = scrollController.position.maxScrollExtent;
+
+      // Sections have no games in them yet on the first frames, so the list is
+      // a fraction of its eventual height and an offset computed against it
+      // lands on the wrong round. Wait for the height to stop moving before
+      // the first jump instead of jumping and correcting in full view.
+      if (allowHold &&
+          shouldHoldStartupJump(
+            hasJumped: _hasJumpedOnce,
+            previousMaxScrollExtent: _holdPreviousMaxScrollExtent,
+            maxScrollExtent: maxScrollExtent,
+            heldFrames: _startupHoldFrames,
+          )) {
+        _startupHoldFrames += 1;
+        _holdPreviousMaxScrollExtent = maxScrollExtent;
+        _scheduleStartupScrollAttempt(allowHold: allowHold);
+        return;
+      }
+
       final clampedOffset = _pendingStartupOffset.clamp(0.0, maxScrollExtent);
       scrollController.jumpTo(clampedOffset);
+      _hasJumpedOnce = true;
       _syncStickyHeaderVisibility(scrollOffsetOverride: clampedOffset);
       _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
       _syncStickyHeaderPushUp(scrollOffsetOverride: clampedOffset);
@@ -192,7 +226,7 @@ class TipsTabState extends State<TipsTab> {
 
       _startupScrollRetryCount += 1;
       _lastStartupMaxScrollExtent = maxScrollExtent;
-      _scheduleStartupScrollAttempt();
+      _scheduleStartupScrollAttempt(allowHold: allowHold);
     });
   }
 
@@ -202,6 +236,29 @@ class TipsTabState extends State<TipsTab> {
     _startupScrollSettled = false;
     _startupScrollRetryCount = 0;
     _lastStartupMaxScrollExtent = -1;
+    _startupHoldFrames = 0;
+    _hasJumpedOnce = false;
+    _holdPreviousMaxScrollExtent = -1;
+  }
+
+  /// Whether the first startup jump should wait another frame.
+  ///
+  /// The tips list grows as game data streams in, and the target offset is
+  /// derived from the section extents, so both climb together during startup.
+  /// Jumping before they settle puts the user on the wrong round and then
+  /// moves them. Only the first jump waits; later corrections are cheap
+  /// because the user is already in the right place.
+  @visibleForTesting
+  static bool shouldHoldStartupJump({
+    required bool hasJumped,
+    required double previousMaxScrollExtent,
+    required double maxScrollExtent,
+    required int heldFrames,
+    int maxHeldFrames = maxStartupHoldFrames,
+  }) {
+    if (hasJumped) return false;
+    if (heldFrames >= maxHeldFrames) return false;
+    return (maxScrollExtent - previousMaxScrollExtent).abs() > 8;
   }
 
   void scrollToNextNavigationPosition() {
@@ -283,7 +340,7 @@ class TipsTabState extends State<TipsTab> {
     if (sectionChanged || visibilityChanged) {
       setState(() {});
     }
-    _scheduleStartupScrollAttempt();
+    _scheduleStartupScrollAttempt(allowHold: false);
   }
 
   _TipsScrollTarget _defaultScrollTarget({

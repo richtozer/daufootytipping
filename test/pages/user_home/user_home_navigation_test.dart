@@ -136,6 +136,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const MaterialApp(home: HomePage()));
+    // Three frames is what startup placement takes, and it is stable from
+    // there: the first compares the list height against the previous frame's,
+    // the second jumps, and the third corrects for the shrink that showing
+    // the sticky header causes. pumpAndSettle is no use here -- this page
+    // does not quiesce its frame loop during startup.
+    await tester.pump();
+    await tester.pump();
     await tester.pump();
     return tester.state<TipsTabState>(find.byType(TipsTab));
   }

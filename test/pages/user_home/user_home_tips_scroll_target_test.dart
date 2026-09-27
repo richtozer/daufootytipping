@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -908,6 +909,59 @@ void main() {
 
       expect(activeIndex, 1);
       expect(sections[activeIndex].league, League.afl);
+    });
+  });
+
+  group('Holding the first startup jump', () {
+    bool hold({
+      bool hasJumped = false,
+      double previous = -1,
+      required double max,
+      int heldFrames = 0,
+    }) => TipsTabState.shouldHoldStartupJump(
+      hasJumped: hasJumped,
+      previousMaxScrollExtent: previous,
+      maxScrollExtent: max,
+      heldFrames: heldFrames,
+    );
+
+    test('holds while the list is still growing', () {
+      // Measured on a folded phone: the list was 9942 tall on the frame the
+      // old code jumped, and 65688 once the game data had arrived.
+      expect(hold(previous: 9942, max: 65688), isTrue);
+    });
+
+    test('holds on the very first frame, before any height is known', () {
+      expect(hold(max: 9942), isTrue);
+    });
+
+    test('goes once the height has settled', () {
+      expect(hold(previous: 65688, max: 65688), isFalse);
+      // Sub-pixel drift is not growth.
+      expect(hold(previous: 65688, max: 65692), isFalse);
+    });
+
+    test('never holds a correction once the first jump has landed', () {
+      expect(hold(hasJumped: true, previous: 9942, max: 65688), isFalse);
+    });
+
+    test('goes anyway rather than waiting forever on trickling data', () {
+      expect(
+        hold(
+          previous: 100,
+          max: 65688,
+          heldFrames: TipsTabState.maxStartupHoldFrames,
+        ),
+        isFalse,
+      );
+      expect(
+        hold(
+          previous: 100,
+          max: 65688,
+          heldFrames: TipsTabState.maxStartupHoldFrames - 1,
+        ),
+        isTrue,
+      );
     });
   });
 }
