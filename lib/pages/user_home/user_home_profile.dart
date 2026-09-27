@@ -32,367 +32,399 @@ class Profile extends StatelessWidget with WatchItMixin {
       value: di<TippersViewModel>(),
       // A short display with the admin panel open runs past the bottom, so the
       // page scrolls rather than overflowing.
-      child: SingleChildScrollView(
-        // Keep the profile at a readable width: stretched across a tablet the
-        // card's contents float in the middle and the account actions drift
-        // to the far edge.
-        child: Center(
+      // Bottom aligned so the content stays within thumb reach, and still
+      // scrollable where a short display cannot fit it. A plain scroll view
+      // leaves the column unbounded, which ignores the alignment.
+      child: LayoutBuilder(
+        builder: (context, viewport) => SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kFormContentWidth),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: <Widget>[
-                Consumer<TippersViewModel>(
-                  builder: (context, tippersViewModelConsumer, child) {
-                    Tipper? authenticatedTipper =
-                        tippersViewModelConsumer.authenticatedTipper;
+            constraints: BoxConstraints(minHeight: viewport.maxHeight),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: kFormContentWidth),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Consumer<TippersViewModel>(
+                      builder: (context, tippersViewModelConsumer, child) {
+                        Tipper? authenticatedTipper =
+                            tippersViewModelConsumer.authenticatedTipper;
 
-                    // Use the tipper from the tippers list (always fresh from
-                    // the Firebase stream with populated compsPaidFor) rather
-                    // than authenticatedTipper which may be a stale cached copy.
-                    Tipper? profileTipper = authenticatedTipper != null
-                        ? tippersViewModelConsumer.tippers.firstWhereOrNull(
-                            (t) => t.dbkey == authenticatedTipper.dbkey,
-                          )
-                        : null;
-                    profileTipper ??= authenticatedTipper;
+                        // Use the tipper from the tippers list (always fresh from
+                        // the Firebase stream with populated compsPaidFor) rather
+                        // than authenticatedTipper which may be a stale cached copy.
+                        Tipper? profileTipper = authenticatedTipper != null
+                            ? tippersViewModelConsumer.tippers.firstWhereOrNull(
+                                (t) => t.dbkey == authenticatedTipper.dbkey,
+                              )
+                            : null;
+                        profileTipper ??= authenticatedTipper;
 
-                    List<DAUComp> compsForDropdown = [];
-                    if (profileTipper != null) {
-                      compsForDropdown.addAll(profileTipper.compsPaidFor);
-                      DAUComp? activeDAUComp =
-                          di<DAUCompsViewModel>().activeDAUComp;
-                      if (activeDAUComp != null &&
-                          !compsForDropdown.contains(activeDAUComp)) {
-                        compsForDropdown.add(activeDAUComp);
-                      }
-                    }
-                    compsForDropdown.sort((a, b) => b.name.compareTo(a.name));
+                        List<DAUComp> compsForDropdown = [];
+                        if (profileTipper != null) {
+                          compsForDropdown.addAll(profileTipper.compsPaidFor);
+                          DAUComp? activeDAUComp =
+                              di<DAUCompsViewModel>().activeDAUComp;
+                          if (activeDAUComp != null &&
+                              !compsForDropdown.contains(activeDAUComp)) {
+                            compsForDropdown.add(activeDAUComp);
+                          }
+                        }
+                        compsForDropdown.sort(
+                          (a, b) => b.name.compareTo(a.name),
+                        );
 
-                    if (profileTipper == null) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                        if (profileTipper == null) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                    // Local non-nullable reference for use in closures
-                    // (Dart can't promote the nullable profileTipper across
-                    // closure boundaries).
-                    final Tipper tipper = profileTipper;
+                        // Local non-nullable reference for use in closures
+                        // (Dart can't promote the nullable profileTipper across
+                        // closure boundaries).
+                        final Tipper tipper = profileTipper;
 
-                    if (tipper.name.isEmpty) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _showEditNameDialog(context, tipper);
-                      });
-                    }
-                    return Column(
-                      children: [
-                        Row(
+                        if (tipper.name.isEmpty) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _showEditNameDialog(context, tipper);
+                          });
+                        }
+                        return Column(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.all(5.0),
-                              child: avatarPic(tipper),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(5.0),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            (tipper.name),
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              letterSpacing: 5,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.all(5),
-                                            minimumSize: Size(50, 30),
-                                          ),
-                                          onPressed: tipper.isAnonymous
-                                              ? null
-                                              : () {
-                                                  _showEditNameDialog(
-                                                    context,
-                                                    tipper,
-                                                  );
-                                                },
-                                          child: const Text(
-                                            'Edit',
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          size: 20,
-                                          Icons.login,
-                                          color: Colors.black54,
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            tipper.logon ?? '',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.all(5),
-                                            minimumSize: Size(50, 30),
-                                          ),
-                                          child: const Text(
-                                            'Sign Out',
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          onPressed: () {
-                                            Navigator.of(
-                                              context,
-                                            ).pushReplacement(
-                                              appPageRoute(
-                                                (context) => const UserAuthPage(
-                                                  null,
-                                                  isUserLoggingOut: true,
-                                                  createLinkedTipper: false,
-                                                  googleClientId: '',
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                            Row(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(5.0),
+                                  child: avatarPic(tipper),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Card(
-                          child: Column(
-                            children: [
-                              tipper.tipperRole == TipperRole.admin
-                                  ? const Center(child: AdminFunctionsWidget())
-                                  : const SizedBox.shrink(),
-                              const SizedBox(height: 20),
-                              ChangeNotifierProvider<DAUCompsViewModel>.value(
-                                value: di<DAUCompsViewModel>(),
-                                child: Consumer<DAUCompsViewModel>(
-                                  builder:
-                                      (
-                                        context,
-                                        dauCompsViewModelConsumer,
-                                        child,
-                                      ) {
-                                        if (dauCompsViewModelConsumer
-                                                .activeDAUComp ==
-                                            null) {
-                                          return Padding(
-                                            padding: const EdgeInsets.all(8.0),
-                                            child: SizedBox(
-                                              width: 250,
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(5.0),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
                                               child: Text(
-                                                'There are no active competitions. Contact support: https://interview.coach/tipping.',
-                                                textAlign: TextAlign.center,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleMedium,
+                                                (tipper.name),
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  letterSpacing: 5,
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
-                                          );
-                                        } else {
-                                          return Column(
-                                            children: [
-                                              SizedBox(
-                                                width: 300,
-                                                child: Text(
-                                                  'Tipper in a previous year? Select it below to revisit your tips and stats: ',
-                                                  textAlign: TextAlign.center,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleMedium,
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                padding: const EdgeInsets.all(
+                                                  5,
+                                                ),
+                                                minimumSize: Size(50, 30),
+                                              ),
+                                              onPressed: tipper.isAnonymous
+                                                  ? null
+                                                  : () {
+                                                      _showEditNameDialog(
+                                                        context,
+                                                        tipper,
+                                                      );
+                                                    },
+                                              child: const Text(
+                                                'Edit',
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              size: 20,
+                                              Icons.login,
+                                              color: Colors.black54,
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                tipper.logon ?? '',
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
                                                 ),
                                               ),
-                                              DropdownButton<DAUComp>(
-                                                value: selectedDAUComp,
-                                                icon: const Icon(
-                                                  Icons.arrow_downward,
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                padding: const EdgeInsets.all(
+                                                  5,
                                                 ),
-                                                onChanged: (DAUComp? newValue) {
-                                                  // update the current comp in the view model
-                                                  dauCompsViewModelConsumer
-                                                      .changeDisplayedDAUComp(
-                                                        newValue!,
-                                                        false,
-                                                      );
-                                                },
-                                                items: compsForDropdown
-                                                    .map<
-                                                      DropdownMenuItem<DAUComp>
-                                                    >((DAUComp comp) {
-                                                      return DropdownMenuItem<
-                                                        DAUComp
-                                                      >(
-                                                        value: comp,
-                                                        child: Text(comp.name),
-                                                      );
-                                                    })
-                                                    .toList(),
+                                                minimumSize: Size(50, 30),
                                               ),
-                                            ],
-                                          );
-                                        }
-                                      },
-                                ),
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  helpButton(),
-                                  const SizedBox(width: 10),
-                                  faqButton(),
-                                ],
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 3,
-                                      ),
-                                    ),
-                                    child: const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.delete),
-                                        Text(
-                                          'Delete\nAccount',
-                                          textScaler: TextScaler.linear(0.75),
+                                              child: const Text(
+                                                'Sign Out',
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              onPressed: () {
+                                                Navigator.of(
+                                                  context,
+                                                ).pushReplacement(
+                                                  appPageRoute(
+                                                    (
+                                                      context,
+                                                    ) => const UserAuthPage(
+                                                      null,
+                                                      isUserLoggingOut: true,
+                                                      createLinkedTipper: false,
+                                                      googleClientId: '',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: Text(
-                                              'Confirm Account Deletion',
-                                              style: TextStyle(
-                                                color: League.afl.colour,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Card(
+                              child: Column(
+                                children: [
+                                  tipper.tipperRole == TipperRole.admin
+                                      ? const Center(
+                                          child: AdminFunctionsWidget(),
+                                        )
+                                      : const SizedBox.shrink(),
+                                  const SizedBox(height: 20),
+                                  ChangeNotifierProvider<
+                                    DAUCompsViewModel
+                                  >.value(
+                                    value: di<DAUCompsViewModel>(),
+                                    child: Consumer<DAUCompsViewModel>(
+                                      builder:
+                                          (
+                                            context,
+                                            dauCompsViewModelConsumer,
+                                            child,
+                                          ) {
+                                            if (dauCompsViewModelConsumer
+                                                    .activeDAUComp ==
+                                                null) {
+                                              return Padding(
+                                                padding: const EdgeInsets.all(
+                                                  8.0,
+                                                ),
+                                                child: SizedBox(
+                                                  width: 250,
+                                                  child: Text(
+                                                    'There are no active competitions. Contact support: https://interview.coach/tipping.',
+                                                    textAlign: TextAlign.center,
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .titleMedium,
+                                                  ),
+                                                ),
+                                              );
+                                            } else {
+                                              return Column(
+                                                children: [
+                                                  SizedBox(
+                                                    width: 300,
+                                                    child: Text(
+                                                      'Tipper in a previous year? Select it below to revisit your tips and stats: ',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleMedium,
+                                                    ),
+                                                  ),
+                                                  DropdownButton<DAUComp>(
+                                                    value: selectedDAUComp,
+                                                    icon: const Icon(
+                                                      Icons.arrow_downward,
+                                                    ),
+                                                    onChanged: (DAUComp? newValue) {
+                                                      // update the current comp in the view model
+                                                      dauCompsViewModelConsumer
+                                                          .changeDisplayedDAUComp(
+                                                            newValue!,
+                                                            false,
+                                                          );
+                                                    },
+                                                    items: compsForDropdown
+                                                        .map<
+                                                          DropdownMenuItem<
+                                                            DAUComp
+                                                          >
+                                                        >((DAUComp comp) {
+                                                          return DropdownMenuItem<
+                                                            DAUComp
+                                                          >(
+                                                            value: comp,
+                                                            child: Text(
+                                                              comp.name,
+                                                            ),
+                                                          );
+                                                        })
+                                                        .toList(),
+                                                  ),
+                                                ],
+                                              );
+                                            }
+                                          },
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      helpButton(),
+                                      const SizedBox(width: 10),
+                                      faqButton(),
+                                    ],
+                                  ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 3,
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.delete),
+                                            Text(
+                                              'Delete\nAccount',
+                                              textScaler: TextScaler.linear(
+                                                0.75,
                                               ),
                                             ),
-                                            content: const Text(
-                                              'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediately.',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                child: const Text('Cancel'),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                              ),
-                                              TextButton(
-                                                child: Text(
-                                                  'Delete',
+                                          ],
+                                        ),
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                title: Text(
+                                                  'Confirm Account Deletion',
                                                   style: TextStyle(
                                                     color: League.afl.colour,
                                                   ),
                                                 ),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                  Navigator.of(
-                                                    context,
-                                                  ).pushReplacement(
-                                                    appPageRoute(
-                                                      (
-                                                        context,
-                                                      ) => const UserAuthPage(
-                                                        null,
-                                                        isUserDeletingAccount:
-                                                            true,
-                                                        createLinkedTipper:
-                                                            false,
-                                                        googleClientId: '',
+                                                content: const Text(
+                                                  'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediately.',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    child: const Text('Cancel'),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: Text(
+                                                      'Delete',
+                                                      style: TextStyle(
+                                                        color:
+                                                            League.afl.colour,
                                                       ),
                                                     ),
-                                                  );
-                                                },
-                                              ),
-                                            ],
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      Navigator.of(
+                                                        context,
+                                                      ).pushReplacement(
+                                                        appPageRoute(
+                                                          (
+                                                            context,
+                                                          ) => const UserAuthPage(
+                                                            null,
+                                                            isUserDeletingAccount:
+                                                                true,
+                                                            createLinkedTipper:
+                                                                false,
+                                                            googleClientId: '',
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ],
+                                              );
+                                            },
                                           );
                                         },
-                                      );
-                                    },
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      FutureBuilder<PackageInfo>(
+                                        future: _packageInfoFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return const Padding(
+                                              padding: EdgeInsets.only(top: 16),
+                                              child: Text(
+                                                'Loading...',
+                                                style: TextStyle(
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          } else if (snapshot.hasError) {
+                                            return const Padding(
+                                              padding: EdgeInsets.only(top: 16),
+                                              child: Text(
+                                                'App Version: Unknown',
+                                                style: TextStyle(
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          } else {
+                                            final packageInfo = snapshot.data!;
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 16,
+                                              ),
+                                              child: Text(
+                                                'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  FutureBuilder<PackageInfo>(
-                                    future: _packageInfoFuture,
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const Padding(
-                                          padding: EdgeInsets.only(top: 16),
-                                          child: Text(
-                                            'Loading...',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        );
-                                      } else if (snapshot.hasError) {
-                                        return const Padding(
-                                          padding: EdgeInsets.only(top: 16),
-                                          child: Text(
-                                            'App Version: Unknown',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        );
-                                      } else {
-                                        final packageInfo = snapshot.data!;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 16,
-                                          ),
-                                          child: Text(
-                                            'App Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    Container(height: 25),
+                  ],
                 ),
-                Container(height: 25),
-              ],
+              ),
             ),
           ),
         ),
