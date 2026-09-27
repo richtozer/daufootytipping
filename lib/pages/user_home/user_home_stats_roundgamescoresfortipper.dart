@@ -231,7 +231,9 @@ class _StatRoundGameScoresForTipperState
                       color: Colors.grey.shade300,
                     ),
                     columnSpacing: 0,
-                    horizontalMargin: 0,
+                    // Edge margin keeps the last column's values clear of the vertical
+                    // scrollbar, which overlays the viewport.
+                    horizontalMargin: 14,
                     minWidth: 800,
                     fixedTopRows: 1,
                     showCheckboxColumn: false,

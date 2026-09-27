@@ -417,7 +417,7 @@ class _LeagueLadderHistoricalMatchupsState
                       color: Colors.grey.shade300,
                     ),
                     columnSpacing: 8,
-                    horizontalMargin: 8,
+                    horizontalMargin: 14,
                     fixedTopRows: 1,
                     // Frozen columns are disabled: data_table_2 subtracts a fixed column's
                     // width from the budget but still divides the remainder by every

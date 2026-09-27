@@ -145,7 +145,9 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
                   sortColumnIndex: sortColumnIndex,
                   sortAscending: isAscending,
                   columnSpacing: 0,
-                  horizontalMargin: 0,
+                  // Edge margin keeps the last column's values clear of the vertical
+                  // scrollbar, which overlays the viewport.
+                  horizontalMargin: 14,
                   minWidth: 600,
                   fixedTopRows: 1,
                   // Frozen columns are disabled: data_table_2 subtracts a fixed column's

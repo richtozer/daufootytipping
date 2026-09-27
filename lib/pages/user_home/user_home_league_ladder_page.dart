@@ -446,7 +446,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                               color: Colors.grey.shade300,
                             ),
                             columnSpacing: 10.0,
-                            horizontalMargin: 8.0,
+                            horizontalMargin: 14.0,
                             headingRowHeight: 36.0,
                             sortColumnIndex: _sortColumnIndex,
                             sortAscending: _sortAscending,
