@@ -343,6 +343,13 @@ void main() {
     await pumpWithInset(const EdgeInsets.only(right: 96));
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+
+    // Landscape has no inset wide enough to pay for the rail, but it is short
+    // of the height the bar spends and has width to spare, so it trades.
+    tester.view.physicalSize = const Size(844, 390);
+    await pumpWithInset(const EdgeInsets.only(left: 59));
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
   });
 
   testWidgets('hides the list until it has been placed', (tester) async {

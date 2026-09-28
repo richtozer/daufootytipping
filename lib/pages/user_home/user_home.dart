@@ -223,27 +223,35 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   }) {
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainer,
-      child: NavigationRail(
-        backgroundColor: Colors.transparent,
-        indicatorColor: indicatorColor,
-        indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+      // The surface bleeds under the insets; its destinations do not. In
+      // landscape the home indicator sits along the bottom, which is exactly
+      // where the destinations are grouped.
+      child: SafeArea(
+        left: false,
+        right: false,
+        top: false,
+        child: NavigationRail(
+          backgroundColor: Colors.transparent,
+          indicatorColor: indicatorColor,
+          indicatorShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          // Grouped at the bottom: the same thumb zone the bar occupied, and
+          // clear of a camera strip mounted at the top of the inset.
+          groupAlignment: 1,
+          labelType: NavigationRailLabelType.all,
+          minWidth: kNavigationRailWidth,
+          selectedIndex: _currentIndex.value,
+          onDestinationSelected: onTabTapped,
+          destinations: [
+            for (final destination in destinations)
+              NavigationRailDestination(
+                icon: destination.icon,
+                disabled: !destination.enabled,
+                label: Text(destination.shortLabel),
+              ),
+          ],
         ),
-        // Grouped at the bottom: the same thumb zone the bar occupied, and
-        // clear of a camera strip mounted at the top of the inset.
-        groupAlignment: 1,
-        labelType: NavigationRailLabelType.all,
-        minWidth: kNavigationRailWidth,
-        selectedIndex: _currentIndex.value,
-        onDestinationSelected: onTabTapped,
-        destinations: [
-          for (final destination in destinations)
-            NavigationRailDestination(
-              icon: destination.icon,
-              disabled: !destination.enabled,
-              label: Text(destination.shortLabel),
-            ),
-        ],
       ),
     );
   }
@@ -308,7 +316,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
               builder: (context, tippersViewModelConsumer, child) {
                 final displayPadding = MediaQuery.paddingOf(context);
                 final useNavigationRail = shouldUseNavigationRail(
-                  displayPadding,
+                  size: MediaQuery.sizeOf(context),
+                  displayPadding: displayPadding,
                 );
                 final railOnRight = navigationRailOnRight(displayPadding);
                 final navDestinations = _navDestinations(
