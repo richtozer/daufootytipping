@@ -313,4 +313,48 @@ void main() {
       closeTo(endOfCompetitionOffset, 0.1),
     );
   });
+
+  testWidgets('re-places the list when a fold remeasures the cards', (
+    tester,
+  ) async {
+    final now = DateTime.now().toUtc();
+    round
+      ..roundState = RoundState.allGamesEnded
+      ..firstGameKickOffUTC = now.subtract(const Duration(days: 2))
+      ..lastGameKickOffUTC = now.subtract(const Duration(days: 1));
+
+    final tipsState = await pumpHome(tester);
+    final beforeExtent = tipsState.cardExtent;
+    bool atEndOfCompetition() =>
+        tipsState.scrollController.offset >
+        tipsState.scrollController.position.maxScrollExtent -
+            2 * tipsState.cardExtent;
+    expect(
+      atEndOfCompetition(),
+      isTrue,
+      reason: 'a completed competition starts at its end',
+    );
+
+    // Folding remeasures the cards, so every section moves while the offset
+    // stays put in pixels -- which silently leaves a different round on
+    // screen. Nothing else corrects it: startup placement runs off a view
+    // model notification and a fold is not one.
+    tester.view.physicalSize = const Size(320, 844);
+    // One frame to remeasure, one for the hold to see a stable height, then
+    // the jump and its correction.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    expect(
+      tipsState.cardExtent,
+      isNot(beforeExtent),
+      reason: 'the narrower pane must actually change the layout',
+    );
+    expect(
+      atEndOfCompetition(),
+      isTrue,
+      reason: 'still at the end after the fold, not at a stale offset',
+    );
+  });
 }

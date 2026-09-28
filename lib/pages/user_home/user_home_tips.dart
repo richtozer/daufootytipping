@@ -236,9 +236,41 @@ class TipsTabState extends State<TipsTab> {
     _startupScrollSettled = false;
     _startupScrollRetryCount = 0;
     _lastStartupMaxScrollExtent = -1;
+    _rearmStartupHold();
+  }
+
+  /// Lets the hold guard the next jump again after the layout moves under it.
+  /// Narrower than [_resetStartupScrollState]: the pending offset survives,
+  /// because only the extents it was measured against have changed.
+  void _rearmStartupHold() {
     _startupHoldFrames = 0;
     _hasJumpedOnce = false;
     _holdPreviousMaxScrollExtent = -1;
+  }
+
+  /// Re-places the list after the cards are remeasured.
+  ///
+  /// Offsets are pixels, so folding or rotating moves every section while the
+  /// scroll offset stays put, leaving a different round on screen. Nothing
+  /// else corrects it: startup placement only runs off a view model
+  /// notification, and a relayout is not one. Re-uses the startup target
+  /// rather than inventing a second placement rule, with the hold re-armed so
+  /// it waits for the new extents to settle exactly as a cold start does.
+  void _replaceAfterRelayout(DAUComp selectedComp) {
+    _rearmStartupHold();
+    final target = _defaultScrollTarget(
+      selectedComp: selectedComp,
+      sections: _cachedSections,
+      latestRoundNumber: selectedComp.latestsCompletedRoundNumber(),
+    );
+    _pendingStartupOffset = target.offset;
+    _activeSectionIndex = target.sectionIndex;
+    _startupScrollSettled = false;
+    _startupScrollRetryCount = 0;
+    _lastStartupMaxScrollExtent = -1;
+    if (!_startupScrollPending) {
+      _scheduleStartupScrollAttempt();
+    }
   }
 
   /// Whether the first startup jump should wait another frame.
@@ -786,6 +818,9 @@ class TipsTabState extends State<TipsTab> {
       cardExtent: nextLayout.cardExtent,
       headerExtent: nextLayout.headerExtent,
     );
+    if (previousExtent != null) {
+      _replaceAfterRelayout(selectedComp);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
