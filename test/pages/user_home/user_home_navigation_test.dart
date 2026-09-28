@@ -314,6 +314,30 @@ void main() {
     );
   });
 
+  testWidgets('hides the list until it has been placed', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    double veilOpacity() => tester
+        .widget<Opacity>(find.byKey(const Key('tipsPlacementVeil')))
+        .opacity;
+
+    await tester.pumpWidget(const MaterialApp(home: HomePage()));
+    await tester.pump();
+    // Placement lands a few frames in. Until it does the list is built -- its
+    // controller has to attach for placement to run at all -- but hidden, so
+    // the reader does not watch it travel from round one.
+    expect(veilOpacity(), 0);
+
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(veilOpacity(), 1);
+  });
+
   testWidgets('re-places the list when a fold remeasures the cards', (
     tester,
   ) async {

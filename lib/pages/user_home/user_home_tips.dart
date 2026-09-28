@@ -46,6 +46,11 @@ class TipsTabState extends State<TipsTab> {
   int _startupHoldFrames = 0;
   bool _hasJumpedOnce = false;
 
+  /// Whether the list has been placed at least once since a competition was
+  /// selected. Distinct from [_hasJumpedOnce], which the hold re-arms on every
+  /// relayout: a fold must not put the spinner back.
+  bool _hasPlacedOnce = false;
+
   /// Height seen on the previous held frame. Separate from
   /// [_lastStartupMaxScrollExtent], which the post-jump settle check owns:
   /// writing that one here would tell it the height had already settled and
@@ -92,6 +97,7 @@ class TipsTabState extends State<TipsTab> {
       _stickyHeaderVisible = false;
       _cachedSections = const [];
       _stickyHeaderPushUpOffset.value = 0;
+      _hasPlacedOnce = false;
       if (!_showLoadingPlaceholder) {
         setState(() {
           _showLoadingPlaceholder = true;
@@ -204,6 +210,11 @@ class TipsTabState extends State<TipsTab> {
       final clampedOffset = _pendingStartupOffset.clamp(0.0, maxScrollExtent);
       scrollController.jumpTo(clampedOffset);
       _hasJumpedOnce = true;
+      if (!_hasPlacedOnce) {
+        setState(() {
+          _hasPlacedOnce = true;
+        });
+      }
       _syncStickyHeaderVisibility(scrollOffsetOverride: clampedOffset);
       _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
       _syncStickyHeaderPushUp(scrollOffsetOverride: clampedOffset);
@@ -631,6 +642,26 @@ class TipsTabState extends State<TipsTab> {
       );
     }
 
+    // The list has to be laid out for its scroll controller to attach, and
+    // placement cannot run until it is -- so while it is being placed it is
+    // built and hidden rather than skipped. Skipping it would deadlock: no
+    // list, no controller, no placement, no list. Hiding it spares the reader
+    // watching it travel from round one to wherever they actually belong.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Opacity(
+          key: const Key('tipsPlacementVeil'),
+          opacity: _hasPlacedOnce ? 1 : 0,
+          child: _buildTipsList(),
+        ),
+        if (!_hasPlacedOnce)
+          const Center(child: CircularProgressIndicator(color: Colors.orange)),
+      ],
+    );
+  }
+
+  Widget _buildTipsList() {
     return LayoutBuilder(
       builder: (context, constraints) {
         _syncCardLayout(context, constraints.maxWidth);
