@@ -293,7 +293,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('competition leaderboard renders its DataTable2', (tester) async {
+  testWidgets('competition leaderboard renders its AppTable', (tester) async {
     await _expectPageRendersTable(tester, const StatCompLeaderboard());
   });
 
@@ -506,7 +506,8 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard ? AppTable : DataTable2),
+    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard
+        ? AppTable : DataTable2),
     findsOneWidget,
   );
 }

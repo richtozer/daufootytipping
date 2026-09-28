@@ -2,10 +2,11 @@
 
 ## Status
 
-AppTable and its first production caller, the round leaderboard, are implemented
-on 27 September 2026. Written after two `data_table_2` defects were worked around
-rather than fixed. Native iPad/Duo review remains outstanding before converting
-the remaining seven tables.
+AppTable and both round and competition leaderboards are implemented as of
+28 September 2026. Written after two `data_table_2` defects were worked around
+rather than fixed. The maintainer accepted the round leaderboard's device-review
+gate and authorized step 3. The competition leaderboard needs its own device
+review before converting the remaining six tables.
 
 ## Why not keep `data_table_2`, and why not fork it
 
@@ -262,3 +263,43 @@ vertical space consumed by headings. No device validation is claimed.
 Validation: analysis clean; full suite 500 passing, followed by 20 passing
 page checks after adding the final frozen-column/pinned-heading assertion.
 The other seven callers and the package dependency remain unchanged.
+
+### Step 3: competition leaderboard
+
+`StatCompLeaderboard` now uses AppTable for all nine columns, with Name frozen,
+numeric values preserved and scrollbars in their own lanes. The recently added
+surface container, margins, page heading, avatar Heroes, selected-tipper
+highlight and live-score warning remain. Whole-row navigation opens the selected
+tipper's round points.
+
+The caller retains rows across unchanged stats notifications and resizing.
+An ordered snapshot includes displayed mutable values, selection, text style,
+text scaler and direction. Rank-change cells measure their text and scaled
+arrows explicitly; their accessible labels distinguish gains, losses and no
+change. Unknown movement still displays a dash.
+
+Headings now say "Change" and "Rounds won" rather than the abbreviated "Cng"
+and caller-forced three-line label. AppTable decides how they fit. The Change
+column preserves its first-click biggest-gains-first convention. Sorting no
+longer reverses on a stats notification: the direction convention is handled
+once in the comparator instead of inverted in the header callback.
+
+Six production-page goldens cover 360/768/1280 at 1.0/1.5 text scale. In these
+fixtures, narrow headings occupy approximately 118/156 px, versus 92/116 px for
+the round leaderboard. The longest label ("Rounds won") sets this height even
+when horizontally offscreen. At 360 the table scrolls horizontally; at 768 and
+1280 all nine columns fit the available width. This is a real vertical-space
+tradeoff, not spare row padding. Tests bound heading height at 160 px for these
+fixtures and retain more than 300 px of rows in the 800 px portrait viewport.
+
+Eleven added checks cover the six goldens, all nine sort columns in both
+directions across updates, unchanged-data caching, changed scores, selection,
+scale-dependent rank-cell sizing, navigation, frozen names, pinned headings,
+the last column's scrollbar clearance and rotation into a short landscape pane.
+Full suite: 521 passing. Analysis: clean.
+
+**Device checkpoint:** inspect this nine-column page independently on iPad/Duo,
+portrait and landscape, particularly heading height at 1.5 text scale and
+horizontal scrolling to UPS. Widget tests and goldens do not substitute for that
+check; it has not been performed by this agent. No remaining callers or package
+dependencies were changed.
