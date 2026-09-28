@@ -314,6 +314,37 @@ void main() {
     );
   });
 
+  testWidgets('moves the navigation into a wide display inset', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Future<void> pumpWithInset(EdgeInsets padding) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(padding: padding),
+            child: child!,
+          ),
+          home: const HomePage(),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // Nothing to move into: the bar stays along the bottom.
+    await pumpWithInset(EdgeInsets.zero);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
+
+    // A folded phone's camera strip is room the content cannot use, so the
+    // navigation takes it and gives its height back.
+    await pumpWithInset(const EdgeInsets.only(right: 96));
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+  });
+
   testWidgets('hides the list until it has been placed', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

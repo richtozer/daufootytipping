@@ -7,6 +7,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
+import 'package:daufootytipping/pages/user_home/user_home_nav.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
@@ -174,6 +175,120 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     super.dispose();
   }
 
+  /// Described once so the bar and the rail cannot drift apart.
+  List<AppNavDestination> _navDestinations(TippersViewModel tippersViewModel) {
+    const tipsTabIcon = SizedBox(
+      width: 32,
+      height: 32,
+      child: Center(child: Icon(Icons.sports_rugby_outlined)),
+    );
+    final tipsIcon = _outstandingTipsCount > 0
+        ? Badge.count(
+            count: _outstandingTipsCount,
+            backgroundColor: Colors.red[800],
+            largeSize: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            textStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            child: tipsTabIcon,
+          )
+        : tipsTabIcon;
+    return [
+      AppNavDestination(
+        icon: tipsIcon,
+        shortLabel: 'TIPS',
+        wideLabel: 'T  I  P  S',
+        enabled: !tippersViewModel.selectedTipper.isAnonymous,
+      ),
+      const AppNavDestination(
+        icon: Icon(Icons.auto_graph),
+        shortLabel: 'STATS',
+        wideLabel: 'S  T  A  T  S',
+      ),
+      const AppNavDestination(
+        icon: Icon(Icons.person),
+        shortLabel: 'PROFILE',
+        wideLabel: 'P  R  O  F  I  L  E',
+      ),
+    ];
+  }
+
+  Widget _navigationRail(
+    BuildContext context, {
+    required List<AppNavDestination> destinations,
+    required Color? indicatorColor,
+  }) {
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: NavigationRail(
+        backgroundColor: Colors.transparent,
+        indicatorColor: indicatorColor,
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        // Grouped at the bottom: the same thumb zone the bar occupied, and
+        // clear of a camera strip mounted at the top of the inset.
+        groupAlignment: 1,
+        labelType: NavigationRailLabelType.all,
+        minWidth: kNavigationRailWidth,
+        selectedIndex: _currentIndex.value,
+        onDestinationSelected: onTabTapped,
+        destinations: [
+          for (final destination in destinations)
+            NavigationRailDestination(
+              icon: destination.icon,
+              disabled: !destination.enabled,
+              label: Text(destination.shortLabel),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The bar's surface spans the display while its destinations stay grouped,
+  /// rather than drifting to the far corners of a tablet.
+  Widget _bottomNavigationBar(
+    BuildContext context, {
+    required List<AppNavDestination> destinations,
+    required Color? indicatorColor,
+  }) {
+    final wide = MediaQuery.of(context).size.width > 400;
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: Align(
+        alignment: Alignment.center,
+        // Size to the bar rather than the space available: a Center here
+        // would fill the whole scaffold.
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kFormContentWidth),
+          child: NavigationBar(
+            backgroundColor: Colors.transparent,
+            indicatorColor: indicatorColor,
+            indicatorShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            onDestinationSelected: onTabTapped,
+            selectedIndex: _currentIndex.value,
+            height: 60,
+            destinations: [
+              for (final destination in destinations)
+                NavigationDestination(
+                  icon: destination.icon,
+                  selectedIcon: destination.icon,
+                  enabled: destination.enabled,
+                  label: wide ? destination.wideLabel : destination.shortLabel,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     List<Widget> destinationContent = content();
@@ -191,6 +306,21 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
           builder: (context, dauCompsViewModelConsumer, child) {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
+                final displayPadding = MediaQuery.paddingOf(context);
+                final useNavigationRail = shouldUseNavigationRail(
+                  displayPadding,
+                );
+                final railOnRight = navigationRailOnRight(displayPadding);
+                final navDestinations = _navDestinations(
+                  tippersViewModelConsumer,
+                );
+                final Widget bodyContent = AppContentWidth(
+                  daurounds:
+                      dauCompsViewModelConsumer.selectedDAUComp?.daurounds ??
+                      const [],
+                  child: Center(child: destinationContent[_currentIndex.value]),
+                );
+
                 Widget scaffold = Stack(
                   children: [
                     RepaintBoundary(
@@ -205,99 +335,42 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                       backgroundColor: !isDarkMode
                           ? Colors.white54
                           : Colors.black54,
-                      body: AppContentWidth(
-                        daurounds:
-                            dauCompsViewModelConsumer
-                                .selectedDAUComp
-                                ?.daurounds ??
-                            const [],
-                        child: Center(
-                          child: destinationContent[_currentIndex.value],
-                        ),
-                      ),
-                      // The bar's surface spans the display while its
-                      // destinations stay grouped, rather than drifting
-                      // to the far corners of a tablet.
-                      bottomNavigationBar: ColoredBox(
-                        color: Theme.of(context).colorScheme.surfaceContainer,
-                        child: Align(
-                          alignment: Alignment.center,
-                          // Size to the bar rather than the space available:
-                          // a Center here would fill the whole scaffold.
-                          heightFactor: 1,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: kFormContentWidth,
-                            ),
-                            child: NavigationBar(
-                              backgroundColor: Colors.transparent,
-                              indicatorColor: navIndicatorColor,
-                              indicatorShape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                              onDestinationSelected: (int index) {
-                                onTabTapped(index);
-                              },
-                              selectedIndex: _currentIndex.value,
-                              height: 60,
-                              destinations: [
-                                (() {
-                                  final isAnonymous = tippersViewModelConsumer
-                                      .selectedTipper
-                                      .isAnonymous;
-                                  const tipsTabIcon = SizedBox(
-                                    width: 32,
-                                    height: 32,
-                                    child: Center(
-                                      child: Icon(Icons.sports_rugby_outlined),
-                                    ),
-                                  );
-                                  final tipsIcon = _outstandingTipsCount > 0
-                                      ? Badge.count(
-                                          count: _outstandingTipsCount,
-                                          backgroundColor: Colors.red[800],
-                                          largeSize: 20,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 7,
-                                            vertical: 2,
-                                          ),
-                                          textStyle: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                          child: tipsTabIcon,
-                                        )
-                                      : tipsTabIcon;
-
-                                  return NavigationDestination(
-                                    icon: tipsIcon,
-                                    selectedIcon: tipsIcon,
-                                    enabled: !isAnonymous,
-                                    label:
-                                        MediaQuery.of(context).size.width > 400
-                                        ? 'T  I  P  S'
-                                        : 'TIPS',
-                                  );
-                                })(),
-                                NavigationDestination(
-                                  enabled: true,
-                                  icon: const Icon(Icons.auto_graph),
-                                  label: MediaQuery.of(context).size.width > 400
-                                      ? 'S  T  A  T  S'
-                                      : 'STATS',
+                      body: useNavigationRail
+                          ? Row(
+                              children: [
+                                if (!railOnRight)
+                                  _navigationRail(
+                                    context,
+                                    destinations: navDestinations,
+                                    indicatorColor: navIndicatorColor,
+                                  ),
+                                Expanded(
+                                  // The rail now occupies the inset, so the
+                                  // content must not hold it clear a second
+                                  // time and lose the room twice over.
+                                  child: MediaQuery.removePadding(
+                                    context: context,
+                                    removeLeft: !railOnRight,
+                                    removeRight: railOnRight,
+                                    child: bodyContent,
+                                  ),
                                 ),
-                                NavigationDestination(
-                                  icon: Icon(Icons.person),
-                                  label: MediaQuery.of(context).size.width > 400
-                                      ? 'P  R  O  F  I  L  E'
-                                      : 'PROFILE',
-                                ),
+                                if (railOnRight)
+                                  _navigationRail(
+                                    context,
+                                    destinations: navDestinations,
+                                    indicatorColor: navIndicatorColor,
+                                  ),
                               ],
+                            )
+                          : bodyContent,
+                      bottomNavigationBar: useNavigationRail
+                          ? null
+                          : _bottomNavigationBar(
+                              context,
+                              destinations: navDestinations,
+                              indicatorColor: navIndicatorColor,
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 );
