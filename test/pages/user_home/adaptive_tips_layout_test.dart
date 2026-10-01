@@ -2,6 +2,7 @@ import 'package:daufootytipping/dev/adaptive_tips_samples.dart';
 import 'package:daufootytipping/dev/adaptive_tips_prototype.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
+import 'package:daufootytipping/widgets/tips/tips_choice_panel.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
@@ -472,6 +473,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('25-1')).hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('inline choices fill the card rather than floating in it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1800, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const width = 700.0;
+    final layout = _layout(width, 1, samples);
+    expect(layout.choices, TipsChoiceArrangement.inline);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _theme,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width,
+              child: AdaptiveTipsCard(
+                data: samples[0],
+                layout: layout,
+                activePanel: TipsPanel.tips,
+                onPanelChanged: (_) {},
+                onTip: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // A bare Row is only as tall as a chip, which left the surface floating
+    // in a card sized for the taller arrangements either side of it.
+    final panel = tester.getRect(find.byType(TipsChoicePanel));
+    expect(panel.height, greaterThan(layout.carouselHeight - 12));
   });
 
   test(
