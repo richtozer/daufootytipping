@@ -348,11 +348,18 @@ class _AppTableState extends State<AppTable> {
               ],
             ],
           )
+        // The indicator sits on the side away from the edge the column aligns
+        // to, so the heading's text lines up with the values beneath it rather
+        // than being held off that edge by the arrow.
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (column.sortable && column.numeric) ...[
+                indicator,
+                const SizedBox(width: AppTableLayout.sortGap),
+              ],
               Flexible(child: Text(column.label, style: style)),
-              if (column.sortable) ...[
+              if (column.sortable && !column.numeric) ...[
                 const SizedBox(width: AppTableLayout.sortGap),
                 indicator,
               ],
