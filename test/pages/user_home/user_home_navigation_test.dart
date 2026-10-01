@@ -256,12 +256,6 @@ void main() {
 
     expect(stickyHeader().section.league, League.afl);
 
-    // Startup lands near, but not on, the first cycle position -- outside the
-    // 8px the cycle matches within -- so the first tap realigns to it before
-    // the cycle proper starts.
-    await tapTips(tester);
-    expect(stickyHeader().section.league, League.afl);
-
     await tapTips(tester);
     expect(stickyHeader().section.league, League.nrl);
   });

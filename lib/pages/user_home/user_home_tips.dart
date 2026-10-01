@@ -405,19 +405,16 @@ class TipsTabState extends State<TipsTab> {
       selectedComp,
       sections,
     );
-    return (
-      offset:
-          _startupScrollOffset(
-            sections: sections,
-            targetSectionIndex: targetSectionIndex,
-          ) +
-          _intraRoundScrollRefinement(
-            selectedComp: selectedComp,
-            sections: sections,
-            targetSectionIndex: targetSectionIndex,
-          ),
-      sectionIndex: targetSectionIndex,
+    final base = _startupScrollOffset(
+      sections: sections,
+      targetSectionIndex: targetSectionIndex,
     );
+    final refinement = _intraRoundScrollRefinement(
+      selectedComp: selectedComp,
+      sections: sections,
+      targetSectionIndex: targetSectionIndex,
+    );
+    return (offset: base + refinement, sectionIndex: targetSectionIndex);
   }
 
   int _sectionIndexForRoundAndLeague({
@@ -855,9 +852,12 @@ class TipsTabState extends State<TipsTab> {
       cardExtent: nextLayout.cardExtent,
       headerExtent: nextLayout.headerExtent,
     );
-    if (previousExtent != null) {
-      _replaceAfterRelayout(selectedComp);
-    }
+    // The first measurement counts too. Until it lands the extents are
+    // Game.gameCardHeight, a fallback the startup target is computed against
+    // and which the measured card does not match -- 128 against 124 here, and
+    // the target it placed 47 out. Excluding it left the list resting beside
+    // the position its own placement had chosen.
+    _replaceAfterRelayout(selectedComp);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
