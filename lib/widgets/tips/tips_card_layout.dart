@@ -67,7 +67,6 @@ class TipsCardLayout {
 
   static const double viewportFraction = 0.9;
   static const double standardTeamWidth = 135;
-  static const double standardExtent = 128;
 
   static double teamLogoSize(TextScaler scaler, TextTheme theme) {
     return scaledIconSize(scaler, theme, size: 25);
@@ -334,12 +333,16 @@ class TipsCardLayout {
     final headerExtent =
         math.max(math.max(headerRound, headerStats), headerBadge) + 28;
 
-    final carouselHeight = mode == TipsCardMode.standard
-        ? math.max(standardExtent - 8, math.max(panelHeight, matchupHeight))
-        : math.max(
-            panelHeight,
-            mode == TipsCardMode.wide ? matchupHeight : 0.0,
-          );
+    // Measured, not floored. The standard arrangement was held to a legacy
+    // 128 whatever it contained. In portrait the chips and the info panel
+    // fill that on their own, so the floor never bound; in landscape, with
+    // the chips now on one row, it was padding every card by the two rows it
+    // had stopped needing. The chips keep their own room regardless --
+    // panelHeight starts from choiceHeight.
+    final carouselHeight = math.max(
+      panelHeight,
+      mode == TipsCardMode.stacked ? 0.0 : matchupHeight,
+    );
     return TipsCardLayout(
       carouselViewportFraction: fraction,
       mode: mode,

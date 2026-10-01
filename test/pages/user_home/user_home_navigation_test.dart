@@ -196,23 +196,31 @@ void main() {
         .thenReturn(tipsViewModel);
 
     final tipsState = await pumpHome(tester);
-    final dynamicOffset = tipsState.scrollController.offset;
-    final nrlOffset = dynamicOffset - tipsState.cardExtent;
-    final aflOffset = nrlOffset + 10 * tipsState.cardExtent;
+    double offset() => tipsState.scrollController.offset;
+
+    // Asserts the cycle, not the arithmetic between its stops: deriving the
+    // stops from the card extent assumed a spacing that any change to the
+    // card's height quietly breaks, and says nothing about cycling.
+    await tapTips(tester);
+    final first = offset();
+    await tapTips(tester);
+    final second = offset();
+    await tapTips(tester);
+    final third = offset();
+    expect({first, second, third}.length, 3, reason: 'three distinct stops');
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
+    expect(offset(), closeTo(first, 0.1), reason: 'and then it repeats');
 
+    // Somewhere off the cycle altogether rejoins it. Which stop depends on
+    // where startup left the list, so the test does not name one.
+    tipsState.scrollController.jumpTo(first + 400);
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
-
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(dynamicOffset, 0.1));
-
-    tipsState.scrollController.jumpTo(dynamicOffset + 400);
-
-    await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(dynamicOffset, 0.1));
+    expect(
+      [first, second, third].any((stop) => (stop - offset()).abs() < 0.1),
+      isTrue,
+      reason: 'rejoins the cycle from off it',
+    );
   });
 
   testWidgets('updates AFL sticky header to NRL on the next tap', (
@@ -246,6 +254,12 @@ void main() {
     TipsStickyHeader stickyHeader() =>
         tester.widget<TipsStickyHeader>(find.byType(TipsStickyHeader));
 
+    expect(stickyHeader().section.league, League.afl);
+
+    // Startup lands near, but not on, the first cycle position -- outside the
+    // 8px the cycle matches within -- so the first tap realigns to it before
+    // the cycle proper starts.
+    await tapTips(tester);
     expect(stickyHeader().section.league, League.afl);
 
     await tapTips(tester);

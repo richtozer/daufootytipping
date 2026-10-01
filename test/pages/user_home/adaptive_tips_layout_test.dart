@@ -148,7 +148,10 @@ void main() {
     (tester) async {
       final standard = _layout(390, 1, samples);
       expect(standard.mode, TipsCardMode.standard);
-      expect(standard.cardExtent, 128);
+      // Measured rather than floored at the legacy 128. Portrait barely
+      // moves -- its chips and info panel already filled that -- while a
+      // landscape card drops 31.
+      expect(standard.cardExtent, 124);
       expect(_layout(240, 2, samples).choices, TipsChoiceArrangement.vertical);
       expect(_layout(360, 1, samples).mode, TipsCardMode.standard);
       expect(_layout(1600, 1, samples).mode, TipsCardMode.wide);
