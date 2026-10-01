@@ -113,92 +113,110 @@ class _AppTableState extends State<AppTable> {
         final scrollsVertically =
             widget.rows.length * layout.rowHeight >
             contentHeight - headerViewport;
-        return RawScrollbar(
-          controller: _vertical,
-          thumbVisibility: scrollsVertically,
-          thickness: 8,
-          scrollbarOrientation: direction == TextDirection.ltr
-              ? ScrollbarOrientation.right
-              : ScrollbarOrientation.left,
-          // The rows are what scrolls, but this sits outside them so it stays
-          // put while the table scrolls sideways. Without these insets its track
-          // spans the heading and the horizontal lane as well, so the thumb
-          // starts up in the heading and runs out before the last row.
-          // Follows the table rather than the pane: a table narrower than the
-          // pane is centred, and a bar left at the pane's edge floats away from
-          // the rows it describes. A table that scrolls fills the pane, so the
-          // gap is zero and this does nothing.
-          padding: EdgeInsets.only(
-            top: headerViewport,
-            bottom: horizontalLane,
-            left: direction == TextDirection.ltr ? 0 : sideGap,
-            right: direction == TextDirection.ltr ? sideGap : 0,
-          ),
-          // The default thumb is a pale grey that all but disappears on a light
-          // table.
-          thumbColor: theme.colorScheme.onSurfaceVariant.withValues(
-            alpha: 0.55,
-          ),
-          notificationPredicate: (notification) =>
-              notification.metrics.axis == Axis.vertical,
-          child: Padding(
-            padding: EdgeInsetsDirectional.only(end: lane),
-            child: RawScrollbar(
-              controller: _horizontal,
-              thumbVisibility: layout.scrollsHorizontally,
-              thickness: 8,
-              scrollbarOrientation: ScrollbarOrientation.bottom,
-              thumbColor: theme.colorScheme.onSurfaceVariant.withValues(
-                alpha: 0.55,
-              ),
-              notificationPredicate: (notification) =>
-                  notification.metrics.axis == Axis.horizontal,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: horizontalLane),
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context)
-                      .copyWith(scrollbars: false),
-                  child: SingleChildScrollView(
-                    controller: _horizontal,
-                    scrollDirection: Axis.horizontal,
-                    // Centred when the content is narrower than the pane, so
-                    // the spare width falls either side instead of behind one
-                    // stretched column. A table wider than the pane sizes past
-                    // the minimum and this does nothing.
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: layout.viewportWidth,
+        final rows = widget.rows.isEmpty && widget.empty != null
+            ? SingleChildScrollView(controller: _vertical, child: widget.empty)
+            : ListView.builder(
+                controller: _vertical,
+                primary: false,
+                padding: EdgeInsets.zero,
+                itemExtent: layout.rowHeight,
+                itemCount: widget.rows.length,
+                itemBuilder: (context, index) =>
+                    _row(context, layout, heading, body, index),
+              );
+        final thumb = theme.colorScheme.onSurfaceVariant.withValues(
+          alpha: 0.55,
+        );
+        // The heading is held outside the vertical scrollbar and slid against
+        // the horizontal offset instead of being carried by the scroller.
+        // RawScrollbar measures its track from the scrollable's viewport, not
+        // from its own box, so a bar wrapping the heading as well subtracts
+        // that height twice: once because the rows exclude it, and again from
+        // any padding meant to clear it. The thumb then stopped a heading
+        // short of the last row.
+        return Column(
+          children: [
+            SizedBox(
+              height: headerViewport,
+              child: ClipRect(
+                child: Padding(
+                  padding: EdgeInsetsDirectional.only(end: lane),
+                  // The heading is as wide as the table, which may be wider
+                  // than the pane. Align would clamp it to the pane and leave
+                  // its row overflowing; the scroller it used to sit in gave
+                  // it unbounded width, and this does the same.
+                  child: OverflowBox(
+                    alignment: AlignmentDirectional.centerStart,
+                    maxWidth: double.infinity,
+                    child: AnimatedBuilder(
+                      animation: _horizontal,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(
+                          sideGap -
+                              (_horizontal.hasClients ? _horizontal.offset : 0),
+                          0,
+                        ),
+                        child: child,
                       ),
-                      child: Center(
-                        child: SizedBox(
-                          width: layout.contentWidth,
-                          height: contentHeight,
-                          child: Column(
-                            children: [
-                              header,
-                              Expanded(
-                                child:
-                                    widget.rows.isEmpty && widget.empty != null
-                                    ? SingleChildScrollView(
-                                        controller: _vertical,
-                                        child: widget.empty,
-                                      )
-                                    : ListView.builder(
-                                        controller: _vertical,
-                                        primary: false,
-                                        padding: EdgeInsets.zero,
-                                        itemExtent: layout.rowHeight,
-                                        itemCount: widget.rows.length,
-                                        itemBuilder: (context, index) => _row(
-                                          context,
-                                          layout,
-                                          heading,
-                                          body,
-                                          index,
-                                        ),
-                                      ),
+                      child: SizedBox(
+                        width: layout.contentWidth,
+                        child: header,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              // Each bar's box has to be the viewport it describes, and they
+              // want different ones: the horizontal bar paints in the bottom
+              // lane, the vertical bar must not count it. So the horizontal
+              // one takes the outside and the lane is spent before the
+              // vertical one begins.
+              child: RawScrollbar(
+                controller: _horizontal,
+                thumbVisibility: layout.scrollsHorizontally,
+                thickness: 8,
+                scrollbarOrientation: ScrollbarOrientation.bottom,
+                thumbColor: thumb,
+                notificationPredicate: (notification) =>
+                    notification.metrics.axis == Axis.horizontal,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: horizontalLane),
+                  child: RawScrollbar(
+                    key: const Key('appTableVerticalScrollbar'),
+                    controller: _vertical,
+                    thumbVisibility: scrollsVertically,
+                    thickness: 8,
+                    scrollbarOrientation: direction == TextDirection.ltr
+                        ? ScrollbarOrientation.right
+                        : ScrollbarOrientation.left,
+                    // Follows the table rather than the pane: a centred table
+                    // leaves a bar at the pane's edge floating away from the
+                    // rows it describes. A full-width table has no gap.
+                    padding: EdgeInsetsDirectional.only(end: sideGap)
+                        .resolve(direction),
+                    thumbColor: thumb,
+                    notificationPredicate: (notification) =>
+                        notification.metrics.axis == Axis.vertical,
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(end: lane),
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context)
+                            .copyWith(scrollbars: false),
+                        child: SingleChildScrollView(
+                          controller: _horizontal,
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minWidth: layout.viewportWidth,
+                            ),
+                            child: Center(
+                              child: SizedBox(
+                                width: layout.contentWidth,
+                                child: rows,
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -207,7 +225,7 @@ class _AppTableState extends State<AppTable> {
                 ),
               ),
             ),
-          ),
+          ],
         );
       },
     );

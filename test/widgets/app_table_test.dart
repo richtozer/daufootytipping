@@ -247,14 +247,21 @@ void main() {
     tester,
   ) async {
     await pumpTable(tester, scale: 2, frozen: 2);
-    final bar = tester.widget<RawScrollbar>(find.byType(RawScrollbar).first);
-    final heading = tester.getRect(find.text('Name')).height;
-    // It sits outside the rows so it stays put while the table scrolls
-    // sideways, which left its track spanning the heading and the horizontal
-    // lane: the thumb began above the first row and ran out before the last.
-    final track = bar.padding! as EdgeInsets;
-    expect(track.top, greaterThan(heading));
-    expect(track.top, tester.getRect(find.byType(ListView)).top);
+    final bar = tester.getRect(
+      find.byKey(const Key('appTableVerticalScrollbar')),
+    );
+    final list = tester.getRect(find.byType(ListView));
+    final position = tester
+        .widget<ListView>(find.byType(ListView))
+        .controller!
+        .position;
+    // RawScrollbar measures its track from the scrollable's viewport rather
+    // than from its own box, so a bar wrapping the heading as well subtracts
+    // that height twice -- once because the rows exclude it, again from any
+    // padding meant to clear it -- and the thumb stops a heading short of the
+    // last row. Its box has to be the rows.
+    expect(bar.top, list.top);
+    expect(bar.height, closeTo(position.viewportDimension, 0.01));
   });
 
   testWidgets('short tables do not request a permanent vertical thumb', (
@@ -263,14 +270,18 @@ void main() {
     await pumpTable(tester, rows: tableRows(count: 5));
     expect(
       tester
-          .widget<RawScrollbar>(find.byType(RawScrollbar).first)
+          .widget<RawScrollbar>(
+            find.byKey(const Key('appTableVerticalScrollbar')),
+          )
           .thumbVisibility,
       isFalse,
     );
     await pumpTable(tester);
     expect(
       tester
-          .widget<RawScrollbar>(find.byType(RawScrollbar).first)
+          .widget<RawScrollbar>(
+            find.byKey(const Key('appTableVerticalScrollbar')),
+          )
           .thumbVisibility,
       isTrue,
     );
