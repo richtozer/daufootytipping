@@ -304,7 +304,6 @@ class _StatRoundGameScoresForTipperState
                   ),
                 ),
               ),
-              const SizedBox(height: 100),
             ],
           ),
         ),
