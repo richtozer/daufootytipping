@@ -1,4 +1,6 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'dart:math' as math;
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
@@ -28,6 +30,73 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   String? _error;
   int? _sortColumnIndex;
   bool _sortAscending = false;
+
+  static const columns = [
+    AppColumn.text('Date', sortable: true),
+    AppColumn.text('Result', sortable: true),
+    AppColumn.text('Opponent', grow: true, sortable: true),
+    AppColumn.numeric('Score', sortable: true),
+    AppColumn.numeric('Round', sortable: true),
+  ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(BuildContext context) {
+    final body = Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final values = <Object?>[
+      body, scaler, direction, DateTime.now().year,
+      for (final game in _gameHistory) ...[
+        game.gameDate, game.result, game.opponentName, game.opponentLogoUri,
+        game.teamScore, game.opponentScore, game.roundNumber, game.isHomeGame,
+      ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    Size measure(String text, TextStyle style) {
+      final painter = TextPainter(text: TextSpan(text: text, style: style),
+        textScaler: scaler, textDirection: direction)..layout();
+      final size = painter.size;
+      painter.dispose();
+      return size;
+    }
+    _rows = [
+      for (final game in _gameHistory) (() {
+        final badge = measure(game.isHomeGame ? 'Home' : 'Away',
+          body.copyWith(fontSize: 10, fontWeight: FontWeight.w500));
+        final round = measure('R${game.roundNumber}', body);
+        final roundSize = Size(badge.width + 10 + 6 + round.width,
+          math.max(badge.height + 4, round.height));
+        final (colour, icon) = switch (game.result) {
+          'Won' => (Colors.green, Icons.check_circle),
+          'Lost' => (Colors.red, Icons.cancel),
+          'Draw' => (Colors.orange, Icons.remove_circle),
+          _ => (Colors.grey, Icons.help),
+        };
+        return AppRow(cells: [
+          AppCell.text(_formatDate(game.gameDate)),
+          AppCell.text(game.result,
+            style: TextStyle(color: colour, fontWeight: FontWeight.w500),
+            leading: Icon(icon, color: colour, size: 14),
+            leadingSize: const Size(14, 14)),
+          AppCell.text(game.opponentName, style: const TextStyle(fontWeight: FontWeight.w500),
+            leading: game.opponentLogoUri != null && game.opponentLogoUri!.isNotEmpty
+                ? SvgPicture.asset(game.opponentLogoUri!, width: 20, height: 20,
+                    placeholderBuilder: (_) => const Icon(Icons.shield, size: 20, color: Colors.grey))
+                : const Icon(Icons.shield, size: 20, color: Colors.grey),
+            leadingSize: const Size(20, 20)),
+          AppCell.text('${game.teamScore} - ${game.opponentScore}'),
+          AppCell.widget(Row(mainAxisSize: MainAxisSize.min, children: [
+            _buildHomeAwayBadge(game), const SizedBox(width: 6),
+            Text('R${game.roundNumber}', style: body),
+          ]), intrinsicSize: roundSize,
+            semanticLabel: '${game.isHomeGame ? 'Home' : 'Away'}, Round ${game.roundNumber}'),
+        ]);
+      })(),
+    ];
+    return _rows;
+  }
 
   @override
   void initState() {
@@ -95,67 +164,6 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         return ascending ? compareResult : -compareResult;
       });
     });
-  }
-
-  Widget _buildResultCell(TeamGameHistoryItem game) {
-    Color resultColor;
-    IconData resultIcon;
-
-    switch (game.result) {
-      case 'Won':
-        resultColor = Colors.green;
-        resultIcon = Icons.check_circle;
-        break;
-      case 'Lost':
-        resultColor = Colors.red;
-        resultIcon = Icons.cancel;
-        break;
-      case 'Draw':
-        resultColor = Colors.orange;
-        resultIcon = Icons.remove_circle;
-        break;
-      default:
-        resultColor = Colors.grey;
-        resultIcon = Icons.help;
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(resultIcon, color: resultColor, size: 14),
-        const SizedBox(width: 4),
-        Text(
-          game.result,
-          style: TextStyle(color: resultColor, fontWeight: FontWeight.w500),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOpponentCell(TeamGameHistoryItem game) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (game.opponentLogoUri != null && game.opponentLogoUri!.isNotEmpty)
-          SvgPicture.asset(
-            game.opponentLogoUri!,
-            width: 20,
-            height: 20,
-            placeholderBuilder: (context) =>
-                const Icon(Icons.shield, size: 20, color: Colors.grey),
-          )
-        else
-          const Icon(Icons.shield, size: 20, color: Colors.grey),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            game.opponentName,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildHomeAwayBadge(TeamGameHistoryItem game) {
@@ -285,96 +293,13 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                       )
                     : Padding(
                         padding: const EdgeInsets.all(5.0),
-                        child: DataTable2(
-                          border: TableBorder.all(
-                            width: 1.0,
-                            color: Colors.grey.shade300,
-                          ),
-                          columnSpacing: 0,
-                          // Edge margin keeps the last column's values clear of the vertical
-                          // scrollbar, which overlays the viewport.
-                          horizontalMargin: 14,
-                          minWidth: 520,
-                          fixedTopRows: 1,
-                          // Frozen columns are disabled: data_table_2 subtracts a fixed column's
-                          // width from the budget but still divides the remainder by every
-                          // column, so roughly one column's width goes unallocated and opens a
-                          // gap. Landscape never showed it because it froze nothing.
-                          fixedLeftColumns: 0,
-                          showCheckboxColumn: false,
-                          isHorizontalScrollBarVisible: true,
-                          isVerticalScrollBarVisible: true,
-                          sortColumnIndex: _sortColumnIndex,
-                          sortAscending: _sortAscending,
-                          dataRowHeight: 48.0,
-                          headingRowHeight: 40.0,
-                          columns: [
-                            DataColumn2(
-                              fixedWidth: 90,
-                              label: const Text(
-                                'Date',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onSort: _onSort,
-                            ),
-                            DataColumn2(
-                              fixedWidth: 80,
-                              label: const Text(
-                                'Result',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onSort: _onSort,
-                            ),
-                            DataColumn2(
-                              size: ColumnSize.L,
-                              label: const Text(
-                                'Opponent',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onSort: _onSort,
-                            ),
-                            DataColumn2(
-                              fixedWidth: 80,
-                              label: const Text(
-                                'Score',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onSort: _onSort,
-                            ),
-                            DataColumn2(
-                              fixedWidth: 100,
-                              label: const Text(
-                                'Round',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onSort: _onSort,
-                            ),
-                          ],
-                          rows: _gameHistory.map((game) {
-                            return DataRow2(
-                              cells: [
-                                DataCell(Text(_formatDate(game.gameDate))),
-                                DataCell(_buildResultCell(game)),
-                                DataCell(_buildOpponentCell(game)),
-                                DataCell(
-                                  Text(
-                                    '${game.teamScore} - ${game.opponentScore}',
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _buildHomeAwayBadge(game),
-                                      const SizedBox(width: 6),
-                                      Text('R${game.roundNumber}'),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
+                        child: AppTable(
+                          columns: columns,
+                          rows: _tableRows(context),
+                          frozenLeading: 1,
+                          sort: _sortColumnIndex == null ? null
+                              : AppSort(column: _sortColumnIndex!, ascending: _sortAscending),
+                          onSort: _onSort,
                         ),
                       ),
               ),

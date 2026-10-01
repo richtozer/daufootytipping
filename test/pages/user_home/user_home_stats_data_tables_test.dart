@@ -687,7 +687,77 @@ void main() {
     );
   });
 
-  testWidgets('team game history renders its DataTable2', (tester) async {
+  List<TeamGameHistoryItem> populateHistory() {
+    final items = List.generate(24, (i) => TeamGameHistoryItem(
+      opponentName: i.isEven ? 'Long Opponent Team Name' : 'Away Team',
+      teamScore: 20 + i, opponentScore: 10 + i, result: ['Won', 'Lost', 'Draw'][i % 3],
+      ladderPoints: i % 3, gameDate: DateTime.utc(2025, 5, i + 1),
+      roundNumber: i + 1, isHomeGame: i.isEven,
+    ));
+    when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
+    when(() => gamesViewModel.getCompleteTeamGameHistory(homeTeam, League.nrl))
+      .thenAnswer((_) async => items);
+    return items;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('team history golden $width/$scale', (tester) async {
+        populateHistory();
+        await pumpRound(tester, width: width, scale: scale,
+          page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl));
+        expect(tester.takeException(), isNull);
+        await expectLater(find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/team-history-${width.toInt()}-$scale.png'));
+      });
+    }
+  }
+
+  testWidgets('team history cache and badge sizes track scale and sorting', (tester) async {
+    populateHistory();
+    final page = TeamGamesHistoryPage(team: homeTeam, league: League.nrl);
+    await pumpRound(tester, width: 680, page: page);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    final badgeWidth = original.first.cells.last.intrinsicSize.width;
+    await pumpRound(tester, page: page);
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, scale: 1.5, page: page);
+    expect(table().rows.first.cells.last.intrinsicSize.width, greaterThan(badgeWidth));
+    expect(table().rows.first.cells.last.semanticLabel, 'Home, Round 1');
+    expect(table().rows.every((row) => row.onTap == null), isTrue);
+    for (var column = 0; column < 5; column++) {
+      for (final ascending in [true, false]) {
+        table().onSort!(column, ascending);
+        await tester.pump();
+        expect(table().sort!.column, column);
+        expect(table().sort!.ascending, ascending);
+      }
+    }
+    expect(table().rows.first.cells.last.semanticLabel, 'Away, Round 24');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('team history freezes dates and keeps final badge clear', (tester) async {
+    populateHistory();
+    await pumpRound(tester, scale: 1.5,
+      page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl));
+    final x = tester.getTopLeft(find.text('Date')).dx;
+    final y = tester.getTopLeft(find.text('Date')).dy;
+    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
+      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dx, x);
+    expect(tester.getRect(find.text('Round')).right, lessThanOrEqualTo(
+      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('team game history renders its AppTable', (tester) async {
     final historyItem = TeamGameHistoryItem(
       opponentName: awayTeam.name,
       teamScore: 20,
@@ -829,7 +899,7 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper || page is RoundMissingTipsStats || page is StatRoundGameScoresForTipper
+    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper || page is RoundMissingTipsStats || page is StatRoundGameScoresForTipper || page is TeamGamesHistoryPage
         ? AppTable : DataTable2),
     findsOneWidget,
   );
