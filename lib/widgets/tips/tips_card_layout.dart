@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 
 enum TipsCardMode { wide, standard, stacked }
 
+/// The width the round block is held to while its label is stacked above the
+/// number. Going inline needs more, and takes it from the stats beside it.
+const double kStackedRoundBlockWidth = 86;
+
 enum TipsChoiceArrangement { inline, paired, vertical }
 
 /// The exact styled content rendered by one card, grouped for height measurement.
@@ -38,6 +42,7 @@ class TipsCardLayout {
     required this.standardMinWidth,
     required this.wideMinWidth,
     required this.headerExtent,
+    required this.inlineRoundLabel,
   });
 
   final TipsCardMode mode;
@@ -49,6 +54,11 @@ class TipsCardLayout {
   final double matchupHeight;
   final double standardMinWidth;
   final double wideMinWidth;
+
+  /// Whether the round header can sit its label beside the number rather
+  /// than above it. A property of the header's own width, not of the card's
+  /// arrangement: a standard card in landscape has the room for it.
+  final bool inlineRoundLabel;
 
   /// Height of a round header at this geometry. The header's stats sit on
   /// one line where the width allows and stack where it does not, so a
@@ -287,18 +297,30 @@ class TipsCardLayout {
             : homeHeight + awayHeight + middleHeight + 16,
       );
     });
-    // Round header: the label beside its number when wide, stacked otherwise;
-    // its stats on one line when they fit. The league badge sets the floor.
+    // Round header: the label beside its number where the header itself has
+    // the room, stacked otherwise; its stats on one line when they fit. The
+    // league badge sets the floor.
     final roundLabel = measureText('Round', body);
     final roundNumber = measureSpan(
       TextSpan(text: '88', style: body.copyWith(fontSize: 30)),
     );
     final headerStat = measureText('UPS/Margins: 88 / 88', body);
     final headerStatsWidth = headerStat.width * 3 + 32;
-    final headerRound = mode == TipsCardMode.wide
+    // Asked of the header rather than of the card's arrangement: a standard
+    // card in landscape has the width for this even though its own layout is
+    // not the inline one. Going inline widens the round block past the 86 it
+    // is held to when stacked, which comes out of the stats' room -- so only
+    // where they can still manage a single line. Trading two header lines for
+    // three is no saving.
+    final roundInlineWidth = roundLabel.width + 6 + roundNumber.width;
+    final inlineRoundLabel =
+        headerStatsWidth + kStackedRoundBlockWidth + roundInlineWidth <=
+        width - 8;
+    final headerRound = inlineRoundLabel
         ? math.max(roundLabel.height, roundNumber.height)
         : roundLabel.height + roundNumber.height;
-    final headerRoom = width - 8 - 172;
+    final headerRoom =
+        width - 8 - 172 - (inlineRoundLabel ? roundInlineWidth - 86 : 0);
     final headerStats = headerStatsWidth <= headerRoom
         ? headerStat.height
         : headerStat.height * 3;
@@ -328,6 +350,7 @@ class TipsCardLayout {
       standardMinWidth: standardMin,
       wideMinWidth: wideMin,
       headerExtent: headerExtent,
+      inlineRoundLabel: inlineRoundLabel,
     );
   }
 }

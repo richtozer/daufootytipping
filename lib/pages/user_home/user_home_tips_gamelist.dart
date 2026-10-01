@@ -338,7 +338,7 @@ List<Widget> buildRoundLeagueSectionSlivers({
               maintainState: true,
               child: RepaintBoundary(
                 child: RoundLeagueHeaderListTile(
-                  inlineRoundLabel: layout.mode == TipsCardMode.wide,
+                  inlineRoundLabel: layout.inlineRoundLabel,
                   league: league,
                   logoWidth: 50,
                   logoHeight: 50,

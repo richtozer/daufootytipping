@@ -7,15 +7,26 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 import '../../support/load_tips_fonts.dart';
 
 final _theme = ThemeData.localize(
-    FlexThemeData.light(scheme: FlexScheme.green), Typography.englishLike2021);
-TipsCardLayout _layout(double width, double scale, List<TipsCardDisplay> cards,
-    {bool percentStats = false}) =>
-    TipsCardLayout.measure(width: width, textScaler: TextScaler.linear(scale),
-      textTheme: _theme.textTheme, textDirection: TextDirection.ltr,
-      cards: [for (final card in cards) card.content(_theme.textTheme)], percentStats: percentStats);
+  FlexThemeData.light(scheme: FlexScheme.green),
+  Typography.englishLike2021,
+);
+TipsCardLayout _layout(
+  double width,
+  double scale,
+  List<TipsCardDisplay> cards, {
+  bool percentStats = false,
+}) => TipsCardLayout.measure(
+  width: width,
+  textScaler: TextScaler.linear(scale),
+  textTheme: _theme.textTheme,
+  textDirection: TextDirection.ltr,
+  cards: [for (final card in cards) card.content(_theme.textTheme)],
+  percentStats: percentStats,
+);
 
 void main() {
   setUpAll(loadTipsFonts);
@@ -26,12 +37,26 @@ void main() {
     expect(samples.last.choiceLabels.first, GameResult.a.nrl);
     final card = samples.last.content(_theme.textTheme);
     TipsCardLayout measure(List<String> labels) => TipsCardLayout.measure(
-      width: 1280, textScaler: TextScaler.noScaling, textTheme: _theme.textTheme,
-      textDirection: TextDirection.ltr, cards: [TipsCardContent(
-        home: card.home, away: card.away, info: card.info, results: card.results,
-        editable: card.editable, choiceLabels: labels)]);
-    expect(measure([for (final label in card.choiceLabels) '$label extra margin']).wideMinWidth,
-        greaterThan(measure(card.choiceLabels).wideMinWidth));
+      width: 1280,
+      textScaler: TextScaler.noScaling,
+      textTheme: _theme.textTheme,
+      textDirection: TextDirection.ltr,
+      cards: [
+        TipsCardContent(
+          home: card.home,
+          away: card.away,
+          info: card.info,
+          results: card.results,
+          editable: card.editable,
+          choiceLabels: labels,
+        ),
+      ],
+    );
+    expect(
+      measure([for (final label in card.choiceLabels) '$label extra margin'])
+          .wideMinWidth,
+      greaterThan(measure(card.choiceLabels).wideMinWidth),
+    );
   });
 
   testWidgets('all layouts use ninety percent carousel width', (tester) async {
@@ -40,70 +65,130 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final card = samples.last;
-    await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(
-      body: MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(2.5)),
-        child: AdaptiveTipsCard(data: card, layout: _layout(1600, 2.5, samples),
-          activePanel: TipsPanel.tips, onPanelChanged: (_) {}, onTip: (_) {})),
-    )));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _theme,
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2.5)),
+            child: AdaptiveTipsCard(
+              data: card,
+              layout: _layout(1600, 2.5, samples),
+              activePanel: TipsPanel.tips,
+              onPanelChanged: (_) {},
+              onTip: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     final chips = find.byType(ChoiceChip);
-    final needed = tester.getSize(chips.at(0)).width + tester.getSize(chips.at(1)).width + 32;
+    final needed =
+        tester.getSize(chips.at(0)).width +
+        tester.getSize(chips.at(1)).width +
+        32;
     expect(needed, lessThan((390 - 8) * TipsCardLayout.viewportFraction));
     final compact = _layout(390, 2.5, samples);
     expect(compact.carouselViewportFraction, 0.9);
     expect(compact.choices, TipsChoiceArrangement.paired);
     expect(compact.cardExtent, lessThan(540));
-    expect(needed, lessThanOrEqualTo((390 - 8) * compact.carouselViewportFraction));
+    expect(
+      needed,
+      lessThanOrEqualTo((390 - 8) * compact.carouselViewportFraction),
+    );
     expect(_layout(390, 1, samples).carouselViewportFraction, 0.9);
     expect(_layout(390, 3.2, samples).carouselViewportFraction, 0.9);
     expect(_layout(1600, 1, samples).carouselViewportFraction, 0.9);
-    expect(_layout(390, 2.5, samples, percentStats: true).carouselViewportFraction, 0.9);
+    expect(
+      _layout(390, 2.5, samples, percentStats: true).carouselViewportFraction,
+      0.9,
+    );
     expect(tester.takeException(), isNull);
   });
 
   test('one tall result row does not reserve four tall rows', () {
     final theme = _theme.textTheme;
     final short = TextSpan(text: 'Result: Home', style: theme.bodyMedium);
-    final tall = TextSpan(text: 'Your tip:\nAway\n13+', style: theme.bodyMedium);
+    final tall = TextSpan(
+      text: 'Your tip:\nAway\n13+',
+      style: theme.bodyMedium,
+    );
     TipsCardLayout measure(List<TextSpan> results, {bool percent = false}) =>
-        TipsCardLayout.measure(width: 900, textScaler: const TextScaler.linear(2.5),
-          textTheme: theme, textDirection: TextDirection.ltr, percentStats: percent,
-          cards: [TipsCardContent(home: TextSpan(text: 'A', style: theme.titleMedium),
-            away: TextSpan(text: 'B', style: theme.titleMedium), info: '',
-            results: results, editable: false, choiceLabels: samples.first.choiceLabels)]);
+        TipsCardLayout.measure(
+          width: 900,
+          textScaler: const TextScaler.linear(2.5),
+          textTheme: theme,
+          textDirection: TextDirection.ltr,
+          percentStats: percent,
+          cards: [
+            TipsCardContent(
+              home: TextSpan(text: 'A', style: theme.titleMedium),
+              away: TextSpan(text: 'B', style: theme.titleMedium),
+              info: '',
+              results: results,
+              editable: false,
+              choiceLabels: samples.first.choiceLabels,
+            ),
+          ],
+        );
     final mixed = measure([tall, short, short, short]);
     final repeated = measure([tall, tall, tall, tall]);
     expect(mixed.mode, TipsCardMode.standard);
     expect(mixed.carouselHeight, lessThan(repeated.carouselHeight));
     // Results are not a swipe panel on the percentage surface.
-    expect(measure([tall, tall, tall, tall], percent: true).carouselHeight,
-        measure([], percent: true).carouselHeight);
+    expect(
+      measure([tall, tall, tall, tall], percent: true).carouselHeight,
+      measure([], percent: true).carouselHeight,
+    );
   });
 
-  testWidgets('measured transitions are consistent and standard stays compact', (tester) async {
-    final standard = _layout(390, 1, samples);
-    expect(standard.mode, TipsCardMode.standard);
-    expect(standard.cardExtent, 128);
-    expect(_layout(240, 2, samples).choices, TipsChoiceArrangement.vertical);
-    expect(_layout(360, 1, samples).mode, TipsCardMode.standard);
-    expect(_layout(1600, 1, samples).mode, TipsCardMode.wide);
-    expect(_layout(390, 3.2, samples).mode, TipsCardMode.stacked);
-    for (final scale in [1.0, 1.5, 2.0, 3.2]) {
-      final measured = _layout(390, scale, samples);
-      expect(_layout(measured.wideMinWidth - 1, scale, samples).mode,
-          isNot(TipsCardMode.wide));
-      expect(_layout(measured.wideMinWidth + 1, scale, samples).mode,
-          TipsCardMode.wide);
-    }
-  });
+  testWidgets(
+    'measured transitions are consistent and standard stays compact',
+    (tester) async {
+      final standard = _layout(390, 1, samples);
+      expect(standard.mode, TipsCardMode.standard);
+      expect(standard.cardExtent, 128);
+      expect(_layout(240, 2, samples).choices, TipsChoiceArrangement.vertical);
+      expect(_layout(360, 1, samples).mode, TipsCardMode.standard);
+      expect(_layout(1600, 1, samples).mode, TipsCardMode.wide);
+      expect(_layout(390, 3.2, samples).mode, TipsCardMode.stacked);
+      for (final scale in [1.0, 1.5, 2.0, 3.2]) {
+        final measured = _layout(390, scale, samples);
+        expect(
+          _layout(measured.wideMinWidth - 1, scale, samples).mode,
+          isNot(TipsCardMode.wide),
+        );
+        expect(
+          _layout(measured.wideMinWidth + 1, scale, samples).mode,
+          TipsCardMode.wide,
+        );
+      }
+    },
+  );
 
   for (final (width, scale) in [
-    (240.0, 1.0), (320.0, 1.0), (360.0, 1.0), (390.0, 1.0),
-    (768.0, 1.0), (844.0, 1.0), (1280.0, 1.0),
-    (240.0, 2.0), (240.0, 3.2), (390.0, 1.5), (390.0, 2.4), (390.0, 2.5),
-    (390.0, 2.6), (380.0, 2.5), (400.0, 2.5), (390.0, 3.2), (1280.0, 2.0),
+    (240.0, 1.0),
+    (320.0, 1.0),
+    (360.0, 1.0),
+    (390.0, 1.0),
+    (768.0, 1.0),
+    (844.0, 1.0),
+    (1280.0, 1.0),
+    (240.0, 2.0),
+    (240.0, 3.2),
+    (390.0, 1.5),
+    (390.0, 2.4),
+    (390.0, 2.5),
+    (390.0, 2.6),
+    (380.0, 2.5),
+    (400.0, 2.5),
+    (390.0, 3.2),
+    (1280.0, 2.0),
   ]) {
-    testWidgets('all panel states fit at width $width, text $scale', (tester) async {
+    testWidgets('all panel states fit at width $width, text $scale', (
+      tester,
+    ) async {
       var errorDetails = '';
       final previousErrorHandler = FlutterError.onError;
       FlutterError.onError = (details) {
@@ -115,32 +200,65 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final cards = tipsSamples(selections: {}, saving: {}, longNames: scale > 1);
+      final cards = tipsSamples(
+        selections: {},
+        saving: {},
+        longNames: scale > 1,
+      );
       for (final index in [0, 1, 6, 8, 9, 10, 11]) {
         final card = cards[index];
-        for (final panel in [TipsPanel.tips, TipsPanel.result, TipsPanel.info, TipsPanel.percentages]) {
-          final layout = _layout(width, scale, cards,
-              percentStats: panel == TipsPanel.percentages);
-          await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(
-            body: MediaQuery(data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-              child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width,
-                child: AdaptiveTipsCard(key: ValueKey('$index:$panel:$width:$scale'),
-                  data: card, layout: layout, activePanel: panel,
-                  percentStats: panel == TipsPanel.percentages,
-                  onPanelChanged: (_) {}, onTip: (_) {},
+        for (final panel in [
+          TipsPanel.tips,
+          TipsPanel.result,
+          TipsPanel.info,
+          TipsPanel.percentages,
+        ]) {
+          final layout = _layout(
+            width,
+            scale,
+            cards,
+            percentStats: panel == TipsPanel.percentages,
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: _theme,
+              home: Scaffold(
+                body: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: AdaptiveTipsCard(
+                        key: ValueKey('$index:$panel:$width:$scale'),
+                        data: card,
+                        layout: layout,
+                        activePanel: panel,
+                        percentStats: panel == TipsPanel.percentages,
+                        onPanelChanged: (_) {},
+                        onTip: (_) {},
+                      ),
+                    ),
+                  ),
                 ),
-              )),
+              ),
             ),
-          )));
+          );
           await tester.pump(const Duration(milliseconds: 250));
-          expect(tester.takeException(), isNull,
-              reason: '${card.id}, $panel, ${layout.mode}, ${layout.choices}\n$errorDetails');
+          expect(
+            tester.takeException(),
+            isNull,
+            reason:
+                '${card.id}, $panel, ${layout.mode}, ${layout.choices}\n$errorDetails',
+          );
         }
       }
     });
   }
 
-  testWidgets('normal team names and scaled versus row fit at 3.2x', (tester) async {
+  testWidgets('normal team names and scaled versus row fit at 3.2x', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1800, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -148,92 +266,177 @@ void main() {
     // Long names add spare height and previously masked the scaled V overflow.
     for (final width in [390.0, 844.0, 976.0, 1280.0]) {
       for (final index in [0, 10, 11]) {
-        await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(
-          body: MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(3.2)),
-            child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width,
-              child: AdaptiveTipsCard(key: ValueKey('$width:$index'),
-                data: samples[index], layout: _layout(width, 3.2, samples),
-                activePanel: TipsPanel.tips, onPanelChanged: (_) {}, onTip: (_) {}),
-            )),
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: _theme,
+            home: Scaffold(
+              body: MediaQuery(
+                data: const MediaQueryData(textScaler: TextScaler.linear(3.2)),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    child: AdaptiveTipsCard(
+                      key: ValueKey('$width:$index'),
+                      data: samples[index],
+                      layout: _layout(width, 3.2, samples),
+                      activePanel: TipsPanel.tips,
+                      onPanelChanged: (_) {},
+                      onTip: (_) {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        )));
+        );
         await tester.pump();
-        expect(tester.takeException(), isNull, reason: '$width, ${samples[index].id}');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '$width, ${samples[index].id}',
+        );
       }
     }
   });
 
-  testWidgets('rotation preserves panel and selected tip, swiping preserves height', (tester) async {
-    tester.view.physicalSize = const Size(1800, 2000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    var panel = TipsPanel.tips;
-    var selection = GameResult.e;
-    Future<void> pump(double width, {bool kickoff = false}) async {
-      final cards = tipsSamples(selections: {'27-3': selection}, saving: {}, kickoff: kickoff);
-      final layout = _layout(width, 1, cards);
-      await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(body: Align(
-        alignment: Alignment.topLeft, child: SizedBox(width: width,
-          child: AdaptiveTipsCard(key: const ValueKey('27-3'), data: cards[10], layout: layout,
-            activePanel: panel, onPanelChanged: (value) => panel = value,
-            onTip: (value) => selection = value),
-        ),
-      ))));
-      await tester.pumpAndSettle();
-    }
-    await pump(390);
-    await tester.tap(find.text('Home'));
-    expect(selection, GameResult.b);
-    final height = tester.getSize(find.byType(AdaptiveTipsCard)).height;
-    await tester.drag(find.byType(AdaptiveTipsCard), const Offset(-300, 0));
-    await tester.pumpAndSettle();
-    expect(panel, TipsPanel.info);
-    expect(tester.getSize(find.byType(AdaptiveTipsCard)).height, height);
-    await pump(1280);
-    expect(panel, TipsPanel.info);
-    expect(selection, GameResult.b);
-    await pump(390, kickoff: true);
-    expect(panel, TipsPanel.info);
-    expect(find.textContaining('Kickoff:').hitTestable(), findsOneWidget);
-  });
+  testWidgets(
+    'rotation preserves panel and selected tip, swiping preserves height',
+    (tester) async {
+      tester.view.physicalSize = const Size(1800, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var panel = TipsPanel.tips;
+      var selection = GameResult.e;
+      Future<void> pump(double width, {bool kickoff = false}) async {
+        final cards = tipsSamples(
+          selections: {'27-3': selection},
+          saving: {},
+          kickoff: kickoff,
+        );
+        final layout = _layout(width, 1, cards);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: _theme,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  child: AdaptiveTipsCard(
+                    key: const ValueKey('27-3'),
+                    data: cards[10],
+                    layout: layout,
+                    activePanel: panel,
+                    onPanelChanged: (value) => panel = value,
+                    onTip: (value) => selection = value,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
 
-  testWidgets('panels fit immediately on each side of measured transitions', (tester) async {
+      await pump(390);
+      await tester.tap(find.text('Home'));
+      expect(selection, GameResult.b);
+      final height = tester.getSize(find.byType(AdaptiveTipsCard)).height;
+      await tester.drag(find.byType(AdaptiveTipsCard), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      expect(panel, TipsPanel.info);
+      expect(tester.getSize(find.byType(AdaptiveTipsCard)).height, height);
+      await pump(1280);
+      expect(panel, TipsPanel.info);
+      expect(selection, GameResult.b);
+      await pump(390, kickoff: true);
+      expect(panel, TipsPanel.info);
+      expect(find.textContaining('Kickoff:').hitTestable(), findsOneWidget);
+    },
+  );
+
+  testWidgets('panels fit immediately on each side of measured transitions', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(3000, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     for (final scale in [1.0, 1.5, 2.0]) {
       final measured = _layout(390, scale, samples);
-      for (final threshold in [measured.standardMinWidth, measured.wideMinWidth]) {
+      for (final threshold in [
+        measured.standardMinWidth,
+        measured.wideMinWidth,
+      ]) {
         for (final width in [threshold - 1, threshold + 1]) {
           for (final percentages in [false, true]) {
-            await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(
-              body: MediaQuery(data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width,
-                  child: AdaptiveTipsCard(key: ValueKey('$width:$scale:$percentages'),
-                    data: samples[1], layout: _layout(width, scale, samples, percentStats: percentages),
-                    activePanel: TipsPanel.tips, percentStats: percentages,
-                    onPanelChanged: (_) {}, onTip: (_) {}),
-                )),
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: _theme,
+                home: Scaffold(
+                  body: MediaQuery(
+                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(
+                        width: width,
+                        child: AdaptiveTipsCard(
+                          key: ValueKey('$width:$scale:$percentages'),
+                          data: samples[1],
+                          layout: _layout(
+                            width,
+                            scale,
+                            samples,
+                            percentStats: percentages,
+                          ),
+                          activePanel: TipsPanel.tips,
+                          percentStats: percentages,
+                          onPanelChanged: (_) {},
+                          onTip: (_) {},
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            )));
+            );
             await tester.pump();
-            expect(tester.takeException(), isNull, reason: '$width, $scale, $percentages');
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: '$width, $scale, $percentages',
+            );
           }
         }
       }
     }
   });
 
-  testWidgets('keyboard changes carousel panel without changing the tip', (tester) async {
+  testWidgets('keyboard changes carousel panel without changing the tip', (
+    tester,
+  ) async {
     var panel = TipsPanel.tips;
-    await tester.pumpWidget(MaterialApp(theme: _theme, home: Scaffold(body: Center(
-      child: SizedBox(width: 390, child: AdaptiveTipsCard(
-        data: samples[10], layout: _layout(390, 1, samples), activePanel: panel,
-        onPanelChanged: (value) => panel = value, onTip: (_) {},
-      )),
-    ))));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _theme,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 390,
+              child: AdaptiveTipsCard(
+                data: samples[10],
+                layout: _layout(390, 1, samples),
+                activePanel: panel,
+                onPanelChanged: (value) => panel = value,
+                onTip: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -242,7 +445,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('sample list keeps the viewed game through rotation', (tester) async {
+  testWidgets('sample list keeps the viewed game through rotation', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1500, 1100);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -256,5 +461,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('25-1')).hitTestable(), findsOneWidget);
+  });
+
+  test(
+    'the round label goes inline on the header width, not the card mode',
+    () {
+      final narrow = _layout(620, 1.0, samples);
+      final roomy = _layout(700, 1.0, samples);
+      // Neither is a wide card. The header still has the room in one of them,
+      // which is the question that should decide this.
+      expect(narrow.mode, TipsCardMode.standard);
+      expect(roomy.mode, TipsCardMode.standard);
+      expect(narrow.inlineRoundLabel, isFalse);
+      expect(roomy.inlineRoundLabel, isTrue);
+    },
+  );
+
+  test('an inline round label gives the header height back at large text', () {
+    final stacked = _layout(768, 1.5, samples);
+    final inline = _layout(900, 1.5, samples);
+    expect(stacked.inlineRoundLabel, isFalse);
+    expect(inline.inlineRoundLabel, isTrue);
+    expect(inline.headerExtent, lessThan(stacked.headerExtent));
   });
 }
