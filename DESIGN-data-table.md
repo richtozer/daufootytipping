@@ -2,11 +2,10 @@
 
 ## Status
 
-AppTable and both round and competition leaderboards are implemented as of
-28 September 2026. Written after two `data_table_2` defects were worked around
-rather than fixed. The maintainer accepted the round leaderboard's device-review
-gate and authorized step 3. The competition leaderboard needs its own device
-review before converting the remaining six tables.
+All eight production tables use AppTable as of 1 October 2026, and the unused
+`data_table_2` dependency is removed. The maintainer authorized continuing after
+reviewing the intervening app work. Native-device review remains useful for the
+new pages; the automated checks below do not claim native-device validation.
 
 ## Why not keep `data_table_2`, and why not fork it
 
@@ -303,3 +302,50 @@ portrait and landscape, particularly heading height at 1.5 text scale and
 horizontal scrolling to UPS. Widget tests and goldens do not substitute for that
 check; it has not been performed by this agent. No remaining callers or package
 dependencies were changed.
+
+### Steps 4 and 5: remaining callers and package removal
+
+Each remaining caller was migrated in its own commit:
+
+- `79314d2`: Round Winners, restoring two frozen columns (Round and Winner),
+  alternating round-group colours and selected-tipper highlighting.
+- `6b23d72`: tipper Round Points, retaining numeric sorting and round navigation.
+- `ca9debf`: Missing Tips, retaining zero-outstanding filtering and read-only rows.
+- `df11125`: Round Game Scores, retaining league headings, league-specific
+  result/tip labels and distinct matchup/score lines.
+- `bc202d4`: Team History, retaining result icons, opponent logos, date sorting
+  and measured Home/Away round badges.
+- `c8abcbb`: Historical Matchups, retaining winner badges/logos, correct/incorrect
+  tip indicators, unknown results, sorting and its existing embedded viewport.
+
+All callers retain row lists across unchanged rebuilds; row snapshots include
+displayed primitive values. Measured badges also depend on body style, scaler
+and text direction. Read-only tables remain read-only. Scores and totals are
+numeric columns so they are preserved when names and dates need to shorten.
+
+Two small component additions were necessary: `AppCell.text(maxLines: 2)`
+renders explicit newline-separated lines with independent ellipses (a long
+matchup cannot displace its score), and an optional `semanticLabel` lets cells
+retain information conveyed by their leading badge or outcome icon. The
+game-score page accepts an optional tips-model factory for isolated tests; the
+page owns/disposes that model and the default still uses its existing service.
+
+The narrower fixtures exposed headings splitting inside words. `a22cf80`
+restricts heading wrapping to word boundaries, rotates numeric headings where
+necessary, and reserves the longest heading word for text columns. This can
+increase horizontal scrolling; it avoids unreadable fragments such as
+"Resu / lt". The width-budget and measurement-cache contracts are unchanged.
+
+There are now eight production-page goldens per table: widths 360, 680, 768 and
+1280 at scales 1.0 and 1.5 (64 total), plus the six component goldens. The 680 px
+band covers reduced available space. Note that pushed detail pages use
+`AppPageWidth` outside HomePage's navigation rail, so the rail does not itself
+subtract width from every detail page. Separate rotation tests for all six new
+callers use a 680 × 360 pane at 1.5 scale. Historical Matchups is tested within a
+scrolling parent, matching its use as an embedded ladder section.
+
+Tests cover unchanged and changed data where the page subscribes to updates,
+sorting, navigation where present, read-only rows elsewhere, custom badge sizing,
+frozen leading columns, pinned headings and last-column scrollbar clearance.
+No production `data_table_2` imports remain; offline package resolution removes
+only that dependency. The dark-theme text test now exercises AppTable.

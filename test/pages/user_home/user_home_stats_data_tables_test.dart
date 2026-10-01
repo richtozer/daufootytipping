@@ -1,4 +1,3 @@
-import 'package:data_table_2/data_table_2.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -147,11 +146,12 @@ void main() {
   Future<void> pumpRound(
     WidgetTester tester, {
     double width = 360,
+    double height = 800,
     double scale = 1,
     int round = 1,
     Widget? page,
   }) async {
-    tester.view.physicalSize = Size(width, 800);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -867,17 +867,49 @@ void main() {
     );
   });
 
-  testWidgets('DataTable2 text uses the app theme, not a light fallback', (
+  for (final screen in ['winners', 'points', 'missing', 'games', 'history', 'matchups']) {
+    testWidgets('$screen retains rows when rotated into a 680px short pane', (tester) async {
+      late Widget page;
+      switch (screen) {
+        case 'winners':
+          populateWinners();
+          page = const StatRoundWinners();
+        case 'points':
+          populatePoints();
+          page = StatRoundPointsForTipper(selectedTipper);
+        case 'missing':
+          populateMissing();
+          page = const RoundMissingTipsStats(24);
+        case 'games':
+          page = populateGameScores().$1;
+        case 'history':
+          populateHistory();
+          page = TeamGamesHistoryPage(team: homeTeam, league: League.nrl);
+        case 'matchups':
+          // This section is embedded in the ladder's vertically scrolling page.
+          final section = populateMatchups() as Scaffold;
+          page = Scaffold(body: SingleChildScrollView(child: section.body!));
+      }
+      await pumpRound(tester, scale: 1.5, page: page);
+      final before = tester.widget<AppTable>(find.byType(AppTable)).rows;
+      await pumpRound(tester, width: 680, height: 360, scale: 1.5, page: page);
+      expect(identical(before, tester.widget<AppTable>(find.byType(AppTable)).rows), isTrue);
+      expect(tester.getSize(find.byType(ListView)).height, greaterThan(40));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('AppTable text uses the app theme, not a light fallback', (
     tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: FlexThemeData.dark(scheme: FlexScheme.green),
         home: Scaffold(
-          body: DataTable2(
-            columns: const <DataColumn>[DataColumn(label: Text('Tipper'))],
-            rows: const <DataRow>[
-              DataRow(cells: <DataCell>[DataCell(Text('Rich'))]),
+          body: AppTable(
+            columns: const [AppColumn.text('Tipper')],
+            rows: const [
+              AppRow(cells: [AppCell.text('Rich')]),
             ],
           ),
         ),
@@ -887,7 +919,7 @@ void main() {
     expect(tester.takeException(), isNull);
     final BuildContext cellTextContext = tester.element(find.text('Rich'));
     expect(
-      DefaultTextStyle.of(cellTextContext).style.color,
+      tester.widget<Text>(find.text('Rich')).style?.color,
       Theme.of(cellTextContext).textTheme.bodyMedium?.color,
     );
   });
@@ -986,8 +1018,7 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper || page is RoundMissingTipsStats || page is StatRoundGameScoresForTipper || page is TeamGamesHistoryPage || page is LeagueLadderHistoricalMatchups
-        ? AppTable : DataTable2),
+    find.byType(AppTable),
     findsOneWidget,
   );
 }
