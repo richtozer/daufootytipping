@@ -29,7 +29,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
 
   static const columns = [
     AppColumn.numeric('Round', sortable: true),
-    AppColumn.text('Winner', grow: true, sortable: true),
+    AppColumn.text('Winner', sortable: true),
     AppColumn.numeric('Total', sortable: true),
     AppColumn.numeric('NRL', sortable: true),
     AppColumn.numeric('AFL', sortable: true),

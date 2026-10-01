@@ -27,7 +27,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   int? sortColumnIndex = 1;
 
   static const columns = [
-    AppColumn.text('Name', grow: true, sortable: true),
+    AppColumn.text('Name', sortable: true),
     AppColumn.numeric('Tips needed', sortable: true),
     AppColumn.numeric('NRL', sortable: true),
     AppColumn.numeric('AFL', sortable: true),

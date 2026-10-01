@@ -3,14 +3,11 @@ import 'package:flutter/material.dart';
 /// Column intent, not a caller-assigned width. Numeric headings may rotate.
 @immutable
 class AppColumn {
-  const AppColumn.text(this.label, {this.grow = false, this.sortable = false})
-      : numeric = false;
-  const AppColumn.numeric(this.label, {this.sortable = false})
-      : numeric = true, grow = false;
+  const AppColumn.text(this.label, {this.sortable = false}) : numeric = false;
+  const AppColumn.numeric(this.label, {this.sortable = false}) : numeric = true;
 
   final String label;
   final bool numeric;
-  final bool grow;
   final bool sortable;
 }
 

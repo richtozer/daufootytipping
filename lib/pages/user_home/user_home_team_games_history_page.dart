@@ -34,7 +34,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   static const columns = [
     AppColumn.text('Date', sortable: true),
     AppColumn.text('Result', sortable: true),
-    AppColumn.text('Opponent', grow: true, sortable: true),
+    AppColumn.text('Opponent', sortable: true),
     AppColumn.numeric('Score', sortable: true),
     AppColumn.numeric('Round', sortable: true),
   ];

@@ -2,7 +2,7 @@ import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/material.dart';
 
 const tableColumns = [
-  AppColumn.text('Name', grow: true, sortable: true),
+  AppColumn.text('Name', sortable: true),
   AppColumn.numeric('Rank', sortable: true),
   AppColumn.numeric('Total points', sortable: true),
   AppColumn.numeric('Correct tips', sortable: true),

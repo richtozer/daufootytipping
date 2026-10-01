@@ -29,7 +29,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   int? sortColumnIndex = 1;
 
   static const columns = [
-    AppColumn.text('Name', grow: true, sortable: true),
+    AppColumn.text('Name', sortable: true),
     AppColumn.numeric('Rank', sortable: true),
     AppColumn.numeric('Change', sortable: true),
     AppColumn.numeric('Total', sortable: true),

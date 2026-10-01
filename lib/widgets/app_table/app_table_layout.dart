@@ -184,13 +184,14 @@ class AppTableLayout {
         headings[i] = AppHeadingLayout.wrapped;
       }
     }
-    final slack = viewport - total();
-    if (slack > 0) {
-      var recipients = [for (var i = 0; i < columns.length; i++) if (columns[i].grow) i];
-      if (recipients.isEmpty) recipients = List.generate(columns.length, (index) => index);
-      for (final i in recipients) { widths[i] += slack / recipients.length; }
-      widths[recipients.last] += viewport - total();
-    }
+    // Spare width is left spare. Stretching the columns to consume it put
+    // acres of nothing between a name and its numbers, and on a desktop
+    // browser ran the table edge to edge. The table sizes to its content and
+    // the backdrop keeps the rest.
+    //
+    // The defect this replaces was never about filling the viewport: it was
+    // the frozen half and the scrolling half disagreeing with each other.
+    // They are both read off these widths, so they still agree exactly.
     var headerHeight = 48.0;
     for (var i = 0; i < columns.length; i++) {
       final available = widths[i] - padding * 2 - iconWidth(i);

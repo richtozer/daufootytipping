@@ -106,6 +106,10 @@ class _AppTableState extends State<AppTable> {
           );
         }
         // The scrollbar tracks occupy explicit lanes outside the content viewport.
+        final sideGap = math.max(
+          0.0,
+          (layout.viewportWidth - layout.contentWidth) / 2,
+        );
         final scrollsVertically =
             widget.rows.length * layout.rowHeight >
             contentHeight - headerViewport;
@@ -120,7 +124,16 @@ class _AppTableState extends State<AppTable> {
           // put while the table scrolls sideways. Without these insets its track
           // spans the heading and the horizontal lane as well, so the thumb
           // starts up in the heading and runs out before the last row.
-          padding: EdgeInsets.only(top: headerViewport, bottom: horizontalLane),
+          // Follows the table rather than the pane: a table narrower than the
+          // pane is centred, and a bar left at the pane's edge floats away from
+          // the rows it describes. A table that scrolls fills the pane, so the
+          // gap is zero and this does nothing.
+          padding: EdgeInsets.only(
+            top: headerViewport,
+            bottom: horizontalLane,
+            left: direction == TextDirection.ltr ? 0 : sideGap,
+            right: direction == TextDirection.ltr ? sideGap : 0,
+          ),
           // The default thumb is a pale grey that all but disappears on a light
           // table.
           thumbColor: theme.colorScheme.onSurfaceVariant.withValues(
@@ -148,34 +161,46 @@ class _AppTableState extends State<AppTable> {
                   child: SingleChildScrollView(
                     controller: _horizontal,
                     scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: layout.contentWidth,
-                      height: contentHeight,
-                      child: Column(
-                        children: [
-                          header,
-                          Expanded(
-                            child: widget.rows.isEmpty && widget.empty != null
-                                ? SingleChildScrollView(
-                                    controller: _vertical,
-                                    child: widget.empty,
-                                  )
-                                : ListView.builder(
-                                    controller: _vertical,
-                                    primary: false,
-                                    padding: EdgeInsets.zero,
-                                    itemExtent: layout.rowHeight,
-                                    itemCount: widget.rows.length,
-                                    itemBuilder: (context, index) => _row(
-                                      context,
-                                      layout,
-                                      heading,
-                                      body,
-                                      index,
-                                    ),
-                                  ),
+                    // Centred when the content is narrower than the pane, so
+                    // the spare width falls either side instead of behind one
+                    // stretched column. A table wider than the pane sizes past
+                    // the minimum and this does nothing.
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: layout.viewportWidth,
+                      ),
+                      child: Center(
+                        child: SizedBox(
+                          width: layout.contentWidth,
+                          height: contentHeight,
+                          child: Column(
+                            children: [
+                              header,
+                              Expanded(
+                                child:
+                                    widget.rows.isEmpty && widget.empty != null
+                                    ? SingleChildScrollView(
+                                        controller: _vertical,
+                                        child: widget.empty,
+                                      )
+                                    : ListView.builder(
+                                        controller: _vertical,
+                                        primary: false,
+                                        padding: EdgeInsets.zero,
+                                        itemExtent: layout.rowHeight,
+                                        itemCount: widget.rows.length,
+                                        itemBuilder: (context, index) => _row(
+                                          context,
+                                          layout,
+                                          heading,
+                                          body,
+                                          index,
+                                        ),
+                                      ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

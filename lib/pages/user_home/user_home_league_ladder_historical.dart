@@ -38,7 +38,7 @@ class _LeagueLadderHistoricalMatchupsState
   static const columns = [
     AppColumn.text('Date', sortable: true),
     AppColumn.text('Your Tip', sortable: true),
-    AppColumn.text('Winner', grow: true, sortable: true),
+    AppColumn.text('Winner', sortable: true),
     AppColumn.numeric('Score', sortable: true),
   ];
   List<Object?> _renderedValues = const [];

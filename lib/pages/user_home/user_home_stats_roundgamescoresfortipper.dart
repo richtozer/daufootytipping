@@ -48,7 +48,7 @@ class _StatRoundGameScoresForTipperState
   late DAURound roundToDisplay;
 
   static const columns = [
-    AppColumn.text('Teams / Scores', grow: true),
+    AppColumn.text('Teams / Scores'),
     AppColumn.text('Result'),
     AppColumn.text('Tip'),
     AppColumn.numeric('Points'),
