@@ -1,6 +1,7 @@
 import 'dart:developer';
 
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -30,14 +31,46 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
   int highestRoundNumber = 0;
   List<RoundStats>? sortedPoints;
 
-  final List<String> columns = [
-    'Round',
-    'Total',
-    'NRL',
-    'AFL',
-    'Margins',
-    'UPS',
+  static const columns = [
+    AppColumn.numeric('Round', sortable: true),
+    AppColumn.numeric('Total', sortable: true),
+    AppColumn.numeric('NRL', sortable: true),
+    AppColumn.numeric('AFL', sortable: true),
+    AppColumn.numeric('Margins', sortable: true),
+    AppColumn.numeric('UPS', sortable: true),
   ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(List<RoundStats> points) {
+    final values = <Object?>[
+      widget.statsTipper,
+      for (final point in points) ...[
+        point.roundNumber, point.nrlPoints, point.aflPoints,
+        point.aflMarginTips, point.nrlMarginTips, point.aflMarginUPS, point.nrlMarginUPS,
+      ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    _rows = [
+      for (final point in points) AppRow(
+        key: ValueKey(point.roundNumber),
+        onTap: () => Navigator.push(context, appPageRoute(
+          (context) => StatRoundGameScoresForTipper(widget.statsTipper, point.roundNumber))),
+        cells: [
+          AppCell.text(point.roundNumber.toString(),
+            leading: const Icon(Icons.arrow_forward, size: 15),
+            leadingSize: const Size(15, 15)),
+          AppCell.text((point.nrlPoints + point.aflPoints).toString()),
+          AppCell.text(point.nrlPoints.toString()),
+          AppCell.text(point.aflPoints.toString()),
+          AppCell.text((point.aflMarginTips + point.nrlMarginTips).toString()),
+          AppCell.text((point.aflMarginUPS + point.nrlMarginUPS).toString()),
+        ],
+      ),
+    ];
+    return _rows;
+  }
 
   @override
   void initState() {
@@ -238,32 +271,12 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(5.0),
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
-                    ),
-                    sortColumnIndex: sortColumnIndex,
-                    sortAscending: isAscending,
-                    columnSpacing: 0,
-                    // Edge margin keeps the last column's values clear of the vertical
-                    // scrollbar, which overlays the viewport.
-                    horizontalMargin: 14,
-                    minWidth: 600,
-                    fixedTopRows: 1,
-                    // Frozen columns are disabled: data_table_2 subtracts a fixed column's
-                    // width from the budget but still divides the remainder by every
-                    // column, so roughly one column's width goes unallocated and opens a
-                    // gap. Landscape never showed it because it froze nothing.
-                    fixedLeftColumns: 0,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: true,
-                    isVerticalScrollBarVisible: true,
-                    columns: getColumns(columns, points),
-                    rows: List<DataRow>.generate(
-                      points.length,
-                      (index) => buildDataRow(points, index),
-                    ).toList(),
+                  child: AppTable(
+                    columns: columns,
+                    rows: _tableRows(points),
+                    frozenLeading: 1,
+                    sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
+                    onSort: (column, ascending) => onSort(column, ascending, points),
                   ),
                 ),
               ),
@@ -274,96 +287,6 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     );
   }
 
-  DataRow buildDataRow(List<RoundStats> points, int index) {
-    final roundPoints = points[index];
-    return DataRow(
-      cells: [
-        DataCell(
-          Row(
-            children: [
-              const Icon(Icons.arrow_forward, size: 15),
-              Text((roundPoints.roundNumber).toString()),
-            ],
-          ),
-          onTap: () {
-            Navigator.push(
-              context,
-              appPageRoute(
-                (context) => StatRoundGameScoresForTipper(
-                  widget.statsTipper,
-                  roundPoints.roundNumber,
-                ),
-              ),
-            );
-          },
-        ),
-        DataCell(
-          Text((roundPoints.nrlPoints + roundPoints.aflPoints).toString()),
-          onTap: () {
-            Navigator.push(
-              context,
-              appPageRoute(
-                (context) => StatRoundGameScoresForTipper(
-                  widget.statsTipper,
-                  roundPoints.roundNumber,
-                ),
-              ),
-            );
-          },
-        ),
-        DataCell(
-          Text(roundPoints.nrlPoints.toString()),
-          onTap: () {
-            Navigator.push(
-              context,
-              appPageRoute(
-                (context) => StatRoundGameScoresForTipper(
-                  widget.statsTipper,
-                  roundPoints.roundNumber,
-                ),
-              ),
-            );
-          },
-        ),
-        DataCell(
-          Text(roundPoints.aflPoints.toString()),
-          onTap: () {
-            Navigator.push(
-              context,
-              appPageRoute(
-                (context) => StatRoundGameScoresForTipper(
-                  widget.statsTipper,
-                  roundPoints.roundNumber,
-                ),
-              ),
-            );
-          },
-        ),
-        DataCell(
-          Text(
-            (roundPoints.aflMarginTips + roundPoints.nrlMarginTips).toString(),
-          ),
-        ),
-        DataCell(
-          Text(
-            (roundPoints.aflMarginUPS + roundPoints.nrlMarginUPS).toString(),
-          ),
-          onTap: () {
-            Navigator.push(
-              context,
-              appPageRoute(
-                (context) => StatRoundGameScoresForTipper(
-                  widget.statsTipper,
-                  roundPoints.roundNumber,
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
   void onSort(int columnIndex, bool ascending, List<RoundStats> points) {
     setState(() {
       _sortPoints(columnIndex, ascending);
@@ -371,22 +294,6 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
       isAscending = ascending;
     });
   }
-
-  List<DataColumn> getColumns(List<String> columns, List<RoundStats> points) =>
-      columns.asMap().entries.map((entry) {
-        int index = entry.key;
-        String column = entry.value;
-        return DataColumn2(
-          fixedWidth: column == 'Round'
-              ? 75
-              : column == 'Total' || column == 'Margins'
-              ? 75
-              : 60,
-          numeric: column != 'Round',
-          label: Text(column),
-          onSort: (columnIndex, ascending) => onSort(index, ascending, points),
-        );
-      }).toList();
 
   Widget avatarPic(Tipper tipper) {
     return Hero(

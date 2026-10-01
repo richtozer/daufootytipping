@@ -392,7 +392,84 @@ void main() {
     await _expectPageRendersTable(tester, const RoundMissingTipsStats(1));
   });
 
-  testWidgets('tipper round points renders its DataTable2', (tester) async {
+  List<RoundStats> populatePoints() {
+    selectedComp.daurounds.add(DAURound(dAUroundNumber: 24,
+      firstGameKickOffUTC: DateTime.utc(2025), lastGameKickOffUTC: DateTime.utc(2025)));
+    final points = [
+      for (var round = 1; round <= 24; round++)
+        RoundStats.fromJson({'nbr': round, 'aS': round, 'nS': 30 - round,
+          'aMt': round % 3, 'nMt': round % 4, 'aMu': round % 2, 'nMu': round % 5}),
+    ];
+    when(() => statsViewModel.getTipperRoundPointsForComp(selectedTipper))
+        .thenAnswer((_) => List.of(points));
+    return points;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round points golden $width/$scale', (tester) async {
+        populatePoints();
+        await pumpRound(tester, width: width, scale: scale,
+          page: StatRoundPointsForTipper(selectedTipper));
+        expect(tester.takeException(), isNull);
+        await expectLater(find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/round-points-${width.toInt()}-$scale.png'));
+      });
+    }
+  }
+
+  testWidgets('round points sorting, cache and navigation survive updates', (tester) async {
+    final points = populatePoints();
+    await pumpRound(tester, width: 680, page: StatRoundPointsForTipper(selectedTipper));
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured.cast<VoidCallback>();
+    void notify() { for (final listener in listeners) { listener(); } }
+    notify();
+    await tester.pump();
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, page: StatRoundPointsForTipper(selectedTipper));
+    expect(identical(original, table().rows), isTrue);
+    points.last.nrlPoints = 99;
+    notify();
+    await tester.pump();
+    expect(table().rows.first.cells[2].text, '99');
+    for (var column = 0; column < 6; column++) {
+      table().onSort!(column, true);
+      await tester.pump();
+      notify();
+      await tester.pump();
+      final values = table().rows.map((row) => int.parse(row.cells[column].text!)).toList();
+      expect(values, orderedEquals(List.of(values)..sort()));
+    }
+    final targetRound = int.parse(table().rows.first.cells.first.text!);
+    table().rows.first.onTap!();
+    await tester.pumpAndSettle();
+    expect(tester.widget<StatRoundGameScoresForTipper>(
+      find.byType(StatRoundGameScoresForTipper)).roundNumberToDisplay, targetRound);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round points freeze the round and clear the scrollbar', (tester) async {
+    populatePoints();
+    await pumpRound(tester, scale: 3.2, page: StatRoundPointsForTipper(selectedTipper));
+    final x = tester.getTopLeft(find.text('Round')).dx;
+    final y = tester.getTopLeft(find.text('Round')).dy;
+    final horizontal = tester.widget<SingleChildScrollView>(
+      find.byWidgetPredicate((widget) => widget is SingleChildScrollView &&
+          widget.scrollDirection == Axis.horizontal)).controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dx, x);
+    expect(tester.getRect(find.text('UPS')).right, lessThanOrEqualTo(
+      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tipper round points renders its AppTable', (tester) async {
     await _expectPageRendersTable(
       tester,
       StatRoundPointsForTipper(selectedTipper),
@@ -589,7 +666,7 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners
+    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper
         ? AppTable : DataTable2),
     findsOneWidget,
   );
