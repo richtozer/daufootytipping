@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
+import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
@@ -145,6 +146,7 @@ void main() {
     double width = 360,
     double scale = 1,
     int round = 1,
+    Widget? page,
   }) async {
     tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1;
@@ -160,7 +162,7 @@ void main() {
         ),
         home: RepaintBoundary(
           key: const Key('round-page'),
-          child: StatRoundLeaderboard(round),
+          child: page ?? StatRoundLeaderboard(round),
         ),
       ),
     );
@@ -301,7 +303,88 @@ void main() {
     await _expectPageRendersTable(tester, const StatRoundLeaderboard(1));
   });
 
-  testWidgets('round winners renders its DataTable2', (tester) async {
+  Map<int, List<RoundWinnerEntry>> populateWinners() {
+    final tippers = populateRound().keys.take(2).toList();
+    final winners = <int, List<RoundWinnerEntry>>{
+      for (var round = 24; round >= 1; round--)
+        round: [for (final tipper in tippers) RoundWinnerEntry(
+          roundNumber: round, tipper: tipper, total: 54,
+          nRL: 30, aFL: 24, aflMargins: 2, nrlMargins: 3,
+          aflUPS: 1, nrlUPS: 2,
+        )],
+    };
+    when(() => statsViewModel.roundWinners).thenAnswer((_) => winners);
+    return winners;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round winners golden $width/$scale', (tester) async {
+        populateWinners();
+        await pumpRound(tester, width: width, scale: scale,
+          page: const StatRoundWinners());
+        final table = tester.widget<AppTable>(find.byType(AppTable));
+        expect(table.frozenLeading, 2);
+        expect(tester.takeException(), isNull);
+        await expectLater(find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/round-winners-${width.toInt()}-$scale.png'));
+      });
+    }
+  }
+
+  testWidgets('winners cache, grouping, sorting and navigation', (tester) async {
+    final winners = populateWinners();
+    await pumpRound(tester, width: 680, page: const StatRoundWinners());
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured.cast<VoidCallback>();
+    void notify() {
+      for (final listener in listeners) { listener(); }
+    }
+    notify();
+    await tester.pump();
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, width: 360, page: const StatRoundWinners());
+    expect(identical(original, table().rows), isTrue);
+    winners[24]!.first.total = 99;
+    notify();
+    await tester.pump();
+    expect(table().rows.first.cells[2].text, '99');
+    expect(table().rows[1].colour, isNot(table().rows[3].colour));
+    when(() => statsViewModel.sortRoundWinnersByTotal(any())).thenAnswer((_) {});
+    table().onSort!(2, true);
+    await tester.pump();
+    verify(() => statsViewModel.sortRoundWinnersByTotal(true)).called(1);
+    expect(table().sort!.column, 2);
+    // Total and name both lead to the same round leaderboard.
+    table().rows.first.onTap!();
+    await tester.pumpAndSettle();
+    expect(tester.widget<StatRoundLeaderboard>(find.byType(StatRoundLeaderboard))
+      .roundNumberToDisplay, 24);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('winners freeze two columns and expose UPS clear of scrollbar', (tester) async {
+    populateWinners();
+    await pumpRound(tester, scale: 1.5, page: const StatRoundWinners());
+    final roundX = tester.getTopLeft(find.text('Round')).dx;
+    final winnerX = tester.getTopLeft(find.text('Winner')).dx;
+    final headerY = tester.getTopLeft(find.text('Round')).dy;
+    final horizontal = tester.widget<SingleChildScrollView>(
+      find.byType(SingleChildScrollView)).controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dx, roundX);
+    expect(tester.getTopLeft(find.text('Winner')).dx, winnerX);
+    expect(tester.getRect(find.text('UPS')).right, lessThanOrEqualTo(
+      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dy, headerY);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round winners renders its AppTable', (tester) async {
     await _expectPageRendersTable(tester, const StatRoundWinners());
   });
 
@@ -506,7 +589,7 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard
+    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners
         ? AppTable : DataTable2),
     findsOneWidget,
   );
