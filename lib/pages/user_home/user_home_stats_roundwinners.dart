@@ -170,7 +170,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       LiveScoresWarningCard(),
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.all(10.0),
+                          padding: const EdgeInsets.all(5.0),
                           child: AppTable(
                             columns: columns,
                             rows: _tableRows(context),
