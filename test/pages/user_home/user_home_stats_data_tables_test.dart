@@ -172,7 +172,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final width in [360.0, 768.0, 1280.0]) {
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
     for (final scale in [1.0, 1.5]) {
       testWidgets('round leaderboard golden $width/$scale', (tester) async {
         populateRound();

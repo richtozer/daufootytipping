@@ -18,6 +18,28 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(loadTipsFonts);
 
+  test('compact headings wrap at words, never inside Result or Score', () {
+    const columns = [
+      AppColumn.text('Result', sortable: true),
+      AppColumn.text('Opponent', grow: true, sortable: true),
+      AppColumn.numeric('Score', sortable: true),
+    ];
+    final result = measure(360, scale: 1.5, columns: columns, rows: const [
+      AppRow(cells: [AppCell.text('Won'),
+        AppCell.text('A very long opponent name'), AppCell.text('125 - 120')]),
+    ]);
+    for (var i = 0; i < columns.length; i++) {
+      if (result.headings[i] == AppHeadingLayout.rotated) continue;
+      final painter = TextPainter(textDirection: TextDirection.ltr,
+        textScaler: const TextScaler.linear(1.5),
+        text: TextSpan(text: columns[i].label, style: _heading))..layout();
+      expect(result.widths[i] - result.padding * 2 -
+        AppTableLayout.sortIconSize - AppTableLayout.sortGap,
+        greaterThanOrEqualTo(painter.width - 0.01));
+      painter.dispose();
+    }
+  });
+
   test('wide tables use natural headings and allocate all available width', () {
     final result = measure(1280);
     expect(result.headings, everyElement(AppHeadingLayout.horizontal));

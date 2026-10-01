@@ -102,7 +102,7 @@ void main() {
       headingStyle: body.copyWith(fontWeight: FontWeight.w600));
   }
 
-  for (final width in [360.0, 768.0, 1280.0]) {
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
     for (final scale in [1.0, 1.5]) {
       testWidgets('competition page golden $width/$scale', (tester) async {
         await pumpPage(tester, width: width, scale: scale);

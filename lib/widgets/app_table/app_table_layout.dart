@@ -144,6 +144,9 @@ class AppTableLayout {
       });
     }
     double iconWidth(int index) => columns[index].sortable ? sortIconSize + sortGap : 0;
+    double longestWordWidth(int index) => columns[index].label
+        .split(RegExp(r'\s+'))
+        .fold<double>(0, (width, word) => math.max(width, text(word, headingStyle).width));
     var padding = 12.0;
     List<double> natural() => [for (var i = 0; i < columns.length; i++)
       math.max(content[i], headingSizes[i].width + iconWidth(i)) + padding * 2];
@@ -160,7 +163,8 @@ class AppTableLayout {
             columns[i].sortable ? sortIconSize : 0.0));
         if (target >= headingSizes[i].width + iconWidth(i)) continue;
         final wrapped = text(columns[i].label, headingStyle, target - iconWidth(i));
-        if (wrapped.height <= headingSizes[i].height * 2 + 0.01 && target > iconWidth(i)) {
+        if (wrapped.height <= headingSizes[i].height * 2 + 0.01 &&
+            longestWordWidth(i) <= target - iconWidth(i) + 0.01) {
           headings[i] = AppHeadingLayout.wrapped;
           widths[i] = target + padding * 2;
         } else if (columns[i].numeric) {
@@ -174,7 +178,7 @@ class AppTableLayout {
       ..sort((a, b) => widths[b].compareTo(widths[a]));
     for (final i in textColumns) {
       if (total() <= viewport) break;
-      final floor = math.max(minimum[i], headingSizes[i].height + iconWidth(i)) + padding * 2;
+      final floor = math.max(minimum[i], longestWordWidth(i) + iconWidth(i)) + padding * 2;
       widths[i] -= math.min(math.max(0, widths[i] - floor), total() - viewport);
       if (widths[i] < headingSizes[i].width + iconWidth(i) + padding * 2) {
         headings[i] = AppHeadingLayout.wrapped;
