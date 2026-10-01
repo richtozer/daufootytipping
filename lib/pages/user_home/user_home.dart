@@ -223,32 +223,37 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     required double inset,
     required bool onRight,
   }) {
-    return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      // The surface bleeds under the insets; its destinations do not. In
-      // landscape the home indicator sits along the bottom, which is exactly
-      // where the destinations are grouped.
-      child: SafeArea(
-        left: false,
-        right: false,
-        top: false,
-        // NavigationRail always holds itself clear of the *leading* inset, on
-        // the assumption that is the edge it sits against. The Row has already
-        // chosen a side, so left to itself it insets the wrong one when the
-        // rail is on the right, and doubles up with the Row when it is on the
-        // left -- a 51pt inset widened the rail from 103.5 to 154.5 and pushed
-        // every destination off centre by exactly that much. Strip both and
-        // apply the one the rail is genuinely against: an island on that edge
-        // reaches the destinations, which are not far enough down to miss it.
-        child: MediaQuery.removePadding(
-          context: context,
-          removeLeft: true,
-          removeRight: true,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: onRight ? 0 : inset,
-              right: onRight ? inset : 0,
-            ),
+    // iOS reserves the same strip on both sides in landscape -- 62 each on
+    // this phone -- whichever edge the island is on, and reports no display
+    // features at all, so there is no telling which side is genuinely spent.
+    // The rail keeps clear of its own side either way; what changes here is
+    // that the backdrop keeps the strip rather than the rail painting across
+    // it, which made a reservation look like part of the navigation.
+    return Padding(
+      padding: EdgeInsets.only(
+        left: onRight ? 0 : inset,
+        right: onRight ? inset : 0,
+      ),
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        // The home indicator still runs along the bottom, which is exactly
+        // where the destinations are grouped.
+        child: SafeArea(
+          left: false,
+          right: false,
+          top: false,
+          // NavigationRail always holds itself clear of the *leading* inset, on
+          // the assumption that is the edge it sits against. The Row has already
+          // chosen a side, so left to itself it insets the wrong one when the
+          // rail is on the right, and doubles up with the Row when it is on the
+          // left -- a 51pt inset widened the rail from 103.5 to 154.5 and pushed
+          // every destination off centre by exactly that much. Strip both and
+          // apply the one the rail is genuinely against: an island on that edge
+          // reaches the destinations, which are not far enough down to miss it.
+          child: MediaQuery.removePadding(
+            context: context,
+            removeLeft: true,
+            removeRight: true,
             child: NavigationRail(
               backgroundColor: Colors.transparent,
               indicatorColor: indicatorColor,

@@ -378,6 +378,21 @@ void main() {
     // Taking it here as well would strand the destinations mid-pane.
     await pumpWithInset(const EdgeInsets.only(left: 59, right: 96));
     expect(rail().right, 844 - 96, reason: 'rail moves to the wider inset');
+
+    // iOS reserves the same strip on both sides in landscape whichever edge
+    // the island is on -- 62 each on an iPhone 17 -- so the rail cannot sit
+    // flush. What it can do is leave the strip to the backdrop: the surface
+    // behind it starts where the rail does, not at the display edge.
+    await pumpWithInset(const EdgeInsets.only(left: 62, right: 62));
+    final surface = tester.getRect(
+      find
+          .ancestor(
+            of: find.byType(NavigationRail),
+            matching: find.byType(ColoredBox),
+          )
+          .first,
+    );
+    expect(surface.left, 62);
   });
 
   testWidgets('hides the list until it has been placed', (tester) async {
