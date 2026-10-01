@@ -196,7 +196,11 @@ class TipsCardLayout {
     // All layouts prioritise content width over the empty neighbouring strip.
     const fraction = viewportFraction;
     final panelWidth = math.max(1.0, carouselWidth * fraction - 24);
-    final arrangement = mode == TipsCardMode.wide
+    // Measured like the step below it rather than taken from the card's
+    // arrangement: a standard card in landscape has room for one row of chips
+    // and was given the 2/1/2 pyramid anyway, which costs two chip rows of
+    // height the panel then has to carry.
+    final arrangement = carouselWidth * fraction >= inlineChoicesWidth
         ? TipsChoiceArrangement.inline
         : carouselWidth * fraction >= requiredPairedWidth
         ? TipsChoiceArrangement.paired
