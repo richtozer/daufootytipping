@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
@@ -35,7 +36,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     AppColumn.numeric('Total', sortable: true),
     AppColumn.numeric('NRL', sortable: true),
     AppColumn.numeric('AFL', sortable: true),
-    AppColumn.numeric('Rounds won', sortable: true),
+    AppColumn.numeric('Wins', sortable: true),
     AppColumn.numeric('Margins', sortable: true),
     AppColumn.numeric('UPS', sortable: true),
   ];
@@ -43,18 +44,33 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   List<AppRow> _rows = const [];
 
   List<AppRow> _tableRows(BuildContext context, String dbkey, Color colour) {
-    final style = Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+    final style =
+        Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
     // Snapshot primitives rather than mutable entries. Unchanged notifications
     // and resizing retain the row list and AppTable's measured content.
     final values = <Object?>[
-      dbkey, colour, style, scaler, direction,
+      dbkey,
+      colour,
+      style,
+      scaler,
+      direction,
       for (final entry in sortedLeaderboard) ...[
-        entry.tipper, entry.tipper.name, entry.tipper.photoURL,
-        entry.rank, entry.previousRank, entry.rankChange, entry.total,
-        entry.nRL, entry.aFL, entry.numRoundsWon,
-        entry.aflMargins, entry.nrlMargins, entry.aflUPS, entry.nrlUPS,
+        entry.tipper,
+        entry.tipper.name,
+        entry.tipper.photoURL,
+        entry.rank,
+        entry.previousRank,
+        entry.rankChange,
+        entry.total,
+        entry.nRL,
+        entry.aFL,
+        entry.numRoundsWon,
+        entry.aflMargins,
+        entry.nrlMargins,
+        entry.aflUPS,
+        entry.nrlUPS,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
@@ -66,12 +82,16 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
           colour: entry.tipper.dbkey == dbkey ? colour : Colors.transparent,
           onTap: () => onTipperTapped(context, entry.tipper),
           cells: [
-            AppCell.text(entry.tipper.name,
+            AppCell.text(
+              entry.tipper.name,
               leadingSize: const Size(45, 30),
-              leading: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.arrow_forward, size: 15),
-                avatarPic(entry.tipper),
-              ]),
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.arrow_forward, size: 15),
+                  avatarPic(entry.tipper),
+                ],
+              ),
             ),
             AppCell.text(entry.rank.toString()),
             _rankChangeCell(entry, style, scaler, direction),
@@ -87,8 +107,12 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     return _rows;
   }
 
-  AppCell _rankChangeCell(LeaderboardEntry entry, TextStyle style,
-      TextScaler scaler, TextDirection direction) {
+  AppCell _rankChangeCell(
+    LeaderboardEntry entry,
+    TextStyle style,
+    TextScaler scaler,
+    TextDirection direction,
+  ) {
     final change = entry.rankChange;
     if (entry.previousRank == null || change == null) {
       return const AppCell.text('-');
@@ -96,20 +120,34 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     final value = change.abs().toString();
     final painter = TextPainter(
       text: TextSpan(text: value, style: style),
-      textDirection: direction, textScaler: scaler,
+      textDirection: direction,
+      textScaler: scaler,
     )..layout();
     final iconSize = scaler.scale(16);
-    final size = Size(painter.width + iconSize, math.max(painter.height, iconSize));
+    final size = Size(
+      painter.width + iconSize,
+      math.max(painter.height, iconSize),
+    );
     painter.dispose();
     return AppCell.widget(
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(change > 0 ? Icons.arrow_upward : change < 0
-            ? Icons.arrow_downward : Icons.sync_alt,
-          color: change < 0 ? Colors.red : Colors.green, size: iconSize),
-        Text(value, style: style),
-      ]),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            change > 0
+                ? Icons.arrow_upward
+                : change < 0
+                ? Icons.arrow_downward
+                : Icons.sync_alt,
+            color: change < 0 ? Colors.red : Colors.green,
+            size: iconSize,
+          ),
+          Text(value, style: style),
+        ],
+      ),
       intrinsicSize: size,
-      semanticLabel: change == 0 ? 'No rank change'
+      semanticLabel: change == 0
+          ? 'No rank change'
           : '${change > 0 ? 'Up' : 'Down'} $value ${change.abs() == 1 ? 'place' : 'places'}',
     );
   }
@@ -296,7 +334,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                     columns: columns,
                     rows: _tableRows(context, dbkey, color),
                     frozenLeading: 1,
-                    sort: AppSort(column: sortColumnIndex ?? 1, ascending: isAscending),
+                    sort: AppSort(
+                      column: sortColumnIndex ?? 1,
+                      ascending: isAscending,
+                    ),
                     onSort: onSort,
                   ),
                 ),
@@ -311,9 +352,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   void onTipperTapped(BuildContext context, Tipper tipper) {
     Navigator.push(
       context,
-      appPageRoute(
-        (context) => StatRoundPointsForTipper(tipper),
-      ),
+      appPageRoute((context) => StatRoundPointsForTipper(tipper)),
     );
   }
 

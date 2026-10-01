@@ -601,8 +601,8 @@ void main() {
     await pumpRound(tester, width: 680, page: page);
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
     final original = table().rows;
-    expect(original[1].cells[1].text, 'Home 13+ (a)');
-    expect(original[12].cells[1].text, 'Home 31+ (a)');
+    expect(original[1].cells[1].text, 'Home 13+');
+    expect(original[12].cells[1].text, 'Home 31+');
     expect(original[1].cells.first.maxLines, 2);
     expect(original[1].cells.first.text, contains('\n40 - 10'));
     expect(table().onSort, isNull);
@@ -617,7 +617,7 @@ void main() {
     for (final listener in listeners) { listener(); }
     await tester.pumpAndSettle();
     expect(table().rows[1].cells.first.text, contains('\n0 - 10'));
-    expect(table().rows[1].cells[1].text, 'Away (d)');
+    expect(table().rows[1].cells[1].text, 'Away');
     expect(tester.takeException(), isNull);
   });
 

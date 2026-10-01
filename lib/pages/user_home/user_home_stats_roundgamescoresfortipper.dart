@@ -26,7 +26,8 @@ class StatRoundGameScoresForTipper extends StatefulWidget {
   });
 
   /// The page owns and disposes the returned model; defaults to Firebase-backed tips.
-  final TipsViewModel Function(DAUComp comp, Tipper tipper)? createTipsViewModel;
+  final TipsViewModel Function(DAUComp comp, Tipper tipper)?
+  createTipsViewModel;
   final Tipper statsTipper;
   final int roundNumberToDisplay;
 
@@ -63,8 +64,12 @@ class _StatRoundGameScoresForTipperState
       titleStyle,
       for (final league in [League.nrl, League.afl])
         for (final game in games[league] ?? <Game>[]) ...[
-          game.dbkey, league, game.homeTeam.name, game.awayTeam.name,
-          game.scoring?.homeTeamScore, game.scoring?.awayTeamScore,
+          game.dbkey,
+          league,
+          game.homeTeam.name,
+          game.awayTeam.name,
+          game.scoring?.homeTeamScore,
+          game.scoring?.awayTeamScore,
           game.scoring?.getGameResultCalculated(league),
           _tipsByGameKey[game.dbkey]?.tip,
           _tipsByGameKey[game.dbkey]?.getTipPointsCalculated(),
@@ -75,12 +80,18 @@ class _StatRoundGameScoresForTipperState
     _renderedValues = values;
     _rows = [
       for (final league in [League.nrl, League.afl]) ...[
-        AppRow(key: ValueKey(league), cells: [
-          AppCell.text(league.name.toUpperCase(), style: titleStyle,
-            leading: SvgPicture.asset(league.logo, width: 20, height: 20),
-            leadingSize: const Size(20, 20)),
-          for (var i = 1; i < columns.length; i++) const AppCell.text(''),
-        ]),
+        AppRow(
+          key: ValueKey(league),
+          cells: [
+            AppCell.text(
+              league.name.toUpperCase(),
+              style: titleStyle,
+              leading: SvgPicture.asset(league.logo, width: 20, height: 20),
+              leadingSize: const Size(20, 20),
+            ),
+            for (var i = 1; i < columns.length; i++) const AppCell.text(''),
+          ],
+        ),
         for (final game in games[league] ?? <Game>[]) _gameRow(game),
       ],
     ];
@@ -90,17 +101,24 @@ class _StatRoundGameScoresForTipperState
   AppRow _gameRow(Game game) {
     final tip = _tipsByGameKey[game.dbkey];
     final result = game.scoring?.getGameResultCalculated(game.league);
-    String label(GameResult value) => game.league == League.afl
-        ? '${value.afl} (${value.name})' : '${value.nrl} (${value.name})';
-    return AppRow(key: ValueKey(game.dbkey), cells: [
-      AppCell.text('${game.homeTeam.name} v ${game.awayTeam.name}\n'
-        '${game.scoring?.homeTeamScore ?? ''} - ${game.scoring?.awayTeamScore ?? ''}',
-        maxLines: 2),
-      AppCell.text(result == null ? '-' : label(result)),
-      AppCell.text(tip == null ? 'loading..' : label(tip.tip)),
-      AppCell.text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
-      AppCell.text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
-    ]);
+    // The league's own wording only; the enum name it came from added a
+    // parenthesised letter that said the same thing twice.
+    String label(GameResult value) =>
+        game.league == League.afl ? value.afl : value.nrl;
+    return AppRow(
+      key: ValueKey(game.dbkey),
+      cells: [
+        AppCell.text(
+          '${game.homeTeam.name} v ${game.awayTeam.name}\n'
+          '${game.scoring?.homeTeamScore ?? ''} - ${game.scoring?.awayTeamScore ?? ''}',
+          maxLines: 2,
+        ),
+        AppCell.text(result == null ? '-' : label(result)),
+        AppCell.text(tip == null ? 'loading..' : label(tip.tip)),
+        AppCell.text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
+        AppCell.text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
+      ],
+    );
   }
 
   @override
@@ -128,12 +146,14 @@ class _StatRoundGameScoresForTipperState
     allTipsViewModel?.removeListener(_refreshTableData);
     allTipsViewModel?.dispose();
 
-    allTipsViewModel = widget.createTipsViewModel?.call(selectedComp, widget.statsTipper) ?? TipsViewModel.forTipper(
-      di<TippersViewModel>(),
-      selectedComp,
-      dauCompsViewModel.gamesViewModel!,
-      widget.statsTipper,
-    );
+    allTipsViewModel =
+        widget.createTipsViewModel?.call(selectedComp, widget.statsTipper) ??
+        TipsViewModel.forTipper(
+          di<TippersViewModel>(),
+          selectedComp,
+          dauCompsViewModel.gamesViewModel!,
+          widget.statsTipper,
+        );
     _allTipsViewModelCompDbKey = selectedComp.dbkey;
     allTipsViewModel!.addListener(_refreshTableData);
   }
