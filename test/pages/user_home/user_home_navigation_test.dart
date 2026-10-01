@@ -350,13 +350,20 @@ void main() {
     await pumpWithInset(EdgeInsets.zero);
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
-    final flush = tester.getRect(find.byType(NavigationRail)).width;
+    Rect rail() => tester.getRect(find.byType(NavigationRail));
+    expect(rail().left, 0, reason: 'nothing to clear, so it sits flush');
 
-    // NavigationRail holds itself clear of the leading inset on its own. The
-    // Row has already placed it, so counting the inset again would widen the
-    // rail by it and push every destination off centre.
+    // An island on the edge the rail sits against reaches its destinations,
+    // so the rail is held clear of it -- by that inset exactly once.
+    // NavigationRail applies it too, which pushed every destination off
+    // centre by the same amount again.
     await pumpWithInset(const EdgeInsets.only(left: 59));
-    expect(tester.getRect(find.byType(NavigationRail)).width, flush);
+    expect(rail().left, 59);
+
+    // The far edge belongs to the content, which is already holding it clear.
+    // Taking it here as well would strand the destinations mid-pane.
+    await pumpWithInset(const EdgeInsets.only(left: 59, right: 96));
+    expect(rail().right, 844 - 96, reason: 'rail moves to the wider inset');
   });
 
   testWidgets('hides the list until it has been placed', (tester) async {

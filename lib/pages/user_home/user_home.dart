@@ -220,6 +220,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     BuildContext context, {
     required List<AppNavDestination> destinations,
     required Color? indicatorColor,
+    required EdgeInsets displayPadding,
+    required bool onRight,
   }) {
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainer,
@@ -230,38 +232,45 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         left: false,
         right: false,
         top: false,
-        // NavigationRail holds itself clear of the leading inset on the
-        // assumption it is against the display edge paying for it. Here the
-        // Row has already placed it, and the destinations are grouped at the
-        // bottom where a camera strip or an island -- both mounted along the
-        // middle or top of that edge -- does not reach. Left in, the inset is
-        // taken twice: a 51pt one widened the rail from 103.5 to 154.5 and
-        // pushed every icon off centre by exactly that much.
+        // NavigationRail always holds itself clear of the *leading* inset, on
+        // the assumption that is the edge it sits against. The Row has already
+        // chosen a side, so left to itself it insets the wrong one when the
+        // rail is on the right, and doubles up with the Row when it is on the
+        // left -- a 51pt inset widened the rail from 103.5 to 154.5 and pushed
+        // every destination off centre by exactly that much. Strip both and
+        // apply the one the rail is genuinely against: an island on that edge
+        // reaches the destinations, which are not far enough down to miss it.
         child: MediaQuery.removePadding(
           context: context,
           removeLeft: true,
           removeRight: true,
-          child: NavigationRail(
-            backgroundColor: Colors.transparent,
-            indicatorColor: indicatorColor,
-            indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: onRight ? 0 : displayPadding.left,
+              right: onRight ? displayPadding.right : 0,
             ),
-            // Grouped at the bottom: the same thumb zone the bar occupied, and
-            // clear of a camera strip mounted at the top of the inset.
-            groupAlignment: 1,
-            labelType: NavigationRailLabelType.all,
-            minWidth: kNavigationRailWidth,
-            selectedIndex: _currentIndex.value,
-            onDestinationSelected: onTabTapped,
-            destinations: [
-              for (final destination in destinations)
-                NavigationRailDestination(
-                  icon: destination.icon,
-                  disabled: !destination.enabled,
-                  label: Text(destination.shortLabel),
-                ),
-            ],
+            child: NavigationRail(
+              backgroundColor: Colors.transparent,
+              indicatorColor: indicatorColor,
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              // Grouped at the bottom: the same thumb zone the bar occupied, and
+              // clear of a camera strip mounted at the top of the inset.
+              groupAlignment: 1,
+              labelType: NavigationRailLabelType.all,
+              minWidth: kNavigationRailWidth,
+              selectedIndex: _currentIndex.value,
+              onDestinationSelected: onTabTapped,
+              destinations: [
+                for (final destination in destinations)
+                  NavigationRailDestination(
+                    icon: destination.icon,
+                    disabled: !destination.enabled,
+                    label: Text(destination.shortLabel),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -364,6 +373,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                                     context,
                                     destinations: navDestinations,
                                     indicatorColor: navIndicatorColor,
+                                    displayPadding: displayPadding,
+                                    onRight: railOnRight,
                                   ),
                                 Expanded(
                                   // The rail now occupies the inset, so the
@@ -381,6 +392,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                                     context,
                                     destinations: navDestinations,
                                     indicatorColor: navIndicatorColor,
+                                    displayPadding: displayPadding,
+                                    onRight: railOnRight,
                                   ),
                               ],
                             )
