@@ -184,6 +184,14 @@ void main() {
     (380.0, 2.5),
     (400.0, 2.5),
     (390.0, 3.2),
+    // The band either side of the inline threshold: a landscape phone and a
+    // folded pane land here, and nothing used to measure between 400 and 1280.
+    (620.0, 1.0),
+    (680.0, 1.0),
+    (700.0, 1.0),
+    (720.0, 1.0),
+    (768.0, 1.0),
+    (900.0, 1.0),
     (1280.0, 2.0),
   ]) {
     testWidgets('all panel states fit at width $width, text $scale', (

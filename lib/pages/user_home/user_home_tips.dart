@@ -816,7 +816,14 @@ class TipsTabState extends State<TipsTab> {
     }
     final textScaler = MediaQuery.textScalerOf(context);
     final textTheme = Theme.of(context).textTheme;
-    final key = '${selectedComp.dbkey}:$width:${textScaler.scale(16)}';
+    // Keyed on the games too, not just the comp. Team names arrive with them,
+    // and they set the width the inline matchup needs -- measured before they
+    // land, the row is sized for names it has not seen, so they wrap and the
+    // score falls out of the height measured for them. Without this the first
+    // measurement stands for the life of the comp at this width.
+    final key =
+        '${selectedComp.dbkey}:$width:${textScaler.scale(16)}:'
+        '${_buildItemExtentCacheKey(selectedComp)}';
     if (key == _cardLayoutKey && _cardLayout != null) {
       return;
     }
