@@ -341,23 +341,14 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
                 final displayPadding = MediaQuery.paddingOf(context);
-                final displaySize = MediaQuery.sizeOf(context);
-                final displayFeatures = MediaQuery.displayFeaturesOf(context);
                 final useNavigationRail = shouldUseNavigationRail(
-                  size: displaySize,
+                  size: MediaQuery.sizeOf(context),
                   displayPadding: displayPadding,
                 );
-                final railOnRight = navigationRailOnRight(
-                  features: displayFeatures,
-                  size: displaySize,
-                  displayPadding: displayPadding,
-                );
-                final railInset = navigationRailInset(
-                  features: displayFeatures,
-                  size: displaySize,
-                  displayPadding: displayPadding,
-                  onRight: railOnRight,
-                );
+                final railOnRight = navigationRailOnRight(displayPadding);
+                final railInset = railOnRight
+                    ? displayPadding.right
+                    : displayPadding.left;
                 final navDestinations = _navDestinations(
                   tippersViewModelConsumer,
                 );

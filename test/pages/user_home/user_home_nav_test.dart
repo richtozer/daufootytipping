@@ -1,5 +1,3 @@
-import 'dart:ui' show DisplayFeature, DisplayFeatureType, DisplayFeatureState;
-
 import 'package:daufootytipping/pages/user_home/user_home_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,52 +55,19 @@ void main() {
       );
     });
 
-    const landscape = Size(844, 390);
-    DisplayFeature cutout(Rect bounds) => DisplayFeature(
-      bounds: bounds,
-      type: DisplayFeatureType.cutout,
-      state: DisplayFeatureState.unknown,
-    );
-    final islandRight = cutout(const Rect.fromLTRB(807, 150, 844, 240));
-    final islandLeft = cutout(const Rect.fromLTRB(0, 150, 37, 240));
-
-    bool onRight(List<DisplayFeature> f, EdgeInsets p) =>
-        navigationRailOnRight(features: f, size: landscape, displayPadding: p);
-    double inset(List<DisplayFeature> f, EdgeInsets p, bool right) =>
-        navigationRailInset(
-          features: f,
-          size: landscape,
-          displayPadding: p,
-          onRight: right,
-        );
-
-    test('the edge with something in the way claims the rail', () {
-      expect(onRight([islandRight], EdgeInsets.zero), isTrue);
-      expect(onRight([islandLeft], EdgeInsets.zero), isFalse);
+    test('the wider inset claims the rail', () {
+      expect(navigationRailOnRight(const EdgeInsets.only(right: 96)), isTrue);
+      expect(navigationRailOnRight(const EdgeInsets.only(left: 96)), isFalse);
     });
 
-    test('a cutout outranks the far edge reporting a wider inset', () {
-      // iOS allows for a rounded corner on the edge the island is nowhere
-      // near, and can report it as the larger of the two. The island is
-      // what the rail should be following.
+    test('an evenly inset display puts it on the leading edge', () {
+      // iOS reserves the same strip either side in landscape whichever edge
+      // the Dynamic Island is on, so this is the landscape iPhone case.
       expect(
-        onRight([islandRight], const EdgeInsets.only(left: 59, right: 37)),
-        isTrue,
+        navigationRailOnRight(const EdgeInsets.only(left: 62, right: 62)),
+        isFalse,
       );
-    });
-
-    test('the rail clears the cutout, not the whole edge', () {
-      expect(inset([islandRight], const EdgeInsets.only(right: 59), true), 37);
-      // Nothing on the leading edge, so its inset was never an obstruction.
-      expect(inset([islandRight], const EdgeInsets.only(left: 59), false), 0);
-    });
-
-    test('with no features reported it falls back to the edge insets', () {
-      expect(onRight([], const EdgeInsets.only(right: 96)), isTrue);
-      expect(onRight([], const EdgeInsets.only(left: 96)), isFalse);
-      expect(onRight([], EdgeInsets.zero), isFalse);
-      expect(inset([], const EdgeInsets.only(right: 59), true), 59);
-      expect(inset([], const EdgeInsets.only(left: 59), false), 59);
+      expect(navigationRailOnRight(EdgeInsets.zero), isFalse);
     });
   });
 }

@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' show DisplayFeature;
 
 import 'package:flutter/material.dart';
 
@@ -37,73 +36,14 @@ bool shouldUseNavigationRail({
   return size.height < kShortPaneHeight && size.width >= kWideEnoughForRail;
 }
 
-/// How far a cutout or hinge on one edge actually reaches in from it.
+/// Which side the rail goes. The wider inset claims it, since that edge is
+/// already spent; failing that the leading edge, where a rail is looked for.
 ///
-/// An edge inset reserves the whole edge for an obstruction that usually
-/// occupies a fraction of it, and reports one on edges a Dynamic Island is
-/// nowhere near -- a rounded corner earns the same allowance as a camera.
-/// A display feature carries its real bounds, so the rail can be held off by
-/// what is genuinely in the way and no more.
-double displayFeatureInset({
-  required List<DisplayFeature> features,
-  required Size size,
-  required bool fromRight,
-}) {
-  var inset = 0.0;
-  for (final feature in features) {
-    final bounds = feature.bounds;
-    if (fromRight) {
-      if (bounds.right >= size.width - 0.5) {
-        inset = math.max(inset, size.width - bounds.left);
-      }
-    } else if (bounds.left <= 0.5) {
-      inset = math.max(inset, bounds.right);
-    }
-  }
-  return inset;
-}
-
-/// How far to hold the rail off the edge it sits against.
-///
-/// Falls back to the edge inset where the display reports no features at all,
-/// rather than sitting the destinations under an obstruction it cannot see.
-double navigationRailInset({
-  required List<DisplayFeature> features,
-  required Size size,
-  required EdgeInsets displayPadding,
-  required bool onRight,
-}) {
-  if (features.isEmpty) {
-    return onRight ? displayPadding.right : displayPadding.left;
-  }
-  return displayFeatureInset(
-    features: features,
-    size: size,
-    fromRight: onRight,
-  );
-}
-
-/// Which side the rail goes. The edge with something actually in the way
-/// claims it, since that edge is already spent; failing that the wider inset,
-/// and failing that the leading edge, where a rail is looked for.
-bool navigationRailOnRight({
-  required List<DisplayFeature> features,
-  required Size size,
-  required EdgeInsets displayPadding,
-}) {
-  final left = displayFeatureInset(
-    features: features,
-    size: size,
-    fromRight: false,
-  );
-  final right = displayFeatureInset(
-    features: features,
-    size: size,
-    fromRight: true,
-  );
-  if (left != right) return right > left;
-  return displayPadding.right > displayPadding.left;
-}
+/// iOS reserves the same strip on both sides in landscape whichever edge the
+/// Dynamic Island is on, so this lands on the leading edge there and the rail
+/// keeps clear of that side regardless.
+bool navigationRailOnRight(EdgeInsets displayPadding) =>
+    displayPadding.right > displayPadding.left;
 
 /// A destination described once and rendered by either the bar or the rail,
 /// which take different types for the same thing.
