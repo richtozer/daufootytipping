@@ -321,15 +321,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
                 ),
               LiveScoresWarningCard(),
               Expanded(
-                // A surface of its own, so the backdrop reads around the table
-                // rather than through the numbers.
-                child: Container(
+                child: Padding(
                   padding: const EdgeInsets.all(5.0),
-                  margin: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
                   child: AppTable(
                     columns: columns,
                     rows: _tableRows(context, dbkey, color),
