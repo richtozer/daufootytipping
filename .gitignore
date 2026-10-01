@@ -78,3 +78,6 @@ node_modules/
 
 # Dart functions compiled executable
 functions_dart/bin/server
+
+# Golden test failure diffs, written by flutter test on a mismatch
+test/**/failures/
