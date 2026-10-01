@@ -650,7 +650,94 @@ void main() {
     );
   });
 
-  testWidgets('historical matchups renders its DataTable2', (tester) async {
+  Widget populateMatchups() {
+    final games = List.generate(24, (i) => Game(
+      dbkey: 'past-$i', league: League.nrl, homeTeam: homeTeam, awayTeam: awayTeam,
+      location: 'Test Ground', startTimeUTC: DateTime.utc(2025, 5, i + 1),
+      fixtureRoundNumber: i + 1, fixtureMatchNumber: 1,
+      scoring: i % 4 == 3 ? null : Scoring(
+        homeTeamScore: i % 4 == 0 ? 30 : 10, awayTeamScore: i % 4 == 1 ? 30 : 10),
+    ));
+    when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
+    when(() => gamesViewModel.initialLoadComplete).thenAnswer((_) async {});
+    when(() => gamesViewModel.teamsViewModel).thenReturn(teamsViewModel);
+    when(() => teamsViewModel.initialLoadComplete).thenAnswer((_) async {});
+    when(() => teamsViewModel.findTeam(homeTeam.dbkey)).thenReturn(homeTeam);
+    when(() => teamsViewModel.findTeam(awayTeam.dbkey)).thenReturn(awayTeam);
+    when(() => gamesViewModel.getCompleteMatchupHistory(homeTeam, awayTeam, League.nrl))
+      .thenAnswer((_) async => games);
+    final tips = MockTableTipsViewModel();
+    final comps = [selectedComp];
+    when(() => dauCompsViewModel.daucomps).thenReturn(comps);
+    when(() => dauCompsViewModel.selectedTipperTipsViewModel).thenReturn(tips);
+    when(() => tips.initialLoadCompleted).thenAnswer((_) async {});
+    for (final game in games) {
+      when(() => tips.findTipAcrossCompetitions(game, selectedTipper, comps)).thenAnswer((_) async =>
+        game.scoring == null ? null : Tip(game: game, tipper: selectedTipper,
+          tip: GameResult.a, submittedTimeUTC: DateTime.utc(2024)));
+    }
+    return Scaffold(body: LeagueLadderHistoricalMatchups(
+      league: League.nrl, teamDbKeys: [homeTeam.dbkey, awayTeam.dbkey]));
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('matchup history golden $width/$scale', (tester) async {
+        await pumpRound(tester, width: width, scale: scale, page: populateMatchups());
+        expect(tester.takeException(), isNull);
+        await expectLater(find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/matchup-history-${width.toInt()}-$scale.png'));
+      });
+    }
+  }
+
+  testWidgets('matchup cache, badge scale and tip outcome semantics', (tester) async {
+    final page = populateMatchups();
+    await pumpRound(tester, width: 680, page: page);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    expect(original[0].cells[1].semanticLabel, 'Home Team, correct tip');
+    expect(original[1].cells[1].semanticLabel, 'Home Team, incorrect tip');
+    expect(original[2].cells[2].text, 'Draw');
+    expect(original[3].cells[1].text, 'N/A');
+    expect(original[3].cells[2].text, 'Unknown');
+    expect(original[0].cells[2].semanticLabel, 'Home, Home Team');
+    final badgeWidth = original.first.cells[2].leadingSize.width;
+    await pumpRound(tester, page: page);
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, scale: 1.5, page: page);
+    expect(table().rows.first.cells[2].leadingSize.width, greaterThan(badgeWidth));
+    expect(table().rows.every((row) => row.onTap == null), isTrue);
+    for (var column = 0; column < 4; column++) {
+      for (final ascending in [true, false]) {
+        table().onSort!(column, ascending);
+        await tester.pump();
+        expect(table().sort!.column, column);
+        expect(table().sort!.ascending, ascending);
+      }
+    }
+    expect(table().rows.first.cells[3].text, '30 - 10');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('matchup dates stay frozen and scores clear the scrollbar', (tester) async {
+    await pumpRound(tester, scale: 1.5, page: populateMatchups());
+    final x = tester.getTopLeft(find.text('Date')).dx;
+    final y = tester.getTopLeft(find.text('Date')).dy;
+    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
+      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dx, x);
+    expect(tester.getRect(find.text('Score')).right, lessThanOrEqualTo(
+      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('historical matchups renders its AppTable', (tester) async {
     final game = Game(
       dbkey: 'nrl-01-001',
       league: League.nrl,
@@ -899,7 +986,7 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper || page is RoundMissingTipsStats || page is StatRoundGameScoresForTipper || page is TeamGamesHistoryPage
+    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper || page is RoundMissingTipsStats || page is StatRoundGameScoresForTipper || page is TeamGamesHistoryPage || page is LeagueLadderHistoricalMatchups
         ? AppTable : DataTable2),
     findsOneWidget,
   );

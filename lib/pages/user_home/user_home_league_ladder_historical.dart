@@ -1,6 +1,8 @@
 import 'dart:developer';
 
-import 'package:data_table_2/data_table_2.dart';
+import 'dart:math' as math;
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -32,6 +34,88 @@ class _LeagueLadderHistoricalMatchupsState
   String? _historicalDataError;
   int? _historicalSortColumnIndex;
   bool _historicalSortAscending = false;
+
+  static const columns = [
+    AppColumn.text('Date', sortable: true),
+    AppColumn.text('Your Tip', sortable: true),
+    AppColumn.text('Winner', grow: true, sortable: true),
+    AppColumn.numeric('Score', sortable: true),
+  ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(BuildContext context) {
+    final body = Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final matchups = _historicalMatchups ?? <HistoricalMatchupUIData>[];
+    final values = <Object?>[
+      body, scaler, direction,
+      for (final matchup in matchups) ...[
+        matchup.month, matchup.year, matchup.isCurrentYear, matchup.winType,
+        matchup.userTipTeamName, matchup.winningTeamName,
+        matchup.pastGame.scoring?.homeTeamScore, matchup.pastGame.scoring?.awayTeamScore,
+        matchup.pastGame.homeTeam.logoURI, matchup.pastGame.awayTeam.logoURI,
+      ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    _rows = [
+      for (final matchup in matchups) AppRow(cells: [
+        AppCell.text(matchup.isCurrentYear ? matchup.month : '${matchup.month} ${matchup.year}'),
+        _tipCell(matchup),
+        _winnerCell(context, matchup, body, scaler, direction),
+        AppCell.text('${matchup.pastGame.scoring?.homeTeamScore ?? '-'} - '
+          '${matchup.pastGame.scoring?.awayTeamScore ?? '-'}'),
+      ]),
+    ];
+    return _rows;
+  }
+
+  AppCell _tipCell(HistoricalMatchupUIData matchup) {
+    if (matchup.userTipTeamName.isEmpty) {
+      return const AppCell.text('N/A',
+        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic));
+    }
+    final correct = matchup.userTipTeamName == matchup.winningTeamName;
+    final colour = correct ? Colors.green : Colors.red;
+    return AppCell.text(matchup.userTipTeamName,
+      style: TextStyle(color: colour, fontWeight: FontWeight.w500),
+      leading: Icon(correct ? Icons.check_circle : Icons.cancel, size: 14, color: colour),
+      leadingSize: const Size(14, 14),
+      semanticLabel: '${matchup.userTipTeamName}, ${correct ? 'correct' : 'incorrect'} tip');
+  }
+
+  AppCell _winnerCell(BuildContext context, HistoricalMatchupUIData matchup,
+      TextStyle body, TextScaler scaler, TextDirection direction) {
+    final home = matchup.winType == 'Home';
+    final hasWinner = home || matchup.winType == 'Away';
+    final label = home ? 'Home' : 'Away';
+    final badgeStyle = body.copyWith(fontSize: 10, fontWeight: FontWeight.w500,
+      color: home ? Colors.blue[700] : Colors.purple[700]);
+    final painter = TextPainter(text: TextSpan(text: label, style: badgeStyle),
+      textScaler: scaler, textDirection: direction)..layout();
+    final leadingSize = Size(painter.width + 10 + 6 + 20,
+      math.max(painter.height + 4, 20));
+    painter.dispose();
+    return AppCell.text(matchup.winningTeamName,
+      style: TextStyle(fontWeight: matchup.winType == 'Draw'
+          ? FontWeight.normal : FontWeight.w500),
+      semanticLabel: hasWinner ? '$label, ${matchup.winningTeamName}' : matchup.winningTeamName,
+      leadingSize: hasWinner ? leadingSize : Size.zero,
+      leading: hasWinner ? Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            color: (home ? Colors.blue : Colors.purple).withValues(alpha: 0.1),
+            border: Border.all(color: (home ? Colors.blue : Colors.purple).withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(3)),
+          child: Text(label, style: badgeStyle)),
+        const SizedBox(width: 6),
+        _buildTeamLogo(home ? matchup.pastGame.homeTeam.logoURI : matchup.pastGame.awayTeam.logoURI),
+      ]) : null,
+    );
+  }
 
   @override
   void initState() {
@@ -223,50 +307,6 @@ class _LeagueLadderHistoricalMatchupsState
     });
   }
 
-  Widget _buildTipOutcomeCell(HistoricalMatchupUIData matchup) {
-    if (matchup.userTipTeamName.isEmpty) {
-      return const Text(
-        'N/A',
-        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
-      );
-    }
-
-    bool tipWasCorrect = false;
-    Color textColor = Colors.red;
-    Icon? icon;
-
-    if (matchup.winningTeamName == 'Draw' &&
-        matchup.userTipTeamName == 'Draw') {
-      tipWasCorrect = true;
-    } else if (matchup.winningTeamName != 'Draw' &&
-        matchup.userTipTeamName == matchup.winningTeamName) {
-      tipWasCorrect = true;
-    }
-
-    if (tipWasCorrect) {
-      textColor = Colors.green;
-      icon = const Icon(Icons.check_circle, size: 14, color: Colors.green);
-    } else {
-      textColor = Colors.red;
-      icon = const Icon(Icons.cancel, size: 14, color: Colors.red);
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        icon,
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            matchup.userTipTeamName,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildTeamLogo(String? logoURI) {
     if (logoURI != null && logoURI.isNotEmpty) {
       return SvgPicture.asset(
@@ -278,63 +318,6 @@ class _LeagueLadderHistoricalMatchupsState
       );
     }
     return const Icon(Icons.shield, size: 20, color: Colors.grey);
-  }
-
-  Widget _buildWinnerCell(HistoricalMatchupUIData matchup) {
-    final game = matchup.pastGame;
-    String? winnerLogoURI;
-    if (matchup.winType == 'Home') {
-      winnerLogoURI = game.homeTeam.logoURI;
-    } else if (matchup.winType == 'Away') {
-      winnerLogoURI = game.awayTeam.logoURI;
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (matchup.winType != 'Draw' && matchup.winType != 'Unknown') ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: (matchup.winType == 'Home')
-                  ? Colors.blue.withValues(alpha: 0.1)
-                  : Colors.purple.withValues(alpha: 0.1),
-              border: Border.all(
-                color: (matchup.winType == 'Home')
-                    ? Colors.blue.withValues(alpha: 0.3)
-                    : Colors.purple.withValues(alpha: 0.3),
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              matchup.winType == 'Home' ? 'Home' : 'Away',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: (matchup.winType == 'Home')
-                    ? Colors.blue[700]
-                    : Colors.purple[700],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          _buildTeamLogo(winnerLogoURI),
-          const SizedBox(width: 6),
-        ],
-        Flexible(
-          child: Text(
-            matchup.winningTeamName,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: matchup.winType == 'Draw'
-                  ? FontWeight.normal
-                  : FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   @override
@@ -411,87 +394,13 @@ class _LeagueLadderHistoricalMatchupsState
               else
                 SizedBox(
                   height: 400,
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
-                    ),
-                    columnSpacing: 8,
-                    horizontalMargin: 14,
-                    fixedTopRows: 1,
-                    // Frozen columns are disabled: data_table_2 subtracts a fixed column's
-                    // width from the budget but still divides the remainder by every
-                    // column, so roughly one column's width goes unallocated and opens a
-                    // gap. Landscape never showed it because it froze nothing.
-                    fixedLeftColumns: 0,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: true,
-                    isVerticalScrollBarVisible: true,
-                    sortColumnIndex: _historicalSortColumnIndex,
-                    sortAscending: _historicalSortAscending,
-                    dataRowHeight: 48.0,
-                    headingRowHeight: 40.0,
-                    columns: [
-                      DataColumn2(
-                        fixedWidth: 75,
-                        label: const Text(
-                          'Date',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                      DataColumn2(
-                        fixedWidth: 110,
-                        label: const Text(
-                          'Your Tip',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                      DataColumn2(
-                        size: ColumnSize.L,
-                        label: const Text(
-                          'Winner',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                      DataColumn2(
-                        fixedWidth: 70,
-                        label: const Text(
-                          'Score',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                    ],
-                    rows: _historicalMatchups!.map((matchup) {
-                      final game = matchup.pastGame;
-                      final String homeScore =
-                          game.scoring?.homeTeamScore?.toString() ?? '-';
-                      final String awayScore =
-                          game.scoring?.awayTeamScore?.toString() ?? '-';
-
-                      return DataRow2(
-                        cells: [
-                          DataCell(
-                            Text(
-                              matchup.isCurrentYear
-                                  ? matchup.month
-                                  : '${matchup.month} ${matchup.year}',
-                            ),
-                          ),
-                          DataCell(_buildTipOutcomeCell(matchup)),
-                          DataCell(_buildWinnerCell(matchup)),
-                          DataCell(
-                            Text(
-                              '$homeScore - $awayScore',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
+                  child: AppTable(
+                    columns: columns,
+                    rows: _tableRows(context),
+                    frozenLeading: 1,
+                    sort: _historicalSortColumnIndex == null ? null
+                        : AppSort(column: _historicalSortColumnIndex!, ascending: _historicalSortAscending),
+                    onSort: _onHistoricalSort,
                   ),
                 ),
             ],

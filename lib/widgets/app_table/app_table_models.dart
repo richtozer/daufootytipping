@@ -19,8 +19,8 @@ class AppColumn {
 @immutable
 class AppCell {
   const AppCell.text(String value, {this.style, this.leading,
-    this.leadingSize = Size.zero, this.maxLines = 1})
-      : text = value, child = null, intrinsicSize = Size.zero, semanticLabel = value;
+    this.leadingSize = Size.zero, this.maxLines = 1, String? semanticLabel})
+      : text = value, child = null, intrinsicSize = Size.zero, semanticLabel = semanticLabel ?? value;
   const AppCell.widget(Widget widget, {required this.intrinsicSize,
     required this.semanticLabel})
       : child = widget, text = null, style = null, leading = null,
