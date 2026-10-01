@@ -236,13 +236,9 @@ class TipsCardLayout {
     final resultWidth = carouselWidth * fraction - 12;
     double resultHeight(TipsCardContent card) {
       if (card.results.isEmpty) return 0;
-      if (mode != TipsCardMode.wide) {
-        return card.results.fold<double>(
-          8,
-          (height, row) => height + measureSpan(row, resultWidth).height + 4,
-        );
-      }
       // Match Wrap's actual runs, including the 12 px gap between groups.
+      // Every mode wraps now, and a width with room for only one per run
+      // gives back the same total the plain column used to.
       var total = 8.0;
       var runWidth = 0.0;
       var runHeight = 0.0;

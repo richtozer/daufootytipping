@@ -519,25 +519,21 @@ class AdaptiveTipsCard extends StatelessWidget {
     );
     final half = (lines.length / 2).ceil();
 
+    // Asked of the width rather than of the card's overall arrangement: a
+    // standard card in landscape has room to pair these up even though it is
+    // not wide enough for the inline layout. Wrap stacks them again by itself
+    // wherever the room runs out.
     return Card(
-      child: layout.mode == TipsCardMode.wide
-          ? Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                children: [
-                  group(lines.take(half)),
-                  if (lines.length > half) group(lines.skip(half)),
-                ],
-              ),
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final text in lines)
-                  SizedBox(width: double.infinity, child: line(text)),
-              ],
-            ),
+      child: Center(
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          children: [
+            group(lines.take(half)),
+            if (lines.length > half) group(lines.skip(half)),
+          ],
+        ),
+      ),
     );
   }
 }
