@@ -1,4 +1,5 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -21,8 +22,11 @@ class StatRoundGameScoresForTipper extends StatefulWidget {
     this.statsTipper,
     this.roundNumberToDisplay, {
     super.key,
+    this.createTipsViewModel,
   });
 
+  /// The page owns and disposes the returned model; defaults to Firebase-backed tips.
+  final TipsViewModel Function(DAUComp comp, Tipper tipper)? createTipsViewModel;
   final Tipper statsTipper;
   final int roundNumberToDisplay;
 
@@ -43,13 +47,61 @@ class _StatRoundGameScoresForTipperState
   final Map<String, Tip?> _tipsByGameKey = {};
   late DAURound roundToDisplay;
 
-  final List<String> columns = [
-    'Teams/\nScores',
-    'Result',
-    'Tip',
-    'Points',
-    'Max\nPoints',
+  static const columns = [
+    AppColumn.text('Teams / Scores', grow: true),
+    AppColumn.text('Result'),
+    AppColumn.text('Tip'),
+    AppColumn.numeric('Points'),
+    AppColumn.numeric('Max Points'),
   ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(BuildContext context) {
+    final titleStyle = Theme.of(context).textTheme.titleLarge;
+    final values = <Object?>[
+      titleStyle,
+      for (final league in [League.nrl, League.afl])
+        for (final game in games[league] ?? <Game>[]) ...[
+          game.dbkey, league, game.homeTeam.name, game.awayTeam.name,
+          game.scoring?.homeTeamScore, game.scoring?.awayTeamScore,
+          game.scoring?.getGameResultCalculated(league),
+          _tipsByGameKey[game.dbkey]?.tip,
+          _tipsByGameKey[game.dbkey]?.getTipPointsCalculated(),
+          _tipsByGameKey[game.dbkey]?.getMaxPointsCalculated(),
+        ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    _rows = [
+      for (final league in [League.nrl, League.afl]) ...[
+        AppRow(key: ValueKey(league), cells: [
+          AppCell.text(league.name.toUpperCase(), style: titleStyle,
+            leading: SvgPicture.asset(league.logo, width: 20, height: 20),
+            leadingSize: const Size(20, 20)),
+          for (var i = 1; i < columns.length; i++) const AppCell.text(''),
+        ]),
+        for (final game in games[league] ?? <Game>[]) _gameRow(game),
+      ],
+    ];
+    return _rows;
+  }
+
+  AppRow _gameRow(Game game) {
+    final tip = _tipsByGameKey[game.dbkey];
+    final result = game.scoring?.getGameResultCalculated(game.league);
+    String label(GameResult value) => game.league == League.afl
+        ? '${value.afl} (${value.name})' : '${value.nrl} (${value.name})';
+    return AppRow(key: ValueKey(game.dbkey), cells: [
+      AppCell.text('${game.homeTeam.name} v ${game.awayTeam.name}\n'
+        '${game.scoring?.homeTeamScore ?? ''} - ${game.scoring?.awayTeamScore ?? ''}',
+        maxLines: 2),
+      AppCell.text(result == null ? '-' : label(result)),
+      AppCell.text(tip == null ? 'loading..' : label(tip.tip)),
+      AppCell.text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
+      AppCell.text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
+    ]);
+  }
 
   @override
   void initState() {
@@ -76,7 +128,7 @@ class _StatRoundGameScoresForTipperState
     allTipsViewModel?.removeListener(_refreshTableData);
     allTipsViewModel?.dispose();
 
-    allTipsViewModel = TipsViewModel.forTipper(
+    allTipsViewModel = widget.createTipsViewModel?.call(selectedComp, widget.statsTipper) ?? TipsViewModel.forTipper(
       di<TippersViewModel>(),
       selectedComp,
       dauCompsViewModel.gamesViewModel!,
@@ -225,31 +277,10 @@ class _StatRoundGameScoresForTipperState
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(5.0),
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
-                    ),
-                    columnSpacing: 0,
-                    // Edge margin keeps the last column's values clear of the vertical
-                    // scrollbar, which overlays the viewport.
-                    horizontalMargin: 14,
-                    minWidth: 800,
-                    fixedTopRows: 1,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: false,
-                    isVerticalScrollBarVisible: true,
-                    columns: getColumns(columns),
-                    rows: [
-                      _buildLeagueHeaderRow(context, League.nrl),
-                      ...List<DataRow>.generate(nrlGames?.length ?? 0, (index) {
-                        return buildDataRow(nrlGames!, index);
-                      }),
-                      _buildLeagueHeaderRow(context, League.afl),
-                      ...List<DataRow>.generate(aflGames?.length ?? 0, (index) {
-                        return buildDataRow(aflGames!, index);
-                      }),
-                    ],
+                  child: AppTable(
+                    columns: columns,
+                    rows: _tableRows(context),
+                    frozenLeading: 1,
                   ),
                 ),
               ),
@@ -260,92 +291,6 @@ class _StatRoundGameScoresForTipperState
       ),
     );
   }
-
-  DataRow _buildLeagueHeaderRow(BuildContext context, League league) {
-    return DataRow(
-      cells: [
-        DataCell(
-          Row(
-            children: [
-              SvgPicture.asset(league.logo, width: 20, height: 20),
-              Text(
-                league.name.toUpperCase(),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ],
-          ),
-        ),
-        ...List<DataCell>.generate(
-          columns.length - 1,
-          (_) =>
-              DataCell(Text('', style: Theme.of(context).textTheme.titleLarge)),
-        ),
-      ],
-    );
-  }
-
-  DataRow buildDataRow(List<Game> games, int index) {
-    final game = games[index];
-    final tip = _tipsByGameKey[game.dbkey];
-    final gameResult = game.scoring!.getGameResultCalculated(game.league);
-    return DataRow(
-      cells: [
-        DataCell(
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Center(
-                child: Text(
-                  '${game.homeTeam.name} v ${game.awayTeam.name}',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Center(
-                child: Text(
-                  '${game.scoring!.homeTeamScore ?? ''} - ${game.scoring!.awayTeamScore ?? ''}',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        DataCell(
-          Text(
-            game.league == League.afl
-                ? '${gameResult.afl} (${gameResult.name})'
-                : '${gameResult.nrl} (${gameResult.name})',
-          ),
-        ),
-        DataCell(
-          Text(
-            tip == null
-                ? 'loading..'
-                : game.league == League.afl
-                ? '${tip.tip.afl} (${tip.tip.name})'
-                : '${tip.tip.nrl} (${tip.tip.name})',
-          ),
-        ),
-        DataCell(Text(tip?.getTipPointsCalculated().toString() ?? 'loading..')),
-        DataCell(Text(tip?.getMaxPointsCalculated().toString() ?? 'loading..')),
-      ],
-    );
-  }
-
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .map(
-        (String column) => DataColumn2(
-          fixedWidth: column.startsWith('Teams')
-              ? 175
-              : column.startsWith('Tip')
-              ? 60
-              : 60,
-          numeric: column.startsWith('Max') || column == 'Points'
-              ? true
-              : false,
-          label: Text(column),
-        ),
-      )
-      .toList();
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(

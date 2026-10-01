@@ -178,8 +178,13 @@ class _AppTableState extends State<AppTable> {
     final value = cell.text;
     Widget child;
     if (value != null) {
-      child = Text(value, style: body.merge(cell.style), maxLines: 1,
+      Widget line(String text) => Text(text, style: body.merge(cell.style), maxLines: 1,
         overflow: TextOverflow.ellipsis, textAlign: column.numeric ? TextAlign.end : TextAlign.start);
+      child = cell.maxLines == 1 ? line(value) : Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: column.numeric ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [for (final text in value.split('\n').take(cell.maxLines)) line(text)],
+      );
       if (cell.leading != null) {
         child = Row(children: [SizedBox.fromSize(size: cell.leadingSize, child: cell.leading),
           const SizedBox(width: 8), Expanded(child: child)]);

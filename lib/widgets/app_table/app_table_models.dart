@@ -19,14 +19,16 @@ class AppColumn {
 @immutable
 class AppCell {
   const AppCell.text(String value, {this.style, this.leading,
-    this.leadingSize = Size.zero})
+    this.leadingSize = Size.zero, this.maxLines = 1})
       : text = value, child = null, intrinsicSize = Size.zero, semanticLabel = value;
   const AppCell.widget(Widget widget, {required this.intrinsicSize,
     required this.semanticLabel})
       : child = widget, text = null, style = null, leading = null,
-        leadingSize = Size.zero;
+        leadingSize = Size.zero, maxLines = 1;
 
   final String? text;
+  /// Explicit lines remain measurable; long content still elides per cell.
+  final int maxLines;
   final TextStyle? style;
   final Widget? child;
   final Widget? leading;
