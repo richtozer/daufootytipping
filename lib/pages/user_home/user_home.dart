@@ -220,7 +220,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     BuildContext context, {
     required List<AppNavDestination> destinations,
     required Color? indicatorColor,
-    required EdgeInsets displayPadding,
+    required double inset,
     required bool onRight,
   }) {
     return ColoredBox(
@@ -246,8 +246,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
           removeRight: true,
           child: Padding(
             padding: EdgeInsets.only(
-              left: onRight ? 0 : displayPadding.left,
-              right: onRight ? displayPadding.right : 0,
+              left: onRight ? 0 : inset,
+              right: onRight ? inset : 0,
             ),
             child: NavigationRail(
               backgroundColor: Colors.transparent,
@@ -336,11 +336,23 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
                 final displayPadding = MediaQuery.paddingOf(context);
+                final displaySize = MediaQuery.sizeOf(context);
+                final displayFeatures = MediaQuery.displayFeaturesOf(context);
                 final useNavigationRail = shouldUseNavigationRail(
-                  size: MediaQuery.sizeOf(context),
+                  size: displaySize,
                   displayPadding: displayPadding,
                 );
-                final railOnRight = navigationRailOnRight(displayPadding);
+                final railOnRight = navigationRailOnRight(
+                  features: displayFeatures,
+                  size: displaySize,
+                  displayPadding: displayPadding,
+                );
+                final railInset = navigationRailInset(
+                  features: displayFeatures,
+                  size: displaySize,
+                  displayPadding: displayPadding,
+                  onRight: railOnRight,
+                );
                 final navDestinations = _navDestinations(
                   tippersViewModelConsumer,
                 );
@@ -373,7 +385,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                                     context,
                                     destinations: navDestinations,
                                     indicatorColor: navIndicatorColor,
-                                    displayPadding: displayPadding,
+                                    inset: railInset,
                                     onRight: railOnRight,
                                   ),
                                 Expanded(
@@ -392,7 +404,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                                     context,
                                     destinations: navDestinations,
                                     indicatorColor: navIndicatorColor,
-                                    displayPadding: displayPadding,
+                                    inset: railInset,
                                     onRight: railOnRight,
                                   ),
                               ],
