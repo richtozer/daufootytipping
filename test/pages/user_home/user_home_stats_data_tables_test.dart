@@ -388,7 +388,81 @@ void main() {
     await _expectPageRendersTable(tester, const StatRoundWinners());
   });
 
-  testWidgets('missing tips renders its DataTable2', (tester) async {
+  Map<Tipper, RoundStats> populateMissing() {
+    final data = populateRound();
+    var i = 0;
+    for (final stats in data.values) {
+      stats.nrlTipsOutstanding = i % 5;
+      stats.aflTipsOutstanding = i % 7;
+      i++;
+    }
+    return data;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('missing tips golden $width/$scale', (tester) async {
+        populateMissing();
+        await pumpRound(tester, width: width, scale: scale,
+          page: const RoundMissingTipsStats(24));
+        expect(tester.takeException(), isNull);
+        await expectLater(find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/missing-tips-${width.toInt()}-$scale.png'));
+      });
+    }
+  }
+
+  testWidgets('missing tips filter, cache and sort refresh after notifications', (tester) async {
+    final data = populateMissing();
+    await pumpRound(tester, width: 680, page: const RoundMissingTipsStats(24));
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    expect(original.every((row) => row.onTap == null), isTrue);
+    expect(original.any((row) => row.cells.first.text == selectedTipper.name), isFalse);
+    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured.cast<VoidCallback>();
+    void notify() { for (final listener in listeners) { listener(); } }
+    notify();
+    await tester.pump();
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, page: const RoundMissingTipsStats(24));
+    expect(identical(original, table().rows), isTrue);
+    data[selectedTipper]!.nrlTipsOutstanding = 99;
+    notify();
+    await tester.pump();
+    expect(table().rows.first.cells[1].text, '99');
+    for (var column = 1; column < 4; column++) {
+      for (final ascending in [true, false]) {
+        table().onSort!(column, ascending);
+        await tester.pump();
+        notify();
+        await tester.pump();
+        final values = table().rows.map((row) => int.parse(row.cells[column].text!)).toList();
+        final expected = List.of(values)..sort();
+        expect(values, ascending ? expected : expected.reversed.toList());
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('missing tips keep names frozen and AFL outside scrollbar lane', (tester) async {
+    populateMissing();
+    await pumpRound(tester, scale: 3.2, page: const RoundMissingTipsStats(24));
+    final x = tester.getTopLeft(find.text('Name')).dx;
+    final y = tester.getTopLeft(find.text('Name')).dy;
+    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
+      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dx, x);
+    expect(tester.getRect(find.text('AFL')).right, lessThanOrEqualTo(
+      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('missing tips renders its AppTable', (tester) async {
     await _expectPageRendersTable(tester, const RoundMissingTipsStats(1));
   });
 
@@ -666,7 +740,7 @@ Future<void> _expectPageRendersTable(
 
   expect(tester.takeException(), isNull);
   expect(
-    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper
+    find.byType(page is StatRoundLeaderboard || page is StatCompLeaderboard || page is StatRoundWinners || page is StatRoundPointsForTipper || page is RoundMissingTipsStats
         ? AppTable : DataTable2),
     findsOneWidget,
   );

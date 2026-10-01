@@ -1,4 +1,5 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -25,7 +26,45 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   bool isAscending = false; // Default to descending
   int? sortColumnIndex = 1;
 
-  final List<String> columns = ['Name', 'Tips\nNeeded', 'NRL', 'AFL'];
+  static const columns = [
+    AppColumn.text('Name', grow: true, sortable: true),
+    AppColumn.numeric('Tips needed', sortable: true),
+    AppColumn.numeric('NRL', sortable: true),
+    AppColumn.numeric('AFL', sortable: true),
+  ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(BuildContext context) {
+    final selected = di<TippersViewModel>().selectedTipper;
+    final highlight = Theme.of(context).highlightColor;
+    final entries = roundLeaderboard.entries.where((entry) =>
+      entry.value.nrlTipsOutstanding + entry.value.aflTipsOutstanding > 0).toList();
+    final values = <Object?>[
+      selected, highlight, widget.roundNumberToDisplay,
+      for (final entry in entries) ...[
+        entry.key, entry.key.name, entry.key.photoURL,
+        entry.value.nrlTipsOutstanding, entry.value.aflTipsOutstanding,
+      ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    _rows = [
+      for (final entry in entries) AppRow(
+        key: ValueKey(entry.key.dbkey),
+        colour: entry.key == selected ? highlight : Colors.transparent,
+        cells: [
+          AppCell.text(entry.key.name,
+            leading: avatarPic(entry.key, widget.roundNumberToDisplay),
+            leadingSize: const Size(30, 30)),
+          AppCell.text((entry.value.nrlTipsOutstanding + entry.value.aflTipsOutstanding).toString()),
+          AppCell.text(entry.value.nrlTipsOutstanding.toString()),
+          AppCell.text(entry.value.aflTipsOutstanding.toString()),
+        ],
+      ),
+    ];
+    return _rows;
+  }
 
   @override
   void initState() {
@@ -137,80 +176,12 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(5.0),
-                child: DataTable2(
-                  border: TableBorder.all(
-                    width: 1.0,
-                    color: Colors.grey.shade300,
-                  ),
-                  sortColumnIndex: sortColumnIndex,
-                  sortAscending: isAscending,
-                  columnSpacing: 0,
-                  // Edge margin keeps the last column's values clear of the vertical
-                  // scrollbar, which overlays the viewport.
-                  horizontalMargin: 14,
-                  minWidth: 600,
-                  fixedTopRows: 1,
-                  // Frozen columns are disabled: data_table_2 subtracts a fixed column's
-                  // width from the budget but still divides the remainder by every
-                  // column, so roughly one column's width goes unallocated and opens a
-                  // gap. Landscape never showed it because it froze nothing.
-                  fixedLeftColumns: 0,
-                  showCheckboxColumn: false,
-                  isHorizontalScrollBarVisible: true,
-                  isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns),
-                  rows: roundLeaderboard.entries
-                      .where(
-                        (entry) =>
-                            entry.value.nrlTipsOutstanding +
-                                entry.value.aflTipsOutstanding >
-                            0,
-                      )
-                      .map((MapEntry<Tipper, RoundStats> entry) {
-                        return DataRow(
-                          color:
-                              entry.key == di<TippersViewModel>().selectedTipper
-                              ? WidgetStateProperty.resolveWith(
-                                  (states) => Theme.of(context).highlightColor,
-                                )
-                              : WidgetStateProperty.resolveWith(
-                                  (states) => Colors.transparent,
-                                ),
-                          cells: [
-                            DataCell(
-                              Row(
-                                children: [
-                                  avatarPic(
-                                    entry.key,
-                                    widget.roundNumberToDisplay,
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      softWrap: false,
-                                      entry.key.name,
-                                      overflow: TextOverflow.fade,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                (entry.value.nrlTipsOutstanding +
-                                        entry.value.aflTipsOutstanding)
-                                    .toString(),
-                              ),
-                            ),
-                            DataCell(
-                              Text(entry.value.nrlTipsOutstanding.toString()),
-                            ),
-                            DataCell(
-                              Text(entry.value.aflTipsOutstanding.toString()),
-                            ),
-                          ],
-                        );
-                      })
-                      .toList(),
+                child: AppTable(
+                  columns: columns,
+                  rows: _tableRows(context),
+                  frozenLeading: 1,
+                  sort: AppSort(column: sortColumnIndex ?? 1, ascending: isAscending),
+                  onSort: onSort,
                 ),
               ),
             ),
@@ -322,18 +293,6 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
       isAscending = ascending;
     });
   }
-
-  List<DataColumn> getColumns(List<String> columns) =>
-      columns.asMap().entries.map((entry) {
-        int index = entry.key;
-        String column = entry.value;
-        return DataColumn2(
-          fixedWidth: column == 'Name' ? 175 : 70,
-          numeric: column == 'Name' ? false : true,
-          label: Text(softWrap: false, overflow: TextOverflow.fade, column),
-          onSort: (columnIndex, ascending) => onSort(index, ascending),
-        );
-      }).toList();
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
