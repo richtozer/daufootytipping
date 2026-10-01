@@ -230,27 +230,39 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         left: false,
         right: false,
         top: false,
-        child: NavigationRail(
-          backgroundColor: Colors.transparent,
-          indicatorColor: indicatorColor,
-          indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
+        // NavigationRail holds itself clear of the leading inset on the
+        // assumption it is against the display edge paying for it. Here the
+        // Row has already placed it, and the destinations are grouped at the
+        // bottom where a camera strip or an island -- both mounted along the
+        // middle or top of that edge -- does not reach. Left in, the inset is
+        // taken twice: a 51pt one widened the rail from 103.5 to 154.5 and
+        // pushed every icon off centre by exactly that much.
+        child: MediaQuery.removePadding(
+          context: context,
+          removeLeft: true,
+          removeRight: true,
+          child: NavigationRail(
+            backgroundColor: Colors.transparent,
+            indicatorColor: indicatorColor,
+            indicatorShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            // Grouped at the bottom: the same thumb zone the bar occupied, and
+            // clear of a camera strip mounted at the top of the inset.
+            groupAlignment: 1,
+            labelType: NavigationRailLabelType.all,
+            minWidth: kNavigationRailWidth,
+            selectedIndex: _currentIndex.value,
+            onDestinationSelected: onTabTapped,
+            destinations: [
+              for (final destination in destinations)
+                NavigationRailDestination(
+                  icon: destination.icon,
+                  disabled: !destination.enabled,
+                  label: Text(destination.shortLabel),
+                ),
+            ],
           ),
-          // Grouped at the bottom: the same thumb zone the bar occupied, and
-          // clear of a camera strip mounted at the top of the inset.
-          groupAlignment: 1,
-          labelType: NavigationRailLabelType.all,
-          minWidth: kNavigationRailWidth,
-          selectedIndex: _currentIndex.value,
-          onDestinationSelected: onTabTapped,
-          destinations: [
-            for (final destination in destinations)
-              NavigationRailDestination(
-                icon: destination.icon,
-                disabled: !destination.enabled,
-                label: Text(destination.shortLabel),
-              ),
-          ],
         ),
       ),
     );

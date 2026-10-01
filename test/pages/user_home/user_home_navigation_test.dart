@@ -347,9 +347,16 @@ void main() {
     // Landscape has no inset wide enough to pay for the rail, but it is short
     // of the height the bar spends and has width to spare, so it trades.
     tester.view.physicalSize = const Size(844, 390);
-    await pumpWithInset(const EdgeInsets.only(left: 59));
+    await pumpWithInset(EdgeInsets.zero);
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+    final flush = tester.getRect(find.byType(NavigationRail)).width;
+
+    // NavigationRail holds itself clear of the leading inset on its own. The
+    // Row has already placed it, so counting the inset again would widen the
+    // rail by it and push every destination off centre.
+    await pumpWithInset(const EdgeInsets.only(left: 59));
+    expect(tester.getRect(find.byType(NavigationRail)).width, flush);
   });
 
   testWidgets('hides the list until it has been placed', (tester) async {
