@@ -144,6 +144,17 @@ void main() {
     });
   }
 
+  testWidgets('league ladder landscape golden', (tester) async {
+    currentLadder = fullLadder();
+    // A phone on its side: the rail has to earn its width against the widest
+    // table in the app.
+    await pumpLadder(tester, width: 728, height: 372);
+    await expectLater(
+      find.byKey(const Key('ladder-page')),
+      matchesGoldenFile('goldens/league-ladder-landscape.png'),
+    );
+  });
+
   testWidgets('the ladder is an AppTable with rank and team held still', (
     tester,
   ) async {

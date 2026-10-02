@@ -146,7 +146,6 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   }
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
-    Orientation orientation = MediaQuery.of(context).orientation;
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     final fabBackgroundColor = isDarkMode
@@ -164,61 +163,31 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         child: const Icon(Icons.arrow_back),
       ),
       body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Hero(
-                            tag: 'one_two_three',
-                            child: Icon(Icons.onetwothree, size: 50),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Round ${widget.roundNumberToDisplay} Leaderboard',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Tap a row to see the tips for that tipper.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              LiveScoresWarningCard(),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: AppTable(
-                    columns: columns,
-                    rows: _tableRows(context),
-                    frozenLeading: 1,
-                    sort: AppSort(
-                      column: sortColumnIndex ?? 1,
-                      ascending: isAscending,
-                    ),
-                    onSort: onSort,
-                  ),
-                ),
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          banner: LiveScoresWarningCard(),
+          heading: AppTableHeading(
+            leading: const Hero(
+              tag: 'one_two_three',
+              child: Icon(Icons.onetwothree, size: 50),
+            ),
+            title: 'Round ${widget.roundNumberToDisplay} Leaderboard',
+            description: 'Tap a row to see the tips for that tipper.',
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(context),
+              frozenLeading: 1,
+              sort: AppSort(
+                column: sortColumnIndex ?? 1,
+                ascending: isAscending,
               ),
-            ],
+              onSort: onSort,
+            ),
           ),
         ),
       ),

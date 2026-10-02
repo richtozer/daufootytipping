@@ -171,6 +171,14 @@ void main() {
     }
   }
 
+  testWidgets('competition landscape golden', (tester) async {
+    await pumpPage(tester, width: 900, height: 500);
+    await expectLater(
+      find.byKey(const Key('comp-page')),
+      matchesGoldenFile('goldens/comp-leaderboard-landscape.png'),
+    );
+  });
+
   testWidgets(
     'competition sorting covers all nine columns and survives ticks',
     (tester) async {

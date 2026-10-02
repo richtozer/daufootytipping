@@ -98,7 +98,6 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       value: statsViewModel,
       child: Consumer<StatsViewModel>(
         builder: (context, statsViewModelConsumer, child) {
-          Orientation orientation = MediaQuery.of(context).orientation;
           final isDarkMode =
               MediaQuery.of(context).platformBrightness == Brightness.dark;
           final fabBackgroundColor = isDarkMode
@@ -120,67 +119,29 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                 child: const Icon(Icons.arrow_back),
               ),
               body: SafeArea(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (orientation == Orientation.portrait)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            16.0,
-                            8.0,
-                            16.0,
-                            0.0,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  const Hero(
-                                    tag: 'person',
-                                    child: Icon(Icons.person, size: 50),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Round Winners',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  'Round winners grouped by round. Tap a row to see the full round leaderboard.',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: Colors.grey[600]),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      LiveScoresWarningCard(),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(5.0),
-                          child: AppTable(
-                            columns: columns,
-                            rows: _tableRows(context),
-                            frozenLeading: 2,
-                            sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
-                            onSort: onSort,
-                          ),
-                        ),
-                      ),
-                    ],
+                child: AppTableFrame(
+                  columns: columns,
+                  rows: _tableRows(context),
+                  frozenLeading: 2,
+                  banner: LiveScoresWarningCard(),
+                  heading: const AppTableHeading(
+                    leading: Hero(
+                      tag: 'person',
+                      child: Icon(Icons.person, size: 50),
+                    ),
+                    title: 'Round Winners',
+                    description:
+                        'Round winners grouped by round. Tap a row to see the full round leaderboard.',
+                  ),
+                  table: Padding(
+                    padding: const EdgeInsets.all(5.0),
+                    child: AppTable(
+                      columns: columns,
+                      rows: _tableRows(context),
+                      frozenLeading: 2,
+                      sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
+                      onSort: onSort,
+                    ),
                   ),
                 ),
               ),

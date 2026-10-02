@@ -265,7 +265,6 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
   }
 
   Widget buildScaffold(BuildContext context, String dbkey, Color color) {
-    Orientation orientation = MediaQuery.of(context).orientation;
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     final fabBackgroundColor = isDarkMode
@@ -283,61 +282,32 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         child: const Icon(Icons.arrow_back),
       ),
       body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Hero(
-                            tag: 'trophy',
-                            child: Icon(Icons.emoji_events, size: 50),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Comp Leaderboard',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round points. Tap column headings to sort.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              LiveScoresWarningCard(),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: AppTable(
-                    columns: columns,
-                    rows: _tableRows(context, dbkey, color),
-                    frozenLeading: 1,
-                    sort: AppSort(
-                      column: sortColumnIndex ?? 1,
-                      ascending: isAscending,
-                    ),
-                    onSort: onSort,
-                  ),
-                ),
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context, dbkey, color),
+          frozenLeading: 1,
+          banner: LiveScoresWarningCard(),
+          heading: AppTableHeading(
+            leading: const Hero(
+              tag: 'trophy',
+              child: Icon(Icons.emoji_events, size: 50),
+            ),
+            title: 'Comp Leaderboard',
+            description:
+                'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round points. Tap column headings to sort.',
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(context, dbkey, color),
+              frozenLeading: 1,
+              sort: AppSort(
+                column: sortColumnIndex ?? 1,
+                ascending: isAscending,
               ),
-            ],
+              onSort: onSort,
+            ),
           ),
         ),
       ),

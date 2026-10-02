@@ -447,60 +447,21 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     ),
   );
 
-  Widget _header(
+  AppTableHeading _header(
     BuildContext context,
     String? comparisonTeamNames,
     int? seasonYear,
   ) {
     final bool filtered = widget.teamDbKeysToDisplay?.isNotEmpty ?? false;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _leagueLogo(),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _isComparisonMode
-                          ? 'League Leaderboard Comparison ${DateTime.now().year}'
-                          : "${widget.league.name.toUpperCase()} Premiership Ladder",
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              if (_isComparisonMode && comparisonTeamNames != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Text(
-                    comparisonTeamNames,
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(color: Colors.grey[700]),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
-          child: Text(
-            filtered
-                ? "Compare the stats of the teams in this match. Tap column headers to sort. Tap an individual team to see stats on all their match ups."
-                : _ladderColourExplanation(seasonYear),
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: Colors.grey[600]),
-          ),
-        ),
-      ],
+    return AppTableHeading(
+      leading: _leagueLogo(),
+      title: _isComparisonMode
+          ? 'League Leaderboard Comparison ${DateTime.now().year}'
+          : "${widget.league.name.toUpperCase()} Premiership Ladder",
+      subtitle: _isComparisonMode ? comparisonTeamNames : null,
+      description: filtered
+          ? "Compare the stats of the teams in this match. Tap column headings to sort. Tap an individual team to see stats on all their match ups."
+          : _ladderColourExplanation(seasonYear),
     );
   }
 
@@ -564,7 +525,6 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final Orientation orientation = MediaQuery.of(context).orientation;
     final String? comparisonTeamNames = _comparisonTeamNames();
     final int? seasonYear = _configuredSeasonYear();
     final List<String> comparedTeams =
@@ -574,36 +534,33 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     return SelectedCompBanner(
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (orientation == Orientation.portrait)
-                _header(context, comparisonTeamNames, seasonYear),
-              Expanded(
-                child: _isComparisonMode
-                    // Two tables stacked, so the page scrolls and each sizes
-                    // to its own rows.
-                    ? SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(5.0),
-                              child: _rows.isEmpty
-                                  ? table
-                                  : _sizedToRows(_rows, table),
-                            ),
-                            LeagueLadderHistoricalMatchups(
-                              league: widget.league,
-                              teamDbKeys: comparedTeams,
-                            ),
-                          ],
+          child: AppTableFrame(
+            columns: _columns,
+            rows: _rows,
+            frozenLeading: _frozenLeading,
+            heading: _header(context, comparisonTeamNames, seasonYear),
+            table: _isComparisonMode
+                // Two tables stacked, so this half scrolls and each sizes to
+                // its own rows.
+                ? SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: _rows.isEmpty
+                              ? table
+                              : _sizedToRows(_rows, table),
                         ),
-                      )
-                    // The whole ladder: one table, filling the page, as every
-                    // other table page does.
-                    : Padding(padding: const EdgeInsets.all(5.0), child: table),
-              ),
-            ],
+                        LeagueLadderHistoricalMatchups(
+                          league: widget.league,
+                          teamDbKeys: comparedTeams,
+                        ),
+                      ],
+                    ),
+                  )
+                // The whole ladder: one table, filling the page, as every
+                // other table page does.
+                : Padding(padding: const EdgeInsets.all(5.0), child: table),
           ),
         ),
         floatingActionButton: FloatingActionButton.small(

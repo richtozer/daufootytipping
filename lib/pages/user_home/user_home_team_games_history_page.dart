@@ -237,8 +237,6 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final orientation = MediaQuery.of(context).orientation;
-
     return SelectedCompBanner(
       child: Scaffold(
         floatingActionButton: FloatingActionButton.small(
@@ -251,76 +249,50 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
           child: const Icon(Icons.arrow_back),
         ),
         body: SafeArea(
-          child: Column(
-            children: [
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Hero(
-                            tag: widget.heroTag ?? teamHeroTag(widget.team.dbkey),
-                            child: SizedBox(
-                              width: 50,
-                              height: 50,
-                              child:
-                                  widget.team.logoURI != null &&
-                                      widget.team.logoURI!.isNotEmpty
-                                  ? SvgPicture.asset(
-                                      widget.team.logoURI!,
-                                      placeholderBuilder: (context) =>
-                                          const Icon(Icons.shield),
-                                    )
-                                  : const Icon(Icons.shield),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '${widget.team.name} - Game History',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                      ),
-                    ],
-                  ),
+          child: AppTableFrame(
+            columns: columns,
+            rows: _tableRows(context),
+            frozenLeading: 1,
+            heading: AppTableHeading(
+              leading: Hero(
+                tag: widget.heroTag ?? teamHeroTag(widget.team.dbkey),
+                child: SizedBox(
+                  width: 50,
+                  height: 50,
+                  child:
+                      widget.team.logoURI != null &&
+                          widget.team.logoURI!.isNotEmpty
+                      ? SvgPicture.asset(
+                          widget.team.logoURI!,
+                          placeholderBuilder: (context) =>
+                              const Icon(Icons.shield),
+                        )
+                      : const Icon(Icons.shield),
                 ),
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                    ? Center(child: Text('Error: $_error'))
-                    : _gameHistory.isEmpty
-                    ? const Center(
-                        child: Text('No game history available for this team.'),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.all(5.0),
-                        child: AppTable(
-                          columns: columns,
-                          rows: _tableRows(context),
-                          frozenLeading: 1,
-                          sort: _sortColumnIndex == null ? null
-                              : AppSort(column: _sortColumnIndex!, ascending: _sortAscending),
-                          onSort: _onSort,
-                        ),
-                      ),
               ),
-            ],
+              title: '${widget.team.name} - Game History',
+              description:
+                  'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
+            ),
+            table: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(child: Text('Error: $_error'))
+                : _gameHistory.isEmpty
+                ? const Center(
+                    child: Text('No game history available for this team.'),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(5.0),
+                    child: AppTable(
+                      columns: columns,
+                      rows: _tableRows(context),
+                      frozenLeading: 1,
+                      sort: _sortColumnIndex == null ? null
+                          : AppSort(column: _sortColumnIndex!, ascending: _sortAscending),
+                      onSort: _onSort,
+                    ),
+                  ),
           ),
         ),
       ),

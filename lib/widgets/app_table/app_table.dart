@@ -6,6 +6,7 @@ import 'package:flutter/semantics.dart';
 import 'app_table_layout.dart';
 import 'app_table_models.dart';
 
+export 'app_table_frame.dart';
 export 'app_table_layout.dart';
 export 'app_table_models.dart';
 

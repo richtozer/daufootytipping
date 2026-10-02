@@ -115,7 +115,6 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   }
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
-    Orientation orientation = MediaQuery.of(context).orientation;
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     final fabBackgroundColor = isDarkMode
@@ -133,59 +132,29 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
         child: const Icon(Icons.arrow_back),
       ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Hero(
-                          tag: 'magnifyingGlass',
-                          child: Icon(Icons.search, size: 50),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                child: Text(
-                  'Total of ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)} tips outstanding across all tippers.',
-                  style: Theme.of(context).textTheme.bodyMedium
-                      ?.copyWith(color: Colors.grey[600]),
-                ),
-              ),
-
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(5.0),
-                child: AppTable(
-                  columns: columns,
-                  rows: _tableRows(context),
-                  frozenLeading: 1,
-                  sort: AppSort(column: sortColumnIndex ?? 1, ascending: isAscending),
-                  onSort: onSort,
-                ),
-              ),
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          heading: AppTableHeading(
+            leading: const Hero(
+              tag: 'magnifyingGlass',
+              child: Icon(Icons.search, size: 50),
             ),
-          ],
+            title: name,
+            description:
+                'Total of ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)} tips outstanding across all tippers.',
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(context),
+              frozenLeading: 1,
+              sort: AppSort(column: sortColumnIndex ?? 1, ascending: isAscending),
+              onSort: onSort,
+            ),
+          ),
         ),
       ),
     );

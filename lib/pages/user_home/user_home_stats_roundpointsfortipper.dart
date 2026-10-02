@@ -198,7 +198,6 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     List<RoundStats> points,
     bool isLargeScreen,
   ) {
-    Orientation orientation = MediaQuery.of(context).orientation;
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     final fabBackgroundColor = isDarkMode
@@ -217,70 +216,26 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
         child: const Icon(Icons.arrow_back),
       ),
       body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          avatarPic(widget.statsTipper),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Round Points',
-                                  style: Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: Text(
-                                    widget.statsTipper.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(color: Colors.grey[700]),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Tap a row to see tips for that round.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              LiveScoresWarningCard(),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: AppTable(
-                    columns: columns,
-                    rows: _tableRows(points),
-                    frozenLeading: 1,
-                    sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
-                    onSort: (column, ascending) => onSort(column, ascending, points),
-                  ),
-                ),
-              ),
-            ],
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(points),
+          frozenLeading: 1,
+          banner: LiveScoresWarningCard(),
+          heading: AppTableHeading(
+            leading: avatarPic(widget.statsTipper),
+            title: 'Round Points',
+            subtitle: widget.statsTipper.name,
+            description: 'Tap a row to see tips for that round.',
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(points),
+              frozenLeading: 1,
+              sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
+              onSort: (column, ascending) => onSort(column, ascending, points),
+            ),
           ),
         ),
       ),

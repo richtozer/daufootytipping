@@ -236,7 +236,6 @@ class _StatRoundGameScoresForTipperState
     List<Game>? nrlGames,
     bool isLargeScreen,
   ) {
-    Orientation orientation = MediaQuery.of(context).orientation;
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     final fabBackgroundColor = isDarkMode
@@ -255,56 +254,23 @@ class _StatRoundGameScoresForTipperState
         child: const Icon(Icons.arrow_back),
       ),
       body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      avatarPic(
-                        widget.statsTipper,
-                        widget.roundNumberToDisplay,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Round ${widget.roundNumberToDisplay} Games',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                widget.statsTipper.name,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(color: Colors.grey[700]),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              LiveScoresWarningCard(),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: AppTable(
-                    columns: columns,
-                    rows: _tableRows(context),
-                    frozenLeading: 1,
-                  ),
-                ),
-              ),
-            ],
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          banner: LiveScoresWarningCard(),
+          heading: AppTableHeading(
+            leading: avatarPic(widget.statsTipper, widget.roundNumberToDisplay),
+            title: 'Round ${widget.roundNumberToDisplay} Games',
+            subtitle: widget.statsTipper.name,
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(context),
+              frozenLeading: 1,
+            ),
           ),
         ),
       ),
