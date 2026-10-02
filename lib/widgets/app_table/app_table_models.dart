@@ -3,12 +3,23 @@ import 'package:flutter/material.dart';
 /// Column intent, not a caller-assigned width. Numeric headings may rotate.
 @immutable
 class AppColumn {
-  const AppColumn.text(this.label, {this.sortable = false}) : numeric = false;
-  const AppColumn.numeric(this.label, {this.sortable = false}) : numeric = true;
+  const AppColumn.text(this.label, {this.sortable = false,
+    this.descendingFirst = false}) : numeric = false;
+  const AppColumn.numeric(this.label, {this.sortable = false,
+    this.descendingFirst = true}) : numeric = true;
 
   final String label;
   final bool numeric;
   final bool sortable;
+
+  /// Which way the first tap on this heading sorts. Taps after it toggle, as
+  /// they always have.
+  ///
+  /// A column of figures is asked "who has the most" before it is asked who
+  /// has the least, so numeric columns start descending. A column of names is
+  /// asked for A first. The exception is a column that is already a standing
+  /// -- a rank or a ladder position -- where first place is the low number.
+  final bool descendingFirst;
 }
 
 /// A measurable cell. Text can be shortened visually without losing its label.

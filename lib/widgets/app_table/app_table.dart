@@ -335,7 +335,9 @@ class _AppTableState extends State<AppTable> {
   ) {
     final column = widget.columns[index];
     final selected = widget.sort?.column == index;
-    final ascending = selected ? !(widget.sort?.ascending ?? false) : true;
+    final ascending = selected
+        ? !(widget.sort?.ascending ?? false)
+        : !column.descendingFirst;
     final sortable = column.sortable && widget.onSort != null;
     final rotated = layout.headings[index] == AppHeadingLayout.rotated;
     final indicator = SizedBox(

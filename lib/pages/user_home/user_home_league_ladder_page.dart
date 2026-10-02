@@ -61,7 +61,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   /// "Percentage" is long enough on its own to rotate every other heading
   /// with it -- at tablet width it took the header from 48 to 113.
   static const _columns = [
-    AppColumn.numeric('Rank', sortable: true),
+    AppColumn.numeric('Rank', sortable: true, descendingFirst: false),
     AppColumn.text('Team', sortable: true),
     AppColumn.numeric('Games', sortable: true),
     AppColumn.numeric('Points', sortable: true),

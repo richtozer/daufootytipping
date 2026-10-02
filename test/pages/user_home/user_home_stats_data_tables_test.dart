@@ -232,14 +232,19 @@ void main() {
       await tester.tap(find.text('Rank'));
       await tester.pump();
       expect(table().rows.first.cells[1].text, '24');
+      // A figures column answers "who has the most" on the first tap.
       await tester.tap(find.text('NRL'));
       await tester.pump();
-      expect(table().rows.first.cells[3].text, '7');
+      expect(table().rows.first.cells[3].text, '30');
       final listeners = verify(() => statsViewModel.addListener(captureAny()))
           .captured;
       for (final listener in listeners.cast<VoidCallback>()) {
         listener();
       }
+      await tester.pump();
+      expect(table().rows.first.cells[3].text, '30');
+      // ...and the second gives the other direction, as it always has.
+      await tester.tap(find.text('NRL'));
       await tester.pump();
       expect(table().rows.first.cells[3].text, '7');
       await tester.tap(find.text('Total'));

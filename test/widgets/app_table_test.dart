@@ -97,6 +97,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the first tap opens a column the way it is read', (
+    tester,
+  ) async {
+    (int, bool)? requested;
+    await pumpTable(
+      tester,
+      // Sorting is controlled, so Name stays the sorted column here and every
+      // other heading is being tapped for the first time.
+      sort: const AppSort(column: 0, ascending: true),
+      onSort: (c, a) => requested = (c, a),
+    );
+    // Figures are asked "who has the most" before "who has the least".
+    await tester.tap(find.text('Total points'));
+    expect(requested, (2, false));
+    await tester.tap(find.text('Margins'));
+    expect(requested, (4, false));
+    // A standing is already an order: first place is the low number.
+    await tester.tap(find.text('Rank'));
+    expect(requested, (1, true));
+    // The sorted column toggles, as it always has.
+    await tester.tap(find.text('Name'));
+    expect(requested, (0, false));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('header stays fixed while two frozen cells track vertical rows', (
     tester,
   ) async {

@@ -40,7 +40,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   bool _sortAscending = false;
 
   static const columns = [
-    AppColumn.text('Date', sortable: true),
+    AppColumn.text('Date', sortable: true, descendingFirst: true),
     AppColumn.text('Result', sortable: true),
     AppColumn.text('Opponent', sortable: true),
     AppColumn.numeric('Score', sortable: true),

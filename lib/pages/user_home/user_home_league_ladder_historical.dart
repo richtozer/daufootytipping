@@ -38,7 +38,7 @@ class _LeagueLadderHistoricalMatchupsState
   bool _historicalSortAscending = false;
 
   static const columns = [
-    AppColumn.text('Date', sortable: true),
+    AppColumn.text('Date', sortable: true, descendingFirst: true),
     AppColumn.text('Your Tip', sortable: true),
     AppColumn.text('Winner', sortable: true),
     AppColumn.numeric('Score', sortable: true),

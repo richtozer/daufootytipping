@@ -177,7 +177,8 @@ void main() {
       await pumpPage(tester, width: 1280);
       final keys = <int Function(LeaderboardEntry)>[
         (e) => e.rank,
-        (e) => -(e.rankChange ?? 0),
+        // Plain now: the column starts descending rather than sorting backwards.
+        (e) => e.rankChange ?? 0,
         (e) => e.total,
         (e) => e.nRL,
         (e) => e.aFL,

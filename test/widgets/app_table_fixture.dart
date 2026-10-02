@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 const tableColumns = [
   AppColumn.text('Name', sortable: true),
-  AppColumn.numeric('Rank', sortable: true),
+  AppColumn.numeric('Rank', sortable: true, descendingFirst: false),
   AppColumn.numeric('Total points', sortable: true),
   AppColumn.numeric('Correct tips', sortable: true),
   AppColumn.numeric('Margins', sortable: true),

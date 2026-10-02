@@ -31,7 +31,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   static const columns = [
     AppColumn.text('Name', sortable: true),
-    AppColumn.numeric('Rank', sortable: true),
+    AppColumn.numeric('Rank', sortable: true, descendingFirst: false),
     AppColumn.numeric('Change', sortable: true),
     AppColumn.numeric('Total', sortable: true),
     AppColumn.numeric('NRL', sortable: true),
@@ -198,12 +198,14 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
         );
         break;
       case 2:
-        // The first Change sort shows the biggest gains first; keep this
-        // convention here so notifications preserve the selected ordering.
+        // Plain. The first Change tap still shows the biggest gains first,
+        // but the column now asks for that by starting descending rather
+        // than by sorting backwards -- which left the arrow pointing up
+        // over a descending list.
         sortedLeaderboard.sort(
           (a, b) => ascending
-              ? (b.rankChange ?? 0).compareTo(a.rankChange ?? 0)
-              : (a.rankChange ?? 0).compareTo(b.rankChange ?? 0),
+              ? (a.rankChange ?? 0).compareTo(b.rankChange ?? 0)
+              : (b.rankChange ?? 0).compareTo(a.rankChange ?? 0),
         );
         break;
       case 3:

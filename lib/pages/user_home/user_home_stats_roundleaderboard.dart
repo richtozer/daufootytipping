@@ -31,7 +31,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   static const columns = [
     AppColumn.text('Name', sortable: true),
-    AppColumn.numeric('Rank', sortable: true),
+    AppColumn.numeric('Rank', sortable: true, descendingFirst: false),
     AppColumn.numeric('Total', sortable: true),
     AppColumn.numeric('NRL', sortable: true),
     AppColumn.numeric('AFL', sortable: true),
@@ -238,7 +238,11 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       roundLeaderboard = Map.fromEntries(sortedEntries);
     }
     if (columnIndex == 1 || columnIndex == 2) {
-      if (ascending) {
+      // Rank and Total are one ordering read from opposite ends: the highest
+      // total is rank 1. Both columns sort on rank, so Total has to ask for
+      // it the other way round or "most points first" lands on last place.
+      final bool byRank = columnIndex == 2 ? !ascending : ascending;
+      if (byRank) {
         // Sort by RoundPoints.rank and then by name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
