@@ -21,6 +21,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -516,8 +517,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       restorationScopeId: 'app',
-      theme: FlexThemeData.light(scheme: FlexScheme.green),
-      darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
+      theme: FlexThemeData.light(
+        scheme: FlexScheme.green,
+        fontFamily: appFontFamily,
+      ),
+      darkTheme: FlexThemeData.dark(
+        scheme: FlexScheme.green,
+        fontFamily: appFontFamily,
+      ),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
       // The shell no longer caps the app. Each screen owns its width, so the

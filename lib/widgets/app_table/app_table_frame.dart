@@ -162,7 +162,7 @@ class _AppTableFrameState extends State<AppTableFrame> {
       columns: widget.columns,
       rows: widget.rows,
       textScaler: MediaQuery.textScalerOf(context),
-      headingStyle: body.copyWith(fontWeight: FontWeight.w600),
+      headingStyle: body.copyWith(fontWeight: FontWeight.w700),
       cellStyle: body,
       direction: Directionality.of(context),
     );

@@ -425,7 +425,7 @@ class _FixtureDownloadStatusCard extends StatelessWidget {
                   title,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: color,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 if (subtitle != null) ...[

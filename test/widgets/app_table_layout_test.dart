@@ -11,7 +11,7 @@ const _body = TextStyle(fontFamily: 'Roboto', fontSize: 14);
 const _heading = TextStyle(
   fontFamily: 'Roboto',
   fontSize: 14,
-  fontWeight: FontWeight.w600,
+  fontWeight: FontWeight.w700,
 );
 
 AppTableLayout measure(

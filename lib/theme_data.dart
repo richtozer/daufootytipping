@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+/// The bundled font family used on every platform, so layouts measure the
+/// same on iOS as on Android and web.
+const String appFontFamily = 'Roboto';
+
 final ThemeData myTheme = ThemeData(
+  fontFamily: appFontFamily,
   primaryColor: const Color(0xFF335522),
   colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF335522)),
 );

@@ -59,7 +59,7 @@ class _AppTableState extends State<AppTable> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final body = theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
-    final heading = body.copyWith(fontWeight: FontWeight.w600);
+    final heading = body.copyWith(fontWeight: FontWeight.w700);
     final direction = Directionality.of(context);
     _metrics = _measurements.measure(
       columns: widget.columns,

@@ -122,7 +122,7 @@ class TipsCardDisplay {
       children: [
         TextSpan(
           text: text.substring(0, split),
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         TextSpan(text: text.substring(split)),
       ],

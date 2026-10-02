@@ -527,7 +527,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           rows: rows,
           width: constraints.maxWidth,
           textScaler: MediaQuery.textScalerOf(context),
-          headingStyle: body.copyWith(fontWeight: FontWeight.w600),
+          headingStyle: body.copyWith(fontWeight: FontWeight.w700),
           cellStyle: body,
           direction: Directionality.of(context),
           frozenLeading: _frozenLeading,

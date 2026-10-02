@@ -53,7 +53,7 @@ class LadderEmptyStateCard extends StatelessWidget {
                       'Ladder coming soon',
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: foregroundColor,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),

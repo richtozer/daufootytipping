@@ -135,7 +135,7 @@ void main() {
       width: tester.getSize(find.byType(AppTable).first).width,
       textScaler: MediaQuery.textScalerOf(context),
       cellStyle: body,
-      headingStyle: body.copyWith(fontWeight: FontWeight.w600),
+      headingStyle: body.copyWith(fontWeight: FontWeight.w700),
       frozenLeading: 2,
     );
   }

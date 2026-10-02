@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
@@ -16,7 +17,7 @@ class AdaptiveTipsPrototypeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Adaptive Tips prototype', debugShowCheckedModeBanner: false,
-    theme: FlexThemeData.light(scheme: FlexScheme.green),
+    theme: FlexThemeData.light(scheme: FlexScheme.green, fontFamily: appFontFamily),
     home: const AdaptiveTipsPrototype(),
   );
 }
