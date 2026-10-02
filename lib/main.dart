@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -264,6 +265,14 @@ Future<void> main() async {
 
   di.allowReassignment = true;
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
+
+  // The image cache's first use looks up the temp directory, which the
+  // path_provider plugins now answer synchronously over FFI/JNI, loading their
+  // native bindings on that first call. Left to the first avatar, that stall
+  // lands mid-paint on whichever page shows one; taken here, the splash hides it.
+  if (!kIsWeb) {
+    CachedNetworkImageProvider.defaultCacheManager;
+  }
 
   runApp(
     MultiProvider(
