@@ -71,7 +71,19 @@ class AppContentWidth extends StatelessWidget {
           child: Center(
             child: SizedBox(
               width: available > maxWidth ? maxWidth : available,
-              child: child,
+              // The padding above has already held the content clear of the
+              // horizontal insets, so they are spent. Left in the MediaQuery
+              // they get spent again by a page's own SafeArea: in landscape a
+              // pushed page measured its cards at the width it was given and
+              // then laid them out 124pt narrower, overflowing the row of tip
+              // percentages. Vertical insets are untouched -- nothing here
+              // has accounted for those.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeLeft: true,
+                removeRight: true,
+                child: child,
+              ),
             ),
           ),
         );

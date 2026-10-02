@@ -167,6 +167,66 @@ void main() {
     );
   });
 
+  testWidgets('a page measures and renders at one width in landscape', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(932, 430);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    late double measured;
+    late double rendered;
+    late double renderedHeight;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          // A landscape phone reports its notch on both sides.
+          data: const MediaQueryData(
+            size: Size(932, 430),
+            padding: EdgeInsets.only(left: 62, right: 62, bottom: 21),
+          ),
+          child: AppPageWidth(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Pages measure their cards out here, against the width the
+                // route hands them...
+                measured = constraints.maxWidth;
+                return Scaffold(
+                  body: SafeArea(
+                    child: LayoutBuilder(
+                      builder: (context, inner) {
+                        // ...and lay them out in here.
+                        rendered = inner.maxWidth;
+                        renderedHeight = inner.maxHeight;
+                        return const SizedBox.expand(key: Key('body'));
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // The route already held the content clear of the side insets. When it
+    // left them in the MediaQuery as well, this SafeArea spent them again and
+    // the two widths differed by 124 -- enough to overflow a card measured
+    // against the first and built to the second.
+    expect(rendered, measured);
+    // Spent once, not zero times: the content still clears both notches. The
+    // band is narrower than the gap between them because the route also caps
+    // it at the width a game card needs.
+    final body = tester.getRect(find.byKey(const Key('body')));
+    expect(body.left, greaterThanOrEqualTo(62));
+    expect(body.right, lessThanOrEqualTo(932 - 62));
+    // Only the horizontal insets are spent; the home indicator still owns its
+    // strip along the bottom.
+    expect(renderedHeight, 430 - 21);
+  });
+
   testWidgets('a longer venue does widen it', (tester) async {
     late double short;
     late double long;
