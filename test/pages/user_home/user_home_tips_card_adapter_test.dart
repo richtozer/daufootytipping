@@ -4,6 +4,9 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
@@ -33,10 +36,11 @@ TipsCardDisplay _display(
   String homeRank = '',
   String awayRank = '',
   GameStatsEntry? gameStatsEntry,
+  Tip? tip,
 }) {
   final model = _GameModel();
   when(() => model.game).thenReturn(game);
-  when(() => model.tip).thenReturn(null);
+  when(() => model.tip).thenReturn(tip);
   when(() => model.savingTip).thenReturn(false);
   return tipsCardDisplayFor(
     gameTipViewModel: model,
@@ -45,6 +49,20 @@ TipsCardDisplay _display(
     gameStatsEntry: gameStatsEntry,
   );
 }
+
+Tip _tip(Game game) => Tip(
+  game: game,
+  tipper: Tipper(
+    dbkey: 'tipper-1',
+    authuid: 'auth-1',
+    email: 'tipper@example.com',
+    name: 'Tipper',
+    tipperRole: TipperRole.tipper,
+    compsPaidFor: const [],
+  ),
+  tip: GameResult.b,
+  submittedTimeUTC: game.startTimeUTC.subtract(const Duration(days: 1)),
+);
 
 void main() {
   final future = DateTime.now().toUtc().add(const Duration(days: 7));
@@ -153,9 +171,7 @@ void main() {
     // The same team next round is a second card in the same list, so it
     // cannot reuse the tag: two of them mounted at once made every push
     // throw on duplicate hero tags.
-    final nextRound = _display(
-      _game(startTimeUTC: future, dbkey: 'game-2'),
-    );
+    final nextRound = _display(_game(startTimeUTC: future, dbkey: 'game-2'));
     expect(nextRound.home.heroTag, isNot(display.home.heroTag));
   });
 
@@ -190,5 +206,47 @@ void main() {
 
     expect(display.points, '? / ?');
     expect(display.average, '? / ?');
+  });
+
+  group('average points', () {
+    Game finished() => _game(
+      startTimeUTC: past,
+      scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+    );
+
+    test('reads the game stats average against the max points', () {
+      final game = finished();
+      final tip = _tip(game);
+      final display = _display(
+        game,
+        tip: tip,
+        gameStatsEntry: GameStatsEntry(
+          averagePoints: 1.5,
+          averagePointsTipCount: 40,
+        ),
+      );
+
+      expect(display.average, '1.5 / ${tip.getMaxPointsCalculated()}');
+    });
+
+    test('shows an unknown average until the stats arrive', () {
+      final game = finished();
+      final tip = _tip(game);
+      final display = _display(game, tip: tip);
+
+      expect(display.average, '? / ${tip.getMaxPointsCalculated()}');
+    });
+
+    test('stays unknown without a tip, even with stats', () {
+      final display = _display(
+        finished(),
+        gameStatsEntry: GameStatsEntry(
+          averagePoints: 1.5,
+          averagePointsTipCount: 40,
+        ),
+      );
+
+      expect(display.average, '? / ?');
+    });
   });
 }

@@ -9,6 +9,7 @@ import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
@@ -688,6 +689,120 @@ void main() {
     await tester.pump();
 
     expect(_findBanner('* Interim'), findsNothing);
+  });
+
+  group('tips tab average points', () {
+    late Game finishedGame;
+    late MockStatsViewModel statsViewModel;
+    late VoidCallback statsListener;
+    late Tip tip;
+    GameStatsEntry? gameStatsEntry;
+
+    setUp(() {
+      finishedGame = Game(
+        dbkey: game.dbkey,
+        league: game.league,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(days: 2)),
+        fixtureRoundNumber: game.fixtureRoundNumber,
+        fixtureMatchNumber: game.fixtureMatchNumber,
+        scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+      );
+      tip = Tip(
+        game: finishedGame,
+        tipper: currentTipper,
+        tip: GameResult.b,
+        submittedTimeUTC: DateTime.now().toUtc().subtract(
+          const Duration(days: 3),
+        ),
+      );
+      when(() => mockGameTipViewModel.game).thenReturn(finishedGame);
+      when(() => mockGameTipViewModel.tip).thenReturn(tip);
+
+      gameStatsEntry = null;
+      statsViewModel = MockStatsViewModel();
+      when(() => statsViewModel.addListener(any())).thenAnswer((invocation) {
+        statsListener = invocation.positionalArguments[0] as VoidCallback;
+      });
+      when(() => statsViewModel.removeListener(any())).thenReturn(null);
+      when(() => statsViewModel.gameStatsEntryFor(finishedGame))
+          .thenAnswer((_) => gameStatsEntry);
+    });
+
+    Widget buildSubject() {
+      return MaterialApp(
+        home: ChangeNotifierProvider<StatsViewModel?>.value(
+          value: statsViewModel,
+          child: Scaffold(
+            body: GameListItem(
+              layout: testTipsCardLayout(),
+              game: finishedGame,
+              currentTipper: currentTipper,
+              currentDAUComp: currentComp,
+              allTipsViewModel: mockTipsViewModel,
+              isPercentStatsPage: false,
+              gameTipViewModel: mockGameTipViewModel,
+            ),
+          ),
+        ),
+      );
+    }
+
+    String averageLine(WidgetTester tester) {
+      return tester
+          .widgetList<RichText>(find.byType(RichText))
+          .map((richText) => richText.text.toPlainText())
+          .singleWhere((text) => text.contains('Avg Points:'))
+          .replaceAll(' ', ' ');
+    }
+
+    testWidgets('shows the average from the stats view model', (tester) async {
+      gameStatsEntry = GameStatsEntry(
+        averagePoints: 1.5,
+        averagePointsTipCount: 40,
+      );
+
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      expect(
+        averageLine(tester),
+        'Avg Points: 1.5 / ${tip.getMaxPointsCalculated()}',
+      );
+    });
+
+    testWidgets('fills in the average when the stats arrive later', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      expect(
+        averageLine(tester),
+        'Avg Points: ? / ${tip.getMaxPointsCalculated()}',
+      );
+
+      gameStatsEntry = GameStatsEntry(
+        averagePoints: 0.75,
+        averagePointsTipCount: 40,
+      );
+      statsListener();
+      await tester.pump();
+
+      expect(
+        averageLine(tester),
+        'Avg Points: 0.75 / ${tip.getMaxPointsCalculated()}',
+      );
+    });
+
+    testWidgets('does not request stats from the tips tab', (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      verifyNever(() => statsViewModel.getGamesStatsEntry(finishedGame, any()));
+    });
   });
 }
 

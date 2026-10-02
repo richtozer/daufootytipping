@@ -226,7 +226,17 @@ class _GameListItemState extends State<GameListItem> {
       child: Consumer<GameTipViewModel>(
         builder: (context, gameTipsViewModelConsumer, child) {
           if (!widget.isPercentStatsPage) {
-            return _card(context, gameTipsViewModelConsumer);
+            // The live game stats listener keeps the entry current, so the
+            // average only needs reading here, not requesting.
+            return Selector<StatsViewModel?, GameStatsEntry?>(
+              selector: (_, statsViewModel) => statsViewModel
+                  ?.gameStatsEntryFor(gameTipsViewModelConsumer.game),
+              builder: (context, entry, child) => _card(
+                context,
+                gameTipsViewModelConsumer,
+                gameStatsEntry: entry,
+              ),
+            );
           }
           return Selector<
             StatsViewModel?,
