@@ -7,6 +7,7 @@ import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dar
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -95,14 +96,20 @@ void main() {
     List<String>? compare,
     double width = 400,
     double height = 900,
+    bool dark = false,
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    final ColorScheme scheme = dark
+        ? FlexThemeData.dark(scheme: FlexScheme.green).colorScheme
+        : FlexThemeData.light(scheme: FlexScheme.green).colorScheme;
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(fontFamily: 'Roboto'),
+        // The app's own scheme, with the test font, so the goldens show the
+        // colours the pages actually resolve.
+        theme: ThemeData(fontFamily: 'Roboto', colorScheme: scheme),
         home: RepaintBoundary(
           key: const Key('ladder-page'),
           child: LeagueLadderPage(
@@ -154,6 +161,22 @@ void main() {
     await expectLater(
       find.byKey(const Key('ladder-page')),
       matchesGoldenFile('goldens/league-ladder-comparison-landscape.png'),
+    );
+  });
+
+  testWidgets('comparison landscape golden in dark mode', (tester) async {
+    // Supporting text is drawn over the backdrop rather than on a surface, so
+    // a fixed mid grey went dark-on-dark here.
+    await pumpLadder(
+      tester,
+      compare: const ['first', 'second'],
+      width: 1000,
+      height: 500,
+      dark: true,
+    );
+    await expectLater(
+      find.byKey(const Key('ladder-page')),
+      matchesGoldenFile('goldens/league-ladder-comparison-dark.png'),
     );
   });
 
@@ -259,6 +282,16 @@ void main() {
           .team
           .dbkey,
       'team-0',
+    );
+  });
+
+  testWidgets('the comparison names the teams and the season', (tester) async {
+    await pumpLadder(tester, compare: const ['first', 'second']);
+    // The competition's own season, not the current year: a comparison opened
+    // on a past competition belongs to that one.
+    expect(
+      find.text('Original Leader v Original Runner-up in 2026'),
+      findsOneWidget,
     );
   });
 

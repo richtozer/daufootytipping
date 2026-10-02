@@ -200,7 +200,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
       }
 
       setState(() {
-        _comparisonTeamNamesText = '${teamNames[0]} vs ${teamNames[1]}';
+        _comparisonTeamNamesText = '${teamNames[0]} v ${teamNames[1]}';
       });
     } catch (_) {
       // Fall back to ladder-derived names if team lookup is unavailable.
@@ -227,11 +227,11 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     }
 
     if (teamNames.length == 2) {
-      return '${teamNames[0]} vs ${teamNames[1]}';
+      return '${teamNames[0]} v ${teamNames[1]}';
     }
 
     if (_leagueLadder!.teams.length == 2) {
-      return '${_leagueLadder!.teams[0].teamName} vs ${_leagueLadder!.teams[1].teamName}';
+      return '${_leagueLadder!.teams[0].teamName} v ${_leagueLadder!.teams[1].teamName}';
     }
 
     return null;
@@ -398,6 +398,21 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     );
   }
 
+  /// The season on the subtitle. The configured season where the fixtures
+  /// name one, otherwise the year in the competition's own name -- which is
+  /// what the banner reads. Not the current year: a comparison opened on a
+  /// past competition belongs to that one's season.
+  String? _comparisonSubtitle(String? teamNames) {
+    if (teamNames == null) return null;
+    final comp = di<DAUCompsViewModel>().selectedDAUComp;
+    final int? year =
+        comp?.configuredSeasonYear() ??
+        int.tryParse(
+          RegExp(r'\d{4}').firstMatch(comp?.name ?? '')?.group(0) ?? '',
+        );
+    return year == null ? teamNames : '$teamNames in $year';
+  }
+
   int? _configuredSeasonYear() =>
       di<DAUCompsViewModel>().selectedDAUComp?.configuredSeasonYear();
 
@@ -461,9 +476,11 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
       title: _isComparisonMode
           ? 'Ladder Comparison'
           : "${widget.league.name.toUpperCase()} Premiership Ladder",
-      subtitle: _isComparisonMode ? comparisonTeamNames : null,
+      subtitle: _isComparisonMode
+          ? _comparisonSubtitle(comparisonTeamNames)
+          : null,
       description: filtered
-          ? 'Tap a team for its full game history. Tap headings to sort.'
+          ? 'Tap a team for its full game history.'
           : _ladderColourExplanation(seasonYear),
     );
   }

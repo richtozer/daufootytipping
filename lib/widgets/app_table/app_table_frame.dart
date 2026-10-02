@@ -63,7 +63,7 @@ class AppTableHeading extends StatelessWidget {
                 child: Text(
                   subtitleText,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.grey[700],
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -73,7 +73,10 @@ class AppTableHeading extends StatelessWidget {
                 child: Text(
                   descriptionText,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
+                    // The scheme's own supporting-text colour, not a fixed
+                    // grey: these sit over the backdrop rather than on a
+                    // surface, and a mid grey went dark-on-dark at night.
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),

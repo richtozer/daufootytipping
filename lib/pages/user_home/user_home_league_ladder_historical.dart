@@ -345,7 +345,7 @@ class _LeagueLadderHistoricalMatchupsState
         leading: Icon(Icons.history, size: 50),
         title: 'Historical Matchups',
         description:
-            'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
+            'Recent head-to-head history between these teams. Includes your tipping history (where available).',
       ),
       table: _matchupsTable(context),
     );

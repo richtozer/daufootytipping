@@ -258,7 +258,9 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                               .textTheme
                                               .bodyMedium
                                               ?.copyWith(
-                                                color: Colors.grey[600],
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                               ),
                                         ),
                                       ),
