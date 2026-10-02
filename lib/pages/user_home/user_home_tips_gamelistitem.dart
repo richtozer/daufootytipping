@@ -333,6 +333,15 @@ class _GameListItemState extends State<GameListItem> {
           league: game.league,
           teamDbKeysToDisplay: [game.homeTeam.dbkey, game.awayTeam.dbkey],
           customTitle: "League Leaderboard comparison.",
+          // The card's logos are tagged per game, so the ladder has to adopt
+          // this game's tags for the flight to find them.
+          heroTags: {
+            for (final team in [game.homeTeam, game.awayTeam])
+              team.dbkey: tipsCardHeroTag(
+                gameDbKey: game.dbkey,
+                teamDbKey: team.dbkey,
+              ),
+          },
         ),
       ),
     );

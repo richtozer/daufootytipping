@@ -13,8 +13,22 @@ import 'package:intl/intl.dart';
 const String _infoSeparator = ' 🏉 ';
 
 /// Prefix for the team logo Hero tags shared with the league ladder page.
-/// One tag per team per route: the card is the only place that draws them.
 const String _heroTagPrefix = 'team_icon_';
+
+/// The Hero tag for a team's logo on a tips card.
+///
+/// Scoped to the game, not just the team: a team plays every round and the
+/// list holds a card for each, so tagging by team alone put the same tag on
+/// every one of them. Two mounted at once -- adjacent rounds, or the sliver
+/// cache holding a neighbour alive -- and pushing any route threw.
+String tipsCardHeroTag({
+  required String gameDbKey,
+  required String teamDbKey,
+}) => '$_heroTagPrefix${gameDbKey}_$teamDbKey';
+
+/// The Hero tag for a team's logo where a screen shows it once: the league
+/// ladder's rows and the team history page it opens.
+String teamHeroTag(String teamDbKey) => '$_heroTagPrefix$teamDbKey';
 
 /// Reads live tipping state and returns the presentation values the adaptive
 /// card renders. Saving, permissions, navigation, ladder lookups and Firebase
@@ -36,12 +50,14 @@ TipsCardDisplay tipsCardDisplayFor({
   return TipsCardDisplay(
     id: game.dbkey,
     home: _team(
+      gameDbKey: game.dbkey,
       team: game.homeTeam,
       score: _scoreFor(scoring, ScoringTeam.home, status),
       rank: showRanks ? homeRank : '',
       winner: _hasFinalScore(scoring) && (scoring?.didHomeTeamWin() ?? false),
     ),
     away: _team(
+      gameDbKey: game.dbkey,
       team: game.awayTeam,
       score: _scoreFor(scoring, ScoringTeam.away, status),
       rank: showRanks ? awayRank : '',
@@ -64,6 +80,7 @@ TipsCardDisplay tipsCardDisplayFor({
 }
 
 TipsTeamDisplay _team({
+  required String gameDbKey,
   required Team team,
   required int? score,
   required String rank,
@@ -76,7 +93,7 @@ TipsTeamDisplay _team({
     score: score,
     rank: rank.isEmpty ? null : rank,
     winner: winner,
-    heroTag: '$_heroTagPrefix${team.dbkey}',
+    heroTag: tipsCardHeroTag(gameDbKey: gameDbKey, teamDbKey: team.dbkey),
   );
 }
 

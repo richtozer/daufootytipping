@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -14,10 +15,15 @@ class TeamGamesHistoryPage extends StatefulWidget {
   final Team team;
   final League league;
 
+  /// The Hero tag the logo flew in with, when the caller's own tag differs
+  /// from this page's. Defaults to the team's own tag.
+  final String? heroTag;
+
   const TeamGamesHistoryPage({
     super.key,
     required this.team,
     required this.league,
+    this.heroTag,
   });
 
   @override
@@ -246,7 +252,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Hero(
-                            tag: 'team_icon_${widget.team.dbkey}',
+                            tag: widget.heroTag ?? teamHeroTag(widget.team.dbkey),
                             child: SizedBox(
                               width: 50,
                               height: 50,

@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/ladder_empty_state_card.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
@@ -18,11 +19,18 @@ class LeagueLadderPage extends StatefulWidget {
   final List<String>? teamDbKeysToDisplay; // Added optional parameter
   final String? customTitle; // Added optional parameter
 
+  /// Hero tags to use for the given teams' logos, keyed by team dbkey. Set by
+  /// a caller whose own logos are tagged differently -- a tips card tags its
+  /// pair per game -- so the flight still pairs up. Teams not named here keep
+  /// the ladder's own tag.
+  final Map<String, String>? heroTags;
+
   const LeagueLadderPage({
     super.key,
     required this.league,
     this.teamDbKeysToDisplay, // Added to constructor
     this.customTitle, // Added to constructor
+    this.heroTags,
   });
 
   @override
@@ -562,6 +570,10 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                   league: widget.league, // widget.league is the League object of the current ladder page
                                 );
 
+                                final heroTag =
+                                    widget.heroTags?[ladderTeam.dbkey] ??
+                                    teamHeroTag(ladderTeam.dbkey);
+
                                 void navigateToHistory() {
                                   Navigator.push(
                                     context,
@@ -569,6 +581,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                       (context) => TeamGamesHistoryPage(
                                         team: teamForHistory,
                                         league: widget.league,
+                                        // Whatever this row flew in as, it
+                                        // flies out as.
+                                        heroTag: heroTag,
                                       ),
                                     ),
                                   );
@@ -611,8 +626,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                                               right: 6.0,
                                             ),
                                             child: Hero(
-                                              tag:
-                                                  "team_icon_${ladderTeam.dbkey}",
+                                              tag: heroTag,
                                               child: _buildTeamLogo(ladderTeam),
                                             ),
                                           ),

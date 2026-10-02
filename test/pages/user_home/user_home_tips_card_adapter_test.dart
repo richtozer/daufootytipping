@@ -12,8 +12,12 @@ import 'package:mocktail/mocktail.dart';
 
 class _GameModel extends Mock implements GameTipViewModel {}
 
-Game _game({required DateTime startTimeUTC, Scoring? scoring}) => Game(
-  dbkey: 'game-1',
+Game _game({
+  required DateTime startTimeUTC,
+  Scoring? scoring,
+  String dbkey = 'game-1',
+}) => Game(
+  dbkey: dbkey,
   league: League.nrl,
   homeTeam: Team(dbkey: 'home-1', name: 'Dragons', league: League.nrl),
   awayTeam: Team(dbkey: 'away-1', name: 'Eels', league: League.nrl),
@@ -139,12 +143,20 @@ void main() {
     );
   });
 
-  test('each team carries the ladder page hero tag', () {
+  test('each logo carries a hero tag scoped to its own game', () {
     final display = _display(_game(startTimeUTC: future));
 
-    expect(display.home.heroTag, 'team_icon_home-1');
-    expect(display.away.heroTag, 'team_icon_away-1');
+    expect(display.home.heroTag, 'team_icon_game-1_home-1');
+    expect(display.away.heroTag, 'team_icon_game-1_away-1');
     expect(display.home.heroTag, isNot(display.away.heroTag));
+
+    // The same team next round is a second card in the same list, so it
+    // cannot reuse the tag: two of them mounted at once made every push
+    // throw on duplicate hero tags.
+    final nextRound = _display(
+      _game(startTimeUTC: future, dbkey: 'game-2'),
+    );
+    expect(nextRound.home.heroTag, isNot(display.home.heroTag));
   });
 
   test('the info panel keeps the kickoff, venue and fixture parts', () {
