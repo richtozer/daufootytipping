@@ -103,6 +103,7 @@ class AppTableFrame extends StatefulWidget {
     required this.table,
     this.frozenLeading = 1,
     this.banner,
+    this.fill = true,
   });
 
   final Widget heading;
@@ -118,6 +119,14 @@ class AppTableFrame extends StatefulWidget {
   /// Shown with the table rather than with the heading, so it stays in view
   /// in landscape: the live-scores warning.
   final Widget? banner;
+
+  /// Whether this frame has the page to itself.
+  ///
+  /// A page of stacked sections sets this false: each section is as tall as
+  /// its own table, and they align to the left instead of being centred, so
+  /// their rails line up as one column down the page rather than each
+  /// section sitting in the middle of its own width.
+  final bool fill;
 
   /// A landscape pane narrower than this keeps the portrait stacking: a rail
   /// would take more of it than the table could spare.
@@ -182,7 +191,11 @@ class _AppTableFrameState extends State<AppTableFrame> {
                 AppTableLayout.scrollbarLane +
                 _horizontalPadding * 2,
           );
-          return Center(
+          const EdgeInsets railPadding = EdgeInsets.fromLTRB(16, 8, 8, 8);
+          return Align(
+            alignment: widget.fill
+                ? AlignmentDirectional.center
+                : AlignmentDirectional.centerStart,
             child: SizedBox(
               width: rail + content,
               child: Row(
@@ -190,13 +203,16 @@ class _AppTableFrameState extends State<AppTableFrame> {
                 children: [
                   SizedBox(
                     width: rail,
-                    // The rail is as tall as the page but the text need not
-                    // be: a long description scrolls rather than overflowing
-                    // a short landscape pane.
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                      child: widget.heading,
-                    ),
+                    // A frame that owns the page has a bounded height to
+                    // scroll a long description within. A stacked section is
+                    // only as tall as its table, so its heading is laid out
+                    // at its own height instead.
+                    child: widget.fill
+                        ? SingleChildScrollView(
+                            padding: railPadding,
+                            child: widget.heading,
+                          )
+                        : Padding(padding: railPadding, child: widget.heading),
                   ),
                   Expanded(child: _tableArea()),
                 ],
@@ -204,10 +220,12 @@ class _AppTableFrameState extends State<AppTableFrame> {
             ),
           );
         }
+        final Widget table = _tableArea();
         return Column(
+          mainAxisSize: widget.fill ? MainAxisSize.max : MainAxisSize.min,
           children: [
             _railed(context, pane, widget.heading),
-            Expanded(child: _tableArea()),
+            if (widget.fill) Expanded(child: table) else table,
           ],
         );
       },
@@ -217,7 +235,12 @@ class _AppTableFrameState extends State<AppTableFrame> {
   Widget _tableArea() {
     final banner = widget.banner;
     if (banner == null) return widget.table;
-    return Column(children: [banner, Expanded(child: widget.table)]);
+    return Column(
+      children: [
+        banner,
+        Expanded(child: widget.table),
+      ],
+    );
   }
 
   /// Holds the heading to the rails the rows are drawn on. The rows are
@@ -227,7 +250,10 @@ class _AppTableFrameState extends State<AppTableFrame> {
       1.0,
       pane - AppTableLayout.scrollbarLane - _horizontalPadding * 2,
     );
-    final double content = _contentWidth(context, pane - _horizontalPadding * 2);
+    final double content = _contentWidth(
+      context,
+      pane - _horizontalPadding * 2,
+    );
     return Padding(
       padding: EdgeInsets.fromLTRB(
         _horizontalPadding,

@@ -455,12 +455,15 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     final bool filtered = widget.teamDbKeysToDisplay?.isNotEmpty ?? false;
     return AppTableHeading(
       leading: _leagueLogo(),
+      // Short enough to sit beside two rows without hanging below them. The
+      // teams are named underneath and the competition is named on the
+      // banner, so the title had been saying both again.
       title: _isComparisonMode
-          ? 'League Leaderboard Comparison ${DateTime.now().year}'
+          ? 'Ladder Comparison'
           : "${widget.league.name.toUpperCase()} Premiership Ladder",
       subtitle: _isComparisonMode ? comparisonTeamNames : null,
       description: filtered
-          ? "Compare the stats of the teams in this match. Tap column headings to sort. Tap an individual team to see stats on all their match ups."
+          ? 'Tap a team for its full game history. Tap headings to sort.'
           : _ladderColourExplanation(seasonYear),
     );
   }
@@ -534,34 +537,54 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     return SelectedCompBanner(
       child: Scaffold(
         body: SafeArea(
-          child: AppTableFrame(
-            columns: _columns,
-            rows: _rows,
-            frozenLeading: _frozenLeading,
-            heading: _header(context, comparisonTeamNames, seasonYear),
-            table: _isComparisonMode
-                // Two tables stacked, so this half scrolls and each sizes to
-                // its own rows.
-                ? SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Padding(
+          child: _isComparisonMode
+              // Two sections, each with its heading beside its own table
+              // rather than one heading at the top speaking for both.
+              ? SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      AppTableFrame(
+                        fill: false,
+                        columns: _columns,
+                        rows: _rows,
+                        frozenLeading: _frozenLeading,
+                        heading: _header(
+                          context,
+                          comparisonTeamNames,
+                          seasonYear,
+                        ),
+                        table: Padding(
                           padding: const EdgeInsets.all(5.0),
                           child: _rows.isEmpty
                               ? table
                               : _sizedToRows(_rows, table),
                         ),
-                        LeagueLadderHistoricalMatchups(
-                          league: widget.league,
-                          teamDbKeys: comparedTeams,
-                        ),
-                      ],
-                    ),
-                  )
-                // The whole ladder: one table, filling the page, as every
-                // other table page does.
-                : Padding(padding: const EdgeInsets.all(5.0), child: table),
-          ),
+                      ),
+                      const Divider(
+                        height: 24,
+                        thickness: 1,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      LeagueLadderHistoricalMatchups(
+                        league: widget.league,
+                        teamDbKeys: comparedTeams,
+                      ),
+                    ],
+                  ),
+                )
+              // The whole ladder: one table, filling the page, as every other
+              // table page does.
+              : AppTableFrame(
+                  columns: _columns,
+                  rows: _rows,
+                  frozenLeading: _frozenLeading,
+                  heading: _header(context, comparisonTeamNames, seasonYear),
+                  table: Padding(
+                    padding: const EdgeInsets.all(5.0),
+                    child: table,
+                  ),
+                ),
         ),
         floatingActionButton: FloatingActionButton.small(
           onPressed: () => Navigator.pop(context),

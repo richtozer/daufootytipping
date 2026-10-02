@@ -144,6 +144,19 @@ void main() {
     });
   }
 
+  testWidgets('comparison landscape golden', (tester) async {
+    await pumpLadder(
+      tester,
+      compare: const ['first', 'second'],
+      width: 1000,
+      height: 500,
+    );
+    await expectLater(
+      find.byKey(const Key('ladder-page')),
+      matchesGoldenFile('goldens/league-ladder-comparison-landscape.png'),
+    );
+  });
+
   testWidgets('league ladder landscape golden', (tester) async {
     currentLadder = fullLadder();
     // A phone on its side: the rail has to earn its width against the widest

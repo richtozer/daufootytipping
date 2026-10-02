@@ -334,92 +334,82 @@ class _LeagueLadderHistoricalMatchupsState
 
   @override
   Widget build(BuildContext context) {
-    final Orientation orientation = MediaQuery.of(context).orientation;
+    return AppTableFrame(
+      // A section of the comparison page, not the page itself: it keeps its
+      // heading beside its own table rather than borrowing the one above.
+      fill: false,
+      columns: columns,
+      rows: _tableRows(context),
+      frozenLeading: 1,
+      heading: const AppTableHeading(
+        leading: Icon(Icons.history, size: 50),
+        title: 'Historical Matchups',
+        description:
+            'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
+      ),
+      table: _matchupsTable(context),
+    );
+  }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+  Widget _matchupsTable(BuildContext context) {
+    if (_isLoadingHistoricalData) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final String? error = _historicalDataError;
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Historical Matchups',
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.history, size: 50),
-                ],
+              Text(
+                'Error loading historical data: $error',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
               ),
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: Colors.grey[600]),
-                  ),
-                ),
               const SizedBox(height: 8),
-              if (_isLoadingHistoricalData)
-                const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_historicalDataError != null)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          'Error loading historical data: $_historicalDataError',
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: _fetchHistoricalMatchups,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (_historicalMatchups == null ||
-                  _historicalMatchups!.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Center(
-                    child: Text(
-                      'No historical matchups found between these teams.',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 400,
-                  child: AppTable(
-                    columns: columns,
-                    rows: _tableRows(context),
-                    frozenLeading: 1,
-                    sort: _historicalSortColumnIndex == null ? null
-                        : AppSort(column: _historicalSortColumnIndex!, ascending: _historicalSortAscending),
-                    onSort: _onHistoricalSort,
-                  ),
-                ),
+              ElevatedButton(
+                onPressed: _fetchHistoricalMatchups,
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-      ],
+      );
+    }
+    final matchups = _historicalMatchups;
+    if (matchups == null || matchups.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(
+          child: Text(
+            'No historical matchups found between these teams.',
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
+    }
+    final int? sortColumn = _historicalSortColumnIndex;
+    return Padding(
+      padding: const EdgeInsets.all(5.0),
+      child: SizedBox(
+        height: 400,
+        child: AppTable(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          sort: sortColumn == null
+              ? null
+              : AppSort(
+                  column: sortColumn,
+                  ascending: _historicalSortAscending,
+                ),
+          onSort: _onHistoricalSort,
+        ),
+      ),
     );
   }
 }
