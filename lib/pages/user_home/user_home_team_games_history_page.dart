@@ -34,7 +34,9 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   bool _isLoading = true;
   List<TeamGameHistoryItem> _gameHistory = [];
   String? _error;
-  int? _sortColumnIndex;
+  // Arrives newest first, which is Date descending; say so in the heading,
+  // and sort on load so the heading is telling the truth.
+  int? _sortColumnIndex = 0;
   bool _sortAscending = false;
 
   static const columns = [
@@ -126,6 +128,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
       if (mounted) {
         setState(() {
           _gameHistory = history;
+          _applySort();
           _isLoading = false;
         });
       }
@@ -145,30 +148,38 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
     setState(() {
       _sortColumnIndex = columnIndex;
       _sortAscending = ascending;
+      _applySort();
+    });
+  }
 
-      _gameHistory.sort((a, b) {
-        int compareResult = 0;
-        switch (columnIndex) {
-          case 0: // Date
-            compareResult = a.gameDate.compareTo(b.gameDate);
-            break;
-          case 1: // Result
-            compareResult = a.result.compareTo(b.result);
-            break;
-          case 2: // Opponent
-            compareResult = a.opponentName.compareTo(b.opponentName);
-            break;
-          case 3: // Score
-            final aTotal = a.teamScore + a.opponentScore;
-            final bTotal = b.teamScore + b.opponentScore;
-            compareResult = aTotal.compareTo(bTotal);
-            break;
-          case 4: // Round
-            compareResult = a.roundNumber.compareTo(b.roundNumber);
-            break;
-        }
-        return ascending ? compareResult : -compareResult;
-      });
+  /// Puts the rows in the order the heading claims they are in, rather than
+  /// trusting whatever order they arrived in to match.
+  void _applySort() {
+    final int? columnIndex = _sortColumnIndex;
+    if (columnIndex == null) return;
+    final bool ascending = _sortAscending;
+    _gameHistory.sort((a, b) {
+      int compareResult = 0;
+      switch (columnIndex) {
+        case 0: // Date
+          compareResult = a.gameDate.compareTo(b.gameDate);
+          break;
+        case 1: // Result
+          compareResult = a.result.compareTo(b.result);
+          break;
+        case 2: // Opponent
+          compareResult = a.opponentName.compareTo(b.opponentName);
+          break;
+        case 3: // Score
+          final aTotal = a.teamScore + a.opponentScore;
+          final bTotal = b.teamScore + b.opponentScore;
+          compareResult = aTotal.compareTo(bTotal);
+          break;
+        case 4: // Round
+          compareResult = a.roundNumber.compareTo(b.roundNumber);
+          break;
+      }
+      return ascending ? compareResult : -compareResult;
     });
   }
 

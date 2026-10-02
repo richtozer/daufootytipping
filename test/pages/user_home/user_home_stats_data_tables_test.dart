@@ -664,8 +664,9 @@ void main() {
     when(() => teamsViewModel.initialLoadComplete).thenAnswer((_) async {});
     when(() => teamsViewModel.findTeam(homeTeam.dbkey)).thenReturn(homeTeam);
     when(() => teamsViewModel.findTeam(awayTeam.dbkey)).thenReturn(awayTeam);
+    // GamesViewModel hands these back newest first; so does this.
     when(() => gamesViewModel.getCompleteMatchupHistory(homeTeam, awayTeam, League.nrl))
-      .thenAnswer((_) async => games);
+      .thenAnswer((_) async => games.reversed.toList());
     final tips = MockTableTipsViewModel();
     final comps = [selectedComp];
     when(() => dauCompsViewModel.daucomps).thenReturn(comps);
@@ -696,17 +697,23 @@ void main() {
     await pumpRound(tester, width: 680, page: page);
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
     final original = table().rows;
-    expect(original[0].cells[1].semanticLabel, 'Home Team, correct tip');
-    expect(original[1].cells[1].semanticLabel, 'Home Team, incorrect tip');
-    expect(original[2].cells[2].text, 'Draw');
-    expect(original[3].cells[1].text, 'N/A');
-    expect(original[3].cells[2].text, 'Unknown');
-    expect(original[0].cells[2].semanticLabel, 'Home, Home Team');
-    final badgeWidth = original.first.cells[2].leadingSize.width;
+    // Newest first, which the heading now says and the page now does.
+    expect(table().sort!.column, 0);
+    expect(table().sort!.ascending, isFalse);
+    expect(original[0].cells[1].text, 'N/A');
+    expect(original[0].cells[2].text, 'Unknown');
+    expect(original[1].cells[2].text, 'Draw');
+    expect(original[2].cells[1].semanticLabel, 'Home Team, incorrect tip');
+    expect(original[3].cells[1].semanticLabel, 'Home Team, correct tip');
+    expect(original[3].cells[2].semanticLabel, 'Home, Home Team');
+    // Row 3 is the newest game with a result: the unplayed ones carry no
+    // badge to measure.
+    final badgeWidth = original[3].cells[2].leadingSize.width;
+    expect(badgeWidth, greaterThan(0));
     await pumpRound(tester, page: page);
     expect(identical(original, table().rows), isTrue);
     await pumpRound(tester, scale: 1.5, page: page);
-    expect(table().rows.first.cells[2].leadingSize.width, greaterThan(badgeWidth));
+    expect(table().rows[3].cells[2].leadingSize.width, greaterThan(badgeWidth));
     expect(table().rows.every((row) => row.onTap == null), isTrue);
     for (var column = 0; column < 4; column++) {
       for (final ascending in [true, false]) {
@@ -782,9 +789,11 @@ void main() {
       roundNumber: i + 1, isHomeGame: i.isEven,
     ));
     when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
+    // GamesViewModel hands these back newest first; so does this.
+    final ordered = items.reversed.toList();
     when(() => gamesViewModel.getCompleteTeamGameHistory(homeTeam, League.nrl))
-      .thenAnswer((_) async => items);
-    return items;
+      .thenAnswer((_) async => ordered);
+    return ordered;
   }
 
   for (final width in [360.0, 680.0, 768.0, 1280.0]) {
@@ -811,7 +820,10 @@ void main() {
     expect(identical(original, table().rows), isTrue);
     await pumpRound(tester, scale: 1.5, page: page);
     expect(table().rows.first.cells.last.intrinsicSize.width, greaterThan(badgeWidth));
-    expect(table().rows.first.cells.last.semanticLabel, 'Home, Round 1');
+    // Newest first, which the heading now says and the page now does.
+    expect(table().sort!.column, 0);
+    expect(table().sort!.ascending, isFalse);
+    expect(table().rows.first.cells.last.semanticLabel, 'Away, Round 24');
     expect(table().rows.every((row) => row.onTap == null), isTrue);
     for (var column = 0; column < 5; column++) {
       for (final ascending in [true, false]) {
@@ -822,6 +834,9 @@ void main() {
       }
     }
     expect(table().rows.first.cells.last.semanticLabel, 'Away, Round 24');
+    table().onSort!(4, true);
+    await tester.pump();
+    expect(table().rows.first.cells.last.semanticLabel, 'Home, Round 1');
     expect(tester.takeException(), isNull);
   });
 

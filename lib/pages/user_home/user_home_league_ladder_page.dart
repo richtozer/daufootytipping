@@ -43,7 +43,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   bool _isLoading = true;
   String? _error;
   String? _emptyMessage;
-  int? _sortColumnIndex;
+  // The ladder arrives in rank order, so that is the sort the heading shows
+  // from the start rather than leaving every column looking unsorted.
+  int? _sortColumnIndex = 0;
   bool _sortAscending = true;
   String? _comparisonTeamNamesText;
   late final ValueListenable<int> _leagueLadderRevision;
@@ -52,17 +54,23 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   /// nine columns of numbers mean nothing without them.
   static const int _frozenLeading = 2;
 
+  /// Spelled out: a narrow pane turns these on their side, where a single
+  /// letter says nothing and "Agst" reads as a typo.
+  ///
+  /// '%' stays as it is. It is the one heading that needs no expanding, and
+  /// "Percentage" is long enough on its own to rotate every other heading
+  /// with it -- at tablet width it took the header from 48 to 113.
   static const _columns = [
-    AppColumn.numeric('#', sortable: true),
+    AppColumn.numeric('Rank', sortable: true),
     AppColumn.text('Team', sortable: true),
-    AppColumn.numeric('Gms', sortable: true),
-    AppColumn.numeric('Pts', sortable: true),
-    AppColumn.numeric('W', sortable: true),
-    AppColumn.numeric('L', sortable: true),
-    AppColumn.numeric('D', sortable: true),
+    AppColumn.numeric('Games', sortable: true),
+    AppColumn.numeric('Points', sortable: true),
+    AppColumn.numeric('Won', sortable: true),
+    AppColumn.numeric('Lost', sortable: true),
+    AppColumn.numeric('Drawn', sortable: true),
     AppColumn.numeric('Byes', sortable: true),
     AppColumn.numeric('For', sortable: true),
-    AppColumn.numeric('Agst', sortable: true),
+    AppColumn.numeric('Against', sortable: true),
     AppColumn.numeric('%', sortable: true),
   ];
 

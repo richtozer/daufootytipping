@@ -116,6 +116,23 @@ void main() {
     await tester.pump();
   }
 
+  AppTable table(WidgetTester tester) =>
+      tester.widget<AppTable>(find.byType(AppTable).first);
+
+  AppTableLayout measuredLayout(WidgetTester tester) {
+    final context = tester.element(find.byType(AppTable).first);
+    final body = Theme.of(context).textTheme.bodyMedium!;
+    return AppTableLayout.measure(
+      columns: table(tester).columns,
+      rows: table(tester).rows,
+      width: tester.getSize(find.byType(AppTable).first).width,
+      textScaler: MediaQuery.textScalerOf(context),
+      cellStyle: body,
+      headingStyle: body.copyWith(fontWeight: FontWeight.w600),
+      frozenLeading: 2,
+    );
+  }
+
   for (final width in [360.0, 768.0]) {
     testWidgets('league ladder golden $width', (tester) async {
       currentLadder = fullLadder();
@@ -127,9 +144,6 @@ void main() {
     });
   }
 
-  AppTable table(WidgetTester tester) =>
-      tester.widget<AppTable>(find.byType(AppTable).first);
-
   testWidgets('the ladder is an AppTable with rank and team held still', (
     tester,
   ) async {
@@ -140,13 +154,37 @@ void main() {
     expect(ladderTable.columns.length, 11);
     expect(ladderTable.frozenLeading, 2);
     expect(ladderTable.rows.length, 12);
-    expect(ladderTable.columns.first.label, '#');
-    expect(ladderTable.columns[1].label, 'Team');
+    // Spelled out, because a narrow pane turns them on their side.
+    expect(
+      [for (final column in ladderTable.columns) column.label],
+      [
+        'Rank',
+        'Team',
+        'Games',
+        'Points',
+        'Won',
+        'Lost',
+        'Drawn',
+        'Byes',
+        'For',
+        'Against',
+        '%',
+      ],
+    );
     // Every column sorts, as the page's own instructions tell the user.
     expect(ladderTable.columns.every((column) => column.sortable), isTrue);
     // The whole ladder fills the page below the header, as every other table
     // page does, rather than running the page itself as one long scroll.
     expect(tester.getSize(find.byType(AppTable)).height, greaterThan(500));
+    // Keep the cost of spelling the headings out visible. A rotated heading
+    // sets the header's height for every column, so one long word is paid for
+    // across the whole table -- which is why '%' was left as it is.
+    expect(measuredLayout(tester).headerHeight, lessThanOrEqualTo(160));
+    // The ladder arrives ranked, so the heading says so from the start
+    // instead of showing a table that looks unsorted.
+    expect(ladderTable.sort?.column, 0);
+    expect(ladderTable.sort?.ascending, isTrue);
+    expect(ladderTable.rows.first.key, const ValueKey('team-0'));
     expect(tester.takeException(), isNull);
   });
 

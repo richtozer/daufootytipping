@@ -32,7 +32,9 @@ class _LeagueLadderHistoricalMatchupsState
   List<HistoricalMatchupUIData>? _historicalMatchups;
   bool _isLoadingHistoricalData = false;
   String? _historicalDataError;
-  int? _historicalSortColumnIndex;
+  // Arrives newest first, which is Date descending; say so in the heading,
+  // and sort on load so the heading is telling the truth.
+  int? _historicalSortColumnIndex = 0;
   bool _historicalSortAscending = false;
 
   static const columns = [
@@ -240,6 +242,7 @@ class _LeagueLadderHistoricalMatchupsState
       if (mounted) {
         setState(() {
           _historicalMatchups = displayData;
+          _applyHistoricalSort();
           _isLoadingHistoricalData = false;
         });
       }
@@ -277,33 +280,42 @@ class _LeagueLadderHistoricalMatchupsState
     setState(() {
       _historicalSortColumnIndex = columnIndex;
       _historicalSortAscending = ascending;
+      _applyHistoricalSort();
+    });
+  }
 
-      _historicalMatchups!.sort((a, b) {
-        int compareResult = 0;
-        switch (columnIndex) {
-          case 0:
-            compareResult = a.pastGame.startTimeUTC.compareTo(
-              b.pastGame.startTimeUTC,
-            );
-            break;
-          case 1:
-            compareResult = a.userTipTeamName.compareTo(b.userTipTeamName);
-            break;
-          case 2:
-            compareResult = a.winningTeamName.compareTo(b.winningTeamName);
-            break;
-          case 3:
-            final int aTotal =
-                (a.pastGame.scoring?.homeTeamScore ?? 0) +
-                (a.pastGame.scoring?.awayTeamScore ?? 0);
-            final int bTotal =
-                (b.pastGame.scoring?.homeTeamScore ?? 0) +
-                (b.pastGame.scoring?.awayTeamScore ?? 0);
-            compareResult = aTotal.compareTo(bTotal);
-            break;
-        }
-        return ascending ? compareResult : -compareResult;
-      });
+  /// Puts the rows in the order the heading claims they are in, rather than
+  /// trusting whatever order they arrived in to match.
+  void _applyHistoricalSort() {
+    final int? columnIndex = _historicalSortColumnIndex;
+    final List<HistoricalMatchupUIData>? matchups = _historicalMatchups;
+    if (columnIndex == null || matchups == null) return;
+    final bool ascending = _historicalSortAscending;
+    matchups.sort((a, b) {
+      int compareResult = 0;
+      switch (columnIndex) {
+        case 0:
+          compareResult = a.pastGame.startTimeUTC.compareTo(
+            b.pastGame.startTimeUTC,
+          );
+          break;
+        case 1:
+          compareResult = a.userTipTeamName.compareTo(b.userTipTeamName);
+          break;
+        case 2:
+          compareResult = a.winningTeamName.compareTo(b.winningTeamName);
+          break;
+        case 3:
+          final int aTotal =
+              (a.pastGame.scoring?.homeTeamScore ?? 0) +
+              (a.pastGame.scoring?.awayTeamScore ?? 0);
+          final int bTotal =
+              (b.pastGame.scoring?.homeTeamScore ?? 0) +
+              (b.pastGame.scoring?.awayTeamScore ?? 0);
+          compareResult = aTotal.compareTo(bTotal);
+          break;
+      }
+      return ascending ? compareResult : -compareResult;
     });
   }
 
