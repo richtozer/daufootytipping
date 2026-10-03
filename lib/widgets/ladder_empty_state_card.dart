@@ -1,11 +1,9 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 
 class LadderEmptyStateCard extends StatelessWidget {
-  const LadderEmptyStateCard({
-    super.key,
-    required this.message,
-  });
+  const LadderEmptyStateCard({super.key, required this.message});
 
   final String message;
 
@@ -30,7 +28,7 @@ class LadderEmptyStateCard extends StatelessWidget {
         elevation: 0,
         color: backgroundColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kCardCornerRadius),
           side: BorderSide(color: borderColor),
         ),
         child: Padding(
@@ -38,11 +36,7 @@ class LadderEmptyStateCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.info_outline,
-                color: foregroundColor,
-                size: 22,
-              ),
+              Icon(Icons.info_outline, color: foregroundColor, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

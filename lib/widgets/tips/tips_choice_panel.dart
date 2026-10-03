@@ -1,3 +1,4 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 
 import 'tips_card_layout.dart';
@@ -17,7 +18,9 @@ class TipsChoicePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
       child: switch (arrangement) {
         TipsChoiceArrangement.paired => Column(
           mainAxisSize: MainAxisSize.max,

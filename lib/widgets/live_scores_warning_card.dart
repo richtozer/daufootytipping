@@ -5,6 +5,7 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -23,8 +24,7 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
 
     if (!hasLiveScores) return const SizedBox.shrink();
 
-    final int liveScoreCount =
-        di<StatsViewModel>().gamesWithLiveScores.length;
+    final int liveScoreCount = di<StatsViewModel>().gamesWithLiveScores.length;
     final warningBackgroundColor = isDarkMode
         ? Colors.amber.shade900
         : Colors.amber.shade50;
@@ -40,12 +40,12 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       color: warningBackgroundColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
         side: BorderSide(color: warningBorderColor),
       ),
       child: InkWell(
         onTap: () => showLiveScoreDetails(context),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -93,7 +93,7 @@ class LiveScoresWarningCard extends StatelessWidget with WatchItMixin {
             ...games.map(
               (game) => InkWell(
                 onTap: () => Navigator.pop(dialogContext, game),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kCardCornerRadius),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     vertical: 8,
