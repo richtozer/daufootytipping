@@ -1,5 +1,7 @@
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:flutter/material.dart';
 
 // this class only supports updating Team records. for referential
@@ -86,123 +88,109 @@ class _TeamEditPageState extends State<TeamEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: disableBackButton
-                  ? const ImageIcon(
-                      null,
-                    ) // dont show anything clickable while saving is in progress
-                  : const Icon(Icons.arrow_back),
-              onPressed: disableBackButton
-                  ? null
-                  : () {
-                      Navigator.maybePop(context);
-                    },
-            );
-          },
-        ),
-        actions: <Widget>[
-          Builder(
-            builder: (BuildContext context) {
-              return IconButton(
-                icon: isSaving
-                    ? const Icon(Icons.hourglass_bottom)
-                    : disableSaves
-                    ? const Icon(Icons.save_outlined) // Disabled save icon
-                    : const Icon(Icons.save), // Enabled save icon
-                onPressed: (disableSaves || isSaving)
-                    ? null
-                    : () async {
-                        // Validate will return true if the form is valid, or false if
-                        // the form is invalid.
-                        final isValid = _formKey.currentState!.validate();
-                        if (isValid) {
-                          _saveTeam(context, team);
-                        }
-                      },
-              );
-            },
+    // Back is the floating control's maybePop, so a save in progress holds the
+    // page here the same way it held the old back button.
+    return PopScope(
+      canPop: !disableBackButton,
+      child: AppAdminPage(
+        title: 'Edit Team',
+        actions: [
+          AppGlassAction(
+            icon: isSaving
+                ? Icons.hourglass_bottom
+                : disableSaves
+                ? Icons.save_outlined
+                : Icons.save,
+            label: 'Save',
+            onPressed: (disableSaves || isSaving)
+                ? null
+                : () async {
+                    // Validate will return true if the form is valid, or false
+                    // if the form is invalid.
+                    final isValid = _formKey.currentState!.validate();
+                    if (isValid) {
+                      _saveTeam(context, team);
+                    }
+                  },
           ),
         ],
-        title: const Text('Edit Team'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: [
-                  const Text('Name:'),
-                  Expanded(
-                    child: TextFormField(
-                      enabled: !disableBackButton,
-                      controller: _teamNameController,
-                      onChanged: (String value) {
-                        if (team.name != value) {
-                          //something has changed, allow saves
-                          setState(() {
-                            disableSaves = false;
-                          });
-                        } else {
-                          setState(() {
-                            disableSaves = true;
-                          });
-                        }
-                      },
-                      decoration: const InputDecoration(hintText: 'Team name'),
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).nextFocus();
-                      },
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a team name';
-                        }
-                        return null;
-                      },
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: [
+                    const Text('Name:'),
+                    Expanded(
+                      child: TextFormField(
+                        enabled: !disableBackButton,
+                        controller: _teamNameController,
+                        onChanged: (String value) {
+                          if (team.name != value) {
+                            //something has changed, allow saves
+                            setState(() {
+                              disableSaves = false;
+                            });
+                          } else {
+                            setState(() {
+                              disableSaves = true;
+                            });
+                          }
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'Team name',
+                        ),
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).nextFocus();
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a team name';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Text('Logo:'),
-                  Expanded(
-                    child: TextFormField(
-                      enabled: !disableBackButton,
-                      controller: _teamLogoURIController,
-                      onChanged: (String value) {
-                        if (team.logoURI != value) {
-                          //something has changed, allow saves
-                          setState(() {
-                            disableSaves = false;
-                          });
-                        } else {
-                          setState(() {
-                            disableSaves = true;
-                          });
-                        }
-                      },
-                      decoration: const InputDecoration(hintText: 'Logo'),
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).nextFocus();
-                      },
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a team logo link';
-                        }
-                        return null;
-                      },
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Text('Logo:'),
+                    Expanded(
+                      child: TextFormField(
+                        enabled: !disableBackButton,
+                        controller: _teamLogoURIController,
+                        onChanged: (String value) {
+                          if (team.logoURI != value) {
+                            //something has changed, allow saves
+                            setState(() {
+                              disableSaves = false;
+                            });
+                          } else {
+                            setState(() {
+                              disableSaves = true;
+                            });
+                          }
+                        },
+                        decoration: const InputDecoration(hintText: 'Logo'),
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).nextFocus();
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a team logo link';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

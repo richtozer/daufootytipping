@@ -42,13 +42,25 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   List<AppRow> _tableRows(BuildContext context) {
     final theme = Theme.of(context);
     final selected = di<TippersViewModel>().selectedTipper;
-    final winners = statsViewModel.roundWinners.values.expand((group) => group).toList();
+    final winners = statsViewModel.roundWinners.values
+        .expand((group) => group)
+        .toList();
     final values = <Object?>[
-      theme.brightness, theme.highlightColor, selected,
+      theme.brightness,
+      theme.highlightColor,
+      selected,
       for (final winner in winners) ...[
-        winner.roundNumber, winner.tipper, winner.tipper.name, winner.tipper.photoURL,
-        winner.total, winner.nRL, winner.aFL,
-        winner.aflMargins, winner.nrlMargins, winner.aflUPS, winner.nrlUPS,
+        winner.roundNumber,
+        winner.tipper,
+        winner.tipper.name,
+        winner.tipper.photoURL,
+        winner.total,
+        winner.nRL,
+        winner.aFL,
+        winner.aflMargins,
+        winner.nrlMargins,
+        winner.aflUPS,
+        winner.nrlUPS,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
@@ -56,31 +68,38 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     int? lastRound;
     var alternate = false;
     _rows = [
-      for (final winner in winners) (() {
-        if (lastRound != winner.roundNumber) alternate = !alternate;
-        lastRound = winner.roundNumber;
-        final groupColour = theme.brightness == Brightness.dark
-            ? (alternate ? Colors.grey.shade800 : Colors.grey.shade600)
-            : (alternate ? Colors.grey.shade200 : Colors.grey.shade400);
-        return AppRow(
-          key: ValueKey((winner.roundNumber, winner.tipper.dbkey)),
-          colour: winner.tipper == selected ? theme.highlightColor : groupColour,
-          onTap: () => onRowTapped(context, winner),
-          cells: [
-            AppCell.text(winner.roundNumber.toString(),
-              leading: const Icon(Icons.arrow_forward, size: 15),
-              leadingSize: const Size(15, 15)),
-            AppCell.text(winner.tipper.name,
-              leading: avatarPic(winner.tipper, winner.roundNumber),
-              leadingSize: const Size(30, 30)),
-            AppCell.text(winner.total.toString()),
-            AppCell.text(winner.nRL.toString()),
-            AppCell.text(winner.aFL.toString()),
-            AppCell.text((winner.aflMargins + winner.nrlMargins).toString()),
-            AppCell.text((winner.aflUPS + winner.nrlUPS).toString()),
-          ],
-        );
-      })(),
+      for (final winner in winners)
+        (() {
+          if (lastRound != winner.roundNumber) alternate = !alternate;
+          lastRound = winner.roundNumber;
+          final groupColour = theme.brightness == Brightness.dark
+              ? (alternate ? Colors.grey.shade800 : Colors.grey.shade600)
+              : (alternate ? Colors.grey.shade200 : Colors.grey.shade400);
+          return AppRow(
+            key: ValueKey((winner.roundNumber, winner.tipper.dbkey)),
+            colour: winner.tipper == selected
+                ? theme.highlightColor
+                : groupColour,
+            onTap: () => onRowTapped(context, winner),
+            cells: [
+              AppCell.text(
+                winner.roundNumber.toString(),
+                leading: const Icon(Icons.arrow_forward, size: 15),
+                leadingSize: const Size(15, 15),
+              ),
+              AppCell.text(
+                winner.tipper.name,
+                leading: avatarPic(winner.tipper, winner.roundNumber),
+                leadingSize: const Size(30, 30),
+              ),
+              AppCell.text(winner.total.toString()),
+              AppCell.text(winner.nRL.toString()),
+              AppCell.text(winner.aFL.toString()),
+              AppCell.text((winner.aflMargins + winner.nrlMargins).toString()),
+              AppCell.text((winner.aflUPS + winner.nrlUPS).toString()),
+            ],
+          );
+        })(),
     ];
     return _rows;
   }
@@ -98,26 +117,8 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       value: statsViewModel,
       child: Consumer<StatsViewModel>(
         builder: (context, statsViewModelConsumer, child) {
-          final isDarkMode =
-              MediaQuery.of(context).platformBrightness == Brightness.dark;
-          final fabBackgroundColor = isDarkMode
-              ? const Color(0xFF4E7A36)
-              : Colors.lightGreen[200];
-          final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
           return SelectedCompBanner(
             child: Scaffold(
-              floatingActionButton: FloatingActionButton.small(
-                backgroundColor: fabBackgroundColor,
-                foregroundColor: fabForegroundColor,
-                heroTag: 'roundWinners',
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Icon(Icons.arrow_back),
-              ),
               body: SafeArea(
                 child: AppTableFrame(
                   columns: columns,
@@ -130,8 +131,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       child: Icon(Icons.person, size: 50),
                     ),
                     title: 'Round Winners',
-                    description:
-                        'Round winners grouped by round. Tap a row to see the full round leaderboard.',
+                    description: 'Round winners grouped by round. Tap a row to see the full round leaderboard.',
                   ),
                   table: Padding(
                     padding: const EdgeInsets.all(5.0),
@@ -139,7 +139,10 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                       columns: columns,
                       rows: _tableRows(context),
                       frozenLeading: 2,
-                      sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
+                      sort: AppSort(
+                        column: sortColumnIndex ?? 0,
+                        ascending: isAscending,
+                      ),
                       onSort: onSort,
                     ),
                   ),

@@ -4,6 +4,8 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -92,16 +94,8 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<TippersViewModel>.value(
       value: di<TippersViewModel>(),
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          title: const Text('Admin Tippers'),
-        ),
+      child: AppAdminPage(
+        title: 'Admin Tippers',
         body: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Column(
@@ -203,68 +197,80 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                           ),
                         ),
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: tippers.length,
-                            itemBuilder: (context, index) {
-                              var tipper = tippers[index];
+                          // Rows sit at the bottom, within thumb reach.
+                          child: AppBottomAlignedScroll(
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Column(
+                                children: [
+                                  for (final tipper in tippers)
+                                    Builder(
+                                      builder: (context) {
+                                        bool tipperPaidForCurrentComp = tipper
+                                            .paidForComp(
+                                              di<DAUCompsViewModel>()
+                                                  .activeDAUComp,
+                                            );
 
-                              bool tipperPaidForCurrentComp = tipper
-                                  .paidForComp(
-                                    di<DAUCompsViewModel>().activeDAUComp,
-                                  );
+                                        // create the ListTile title by concatenating the tipper name and role. if the name is null, use 'new tipper'
+                                        String title =
+                                            '${tipper.name} - ${tipper.tipperRole.name}';
 
-                              // create the ListTile title by concatenating the tipper name and role. if the name is null, use 'new tipper'
-                              String title =
-                                  '${tipper.name} - ${tipper.tipperRole.name}';
-
-                              return Card(
-                                child: ListTile(
-                                  //if this tipper is in godmode then tint this ListTile in red
-                                  tileColor:
-                                      tipperViewModel.inGodMode &&
-                                          tipper.dbkey ==
-                                              tipperViewModel
-                                                  .selectedTipper
-                                                  .dbkey
-                                      ? Colors.red[100]
-                                      : null,
-                                  dense: true,
-                                  isThreeLine: true,
-                                  leading: tipper.photoURL != null
-                                      ? avatarPic(tipper)
-                                      : null,
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      if (tipperPaidForCurrentComp)
-                                        const Text(
-                                          '\$',
-                                          style: TextStyle(fontSize: 20),
-                                        ),
-                                    ],
-                                  ),
-                                  title: Text(title),
-                                  subtitle: Text(
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    '${formatDateTime(tipper.acctLoggedOnUTC)} - ${tipper.logon}',
-                                  ),
-                                  onTap: () async {
-                                    // Trigger edit functionality
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            TipperAdminEditPage(
-                                              tipperViewModel,
-                                              tipper,
+                                        return Card(
+                                          child: ListTile(
+                                            //if this tipper is in godmode then tint this ListTile in red
+                                            tileColor:
+                                                tipperViewModel.inGodMode &&
+                                                    tipper.dbkey ==
+                                                        tipperViewModel
+                                                            .selectedTipper
+                                                            .dbkey
+                                                ? Colors.red[100]
+                                                : null,
+                                            dense: true,
+                                            isThreeLine: true,
+                                            leading: tipper.photoURL != null
+                                                ? avatarPic(tipper)
+                                                : null,
+                                            trailing: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                if (tipperPaidForCurrentComp)
+                                                  const Text(
+                                                    '\$',
+                                                    style: TextStyle(
+                                                      fontSize: 20,
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
-                            },
+                                            title: Text(title),
+                                            subtitle: Text(
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              '${formatDateTime(tipper.acctLoggedOnUTC)} - ${tipper.logon}',
+                                            ),
+                                            onTap: () async {
+                                              // Trigger edit functionality
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      TipperAdminEditPage(
+                                                        tipperViewModel,
+                                                        tipper,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],

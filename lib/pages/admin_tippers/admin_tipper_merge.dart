@@ -2,6 +2,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -78,8 +79,8 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
-    return Scaffold(
-      appBar: AppBar(title: Text('Merge Tippers')),
+    return AppAdminPage(
+      title: 'Merge Tippers',
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),

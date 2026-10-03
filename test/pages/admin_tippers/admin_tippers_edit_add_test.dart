@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
+
+import '../../support/app_controls_test_app.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -20,13 +23,21 @@ void main() {
   late MockDAUCompsViewModel mockDauCompsViewModel;
   late MockTippersViewModel mockTippersViewModel;
   late Tipper tipper;
+  late AppControlsViewModel appControls;
 
   Future<void> pumpEditPage(WidgetTester tester) async {
+    // Pushed, as it is in the app, so the floating controls offer Back and Save.
     await tester.pumpWidget(
-      MaterialApp(
-        home: TipperAdminEditPage(mockTippersViewModel, tipper),
-      ),
+      appWithControls(appControls, home: const SizedBox.shrink()),
     );
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => TipperAdminEditPage(mockTippersViewModel, tipper),
+          ),
+        );
+    await tester.pumpAndSettle();
     await tester.pump();
     await tester.pump();
   }
@@ -34,6 +45,7 @@ void main() {
   setUp(() async {
     await di.reset();
     di.allowReassignment = true;
+    appControls = registerAppControlsViewModel();
 
     mockDauCompsViewModel = MockDAUCompsViewModel();
     mockTippersViewModel = MockTippersViewModel();
@@ -50,9 +62,8 @@ void main() {
     );
 
     when(() => mockDauCompsViewModel.selectedDAUComp).thenReturn(null);
-    when(() => mockDauCompsViewModel.getDAUcomps()).thenAnswer(
-      (_) async => <DAUComp>[],
-    );
+    when(() => mockDauCompsViewModel.getDAUcomps())
+        .thenAnswer((_) async => <DAUComp>[]);
 
     when(
       () => mockTippersViewModel.isEmailOrLogonAlreadyAssigned(
@@ -61,12 +72,10 @@ void main() {
         tipper,
       ),
     ).thenAnswer((_) async => null);
-    when(
-      () => mockTippersViewModel.updateTipperAttribute(any(), any(), any()),
-    ).thenAnswer((_) async {});
-    when(
-      () => mockTippersViewModel.saveBatchOfTipperChangesToDb(),
-    ).thenAnswer((_) async {});
+    when(() => mockTippersViewModel.updateTipperAttribute(any(), any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockTippersViewModel.saveBatchOfTipperChangesToDb())
+        .thenAnswer((_) async {});
 
     di.registerSingleton<DAUCompsViewModel>(mockDauCompsViewModel);
   });
@@ -104,14 +113,8 @@ void main() {
       DateFormat('dd MMM yy HH:mm').format(tipper.acctLoggedOnUTC!.toLocal()),
     );
     expect(logonField.readOnly, isTrue);
-    expect(
-      logonField.decoration?.border,
-      InputBorder.none,
-    );
-    expect(
-      lastLoginField.decoration?.border,
-      InputBorder.none,
-    );
+    expect(logonField.decoration?.border, InputBorder.none);
+    expect(lastLoginField.decoration?.border, InputBorder.none);
     expect(find.text('Linked login email is read-only here'), findsNothing);
     expect(find.byKey(TipperAdminEditPage.emailInfoButtonKey), findsNothing);
   });
@@ -137,7 +140,10 @@ void main() {
         find.byKey(TipperAdminEditPage.emailFieldKey),
       );
       expect(emailField.controller?.text, 'same@example.com');
-      expect(find.byKey(TipperAdminEditPage.emailInfoButtonKey), findsOneWidget);
+      expect(
+        find.byKey(TipperAdminEditPage.emailInfoButtonKey),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(TipperAdminEditPage.emailInfoButtonKey));
       await tester.pumpAndSettle();
@@ -158,12 +164,19 @@ void main() {
       'updated@example.com',
     );
     await tester.pump();
+    await tester.pump();
     expect(
-      tester.widget<FilledButton>(find.byKey(TipperAdminEditPage.saveButtonKey))
-          .onPressed,
+      tester
+          .widget<InkResponse>(
+            find.ancestor(
+              of: find.byIcon(Icons.save),
+              matching: find.byType(InkResponse),
+            ),
+          )
+          .onTap,
       isNotNull,
     );
-    await tester.tap(find.byKey(TipperAdminEditPage.saveButtonKey));
+    await tester.tap(find.byIcon(Icons.save));
     await tester.pumpAndSettle();
 
     verify(
@@ -185,51 +198,52 @@ void main() {
     );
   });
 
-  testWidgets('god mode switch waits for tip view model refresh before notify', (
-    tester,
-  ) async {
-    final realTippersViewModel = TippersViewModel(true, skipInit: true);
-    final authenticatedAdmin = Tipper(
-      dbkey: 'admin-auth',
-      authuid: 'auth-admin',
-      email: 'admin@example.com',
-      name: 'Admin',
-      tipperRole: TipperRole.admin,
-      compsPaidFor: const [],
-    );
-    final selectedComp = DAUComp(
-      dbkey: 'comp-1',
-      name: 'Comp',
-      aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
-      nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
-      daurounds: const [],
-    );
-    final refreshCompleter = Completer<void>();
-    var notificationCount = 0;
+  testWidgets(
+    'god mode switch waits for tip view model refresh before notify',
+    (tester) async {
+      final realTippersViewModel = TippersViewModel(true, skipInit: true);
+      final authenticatedAdmin = Tipper(
+        dbkey: 'admin-auth',
+        authuid: 'auth-admin',
+        email: 'admin@example.com',
+        name: 'Admin',
+        tipperRole: TipperRole.admin,
+        compsPaidFor: const [],
+      );
+      final selectedComp = DAUComp(
+        dbkey: 'comp-1',
+        name: 'Comp',
+        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+        daurounds: const [],
+      );
+      final refreshCompleter = Completer<void>();
+      var notificationCount = 0;
 
-    realTippersViewModel.setLinkedTippersForTest(authenticatedAdmin);
-    realTippersViewModel.addListener(() {
-      notificationCount++;
-    });
-    di.registerSingleton<TippersViewModel>(realTippersViewModel);
-    when(() => mockDauCompsViewModel.selectedDAUComp).thenReturn(selectedComp);
-    when(
-      () => mockDauCompsViewModel.selectedTipperChanged(),
-    ).thenAnswer((_) => refreshCompleter.future);
+      realTippersViewModel.setLinkedTippersForTest(authenticatedAdmin);
+      realTippersViewModel.addListener(() {
+        notificationCount++;
+      });
+      di.registerSingleton<TippersViewModel>(realTippersViewModel);
+      when(() => mockDauCompsViewModel.selectedDAUComp)
+          .thenReturn(selectedComp);
+      when(() => mockDauCompsViewModel.selectedTipperChanged())
+          .thenAnswer((_) => refreshCompleter.future);
 
-    await pumpEditPage(tester);
+      await pumpEditPage(tester);
 
-    await tester.tap(find.byKey(TipperAdminEditPage.godModeSwitchKey));
-    await tester.pump();
+      await tester.tap(find.byKey(TipperAdminEditPage.godModeSwitchKey));
+      await tester.pump();
 
-    expect(realTippersViewModel.selectedTipper, same(tipper));
-    expect(notificationCount, 0);
+      expect(realTippersViewModel.selectedTipper, same(tipper));
+      expect(notificationCount, 0);
 
-    refreshCompleter.complete();
-    await tester.pump();
-    await tester.pump();
+      refreshCompleter.complete();
+      await tester.pump();
+      await tester.pump();
 
-    expect(notificationCount, 1);
-    verify(() => mockDauCompsViewModel.selectedTipperChanged()).called(1);
-  });
+      expect(notificationCount, 1);
+      verify(() => mockDauCompsViewModel.selectedTipperChanged()).called(1);
+    },
+  );
 }

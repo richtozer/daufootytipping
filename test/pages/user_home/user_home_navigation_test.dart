@@ -8,7 +8,11 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_pill.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +33,7 @@ void main() {
   setUpAll(loadTipsFonts);
   late _MockDAUCompsViewModel dauCompsViewModel;
   late _MockTippersViewModel tippersViewModel;
+  late AppControlsViewModel appControlsViewModel;
   late DAURound round;
   late Tipper tipper;
 
@@ -123,11 +128,32 @@ void main() {
 
     di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
     di.registerSingleton<TippersViewModel>(tippersViewModel);
+    appControlsViewModel = AppControlsViewModel();
+    di.registerSingleton<AppControlsViewModel>(appControlsViewModel);
   });
 
   tearDown(() async {
     await di.reset();
+    appControlsViewModel.dispose();
   });
+
+  /// The app as main.dart builds it: the floating controls above the
+  /// Navigator, which is where the tab pill is drawn.
+  Widget appHosting({EdgeInsets padding = EdgeInsets.zero}) {
+    final observer = AppControlsObserver(appControlsViewModel);
+    return MaterialApp(
+      navigatorObservers: [observer],
+      builder: (context, navigator) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(padding: padding),
+        child: AppControlsHost(
+          viewModel: appControlsViewModel,
+          observer: observer,
+          child: navigator!,
+        ),
+      ),
+      home: const HomePage(),
+    );
+  }
 
   Future<TipsTabState> pumpHome(WidgetTester tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -135,7 +161,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: HomePage()));
+    await tester.pumpWidget(appHosting());
+    // The pill grows in once the tabs are offered; let it finish so it can be
+    // tapped.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     // Three frames is what startup placement takes, and it is stable from
     // there: the first compares the list height against the previous frame's,
     // the second jumps, and the third corrects for the shrink that showing
@@ -322,71 +352,43 @@ void main() {
     );
   });
 
-  testWidgets('moves the navigation into a wide display inset', (tester) async {
+  testWidgets('offers its tabs in the floating pill and follows a tap', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    Future<void> pumpWithInset(EdgeInsets padding) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(padding: padding),
-            child: child!,
-          ),
-          home: const HomePage(),
-        ),
-      );
-      await tester.pump();
-    }
+    await tester.pumpWidget(appHosting());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-    // Nothing to move into: the bar stays along the bottom.
-    await pumpWithInset(EdgeInsets.zero);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(AppGlassPill), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
     expect(find.byType(NavigationRail), findsNothing);
+    expect(appControlsViewModel.tabs!.selectedIndex, 0);
 
-    // A folded phone's camera strip is room the content cannot use, so the
-    // navigation takes it and gives its height back.
-    await pumpWithInset(const EdgeInsets.only(right: 96));
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+    await tester.tap(find.text('STATS'));
+    await tester.pump();
+    expect(appControlsViewModel.tabs!.selectedIndex, 1);
+  });
 
-    // Landscape has no inset wide enough to pay for the rail, but it is short
-    // of the height the bar spends and has width to spare, so it trades.
-    tester.view.physicalSize = const Size(844, 390);
-    await pumpWithInset(EdgeInsets.zero);
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
-    Rect rail() => tester.getRect(find.byType(NavigationRail));
-    expect(rail().left, 0, reason: 'nothing to clear, so it sits flush');
+  testWidgets('moves the pill into a wide right display inset', (tester) async {
+    tester.view.physicalSize = const Size(420, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-    // An island on the edge the rail sits against reaches its destinations,
-    // so the rail is held clear of it -- by that inset exactly once.
-    // NavigationRail applies it too, which pushed every destination off
-    // centre by the same amount again.
-    await pumpWithInset(const EdgeInsets.only(left: 59));
-    expect(rail().left, 59);
-
-    // The far edge belongs to the content, which is already holding it clear.
-    // Taking it here as well would strand the destinations mid-pane.
-    await pumpWithInset(const EdgeInsets.only(left: 59, right: 96));
-    expect(rail().right, 844 - 96, reason: 'rail moves to the wider inset');
-
-    // iOS reserves the same strip on both sides in landscape whichever edge
-    // the island is on -- 62 each on an iPhone 17 -- so the rail cannot sit
-    // flush. What it can do is leave the strip to the backdrop: the surface
-    // behind it starts where the rail does, not at the display edge.
-    await pumpWithInset(const EdgeInsets.only(left: 62, right: 62));
-    final surface = tester.getRect(
-      find
-          .ancestor(
-            of: find.byType(NavigationRail),
-            matching: find.byType(ColoredBox),
-          )
-          .first,
+    await tester.pumpWidget(
+      appHosting(padding: const EdgeInsets.only(right: 80)),
     );
-    expect(surface.left, 62);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final pill = tester.getRect(find.byType(AppGlassPill));
+    expect(pill.width, lessThan(pill.height), reason: 'runs down the side');
+    expect(pill.center.dx, 420 - 40, reason: 'inside the 80pt strip');
   });
 
   testWidgets('hides the list until it has been placed', (tester) async {
@@ -399,7 +401,7 @@ void main() {
         .widget<Opacity>(find.byKey(const Key('tipsPlacementVeil')))
         .opacity;
 
-    await tester.pumpWidget(const MaterialApp(home: HomePage()));
+    await tester.pumpWidget(appHosting());
     await tester.pump();
     // Placement lands a few frames in. Until it does the list is built -- its
     // controller has to attach for placement to run at all -- but hidden, so

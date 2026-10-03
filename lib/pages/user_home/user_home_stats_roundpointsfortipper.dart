@@ -46,28 +46,45 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     final values = <Object?>[
       widget.statsTipper,
       for (final point in points) ...[
-        point.roundNumber, point.nrlPoints, point.aflPoints,
-        point.aflMarginTips, point.nrlMarginTips, point.aflMarginUPS, point.nrlMarginUPS,
+        point.roundNumber,
+        point.nrlPoints,
+        point.aflPoints,
+        point.aflMarginTips,
+        point.nrlMarginTips,
+        point.aflMarginUPS,
+        point.nrlMarginUPS,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
     _renderedValues = values;
     _rows = [
-      for (final point in points) AppRow(
-        key: ValueKey(point.roundNumber),
-        onTap: () => Navigator.push(context, appPageRoute(
-          (context) => StatRoundGameScoresForTipper(widget.statsTipper, point.roundNumber))),
-        cells: [
-          AppCell.text(point.roundNumber.toString(),
-            leading: const Icon(Icons.arrow_forward, size: 15),
-            leadingSize: const Size(15, 15)),
-          AppCell.text((point.nrlPoints + point.aflPoints).toString()),
-          AppCell.text(point.nrlPoints.toString()),
-          AppCell.text(point.aflPoints.toString()),
-          AppCell.text((point.aflMarginTips + point.nrlMarginTips).toString()),
-          AppCell.text((point.aflMarginUPS + point.nrlMarginUPS).toString()),
-        ],
-      ),
+      for (final point in points)
+        AppRow(
+          key: ValueKey(point.roundNumber),
+          onTap: () => Navigator.push(
+            context,
+            appPageRoute(
+              (context) => StatRoundGameScoresForTipper(
+                widget.statsTipper,
+                point.roundNumber,
+              ),
+            ),
+          ),
+          cells: [
+            AppCell.text(
+              point.roundNumber.toString(),
+              leading: const Icon(Icons.arrow_forward, size: 15),
+              leadingSize: const Size(15, 15),
+            ),
+            AppCell.text((point.nrlPoints + point.aflPoints).toString()),
+            AppCell.text(point.nrlPoints.toString()),
+            AppCell.text(point.aflPoints.toString()),
+            AppCell.text(
+              (point.aflMarginTips + point.nrlMarginTips).toString(),
+            ),
+            AppCell.text((point.aflMarginUPS + point.nrlMarginUPS).toString()),
+          ],
+        ),
     ];
     return _rows;
   }
@@ -198,23 +215,7 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     List<RoundStats> points,
     bool isLargeScreen,
   ) {
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
-
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        backgroundColor: fabBackgroundColor,
-        foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        child: const Icon(Icons.arrow_back),
-      ),
       body: SafeArea(
         child: AppTableFrame(
           columns: columns,
@@ -233,7 +234,10 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
               columns: columns,
               rows: _tableRows(points),
               frozenLeading: 1,
-              sort: AppSort(column: sortColumnIndex ?? 0, ascending: isAscending),
+              sort: AppSort(
+                column: sortColumnIndex ?? 0,
+                ascending: isAscending,
+              ),
               onSort: (column, ascending) => onSort(column, ascending, points),
             ),
           ),

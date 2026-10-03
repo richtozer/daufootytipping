@@ -1,0 +1,107 @@
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
+import 'package:flutter/widgets.dart';
+import 'package:watch_it/watch_it.dart';
+
+/// Offers the floating controls a screen's tabs for as long as it is mounted.
+class AppNavTabsScope extends StatefulWidget {
+  const AppNavTabsScope({
+    super.key,
+    required this.tabs,
+    required this.child,
+    this.viewModel,
+  });
+
+  final AppNavTabs tabs;
+  final Widget child;
+
+  /// Defaults to the registered [AppControlsViewModel].
+  final AppControlsViewModel? viewModel;
+
+  @override
+  State<AppNavTabsScope> createState() => _AppNavTabsScopeState();
+}
+
+class _AppNavTabsScopeState extends State<AppNavTabsScope> {
+  late final AppControlsViewModel _viewModel =
+      widget.viewModel ?? di<AppControlsViewModel>();
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel.showTabs(this, widget.tabs);
+  }
+
+  @override
+  void didUpdateWidget(AppNavTabsScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _viewModel.showTabs(this, widget.tabs);
+  }
+
+  @override
+  void dispose() {
+    _viewModel.hideTabs(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// Declares the actions the floating controls show beside Back while this page
+/// is the one on top, such as Add on an admin list.
+class AppPageActions extends StatefulWidget {
+  const AppPageActions({
+    super.key,
+    required this.actions,
+    required this.child,
+    this.viewModel,
+  });
+
+  final List<AppGlassAction> actions;
+  final Widget child;
+
+  /// Defaults to the registered [AppControlsViewModel].
+  final AppControlsViewModel? viewModel;
+
+  @override
+  State<AppPageActions> createState() => _AppPageActionsState();
+}
+
+class _AppPageActionsState extends State<AppPageActions> {
+  late final AppControlsViewModel _viewModel =
+      widget.viewModel ?? di<AppControlsViewModel>();
+  Route<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    _register();
+  }
+
+  @override
+  void didUpdateWidget(AppPageActions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _register();
+  }
+
+  void _register() {
+    final route = _route;
+    if (route != null) {
+      _viewModel.setPageActions(route, widget.actions);
+    }
+  }
+
+  @override
+  void dispose() {
+    final route = _route;
+    if (route != null) {
+      _viewModel.clearPageActions(route);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

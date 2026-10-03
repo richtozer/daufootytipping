@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_rounds_table.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -12,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
+
+import '../../support/app_controls_test_app.dart';
 
 class MockGlobalDauCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -27,6 +30,7 @@ void main() {
   late DAURound activeRound;
   late DAURound viewedRound;
   late MockStatsViewModel pageStatsViewModel;
+  late AppControlsViewModel appControls;
 
   test('admin view model receives the shared config providers', () async {
     final configViewModel = MockConfigViewModel();
@@ -52,31 +56,48 @@ void main() {
       viewModel.resolveConfiguredAdminScoringRescoreURL(),
       'https://rescore.example.com',
     );
-
   });
 
   setUp(() async {
     await di.reset();
+    appControls = registerAppControlsViewModel();
 
     globalDauCompsViewModel = MockGlobalDauCompsViewModel();
     pageDauCompsViewModel = MockGlobalDauCompsViewModel();
     pageStatsViewModel = MockStatsViewModel();
-    activeRound = _buildRound(26, DateTime.utc(2026, 3, 1), DateTime.utc(2026, 3, 2));
-    viewedRound = _buildRound(3, DateTime.utc(2024, 3, 14), DateTime.utc(2024, 3, 17));
-    activeComp = _buildComp('active-comp', 'DAU Footy Tipping 2026', rounds: <DAURound>[activeRound]);
-    viewedComp = _buildComp('viewed-comp', 'DAU Footy Tipping 2024', rounds: <DAURound>[viewedRound]);
+    activeRound = _buildRound(
+      26,
+      DateTime.utc(2026, 3, 1),
+      DateTime.utc(2026, 3, 2),
+    );
+    viewedRound = _buildRound(
+      3,
+      DateTime.utc(2024, 3, 14),
+      DateTime.utc(2024, 3, 17),
+    );
+    activeComp = _buildComp(
+      'active-comp',
+      'DAU Footy Tipping 2026',
+      rounds: <DAURound>[activeRound],
+    );
+    viewedComp = _buildComp(
+      'viewed-comp',
+      'DAU Footy Tipping 2024',
+      rounds: <DAURound>[viewedRound],
+    );
 
-    when(
-      () => globalDauCompsViewModel.initDAUCompDbKey,
-    ).thenReturn(activeComp.dbkey);
+    when(() => globalDauCompsViewModel.initDAUCompDbKey)
+        .thenReturn(activeComp.dbkey);
     when(() => globalDauCompsViewModel.activeDAUComp).thenReturn(activeComp);
     when(() => globalDauCompsViewModel.selectedDAUComp).thenReturn(activeComp);
     when(
       () => globalDauCompsViewModel.changeDisplayedDAUComp(activeComp, false),
     ).thenAnswer((_) async {});
-    when(() => globalDauCompsViewModel.linkGamesWithRounds(any())).thenAnswer((_) async {});
+    when(() => globalDauCompsViewModel.linkGamesWithRounds(any()))
+        .thenAnswer((_) async {});
     when(() => globalDauCompsViewModel.addListener(any())).thenAnswer((_) {});
-    when(() => globalDauCompsViewModel.removeListener(any())).thenAnswer((_) {});
+    when(() => globalDauCompsViewModel.removeListener(any()))
+        .thenAnswer((_) {});
 
     when(() => pageDauCompsViewModel.addListener(any())).thenAnswer((_) {});
     when(() => pageDauCompsViewModel.removeListener(any())).thenAnswer((_) {});
@@ -84,8 +105,10 @@ void main() {
     when(() => pageDauCompsViewModel.selectedDAUComp).thenReturn(viewedComp);
     when(() => pageDauCompsViewModel.unassignedGames).thenReturn(const []);
     when(() => pageDauCompsViewModel.isDownloading).thenReturn(false);
-    when(() => pageDauCompsViewModel.statsViewModel).thenReturn(pageStatsViewModel);
-    when(() => pageDauCompsViewModel.linkGamesWithRounds(any())).thenAnswer((_) async {});
+    when(() => pageDauCompsViewModel.statsViewModel)
+        .thenReturn(pageStatsViewModel);
+    when(() => pageDauCompsViewModel.linkGamesWithRounds(any()))
+        .thenAnswer((_) async {});
     when(() => pageStatsViewModel.isUpdateScoringRunning).thenReturn(false);
     when(() => pageStatsViewModel.addListener(any())).thenAnswer((_) {});
     when(() => pageStatsViewModel.removeListener(any())).thenAnswer((_) {});
@@ -101,7 +124,8 @@ void main() {
     'leaving admin edit does not reset the global selected competition',
     (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        appWithControls(
+          appControls,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -137,6 +161,30 @@ void main() {
     },
   );
 
+  testWidgets('offers Run updates in the corner beside Save and Back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      appWithControls(appControls, home: const SizedBox.shrink()),
+    );
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => DAUCompsEditPage(
+              viewedComp,
+              adminDauCompsViewModel: pageDauCompsViewModel,
+            ),
+          ),
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.sync), findsOneWidget);
+    expect(find.byIcon(Icons.save), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    expect(find.text('Run Updates'), findsNothing, reason: 'no in-page button');
+  });
+
   testWidgets(
     'admin edit uses the viewed comp rounds and relinks through the page view model',
     (tester) async {
@@ -167,14 +215,16 @@ void main() {
       verify(
         () => pageDauCompsViewModel.linkGamesWithRounds(viewedComp.daurounds),
       ).called(1);
-      verifyNever(
-        () => globalDauCompsViewModel.linkGamesWithRounds(any()),
-      );
+      verifyNever(() => globalDauCompsViewModel.linkGamesWithRounds(any()));
     },
   );
 }
 
-DAUComp _buildComp(String dbKey, String name, {required List<DAURound> rounds}) {
+DAUComp _buildComp(
+  String dbKey,
+  String name, {
+  required List<DAURound> rounds,
+}) {
   return DAUComp(
     dbkey: dbKey,
     name: name,
@@ -193,8 +243,16 @@ DAURound _buildRound(int number, DateTime start, DateTime end) {
       Game(
         dbkey: 'nrl-${number.toString().padLeft(2, '0')}-001',
         league: League.nrl,
-        homeTeam: Team(dbkey: 'nrl-home-$number', name: 'Home $number', league: League.nrl),
-        awayTeam: Team(dbkey: 'nrl-away-$number', name: 'Away $number', league: League.nrl),
+        homeTeam: Team(
+          dbkey: 'nrl-home-$number',
+          name: 'Home $number',
+          league: League.nrl,
+        ),
+        awayTeam: Team(
+          dbkey: 'nrl-away-$number',
+          name: 'Away $number',
+          league: League.nrl,
+        ),
         location: 'Test Stadium',
         startTimeUTC: start,
         fixtureRoundNumber: number,

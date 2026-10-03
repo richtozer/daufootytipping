@@ -603,15 +603,6 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
                   ),
                 ),
         ),
-        floatingActionButton: FloatingActionButton.small(
-          onPressed: () => Navigator.pop(context),
-          backgroundColor: Colors.lightGreen[200],
-          foregroundColor: Colors.black87,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: const Icon(Icons.arrow_back),
-        ),
       ),
     );
   }

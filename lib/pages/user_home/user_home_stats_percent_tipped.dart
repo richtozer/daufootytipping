@@ -132,12 +132,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     log('StatPercentTipped.build()');
 
     Orientation orientation = MediaQuery.of(context).orientation;
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
 
     if (daucompsViewModel.selectedDAUComp == null) {
       return Center(
@@ -196,17 +190,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                     value: daucompsViewmodelConsumer.statsViewModel,
                     child: SelectedCompBanner(
                       child: Scaffold(
-                        floatingActionButton: FloatingActionButton.small(
-                          backgroundColor: fabBackgroundColor,
-                          foregroundColor: fabForegroundColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.arrow_back),
-                        ),
                         body: SafeArea(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -258,9 +241,9 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                               .textTheme
                                               .bodyMedium
                                               ?.copyWith(
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                               ),
                                         ),
                                       ),

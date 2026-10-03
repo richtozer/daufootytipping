@@ -9,7 +9,10 @@ import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
     as firebase_app_check_debug_token;
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_data_refresher.dart';
@@ -303,10 +306,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _coreWarmupScheduled = false;
   late final AppResumeDataRefresher _resumeDataRefresher;
   late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
+  final AppControlsViewModel _appControlsViewModel = AppControlsViewModel();
+  late final AppControlsObserver _appControlsObserver = AppControlsObserver(
+    _appControlsViewModel,
+  );
 
   @override
   void initState() {
     super.initState();
+    if (di.isRegistered<AppControlsViewModel>()) {
+      di.unregister<AppControlsViewModel>();
+    }
+    di.registerSingleton<AppControlsViewModel>(_appControlsViewModel);
     _resumeDataRefresher = AppResumeDataRefresher(
       platform: defaultTargetPlatform,
       reconnectRealtimeDatabase: _reconnectRealtimeDatabaseAfterResume,
@@ -445,6 +456,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _appControlsViewModel.dispose();
     super.dispose();
   }
 
@@ -526,16 +538,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       restorationScopeId: 'app',
-      theme: FlexThemeData.light(
-        scheme: FlexScheme.green,
-        fontFamily: appFontFamily,
+      theme: withCardCornerButtons(
+        FlexThemeData.light(scheme: FlexScheme.green, fontFamily: appFontFamily),
       ),
-      darkTheme: FlexThemeData.dark(
-        scheme: FlexScheme.green,
-        fontFamily: appFontFamily,
+      darkTheme: withCardCornerButtons(
+        FlexThemeData.dark(scheme: FlexScheme.green, fontFamily: appFontFamily),
       ),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
+      navigatorObservers: [_appControlsObserver],
+      builder: (context, navigator) => AppControlsHost(
+        viewModel: _appControlsViewModel,
+        observer: _appControlsObserver,
+        child: navigator!,
+      ),
       // The shell no longer caps the app. Each screen owns its width, so the
       // tips list can use a tablet's display while forms stay readable.
       home: Consumer<ConfigViewModel>(

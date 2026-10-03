@@ -38,30 +38,46 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   List<AppRow> _tableRows(BuildContext context) {
     final selected = di<TippersViewModel>().selectedTipper;
     final highlight = Theme.of(context).highlightColor;
-    final entries = roundLeaderboard.entries.where((entry) =>
-      entry.value.nrlTipsOutstanding + entry.value.aflTipsOutstanding > 0).toList();
+    final entries = roundLeaderboard.entries
+        .where(
+          (entry) =>
+              entry.value.nrlTipsOutstanding + entry.value.aflTipsOutstanding >
+              0,
+        )
+        .toList();
     final values = <Object?>[
-      selected, highlight, widget.roundNumberToDisplay,
+      selected,
+      highlight,
+      widget.roundNumberToDisplay,
       for (final entry in entries) ...[
-        entry.key, entry.key.name, entry.key.photoURL,
-        entry.value.nrlTipsOutstanding, entry.value.aflTipsOutstanding,
+        entry.key,
+        entry.key.name,
+        entry.key.photoURL,
+        entry.value.nrlTipsOutstanding,
+        entry.value.aflTipsOutstanding,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
     _renderedValues = values;
     _rows = [
-      for (final entry in entries) AppRow(
-        key: ValueKey(entry.key.dbkey),
-        colour: entry.key == selected ? highlight : Colors.transparent,
-        cells: [
-          AppCell.text(entry.key.name,
-            leading: avatarPic(entry.key, widget.roundNumberToDisplay),
-            leadingSize: const Size(30, 30)),
-          AppCell.text((entry.value.nrlTipsOutstanding + entry.value.aflTipsOutstanding).toString()),
-          AppCell.text(entry.value.nrlTipsOutstanding.toString()),
-          AppCell.text(entry.value.aflTipsOutstanding.toString()),
-        ],
-      ),
+      for (final entry in entries)
+        AppRow(
+          key: ValueKey(entry.key.dbkey),
+          colour: entry.key == selected ? highlight : Colors.transparent,
+          cells: [
+            AppCell.text(
+              entry.key.name,
+              leading: avatarPic(entry.key, widget.roundNumberToDisplay),
+              leadingSize: const Size(30, 30),
+            ),
+            AppCell.text(
+              (entry.value.nrlTipsOutstanding + entry.value.aflTipsOutstanding)
+                  .toString(),
+            ),
+            AppCell.text(entry.value.nrlTipsOutstanding.toString()),
+            AppCell.text(entry.value.aflTipsOutstanding.toString()),
+          ],
+        ),
     ];
     return _rows;
   }
@@ -115,22 +131,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   }
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        backgroundColor: fabBackgroundColor,
-        foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        child: const Icon(Icons.arrow_back),
-      ),
       body: SafeArea(
         child: AppTableFrame(
           columns: columns,
@@ -151,7 +152,10 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
               columns: columns,
               rows: _tableRows(context),
               frozenLeading: 1,
-              sort: AppSort(column: sortColumnIndex ?? 1, ascending: isAscending),
+              sort: AppSort(
+                column: sortColumnIndex ?? 1,
+                ascending: isAscending,
+              ),
               onSort: onSort,
             ),
           ),

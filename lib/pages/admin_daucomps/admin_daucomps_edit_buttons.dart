@@ -12,294 +12,169 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 
-class AdminDaucompsEditFixtureButton extends StatelessWidget {
-  final DAUCompsViewModel dauCompsViewModel;
-  final DAUComp? daucomp;
-  // This callback is expected to be `(fn) => parent.setState(fn)`.
-  // The `fn` passed to it should be the code that was originally in `setState`.
-  final Function(VoidCallback fn) setStateCallback;
-  final Function(bool disabled) onDisableBack;
+/// Whether a fixture download or a scoring run is already under way, so a
+/// second one must wait.
+bool adminUpdatesBusy(
+  DAUCompsViewModel dauCompsViewModel,
+  StatsViewModel statsViewModel,
+) => dauCompsViewModel.isDownloading || statsViewModel.isUpdateScoringRunning;
 
-  const AdminDaucompsEditFixtureButton({
-    super.key,
-    required this.dauCompsViewModel,
-    required this.daucomp,
-    required this.setStateCallback,
-    required this.onDisableBack,
-  });
+/// Asks which manual repair steps to run, then runs them with a progress dialog.
+///
+/// [onDisableBack] is told when the page must hold still, which it does until
+/// the update ends, and again when it may leave.
+Future<void> runAdminUpdates({
+  required BuildContext context,
+  required DAUCompsViewModel dauCompsViewModel,
+  required StatsViewModel statsViewModel,
+  required DAUComp daucomp,
+  required ValueChanged<bool> onDisableBack,
+}) async {
+  if (dauCompsViewModel.isDownloading) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: League.afl.colour,
+        content: const Text('Fixture download already in progress'),
+      ),
+    );
+    return;
+  }
+  if (statsViewModel.isUpdateScoringRunning) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: Colors.red,
+        content: Text('Scoring already in progress'),
+      ),
+    );
+    return;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    if (daucomp == null) {
-      return const SizedBox.shrink();
-    } else {
-      return OutlinedButton(
-        onPressed: () async {
-          if (dauCompsViewModel.isDownloading) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: League.afl.colour,
-                content: const Text('Fixture download already in progress'),
-              ),
-            );
-            return;
-          }
-          try {
-            onDisableBack(true);
-
-            String result = await dauCompsViewModel.getNetworkFixtureData(
-              daucomp!,
-            );
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text(result),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: League.afl.colour,
-                  content: Text(
-                    'An error occurred during fixture download: $e',
-                  ),
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          } finally {
-            onDisableBack(false);
-          }
-        },
-        child: Text(
-          !dauCompsViewModel.isDownloading ? 'Download' : 'Downloading...',
+  final selectedSteps = await _showAdminUpdateStepsDialog(context);
+  if (selectedSteps == null) {
+    return;
+  }
+  if (!selectedSteps.hasAnyStep) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.orange,
+          content: Text('Select at least one update step.'),
         ),
       );
     }
+    return;
   }
-}
+  log(
+    'runAdminUpdates: selected steps: '
+    'downloadFixtures=${selectedSteps.downloadFixtures}, '
+    'recalculateScoring=${selectedSteps.recalculateScoring}',
+  );
 
-class AdminDaucompsEditScoringButton extends StatelessWidget {
-  final DAUCompsViewModel dauCompsViewModel;
-  final DAUComp? daucomp;
-  final Function(VoidCallback fn) setStateCallback;
-  final Function(bool disabled) onDisableBack;
+  var progressDialogShown = false;
+  final adminProgress = ValueNotifier<AdminUpdateProgress>(
+    const AdminUpdateProgress('Preparing admin update...', null),
+  );
+  Future<void>? progressDialogClosed;
+  var progressDialogPopRequested = false;
+  try {
+    onDisableBack(true);
+    await Future.delayed(const Duration(milliseconds: 100));
 
-  const AdminDaucompsEditScoringButton({
-    super.key,
-    required this.dauCompsViewModel,
-    required this.daucomp,
-    required this.setStateCallback,
-    required this.onDisableBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (daucomp == null) {
-      return const SizedBox.shrink();
+    if (context.mounted) {
+      progressDialogShown = true;
+      progressDialogClosed = showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _AdminUpdateProgressDialog(
+          adminProgress: adminProgress,
+          statsViewModel: statsViewModel,
+        ),
+      );
+      unawaited(progressDialogClosed);
     }
 
-    final statsViewModel = dauCompsViewModel.statsViewModel;
-    if (statsViewModel == null) {
-      return const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          OutlinedButton(onPressed: null, child: Text('Run Updates')),
-        ],
+    String? fixtureResult;
+    if (selectedSteps.downloadFixtures) {
+      log('runAdminUpdates: starting fixture download step.');
+      adminProgress.value = const AdminUpdateProgress(
+        'Downloading fixtures...',
+        null,
+      );
+      fixtureResult = await dauCompsViewModel.getNetworkFixtureData(daucomp);
+      log('runAdminUpdates: fixture download step completed: $fixtureResult');
+    }
+
+    String? scoringResult;
+    final skipUiScoringAfterBackendFixtureDownload =
+        selectedSteps.downloadFixtures &&
+        dauCompsViewModel.lastFixtureDownloadRanViaCloudFunction;
+    if (selectedSteps.recalculateScoring &&
+        skipUiScoringAfterBackendFixtureDownload) {
+      log(
+        'runAdminUpdates: skipping UI scoring step because backend fixture download already triggered scoring.',
+      );
+    } else if (selectedSteps.recalculateScoring) {
+      log('runAdminUpdates: starting backend scoring update step.');
+      adminProgress.value = const AdminUpdateProgress(
+        'Updating scores...',
+        null,
+      );
+      scoringResult = await dauCompsViewModel.rescoreWithBackend(daucomp);
+      log('runAdminUpdates: backend scoring update step completed.');
+    }
+
+    if (context.mounted) {
+      if (progressDialogShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+        progressDialogPopRequested = true;
+        await progressDialogClosed?.catchError((_) {});
+      }
+      if (!context.mounted) {
+        return;
+      }
+      if (scoringResult != null || fixtureResult != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green,
+            content: Text(scoringResult ?? fixtureResult!),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  } catch (e, stackTrace) {
+    log(
+      'runAdminUpdates: admin update failed: $e',
+      error: e,
+      stackTrace: stackTrace,
+    );
+    if (context.mounted) {
+      if (progressDialogShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+        progressDialogPopRequested = true;
+        await progressDialogClosed?.catchError((_) {});
+      }
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.orange,
+          content: Text(
+            _adminUpdateErrorMessage(e, selectedSteps.recalculateScoring),
+          ),
+          duration: const Duration(seconds: 6),
+        ),
       );
     }
-
-    return ListenableBuilder(
-      listenable: statsViewModel,
-      builder: (context, _) {
-        final isBusy =
-            dauCompsViewModel.isDownloading ||
-            statsViewModel.isUpdateScoringRunning;
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OutlinedButton(
-              onPressed: isBusy
-                  ? null
-                  : () async {
-                      if (dauCompsViewModel.isDownloading) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: League.afl.colour,
-                            content: const Text(
-                              'Fixture download already in progress',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                      if (statsViewModel.isUpdateScoringRunning) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            backgroundColor: Colors.red,
-                            content: Text('Scoring already in progress'),
-                          ),
-                        );
-                        return;
-                      }
-
-                      final selectedSteps = await _showAdminUpdateStepsDialog(
-                        context,
-                      );
-                      if (selectedSteps == null) {
-                        return;
-                      }
-                      if (!selectedSteps.hasAnyStep) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: Colors.orange,
-                              content: Text('Select at least one update step.'),
-                            ),
-                          );
-                        }
-                        return;
-                      }
-                      log(
-                        'AdminDaucompsEditScoringButton: selected steps: '
-                        'downloadFixtures=${selectedSteps.downloadFixtures}, '
-                        'recalculateScoring=${selectedSteps.recalculateScoring}',
-                      );
-
-                      var progressDialogShown = false;
-                      final adminProgress = ValueNotifier<AdminUpdateProgress>(
-                        const AdminUpdateProgress(
-                          'Preparing admin update...',
-                          null,
-                        ),
-                      );
-                      Future<void>? progressDialogClosed;
-                      var progressDialogPopRequested = false;
-                      try {
-                        onDisableBack(true);
-                        await Future.delayed(const Duration(milliseconds: 100));
-
-                        if (context.mounted) {
-                          progressDialogShown = true;
-                          progressDialogClosed = showDialog<void>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (_) => _AdminUpdateProgressDialog(
-                              adminProgress: adminProgress,
-                              statsViewModel: statsViewModel,
-                            ),
-                          );
-                          unawaited(progressDialogClosed);
-                        }
-
-                        String? fixtureResult;
-                        if (selectedSteps.downloadFixtures) {
-                          log('AdminDaucompsEditScoringButton: starting fixture download step.');
-                          adminProgress.value = const AdminUpdateProgress(
-                            'Downloading fixtures...',
-                            null,
-                          );
-                          fixtureResult = await dauCompsViewModel
-                              .getNetworkFixtureData(daucomp!);
-                          log(
-                            'AdminDaucompsEditScoringButton: fixture download step completed: $fixtureResult',
-                          );
-                        }
-
-                        String? scoringResult;
-                        final skipUiScoringAfterBackendFixtureDownload =
-                            selectedSteps.downloadFixtures &&
-                            dauCompsViewModel
-                                .lastFixtureDownloadRanViaCloudFunction;
-                        if (selectedSteps.recalculateScoring &&
-                            skipUiScoringAfterBackendFixtureDownload) {
-                          log(
-                            'AdminDaucompsEditScoringButton: skipping UI scoring step because backend fixture download already triggered scoring.',
-                          );
-                        } else if (selectedSteps.recalculateScoring) {
-                          log('AdminDaucompsEditScoringButton: starting backend scoring update step.');
-                          adminProgress.value = const AdminUpdateProgress(
-                            'Updating scores...',
-                            null,
-                          );
-                          scoringResult = await dauCompsViewModel
-                              .rescoreWithBackend(daucomp!);
-                          log('AdminDaucompsEditScoringButton: backend scoring update step completed.');
-                        }
-
-                        if (context.mounted) {
-                          if (progressDialogShown) {
-                            Navigator.of(context, rootNavigator: true).pop();
-                            progressDialogPopRequested = true;
-                            await progressDialogClosed?.catchError((_) {});
-                          }
-                          if (!context.mounted) {
-                            return;
-                          }
-                          if (scoringResult != null || fixtureResult != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: Colors.green,
-                                content: Text(scoringResult ?? fixtureResult!),
-                                duration: const Duration(seconds: 4),
-                              ),
-                            );
-                          }
-                        }
-                      } catch (e, stackTrace) {
-                        log(
-                          'AdminDaucompsEditScoringButton: admin update failed: $e',
-                          error: e,
-                          stackTrace: stackTrace,
-                        );
-                        if (context.mounted) {
-                          if (progressDialogShown) {
-                            Navigator.of(context, rootNavigator: true).pop();
-                            progressDialogPopRequested = true;
-                            await progressDialogClosed?.catchError((_) {});
-                          }
-                          if (!context.mounted) {
-                            return;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: Colors.orange,
-                              content: Text(
-                                _adminUpdateErrorMessage(
-                                  e,
-                                  selectedSteps.recalculateScoring,
-                                ),
-                              ),
-                              duration: const Duration(seconds: 6),
-                            ),
-                          );
-                        }
-                      } finally {
-                        if (progressDialogPopRequested) {
-                          await progressDialogClosed?.catchError((_) {});
-                        }
-                        adminProgress.dispose();
-                        if (context.mounted) {
-                          onDisableBack(false);
-                        }
-                      }
-                    },
-                  child: Text(!isBusy ? 'Run Updates' : 'Updating...'),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
+  } finally {
+    if (progressDialogPopRequested) {
+      await progressDialogClosed?.catchError((_) {});
+    }
+    adminProgress.dispose();
+    if (context.mounted) {
+      onDisableBack(false);
+    }
   }
 }
 
@@ -365,8 +240,7 @@ class FixtureDownloadStatusBanner extends StatelessWidget {
             icon: Icons.info_outline,
             color: Colors.grey,
             title: 'Fixture status not checked yet',
-            subtitle:
-                'The scheduler will update this after the next run.',
+            subtitle: 'The scheduler will update this after the next run.',
           );
         }
 
@@ -652,12 +526,16 @@ class _AdminUpdateProgressDialog extends StatelessWidget {
     return AlertDialog(
       title: const Text('Running updates'),
       content: AnimatedBuilder(
-        animation: Listenable.merge(<Listenable>[adminProgress, statsViewModel]),
+        animation: Listenable.merge(<Listenable>[
+          adminProgress,
+          statsViewModel,
+        ]),
         builder: (context, _) {
           final progressValue =
               statsViewModel.scoringProgressValue ?? adminProgress.value.value;
           final progressMessage =
-              statsViewModel.scoringProgressMessage ?? adminProgress.value.message;
+              statsViewModel.scoringProgressMessage ??
+              adminProgress.value.message;
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

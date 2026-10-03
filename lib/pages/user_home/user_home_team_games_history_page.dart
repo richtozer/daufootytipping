@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
@@ -50,58 +51,102 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   List<AppRow> _rows = const [];
 
   List<AppRow> _tableRows(BuildContext context) {
-    final body = Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+    final body =
+        Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
     final values = <Object?>[
-      body, scaler, direction, DateTime.now().year,
+      body,
+      scaler,
+      direction,
+      DateTime.now().year,
       for (final game in _gameHistory) ...[
-        game.gameDate, game.result, game.opponentName, game.opponentLogoUri,
-        game.teamScore, game.opponentScore, game.roundNumber, game.isHomeGame,
+        game.gameDate,
+        game.result,
+        game.opponentName,
+        game.opponentLogoUri,
+        game.teamScore,
+        game.opponentScore,
+        game.roundNumber,
+        game.isHomeGame,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
     _renderedValues = values;
     Size measure(String text, TextStyle style) {
-      final painter = TextPainter(text: TextSpan(text: text, style: style),
-        textScaler: scaler, textDirection: direction)..layout();
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textScaler: scaler,
+        textDirection: direction,
+      )..layout();
       final size = painter.size;
       painter.dispose();
       return size;
     }
+
     _rows = [
-      for (final game in _gameHistory) (() {
-        final badge = measure(game.isHomeGame ? 'Home' : 'Away',
-          body.copyWith(fontSize: 10, fontWeight: FontWeight.w500));
-        final round = measure('R${game.roundNumber}', body);
-        final roundSize = Size(badge.width + 10 + 6 + round.width,
-          math.max(badge.height + 4, round.height));
-        final (colour, icon) = switch (game.result) {
-          'Won' => (Colors.green, Icons.check_circle),
-          'Lost' => (Colors.red, Icons.cancel),
-          'Draw' => (Colors.orange, Icons.remove_circle),
-          _ => (Colors.grey, Icons.help),
-        };
-        return AppRow(cells: [
-          AppCell.text(_formatDate(game.gameDate)),
-          AppCell.text(game.result,
-            style: TextStyle(color: colour, fontWeight: FontWeight.w500),
-            leading: Icon(icon, color: colour, size: 14),
-            leadingSize: const Size(14, 14)),
-          AppCell.text(game.opponentName, style: const TextStyle(fontWeight: FontWeight.w500),
-            leading: game.opponentLogoUri != null && game.opponentLogoUri!.isNotEmpty
-                ? SvgPicture.asset(game.opponentLogoUri!, width: 20, height: 20,
-                    placeholderBuilder: (_) => const Icon(Icons.shield, size: 20, color: Colors.grey))
-                : const Icon(Icons.shield, size: 20, color: Colors.grey),
-            leadingSize: const Size(20, 20)),
-          AppCell.text('${game.teamScore} - ${game.opponentScore}'),
-          AppCell.widget(Row(mainAxisSize: MainAxisSize.min, children: [
-            _buildHomeAwayBadge(game), const SizedBox(width: 6),
-            Text('R${game.roundNumber}', style: body),
-          ]), intrinsicSize: roundSize,
-            semanticLabel: '${game.isHomeGame ? 'Home' : 'Away'}, Round ${game.roundNumber}'),
-        ]);
-      })(),
+      for (final game in _gameHistory)
+        (() {
+          final badge = measure(
+            game.isHomeGame ? 'Home' : 'Away',
+            body.copyWith(fontSize: 10, fontWeight: FontWeight.w500),
+          );
+          final round = measure('R${game.roundNumber}', body);
+          final roundSize = Size(
+            badge.width + 10 + 6 + round.width,
+            math.max(badge.height + 4, round.height),
+          );
+          final (colour, icon) = switch (game.result) {
+            'Won' => (Colors.green, Icons.check_circle),
+            'Lost' => (Colors.red, Icons.cancel),
+            'Draw' => (Colors.orange, Icons.remove_circle),
+            _ => (Colors.grey, Icons.help),
+          };
+          return AppRow(
+            cells: [
+              AppCell.text(_formatDate(game.gameDate)),
+              AppCell.text(
+                game.result,
+                style: TextStyle(color: colour, fontWeight: FontWeight.w500),
+                leading: Icon(icon, color: colour, size: 14),
+                leadingSize: const Size(14, 14),
+              ),
+              AppCell.text(
+                game.opponentName,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+                leading:
+                    game.opponentLogoUri != null &&
+                        game.opponentLogoUri!.isNotEmpty
+                    ? SvgPicture.asset(
+                        game.opponentLogoUri!,
+                        width: 20,
+                        height: 20,
+                        placeholderBuilder: (_) => const Icon(
+                          Icons.shield,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      )
+                    : const Icon(Icons.shield, size: 20, color: Colors.grey),
+                leadingSize: const Size(20, 20),
+              ),
+              AppCell.text('${game.teamScore} - ${game.opponentScore}'),
+              AppCell.widget(
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHomeAwayBadge(game),
+                    const SizedBox(width: 6),
+                    Text('R${game.roundNumber}', style: body),
+                  ],
+                ),
+                intrinsicSize: roundSize,
+                semanticLabel:
+                    '${game.isHomeGame ? 'Home' : 'Away'}, Round ${game.roundNumber}',
+              ),
+            ],
+          );
+        })(),
     ];
     return _rows;
   }
@@ -239,15 +284,6 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
   Widget build(BuildContext context) {
     return SelectedCompBanner(
       child: Scaffold(
-        floatingActionButton: FloatingActionButton.small(
-          onPressed: () => Navigator.pop(context),
-          backgroundColor: Colors.lightGreen[200],
-          foregroundColor: Colors.black87,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: const Icon(Icons.arrow_back),
-        ),
         body: SafeArea(
           child: AppTableFrame(
             columns: columns,
@@ -288,8 +324,12 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                       columns: columns,
                       rows: _tableRows(context),
                       frozenLeading: 1,
-                      sort: _sortColumnIndex == null ? null
-                          : AppSort(column: _sortColumnIndex!, ascending: _sortAscending),
+                      sort: _sortColumnIndex == null
+                          ? null
+                          : AppSort(
+                              column: _sortColumnIndex!,
+                              ascending: _sortAscending,
+                            ),
                       onSort: _onSort,
                     ),
                   ),

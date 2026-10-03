@@ -4,6 +4,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundmissingtips
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundwinners.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/svg.dart';
@@ -26,198 +27,195 @@ class StatsTab extends StatelessWidget {
     // Bottom aligned so the rows stay within thumb reach, but a short
     // viewport -- a folded phone, landscape -- has to reach every row, so the
     // column scrolls and holds the viewport height instead of overflowing.
-    return LayoutBuilder(
-      builder: (context, viewport) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: viewport.maxHeight),
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                // No page title: the bottom navigation already names this
-                // tab, and the heading only cost vertical space.
-                // Keep the rows at a readable width: stretched across a tablet the
-                // forward arrow drifts a long way from the label it belongs to.
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: kFormContentWidth,
-                  ),
-                  child: Card(
-                    margin: const EdgeInsets.all(4),
-                    // Same treatment as the tips game card, so the backdrop
-                    // reads through this surface and the rows' own cards sit
-                    // opaque on top of it. Both layers at the theme default
-                    // left them white on white and indistinguishable.
-                    color: Colors.white70,
-                    surfaceTintColor: League.nrl.colour,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+    return AppBottomAlignedScroll(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          // No page title: the bottom navigation already names this
+          // tab, and the heading only cost vertical space.
+          // Keep the rows at a readable width: stretched across a tablet the
+          // forward arrow drifts a long way from the label it belongs to.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: kFormContentWidth),
+            child: Card(
+              margin: const EdgeInsets.all(4),
+              // Same treatment as the tips game card, so the backdrop
+              // reads through this surface and the rows' own cards sit
+              // opaque on top of it. Both layers at the theme default
+              // left them white on white and indistinguishable.
+              color: Colors.white70,
+              surfaceTintColor: League.nrl.colour,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: <Widget>[
+                  Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 3.0,
                     ),
-                    child: Column(
-                      children: <Widget>[
-                        Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 3.0,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Navigate to the comp leaderboard
+                        Navigator.push(
+                          context,
+                          appPageRoute(
+                            (context) => const StatCompLeaderboard(),
                           ),
-                          child: GestureDetector(
-                            onTap: () {
-                              // Navigate to the comp leaderboard
-                              Navigator.push(
-                                context,
-                                appPageRoute(
-                                  (context) => const StatCompLeaderboard(),
-                                ),
-                              );
-                            },
-                            child: const Row(
-                              children: [
-                                Hero(
-                                  tag: 'trophy',
-                                  child: Icon(Icons.emoji_events, size: 40),
-                                ),
-                                SizedBox(height: 64, width: 16), // Add some spacing between the icon and the text
-                                Expanded(
-                                  child: Text(
-                                    'Competition Leaderboard\nWhat did others tip?',
-                                  ),
-                                ),
-                                Icon(Icons.arrow_forward),
-                              ],
+                        );
+                      },
+                      child: const Row(
+                        children: [
+                          Hero(
+                            tag: 'trophy',
+                            child: Icon(Icons.emoji_events, size: 40),
+                          ),
+                          SizedBox(
+                            height: 64,
+                            width: 16,
+                          ), // Add some spacing between the icon and the text
+                          Expanded(
+                            child: Text(
+                              'Competition Leaderboard\nWhat did others tip?',
                             ),
                           ),
-                        ),
-                        Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 3.0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () {
-                              // Navigate to missing tips
-                              Navigator.push(
-                                context,
-                                appPageRoute(
-                                  (context) => const StatRoundWinners(),
-                                ),
-                              );
-                            },
-                            child: const Row(
-                              children: [
-                                Hero(
-                                  tag: 'person',
-                                  child: Icon(Icons.person_3, size: 40),
-                                ),
-                                SizedBox(height: 64, width: 16), // Add some spacing between the icon and the text
-                                Expanded(
-                                  child: Text(
-                                    'Round winners\nRound Leaderboards',
-                                  ),
-                                ),
-                                Icon(Icons.arrow_forward),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 3.0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () {
-                              // Navigate to the percent tipped
-                              Navigator.push(
-                                context,
-                                appPageRoute((context) => StatPercentTipped()),
-                              );
-                            },
-                            child: Row(
-                              children: [
-                                Hero(
-                                  tag: 'percentage',
-                                  child: Icon(Icons.percent, size: 40),
-                                ),
-                                SizedBox(height: 64, width: 16), // Add some spacing between the icon and the text
-                                Expanded(
-                                  child: Text(
-                                    'Shows percent breakdown of tips for all tippers per game.',
-                                  ),
-                                ),
-                                Icon(Icons.arrow_forward),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 3.0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () {
-                              // Navigate to the round winners
-                              Navigator.push(
-                                context,
-                                appPageRoute(
-                                  (context) => RoundMissingTipsStats(
-                                    selectedComp.firstNotEndedRoundNumber(),
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Row(
-                              children: [
-                                Hero(
-                                  tag: 'magnifyingGlass',
-                                  child: Icon(Icons.search, size: 40),
-                                ),
-                                SizedBox(height: 64, width: 16), // Add some spacing between the icon and the text
-                                Expanded(
-                                  child: Text(
-                                    'Missing Tips - Round ${selectedComp.firstNotEndedRoundNumber()}',
-                                  ),
-                                ),
-                                Icon(Icons.arrow_forward),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // The two ladders are the shortest rows here, so
-                        // they pair up rather than each taking a full line.
-                        // That gives a vertically constrained pane a row back.
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _ladderCard(
-                                context,
-                                league: League.nrl,
-                                asset: 'assets/nrl.svg',
-                                heroTag: 'nrl_league_logo_hero',
-                                label: 'NRL Ladder\nTeam rankings',
-                              ),
-                            ),
-                            Expanded(
-                              child: _ladderCard(
-                                context,
-                                league: League.afl,
-                                asset: 'assets/afl.svg',
-                                heroTag: 'afl_league_logo_hero',
-                                label: 'AFL Ladder\nTeam rankings',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          Icon(Icons.arrow_forward),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                Container(height: 25),
-              ],
+                  Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 3.0,
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Navigate to missing tips
+                        Navigator.push(
+                          context,
+                          appPageRoute((context) => const StatRoundWinners()),
+                        );
+                      },
+                      child: const Row(
+                        children: [
+                          Hero(
+                            tag: 'person',
+                            child: Icon(Icons.person_3, size: 40),
+                          ),
+                          SizedBox(
+                            height: 64,
+                            width: 16,
+                          ), // Add some spacing between the icon and the text
+                          Expanded(
+                            child: Text('Round winners\nRound Leaderboards'),
+                          ),
+                          Icon(Icons.arrow_forward),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 3.0,
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Navigate to the percent tipped
+                        Navigator.push(
+                          context,
+                          appPageRoute((context) => StatPercentTipped()),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Hero(
+                            tag: 'percentage',
+                            child: Icon(Icons.percent, size: 40),
+                          ),
+                          SizedBox(
+                            height: 64,
+                            width: 16,
+                          ), // Add some spacing between the icon and the text
+                          Expanded(
+                            child: Text(
+                              'Shows percent breakdown of tips for all tippers per game.',
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 3.0,
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Navigate to the round winners
+                        Navigator.push(
+                          context,
+                          appPageRoute(
+                            (context) => RoundMissingTipsStats(
+                              selectedComp.firstNotEndedRoundNumber(),
+                            ),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Hero(
+                            tag: 'magnifyingGlass',
+                            child: Icon(Icons.search, size: 40),
+                          ),
+                          SizedBox(
+                            height: 64,
+                            width: 16,
+                          ), // Add some spacing between the icon and the text
+                          Expanded(
+                            child: Text(
+                              'Missing Tips - Round ${selectedComp.firstNotEndedRoundNumber()}',
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // The two ladders are the shortest rows here, so
+                  // they pair up rather than each taking a full line.
+                  // That gives a vertically constrained pane a row back.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ladderCard(
+                          context,
+                          league: League.nrl,
+                          asset: 'assets/nrl.svg',
+                          heroTag: 'nrl_league_logo_hero',
+                          label: 'NRL Ladder\nTeam rankings',
+                        ),
+                      ),
+                      Expanded(
+                        child: _ladderCard(
+                          context,
+                          league: League.afl,
+                          asset: 'assets/afl.svg',
+                          heroTag: 'afl_league_logo_hero',
+                          label: 'AFL Ladder\nTeam rankings',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

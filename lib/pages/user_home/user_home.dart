@@ -7,7 +7,9 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
-import 'package:daufootytipping/pages/user_home/user_home_nav.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
+import 'package:daufootytipping/widgets/app_nav/app_nav_destination.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
@@ -175,7 +177,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     super.dispose();
   }
 
-  /// Described once so the bar and the rail cannot drift apart.
+  /// The destinations the floating tab pill offers.
   List<AppNavDestination> _navDestinations(TippersViewModel tippersViewModel) {
     const tipsTabIcon = SizedBox(
       width: 32,
@@ -200,127 +202,14 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
       AppNavDestination(
         icon: tipsIcon,
         shortLabel: 'TIPS',
-        wideLabel: 'T  I  P  S',
         enabled: !tippersViewModel.selectedTipper.isAnonymous,
       ),
       const AppNavDestination(
         icon: Icon(Icons.auto_graph),
         shortLabel: 'STATS',
-        wideLabel: 'S  T  A  T  S',
       ),
-      const AppNavDestination(
-        icon: Icon(Icons.person),
-        shortLabel: 'PROFILE',
-        wideLabel: 'P  R  O  F  I  L  E',
-      ),
+      const AppNavDestination(icon: Icon(Icons.person), shortLabel: 'PROFILE'),
     ];
-  }
-
-  Widget _navigationRail(
-    BuildContext context, {
-    required List<AppNavDestination> destinations,
-    required Color? indicatorColor,
-    required double inset,
-    required bool onRight,
-  }) {
-    // iOS reserves the same strip on both sides in landscape -- 62 each on
-    // this phone -- whichever edge the island is on, and reports no display
-    // features at all, so there is no telling which side is genuinely spent.
-    // The rail keeps clear of its own side either way; what changes here is
-    // that the backdrop keeps the strip rather than the rail painting across
-    // it, which made a reservation look like part of the navigation.
-    return Padding(
-      padding: EdgeInsets.only(
-        left: onRight ? 0 : inset,
-        right: onRight ? inset : 0,
-      ),
-      child: ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        // The home indicator still runs along the bottom, which is exactly
-        // where the destinations are grouped.
-        child: SafeArea(
-          left: false,
-          right: false,
-          top: false,
-          // NavigationRail always holds itself clear of the *leading* inset, on
-          // the assumption that is the edge it sits against. The Row has already
-          // chosen a side, so left to itself it insets the wrong one when the
-          // rail is on the right, and doubles up with the Row when it is on the
-          // left -- a 51pt inset widened the rail from 103.5 to 154.5 and pushed
-          // every destination off centre by exactly that much. Strip both and
-          // apply the one the rail is genuinely against: an island on that edge
-          // reaches the destinations, which are not far enough down to miss it.
-          child: MediaQuery.removePadding(
-            context: context,
-            removeLeft: true,
-            removeRight: true,
-            child: NavigationRail(
-              backgroundColor: Colors.transparent,
-              indicatorColor: indicatorColor,
-              indicatorShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              // Grouped at the bottom: the same thumb zone the bar occupied, and
-              // clear of a camera strip mounted at the top of the inset.
-              groupAlignment: 1,
-              labelType: NavigationRailLabelType.all,
-              minWidth: kNavigationRailWidth,
-              selectedIndex: _currentIndex.value,
-              onDestinationSelected: onTabTapped,
-              destinations: [
-                for (final destination in destinations)
-                  NavigationRailDestination(
-                    icon: destination.icon,
-                    disabled: !destination.enabled,
-                    label: Text(destination.shortLabel),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The bar's surface spans the display while its destinations stay grouped,
-  /// rather than drifting to the far corners of a tablet.
-  Widget _bottomNavigationBar(
-    BuildContext context, {
-    required List<AppNavDestination> destinations,
-    required Color? indicatorColor,
-  }) {
-    final wide = MediaQuery.of(context).size.width > 400;
-    return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      child: Align(
-        alignment: Alignment.center,
-        // Size to the bar rather than the space available: a Center here
-        // would fill the whole scaffold.
-        heightFactor: 1,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kFormContentWidth),
-          child: NavigationBar(
-            backgroundColor: Colors.transparent,
-            indicatorColor: indicatorColor,
-            indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            onDestinationSelected: onTabTapped,
-            selectedIndex: _currentIndex.value,
-            height: 60,
-            destinations: [
-              for (final destination in destinations)
-                NavigationDestination(
-                  icon: destination.icon,
-                  selectedIcon: destination.icon,
-                  enabled: destination.enabled,
-                  label: wide ? destination.wideLabel : destination.shortLabel,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -328,9 +217,6 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     List<Widget> destinationContent = content();
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final navIndicatorColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
 
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
       value: di<DAUCompsViewModel>(),
@@ -340,81 +226,41 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
           builder: (context, dauCompsViewModelConsumer, child) {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-                final displayPadding = MediaQuery.paddingOf(context);
-                final useNavigationRail = shouldUseNavigationRail(
-                  size: MediaQuery.sizeOf(context),
-                  displayPadding: displayPadding,
-                );
-                final railOnRight = navigationRailOnRight(displayPadding);
-                final railInset = railOnRight
-                    ? displayPadding.right
-                    : displayPadding.left;
-                final navDestinations = _navDestinations(
-                  tippersViewModelConsumer,
-                );
-                final Widget bodyContent = AppContentWidth(
-                  daurounds:
-                      dauCompsViewModelConsumer.selectedDAUComp?.daurounds ??
-                      const [],
-                  child: Center(child: destinationContent[_currentIndex.value]),
-                );
-
-                Widget scaffold = Stack(
-                  children: [
-                    RepaintBoundary(
-                      child: Image.asset(
-                        'assets/grass_background_blurred.webp',
-                        width: MediaQuery.of(context).size.width,
-                        height: MediaQuery.of(context).size.height,
-                        fit: BoxFit.fill,
+                // The floating controls hold their own room clear of the
+                // content, so the body is simply the selected tab.
+                final Widget scaffold = AppNavTabsScope(
+                  tabs: AppNavTabs(
+                    destinations: _navDestinations(tippersViewModelConsumer),
+                    selectedIndex: _currentIndex.value,
+                    onSelected: onTabTapped,
+                  ),
+                  child: Stack(
+                    children: [
+                      RepaintBoundary(
+                        child: Image.asset(
+                          'assets/grass_background_blurred.webp',
+                          width: MediaQuery.of(context).size.width,
+                          height: MediaQuery.of(context).size.height,
+                          fit: BoxFit.fill,
+                        ),
                       ),
-                    ),
-                    Scaffold(
-                      backgroundColor: !isDarkMode
-                          ? Colors.white54
-                          : Colors.black54,
-                      body: useNavigationRail
-                          ? Row(
-                              children: [
-                                if (!railOnRight)
-                                  _navigationRail(
-                                    context,
-                                    destinations: navDestinations,
-                                    indicatorColor: navIndicatorColor,
-                                    inset: railInset,
-                                    onRight: railOnRight,
-                                  ),
-                                Expanded(
-                                  // The rail now occupies the inset, so the
-                                  // content must not hold it clear a second
-                                  // time and lose the room twice over.
-                                  child: MediaQuery.removePadding(
-                                    context: context,
-                                    removeLeft: !railOnRight,
-                                    removeRight: railOnRight,
-                                    child: bodyContent,
-                                  ),
-                                ),
-                                if (railOnRight)
-                                  _navigationRail(
-                                    context,
-                                    destinations: navDestinations,
-                                    indicatorColor: navIndicatorColor,
-                                    inset: railInset,
-                                    onRight: railOnRight,
-                                  ),
-                              ],
-                            )
-                          : bodyContent,
-                      bottomNavigationBar: useNavigationRail
-                          ? null
-                          : _bottomNavigationBar(
-                              context,
-                              destinations: navDestinations,
-                              indicatorColor: navIndicatorColor,
-                            ),
-                    ),
-                  ],
+                      Scaffold(
+                        backgroundColor: !isDarkMode
+                            ? Colors.white54
+                            : Colors.black54,
+                        body: AppContentWidth(
+                          daurounds:
+                              dauCompsViewModelConsumer
+                                  .selectedDAUComp
+                                  ?.daurounds ??
+                              const [],
+                          child: Center(
+                            child: destinationContent[_currentIndex.value],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
 
                 final scaffoldWithCompBanner = SelectedCompBanner(

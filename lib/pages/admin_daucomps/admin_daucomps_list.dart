@@ -2,6 +2,9 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
@@ -24,79 +27,61 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
   @override
   Widget build(BuildContext context) {
     DAUCompsViewModel daucompsViewModel = watchIt<DAUCompsViewModel>();
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+    return AppAdminPage(
+      title: 'Admin DAU Comps',
+      actions: [
+        AppGlassAction(
+          icon: Icons.add,
+          label: 'Add DAU comp',
+          onPressed: () => _addDAUComp(context),
         ),
-        title: const Text('Admin DAU Comps'),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.lightGreen[200],
-        foregroundColor: Colors.white70,
-        onPressed: () async {
-          await _addDAUComp(context);
-        },
-        child: const Icon(Icons.add),
-      ),
+      ],
       body: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Expanded(
-              child: FutureBuilder<List<DAUComp>>(
-                future: daucompsViewModel.getDAUcomps(),
-                builder:
-                    (
-                      BuildContext context,
-                      AsyncSnapshot<List<DAUComp>> snapshot,
-                    ) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: CircularProgressIndicator(
-                            color: League.nrl.colour,
-                          ),
-                        );
-                      }
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return const Text('No Records');
-                      } else {
-                        List<DAUComp> daucomps = snapshot.data!;
-                        // sort by name descending
-                        daucomps.sort((a, b) => b.name.compareTo(a.name));
-                        return ListView(
-                          children: daucomps
-                              .map(
-                                (daucomp) => Card(
-                                  child: ListTile(
-                                    dense: true,
-                                    isThreeLine: true,
-                                    trailing: const Icon(Icons.arrow_forward),
-                                    title: Text(daucomp.name),
-                                    subtitle:
-                                        daucomp.lastFixtureUpdateTimestampUTC !=
-                                            null
-                                        ? Text(
-                                            'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestampUTC?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}',
-                                          )
-                                        : const Text(''),
-                                    onTap: () async {
-                                      // Trigger edit functionality
-                                      await _editDAUComp(daucomp, context);
-                                    },
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        );
-                      }
-                    },
+        child: FutureBuilder<List<DAUComp>>(
+          future: daucompsViewModel.getDAUcomps(),
+          builder: (BuildContext context, AsyncSnapshot<List<DAUComp>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: CircularProgressIndicator(color: League.nrl.colour),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Text('No Records');
+            }
+            List<DAUComp> daucomps = snapshot.data!;
+            // sort by name descending
+            daucomps.sort((a, b) => b.name.compareTo(a.name));
+            // Rows sit at the bottom, within thumb reach.
+            return AppBottomAlignedScroll(
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  children: [
+                    for (final daucomp in daucomps)
+                      Card(
+                        child: ListTile(
+                          dense: true,
+                          isThreeLine: true,
+                          trailing: const Icon(Icons.arrow_forward),
+                          title: Text(daucomp.name),
+                          subtitle:
+                              daucomp.lastFixtureUpdateTimestampUTC != null
+                              ? Text(
+                                  'Last fixture update:\n${DateFormat('EEE dd MMM yyyy hh:mm a').format(daucomp.lastFixtureUpdateTimestampUTC?.toLocal() ?? DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true))}',
+                                )
+                              : const Text(''),
+                          onTap: () async {
+                            // Trigger edit functionality
+                            await _editDAUComp(daucomp, context);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

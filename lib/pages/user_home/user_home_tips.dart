@@ -895,6 +895,11 @@ class TipsTabState extends State<TipsTab> {
   }
 }
 
+/// The last card of the list.
+///
+/// Taller by the room the floating controls take along the bottom, so the card
+/// can scroll clear of them. Its content stays where it was, at the top, and the
+/// extra is simply card below it.
 class EndFooter extends StatelessWidget {
   const EndFooter({super.key});
 
@@ -902,12 +907,14 @@ class EndFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controlsRoom = MediaQuery.paddingOf(context).bottom;
     return SizedBox(
-      height: height,
-      child: const _CompBoundaryCard(
+      height: height + controlsRoom,
+      child: _CompBoundaryCard(
         iconSize: 46,
         title: 'End of regular competition',
         body: 'Hope to see you again next year.',
+        bottomRoom: controlsRoom,
       ),
     );
   }
@@ -936,11 +943,15 @@ class _CompBoundaryCard extends StatelessWidget {
     required this.iconSize,
     required this.title,
     this.body,
+    this.bottomRoom = 0,
   });
 
   final double iconSize;
   final String title;
   final String? body;
+
+  /// Extra card kept empty below the content.
+  final double bottomRoom;
 
   @override
   Widget build(BuildContext context) {
@@ -948,7 +959,7 @@ class _CompBoundaryCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       color: Colors.black38,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
+        padding: EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 10.0 + bottomRoom),
         child: Row(
           children: [
             SizedBox(

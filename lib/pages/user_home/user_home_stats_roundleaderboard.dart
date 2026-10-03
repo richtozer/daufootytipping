@@ -51,14 +51,21 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     final values = <Object?>[
       widget.roundNumberToDisplay,
       for (final entry in roundLeaderboard.entries) ...[
-        entry.key, entry.key.name, entry.key.photoURL,
-        entry.value.rank, entry.value.aflPoints, entry.value.nrlPoints,
-        entry.value.aflMarginTips, entry.value.nrlMarginTips,
-        entry.value.aflMarginUPS, entry.value.nrlMarginUPS,
+        entry.key,
+        entry.key.name,
+        entry.key.photoURL,
+        entry.value.rank,
+        entry.value.aflPoints,
+        entry.value.nrlPoints,
+        entry.value.aflMarginTips,
+        entry.value.nrlMarginTips,
+        entry.value.aflMarginUPS,
+        entry.value.nrlMarginUPS,
       ],
     ];
     if (listEquals(_renderedValues, values) &&
-        _renderedTipper == selectedTipper && _renderedHighlight == highlight) {
+        _renderedTipper == selectedTipper &&
+        _renderedHighlight == highlight) {
       return _rows;
     }
     _renderedValues = values;
@@ -71,9 +78,12 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           colour: entry.key == selectedTipper ? highlight : Colors.transparent,
           onTap: () => Navigator.push(
             context,
-            appPageRoute((context) => StatRoundGameScoresForTipper(
-              entry.key, widget.roundNumberToDisplay,
-            )),
+            appPageRoute(
+              (context) => StatRoundGameScoresForTipper(
+                entry.key,
+                widget.roundNumberToDisplay,
+              ),
+            ),
           ),
           cells: [
             AppCell.text(
@@ -88,11 +98,18 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
               ),
             ),
             AppCell.text(entry.value.rank.toString()),
-            AppCell.text((entry.value.aflPoints + entry.value.nrlPoints).toString()),
+            AppCell.text(
+              (entry.value.aflPoints + entry.value.nrlPoints).toString(),
+            ),
             AppCell.text(entry.value.nrlPoints.toString()),
             AppCell.text(entry.value.aflPoints.toString()),
-            AppCell.text((entry.value.aflMarginTips + entry.value.nrlMarginTips).toString()),
-            AppCell.text((entry.value.aflMarginUPS + entry.value.nrlMarginUPS).toString()),
+            AppCell.text(
+              (entry.value.aflMarginTips + entry.value.nrlMarginTips)
+                  .toString(),
+            ),
+            AppCell.text(
+              (entry.value.aflMarginUPS + entry.value.nrlMarginUPS).toString(),
+            ),
           ],
         ),
     ];
@@ -146,22 +163,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   }
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor = isDarkMode ? Colors.white : Colors.black87;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        backgroundColor: fabBackgroundColor,
-        foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        child: const Icon(Icons.arrow_back),
-      ),
       body: SafeArea(
         child: AppTableFrame(
           columns: columns,

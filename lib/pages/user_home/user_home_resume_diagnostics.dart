@@ -127,6 +127,8 @@ class _ResumeDiagnosticsPageState extends State<ResumeDiagnosticsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        // Back is the floating control, not the app bar's.
+        automaticallyImplyLeading: false,
         title: const Text('Android resume diagnostics'),
         actions: [
           IconButton(
