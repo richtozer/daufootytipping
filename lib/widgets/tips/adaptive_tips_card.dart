@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -192,7 +193,9 @@ class AdaptiveTipsCard extends StatelessWidget {
     );
     final matchup = _matchup(context);
     Widget card = Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
       color: Colors.white70,
       surfaceTintColor: League.nrl.colour,
       child: layout.mode == TipsCardMode.stacked
@@ -314,12 +317,77 @@ class AdaptiveTipsCard extends StatelessWidget {
                     ),
                   ],
                 )
+              : layout.mode == TipsCardMode.stacked
+              ? _stackedTeams(context, logo, editable)
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [team(data.home), middle, team(data.away)],
                 ),
         ),
       ),
+    );
+  }
+
+  /// Two lines, each a logo beside its team's name, with the "V" on the
+  /// shorter name's line rather than a row of its own. A live card has no logos
+  /// and its edit pencil takes the "V"'s place.
+  Widget _stackedTeams(
+    BuildContext context,
+    Widget Function(TipsTeamDisplay team) logo,
+    bool editable,
+  ) {
+    final theme = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    double nameWidth(TipsTeamDisplay team) {
+      final painter = TextPainter(
+        text: team.text(theme),
+        textScaler: scaler,
+        textDirection: direction,
+      )..layout();
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
+
+    final markOnHome = TipsCardLayout.markOnHomeLine(
+      homeNameWidth: nameWidth(data.home),
+      awayNameWidth: nameWidth(data.away),
+    );
+    final mark = editable
+        ? Icon(Icons.edit, size: TipsCardLayout.scaledIconSize(scaler, theme))
+        : const Text('V');
+    Widget line(
+      TipsTeamDisplay team, {
+      required bool markBefore,
+      required bool markAfter,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (markBefore) ...[mark, const SizedBox(width: kStackedMarkGap)],
+            if (!editable) ...[
+              logo(team),
+              const SizedBox(width: kStackedLogoGap),
+            ],
+            Flexible(
+              child: Text.rich(team.text(theme), textAlign: TextAlign.center),
+            ),
+            if (markAfter) ...[const SizedBox(width: kStackedMarkGap), mark],
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        line(data.home, markBefore: false, markAfter: markOnHome),
+        line(data.away, markBefore: !markOnHome, markAfter: false),
+      ],
     );
   }
 
@@ -403,7 +471,7 @@ class AdaptiveTipsCard extends StatelessWidget {
                     ? MaterialTapTargetSize.shrinkWrap
                     : MaterialTapTargetSize.padded,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(kCardCornerRadius),
                 ),
                 padding: EdgeInsets.zero,
                 selectedColor: Colors.lightGreen[500],

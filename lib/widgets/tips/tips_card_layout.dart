@@ -10,6 +10,13 @@ const double kStackedRoundBlockWidth = 86;
 
 enum TipsChoiceArrangement { inline, paired, vertical }
 
+/// Space between a team's logo and its name in the stacked matchup.
+const double kStackedLogoGap = 4;
+
+/// Space the "V" (or the edit pencil) takes beside the name it shares a line
+/// with, on top of its own width.
+const double kStackedMarkGap = 8;
+
 /// The exact styled content rendered by one card, grouped for height measurement.
 class TipsCardContent {
   const TipsCardContent({
@@ -67,6 +74,15 @@ class TipsCardLayout {
 
   static const double viewportFraction = 0.9;
   static const double standardTeamWidth = 135;
+
+  /// Which line of the stacked matchup carries the "V": the shorter name's, since
+  /// that is the line with room for it. The widget and the height measurement
+  /// both ask this, so they cannot disagree about where it went. A tie goes to
+  /// the home line.
+  static bool markOnHomeLine({
+    required double homeNameWidth,
+    required double awayNameWidth,
+  }) => homeNameWidth <= awayNameWidth;
 
   static double teamLogoSize(TextScaler scaler, TextTheme theme) {
     return scaledIconSize(scaler, theme, size: 25);
@@ -284,7 +300,35 @@ class TipsCardLayout {
     final teamWidth = mode == TipsCardMode.stacked
         ? width - 16
         : matchupWidth - 8;
+    // The stacked matchup is two lines, each a logo beside its name, with the
+    // "V" on the shorter name's line. A live card has no logos, and its edit
+    // pencil takes the "V"'s place.
+    double stackedMatchupHeight(TipsCardContent card) {
+      final markWidth =
+          (card.editable
+              ? scaledIconSize(textScaler, textTheme)
+              : measureText('V', body).width) +
+          kStackedMarkGap;
+      final logoRoom = card.editable ? 0.0 : logoSize + kStackedLogoGap;
+      final markOnHome = markOnHomeLine(
+        homeNameWidth: measureSpan(card.home).width,
+        awayNameWidth: measureSpan(card.away).width,
+      );
+      double line(TextSpan name, bool hasMark) {
+        final room = teamWidth - 8 - logoRoom - (hasMark ? markWidth : 0);
+        return math.max(
+          card.editable ? 0.0 : logoSize,
+          measureSpan(name, room).height,
+        );
+      }
+
+      return line(card.home, markOnHome) + line(card.away, !markOnHome) + 16;
+    }
+
     final matchupHeight = cards.fold<double>(0, (height, card) {
+      if (mode == TipsCardMode.stacked) {
+        return math.max(height, stackedMatchupHeight(card));
+      }
       final middleHeight = card.editable
           ? scaledIconSize(textScaler, textTheme)
           : math.max(logoSize, measureText(' V ', body).height);
