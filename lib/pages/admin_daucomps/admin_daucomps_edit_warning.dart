@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 
 class AdminDaucompsEditWarning extends StatelessWidget {
   final DAUCompsViewModel viewModel;
@@ -15,7 +16,7 @@ class AdminDaucompsEditWarning extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.red[50],
         border: Border.all(color: Colors.red),
-        borderRadius: BorderRadius.circular(8.0),
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

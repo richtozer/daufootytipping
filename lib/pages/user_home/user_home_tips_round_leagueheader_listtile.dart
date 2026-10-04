@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_kickoff_countdown.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
@@ -90,7 +91,9 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
           backgroundColor ??
           (!isPercentStatsPage ? Colors.black54 : Colors.white10),
       surfaceTintColor: League.nrl.colour,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
       child: Column(
         children: [
           Padding(

@@ -139,7 +139,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
           height: 75,
           child: Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(kCardCornerRadius),
             ),
             color: Colors.black38,
             child: Center(

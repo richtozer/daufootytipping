@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// The corner radius of the app's cards and panels: the tips game card, its
 /// choice panel, the app table and the floating controls all take it, so the
 /// surfaces read as one family.
-const double kCardCornerRadius = 8;
+const double kCardCornerRadius = 12;
 
 /// Gives every button the card corner, so the profile, admin and dialog buttons
 /// match the cards they sit beside instead of the stadium shape Material uses.

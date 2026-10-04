@@ -956,7 +956,9 @@ class _CompBoundaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
       color: Colors.black38,
       child: Padding(
         padding: EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 10.0 + bottomRoom),

@@ -8,6 +8,7 @@ import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -29,7 +30,9 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
         color: Theme.of(context).brightness == Brightness.dark
             ? Colors.grey[800]
             : Colors.grey[200],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kCardCornerRadius),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Column(

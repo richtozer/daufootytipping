@@ -7,6 +7,7 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheade
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 
 const double kTipsWelcomeHeaderHeight = 175;
@@ -466,7 +467,7 @@ class _NoGamesCard extends StatelessWidget {
           height: DAURound.noGamesCardHeight,
           child: Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(kCardCornerRadius),
             ),
             color: Colors.white70,
             child: Center(

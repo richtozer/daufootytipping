@@ -11,6 +11,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 
 /// Whether a fixture download or a scoring run is already under way, so a
 /// second one must wait.
@@ -280,7 +281,7 @@ class _FixtureDownloadStatusCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 520),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
         border: Border.all(color: color.withValues(alpha: 0.28)),
         color: color.withValues(alpha: 0.06),
       ),
