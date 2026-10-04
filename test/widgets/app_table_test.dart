@@ -77,6 +77,46 @@ void main() {
     }
   }
 
+  testWidgets('the horizontal scrollbar ignores ambient bottom padding', (
+    tester,
+  ) async {
+    // The floating controls add their room to MediaQuery.padding. A scrollbar
+    // insets itself by it unless told not to, which lifted this one over the
+    // rows instead of leaving it in its lane at the bottom.
+    tester.view.physicalSize = const Size(250, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Roboto'),
+        home: MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(bottom: 90)),
+          child: Scaffold(
+            body: AppTable(columns: tableColumns, rows: tableRows()),
+          ),
+        ),
+      ),
+    );
+
+    final bars = tester.widgetList<RawScrollbar>(find.byType(RawScrollbar));
+    final horizontal = bars.firstWhere(
+      (bar) => bar.scrollbarOrientation == ScrollbarOrientation.bottom,
+    );
+    expect(horizontal.padding, EdgeInsets.zero);
+  });
+
+  testWidgets('the heading carries on over the scrollbar lane', (tester) async {
+    await pumpTable(tester, width: 360);
+
+    // The background spans the pane, lane included, so the scrollbar starts
+    // under the heading and the top corners match on both sides.
+    expect(
+      tester.getSize(find.byKey(const Key('appTableHeaderBackground'))).width,
+      360,
+    );
+  });
+
   testWidgets('sort toggles controlled direction and rows remain tappable', (
     tester,
   ) async {

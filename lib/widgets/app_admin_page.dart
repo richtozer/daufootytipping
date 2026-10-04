@@ -2,6 +2,7 @@ import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 
 /// The shell every admin page shares: a plain title, then the page.
@@ -15,6 +16,7 @@ class AppAdminPage extends StatelessWidget {
     required this.title,
     required this.body,
     this.actions = const [],
+    this.scrollsUnderControls = false,
   });
 
   final String title;
@@ -22,6 +24,15 @@ class AppAdminPage extends StatelessWidget {
 
   /// Shown beside Back, in order, ahead of it.
   final List<AppGlassAction> actions;
+
+  /// Whether the body scrolls under the floating controls, which fade away at
+  /// its end. For lists. A form keeps clear of them instead, because its Save
+  /// lives in the controls and has to stay reachable.
+  final bool scrollsUnderControls;
+
+  Widget _area({required Widget child}) => scrollsUnderControls
+      ? AppUnderControlsArea(child: child)
+      : SafeArea(child: child);
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +45,7 @@ class AppAdminPage extends StatelessWidget {
     return AppPageActions(
       actions: actions,
       child: Scaffold(
-        body: SafeArea(
+        body: _area(
           child: Column(
             children: [
               Padding(

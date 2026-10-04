@@ -12,6 +12,7 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundpointsfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -39,6 +40,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     AppColumn.numeric('Wins', sortable: true),
     AppColumn.numeric('Margins', sortable: true),
     AppColumn.numeric('UPS', sortable: true),
+    AppColumn.navigation(),
   ];
   List<Object?> _renderedValues = const [];
   List<AppRow> _rows = const [];
@@ -84,14 +86,8 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
           cells: [
             AppCell.text(
               entry.tipper.name,
-              leadingSize: const Size(45, 30),
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.arrow_forward, size: 15),
-                  avatarPic(entry.tipper),
-                ],
-              ),
+              leadingSize: const Size(30, 30),
+              leading: avatarPic(entry.tipper),
             ),
             AppCell.text(entry.rank.toString()),
             _rankChangeCell(entry, style, scaler, direction),
@@ -101,6 +97,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
             AppCell.text(entry.numRoundsWon.toString()),
             AppCell.text((entry.aflMargins + entry.nrlMargins).toString()),
             AppCell.text((entry.aflUPS + entry.nrlUPS).toString()),
+            AppCell.navigation(),
           ],
         ),
     ];
@@ -266,7 +263,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   Widget buildScaffold(BuildContext context, String dbkey, Color color) {
     return Scaffold(
-      body: SafeArea(
+      body: AppUnderControlsArea(
         child: AppTableFrame(
           columns: columns,
           rows: _tableRows(context, dbkey, color),

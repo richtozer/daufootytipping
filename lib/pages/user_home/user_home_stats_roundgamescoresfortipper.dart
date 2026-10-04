@@ -13,6 +13,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -237,7 +238,7 @@ class _StatRoundGameScoresForTipperState
     bool isLargeScreen,
   ) {
     return Scaffold(
-      body: SafeArea(
+      body: AppUnderControlsArea(
         child: AppTableFrame(
           columns: columns,
           rows: _tableRows(context),

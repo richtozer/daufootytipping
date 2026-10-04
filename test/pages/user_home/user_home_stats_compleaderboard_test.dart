@@ -15,6 +15,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
 
 import '../../support/load_tips_fonts.dart';
+import '../../support/app_controls_test_app.dart';
 import 'user_home_stats_data_tables_test.dart'
     show MockDAUCompsViewModel, MockStatsViewModel, MockTippersViewModel;
 
@@ -27,6 +28,7 @@ void main() {
 
   setUp(() async {
     await di.reset();
+    registerAppControlsViewModel();
     final comps = MockDAUCompsViewModel();
     stats = MockStatsViewModel();
     tippers = MockTippersViewModel();
@@ -179,56 +181,55 @@ void main() {
     );
   });
 
-  testWidgets(
-    'competition sorting covers all nine columns and survives ticks',
-    (tester) async {
-      await pumpPage(tester, width: 1280);
-      final keys = <int Function(LeaderboardEntry)>[
-        (e) => e.rank,
-        // Plain now: the column starts descending rather than sorting backwards.
-        (e) => e.rankChange ?? 0,
-        (e) => e.total,
-        (e) => e.nRL,
-        (e) => e.aFL,
-        (e) => e.numRoundsWon,
-        (e) => e.aflMargins + e.nrlMargins,
-        (e) => e.aflUPS + e.nrlUPS,
-      ];
-      for (var column = 0; column < 9; column++) {
-        for (final ascending in [true, false]) {
-          table(tester).onSort!(column, ascending);
-          await tester.pump();
-          notify();
-          await tester.pump();
-          final ordered = table(tester).rows
-              .map(
-                (row) => entries.singleWhere(
-                  (entry) => ValueKey(entry.tipper.dbkey) == row.key,
-                ),
-              )
-              .toList();
-          for (var i = 1; i < ordered.length; i++) {
-            final comparison = column == 0
-                ? ordered[i - 1].tipper.name.toLowerCase().compareTo(
-                    ordered[i].tipper.name.toLowerCase(),
-                  )
-                : keys[column - 1](ordered[i - 1])
-                      .compareTo(keys[column - 1](ordered[i]));
-            expect(ascending ? comparison <= 0 : comparison >= 0, isTrue);
-          }
-          expect(table(tester).sort!.column, column);
-          expect(table(tester).sort!.ascending, ascending);
+  testWidgets('competition sorting covers all nine columns and survives ticks', (
+    tester,
+  ) async {
+    await pumpPage(tester, width: 1280);
+    final keys = <int Function(LeaderboardEntry)>[
+      (e) => e.rank,
+      // Plain now: the column starts descending rather than sorting backwards.
+      (e) => e.rankChange ?? 0,
+      (e) => e.total,
+      (e) => e.nRL,
+      (e) => e.aFL,
+      (e) => e.numRoundsWon,
+      (e) => e.aflMargins + e.nrlMargins,
+      (e) => e.aflUPS + e.nrlUPS,
+    ];
+    for (var column = 0; column < 9; column++) {
+      for (final ascending in [true, false]) {
+        table(tester).onSort!(column, ascending);
+        await tester.pump();
+        notify();
+        await tester.pump();
+        final ordered = table(tester).rows
+            .map(
+              (row) => entries.singleWhere(
+                (entry) => ValueKey(entry.tipper.dbkey) == row.key,
+              ),
+            )
+            .toList();
+        for (var i = 1; i < ordered.length; i++) {
+          final comparison = column == 0
+              ? ordered[i - 1].tipper.name.toLowerCase().compareTo(
+                  ordered[i].tipper.name.toLowerCase(),
+                )
+              : keys[column - 1](ordered[i - 1])
+                    .compareTo(keys[column - 1](ordered[i]));
+          expect(ascending ? comparison <= 0 : comparison >= 0, isTrue);
         }
+        expect(table(tester).sort!.column, column);
+        expect(table(tester).sort!.ascending, ascending);
       }
-      await tester.tap(find.text('Change'));
-      await tester.pump();
-      expect(table(tester).rows.first.cells[2].semanticLabel, 'Up 2 places');
-      await tester.tap(find.text('Change'));
-      await tester.pump();
-      expect(table(tester).rows.first.cells[2].semanticLabel, 'Down 12 places');
-      expect(tester.takeException(), isNull);
-    },
-  );
+    }
+    await tester.tap(find.text('Change'));
+    await tester.pump();
+    expect(table(tester).rows.first.cells[2].semanticLabel, 'Up 2 places');
+    await tester.tap(find.text('Change'));
+    await tester.pump();
+    expect(table(tester).rows.first.cells[2].semanticLabel, 'Down 12 places');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'competition cache handles unchanged ticks, mutation, scale and selection',

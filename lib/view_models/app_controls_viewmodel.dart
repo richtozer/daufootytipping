@@ -40,6 +40,7 @@ class AppControlsViewModel extends ChangeNotifier {
   Object? _tabsOwner;
   List<Route<dynamic>> _pageRoutes = const [];
   final Map<Route<dynamic>, List<AppGlassAction>> _actionsByRoute = {};
+  final Set<Route<dynamic>> _fadedRoutes = {};
   bool _notifyScheduled = false;
   bool _disposed = false;
 
@@ -66,6 +67,11 @@ class AppControlsViewModel extends ChangeNotifier {
     return _actionsByRoute[_pageRoutes.last] ?? const [];
   }
 
+  /// Whether the page on top has asked for the controls to fade away, as a long
+  /// table does once it is scrolled to its end so the last rows can be read.
+  bool get controlsFaded =>
+      _pageRoutes.isNotEmpty && _fadedRoutes.contains(_pageRoutes.last);
+
   /// Hands the tabs to the controls. [owner] identifies the screen so only it
   /// can take them back, which matters while one screen replaces another.
   void showTabs(Object owner, AppNavTabs tabs) {
@@ -86,7 +92,17 @@ class AppControlsViewModel extends ChangeNotifier {
   void setPageRoutes(List<Route<dynamic>> pageRoutes) {
     _pageRoutes = List.unmodifiable(pageRoutes);
     _actionsByRoute.removeWhere((route, _) => !_pageRoutes.contains(route));
+    _fadedRoutes.removeWhere((route) => !_pageRoutes.contains(route));
     _notify();
+  }
+
+  void setControlsFaded(Route<dynamic> route, bool faded) {
+    final changed = faded
+        ? _fadedRoutes.add(route)
+        : _fadedRoutes.remove(route);
+    if (changed) {
+      _notify();
+    }
   }
 
   void setPageActions(Route<dynamic> route, List<AppGlassAction> actions) {

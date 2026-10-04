@@ -14,6 +14,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:watch_it/watch_it.dart';
 
 import '../../support/load_tips_fonts.dart';
+import '../../support/app_controls_test_app.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -57,6 +58,7 @@ void main() {
 
   setUp(() async {
     await di.reset();
+    registerAppControlsViewModel();
     di.allowReassignment = true;
 
     dauCompsViewModel = MockDAUCompsViewModel();
@@ -198,7 +200,7 @@ void main() {
     await pumpLadder(tester);
 
     final ladderTable = table(tester);
-    expect(ladderTable.columns.length, 11);
+    expect(ladderTable.columns.length, 12);
     expect(ladderTable.frozenLeading, 2);
     expect(ladderTable.rows.length, 12);
     // Spelled out, because a narrow pane turns them on their side.
@@ -216,10 +218,16 @@ void main() {
         'For',
         'Against',
         '%',
+        '',
       ],
     );
-    // Every column sorts, as the page's own instructions tell the user.
-    expect(ladderTable.columns.every((column) => column.sortable), isTrue);
+    // Every column sorts, as the page's own instructions tell the user, except
+    // the arrow that ends each row.
+    expect(
+      ladderTable.columns.take(11).every((column) => column.sortable),
+      isTrue,
+    );
+    expect(ladderTable.columns.last.sortable, isFalse);
     // The whole ladder fills the page below the header, as every other table
     // page does, rather than running the page itself as one long scroll.
     expect(tester.getSize(find.byType(AppTable)).height, greaterThan(500));

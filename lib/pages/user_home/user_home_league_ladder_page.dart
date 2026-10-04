@@ -11,6 +11,7 @@ import 'package:daufootytipping/widgets/ladder_empty_state_card.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -72,6 +73,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     AppColumn.numeric('For', sortable: true),
     AppColumn.numeric('Against', sortable: true),
     AppColumn.numeric('%', sortable: true),
+    AppColumn.navigation(),
   ];
 
   /// The display order. Sorting used to reorder the ladder's own list, which
@@ -371,15 +373,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         ),
       ),
       cells: [
-        AppCell.text(
-          originalRank?.toString() ?? '-',
-          leading: const Icon(
-            Icons.arrow_forward,
-            size: 16,
-            color: Colors.grey,
-          ),
-          leadingSize: const Size(16, 16),
-        ),
+        AppCell.text(originalRank?.toString() ?? '-'),
         AppCell.text(
           ladderTeam.teamName,
           leading: Hero(tag: heroTag, child: _buildTeamLogo(ladderTeam)),
@@ -394,6 +388,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         AppCell.text(ladderTeam.pointsFor.toString()),
         AppCell.text(ladderTeam.pointsAgainst.toString()),
         AppCell.text(ladderTeam.percentage.toStringAsFixed(2)),
+        AppCell.navigation(color: Colors.grey),
       ],
     );
   }
@@ -553,8 +548,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
 
     return SelectedCompBanner(
       child: Scaffold(
-        body: SafeArea(
-          child: _isComparisonMode
+        body: _pageArea(
+          _isComparisonMode
               // Two sections, each with its heading beside its own table
               // rather than one heading at the top speaking for both.
               ? SingleChildScrollView(
@@ -606,6 +601,13 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
       ),
     );
   }
+
+  /// The whole ladder scrolls under the floating controls, as the other table
+  /// pages do. A comparison scrolls as one page of sections, which keeps clear
+  /// of them instead.
+  Widget _pageArea(Widget child) => _isComparisonMode
+      ? SafeArea(child: child)
+      : AppUnderControlsArea(child: child);
 
   Widget _buildEmptyStateCard(BuildContext context) {
     return LadderEmptyStateCard(

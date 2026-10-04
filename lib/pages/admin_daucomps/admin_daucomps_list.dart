@@ -29,6 +29,7 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
     DAUCompsViewModel daucompsViewModel = watchIt<DAUCompsViewModel>();
     return AppAdminPage(
       title: 'Admin DAU Comps',
+      scrollsUnderControls: true,
       actions: [
         AppGlassAction(
           icon: Icons.add,

@@ -36,6 +36,7 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 import '../../support/load_tips_fonts.dart';
+import '../../support/app_controls_test_app.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -46,6 +47,7 @@ class MockStatsViewModel extends Mock implements StatsViewModel {}
 class MockTeamsViewModel extends Mock implements TeamsViewModel {}
 
 class MockTippersViewModel extends Mock implements TippersViewModel {}
+
 class MockTableTipsViewModel extends Mock implements TipsViewModel {}
 
 void main() {
@@ -62,6 +64,7 @@ void main() {
 
   setUp(() async {
     await di.reset();
+    registerAppControlsViewModel();
     di.allowReassignment = true;
 
     dauCompsViewModel = MockDAUCompsViewModel();
@@ -315,11 +318,20 @@ void main() {
     final tippers = populateRound().keys.take(2).toList();
     final winners = <int, List<RoundWinnerEntry>>{
       for (var round = 24; round >= 1; round--)
-        round: [for (final tipper in tippers) RoundWinnerEntry(
-          roundNumber: round, tipper: tipper, total: 54,
-          nRL: 30, aFL: 24, aflMargins: 2, nrlMargins: 3,
-          aflUPS: 1, nrlUPS: 2,
-        )],
+        round: [
+          for (final tipper in tippers)
+            RoundWinnerEntry(
+              roundNumber: round,
+              tipper: tipper,
+              total: 54,
+              nRL: 30,
+              aFL: 24,
+              aflMargins: 2,
+              nrlMargins: 3,
+              aflUPS: 1,
+              nrlUPS: 2,
+            ),
+        ],
     };
     when(() => statsViewModel.roundWinners).thenAnswer((_) => winners);
     return winners;
@@ -329,26 +341,41 @@ void main() {
     for (final scale in [1.0, 1.5]) {
       testWidgets('round winners golden $width/$scale', (tester) async {
         populateWinners();
-        await pumpRound(tester, width: width, scale: scale,
-          page: const StatRoundWinners());
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: const StatRoundWinners(),
+        );
         final table = tester.widget<AppTable>(find.byType(AppTable));
         expect(table.frozenLeading, 2);
         expect(tester.takeException(), isNull);
-        await expectLater(find.byKey(const Key('round-page')),
-          matchesGoldenFile('goldens/round-winners-${width.toInt()}-$scale.png'));
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/round-winners-${width.toInt()}-$scale.png',
+          ),
+        );
       });
     }
   }
 
-  testWidgets('winners cache, grouping, sorting and navigation', (tester) async {
+  testWidgets('winners cache, grouping, sorting and navigation', (
+    tester,
+  ) async {
     final winners = populateWinners();
     await pumpRound(tester, width: 680, page: const StatRoundWinners());
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
     final original = table().rows;
-    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured.cast<VoidCallback>();
+    final listeners = verify(() => statsViewModel.addListener(captureAny()))
+        .captured
+        .cast<VoidCallback>();
     void notify() {
-      for (final listener in listeners) { listener(); }
+      for (final listener in listeners) {
+        listener();
+      }
     }
+
     notify();
     await tester.pump();
     expect(identical(original, table().rows), isTrue);
@@ -359,7 +386,8 @@ void main() {
     await tester.pump();
     expect(table().rows.first.cells[2].text, '99');
     expect(table().rows[1].colour, isNot(table().rows[3].colour));
-    when(() => statsViewModel.sortRoundWinnersByTotal(any())).thenAnswer((_) {});
+    when(() => statsViewModel.sortRoundWinnersByTotal(any()))
+        .thenAnswer((_) {});
     table().onSort!(2, true);
     await tester.pump();
     verify(() => statsViewModel.sortRoundWinnersByTotal(true)).called(1);
@@ -367,25 +395,37 @@ void main() {
     // Total and name both lead to the same round leaderboard.
     table().rows.first.onTap!();
     await tester.pumpAndSettle();
-    expect(tester.widget<StatRoundLeaderboard>(find.byType(StatRoundLeaderboard))
-      .roundNumberToDisplay, 24);
+    expect(
+      tester
+          .widget<StatRoundLeaderboard>(find.byType(StatRoundLeaderboard))
+          .roundNumberToDisplay,
+      24,
+    );
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('winners freeze two columns and expose UPS clear of scrollbar', (tester) async {
+  testWidgets('winners freeze two columns and expose UPS clear of scrollbar', (
+    tester,
+  ) async {
     populateWinners();
     await pumpRound(tester, scale: 1.5, page: const StatRoundWinners());
     final roundX = tester.getTopLeft(find.text('Round')).dx;
     final winnerX = tester.getTopLeft(find.text('Winner')).dx;
     final headerY = tester.getTopLeft(find.text('Round')).dy;
-    final horizontal = tester.widget<SingleChildScrollView>(
-      find.byType(SingleChildScrollView)).controller!;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+        .controller!;
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Round')).dx, roundX);
     expect(tester.getTopLeft(find.text('Winner')).dx, winnerX);
-    expect(tester.getRect(find.text('UPS')).right, lessThanOrEqualTo(
-      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    expect(
+      tester.getRect(find.text('UPS')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
     tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Round')).dy, headerY);
@@ -411,59 +451,98 @@ void main() {
     for (final scale in [1.0, 1.5]) {
       testWidgets('missing tips golden $width/$scale', (tester) async {
         populateMissing();
-        await pumpRound(tester, width: width, scale: scale,
-          page: const RoundMissingTipsStats(24));
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: const RoundMissingTipsStats(24),
+        );
         expect(tester.takeException(), isNull);
-        await expectLater(find.byKey(const Key('round-page')),
-          matchesGoldenFile('goldens/missing-tips-${width.toInt()}-$scale.png'));
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/missing-tips-${width.toInt()}-$scale.png'),
+        );
       });
     }
   }
 
-  testWidgets('missing tips filter, cache and sort refresh after notifications', (tester) async {
-    final data = populateMissing();
-    await pumpRound(tester, width: 680, page: const RoundMissingTipsStats(24));
-    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
-    final original = table().rows;
-    expect(original.every((row) => row.onTap == null), isTrue);
-    expect(original.any((row) => row.cells.first.text == selectedTipper.name), isFalse);
-    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured.cast<VoidCallback>();
-    void notify() { for (final listener in listeners) { listener(); } }
-    notify();
-    await tester.pump();
-    expect(identical(original, table().rows), isTrue);
-    await pumpRound(tester, page: const RoundMissingTipsStats(24));
-    expect(identical(original, table().rows), isTrue);
-    data[selectedTipper]!.nrlTipsOutstanding = 99;
-    notify();
-    await tester.pump();
-    expect(table().rows.first.cells[1].text, '99');
-    for (var column = 1; column < 4; column++) {
-      for (final ascending in [true, false]) {
-        table().onSort!(column, ascending);
-        await tester.pump();
-        notify();
-        await tester.pump();
-        final values = table().rows.map((row) => int.parse(row.cells[column].text!)).toList();
-        final expected = List.of(values)..sort();
-        expect(values, ascending ? expected : expected.reversed.toList());
+  testWidgets(
+    'missing tips filter, cache and sort refresh after notifications',
+    (tester) async {
+      final data = populateMissing();
+      await pumpRound(
+        tester,
+        width: 680,
+        page: const RoundMissingTipsStats(24),
+      );
+      AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+      final original = table().rows;
+      expect(original.every((row) => row.onTap == null), isTrue);
+      expect(
+        original.any((row) => row.cells.first.text == selectedTipper.name),
+        isFalse,
+      );
+      final listeners = verify(() => statsViewModel.addListener(captureAny()))
+          .captured
+          .cast<VoidCallback>();
+      void notify() {
+        for (final listener in listeners) {
+          listener();
+        }
       }
-    }
-    expect(tester.takeException(), isNull);
-  });
 
-  testWidgets('missing tips keep names frozen and AFL outside scrollbar lane', (tester) async {
+      notify();
+      await tester.pump();
+      expect(identical(original, table().rows), isTrue);
+      await pumpRound(tester, page: const RoundMissingTipsStats(24));
+      expect(identical(original, table().rows), isTrue);
+      data[selectedTipper]!.nrlTipsOutstanding = 99;
+      notify();
+      await tester.pump();
+      expect(table().rows.first.cells[1].text, '99');
+      for (var column = 1; column < 4; column++) {
+        for (final ascending in [true, false]) {
+          table().onSort!(column, ascending);
+          await tester.pump();
+          notify();
+          await tester.pump();
+          final values = table().rows
+              .map((row) => int.parse(row.cells[column].text!))
+              .toList();
+          final expected = List.of(values)..sort();
+          expect(values, ascending ? expected : expected.reversed.toList());
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('missing tips keep names frozen and AFL outside scrollbar lane', (
+    tester,
+  ) async {
     populateMissing();
     await pumpRound(tester, scale: 3.2, page: const RoundMissingTipsStats(24));
     final x = tester.getTopLeft(find.text('Name')).dx;
     final y = tester.getTopLeft(find.text('Name')).dy;
-    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
-      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Name')).dx, x);
-    expect(tester.getRect(find.text('AFL')).right, lessThanOrEqualTo(
-      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    expect(
+      tester.getRect(find.text('AFL')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
     tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Name')).dy, y);
@@ -475,12 +554,24 @@ void main() {
   });
 
   List<RoundStats> populatePoints() {
-    selectedComp.daurounds.add(DAURound(dAUroundNumber: 24,
-      firstGameKickOffUTC: DateTime.utc(2025), lastGameKickOffUTC: DateTime.utc(2025)));
+    selectedComp.daurounds.add(
+      DAURound(
+        dAUroundNumber: 24,
+        firstGameKickOffUTC: DateTime.utc(2025),
+        lastGameKickOffUTC: DateTime.utc(2025),
+      ),
+    );
     final points = [
       for (var round = 1; round <= 24; round++)
-        RoundStats.fromJson({'nbr': round, 'aS': round, 'nS': 30 - round,
-          'aMt': round % 3, 'nMt': round % 4, 'aMu': round % 2, 'nMu': round % 5}),
+        RoundStats.fromJson({
+          'nbr': round,
+          'aS': round,
+          'nS': 30 - round,
+          'aMt': round % 3,
+          'nMt': round % 4,
+          'aMu': round % 2,
+          'nMu': round % 5,
+        }),
     ];
     when(() => statsViewModel.getTipperRoundPointsForComp(selectedTipper))
         .thenAnswer((_) => List.of(points));
@@ -491,22 +582,41 @@ void main() {
     for (final scale in [1.0, 1.5]) {
       testWidgets('round points golden $width/$scale', (tester) async {
         populatePoints();
-        await pumpRound(tester, width: width, scale: scale,
-          page: StatRoundPointsForTipper(selectedTipper));
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: StatRoundPointsForTipper(selectedTipper),
+        );
         expect(tester.takeException(), isNull);
-        await expectLater(find.byKey(const Key('round-page')),
-          matchesGoldenFile('goldens/round-points-${width.toInt()}-$scale.png'));
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/round-points-${width.toInt()}-$scale.png'),
+        );
       });
     }
   }
 
-  testWidgets('round points sorting, cache and navigation survive updates', (tester) async {
+  testWidgets('round points sorting, cache and navigation survive updates', (
+    tester,
+  ) async {
     final points = populatePoints();
-    await pumpRound(tester, width: 680, page: StatRoundPointsForTipper(selectedTipper));
+    await pumpRound(
+      tester,
+      width: 680,
+      page: StatRoundPointsForTipper(selectedTipper),
+    );
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
     final original = table().rows;
-    final listeners = verify(() => statsViewModel.addListener(captureAny())).captured.cast<VoidCallback>();
-    void notify() { for (final listener in listeners) { listener(); } }
+    final listeners = verify(() => statsViewModel.addListener(captureAny()))
+        .captured
+        .cast<VoidCallback>();
+    void notify() {
+      for (final listener in listeners) {
+        listener();
+      }
+    }
+
     notify();
     await tester.pump();
     expect(identical(original, table().rows), isTrue);
@@ -521,30 +631,55 @@ void main() {
       await tester.pump();
       notify();
       await tester.pump();
-      final values = table().rows.map((row) => int.parse(row.cells[column].text!)).toList();
+      final values = table().rows
+          .map((row) => int.parse(row.cells[column].text!))
+          .toList();
       expect(values, orderedEquals(List.of(values)..sort()));
     }
     final targetRound = int.parse(table().rows.first.cells.first.text!);
     table().rows.first.onTap!();
     await tester.pumpAndSettle();
-    expect(tester.widget<StatRoundGameScoresForTipper>(
-      find.byType(StatRoundGameScoresForTipper)).roundNumberToDisplay, targetRound);
+    expect(
+      tester
+          .widget<StatRoundGameScoresForTipper>(
+            find.byType(StatRoundGameScoresForTipper),
+          )
+          .roundNumberToDisplay,
+      targetRound,
+    );
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('round points freeze the round and clear the scrollbar', (tester) async {
+  testWidgets('round points freeze the round and clear the scrollbar', (
+    tester,
+  ) async {
     populatePoints();
-    await pumpRound(tester, scale: 3.2, page: StatRoundPointsForTipper(selectedTipper));
+    await pumpRound(
+      tester,
+      scale: 3.2,
+      page: StatRoundPointsForTipper(selectedTipper),
+    );
     final x = tester.getTopLeft(find.text('Round')).dx;
     final y = tester.getTopLeft(find.text('Round')).dy;
-    final horizontal = tester.widget<SingleChildScrollView>(
-      find.byWidgetPredicate((widget) => widget is SingleChildScrollView &&
-          widget.scrollDirection == Axis.horizontal)).controller!;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Round')).dx, x);
-    expect(tester.getRect(find.text('UPS')).right, lessThanOrEqualTo(
-      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    expect(
+      tester.getRect(find.text('UPS')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
     tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Round')).dy, y);
@@ -565,27 +700,52 @@ void main() {
     when(() => tips.dispose()).thenAnswer((_) {});
     when(() => tips.initialLoadCompleted).thenAnswer((_) async {});
     final games = [
-      for (var i = 0; i < 20; i++) Game(
-        dbkey: 'game-$i', league: i < 10 ? League.nrl : League.afl,
-        homeTeam: homeTeam, awayTeam: awayTeam, location: 'Test Ground',
-        startTimeUTC: DateTime.utc(2025), fixtureRoundNumber: 1, fixtureMatchNumber: i + 1,
-        scoring: Scoring(homeTeamScore: 40 + i, awayTeamScore: 10),
-      ),
+      for (var i = 0; i < 20; i++)
+        Game(
+          dbkey: 'game-$i',
+          league: i < 10 ? League.nrl : League.afl,
+          homeTeam: homeTeam,
+          awayTeam: awayTeam,
+          location: 'Test Ground',
+          startTimeUTC: DateTime.utc(2025),
+          fixtureRoundNumber: 1,
+          fixtureMatchNumber: i + 1,
+          scoring: Scoring(homeTeamScore: 40 + i, awayTeamScore: 10),
+        ),
     ];
     for (final game in games) {
-      final tip = Tip(game: game, tipper: selectedTipper, tip: GameResult.a,
-        submittedTimeUTC: DateTime.utc(2024));
-      when(() => tips.findTip(game, selectedTipper)).thenAnswer((_) async => tip);
+      final tip = Tip(
+        game: game,
+        tipper: selectedTipper,
+        tip: GameResult.a,
+        submittedTimeUTC: DateTime.utc(2024),
+      );
+      when(() => tips.findTip(game, selectedTipper))
+          .thenAnswer((_) async => tip);
     }
-    final round = DAURound(dAUroundNumber: 1, firstGameKickOffUTC: DateTime.utc(2025),
-      lastGameKickOffUTC: DateTime.utc(2025), games: games);
+    final round = DAURound(
+      dAUroundNumber: 1,
+      firstGameKickOffUTC: DateTime.utc(2025),
+      lastGameKickOffUTC: DateTime.utc(2025),
+      games: games,
+    );
     selectedComp.daurounds.add(round);
     when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
-    when(() => dauCompsViewModel.groupGamesIntoLeagues(round)).thenAnswer((_) => {
-      League.nrl: games.take(10).toList(), League.afl: games.skip(10).toList(),
-    });
-    return (StatRoundGameScoresForTipper(selectedTipper, 1,
-      createTipsViewModel: (_, _) => tips), games, tips);
+    when(() => dauCompsViewModel.groupGamesIntoLeagues(round)).thenAnswer(
+      (_) => {
+        League.nrl: games.take(10).toList(),
+        League.afl: games.skip(10).toList(),
+      },
+    );
+    return (
+      StatRoundGameScoresForTipper(
+        selectedTipper,
+        1,
+        createTipsViewModel: (_, _) => tips,
+      ),
+      games,
+      tips,
+    );
   }
 
   for (final width in [360.0, 680.0, 768.0, 1280.0]) {
@@ -595,13 +755,19 @@ void main() {
         await pumpRound(tester, width: width, scale: scale, page: page);
         expect(find.text('40 - 10'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        await expectLater(find.byKey(const Key('round-page')),
-          matchesGoldenFile('goldens/round-game-scores-${width.toInt()}-$scale.png'));
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/round-game-scores-${width.toInt()}-$scale.png',
+          ),
+        );
       });
     }
   }
 
-  testWidgets('game scores retain cache and update both league results', (tester) async {
+  testWidgets('game scores retain cache and update both league results', (
+    tester,
+  ) async {
     final (page, games, tips) = populateGameScores();
     await pumpRound(tester, width: 680, page: page);
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
@@ -612,32 +778,51 @@ void main() {
     expect(original[1].cells.first.text, contains('\n40 - 10'));
     expect(table().onSort, isNull);
     expect(original.every((row) => row.onTap == null), isTrue);
-    final listeners = verify(() => tips.addListener(captureAny())).captured.cast<VoidCallback>();
-    for (final listener in listeners) { listener(); }
+    final listeners = verify(() => tips.addListener(captureAny())).captured
+        .cast<VoidCallback>();
+    for (final listener in listeners) {
+      listener();
+    }
     await tester.pumpAndSettle();
     expect(identical(original, table().rows), isTrue);
     await pumpRound(tester, page: page);
     expect(identical(original, table().rows), isTrue);
     games.first.scoring!.homeTeamScore = 0;
-    for (final listener in listeners) { listener(); }
+    for (final listener in listeners) {
+      listener();
+    }
     await tester.pumpAndSettle();
     expect(table().rows[1].cells.first.text, contains('\n0 - 10'));
     expect(table().rows[1].cells[1].text, 'Away');
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('game scores freeze teams and clear max-points scrollbar lane', (tester) async {
+  testWidgets('game scores freeze teams and clear max-points scrollbar lane', (
+    tester,
+  ) async {
     final (page, _, _) = populateGameScores();
     await pumpRound(tester, scale: 1.5, page: page);
     final x = tester.getTopLeft(find.text('Teams / Scores')).dx;
     final y = tester.getTopLeft(find.text('Teams / Scores')).dy;
-    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
-      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Teams / Scores')).dx, x);
-    expect(tester.getRect(find.text('Max Points')).right, lessThanOrEqualTo(
-      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    expect(
+      tester.getRect(find.text('Max Points')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
     tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Teams / Scores')).dy, y);
@@ -656,13 +841,25 @@ void main() {
   });
 
   Widget populateMatchups() {
-    final games = List.generate(24, (i) => Game(
-      dbkey: 'past-$i', league: League.nrl, homeTeam: homeTeam, awayTeam: awayTeam,
-      location: 'Test Ground', startTimeUTC: DateTime.utc(2025, 5, i + 1),
-      fixtureRoundNumber: i + 1, fixtureMatchNumber: 1,
-      scoring: i % 4 == 3 ? null : Scoring(
-        homeTeamScore: i % 4 == 0 ? 30 : 10, awayTeamScore: i % 4 == 1 ? 30 : 10),
-    ));
+    final games = List.generate(
+      24,
+      (i) => Game(
+        dbkey: 'past-$i',
+        league: League.nrl,
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        location: 'Test Ground',
+        startTimeUTC: DateTime.utc(2025, 5, i + 1),
+        fixtureRoundNumber: i + 1,
+        fixtureMatchNumber: 1,
+        scoring: i % 4 == 3
+            ? null
+            : Scoring(
+                homeTeamScore: i % 4 == 0 ? 30 : 10,
+                awayTeamScore: i % 4 == 1 ? 30 : 10,
+              ),
+      ),
+    );
     when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
     when(() => gamesViewModel.initialLoadComplete).thenAnswer((_) async {});
     when(() => gamesViewModel.teamsViewModel).thenReturn(teamsViewModel);
@@ -670,34 +867,62 @@ void main() {
     when(() => teamsViewModel.findTeam(homeTeam.dbkey)).thenReturn(homeTeam);
     when(() => teamsViewModel.findTeam(awayTeam.dbkey)).thenReturn(awayTeam);
     // GamesViewModel hands these back newest first; so does this.
-    when(() => gamesViewModel.getCompleteMatchupHistory(homeTeam, awayTeam, League.nrl))
-      .thenAnswer((_) async => games.reversed.toList());
+    when(
+      () => gamesViewModel.getCompleteMatchupHistory(
+        homeTeam,
+        awayTeam,
+        League.nrl,
+      ),
+    ).thenAnswer((_) async => games.reversed.toList());
     final tips = MockTableTipsViewModel();
     final comps = [selectedComp];
     when(() => dauCompsViewModel.daucomps).thenReturn(comps);
     when(() => dauCompsViewModel.selectedTipperTipsViewModel).thenReturn(tips);
     when(() => tips.initialLoadCompleted).thenAnswer((_) async {});
     for (final game in games) {
-      when(() => tips.findTipAcrossCompetitions(game, selectedTipper, comps)).thenAnswer((_) async =>
-        game.scoring == null ? null : Tip(game: game, tipper: selectedTipper,
-          tip: GameResult.a, submittedTimeUTC: DateTime.utc(2024)));
+      when(() => tips.findTipAcrossCompetitions(game, selectedTipper, comps))
+          .thenAnswer(
+            (_) async => game.scoring == null
+                ? null
+                : Tip(
+                    game: game,
+                    tipper: selectedTipper,
+                    tip: GameResult.a,
+                    submittedTimeUTC: DateTime.utc(2024),
+                  ),
+          );
     }
-    return Scaffold(body: LeagueLadderHistoricalMatchups(
-      league: League.nrl, teamDbKeys: [homeTeam.dbkey, awayTeam.dbkey]));
+    return Scaffold(
+      body: LeagueLadderHistoricalMatchups(
+        league: League.nrl,
+        teamDbKeys: [homeTeam.dbkey, awayTeam.dbkey],
+      ),
+    );
   }
 
   for (final width in [360.0, 680.0, 768.0, 1280.0]) {
     for (final scale in [1.0, 1.5]) {
       testWidgets('matchup history golden $width/$scale', (tester) async {
-        await pumpRound(tester, width: width, scale: scale, page: populateMatchups());
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: populateMatchups(),
+        );
         expect(tester.takeException(), isNull);
-        await expectLater(find.byKey(const Key('round-page')),
-          matchesGoldenFile('goldens/matchup-history-${width.toInt()}-$scale.png'));
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/matchup-history-${width.toInt()}-$scale.png',
+          ),
+        );
       });
     }
   }
 
-  testWidgets('matchup cache, badge scale and tip outcome semantics', (tester) async {
+  testWidgets('matchup cache, badge scale and tip outcome semantics', (
+    tester,
+  ) async {
     final page = populateMatchups();
     await pumpRound(tester, width: 680, page: page);
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
@@ -732,17 +957,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('matchup dates stay frozen and scores clear the scrollbar', (tester) async {
+  testWidgets('matchup dates stay frozen and scores clear the scrollbar', (
+    tester,
+  ) async {
     await pumpRound(tester, scale: 1.5, page: populateMatchups());
     final x = tester.getTopLeft(find.text('Date')).dx;
     final y = tester.getTopLeft(find.text('Date')).dy;
-    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
-      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Date')).dx, x);
-    expect(tester.getRect(find.text('Score')).right, lessThanOrEqualTo(
-      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    expect(
+      tester.getRect(find.text('Score')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
     tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Date')).dy, y);
@@ -787,17 +1026,24 @@ void main() {
   });
 
   List<TeamGameHistoryItem> populateHistory() {
-    final items = List.generate(24, (i) => TeamGameHistoryItem(
-      opponentName: i.isEven ? 'Long Opponent Team Name' : 'Away Team',
-      teamScore: 20 + i, opponentScore: 10 + i, result: ['Won', 'Lost', 'Draw'][i % 3],
-      ladderPoints: i % 3, gameDate: DateTime.utc(2025, 5, i + 1),
-      roundNumber: i + 1, isHomeGame: i.isEven,
-    ));
+    final items = List.generate(
+      24,
+      (i) => TeamGameHistoryItem(
+        opponentName: i.isEven ? 'Long Opponent Team Name' : 'Away Team',
+        teamScore: 20 + i,
+        opponentScore: 10 + i,
+        result: ['Won', 'Lost', 'Draw'][i % 3],
+        ladderPoints: i % 3,
+        gameDate: DateTime.utc(2025, 5, i + 1),
+        roundNumber: i + 1,
+        isHomeGame: i.isEven,
+      ),
+    );
     when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
     // GamesViewModel hands these back newest first; so does this.
     final ordered = items.reversed.toList();
     when(() => gamesViewModel.getCompleteTeamGameHistory(homeTeam, League.nrl))
-      .thenAnswer((_) async => ordered);
+        .thenAnswer((_) async => ordered);
     return ordered;
   }
 
@@ -805,16 +1051,24 @@ void main() {
     for (final scale in [1.0, 1.5]) {
       testWidgets('team history golden $width/$scale', (tester) async {
         populateHistory();
-        await pumpRound(tester, width: width, scale: scale,
-          page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl));
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl),
+        );
         expect(tester.takeException(), isNull);
-        await expectLater(find.byKey(const Key('round-page')),
-          matchesGoldenFile('goldens/team-history-${width.toInt()}-$scale.png'));
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/team-history-${width.toInt()}-$scale.png'),
+        );
       });
     }
   }
 
-  testWidgets('team history cache and badge sizes track scale and sorting', (tester) async {
+  testWidgets('team history cache and badge sizes track scale and sorting', (
+    tester,
+  ) async {
     populateHistory();
     final page = TeamGamesHistoryPage(team: homeTeam, league: League.nrl);
     await pumpRound(tester, width: 680, page: page);
@@ -824,7 +1078,10 @@ void main() {
     await pumpRound(tester, page: page);
     expect(identical(original, table().rows), isTrue);
     await pumpRound(tester, scale: 1.5, page: page);
-    expect(table().rows.first.cells.last.intrinsicSize.width, greaterThan(badgeWidth));
+    expect(
+      table().rows.first.cells.last.intrinsicSize.width,
+      greaterThan(badgeWidth),
+    );
     // Newest first, which the heading now says and the page now does.
     expect(table().sort!.column, 0);
     expect(table().sort!.ascending, isFalse);
@@ -845,19 +1102,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('team history freezes dates and keeps final badge clear', (tester) async {
+  testWidgets('team history freezes dates and keeps final badge clear', (
+    tester,
+  ) async {
     populateHistory();
-    await pumpRound(tester, scale: 1.5,
-      page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl));
+    await pumpRound(
+      tester,
+      scale: 1.5,
+      page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl),
+    );
     final x = tester.getTopLeft(find.text('Date')).dx;
     final y = tester.getTopLeft(find.text('Date')).dy;
-    final horizontal = tester.widget<SingleChildScrollView>(find.byWidgetPredicate(
-      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal)).controller!;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Date')).dx, x);
-    expect(tester.getRect(find.text('Round')).right, lessThanOrEqualTo(
-      tester.getRect(find.byType(AppTable)).right - AppTableLayout.scrollbarLane));
+    expect(
+      tester.getRect(find.text('Round')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
     tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Date')).dy, y);
@@ -887,8 +1161,17 @@ void main() {
     );
   });
 
-  for (final screen in ['winners', 'points', 'missing', 'games', 'history', 'matchups']) {
-    testWidgets('$screen retains rows when rotated into a 680px short pane', (tester) async {
+  for (final screen in [
+    'winners',
+    'points',
+    'missing',
+    'games',
+    'history',
+    'matchups',
+  ]) {
+    testWidgets('$screen retains rows when rotated into a 680px short pane', (
+      tester,
+    ) async {
       late Widget page;
       switch (screen) {
         case 'winners':
@@ -913,7 +1196,10 @@ void main() {
       await pumpRound(tester, scale: 1.5, page: page);
       final before = tester.widget<AppTable>(find.byType(AppTable)).rows;
       await pumpRound(tester, width: 680, height: 360, scale: 1.5, page: page);
-      expect(identical(before, tester.widget<AppTable>(find.byType(AppTable)).rows), isTrue);
+      expect(
+        identical(before, tester.widget<AppTable>(find.byType(AppTable)).rows),
+        isTrue,
+      );
       expect(tester.getSize(find.byType(ListView)).height, greaterThan(40));
       expect(tester.takeException(), isNull);
     });
@@ -1037,8 +1323,5 @@ Future<void> _expectPageRendersTable(
   }
 
   expect(tester.takeException(), isNull);
-  expect(
-    find.byType(AppTable),
-    findsOneWidget,
-  );
+  expect(find.byType(AppTable), findsOneWidget);
 }

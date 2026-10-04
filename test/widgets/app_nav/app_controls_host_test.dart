@@ -118,12 +118,40 @@ void main() {
     useView(tester, const Size(390, 844));
     await tester.pumpWidget(app(homeWithTabs()));
     await tester.pumpAndSettle();
-    final pillBottom = tester.getBottomRight(find.byType(AppGlassPill));
+    final pill = tester.getRect(find.byType(AppGlassPill));
 
     await push(tester, const Scaffold(body: Text('detail')));
-    final back = find.byType(AppGlassButton);
-    expect(tester.getSize(back), const Size.square(kGlassHorizontalThickness));
-    expect(tester.getBottomRight(back), pillBottom, reason: 'same corner');
+    final back = tester.getRect(find.byType(AppGlassButton));
+    expect(back.size, const Size.square(kGlassHorizontalThickness));
+    expect(back.bottom, pill.bottom, reason: 'same line along the bottom');
+    expect(
+      back.right,
+      390 - kControlsEdgeMargin,
+      reason: 'Back is in the right-hand corner, not the middle',
+    );
+  });
+
+  testWidgets('centres the pill along the bottom of a tall display', (
+    tester,
+  ) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(app(homeWithTabs()));
+    await tester.pumpAndSettle();
+
+    expect(tester.getCenter(find.byType(AppGlassPill)).dx, 390 / 2);
+  });
+
+  testWidgets('keeps the side pill at the right edge, not the middle', (
+    tester,
+  ) async {
+    useView(tester, const Size(844, 390));
+    await tester.pumpWidget(app(homeWithTabs()));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getCenter(find.byType(AppGlassPill)).dx,
+      greaterThan(844 * 0.9),
+    );
   });
 
   testWidgets('a dialog does not summon Back', (tester) async {
@@ -380,4 +408,49 @@ void main() {
 
     expect(find.byIcon(Icons.arrow_back), findsNothing);
   });
+
+  for (final inset in [30.0, 51.0, 62.0, 80.0]) {
+    testWidgets('the content clears the side pill with a ${inset}pt inset', (
+      tester,
+    ) async {
+      useView(tester, const Size(844, 390));
+      EdgeInsets? seen;
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorObservers: [observer],
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(padding: EdgeInsets.only(right: inset)),
+            child: AppControlsHost(
+              viewModel: viewModel,
+              observer: observer,
+              child: child!,
+            ),
+          ),
+          home: AppNavTabsScope(
+            viewModel: viewModel,
+            tabs: AppNavTabs(
+              destinations: _destinations,
+              selectedIndex: 0,
+              onSelected: (_) {},
+            ),
+            child: Builder(
+              builder: (context) {
+                seen = MediaQuery.paddingOf(context);
+                return const Scaffold(body: Text('home'));
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final pill = tester.getRect(find.byType(AppGlassPill));
+      expect(
+        pill.left,
+        greaterThanOrEqualTo(844 - seen!.right),
+        reason: 'the content ends where the pill begins, or before',
+      );
+    });
+  }
 }

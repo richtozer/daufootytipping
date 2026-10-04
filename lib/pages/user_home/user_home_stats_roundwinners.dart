@@ -9,6 +9,7 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
@@ -35,6 +36,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
     AppColumn.numeric('AFL', sortable: true),
     AppColumn.numeric('Margins', sortable: true),
     AppColumn.numeric('UPS', sortable: true),
+    AppColumn.navigation(),
   ];
   List<Object?> _renderedValues = const [];
   List<AppRow> _rows = const [];
@@ -82,11 +84,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                 : groupColour,
             onTap: () => onRowTapped(context, winner),
             cells: [
-              AppCell.text(
-                winner.roundNumber.toString(),
-                leading: const Icon(Icons.arrow_forward, size: 15),
-                leadingSize: const Size(15, 15),
-              ),
+              AppCell.text(winner.roundNumber.toString()),
               AppCell.text(
                 winner.tipper.name,
                 leading: avatarPic(winner.tipper, winner.roundNumber),
@@ -97,6 +95,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
               AppCell.text(winner.aFL.toString()),
               AppCell.text((winner.aflMargins + winner.nrlMargins).toString()),
               AppCell.text((winner.aflUPS + winner.nrlUPS).toString()),
+              AppCell.navigation(),
             ],
           );
         })(),
@@ -119,7 +118,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
         builder: (context, statsViewModelConsumer, child) {
           return SelectedCompBanner(
             child: Scaffold(
-              body: SafeArea(
+              body: AppUnderControlsArea(
                 child: AppTableFrame(
                   columns: columns,
                   rows: _tableRows(context),

@@ -3,10 +3,24 @@ import 'package:flutter/material.dart';
 /// Column intent, not a caller-assigned width. Numeric headings may rotate.
 @immutable
 class AppColumn {
-  const AppColumn.text(this.label, {this.sortable = false,
-    this.descendingFirst = false}) : numeric = false;
-  const AppColumn.numeric(this.label, {this.sortable = false,
-    this.descendingFirst = true}) : numeric = true;
+  const AppColumn.text(
+    this.label, {
+    this.sortable = false,
+    this.descendingFirst = false,
+  }) : numeric = false;
+  const AppColumn.numeric(
+    this.label, {
+    this.sortable = false,
+    this.descendingFirst = true,
+  }) : numeric = true;
+
+  /// The last column of a table whose rows open something: the arrow that says
+  /// so, with no heading and nothing to sort.
+  const AppColumn.navigation()
+    : label = '',
+      numeric = false,
+      sortable = false,
+      descendingFirst = false;
 
   final String label;
   final bool numeric;
@@ -26,15 +40,42 @@ class AppColumn {
 /// Custom widgets declare their rendered size at the current text scale.
 @immutable
 class AppCell {
-  const AppCell.text(String value, {this.style, this.leading,
-    this.leadingSize = Size.zero, this.maxLines = 1, String? semanticLabel})
-      : text = value, child = null, intrinsicSize = Size.zero, semanticLabel = semanticLabel ?? value;
-  const AppCell.widget(Widget widget, {required this.intrinsicSize,
-    required this.semanticLabel})
-      : child = widget, text = null, style = null, leading = null,
-        leadingSize = Size.zero, maxLines = 1;
+  const AppCell.text(
+    String value, {
+    this.style,
+    this.leading,
+    this.leadingSize = Size.zero,
+    this.maxLines = 1,
+    String? semanticLabel,
+  }) : text = value,
+       child = null,
+       intrinsicSize = Size.zero,
+       semanticLabel = semanticLabel ?? value;
+  const AppCell.widget(
+    Widget widget, {
+    required this.intrinsicSize,
+    required this.semanticLabel,
+  }) : child = widget,
+       text = null,
+       style = null,
+       leading = null,
+       leadingSize = Size.zero,
+       maxLines = 1;
+
+  /// The forward arrow that ends a row which opens something, to sit under an
+  /// [AppColumn.navigation]. The row itself is the control, so the arrow carries
+  /// no label of its own.
+  factory AppCell.navigation({Color? color}) => AppCell.widget(
+    Icon(Icons.arrow_forward, size: navigationIconSize, color: color),
+    intrinsicSize: const Size.square(navigationIconSize),
+    semanticLabel: '',
+  );
+
+  /// The size of the arrow in an [AppCell.navigation].
+  static const double navigationIconSize = 15;
 
   final String? text;
+
   /// Explicit lines remain measurable; long content still elides per cell.
   final int maxLines;
   final TextStyle? style;

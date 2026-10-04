@@ -11,6 +11,7 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -38,6 +39,7 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     AppColumn.numeric('AFL', sortable: true),
     AppColumn.numeric('Margins', sortable: true),
     AppColumn.numeric('UPS', sortable: true),
+    AppColumn.navigation(),
   ];
   List<Object?> _renderedValues = const [];
   List<AppRow> _rows = const [];
@@ -71,11 +73,7 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
             ),
           ),
           cells: [
-            AppCell.text(
-              point.roundNumber.toString(),
-              leading: const Icon(Icons.arrow_forward, size: 15),
-              leadingSize: const Size(15, 15),
-            ),
+            AppCell.text(point.roundNumber.toString()),
             AppCell.text((point.nrlPoints + point.aflPoints).toString()),
             AppCell.text(point.nrlPoints.toString()),
             AppCell.text(point.aflPoints.toString()),
@@ -83,6 +81,7 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
               (point.aflMarginTips + point.nrlMarginTips).toString(),
             ),
             AppCell.text((point.aflMarginUPS + point.nrlMarginUPS).toString()),
+            AppCell.navigation(),
           ],
         ),
     ];
@@ -216,7 +215,7 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
     bool isLargeScreen,
   ) {
     return Scaffold(
-      body: SafeArea(
+      body: AppUnderControlsArea(
         child: AppTableFrame(
           columns: columns,
           rows: _tableRows(points),

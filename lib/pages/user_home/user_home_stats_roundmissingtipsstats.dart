@@ -6,6 +6,7 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -132,7 +133,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
     return Scaffold(
-      body: SafeArea(
+      body: AppUnderControlsArea(
         child: AppTableFrame(
           columns: columns,
           rows: _tableRows(context),

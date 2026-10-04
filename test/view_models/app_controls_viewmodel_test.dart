@@ -81,6 +81,25 @@ void main() {
     );
   });
 
+  test(
+    'the controls fade only for the page that asked, and it forgets on pop',
+    () {
+      viewModel.setPageRoutes([home, stats]);
+      expect(viewModel.controlsFaded, isFalse);
+
+      viewModel.setControlsFaded(stats, true);
+      expect(viewModel.controlsFaded, isTrue);
+
+      viewModel.setControlsFaded(stats, false);
+      expect(viewModel.controlsFaded, isFalse);
+
+      viewModel.setControlsFaded(stats, true);
+      viewModel.setPageRoutes([home]);
+      viewModel.setPageRoutes([home, stats]);
+      expect(viewModel.controlsFaded, isFalse, reason: 'popped routes forget');
+    },
+  );
+
   test('announces a change made outside a frame straight away', () {
     var heard = 0;
     viewModel.addListener(() => heard++);

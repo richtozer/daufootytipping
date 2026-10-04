@@ -105,3 +105,70 @@ class _AppPageActionsState extends State<AppPageActions> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+/// How far from the end a scroll view may be and still count as at it.
+const double kScrollEndSlack = 2;
+
+/// Fades the floating controls away while a vertical scroll view below it rests
+/// at its end, so the last rows can be read, and brings them back as soon as it
+/// scrolls up again.
+///
+/// A scroll view too short to scroll never fades them.
+class AppControlsFadeAtScrollEnd extends StatefulWidget {
+  const AppControlsFadeAtScrollEnd({
+    super.key,
+    required this.child,
+    this.viewModel,
+  });
+
+  final Widget child;
+
+  /// Defaults to the registered [AppControlsViewModel].
+  final AppControlsViewModel? viewModel;
+
+  @override
+  State<AppControlsFadeAtScrollEnd> createState() =>
+      _AppControlsFadeAtScrollEndState();
+}
+
+class _AppControlsFadeAtScrollEndState
+    extends State<AppControlsFadeAtScrollEnd> {
+  late final AppControlsViewModel _viewModel =
+      widget.viewModel ?? di<AppControlsViewModel>();
+  Route<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    final route = _route;
+    if (route == null || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    final metrics = notification.metrics;
+    final atEnd =
+        metrics.maxScrollExtent > 0 && metrics.extentAfter <= kScrollEndSlack;
+    _viewModel.setControlsFaded(route, atEnd);
+    return false;
+  }
+
+  @override
+  void dispose() {
+    final route = _route;
+    if (route != null) {
+      _viewModel.setControlsFaded(route, false);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: widget.child,
+    );
+  }
+}

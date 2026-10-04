@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import 'app_table_layout.dart';
+
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
+
 import 'app_table_models.dart';
 
 export 'app_table_frame.dart';
@@ -112,15 +115,16 @@ class _AppTableState extends State<AppTable> {
           0.0,
           (layout.viewportWidth - layout.contentWidth) / 2,
         );
+        final endPadding = AppScrollEndPadding.of(context);
         final scrollsVertically =
-            widget.rows.length * layout.rowHeight >
+            widget.rows.length * layout.rowHeight + endPadding >
             contentHeight - headerViewport;
         final rows = widget.rows.isEmpty && widget.empty != null
             ? SingleChildScrollView(controller: _vertical, child: widget.empty)
             : ListView.builder(
                 controller: _vertical,
                 primary: false,
-                padding: EdgeInsets.zero,
+                padding: EdgeInsets.only(bottom: endPadding),
                 itemExtent: layout.rowHeight,
                 itemCount: widget.rows.length,
                 itemBuilder: (context, index) =>
@@ -145,31 +149,43 @@ class _AppTableState extends State<AppTable> {
             children: [
               SizedBox(
                 height: headerViewport,
-                child: ClipRect(
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(end: lane),
-                    // The heading is as wide as the table, which may be wider
-                    // than the pane. Align would clamp it to the pane and leave
-                    // its row overflowing; the scroller it used to sit in gave
-                    // it unbounded width, and this does the same.
-                    child: OverflowBox(
-                      alignment: AlignmentDirectional.centerStart,
-                      maxWidth: double.infinity,
-                      child: AnimatedBuilder(
-                        animation: _horizontal,
-                        builder: (context, child) => Transform.translate(
-                          offset: Offset(
-                            sideGap -
-                                (_horizontal.hasClients
-                                    ? _horizontal.offset
-                                    : 0),
-                            0,
+                // The heading's colour carries on over the scrollbar's lane, so the
+                // bar starts under the heading rather than beside it, and the
+                // table's top corners match on both sides.
+                child: DecoratedBox(
+                  key: const Key('appTableHeaderBackground'),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    border: Border(
+                      bottom: BorderSide(color: theme.dividerColor),
+                    ),
+                  ),
+                  child: ClipRect(
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(end: lane),
+                      // The heading is as wide as the table, which may be wider
+                      // than the pane. Align would clamp it to the pane and leave
+                      // its row overflowing; the scroller it used to sit in gave
+                      // it unbounded width, and this does the same.
+                      child: OverflowBox(
+                        alignment: AlignmentDirectional.centerStart,
+                        maxWidth: double.infinity,
+                        child: AnimatedBuilder(
+                          animation: _horizontal,
+                          builder: (context, child) => Transform.translate(
+                            offset: Offset(
+                              sideGap -
+                                  (_horizontal.hasClients
+                                      ? _horizontal.offset
+                                      : 0),
+                              0,
+                            ),
+                            child: child,
                           ),
-                          child: child,
-                        ),
-                        child: SizedBox(
-                          width: layout.contentWidth,
-                          child: header,
+                          child: SizedBox(
+                            width: layout.contentWidth,
+                            child: header,
+                          ),
                         ),
                       ),
                     ),
@@ -187,6 +203,10 @@ class _AppTableState extends State<AppTable> {
                   thumbVisibility: layout.scrollsHorizontally,
                   thickness: 8,
                   scrollbarOrientation: ScrollbarOrientation.bottom,
+                  // Explicit, because a scrollbar insets itself by the ambient
+                  // MediaQuery padding otherwise, and the floating controls add
+                  // their room to that. Left to it the bar rode up over the rows.
+                  padding: EdgeInsets.zero,
                   thumbColor: thumb,
                   notificationPredicate: (notification) =>
                       notification.metrics.axis == Axis.horizontal,

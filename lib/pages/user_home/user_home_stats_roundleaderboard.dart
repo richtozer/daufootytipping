@@ -8,6 +8,7 @@ import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
@@ -37,6 +38,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     AppColumn.numeric('AFL', sortable: true),
     AppColumn.numeric('Margins', sortable: true),
     AppColumn.numeric('UPS', sortable: true),
+    AppColumn.navigation(),
   ];
   List<Object?> _renderedValues = const [];
   Tipper? _renderedTipper;
@@ -88,14 +90,8 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
           cells: [
             AppCell.text(
               entry.key.name,
-              leadingSize: const Size(45, 30),
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.arrow_forward, size: 15),
-                  avatarPic(entry.key, widget.roundNumberToDisplay),
-                ],
-              ),
+              leadingSize: const Size(30, 30),
+              leading: avatarPic(entry.key, widget.roundNumberToDisplay),
             ),
             AppCell.text(entry.value.rank.toString()),
             AppCell.text(
@@ -110,6 +106,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
             AppCell.text(
               (entry.value.aflMarginUPS + entry.value.nrlMarginUPS).toString(),
             ),
+            AppCell.navigation(),
           ],
         ),
     ];
@@ -164,7 +161,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
     return Scaffold(
-      body: SafeArea(
+      body: AppUnderControlsArea(
         child: AppTableFrame(
           columns: columns,
           rows: _tableRows(context),

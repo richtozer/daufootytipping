@@ -5,7 +5,7 @@ import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart'
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
-import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -19,8 +19,20 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 }
 
 class _TippersAdminPageState extends State<TippersAdminPage> {
+  static const _columns = [
+    AppColumn.text('Name', sortable: true),
+    AppColumn.text('Role', sortable: true),
+    AppColumn.text('Last login', sortable: true, descendingFirst: true),
+    AppColumn.text('Logon', sortable: true),
+    AppColumn.text('Paid', sortable: true, descendingFirst: true),
+    AppColumn.navigation(),
+  ];
+  static const double _avatarSize = 40;
+
   late final ScrollController _scrollController;
   late final TextEditingController _searchController;
+  int _sortColumn = 0;
+  bool _ascending = true;
 
   @override
   void dispose() {
@@ -96,6 +108,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
       value: di<TippersViewModel>(),
       child: AppAdminPage(
         title: 'Admin Tippers',
+        scrollsUnderControls: true,
         body: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Column(
@@ -197,80 +210,15 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                           ),
                         ),
                         Expanded(
-                          // Rows sit at the bottom, within thumb reach.
-                          child: AppBottomAlignedScroll(
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Column(
-                                children: [
-                                  for (final tipper in tippers)
-                                    Builder(
-                                      builder: (context) {
-                                        bool tipperPaidForCurrentComp = tipper
-                                            .paidForComp(
-                                              di<DAUCompsViewModel>()
-                                                  .activeDAUComp,
-                                            );
-
-                                        // create the ListTile title by concatenating the tipper name and role. if the name is null, use 'new tipper'
-                                        String title =
-                                            '${tipper.name} - ${tipper.tipperRole.name}';
-
-                                        return Card(
-                                          child: ListTile(
-                                            //if this tipper is in godmode then tint this ListTile in red
-                                            tileColor:
-                                                tipperViewModel.inGodMode &&
-                                                    tipper.dbkey ==
-                                                        tipperViewModel
-                                                            .selectedTipper
-                                                            .dbkey
-                                                ? Colors.red[100]
-                                                : null,
-                                            dense: true,
-                                            isThreeLine: true,
-                                            leading: tipper.photoURL != null
-                                                ? avatarPic(tipper)
-                                                : null,
-                                            trailing: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                if (tipperPaidForCurrentComp)
-                                                  const Text(
-                                                    '\$',
-                                                    style: TextStyle(
-                                                      fontSize: 20,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            title: Text(title),
-                                            subtitle: Text(
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              '${formatDateTime(tipper.acctLoggedOnUTC)} - ${tipper.logon}',
-                                            ),
-                                            onTap: () async {
-                                              // Trigger edit functionality
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      TipperAdminEditPage(
-                                                        tipperViewModel,
-                                                        tipper,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                ],
-                              ),
+                          child: AppTable(
+                            columns: _columns,
+                            rows: _rows(tippers, tipperViewModel),
+                            sort: AppSort(
+                              column: _sortColumn,
+                              ascending: _ascending,
                             ),
+                            onSort: _onSort,
+                            empty: const Center(child: Text('No tippers')),
                           ),
                         ),
                       ],
@@ -285,6 +233,75 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     );
   }
 
+  void _onSort(int column, bool ascending) {
+    setState(() {
+      _sortColumn = column;
+      _ascending = ascending;
+    });
+  }
+
+  bool _paidForCurrentComp(Tipper tipper) =>
+      tipper.paidForComp(di<DAUCompsViewModel>().activeDAUComp);
+
+  List<Tipper> _sorted(List<Tipper> tippers) {
+    int byName(Tipper a, Tipper b) =>
+        a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    final sorted = [...tippers]
+      ..sort((a, b) {
+        final primary = switch (_sortColumn) {
+          1 => a.tipperRole.name.compareTo(b.tipperRole.name),
+          2 =>
+            (a.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0))
+                .compareTo(
+                  b.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0),
+                ),
+          3 => (a.logon ?? '').toLowerCase().compareTo(
+            (b.logon ?? '').toLowerCase(),
+          ),
+          4 => (_paidForCurrentComp(a) ? 1 : 0).compareTo(
+            _paidForCurrentComp(b) ? 1 : 0,
+          ),
+          _ => byName(a, b),
+        };
+        final ordered = primary != 0 ? primary : byName(a, b);
+        return _ascending ? ordered : -ordered;
+      });
+    return sorted;
+  }
+
+  List<AppRow> _rows(List<Tipper> tippers, TippersViewModel tipperViewModel) =>
+      [
+        for (final tipper in _sorted(tippers))
+          AppRow(
+            key: ValueKey(tipper.dbkey),
+            // A tipper in god mode is tinted red.
+            colour:
+                tipperViewModel.inGodMode &&
+                    tipper.dbkey == tipperViewModel.selectedTipper.dbkey
+                ? Colors.red[100]
+                : null,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    TipperAdminEditPage(tipperViewModel, tipper),
+              ),
+            ),
+            cells: [
+              AppCell.text(
+                tipper.name,
+                leadingSize: const Size.square(_avatarSize),
+                leading: avatarPic(tipper),
+              ),
+              AppCell.text(tipper.tipperRole.name),
+              AppCell.text(formatDateTime(tipper.acctLoggedOnUTC)),
+              AppCell.text(tipper.logon ?? ''),
+              AppCell.text(_paidForCurrentComp(tipper) ? '\$' : ''),
+              AppCell.navigation(),
+            ],
+          ),
+      ];
+
   String formatDateTime(DateTime? dateTime) {
     if (dateTime == null) {
       return '?';
@@ -293,13 +310,12 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   }
 
   Widget avatarPic(Tipper tipper) {
-    return Hero(
-      tag: tipper.dbkey!,
-      child: circleAvatarWithFallback(
-        imageUrl: tipper.photoURL,
-        text: tipper.name,
-        radius: 20,
-      ),
+    final avatar = circleAvatarWithFallback(
+      imageUrl: tipper.photoURL,
+      text: tipper.name,
+      radius: _avatarSize / 2,
     );
+    final heroTag = tipper.dbkey;
+    return heroTag == null ? avatar : Hero(tag: heroTag, child: avatar);
   }
 }

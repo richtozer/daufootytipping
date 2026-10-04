@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart';
+import 'package:daufootytipping/theme_data.dart';
 
 class StatsTab extends StatelessWidget {
   const StatsTab({super.key});
@@ -46,7 +47,7 @@ class StatsTab extends StatelessWidget {
               color: Colors.white70,
               surfaceTintColor: League.nrl.colour,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kCardCornerRadius),
               ),
               child: Column(
                 children: <Widget>[

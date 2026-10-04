@@ -14,9 +14,22 @@ const String kBackActionLabel = 'Back';
 /// Gap between the controls and the edge of the display, or of its inset.
 const double kControlsEdgeMargin = 12;
 
+/// How close the side controls sit to the display edge in an inset too slim to
+/// centre them in.
+const double kControlsInsetEdgeMargin = 4;
+
+/// The gap kept between the side controls and the content beside them.
+const double kControlsContentGap = 8;
+
 const Duration _morphDuration = Duration(milliseconds: 260);
 
-/// Floats the app's navigation controls over the Navigator, bottom right.
+/// How long the controls take to fade out of the way, and back.
+const Duration _fadeDuration = Duration(milliseconds: 220);
+
+/// Floats the app's navigation controls over the Navigator. The tab pill is
+/// centred along the bottom of a tall display; Back and page actions stay in
+/// the bottom-right corner. On a short wide display everything runs down the
+/// right edge.
 ///
 /// Hosted once above the Navigator so the tab pill can morph into Back as a
 /// page is pushed and back again as it is popped, rather than each page
@@ -74,7 +87,16 @@ class AppControlsHost extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: _rightOffset(media.padding, axis),
+              // Along the bottom the tab pill is centred between the side
+              // insets; Back and the page's actions stay in the right-hand
+              // corner. Down the side everything hugs the right edge, where the
+              // thumb is.
+              left: axis == Axis.horizontal
+                  ? media.padding.left + kControlsEdgeMargin
+                  : null,
+              right: axis == Axis.horizontal
+                  ? media.padding.right + kControlsEdgeMargin
+                  : _rightOffset(media.padding),
               bottom: aboveKeyboard
                   ? media.viewInsets.bottom + kControlsEdgeMargin
                   : _bottomOffset(media.padding, media.size, axis),
@@ -85,6 +107,12 @@ class AppControlsHost extends StatelessWidget {
                 mode: keyboardUp && !aboveKeyboard
                     ? AppControlsMode.none
                     : mode,
+                alignment:
+                    axis == Axis.horizontal && mode == AppControlsMode.tabs
+                    ? Alignment.bottomCenter
+                    : Alignment.bottomRight,
+                // Only along the bottom, where the content runs under them.
+                faded: axis == Axis.horizontal && viewModel.controlsFaded,
               ),
             ),
           ],
@@ -111,7 +139,10 @@ class AppControlsHost extends StatelessWidget {
             kControlsEdgeMargin,
       );
     }
-    final sideRoom = kGlassSideThickness + 2 * kControlsEdgeMargin;
+    // From the same offset the controls are placed at, so the room reserved is
+    // exactly the room they take whatever the inset is.
+    final sideRoom =
+        _rightOffset(padding) + kGlassSideThickness + kControlsContentGap;
     return padding.copyWith(
       right: padding.right > sideRoom ? padding.right : sideRoom,
     );
@@ -129,13 +160,16 @@ class AppControlsHost extends StatelessWidget {
     return math.max(clearOfIndicator, sideControlsBottomClearance(size: size));
   }
 
-  /// Centred in a right inset wide enough to hold the controls, so they sit in
-  /// room the content could not use anyway.
-  double _rightOffset(EdgeInsets padding, Axis axis) {
-    if (axis == Axis.vertical && padding.right >= kSideControlsInsetWidth) {
+  /// Where the controls sit from the right edge. Centred in an inset wide
+  /// enough to hold them, so they take room the content could not use anyway.
+  /// In a slimmer inset they sit just inside the display edge, over it, and the
+  /// content is told to leave room for them. With no inset they float clear of
+  /// the edge.
+  double _rightOffset(EdgeInsets padding) {
+    if (padding.right >= kSideControlsInsetWidth) {
       return (padding.right - kGlassSideThickness) / 2;
     }
-    return padding.right + kControlsEdgeMargin;
+    return padding.right > 0 ? kControlsInsetEdgeMargin : kControlsEdgeMargin;
   }
 }
 
@@ -145,6 +179,8 @@ class _Controls extends StatelessWidget {
     required this.observer,
     required this.axis,
     required this.mode,
+    required this.alignment,
+    required this.faded,
   });
 
   final AppControlsViewModel viewModel;
@@ -152,19 +188,43 @@ class _Controls extends StatelessWidget {
   final Axis axis;
   final AppControlsMode mode;
 
+  /// Where the controls sit in the room the host gives them. The tab pill is
+  /// centred along the bottom and everything else is in the right-hand corner,
+  /// so the controls slide across as the pill becomes Back.
+  final Alignment alignment;
+
+  /// Fading out, out of the way of the last rows of a long table.
+  final bool faded;
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: _morphDuration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.bottomRight,
-      child: AnimatedSwitcher(
-        duration: _morphDuration,
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.bottomRight,
-          children: [...previous, ?current],
+    return IgnorePointer(
+      ignoring: faded,
+      child: ExcludeSemantics(
+        excluding: faded,
+        child: AnimatedOpacity(
+          opacity: faded ? 0 : 1,
+          duration: _fadeDuration,
+          curve: Curves.easeInOut,
+          child: AnimatedAlign(
+            alignment: alignment,
+            duration: _morphDuration,
+            curve: Curves.easeOutCubic,
+            child: AnimatedSize(
+              duration: _morphDuration,
+              curve: Curves.easeOutCubic,
+              alignment: alignment,
+              child: AnimatedSwitcher(
+                duration: _morphDuration,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: alignment,
+                  children: [...previous, ?current],
+                ),
+                child: _content(),
+              ),
+            ),
+          ),
         ),
-        child: _content(),
       ),
     );
   }
