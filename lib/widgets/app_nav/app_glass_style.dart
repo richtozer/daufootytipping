@@ -21,12 +21,17 @@ const double kGlassIconSlot = 32;
 const double kGlassHorizontalTabWidth = 80;
 
 /// The width of a tab or round item in a pill running down the side.
-const double kGlassSideItemWidth = 56;
+const double kGlassSideItemWidth = 48;
 
 /// How thick a glass control is across its short axis: the height of a
 /// horizontal pill, the width of a vertical one.
 const double kGlassHorizontalThickness = kGlassItemExtent + 2 * kGlassPadding;
 const double kGlassSideThickness = kGlassSideItemWidth + 2 * kGlassPadding;
+
+/// The label's size under an icon: a touch smaller down the side, where the
+/// chip is slimmer and the longest label, PROFILE, still has to fit.
+const double kGlassHorizontalLabelSize = 10;
+const double kGlassSideLabelSize = 9;
 
 /// How much the surface behind a glass control is blurred.
 const double kGlassBlurSigma = 14;

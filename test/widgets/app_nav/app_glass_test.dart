@@ -8,6 +8,8 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/load_tips_fonts.dart';
+
 const _destinations = [
   AppNavDestination(
     icon: Icon(Icons.sports_rugby_outlined),
@@ -31,6 +33,8 @@ Widget _host(Widget child, {Brightness brightness = Brightness.light}) {
 }
 
 void main() {
+  setUpAll(loadTipsFonts);
+
   group('AppGlassPill', () {
     testWidgets('shows every destination label', (tester) async {
       await tester.pumpWidget(
@@ -108,6 +112,35 @@ void main() {
         Tristate.isFalse,
       );
       handle.dispose();
+    });
+
+    testWidgets('the longest label fits the slim side chip', (tester) async {
+      // In the app's own font: the default test font is far wider than Roboto.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(fontFamily: 'Roboto'),
+          home: Scaffold(
+            body: Center(
+              child: AppGlassPill(
+                destinations: const [
+                  AppNavDestination(
+                    icon: Icon(Icons.person),
+                    shortLabel: 'PROFILE',
+                  ),
+                ],
+                selectedIndex: 0,
+                onSelected: (_) {},
+                axis: Axis.vertical,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.text('PROFILE')).width,
+        lessThanOrEqualTo(kGlassSideItemWidth),
+      );
     });
 
     testWidgets('lines labels up whatever size each icon is', (tester) async {

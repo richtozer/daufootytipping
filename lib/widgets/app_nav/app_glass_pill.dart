@@ -110,9 +110,11 @@ class _PillTab extends StatelessWidget {
                         softWrap: false,
                         style: TextStyle(
                           color: foreground,
-                          fontSize: 10,
+                          fontSize: horizontal
+                              ? kGlassHorizontalLabelSize
+                              : kGlassSideLabelSize,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.4,
+                          letterSpacing: horizontal ? 0.4 : 0.2,
                         ),
                       ),
                     ),
