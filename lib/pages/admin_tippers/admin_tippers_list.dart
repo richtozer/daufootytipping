@@ -31,8 +31,9 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
 
   late final ScrollController _scrollController;
   late final TextEditingController _searchController;
-  int _sortColumn = 0;
-  bool _ascending = true;
+  // Most recent logon first, so the people using the app now are at the top.
+  int _sortColumn = 2;
+  bool _ascending = false;
 
   @override
   void dispose() {

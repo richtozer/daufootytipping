@@ -23,6 +23,7 @@ Tipper _tipper(
   String key,
   String name, {
   TipperRole role = TipperRole.tipper,
+  required DateTime lastLogin,
 }) => Tipper(
   dbkey: key,
   authuid: 'auth-$key',
@@ -31,7 +32,7 @@ Tipper _tipper(
   name: name,
   tipperRole: role,
   compsPaidFor: const [],
-  acctLoggedOnUTC: DateTime.utc(2026, 3, 5),
+  acctLoggedOnUTC: lastLogin,
 );
 
 void main() {
@@ -47,9 +48,14 @@ void main() {
     tippersViewModel = _MockTippersViewModel();
     final dauCompsViewModel = _MockDAUCompsViewModel();
     final tippers = [
-      _tipper('t2', 'Zara'),
-      _tipper('t1', 'Maree', role: TipperRole.admin),
-      _tipper('t3', 'Alex'),
+      _tipper('t2', 'Zara', lastLogin: DateTime.utc(2026, 3, 5)),
+      _tipper(
+        't1',
+        'Maree',
+        role: TipperRole.admin,
+        lastLogin: DateTime.utc(2026, 3, 7),
+      ),
+      _tipper('t3', 'Alex', lastLogin: DateTime.utc(2026, 3, 1)),
     ];
     when(() => tippersViewModel.addListener(any())).thenReturn(null);
     when(() => tippersViewModel.removeListener(any())).thenReturn(null);
@@ -95,12 +101,23 @@ void main() {
             .compareTo(tester.getTopLeft(find.text(b)).dy),
       );
 
-  testWidgets('lists the tippers in a table sorted by name', (tester) async {
+  testWidgets('lists the tippers in a table, latest logon first', (
+    tester,
+  ) async {
     await openPage(tester);
 
     expect(find.byType(AppTable), findsOneWidget);
-    expect(shown(tester), ['Alex', 'Maree', 'Zara']);
+    expect(shown(tester), ['Maree', 'Zara', 'Alex']);
     expect(find.text('Showing 3 of 3 tippers'), findsOneWidget);
+  });
+
+  testWidgets('tapping the Name heading sorts by name', (tester) async {
+    await openPage(tester);
+
+    await tester.tap(find.text('Name'));
+    await tester.pumpAndSettle();
+
+    expect(shown(tester), ['Alex', 'Maree', 'Zara']);
   });
 
   testWidgets('tapping the Role heading sorts by role', (tester) async {
