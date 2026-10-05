@@ -34,6 +34,58 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(loadTipsFonts);
 
+  group('heading groups', () {
+    const grouped = [
+      AppColumn.text('Name', sortable: true),
+      AppColumn.numeric('Total', sortable: true),
+      AppColumn.numeric('NRL', sortable: true, headingGroup: 'league'),
+      AppColumn.numeric('AFL', sortable: true, headingGroup: 'league'),
+      AppColumn.numeric('Margins', sortable: true, headingGroup: 'margins'),
+      AppColumn.numeric('UPS', sortable: true, headingGroup: 'margins'),
+    ];
+    List<AppRow> rows() => [
+      for (var i = 0; i < 5; i++)
+        AppRow(
+          cells: [
+            AppCell.text('Tipper $i'),
+            AppCell.text('${600 - i}'),
+            AppCell.text('${300 - i}'),
+            AppCell.text('${300 - i}'),
+            AppCell.text('${50 - i}'),
+            AppCell.text('${40 - i}'),
+          ],
+        ),
+    ];
+
+    test('related columns turn their headings together or not at all', () {
+      for (var width = 200.0; width <= 460; width += 10) {
+        final headings = measure(
+          width,
+          columns: grouped,
+          rows: rows(),
+        ).headings;
+        expect(headings[2], headings[3], reason: 'NRL and AFL at $width');
+        expect(headings[4], headings[5], reason: 'Margins and UPS at $width');
+      }
+    });
+
+    test('only as many groups turn as the width needs', () {
+      final natural = measure(2000, columns: grouped, rows: rows());
+      expect(
+        natural.headings.every((h) => h == AppHeadingLayout.horizontal),
+        isTrue,
+      );
+
+      // Narrow enough to need some compacting, but not all of it.
+      final tight = measure(330, columns: grouped, rows: rows());
+      final compacted = tight.headings
+          .where((h) => h != AppHeadingLayout.horizontal)
+          .length;
+      expect(compacted, greaterThan(0));
+      expect(compacted, lessThan(grouped.length - 1));
+    });
+  });
+
   test('compact headings wrap at words, never inside Result or Score', () {
     const columns = [
       AppColumn.text('Result', sortable: true),

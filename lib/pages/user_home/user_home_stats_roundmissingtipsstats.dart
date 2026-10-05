@@ -30,8 +30,8 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   static const columns = [
     AppColumn.text('Name', sortable: true),
     AppColumn.numeric('Tips needed', sortable: true),
-    AppColumn.numeric('NRL', sortable: true),
-    AppColumn.numeric('AFL', sortable: true),
+    AppColumn.numeric('NRL', sortable: true, headingGroup: 'league'),
+    AppColumn.numeric('AFL', sortable: true, headingGroup: 'league'),
   ];
   List<Object?> _renderedValues = const [];
   List<AppRow> _rows = const [];

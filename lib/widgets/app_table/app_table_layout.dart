@@ -258,44 +258,75 @@ class AppTableLayout {
       // back the most first. Doing every one at once turned each into a narrow
       // column and shrank the whole table to a strip, however much of the pane
       // was spare, when a heading or two on its side would have been enough.
-      final options = <({int index, AppHeadingLayout layout, double width})>[];
-      for (var i = 0; i < columns.length; i++) {
-        final target = math.max(
-          content[i],
+      // Columns in a heading group go together, so related columns such as NRL
+      // and AFL always read alike.
+      double compactWidth(int i) =>
           math.max(
-            headingSizes[i].height,
-            columns[i].sortable ? sortIconSize : 0.0,
-          ),
-        );
-        if (target >= headingSizes[i].width + iconWidth(i)) continue;
+            content[i],
+            math.max(
+              headingSizes[i].height,
+              columns[i].sortable ? sortIconSize : 0.0,
+            ),
+          ) +
+          padding * 2;
+      bool canWrap(int i) {
+        final target = compactWidth(i) - padding * 2;
         final wrapped = text(
           columns[i].label,
           headingStyle,
           target - iconWidth(i),
         );
-        if (wrapped.height <= headingSizes[i].height * 2 + 0.01 &&
-            longestWordWidth(i) <= target - iconWidth(i) + 0.01) {
-          options.add((
-            index: i,
-            layout: AppHeadingLayout.wrapped,
-            width: target + padding * 2,
-          ));
-        } else if (columns[i].numeric) {
-          options.add((
-            index: i,
-            layout: AppHeadingLayout.rotated,
-            width: target + padding * 2,
-          ));
+        return wrapped.height <= headingSizes[i].height * 2 + 0.01 &&
+            longestWordWidth(i) <= target - iconWidth(i) + 0.01;
+      }
+
+      bool needsCompacting(int i) {
+        final target = compactWidth(i) - padding * 2;
+        return target < headingSizes[i].width + iconWidth(i);
+      }
+
+      final units = <List<int>>[];
+      final byGroup = <String, List<int>>{};
+      for (var i = 0; i < columns.length; i++) {
+        final group = columns[i].headingGroup;
+        if (group == null) {
+          units.add([i]);
+        } else {
+          final members = byGroup.putIfAbsent(group, () {
+            final created = <int>[];
+            units.add(created);
+            return created;
+          });
+          members.add(i);
         }
       }
-      options.sort(
-        (a, b) =>
-            (widths[b.index] - b.width).compareTo(widths[a.index] - a.width),
-      );
+      final options =
+          <({List<int> members, AppHeadingLayout layout, double saving})>[];
+      for (final members in units) {
+        // A lone column is only worth changing if its heading does not fit. A
+        // group changes together, so any member's heading not fitting counts.
+        if (!members.any(needsCompacting)) continue;
+        final AppHeadingLayout layout;
+        if (members.every(canWrap)) {
+          layout = AppHeadingLayout.wrapped;
+        } else if (members.every((i) => columns[i].numeric)) {
+          layout = AppHeadingLayout.rotated;
+        } else {
+          continue;
+        }
+        final saving = members.fold<double>(
+          0,
+          (sum, i) => sum + math.max(0.0, widths[i] - compactWidth(i)),
+        );
+        options.add((members: members, layout: layout, saving: saving));
+      }
+      options.sort((a, b) => b.saving.compareTo(a.saving));
       for (final option in options) {
         if (total() <= viewport) break;
-        headings[option.index] = option.layout;
-        widths[option.index] = option.width;
+        for (final i in option.members) {
+          headings[i] = option.layout;
+          widths[i] = math.min(widths[i], compactWidth(i));
+        }
       }
     }
     // Shorten widest text columns only after using compact headings.

@@ -7,11 +7,13 @@ class AppColumn {
     this.label, {
     this.sortable = false,
     this.descendingFirst = false,
+    this.headingGroup,
   }) : numeric = false;
   const AppColumn.numeric(
     this.label, {
     this.sortable = false,
     this.descendingFirst = true,
+    this.headingGroup,
   }) : numeric = true;
 
   /// The last column of a table whose rows open something: the arrow that says
@@ -20,11 +22,17 @@ class AppColumn {
     : label = '',
       numeric = false,
       sortable = false,
-      descendingFirst = false;
+      descendingFirst = false,
+      headingGroup = null;
 
   final String label;
   final bool numeric;
   final bool sortable;
+
+  /// Columns sharing a group read as a set, such as NRL and AFL, so their
+  /// headings are turned on their side together or not at all. Left alone a
+  /// pair could end up with one heading upright and the other sideways.
+  final String? headingGroup;
 
   /// Which way the first tap on this heading sorts. Taps after it toggle, as
   /// they always have.

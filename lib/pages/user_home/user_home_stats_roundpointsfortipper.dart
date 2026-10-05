@@ -35,10 +35,10 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
   static const columns = [
     AppColumn.numeric('Round', sortable: true),
     AppColumn.numeric('Total', sortable: true),
-    AppColumn.numeric('NRL', sortable: true),
-    AppColumn.numeric('AFL', sortable: true),
-    AppColumn.numeric('Margins', sortable: true),
-    AppColumn.numeric('UPS', sortable: true),
+    AppColumn.numeric('NRL', sortable: true, headingGroup: 'league'),
+    AppColumn.numeric('AFL', sortable: true, headingGroup: 'league'),
+    AppColumn.numeric('Margins', sortable: true, headingGroup: 'margins'),
+    AppColumn.numeric('UPS', sortable: true, headingGroup: 'margins'),
     AppColumn.navigation(),
   ];
   List<Object?> _renderedValues = const [];

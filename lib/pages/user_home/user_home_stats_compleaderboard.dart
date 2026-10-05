@@ -35,11 +35,11 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
     AppColumn.numeric('Rank', sortable: true, descendingFirst: false),
     AppColumn.numeric('Change', sortable: true),
     AppColumn.numeric('Total', sortable: true),
-    AppColumn.numeric('NRL', sortable: true),
-    AppColumn.numeric('AFL', sortable: true),
+    AppColumn.numeric('NRL', sortable: true, headingGroup: 'league'),
+    AppColumn.numeric('AFL', sortable: true, headingGroup: 'league'),
     AppColumn.numeric('Wins', sortable: true),
-    AppColumn.numeric('Margins', sortable: true),
-    AppColumn.numeric('UPS', sortable: true),
+    AppColumn.numeric('Margins', sortable: true, headingGroup: 'margins'),
+    AppColumn.numeric('UPS', sortable: true, headingGroup: 'margins'),
     AppColumn.navigation(),
   ];
   List<Object?> _renderedValues = const [];

@@ -53,8 +53,8 @@ class _StatRoundGameScoresForTipperState
     AppColumn.text('Teams / Scores'),
     AppColumn.text('Result'),
     AppColumn.text('Tip'),
-    AppColumn.numeric('Points'),
-    AppColumn.numeric('Max Points'),
+    AppColumn.numeric('Points', headingGroup: 'points'),
+    AppColumn.numeric('Max Points', headingGroup: 'points'),
   ];
   List<Object?> _renderedValues = const [];
   List<AppRow> _rows = const [];
