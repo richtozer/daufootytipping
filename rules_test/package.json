@@ -1,0 +1,18 @@
+{
+  "name": "rules_test",
+  "private": true,
+  "description": "Realtime Database security rules tests (run against the RTDB emulator).",
+  "scripts": {
+    "test": "./support/isolated.sh firebase emulators:exec --only database --project demo-dau-rules \"NODE_OPTIONS=--import=./support/no_production.mjs node --test --test-concurrency=1 *.test.mjs\"",
+    "test:unit": "./support/isolated.sh env NODE_OPTIONS=--import=./support/no_production.mjs node --test --test-concurrency=1 os_boundary.test.mjs safety.test.mjs allowlist.test.mjs audit_identity.test.mjs verify_admin.test.mjs deploy_scripts.test.mjs deploy_functions.test.mjs",
+    "test:live": "./support/isolated.sh firebase emulators:exec --only auth,database --project demo-dau-rules \"NODE_OPTIONS=--import=./support/no_production.mjs node --test live_cli.test.mjs\"",
+    "test:dart": "./support/isolated.sh firebase emulators:exec --only database --project demo-dau-rules \"cd dart_spike && dart run bin/cas_spike.dart && dart run bin/identity_protocol_spike.dart\""
+  },
+  "engines": {
+    "node": "22"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.0.0"
+  }
+}

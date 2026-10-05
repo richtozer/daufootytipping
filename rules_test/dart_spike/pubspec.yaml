@@ -1,0 +1,7 @@
+name: dart_cas_spike
+description: Phase 1 spike - prove compare-and-set claims with firebase_dart transactions.
+publish_to: none
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+dependencies:
+  firebase_dart: ^1.6.2
