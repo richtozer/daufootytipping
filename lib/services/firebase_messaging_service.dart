@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
@@ -7,7 +8,9 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'dart:io' show Platform;
+
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
@@ -26,8 +29,6 @@ class FirebaseMessagingService {
   String? _registeredTipperId;
 
   String? get fbmToken => _fbmToken;
-
-  static const tokenExpirationDuration = 60 * 60 * 1000 * 24 * 30; // 30 days
 
   Future<void> initializeFirebaseMessaging() {
     _initializationFuture ??= _initializeFirebaseMessagingInternal();
@@ -63,12 +64,16 @@ class FirebaseMessagingService {
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         log('Received a message while in the foreground: ${message.messageId}');
         if (outstandingTipsBadgeCount(message.data) != null) {
-          log('Foreground badge message received; live app state remains authoritative.');
+          log(
+            'Foreground badge message received; live app state remains authoritative.',
+          );
         }
       });
 
       // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
     } catch (_) {
       _initializationFuture = null;
       rethrow;
@@ -97,46 +102,6 @@ class FirebaseMessagingService {
       } catch (e) {
         log('Failed to retrieve FCM token after retry: $e');
       }
-    }
-  }
-
-  // method to delete stale tokens for all users
-  // this method is called after TippersViewModel is initialized
-  Future<void> deleteStaleTokens(TippersViewModel tippersViewModel) async {
-    try {
-      log(
-        'FirebaseMessagingService.deleteStaleTokens() Deleting any stale tokens',
-      );
-      int countDeleted = 0;
-      final timeNow = DateTime.now().millisecondsSinceEpoch;
-      final staleTime = timeNow - tokenExpirationDuration;
-      final snapshot = await databaseReference.child(p.tokensPath).once();
-      final tokens = snapshot.snapshot.value as Map<dynamic, dynamic>;
-      for (final user in tokens.keys) {
-        final userTokens = tokens[user] as Map<dynamic, dynamic>;
-        for (final token in userTokens.keys) {
-          final tokenUpdatedAt = parseTokenUpdatedAt(userTokens[token]);
-          if (tokenUpdatedAt == null) {
-            log('Skipping malformed token timestamp for tipper $user');
-            continue;
-          }
-          final tokenTime = tokenUpdatedAt.millisecondsSinceEpoch;
-          if (tokenTime < staleTime) {
-            await databaseReference
-                .child(p.tokensPath)
-                .child(user)
-                .child(token)
-                .remove();
-            log('Tipper $user stale token deleted: $token');
-            countDeleted++;
-          }
-        }
-      }
-      log(
-        'FirebaseMessagingService.deleteStaleTokens() Deleted $countDeleted stale tokens',
-      );
-    } catch (e) {
-      log('Failed to delete stale tokens: $e');
     }
   }
 
@@ -230,15 +195,6 @@ class FirebaseMessagingService {
     }
   }
 
-  static DateTime? parseTokenUpdatedAt(Object? value) {
-    final rawTimestamp = switch (value) {
-      String timestamp => timestamp,
-      Map<dynamic, dynamic> record => record['updatedAt'] as String?,
-      _ => null,
-    };
-    return rawTimestamp == null ? null : DateTime.tryParse(rawTimestamp);
-  }
-
   static int? outstandingTipsBadgeCount(Map<String, dynamic> data) {
     if (data['type'] != outstandingTipsBadgeMessageType) {
       return null;
@@ -254,9 +210,7 @@ class FirebaseMessagingService {
       sound: true,
     );
 
-    log(
-      'User notification permission status: ${settings.authorizationStatus}',
-    );
+    log('User notification permission status: ${settings.authorizationStatus}');
   }
 }
 
