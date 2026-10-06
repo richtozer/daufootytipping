@@ -1,14 +1,136 @@
 {
   "rules": {
-    ".read": "true",
-    ".write": "true",
-    "AllTippers": {
-      ".indexOn": ["authuid", "email", "logon"]
+    "AppConfig": {
+      ".read": "true",
+      ".write": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))"
+    },
+    "Teams": {
+      ".read": "true",
+      ".write": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))"
+    },
+    "AllDAUComps": {
+      ".read": "true",
+      ".write": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))"
     },
     "DAUCompsGames": {
+      ".read": "true",
+      ".write": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))",
       "$compDBKey": {
         ".indexOn": "DateUtc"
       }
+    },
+    "AllTippers": {
+      ".read": "true",
+      ".indexOn": [
+        "authuid",
+        "email",
+        "logon"
+      ],
+      ".write": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))",
+      "$tipperId": {
+        ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && !data.exists() && newData.child('tipperRole').val() === 'tipper' && newData.child('authuid').val() === auth.uid && !newData.hasChild('compsParticipatedIn')",
+        ".validate": "newData.hasChildren(['authuid', 'tipperRole'])",
+        "authuid": {
+          ".validate": "newData.isString()"
+        },
+        "tipperRole": {
+          ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'tipper')"
+        },
+        "compsParticipatedIn": {
+          ".validate": "newData.hasChildren() || newData.val() === null"
+        },
+        "name": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isString()"
+        },
+        "email": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isString()"
+        },
+        "logon": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isString()"
+        },
+        "photoURL": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isString()"
+        },
+        "isAnonymous": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isBoolean()"
+        },
+        "acctCreatedUTC": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isString()"
+        },
+        "acctLoggedOnUTC": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+          ".validate": "newData.isString()"
+        },
+        "active": {},
+        "tipperID": {},
+        "$other": {
+          ".validate": "false"
+        }
+      }
+    },
+    "AllTippersTokens": {
+      ".read": "auth != null",
+      "$tipperId": {
+        "$token": {
+          ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')"
+        }
+      }
+    },
+    "AllTips": {
+      ".read": "true",
+      "$comp": {
+        "$tipperId": {
+          ".write": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))",
+          "$game": {
+            ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+            ".validate": "newData.hasChildren(['r', 't']) || newData.hasChildren(['gameResult', 'submittedTimeUTC'])",
+            "r": {
+              ".validate": "newData.isString() && newData.val().matches(/^[a-ez]$/)"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            },
+            "gameResult": {
+              ".validate": "newData.isString()"
+            },
+            "submittedTimeUTC": {
+              ".validate": "newData.isString()"
+            },
+            "legacyTip": {},
+            "$other": {
+              ".validate": "false"
+            }
+          }
+        }
+      }
+    },
+    "Stats": {
+      ".read": "true",
+      "$comp": {
+        "live_scores_backend_v1": {
+          "$game": {
+            "current": {
+              ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+              ".validate": "newData.hasChildren()"
+            },
+            "history": {
+              "$key": {
+                ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous')",
+                ".validate": "newData.hasChildren()"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      ".read": "true"
     }
   }
 }

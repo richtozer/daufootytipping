@@ -1,0 +1,93 @@
+{
+  "rules": {
+    "AppConfig": {
+      ".read": "true",
+      ".write": "{{IS_ADMIN}}"
+    },
+    "Teams": {
+      ".read": "true",
+      ".write": "{{IS_ADMIN}}"
+    },
+    "AllDAUComps": {
+      ".read": "true",
+      ".write": "{{IS_ADMIN}}"
+    },
+    "DAUCompsGames": {
+      ".read": "true",
+      ".write": "{{IS_ADMIN}}",
+      "$compDBKey": {
+        ".indexOn": "DateUtc"
+      }
+    },
+    "AllTippers": {
+      ".read": "true",
+      ".indexOn": ["authuid", "email", "logon"],
+      ".write": "{{IS_ADMIN}}",
+      "$tipperId": {
+        ".write": "{{SIGNED_IN}} && !data.exists() && newData.child('tipperRole').val() === 'tipper' && newData.child('authuid').val() === auth.uid && !newData.hasChild('compsParticipatedIn')",
+        ".validate": "newData.hasChildren(['authuid', 'tipperRole'])",
+        "authuid": { ".validate": "newData.isString()" },
+        "tipperRole": { ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'tipper')" },
+        "compsParticipatedIn": { ".validate": "newData.hasChildren() || newData.val() === null" },
+        "name": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isString()" },
+        "email": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isString()" },
+        "logon": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isString()" },
+        "photoURL": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isString()" },
+        "isAnonymous": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isBoolean()" },
+        "acctCreatedUTC": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isString()" },
+        "acctLoggedOnUTC": { ".write": "{{SIGNED_IN}}", ".validate": "newData.isString()" },
+        "active": {},
+        "tipperID": {},
+        "$other": { ".validate": "false" }
+      }
+    },
+    "AllTippersTokens": {
+      ".read": "auth != null",
+      "$tipperId": {
+        "$token": {
+          ".write": "{{SIGNED_IN}}"
+        }
+      }
+    },
+    "AllTips": {
+      ".read": "true",
+      "$comp": {
+        "$tipperId": {
+          ".write": "{{IS_ADMIN}}",
+          "$game": {
+            ".write": "{{SIGNED_IN}}",
+            ".validate": "newData.hasChildren(['r', 't']) || newData.hasChildren(['gameResult', 'submittedTimeUTC'])",
+            "r": { ".validate": "newData.isString() && newData.val().matches(/^[a-ez]$/)" },
+            "t": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "gameResult": { ".validate": "newData.isString()" },
+            "submittedTimeUTC": { ".validate": "newData.isString()" },
+            "legacyTip": {},
+            "$other": { ".validate": "false" }
+          }
+        }
+      }
+    },
+    "Stats": {
+      ".read": "true",
+      "$comp": {
+        "live_scores_backend_v1": {
+          "$game": {
+            "current": {
+              ".write": "{{SIGNED_IN}}",
+              ".validate": "newData.hasChildren()"
+            },
+            "history": {
+              "$key": {
+                ".write": "{{SIGNED_IN}}",
+                ".validate": "newData.hasChildren()"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      ".read": "true"
+    }
+  }
+}
