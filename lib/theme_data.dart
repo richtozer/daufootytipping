@@ -5,6 +5,20 @@ import 'package:flutter/material.dart';
 /// surfaces read as one family.
 const double kCardCornerRadius = 12;
 
+/// The surface cards and panels sit on over the backdrop in light mode.
+const Color kPanelLightColor = Colors.white70;
+
+/// White at about 14%, so the dark backdrop reads through it instead of the
+/// panel glowing against it.
+const Color kPanelDarkColor = Color(0x24FFFFFF);
+
+/// The translucent surface the tips cards, the stats panel and similar panels
+/// share, following the system brightness as the app's other custom surfaces do.
+Color appPanelColor(BuildContext context) =>
+    MediaQuery.platformBrightnessOf(context) == Brightness.dark
+    ? kPanelDarkColor
+    : kPanelLightColor;
+
 /// Gives every button the card corner, so the profile, admin and dialog buttons
 /// match the cards they sit beside instead of the stadium shape Material uses.
 ///

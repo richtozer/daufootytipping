@@ -196,7 +196,7 @@ class AdaptiveTipsCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kCardCornerRadius),
       ),
-      color: Colors.white70,
+      color: appPanelColor(context),
       surfaceTintColor: League.nrl.colour,
       child: layout.mode == TipsCardMode.stacked
           ? Column(

@@ -59,4 +59,33 @@ void main() {
     );
     expect(material.shape, const RoundedRectangleBorder());
   });
+
+  testWidgets('the shared panel colour is far more transparent in dark mode', (
+    tester,
+  ) async {
+    late Color light;
+    late Color dark;
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(platformBrightness: brightness),
+          child: Builder(
+            builder: (context) {
+              final colour = appPanelColor(context);
+              if (brightness == Brightness.light) {
+                light = colour;
+              } else {
+                dark = colour;
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+    }
+
+    expect(light, kPanelLightColor);
+    expect(dark, kPanelDarkColor);
+    expect(dark.a, lessThan(light.a / 2));
+  });
 }

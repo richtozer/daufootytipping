@@ -43,8 +43,10 @@ class StatsTab extends StatelessWidget {
               // Same treatment as the tips game card, so the backdrop
               // reads through this surface and the rows' own cards sit
               // opaque on top of it. Both layers at the theme default
-              // left them white on white and indistinguishable.
-              color: Colors.white70,
+              // left them white on white and indistinguishable. In dark mode
+              // it is far more transparent, so the dark backdrop shows
+              // through and the panel does not glow against it.
+              color: appPanelColor(context),
               surfaceTintColor: League.nrl.colour,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(kCardCornerRadius),

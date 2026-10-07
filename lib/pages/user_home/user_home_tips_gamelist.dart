@@ -469,7 +469,7 @@ class _NoGamesCard extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(kCardCornerRadius),
             ),
-            color: Colors.white70,
+            color: appPanelColor(context),
             child: Center(
               child: Text(
                 'No ${league.name.toUpperCase()} games this round',
