@@ -13,6 +13,7 @@ import 'package:daufootytipping/widgets/app_nav/app_nav_destination.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -179,10 +180,27 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
 
   /// The destinations the floating tab pill offers.
   List<AppNavDestination> _navDestinations(TippersViewModel tippersViewModel) {
-    const tipsTabIcon = SizedBox(
+    final tipsTabIcon = SizedBox(
       width: 32,
       height: 32,
-      child: Center(child: Icon(Icons.sports_rugby_outlined)),
+      child: Center(
+        child: Builder(
+          builder: (context) {
+            final iconTheme = IconTheme.of(context);
+            return SvgPicture.asset(
+              'assets/icon/DAU-football-black.svg',
+              width: iconTheme.size ?? 24,
+              height: iconTheme.size ?? 24,
+              colorFilter: ColorFilter.mode(
+                (iconTheme.color ?? Colors.black).withValues(
+                  alpha: (iconTheme.color?.a ?? 1) * (iconTheme.opacity ?? 1),
+                ),
+                BlendMode.srcIn,
+              ),
+            );
+          },
+        ),
+      ),
     );
     final tipsIcon = _outstandingTipsCount > 0
         ? Badge.count(
