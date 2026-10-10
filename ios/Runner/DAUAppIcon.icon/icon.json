@@ -1,0 +1,45 @@
+{
+  "fill": "automatic",
+  "groups": [
+    {
+      "name": "Football",
+      "layers": [
+        {
+          "name": "Football",
+          "image-name": "football.svg",
+          "glass": true,
+          "position": { "scale": 1, "translation-in-points": [0, 0] },
+          "fill-specializations": [
+            { "value": { "solid": "srgb:1,1,1,1" } },
+            { "appearance": "dark", "value": { "solid": "srgb:0.4,0.4,0.4,1" } }
+          ],
+          "opacity-specializations": [
+            { "value": 1 },
+            { "appearance": "tinted", "value": 0.65 }
+          ]
+        }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0.2 },
+      "translucency": { "enabled": false, "value": 0 }
+    },
+    {
+      "name": "AFL and NRL gradient",
+      "layers": [
+        {
+          "name": "Gradient",
+          "image-name": "gradient.png",
+          "glass": false,
+          "position": { "scale": 1, "translation-in-points": [0, 0] },
+          "opacity-specializations": [
+            { "value": 1 },
+            { "appearance": "dark", "value": 0.45 },
+            { "appearance": "tinted", "value": 0 }
+          ]
+        }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0 },
+      "translucency": { "enabled": false, "value": 0 }
+    }
+  ],
+  "supported-platforms": { "squares": "shared" }
+}
