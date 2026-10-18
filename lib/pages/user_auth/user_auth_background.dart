@@ -1,14 +1,11 @@
+import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:flutter/material.dart';
 
 class UserAuthBackground extends StatelessWidget {
   final Widget child;
   final Color? overlayColor;
 
-  const UserAuthBackground({
-    super.key,
-    required this.child,
-    this.overlayColor,
-  });
+  const UserAuthBackground({super.key, required this.child, this.overlayColor});
 
   @override
   Widget build(BuildContext context) {
@@ -22,38 +19,31 @@ class UserAuthBackground extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         ColorFiltered(
-          colorFilter:
-              isDarkMode
-                  ? const ColorFilter.matrix(<double>[
-                    1.08,
-                    0,
-                    0,
-                    0,
-                    -46,
-                    0,
-                    1.08,
-                    0,
-                    0,
-                    -46,
-                    0,
-                    0,
-                    1.08,
-                    0,
-                    -46,
-                    0,
-                    0,
-                    0,
-                    1,
-                    0,
-                  ])
-                  : const ColorFilter.mode(
-                    Colors.transparent,
-                    BlendMode.srcOver,
-                  ),
-          child: Image.asset(
-            'assets/grass_background_blurred.webp',
-            fit: BoxFit.cover,
-          ),
+          colorFilter: isDarkMode
+              ? const ColorFilter.matrix(<double>[
+                  1.08,
+                  0,
+                  0,
+                  0,
+                  -46,
+                  0,
+                  1.08,
+                  0,
+                  0,
+                  -46,
+                  0,
+                  0,
+                  1.08,
+                  0,
+                  -46,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                ])
+              : const ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
+          child: const AppBackdrop(),
         ),
         ColoredBox(color: effectiveOverlayColor),
         child,

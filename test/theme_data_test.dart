@@ -88,4 +88,55 @@ void main() {
     expect(dark, kPanelDarkColor);
     expect(dark.a, lessThan(light.a / 2));
   });
+
+  testWidgets('text on the see-through panel is light in dark mode only', (
+    tester,
+  ) async {
+    Future<Color?> panelTextColour(Brightness brightness) async {
+      Color? colour;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(platformBrightness: brightness),
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) {
+                colour = appPanelTextTheme(context).titleMedium?.color;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      return colour;
+    }
+
+    final light = await panelTextColour(Brightness.light);
+    final dark = await panelTextColour(Brightness.dark);
+
+    expect(dark, Colors.white);
+    expect(light, isNot(Colors.white), reason: 'the theme keeps its own text');
+  });
+
+  testWidgets('inner panels are dark in dark mode and untouched in light', (
+    tester,
+  ) async {
+    Future<Color?> innerColour(Brightness brightness) async {
+      Color? colour;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(platformBrightness: brightness),
+          child: Builder(
+            builder: (context) {
+              colour = appInnerPanelColor(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      return colour;
+    }
+
+    expect(await innerColour(Brightness.light), isNull);
+    expect(await innerColour(Brightness.dark), kInnerPanelDarkColor);
+  });
 }

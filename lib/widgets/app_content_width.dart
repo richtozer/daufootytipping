@@ -3,6 +3,7 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:watch_it/watch_it.dart';
 
 /// The width a form or message stays readable at. Sign-in, error and loading
@@ -131,14 +132,7 @@ class AppPageWidth extends StatelessWidget {
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return Stack(
       children: [
-        const Positioned.fill(
-          child: RepaintBoundary(
-            child: Image(
-              image: AssetImage('assets/grass_background_blurred.webp'),
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
+        const Positioned.fill(child: RepaintBoundary(child: AppBackdrop())),
         // The veil spans the display rather than only the content band, so
         // the backdrop reads at one strength edge to edge instead of jumping
         // where the page ends.

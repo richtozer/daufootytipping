@@ -5,6 +5,30 @@ import 'package:flutter/material.dart';
 /// surfaces read as one family.
 const double kCardCornerRadius = 12;
 
+/// The green that marks a selected or highlighted thing, such as the selected
+/// nav tab and a winning score, with the text colour that goes on it. In light
+/// mode the pale grass green; in dark mode the tips choice chips' green at 60%,
+/// so it sits on dark glass.
+const Color kSelectionLightColor = Color(0xF2C5E1A5);
+const Color kOnSelectionLightColor = Color(0xFF14200C);
+const Color kSelectionDarkColor = Color(0x998BC34A);
+const Color kOnSelectionDarkColor = Color(0xFFFFFFFF);
+
+/// The heading row of a table, in the dark, see-through style of the league
+/// and round headers, with the text that reads on it.
+const Color kTableHeaderColor = Colors.black54;
+const Color kTableHeaderTextColor = Colors.white70;
+
+Color appSelectionColor(BuildContext context) =>
+    MediaQuery.platformBrightnessOf(context) == Brightness.dark
+    ? kSelectionDarkColor
+    : kSelectionLightColor;
+
+Color appOnSelectionColor(BuildContext context) =>
+    MediaQuery.platformBrightnessOf(context) == Brightness.dark
+    ? kOnSelectionDarkColor
+    : kOnSelectionLightColor;
+
 /// The surface cards and panels sit on over the backdrop in light mode.
 const Color kPanelLightColor = Colors.white70;
 
@@ -18,6 +42,34 @@ Color appPanelColor(BuildContext context) =>
     MediaQuery.platformBrightnessOf(context) == Brightness.dark
     ? kPanelDarkColor
     : kPanelLightColor;
+
+/// The surface of the panels laid inside a see-through panel, such as a tips
+/// card's result, choices and info. Opaque and dark in dark mode, where the
+/// forced light theme would otherwise leave them bright; null in light mode,
+/// to keep the card's own colour.
+const Color kInnerPanelDarkColor = Color(0xFF141A11);
+
+Color? appInnerPanelColor(BuildContext context) =>
+    MediaQuery.platformBrightnessOf(context) == Brightness.dark
+    ? kInnerPanelDarkColor
+    : null;
+
+/// The text colour on a panel that [appPanelColor] makes see-through, or null
+/// to leave the theme's own. In dark mode the theme's text is dark, since the
+/// tips page forces the light theme, and would sink into the dark panel.
+Color? appPanelTextColor(BuildContext context) =>
+    MediaQuery.platformBrightnessOf(context) == Brightness.dark
+    ? Colors.white
+    : null;
+
+/// The text theme for text laid straight on an [appPanelColor] panel.
+TextTheme appPanelTextTheme(BuildContext context) {
+  final base = Theme.of(context).textTheme;
+  final colour = appPanelTextColor(context);
+  return colour == null
+      ? base
+      : base.apply(displayColor: colour, bodyColor: colour);
+}
 
 /// Gives every button the card corner, so the profile, admin and dialog buttons
 /// match the cards they sit beside instead of the stadium shape Material uses.

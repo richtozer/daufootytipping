@@ -26,6 +26,7 @@ import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -539,7 +540,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       restorationScopeId: 'app',
       theme: withCardCornerButtons(
-        FlexThemeData.light(scheme: FlexScheme.green, fontFamily: appFontFamily),
+        FlexThemeData.light(
+          scheme: FlexScheme.green,
+          fontFamily: appFontFamily,
+        ),
       ),
       darkTheme: withCardCornerButtons(
         FlexThemeData.dark(scheme: FlexScheme.green, fontFamily: appFontFamily),
@@ -611,7 +615,7 @@ class _StartupLoadingScreen extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset('assets/grass_background_blurred.webp', fit: BoxFit.cover),
+        const AppBackdrop(),
         Center(child: CircularProgressIndicator(color: spinnerColor)),
       ],
     );
