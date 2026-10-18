@@ -11,6 +11,8 @@ import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
+import 'admin_allowlist.g.dart';
+
 // firebase_functions 0.7 replaced its specialized HttpsError subclasses with
 // HttpResponseException. These adapters preserve the existing domain-specific
 // catch clauses while using the new runtime-recognized exception type.
@@ -182,9 +184,6 @@ void main(List<String> args) async {
           throw UnauthenticatedError('User must be authenticated');
         }
 
-        final dbHandle = await _openBackendScoringDatabase(
-          runtimeAdminApp: runtimeAdminApp,
-        );
         try {
           final url = extractAdminCheckFixtureUrlUrl(request.data);
           if (url == null || url.isEmpty) {
@@ -194,7 +193,6 @@ void main(List<String> args) async {
           final active = await checkFixtureUrlActive(
             authUid: auth.uid,
             url: url,
-            db: dbHandle.database,
           );
 
           return CallableResult({'active': active});
@@ -206,8 +204,6 @@ void main(List<String> args) async {
             'adminCheckFixtureUrl: unexpected failure: $e\n$stackTrace',
           );
           rethrow;
-        } finally {
-          await dbHandle.close();
         }
       },
     );
@@ -1612,18 +1608,10 @@ Future<String> executeFixtureDownload({
   required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
   required DateTime now,
   Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
+  Set<String> adminAuthUidAllowlist = adminAuthUids,
 }) async {
-  logFunction('executeFixtureDownload: checking admin role for authUid=$authUid');
-  final roleSnapshot = await db.ref(paths.tippersPath).once();
-  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
-  if (role == null) {
-    logFunction('executeFixtureDownload: no AllTippers record for authUid=$authUid');
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
-  logFunction('executeFixtureDownload: resolved role=$role');
-  if (role != 'admin') {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
+  logFunction('executeFixtureDownload: checking admin allowlist for authUid=$authUid');
+  requireAdminAuthUid(authUid, allowlist: adminAuthUidAllowlist);
 
   final comp = await _loadFixtureDownloadComp(db, compKey);
   final result = await _executeFixtureDownloadCore(
@@ -1650,12 +1638,9 @@ Future<BackendScoringCommandResult> executeAdminScoringRescore({
   required dynamic db,
   required DateTime now,
   BackendScoringCommandExecutor executeCommand = executeBackendScoringCommand,
+  Set<String> adminAuthUidAllowlist = adminAuthUids,
 }) async {
-  final roleSnapshot = await db.ref(paths.tippersPath).once();
-  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
-  if (role != 'admin') {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
+  requireAdminAuthUid(authUid, allowlist: adminAuthUidAllowlist);
 
   final sourceEventId = 'admin_rescore_${compKey}_${now.microsecondsSinceEpoch}';
   return executeCommand(
@@ -1688,15 +1673,11 @@ const Set<String> _blockedFixtureUrlHostnames = {
 Future<bool> checkFixtureUrlActive({
   required String authUid,
   required String url,
-  required dynamic db,
   FixtureUrlChecker? checkUrl,
   FixtureUrlHostResolver resolveHost = InternetAddress.lookup,
+  Set<String> adminAuthUidAllowlist = adminAuthUids,
 }) async {
-  final roleSnapshot = await db.ref(paths.tippersPath).once();
-  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
-  if (role != 'admin') {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
+  requireAdminAuthUid(authUid, allowlist: adminAuthUidAllowlist);
 
   final uri = Uri.tryParse(url);
   if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
@@ -1831,28 +1812,23 @@ Future<FixtureUrlHopResult> _requestFixtureUrlHop(Uri uri) async {
   }
 }
 
-String? resolveTipperRoleForAuthUid(Object? rawTippers, String authUid) {
-  if (rawTippers is! Map) {
-    return null;
-  }
+/// Temporary R1 admin check (DESIGN-database-rules.md D12).
+///
+/// Admin status comes from the deployed, independently verified allowlist in
+/// `config/admin-auth-uids.json`, never from data in the database: the old
+/// role scan trusted `authuid` and `tipperRole` in publicly writable records.
+/// Replaced by the bidirectional AuthIndex check in R2.
+bool isAdminAuthUid(String authUid, {Set<String> allowlist = adminAuthUids}) =>
+    allowlist.contains(authUid);
 
-  String? resolvedRole;
-  var matchCount = 0;
-  for (final rawTipper in rawTippers.values) {
-    if (rawTipper is! Map || rawTipper['authuid'] != authUid) {
-      continue;
-    }
-    matchCount += 1;
-    if (matchCount > 1) {
-      return null;
-    }
-    final role = rawTipper['tipperRole'];
-    if (role is! String) {
-      return null;
-    }
-    resolvedRole = role;
+/// Throws [PermissionDeniedError] unless [authUid] is on the admin allowlist.
+void requireAdminAuthUid(
+  String authUid, {
+  Set<String> allowlist = adminAuthUids,
+}) {
+  if (!isAdminAuthUid(authUid, allowlist: allowlist)) {
+    throw PermissionDeniedError('User is not authorized as admin');
   }
-  return resolvedRole;
 }
 
 Future<FixtureDownloadResult> _executeFixtureDownloadCore({

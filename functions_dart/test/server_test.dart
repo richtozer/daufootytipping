@@ -39,6 +39,17 @@ class DuckTypedSnapshot {
   final Object? value;
 }
 
+class _ThrowingDatabase {
+  _ThrowingDatabase(this.onRead);
+
+  final void Function() onRead;
+
+  Never ref(String path) {
+    onRead();
+    throw StateError('The database must not be read for authorization');
+  }
+}
+
 DAUComp _badgeTestComp(
   DateTime now, {
   DateTime? firstKickoff,
@@ -93,11 +104,9 @@ Tipper _badgeTestTipper(
 
 void main() {
   late MockDatabase mockDb;
-  late MockDataSnapshot mockRoleSnapshot;
 
   setUp(() {
     mockDb = MockDatabase();
-    mockRoleSnapshot = MockDataSnapshot();
   });
 
   group('configuration resolution', () {
@@ -488,46 +497,84 @@ void main() {
   });
 
   group('executeFixtureDownload tests', () {
-    test('resolves the matching tipper role from the full config snapshot', () {
-      final rawTippers = {
-        'otherTipper': {
-          'authuid': 'other-user',
-          'tipperRole': 'admin',
-        },
-        'requestedTipper': {
-          'authuid': 'user123',
-          'tipperRole': 'tipper',
-        },
-      };
+    test('admin status comes only from the deployed allowlist', () {
+      const allowlist = {'admin-uid-1', 'admin-uid-2'};
 
+      expect(isAdminAuthUid('admin-uid-1', allowlist: allowlist), isTrue);
+      expect(isAdminAuthUid('admin-uid-2', allowlist: allowlist), isTrue);
+      expect(isAdminAuthUid('someone-else', allowlist: allowlist), isFalse);
+      expect(isAdminAuthUid('', allowlist: allowlist), isFalse);
+      // Case and whitespace variants are different uids.
+      expect(isAdminAuthUid('ADMIN-UID-1', allowlist: allowlist), isFalse);
+      expect(isAdminAuthUid(' admin-uid-1', allowlist: allowlist), isFalse);
+    });
+
+    test('an empty allowlist denies everyone (fail closed)', () {
+      expect(isAdminAuthUid('admin-uid-1', allowlist: const <String>{}), isFalse);
       expect(
-        resolveTipperRoleForAuthUid(rawTippers, 'user123'),
-        'tipper',
-      );
-      expect(
-        resolveTipperRoleForAuthUid(rawTippers, 'missing-user'),
-        isNull,
-      );
-      expect(
-        resolveTipperRoleForAuthUid({
-          'malformed': {'authuid': 'user123', 'tipperRole': null},
-        }, 'user123'),
-        isNull,
-      );
-      expect(
-        resolveTipperRoleForAuthUid({
-          'duplicateAdmin': {
-            'authuid': 'user123',
-            'tipperRole': 'admin',
-          },
-          'duplicateTipper': {
-            'authuid': 'user123',
-            'tipperRole': 'tipper',
-          },
-        }, 'user123'),
-        isNull,
+        () => requireAdminAuthUid('admin-uid-1', allowlist: const <String>{}),
+        throwsA(isA<PermissionDeniedError>()),
       );
     });
+
+    test('a database record saying admin does not make a caller admin', () async {
+      // The old authorization trusted authuid + tipperRole in publicly
+      // writable data. A forged record must grant nothing.
+      final db = DuckTypedDatabase({
+        '/AllTippers': {
+          'forged': {'authuid': 'attacker-uid', 'tipperRole': 'admin'},
+        },
+      });
+
+      await expectLater(
+        executeFixtureDownload(
+          authUid: 'attacker-uid',
+          compKey: 'comp2026',
+          db: db,
+          fetchFixtureJson: (_) async => [],
+          now: DateTime.now().toUtc(),
+          adminAuthUidAllowlist: const {'real-admin-uid'},
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+      await expectLater(
+        executeAdminScoringRescore(
+          authUid: 'attacker-uid',
+          compKey: 'comp2026',
+          db: db,
+          now: DateTime.parse('2026-07-19T12:00:00Z'),
+          adminAuthUidAllowlist: const {'real-admin-uid'},
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+      await expectLater(
+        checkFixtureUrlActive(
+          authUid: 'attacker-uid',
+          url: 'https://example.com/fixture.json',
+          checkUrl: (_) async => true,
+          adminAuthUidAllowlist: const {'real-admin-uid'},
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+    });
+
+    test('authorization does not read the database', () async {
+      var reads = 0;
+      final db = _ThrowingDatabase(() => reads++);
+
+      await expectLater(
+        executeAdminScoringRescore(
+          authUid: 'not-an-admin',
+          compKey: 'comp2026',
+          db: db,
+          now: DateTime.parse('2026-07-19T12:00:00Z'),
+          adminAuthUidAllowlist: const {'real-admin-uid'},
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+      expect(reads, 0);
+    });
+
 
     test('REST timeouts identify the operation and path', () async {
       await expectLater(
@@ -620,16 +667,6 @@ void main() {
     });
 
     test('non-admin role throws PermissionDeniedError', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'user', // Not admin
-        }
-      });
 
       expect(
         executeFixtureDownload(
@@ -644,16 +681,6 @@ void main() {
     });
 
     test('missing DAUComp config throws NotFoundError', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
 
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
@@ -664,6 +691,7 @@ void main() {
       expect(
         executeFixtureDownload(
           authUid: 'user123',
+          adminAuthUidAllowlist: {'user123'},
           compKey: 'comp2026',
           db: mockDb,
           fetchFixtureJson: (_) async => [],
@@ -674,16 +702,6 @@ void main() {
     });
 
     test('active lock throws AbortedError', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
 
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
@@ -717,6 +735,7 @@ void main() {
       expect(
         executeFixtureDownload(
           authUid: 'user123',
+          adminAuthUidAllowlist: {'user123'},
           compKey: 'comp2026',
           db: mockDb,
           fetchFixtureJson: (_) async => [],
@@ -727,16 +746,6 @@ void main() {
     });
 
     test('expired fixture download lock can be reacquired', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
 
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
@@ -783,6 +792,7 @@ void main() {
 
       final result = await executeFixtureDownload(
         authUid: 'user123',
+        adminAuthUidAllowlist: {'user123'},
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (_) async => [],
@@ -794,16 +804,6 @@ void main() {
     });
 
     test('successful fixture update workflow', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
 
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
@@ -885,6 +885,7 @@ void main() {
 
       final resultMsg = await executeFixtureDownload(
         authUid: 'user123',
+        adminAuthUidAllowlist: {'user123'},
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (url) async {
@@ -1079,14 +1080,6 @@ void main() {
     });
 
     test('reuses existing team keys case-insensitively', () async {
-      final mockRoleSnapshot = MockDataSnapshot();
-      final mockTippersRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'adminTipper': {'authuid': 'user123', 'tipperRole': 'admin'}
-      });
-
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
@@ -1149,6 +1142,7 @@ void main() {
 
       await executeFixtureDownload(
         authUid: 'user123',
+        adminAuthUidAllowlist: {'user123'},
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (url) async {
@@ -1173,14 +1167,7 @@ void main() {
 
   group('executeAdminScoringRescore tests', () {
     test('rejects non-admin callers before scoring', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {
-            'authuid': 'user123',
-            'tipperRole': 'user',
-          },
-        },
-      });
+      final db = DuckTypedDatabase(const {});
 
       await expectLater(
         executeAdminScoringRescore(
@@ -1194,20 +1181,14 @@ void main() {
     });
 
     test('admin caller executes a full-comp backend rescore command', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {
-            'authuid': 'admin123',
-            'tipperRole': 'admin',
-          },
-        },
-      });
+      final db = DuckTypedDatabase(const {});
       BackendScoringCommand? capturedCommand;
       dynamic capturedDb;
       final now = DateTime.parse('2026-07-19T12:00:00Z');
 
       final result = await executeAdminScoringRescore(
         authUid: 'admin123',
+        adminAuthUidAllowlist: {'admin123'},
         compKey: 'comp2026',
         db: db,
         now: now,
@@ -1239,17 +1220,10 @@ void main() {
 
   group('checkFixtureUrlActive tests', () {
     test('rejects non-admin callers before checking the url', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {'authuid': 'user123', 'tipperRole': 'user'},
-        },
-      });
-
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'user123',
           url: 'https://example.com/fixture.json',
-          db: db,
           checkUrl: (_) async => true,
         ),
         throwsA(isA<PermissionDeniedError>()),
@@ -1257,17 +1231,11 @@ void main() {
     });
 
     test('rejects a malformed url for an admin caller', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-        },
-      });
-
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'admin123',
+          adminAuthUidAllowlist: {'admin123'},
           url: 'not a url',
-          db: db,
           checkUrl: (_) async => true,
         ),
         throwsA(isA<InvalidArgumentError>()),
@@ -1277,17 +1245,12 @@ void main() {
     test(
       'returns the checker result for an admin caller with a valid url',
       () async {
-        final db = DuckTypedDatabase({
-          '/AllTippers': {
-            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-          },
-        });
         Uri? checkedUri;
 
         final active = await checkFixtureUrlActive(
           authUid: 'admin123',
+          adminAuthUidAllowlist: {'admin123'},
           url: 'https://example.com/fixture.json',
-          db: db,
           checkUrl: (uri) async {
             checkedUri = uri;
             return false;
@@ -1301,17 +1264,11 @@ void main() {
     );
 
     test('rejects a non-http(s) scheme for an admin caller', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-        },
-      });
-
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'admin123',
+          adminAuthUidAllowlist: {'admin123'},
           url: 'file:///etc/passwd',
-          db: db,
           checkUrl: (_) async => true,
         ),
         throwsA(isA<InvalidArgumentError>()),
@@ -1321,17 +1278,11 @@ void main() {
     test(
       'rejects a url whose literal host is a private/loopback address',
       () async {
-        final db = DuckTypedDatabase({
-          '/AllTippers': {
-            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-          },
-        });
-
         await expectLater(
           checkFixtureUrlActive(
             authUid: 'admin123',
+            adminAuthUidAllowlist: {'admin123'},
             url: 'http://169.254.169.254/latest/meta-data/',
-            db: db,
             checkUrl: (_) async => true,
           ),
           throwsA(isA<InvalidArgumentError>()),
@@ -1342,17 +1293,11 @@ void main() {
     test(
       'rejects a url whose hostname resolves to a private address',
       () async {
-        final db = DuckTypedDatabase({
-          '/AllTippers': {
-            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-          },
-        });
-
         await expectLater(
           checkFixtureUrlActive(
             authUid: 'admin123',
+            adminAuthUidAllowlist: {'admin123'},
             url: 'https://internal.example.com/fixture.json',
-            db: db,
             checkUrl: (_) async => true,
             resolveHost: (_) async => [InternetAddress('10.1.2.3')],
           ),

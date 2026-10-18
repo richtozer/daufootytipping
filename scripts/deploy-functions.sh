@@ -13,9 +13,14 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 cd "$repo_root"
 
-# Support user-level npm global installs when the caller's shell startup files
-# have not been loaded into the current environment.
-if [ -d "$HOME/.npm-global/bin" ]; then
+# The firebase executable is explicit: FIREBASE_BIN if set, otherwise `firebase` from the PATH.
+firebase_bin="${FIREBASE_BIN:-firebase}"
+
+# Support user-level npm global installs when the caller's shell startup files have not been
+# loaded into the current environment, but ONLY when no firebase is resolvable already: an
+# unconditional prepend would shadow a firebase that was put earlier on the PATH on purpose (this
+# is the pattern behind a production incident; see DESIGN-database-rules-phase3.md section 8).
+if ! command -v "$firebase_bin" >/dev/null 2>&1 && [ -d "$HOME/.npm-global/bin" ]; then
   export PATH="$HOME/.npm-global/bin:$PATH"
 fi
 if [ -d "$HOME/dev/tooling/flutter/bin" ]; then
@@ -24,21 +29,26 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: deploy-functions.sh [--only default|dart|all] [--yes] [--allow-dirty]
+Usage: deploy-functions.sh --project <id> [--only default|dart|all] [--yes] [--allow-dirty] [--dry-run]
 
+  --project <id>   The Firebase project to deploy to. REQUIRED to deploy; it must be the active
+                   project ('firebase use') and is passed explicitly to 'firebase deploy'.
   --only default   Deploy the TypeScript codebase only (functions/)
   --only dart      Deploy the Dart codebase only (functions_dart/)
   --only all       Deploy both (default)
-  --yes            Skip the confirmation prompt
+  --yes            Skip the confirmation prompt (requires --project)
   --allow-dirty    Permit deploying with uncommitted changes
+  --dry-run        Run the argument, project and allowlist checks and stop before any build or deploy
 
-Deploys to the active Firebase project. Run 'firebase use' to check or change it.
+Set FIREBASE_BIN to name the firebase executable explicitly.
 EOF
 }
 
 only="all"
+project_arg=""
 assume_yes=0
 allow_dirty=0
+dry_run=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -47,8 +57,14 @@ while [ $# -gt 0 ]; do
       only="$2"
       shift 2
       ;;
+    --project)
+      [ $# -ge 2 ] || { echo "Error: --project requires a value." >&2; usage >&2; exit 1; }
+      project_arg="$2"
+      shift 2
+      ;;
     --yes) assume_yes=1; shift ;;
     --allow-dirty) allow_dirty=1; shift ;;
+    --dry-run) dry_run=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Error: unknown argument '$1'." >&2; usage >&2; exit 1 ;;
   esac
@@ -59,8 +75,14 @@ case "$only" in
   *) echo "Error: --only must be one of: default, dart, all." >&2; exit 1 ;;
 esac
 
-if ! command -v firebase >/dev/null 2>&1; then
-  echo "Error: firebase CLI is not installed or not on PATH."
+if [ "$assume_yes" -eq 1 ] && [ -z "$project_arg" ]; then
+  echo "Error: --yes requires --project <id>, so a non-interactive run can never deploy to an" >&2
+  echo "implicit default project." >&2
+  exit 1
+fi
+
+if ! command -v "$firebase_bin" >/dev/null 2>&1; then
+  echo "Error: firebase CLI is not installed or not on PATH (FIREBASE_BIN=${FIREBASE_BIN:-unset})."
   echo "PATH=$PATH"
   echo "If installed with npm, ensure the global npm bin directory is on PATH."
   exit 1
@@ -75,7 +97,23 @@ if [ "$allow_dirty" -eq 0 ]; then
   fi
 fi
 
-project="$(firebase use 2>/dev/null | head -1 | tr -d '\r')"
+# Parse the project ID from the first line of `firebase use` ("<id>" or "Active Project: <id>
+# (<alias>)") and compare it EXACTLY to --project.
+parse_active_project() {
+  printf '%s' "$1" | head -1 | tr -d '\r' \
+    | sed -E 's/^[[:space:]]*(Active Project:[[:space:]]*)?//; s/[[:space:]]*\([^)]*\)[[:space:]]*$//; s/[[:space:]]+$//'
+}
+active_project="$(parse_active_project "$("$firebase_bin" use 2>/dev/null || true)")"
+if [ -n "$project_arg" ]; then
+  if [ "$active_project" != "$project_arg" ]; then
+    echo "Error: --project '${project_arg}' is not the active firebase project ('${active_project}')." >&2
+    echo "Run 'firebase use ${project_arg}' deliberately first, or correct --project." >&2
+    exit 1
+  fi
+  project="$project_arg"
+else
+  project="$active_project"
+fi
 branch="$(git rev-parse --abbrev-ref HEAD)"
 commit="$(git rev-parse HEAD)"
 short_commit="$(git rev-parse --short HEAD)"
@@ -100,6 +138,21 @@ echo
 echo "Test clients and real users share this backend. Confirm the change is"
 echo "backward compatible with the client version currently on main."
 echo
+
+if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
+  echo "Checking the admin allowlist (refuses an empty or stale list)..."
+  node "$repo_root/scripts/build_admin_allowlist.mjs" --check
+fi
+
+if [ "$dry_run" -eq 1 ]; then
+  echo "Dry run: the argument, project and allowlist checks passed. Nothing was built or deployed."
+  exit 0
+fi
+
+if [ -z "$project_arg" ]; then
+  echo "Error: deploying requires --project <id> (the project to deploy to, stated explicitly)." >&2
+  exit 1
+fi
 
 if [ "$assume_yes" -eq 0 ]; then
   printf "Type 'deploy' to continue: "
@@ -132,6 +185,13 @@ echo "Step 1: Checking backend scoring deploy prerequisites..."
 bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh" "$only"
 
 if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
+  # The admin endpoints authorize against a compile-time allowlist generated from
+  # config/admin-auth-uids.json (DESIGN-database-rules.md D12). Refuse to deploy
+  # if the list is empty (it would lock every admin out) or if the committed
+  # generated file no longer matches the config.
+  echo "Step 1b: Checking the admin allowlist..."
+  node "$repo_root/scripts/build_admin_allowlist.mjs" --check
+
   # Generate the manifest BEFORE testing. deployment_manifest_test.dart asserts
   # against the tracked functions.yaml, so testing first would validate the old
   # manifest and then deploy a freshly generated, untested one.
@@ -169,7 +229,13 @@ if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
 fi
 
 echo "Step 5: Deploying ${targets}..."
-firebase deploy --only "$targets"
+"$firebase_bin" deploy --only "$targets" --project "$project"
+
+# Record which admin allowlist revision the Dart codebase was deployed with.
+if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
+  node "$repo_root/scripts/build_admin_allowlist.mjs" --record functions
+  echo "Commit config/deployments/allowlist-deployments.jsonl to keep the record."
+fi
 
 echo
 echo "Done. Deployed ${targets} from ${short_commit} (${branch}) to ${project}."
@@ -179,5 +245,5 @@ echo "the previous known-good commit:"
 echo
 echo "    git stash                     # if you have local changes"
 echo "    git checkout <previous-sha>"
-echo "    scripts/deploy-functions.sh --only ${only}"
+echo "    scripts/deploy-functions.sh --project ${project} --only ${only}"
 echo "    git checkout ${branch}"
