@@ -220,11 +220,12 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.center,
                                         children: [
-                                          const Hero(
+                                          Hero(
                                             tag: 'percentage',
                                             child: Icon(
                                               Icons.percent,
                                               size: 50,
+                                              color: appPanelTextColor(context),
                                             ),
                                           ),
                                           const SizedBox(width: 12),
@@ -236,6 +237,9 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                                   .titleLarge
                                                   ?.copyWith(
                                                     fontWeight: FontWeight.bold,
+                                                    color: appPanelTextColor(
+                                                      context,
+                                                    ),
                                                   ),
                                             ),
                                           ),
@@ -251,9 +255,13 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                               .textTheme
                                               .bodyMedium
                                               ?.copyWith(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
+                                                color:
+                                                    appPanelTextColor(
+                                                      context,
+                                                    ) ??
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                               ),
                                         ),
                                       ),

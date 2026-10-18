@@ -43,6 +43,12 @@ Color appPanelColor(BuildContext context) =>
     ? kPanelDarkColor
     : kPanelLightColor;
 
+/// The choice chips inside a dark inner panel: a step up from the panel for a
+/// chip, and a deep grass green for the chosen one. Solid, because a chip is
+/// drawn over an opaque surface of its own and anything see-through goes white.
+const Color kChipDarkColor = Color(0xFF2C3627);
+const Color kChipSelectedDarkColor = Color(0xFF4F7A2C);
+
 /// The surface of the panels laid inside a see-through panel, such as a tips
 /// card's result, choices and info. Opaque and dark in dark mode, where the
 /// forced light theme would otherwise leave them bright; null in light mode,

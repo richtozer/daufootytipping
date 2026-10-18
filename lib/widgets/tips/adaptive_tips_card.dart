@@ -439,88 +439,120 @@ class AdaptiveTipsCard extends StatelessWidget {
       size: 18,
     );
     const options = TipsCardDisplay.options;
+    Widget inert(Widget chip) =>
+        percentages ? ExcludeFocus(child: IgnorePointer(child: chip)) : chip;
+    // In dark mode the chips are see-through and light-on-dark, not the bright
+    // light-theme chips the forced theme would hand them, which glared against
+    // the dark panel they sit in.
+    final bool dark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final Color? chipText = appPanelTextColor(context);
     return Stack(
       children: [
         TipsChoicePanel(
           arrangement: layout.choices,
           children: [
             for (var index = 0; index < options.length; index++)
-              ChoiceChip.elevated(
-                label: percentages
-                    ? SizedBox(
-                        width: _percentageWidth(context),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (data.loading)
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+              inert(
+                ChoiceChip.elevated(
+                  label: percentages
+                      ? SizedBox(
+                          width: _percentageWidth(context),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (data.loading)
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  data.percentages == null
+                                      // Unknown, not empty: the live tab has
+                                      // always marked a missing percentage.
+                                      ? '?'
+                                      : '${data.percentages![index].toStringAsFixed(1)}%',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color:
+                                            chipText ??
+                                            Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
+                                      ),
+                                  textAlign: TextAlign.center,
                                 ),
-                              )
-                            else
+                              const SizedBox(height: 2),
                               Text(
-                                data.percentages == null
-                                    // Unknown, not empty: the live tab has
-                                    // always marked a missing percentage.
-                                    ? '?'
-                                    : '${data.percentages![index].toStringAsFixed(1)}%',
-                                style: Theme.of(context).textTheme.labelLarge
+                                data.label(options[index]),
+                                style: Theme.of(context).textTheme.labelSmall
                                     ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
+                                      color: dark
+                                          ? Colors.white70
+                                          : Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                     ),
                                 textAlign: TextAlign.center,
                               ),
-                            const SizedBox(height: 2),
-                            Text(
-                              data.label(options[index]),
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                            ],
+                          ),
+                        )
+                      : Text(
+                          data.label(options[index]),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : Text(
-                        data.label(options[index]),
-                        textAlign: TextAlign.center,
-                      ),
-                avatar: percentages && data.result == options[index]
-                    ? Icon(
-                        Icons.emoji_events,
-                        color: Colors.black,
-                        size: trophySize,
-                      )
-                    : null,
-                avatarBoxConstraints: BoxConstraints.tightFor(
-                  width: trophySize,
-                  height: trophySize,
+                  avatar: percentages && data.result == options[index]
+                      ? Icon(
+                          Icons.emoji_events,
+                          color: dark ? Colors.white : Colors.black,
+                          size: trophySize,
+                        )
+                      : null,
+                  avatarBoxConstraints: BoxConstraints.tightFor(
+                    width: trophySize,
+                    height: trophySize,
+                  ),
+                  tooltip: data.league == League.afl
+                      ? options[index].aflTooltip
+                      : options[index].nrlTooltip,
+                  showCheckmark: false,
+                  materialTapTargetSize: layout.mode == TipsCardMode.standard
+                      ? MaterialTapTargetSize.shrinkWrap
+                      : MaterialTapTargetSize.padded,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kCardCornerRadius),
+                  ),
+                  padding: EdgeInsets.zero,
+                  // The chip draws its colour over an opaque canvas of its own, so
+                  // a see-through colour only washes out to white: the dark
+                  // chips are solid, a step up from the panel they sit in.
+                  color: dark
+                      ? WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? kChipSelectedDarkColor
+                              : kChipDarkColor,
+                        )
+                      : null,
+                  surfaceTintColor: dark ? Colors.transparent : null,
+                  selectedColor: dark ? null : Colors.lightGreen[500],
+                  labelStyle: chipText == null
+                      ? null
+                      : TextStyle(color: chipText),
+                  selected: data.selected == options[index],
+                  // The percentages are read-only, but a disabled chip is faded
+                  // by its own painting, which dimmed the figures. They are
+                  // enabled instead, and kept inert by the wrapper.
+                  onSelected: percentages
+                      ? (_) {}
+                      : data.saving || !data.canTip || onTip == null
+                      ? null
+                      : (_) => onTip?.call(options[index]),
                 ),
-                tooltip: data.league == League.afl
-                    ? options[index].aflTooltip
-                    : options[index].nrlTooltip,
-                showCheckmark: false,
-                materialTapTargetSize: layout.mode == TipsCardMode.standard
-                    ? MaterialTapTargetSize.shrinkWrap
-                    : MaterialTapTargetSize.padded,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(kCardCornerRadius),
-                ),
-                padding: EdgeInsets.zero,
-                selectedColor: Colors.lightGreen[500],
-                selected: data.selected == options[index],
-                onSelected:
-                    percentages || data.saving || !data.canTip || onTip == null
-                    ? null
-                    : (_) => onTip?.call(options[index]),
               ),
           ],
         ),
