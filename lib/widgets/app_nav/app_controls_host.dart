@@ -14,10 +14,6 @@ const String kBackActionLabel = 'Back';
 /// Gap between the controls and the edge of the display, or of its inset.
 const double kControlsEdgeMargin = 12;
 
-/// How close the side controls sit to the display edge in an inset too slim to
-/// centre them in.
-const double kControlsInsetEdgeMargin = 4;
-
 /// The gap kept between the side controls and the content beside them.
 const double kControlsContentGap = 8;
 
@@ -162,14 +158,15 @@ class AppControlsHost extends StatelessWidget {
 
   /// Where the controls sit from the right edge. Centred in an inset wide
   /// enough to hold them, so they take room the content could not use anyway.
-  /// In a slimmer inset they sit just inside the display edge, over it, and the
-  /// content is told to leave room for them. With no inset they float clear of
-  /// the edge.
+  /// In a slimmer inset, such as the side a Dynamic Island or camera is on in
+  /// landscape, they sit clear of it, in the content's area, which is told to
+  /// leave room for them: over the inset they would cover what is in it. With
+  /// no inset they float clear of the edge.
   double _rightOffset(EdgeInsets padding) {
     if (padding.right >= kSideControlsInsetWidth) {
       return (padding.right - kGlassSideThickness) / 2;
     }
-    return padding.right > 0 ? kControlsInsetEdgeMargin : kControlsEdgeMargin;
+    return padding.right + kControlsEdgeMargin;
   }
 }
 

@@ -12,10 +12,23 @@ const double kGlassOuterRadius = kGlassItemRadius + kGlassPadding;
 const double kGlassPadding = 4;
 
 /// The height of a tab, and of a round item inside a horizontal group.
-const double kGlassItemExtent = 56;
+const double kGlassItemExtent = 50;
 
 /// The square every tab icon is centred in, badge or not, so labels line up.
-const double kGlassIconSlot = 32;
+const double kGlassIconSlot = 30;
+
+/// The size of a tab's icon, filling most of its slot.
+const double kGlassIconSize = 28;
+
+/// The most a tab's label grows with the system text size. Past this the tab,
+/// whose height is fixed so the footprint stays small, could not hold it.
+const double kGlassMaxLabelTextScale = 1.5;
+
+/// The label's line height, tight so a larger text size still fits the tab.
+const double kGlassLabelLineHeight = 1.1;
+
+/// The gap between a tab's icon and its label.
+const double kGlassIconLabelGap = 2;
 
 /// The width of a tab in a horizontal pill.
 const double kGlassHorizontalTabWidth = 80;
@@ -33,11 +46,16 @@ const double kGlassSideThickness = kGlassSideItemWidth + 2 * kGlassPadding;
 const double kGlassHorizontalLabelSize = 10;
 const double kGlassSideLabelSize = 9;
 
+/// Space between a label's letters, so TIPS reads as T I P S as in the
+/// original design. Tight down the side, where the chip is too slim for it.
+const double kGlassHorizontalLabelSpacing = 3;
+const double kGlassSideLabelSpacing = 0.2;
+
 /// How much the surface behind a glass control is blurred.
 const double kGlassBlurSigma = 14;
 
-/// The colours of the app's glass controls: frosted over the backdrop, with
-/// the same selection green the navigation has always used.
+/// The colours of the app's glass controls: frosted over the backdrop, on the
+/// same tint as the panel cards, with the selection green on the chosen item.
 ///
 /// Follows the platform brightness, as the rest of the app's custom surfaces
 /// do, so the controls match the scheme the screens around them are in.
@@ -45,29 +63,38 @@ const double kGlassBlurSigma = 14;
 class AppGlassStyle {
   const AppGlassStyle._({
     required this.fill,
-    required this.border,
     required this.shadow,
     required this.foreground,
     required this.selectedFill,
     required this.selectedForeground,
   });
 
-  static const AppGlassStyle light = AppGlassStyle._(
-    fill: Color(0x66FFFFFF),
-    border: Color(0xCCFFFFFF),
-    shadow: Color(0x3D142808),
-    foreground: Color(0xFF14200C),
-    selectedFill: Color(0xF2C5E1A5),
-    selectedForeground: Color(0xFF14200C),
+  // The panel colour with a green tint of its own, so a control over bright
+  // content, such as a table's white rows, is as green as one over the backdrop
+  // rather than washing out to white.
+  static final Color _lightFill = Color.alphaBlend(
+    const Color(0x73C5E1A5),
+    kPanelLightColor,
+  );
+  static final Color _darkFill = Color.alphaBlend(
+    const Color(0x338BC34A),
+    kPanelDarkColor,
   );
 
-  static const AppGlassStyle dark = AppGlassStyle._(
-    fill: Color(0x70222C1C),
-    border: Color(0x29FFFFFF),
+  static final AppGlassStyle light = AppGlassStyle._(
+    fill: _lightFill,
+    shadow: Color(0x3D142808),
+    foreground: Color(0xFF14200C),
+    selectedFill: kSelectionLightColor,
+    selectedForeground: kOnSelectionLightColor,
+  );
+
+  static final AppGlassStyle dark = AppGlassStyle._(
+    fill: _darkFill,
     shadow: Color(0x80000000),
     foreground: Color(0xFFE8EFDF),
-    selectedFill: Color(0xFF4E7A36),
-    selectedForeground: Color(0xFFFFFFFF),
+    selectedFill: kSelectionDarkColor,
+    selectedForeground: kOnSelectionDarkColor,
   );
 
   factory AppGlassStyle.of(BuildContext context) =>
@@ -76,7 +103,6 @@ class AppGlassStyle {
       : light;
 
   final Color fill;
-  final Color border;
   final Color shadow;
   final Color foreground;
   final Color selectedFill;

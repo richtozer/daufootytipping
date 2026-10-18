@@ -63,6 +63,9 @@ class _PillTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = AppGlassStyle.of(context);
     final foreground = selected ? style.selectedForeground : style.foreground;
+    final spacing = horizontal
+        ? kGlassHorizontalLabelSpacing
+        : kGlassSideLabelSpacing;
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(kGlassItemRadius),
     );
@@ -96,25 +99,40 @@ class _PillTab extends StatelessWidget {
                       dimension: kGlassIconSlot,
                       child: Center(
                         child: IconTheme(
-                          data: IconThemeData(color: foreground, size: 24),
+                          data: IconThemeData(
+                            color: foreground,
+                            size: kGlassIconSize,
+                          ),
                           child: destination.icon,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        destination.shortLabel,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          color: foreground,
-                          fontSize: horizontal
-                              ? kGlassHorizontalLabelSize
-                              : kGlassSideLabelSize,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: horizontal ? 0.4 : 0.2,
+                    const SizedBox(height: kGlassIconLabelGap),
+                    // Grows with the system text size, up to a limit the tab
+                    // can hold, and on a tight line height. The tab's height
+                    // is fixed to keep the footprint small.
+                    MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: kGlassMaxLabelTextScale,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          // Letter spacing also trails the last letter, so the
+                          // label is nudged by the same amount to stay centred.
+                          padding: EdgeInsetsDirectional.only(start: spacing),
+                          child: Text(
+                            destination.shortLabel,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              color: foreground,
+                              fontSize: horizontal
+                                  ? kGlassHorizontalLabelSize
+                                  : kGlassSideLabelSize,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: spacing,
+                              height: kGlassLabelLineHeight,
+                            ),
+                          ),
                         ),
                       ),
                     ),

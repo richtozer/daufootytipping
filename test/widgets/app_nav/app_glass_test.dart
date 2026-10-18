@@ -143,6 +143,73 @@ void main() {
       );
     });
 
+    testWidgets('spaces the letters of the longest label inside the chip', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(fontFamily: 'Roboto'),
+          home: Scaffold(
+            body: Center(
+              child: AppGlassPill(
+                destinations: const [
+                  AppNavDestination(
+                    icon: Icon(Icons.person),
+                    shortLabel: 'PROFILE',
+                  ),
+                ],
+                selectedIndex: 0,
+                onSelected: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final text = tester.widget<Text>(find.text('PROFILE'));
+      expect(text.style!.letterSpacing, kGlassHorizontalLabelSpacing);
+      final label = tester.getSize(find.text('PROFILE')).width;
+      expect(label, lessThanOrEqualTo(kGlassHorizontalTabWidth));
+    });
+
+    for (final axis in Axis.values) {
+      for (final scale in [1.0, 1.35, 2.0, 3.0]) {
+        testWidgets('holds its labels at text scale $scale ($axis)', (
+          tester,
+        ) async {
+          // An overflow in the tab would fail the test on its own.
+          await tester.pumpWidget(
+            MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: Center(
+                  child: AppGlassPill(
+                    destinations: _destinations,
+                    selectedIndex: 0,
+                    onSelected: (_) {},
+                    axis: axis,
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          final tab = tester.getSize(
+            find.ancestor(
+              of: find.text('TIPS'),
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          expect(tab.height, kGlassItemExtent);
+        });
+      }
+    }
+
     testWidgets('lines labels up whatever size each icon is', (tester) async {
       await tester.pumpWidget(
         _host(

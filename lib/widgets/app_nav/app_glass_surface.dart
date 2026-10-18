@@ -10,17 +10,16 @@ import 'package:flutter/material.dart';
 class AppGlassSurface extends StatelessWidget {
   const AppGlassSurface({super.key, required this.shape, required this.child});
 
-  /// The outline. Its border side is replaced with the glass edge.
+  /// The outline.
   final OutlinedBorder shape;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final style = AppGlassStyle.of(context);
-    final outline = shape.copyWith(side: BorderSide(color: style.border));
     return DecoratedBox(
       decoration: ShapeDecoration(
-        shape: outline,
+        shape: shape,
         shadows: [
           BoxShadow(
             color: style.shadow,
@@ -30,14 +29,14 @@ class AppGlassSurface extends StatelessWidget {
         ],
       ),
       child: ClipPath(
-        clipper: ShapeBorderClipper(shape: outline),
+        clipper: ShapeBorderClipper(shape: shape),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(
             sigmaX: kGlassBlurSigma,
             sigmaY: kGlassBlurSigma,
           ),
           child: DecoratedBox(
-            decoration: ShapeDecoration(color: style.fill, shape: outline),
+            decoration: ShapeDecoration(color: style.fill, shape: shape),
             child: child,
           ),
         ),

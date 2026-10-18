@@ -39,7 +39,7 @@ class AppGlassButton extends StatelessWidget {
       ),
       child: SizedBox.square(
         dimension: size,
-        child: _ActionIcon(action: action, iconSize: 26),
+        child: _ActionIcon(action: action, iconSize: 28),
       ),
     );
   }

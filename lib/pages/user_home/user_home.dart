@@ -9,9 +9,11 @@ import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:daufootytipping/widgets/app_nav/app_nav_destination.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -181,8 +183,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   /// The destinations the floating tab pill offers.
   List<AppNavDestination> _navDestinations(TippersViewModel tippersViewModel) {
     final tipsTabIcon = SizedBox(
-      width: 32,
-      height: 32,
+      width: kGlassIconSlot,
+      height: kGlassIconSlot,
       child: Center(
         child: Builder(
           builder: (context) {
@@ -254,13 +256,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                   ),
                   child: Stack(
                     children: [
-                      RepaintBoundary(
-                        child: Image.asset(
-                          'assets/grass_background_blurred.webp',
-                          width: MediaQuery.of(context).size.width,
-                          height: MediaQuery.of(context).size.height,
-                          fit: BoxFit.fill,
-                        ),
+                      const Positioned.fill(
+                        child: RepaintBoundary(child: AppBackdrop()),
                       ),
                       Scaffold(
                         backgroundColor: !isDarkMode
