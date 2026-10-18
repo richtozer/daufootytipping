@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
@@ -43,7 +41,6 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
 
   static const columns = [
     AppColumn.text('Date', sortable: true, descendingFirst: true),
-    AppColumn.text('Result', sortable: true),
     AppColumn.text('Opponent', sortable: true),
     AppColumn.numeric('Score', sortable: true),
     AppColumn.numeric('Round', sortable: true),
@@ -56,10 +53,12 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final values = <Object?>[
       body,
       scaler,
       direction,
+      isDarkMode,
       DateTime.now().year,
       for (final game in _gameHistory) ...[
         game.gameDate,
@@ -74,83 +73,57 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
     ];
     if (listEquals(_renderedValues, values)) return _rows;
     _renderedValues = values;
-    Size measure(String text, TextStyle style) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textScaler: scaler,
-        textDirection: direction,
-      )..layout();
-      final size = painter.size;
-      painter.dispose();
-      return size;
-    }
-
+    // The ladder's own shading marks what matters there; here it marks a win.
+    final winColour = isDarkMode
+        ? Colors.lightGreen[900]
+        : Colors.lightGreen[200];
     _rows = [
       for (final game in _gameHistory)
-        (() {
-          final badge = measure(
-            game.isHomeGame ? 'Home' : 'Away',
-            body.copyWith(fontSize: 10, fontWeight: FontWeight.w500),
-          );
-          final round = measure('R${game.roundNumber}', body);
-          final roundSize = Size(
-            badge.width + 10 + 6 + round.width,
-            math.max(badge.height + 4, round.height),
-          );
-          final (colour, icon) = switch (game.result) {
-            'Won' => (Colors.green, Icons.check_circle),
-            'Lost' => (Colors.red, Icons.cancel),
-            'Draw' => (Colors.orange, Icons.remove_circle),
-            _ => (Colors.grey, Icons.help),
-          };
-          return AppRow(
-            cells: [
-              AppCell.text(_formatDate(game.gameDate)),
-              AppCell.text(
-                game.result,
-                style: TextStyle(color: colour, fontWeight: FontWeight.w500),
-                leading: Icon(icon, color: colour, size: 14),
-                leadingSize: const Size(14, 14),
-              ),
-              AppCell.text(
-                game.opponentName,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-                leading:
-                    game.opponentLogoUri != null &&
-                        game.opponentLogoUri!.isNotEmpty
-                    ? SvgPicture.asset(
-                        game.opponentLogoUri!,
-                        width: 20,
-                        height: 20,
-                        placeholderBuilder: (_) => const Icon(
-                          Icons.shield,
-                          size: 20,
-                          color: Colors.grey,
-                        ),
-                      )
-                    : const Icon(Icons.shield, size: 20, color: Colors.grey),
-                leadingSize: const Size(20, 20),
-              ),
-              AppCell.text('${game.teamScore} - ${game.opponentScore}'),
-              AppCell.widget(
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildHomeAwayBadge(game),
-                    const SizedBox(width: 6),
-                    Text('R${game.roundNumber}', style: body),
-                  ],
-                ),
-                intrinsicSize: roundSize,
-                semanticLabel:
-                    '${game.isHomeGame ? 'Home' : 'Away'}, Round ${game.roundNumber}',
-              ),
-            ],
-          );
-        })(),
+        AppRow(
+          colour: game.result == 'Won' ? winColour : null,
+          cells: [
+            AppCell.text(_formatDate(game.gameDate)),
+            AppCell.text(
+              // The notation of a results table: v at home, @ away.
+              '${game.isHomeGame ? 'v' : '@'} ${game.opponentName}',
+              semanticLabel:
+                  '${game.isHomeGame ? 'Home against' : 'Away at'} ${game.opponentName}',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+              leading:
+                  game.opponentLogoUri != null &&
+                      game.opponentLogoUri!.isNotEmpty
+                  ? SvgPicture.asset(
+                      game.opponentLogoUri!,
+                      width: 20,
+                      height: 20,
+                      placeholderBuilder: (_) => const Icon(
+                        Icons.shield,
+                        size: 20,
+                        color: Colors.grey,
+                      ),
+                    )
+                  : const Icon(Icons.shield, size: 20, color: Colors.grey),
+              leadingSize: const Size(20, 20),
+            ),
+            AppCell.text(
+              '${_resultInitial(game.result)} ${game.teamScore}\u2013${game.opponentScore}',
+              semanticLabel:
+                  '${game.result}, ${game.teamScore} to ${game.opponentScore}',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            AppCell.text('R${game.roundNumber}'),
+          ],
+        ),
     ];
     return _rows;
   }
+
+  String _resultInitial(String result) => switch (result) {
+    'Won' => 'W',
+    'Lost' => 'L',
+    'Draw' => 'D',
+    _ => '',
+  };
 
   @override
   void initState() {
@@ -210,49 +183,20 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         case 0: // Date
           compareResult = a.gameDate.compareTo(b.gameDate);
           break;
-        case 1: // Result
-          compareResult = a.result.compareTo(b.result);
-          break;
-        case 2: // Opponent
+        case 1: // Opponent
           compareResult = a.opponentName.compareTo(b.opponentName);
           break;
-        case 3: // Score
-          final aTotal = a.teamScore + a.opponentScore;
-          final bTotal = b.teamScore + b.opponentScore;
-          compareResult = aTotal.compareTo(bTotal);
+        case 2: // Score, by the margin the team won or lost by
+          compareResult = (a.teamScore - a.opponentScore).compareTo(
+            b.teamScore - b.opponentScore,
+          );
           break;
-        case 4: // Round
+        case 3: // Round
           compareResult = a.roundNumber.compareTo(b.roundNumber);
           break;
       }
       return ascending ? compareResult : -compareResult;
     });
-  }
-
-  Widget _buildHomeAwayBadge(TeamGameHistoryItem game) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: game.isHomeGame
-            ? Colors.blue.withValues(alpha: 0.1)
-            : Colors.purple.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(3),
-        border: Border.all(
-          color: game.isHomeGame
-              ? Colors.blue.withValues(alpha: 0.3)
-              : Colors.purple.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        game.isHomeGame ? 'Home' : 'Away',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: game.isHomeGame ? Colors.blue[700] : Colors.purple[700],
-        ),
-      ),
-    );
   }
 
   String _formatDate(DateTime date) {
@@ -309,7 +253,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
               ),
               title: '${widget.team.name} - Game History',
               description:
-                  'Matchup history for the ${widget.team.name} across recent years. Tap column headings to sort.',
+                  'Matchup history for the ${widget.team.name} across recent years. Green shading marks games won by the ${widget.team.name}. Tap column headings to sort.',
             ),
             table: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -332,6 +276,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                               ascending: _sortAscending,
                             ),
                       onSort: _onSort,
+                      scrollbarColour: widget.league.colour,
                     ),
                   ),
           ),

@@ -15,6 +15,7 @@ void main() {
   Future<Color?> panelColour(WidgetTester tester, Brightness brightness) async {
     final comp = _MockDAUComp();
     when(comp.firstNotEndedRoundNumber).thenReturn(27);
+    when(() => comp.name).thenReturn('DAU Footy Tipping 2026');
     final viewModel = _MockDAUCompsViewModel();
     when(() => viewModel.selectedDAUComp).thenReturn(comp);
     when(() => viewModel.addListener(any())).thenReturn(null);
@@ -47,4 +48,39 @@ void main() {
     expect(dark, kPanelDarkColor);
     expect(dark!.a, lessThan(light!.a / 2));
   });
+
+  testWidgets('heads the page with the competition name', (tester) async {
+    await panelColour(tester, Brightness.light);
+
+    expect(find.text('DAU Footy Tipping 2026'), findsOneWidget);
+    expect(
+      find.text('Competition'),
+      findsNothing,
+      reason: 'the name stands alone',
+    );
+  });
+
+  testWidgets(
+    'each row is its own see-through card, floating on the backdrop',
+    (tester) async {
+      await panelColour(tester, Brightness.dark);
+
+      final rows = [
+        'Competition Leaderboard\nWhat did others tip?',
+        'Round winners\nRound Leaderboards',
+        'Missing Tips - Round 27',
+        'NRL Ladder\nTeam rankings',
+      ];
+      for (final label in rows) {
+        final card = tester.widget<Card>(
+          find
+              .ancestor(of: find.text(label), matching: find.byType(Card))
+              .first,
+        );
+        expect(card.color, kPanelDarkColor, reason: label);
+      }
+      // No panel behind them: only the header and the rows are cards.
+      expect(find.byType(Card), findsNWidgets(1 + 6));
+    },
+  );
 }

@@ -502,39 +502,10 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           ? null
           : AppSort(column: sortColumn, ascending: _sortAscending),
       onSort: _onSort,
-    );
-  }
-
-  /// Bounds a table to the height its own rows need.
-  ///
-  /// The comparison view stacks the ladder above the historical matchups, so
-  /// the page scrolls and the table has no viewport of its own to fill --
-  /// but AppTable needs a bounded height either way. Measuring is what gives
-  /// an exact fit at any text scale; the two teams it holds make it cheap.
-  Widget _sizedToRows(List<AppRow> rows, Widget table) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final TextStyle body =
-            Theme.of(context).textTheme.bodyMedium ??
-            const TextStyle(fontSize: 14);
-        final AppTableLayout layout = AppTableLayout.measure(
-          columns: _columns,
-          rows: rows,
-          width: constraints.maxWidth,
-          textScaler: MediaQuery.textScalerOf(context),
-          headingStyle: body.copyWith(fontWeight: FontWeight.w700),
-          cellStyle: body,
-          direction: Directionality.of(context),
-          frozenLeading: _frozenLeading,
-        );
-        return SizedBox(
-          height:
-              layout.headerHeight +
-              layout.rowHeight * rows.length +
-              (layout.scrollsHorizontally ? AppTableLayout.scrollbarLane : 0),
-          child: table,
-        );
-      },
+      // The comparison stacks the ladder above the historical matchups on a
+      // page that scrolls as a whole, so the table is only as tall as its rows.
+      fitToRows: _isComparisonMode,
+      scrollbarColour: widget.league.colour,
     );
   }
 
@@ -552,37 +523,42 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           _isComparisonMode
               // Two sections, each with its heading beside its own table
               // rather than one heading at the top speaking for both.
-              ? SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      AppTableFrame(
-                        fill: false,
-                        columns: _columns,
-                        rows: _rows,
-                        frozenLeading: _frozenLeading,
-                        heading: _header(
-                          context,
-                          comparisonTeamNames,
-                          seasonYear,
+              ? Builder(
+                  builder: (context) => SingleChildScrollView(
+                    // The end of the page keeps clear of the display's own
+                    // inset; the controls fade away at the end instead.
+                    padding: EdgeInsets.only(
+                      bottom: AppScrollEndPadding.of(context),
+                    ),
+                    child: Column(
+                      children: [
+                        AppTableFrame(
+                          fill: false,
+                          columns: _columns,
+                          rows: _rows,
+                          frozenLeading: _frozenLeading,
+                          heading: _header(
+                            context,
+                            comparisonTeamNames,
+                            seasonYear,
+                          ),
+                          table: Padding(
+                            padding: const EdgeInsets.all(5.0),
+                            child: table,
+                          ),
                         ),
-                        table: Padding(
-                          padding: const EdgeInsets.all(5.0),
-                          child: _rows.isEmpty
-                              ? table
-                              : _sizedToRows(_rows, table),
+                        const Divider(
+                          height: 24,
+                          thickness: 1,
+                          indent: 16,
+                          endIndent: 16,
                         ),
-                      ),
-                      const Divider(
-                        height: 24,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
-                      ),
-                      LeagueLadderHistoricalMatchups(
-                        league: widget.league,
-                        teamDbKeys: comparedTeams,
-                      ),
-                    ],
+                        LeagueLadderHistoricalMatchups(
+                          league: widget.league,
+                          teamDbKeys: comparedTeams,
+                        ),
+                      ],
+                    ),
                   ),
                 )
               // The whole ladder: one table, filling the page, as every other
@@ -602,12 +578,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     );
   }
 
-  /// The whole ladder scrolls under the floating controls, as the other table
-  /// pages do. A comparison scrolls as one page of sections, which keeps clear
-  /// of them instead.
-  Widget _pageArea(Widget child) => _isComparisonMode
-      ? SafeArea(child: child)
-      : AppUnderControlsArea(child: child);
+  /// Both views scroll under the floating controls, as the other table pages
+  /// do, and run on to the bottom of the display.
+  Widget _pageArea(Widget child) => AppUnderControlsArea(child: child);
 
   Widget _buildEmptyStateCard(BuildContext context) {
     return LadderEmptyStateCard(

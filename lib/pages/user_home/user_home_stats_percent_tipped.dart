@@ -5,6 +5,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
@@ -21,6 +22,10 @@ class StatPercentTipped extends StatefulWidget {
 }
 
 class StatPercentTippedState extends State<StatPercentTipped> {
+  /// How much of the list's height, from the top, the fade under the title
+  /// takes.
+  static const double _topFadeFraction = 0.06;
+
   TipsCardLayout? _cardLayout;
   String? _cardLayoutKey;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
@@ -190,7 +195,12 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                     value: daucompsViewmodelConsumer.statsViewModel,
                     child: SelectedCompBanner(
                       child: Scaffold(
-                        body: SafeArea(
+                        // The backdrop the page is pushed over shows through,
+                        // as on the other tips pages, and the list scrolls
+                        // under the floating controls rather than stopping
+                        // short of them.
+                        backgroundColor: Colors.transparent,
+                        body: AppUnderControlsArea(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -251,30 +261,53 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                   ),
                                 ),
                               Expanded(
-                                child: CustomScrollView(
-                                  controller: scrollController,
-                                  restorationId: 'statsPercentTippedView',
-                                  slivers: [
-                                    for (
-                                      var sectionIndex = 0;
-                                      sectionIndex < sections.length;
-                                      sectionIndex++
-                                    )
-                                      ...buildRoundLeagueSectionSlivers(
-                                        section: sections[sectionIndex],
-                                        roundIndex:
-                                            sections[sectionIndex].roundIndex,
-                                        league: sections[sectionIndex].league,
-                                        dauCompsViewModel:
-                                            daucompsViewmodelConsumer,
-                                        currentTipper: di<TippersViewModel>()
-                                            .selectedTipper,
-                                        isPercentStatsPage: true,
-                                        layout: cardLayout,
-                                        showInlineHeader: true,
-                                        hideInlineHeaderVisual: false,
+                                // The cards dissolve into the title as they
+                                // scroll up to it, instead of being cut off by
+                                // a hard edge under the text.
+                                child: ShaderMask(
+                                  blendMode: BlendMode.dstIn,
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black,
+                                        ],
+                                        stops: [0, _topFadeFraction],
+                                      ).createShader(bounds),
+                                  child: CustomScrollView(
+                                    controller: scrollController,
+                                    restorationId: 'statsPercentTippedView',
+                                    slivers: [
+                                      for (
+                                        var sectionIndex = 0;
+                                        sectionIndex < sections.length;
+                                        sectionIndex++
+                                      )
+                                        ...buildRoundLeagueSectionSlivers(
+                                          section: sections[sectionIndex],
+                                          roundIndex:
+                                              sections[sectionIndex].roundIndex,
+                                          league: sections[sectionIndex].league,
+                                          dauCompsViewModel:
+                                              daucompsViewmodelConsumer,
+                                          currentTipper: di<TippersViewModel>()
+                                              .selectedTipper,
+                                          isPercentStatsPage: true,
+                                          layout: cardLayout,
+                                          showInlineHeader: true,
+                                          hideInlineHeaderVisual: false,
+                                        ),
+                                      SliverToBoxAdapter(
+                                        child: SizedBox(
+                                          height: AppScrollEndPadding.of(
+                                            context,
+                                          ),
+                                        ),
                                       ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],

@@ -7,6 +7,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -132,35 +133,58 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
   }
 
   Widget buildScaffold(BuildContext context, String name, Color color) {
+    final rows = _tableRows(context);
+    final outstanding = roundLeaderboard.values.fold<int>(
+      0,
+      (total, tips) =>
+          total + tips.nrlTipsOutstanding + tips.aflTipsOutstanding,
+    );
+    final heading = AppTableHeading(
+      leading: const Hero(
+        tag: 'magnifyingGlass',
+        child: Icon(Icons.search, size: 50),
+      ),
+      title: name,
+      description: rows.isEmpty
+          ? 'No missing tips: everyone has tipped every game in round ${widget.roundNumberToDisplay}.'
+          : 'Total of $outstanding tips outstanding across all tippers.',
+    );
     return Scaffold(
       body: AppUnderControlsArea(
-        child: AppTableFrame(
-          columns: columns,
-          rows: _tableRows(context),
-          frozenLeading: 1,
-          heading: AppTableHeading(
-            leading: const Hero(
-              tag: 'magnifyingGlass',
-              child: Icon(Icons.search, size: 50),
-            ),
-            title: name,
-            description:
-                'Total of ${roundLeaderboard.values.fold<int>(0, (previousValue, element) => previousValue + element.nrlTipsOutstanding + element.aflTipsOutstanding)} tips outstanding across all tippers.',
-          ),
-          table: Padding(
-            padding: const EdgeInsets.all(5.0),
-            child: AppTable(
-              columns: columns,
-              rows: _tableRows(context),
-              frozenLeading: 1,
-              sort: AppSort(
-                column: sortColumnIndex ?? 1,
-                ascending: isAscending,
+        // With nothing outstanding there is nothing to tabulate, so the page
+        // is just its heading.
+        child: rows.isEmpty
+            ? Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: kFormContentWidth,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: heading,
+                  ),
+                ),
+              )
+            : AppTableFrame(
+                columns: columns,
+                rows: rows,
+                frozenLeading: 1,
+                heading: heading,
+                table: Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: AppTable(
+                    columns: columns,
+                    rows: rows,
+                    frozenLeading: 1,
+                    sort: AppSort(
+                      column: sortColumnIndex ?? 1,
+                      ascending: isAscending,
+                    ),
+                    onSort: onSort,
+                  ),
+                ),
               ),
-              onSort: onSort,
-            ),
-          ),
-        ),
       ),
     );
   }

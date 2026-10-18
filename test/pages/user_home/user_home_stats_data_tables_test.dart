@@ -550,7 +550,23 @@ void main() {
   });
 
   testWidgets('missing tips renders its AppTable', (tester) async {
+    populateMissing();
     await _expectPageRendersTable(tester, const RoundMissingTipsStats(1));
+  });
+
+  testWidgets('missing tips with nothing outstanding is just a note', (
+    tester,
+  ) async {
+    final data = populateMissing();
+    for (final stats in data.values) {
+      stats.nrlTipsOutstanding = 0;
+      stats.aflTipsOutstanding = 0;
+    }
+    await pumpRound(tester, page: const RoundMissingTipsStats(24));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(AppTable), findsNothing);
+    expect(find.textContaining('No missing tips'), findsOneWidget);
   });
 
   List<RoundStats> populatePoints() {
@@ -840,6 +856,17 @@ void main() {
     );
   });
 
+  testWidgets('a league with no games in the round says so', (tester) async {
+    when(() => dauCompsViewModel.selectedDAUComp).thenReturn(null);
+
+    await _expectPageRendersTable(
+      tester,
+      StatRoundGameScoresForTipper(selectedTipper, 1),
+    );
+
+    expect(find.text('No games this round'), findsNWidgets(2));
+  });
+
   Widget populateMatchups() {
     final games = List.generate(
       24,
@@ -892,10 +919,13 @@ void main() {
                   ),
           );
     }
+    // A section of a page that scrolls as a whole, as it is on the comparison.
     return Scaffold(
-      body: LeagueLadderHistoricalMatchups(
-        league: League.nrl,
-        teamDbKeys: [homeTeam.dbkey, awayTeam.dbkey],
+      body: SingleChildScrollView(
+        child: LeagueLadderHistoricalMatchups(
+          league: League.nrl,
+          teamDbKeys: [homeTeam.dbkey, awayTeam.dbkey],
+        ),
       ),
     );
   }
@@ -920,7 +950,7 @@ void main() {
     }
   }
 
-  testWidgets('matchup cache, badge scale and tip outcome semantics', (
+  testWidgets('matchup cache, tip shading and tip outcome semantics', (
     tester,
   ) async {
     final page = populateMatchups();
@@ -936,14 +966,12 @@ void main() {
     expect(original[2].cells[1].semanticLabel, 'Home Team, incorrect tip');
     expect(original[3].cells[1].semanticLabel, 'Home Team, correct tip');
     expect(original[3].cells[2].semanticLabel, 'Home, Home Team');
-    // Row 3 is the newest game with a result: the unplayed ones carry no
-    // badge to measure.
-    final badgeWidth = original[3].cells[2].leadingSize.width;
-    expect(badgeWidth, greaterThan(0));
+    // Only a correctly tipped game is shaded.
+    expect(original[3].colour, isNotNull);
+    expect(original[2].colour, isNull);
+    expect(original[0].colour, isNull);
     await pumpRound(tester, page: page);
     expect(identical(original, table().rows), isTrue);
-    await pumpRound(tester, scale: 1.5, page: page);
-    expect(table().rows[3].cells[2].leadingSize.width, greaterThan(badgeWidth));
     expect(table().rows.every((row) => row.onTap == null), isTrue);
     for (var column = 0; column < 4; column++) {
       for (final ascending in [true, false]) {
@@ -957,7 +985,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('matchup dates stay frozen and scores clear the scrollbar', (
+  testWidgets('matchup dates stay frozen and scores clear the edge', (
     tester,
   ) async {
     await pumpRound(tester, scale: 1.5, page: populateMatchups());
@@ -975,15 +1003,11 @@ void main() {
     horizontal.jumpTo(horizontal.position.maxScrollExtent);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Date')).dx, x);
+    // As tall as its rows, it never scrolls them, so it keeps no lane for a bar.
     expect(
       tester.getRect(find.text('Score')).right,
-      lessThanOrEqualTo(
-        tester.getRect(find.byType(AppTable)).right -
-            AppTableLayout.scrollbarLane,
-      ),
+      lessThanOrEqualTo(tester.getRect(find.byType(AppTable)).right),
     );
-    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
-    await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Date')).dy, y);
     expect(tester.takeException(), isNull);
   });
@@ -1066,7 +1090,7 @@ void main() {
     }
   }
 
-  testWidgets('team history cache and badge sizes track scale and sorting', (
+  testWidgets('team history cache and sorting hold across rebuilds', (
     tester,
   ) async {
     populateHistory();
@@ -1074,20 +1098,14 @@ void main() {
     await pumpRound(tester, width: 680, page: page);
     AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
     final original = table().rows;
-    final badgeWidth = original.first.cells.last.intrinsicSize.width;
     await pumpRound(tester, page: page);
     expect(identical(original, table().rows), isTrue);
-    await pumpRound(tester, scale: 1.5, page: page);
-    expect(
-      table().rows.first.cells.last.intrinsicSize.width,
-      greaterThan(badgeWidth),
-    );
     // Newest first, which the heading now says and the page now does.
     expect(table().sort!.column, 0);
     expect(table().sort!.ascending, isFalse);
-    expect(table().rows.first.cells.last.semanticLabel, 'Away, Round 24');
+    expect(table().rows.first.cells.last.semanticLabel, 'R24');
     expect(table().rows.every((row) => row.onTap == null), isTrue);
-    for (var column = 0; column < 5; column++) {
+    for (var column = 0; column < 4; column++) {
       for (final ascending in [true, false]) {
         table().onSort!(column, ascending);
         await tester.pump();
@@ -1095,12 +1113,34 @@ void main() {
         expect(table().sort!.ascending, ascending);
       }
     }
-    expect(table().rows.first.cells.last.semanticLabel, 'Away, Round 24');
-    table().onSort!(4, true);
+    expect(table().rows.first.cells.last.semanticLabel, 'R24');
+    table().onSort!(3, true);
     await tester.pump();
-    expect(table().rows.first.cells.last.semanticLabel, 'Home, Round 1');
+    expect(table().rows.first.cells.last.semanticLabel, 'R1');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'team history shows home or away beside the opponent and shades wins',
+    (tester) async {
+      populateHistory();
+      await pumpRound(
+        tester,
+        width: 680,
+        page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl),
+      );
+      final rows = tester.widget<AppTable>(find.byType(AppTable)).rows;
+      for (final row in rows) {
+        final opponent = row.cells[1].text!;
+        final home = row.cells[1].semanticLabel.startsWith('Home');
+        expect(opponent.startsWith(home ? 'v ' : '@ '), isTrue);
+        final won = row.cells[2].semanticLabel.startsWith('Won');
+        expect(row.colour != null, won);
+      }
+      expect(rows.any((row) => row.colour != null), isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('team history freezes dates and keeps final badge clear', (
     tester,

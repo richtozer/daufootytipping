@@ -93,6 +93,17 @@ class _StatRoundGameScoresForTipperState
             for (var i = 1; i < columns.length; i++) const AppCell.text(''),
           ],
         ),
+        if (games[league]?.isEmpty ?? true)
+          AppRow(
+            key: ValueKey('${league.name}-no-games'),
+            cells: [
+              const AppCell.text(
+                'No games this round',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+              for (var i = 1; i < columns.length; i++) const AppCell.text(''),
+            ],
+          ),
         for (final game in games[league] ?? <Game>[]) _gameRow(game),
       ],
     ];

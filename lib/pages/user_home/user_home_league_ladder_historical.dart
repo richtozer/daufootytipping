@@ -1,6 +1,5 @@
 import 'dart:developer';
 
-import 'dart:math' as math;
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -47,12 +46,10 @@ class _LeagueLadderHistoricalMatchupsState
   List<AppRow> _rows = const [];
 
   List<AppRow> _tableRows(BuildContext context) {
-    final body = Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final matchups = _historicalMatchups ?? <HistoricalMatchupUIData>[];
     final values = <Object?>[
-      body, scaler, direction,
+      isDarkMode,
       for (final matchup in matchups) ...[
         matchup.month, matchup.year, matchup.isCurrentYear, matchup.winType,
         matchup.userTipTeamName, matchup.winningTeamName,
@@ -62,60 +59,50 @@ class _LeagueLadderHistoricalMatchupsState
     ];
     if (listEquals(_renderedValues, values)) return _rows;
     _renderedValues = values;
+    // The shading the ladder and the game history use to mark what matters: here,
+    // a game the tipper called correctly.
+    final correctColour = isDarkMode
+        ? Colors.lightGreen[900]
+        : Colors.lightGreen[200];
     _rows = [
-      for (final matchup in matchups) AppRow(cells: [
-        AppCell.text(matchup.isCurrentYear ? matchup.month : '${matchup.month} ${matchup.year}'),
-        _tipCell(matchup),
-        _winnerCell(context, matchup, body, scaler, direction),
-        AppCell.text('${matchup.pastGame.scoring?.homeTeamScore ?? '-'} - '
-          '${matchup.pastGame.scoring?.awayTeamScore ?? '-'}'),
-      ]),
+      for (final matchup in matchups) AppRow(
+        colour: _tippedCorrectly(matchup) ? correctColour : null,
+        cells: [
+          AppCell.text(matchup.isCurrentYear ? matchup.month : '${matchup.month} ${matchup.year}'),
+          _tipCell(matchup),
+          _winnerCell(matchup),
+          AppCell.text('${matchup.pastGame.scoring?.homeTeamScore ?? '-'} - '
+            '${matchup.pastGame.scoring?.awayTeamScore ?? '-'}'),
+        ]),
     ];
     return _rows;
   }
+
+  bool _tippedCorrectly(HistoricalMatchupUIData matchup) =>
+      matchup.userTipTeamName.isNotEmpty &&
+      matchup.userTipTeamName == matchup.winningTeamName;
 
   AppCell _tipCell(HistoricalMatchupUIData matchup) {
     if (matchup.userTipTeamName.isEmpty) {
       return const AppCell.text('N/A',
         style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic));
     }
-    final correct = matchup.userTipTeamName == matchup.winningTeamName;
-    final colour = correct ? Colors.green : Colors.red;
     return AppCell.text(matchup.userTipTeamName,
-      style: TextStyle(color: colour, fontWeight: FontWeight.w500),
-      leading: Icon(correct ? Icons.check_circle : Icons.cancel, size: 14, color: colour),
-      leadingSize: const Size(14, 14),
-      semanticLabel: '${matchup.userTipTeamName}, ${correct ? 'correct' : 'incorrect'} tip');
+      semanticLabel: '${matchup.userTipTeamName}, ${_tippedCorrectly(matchup) ? 'correct' : 'incorrect'} tip');
   }
 
-  AppCell _winnerCell(BuildContext context, HistoricalMatchupUIData matchup,
-      TextStyle body, TextScaler scaler, TextDirection direction) {
+  AppCell _winnerCell(HistoricalMatchupUIData matchup) {
     final home = matchup.winType == 'Home';
     final hasWinner = home || matchup.winType == 'Away';
     final label = home ? 'Home' : 'Away';
-    final badgeStyle = body.copyWith(fontSize: 10, fontWeight: FontWeight.w500,
-      color: home ? Colors.blue[700] : Colors.purple[700]);
-    final painter = TextPainter(text: TextSpan(text: label, style: badgeStyle),
-      textScaler: scaler, textDirection: direction)..layout();
-    final leadingSize = Size(painter.width + 10 + 6 + 20,
-      math.max(painter.height + 4, 20));
-    painter.dispose();
     return AppCell.text(matchup.winningTeamName,
       style: TextStyle(fontWeight: matchup.winType == 'Draw'
           ? FontWeight.normal : FontWeight.w500),
       semanticLabel: hasWinner ? '$label, ${matchup.winningTeamName}' : matchup.winningTeamName,
-      leadingSize: hasWinner ? leadingSize : Size.zero,
-      leading: hasWinner ? Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-          decoration: BoxDecoration(
-            color: (home ? Colors.blue : Colors.purple).withValues(alpha: 0.1),
-            border: Border.all(color: (home ? Colors.blue : Colors.purple).withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(3)),
-          child: Text(label, style: badgeStyle)),
-        const SizedBox(width: 6),
-        _buildTeamLogo(home ? matchup.pastGame.homeTeam.logoURI : matchup.pastGame.awayTeam.logoURI),
-      ]) : null,
+      leadingSize: hasWinner ? const Size(20, 20) : Size.zero,
+      leading: hasWinner
+          ? _buildTeamLogo(home ? matchup.pastGame.homeTeam.logoURI : matchup.pastGame.awayTeam.logoURI)
+          : null,
     );
   }
 
@@ -345,7 +332,7 @@ class _LeagueLadderHistoricalMatchupsState
         leading: Icon(Icons.history, size: 50),
         title: 'Historical Matchups',
         description:
-            'Recent head-to-head history between these teams. Includes your tipping history (where available).',
+            'Recent head-to-head history between these teams. Includes your tipping history (where available). Green shading marks games you tipped correctly.',
       ),
       table: _matchupsTable(context),
     );
@@ -395,9 +382,7 @@ class _LeagueLadderHistoricalMatchupsState
     final int? sortColumn = _historicalSortColumnIndex;
     return Padding(
       padding: const EdgeInsets.all(5.0),
-      child: SizedBox(
-        height: 400,
-        child: AppTable(
+      child: AppTable(
           columns: columns,
           rows: _tableRows(context),
           frozenLeading: 1,
@@ -408,8 +393,9 @@ class _LeagueLadderHistoricalMatchupsState
                   ascending: _historicalSortAscending,
                 ),
           onSort: _onHistoricalSort,
+          fitToRows: true,
+          scrollbarColour: widget.league.colour,
         ),
-      ),
     );
   }
 }
