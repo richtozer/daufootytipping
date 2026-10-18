@@ -772,7 +772,6 @@ class TipsTabState extends State<TipsTab> {
                                   dauCompsViewModel: daucompsViewmodelConsumer,
                                   currentTipper:
                                       di<TippersViewModel>().selectedTipper,
-                                  isPercentStatsPage: false,
                                   topPadding: 0,
                                 ),
                               ),

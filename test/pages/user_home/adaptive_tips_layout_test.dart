@@ -369,6 +369,80 @@ void main() {
     },
   );
 
+  testWidgets('a compact card draws its matchup on two lines', (tester) async {
+    tester.view.physicalSize = const Size(1800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final layout = _layout(700, 1.0, samples);
+    expect(layout.mode, TipsCardMode.compact);
+    final card = samples[1];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _theme,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 700,
+              child: AdaptiveTipsCard(
+                data: card,
+                layout: layout,
+                activePanel: TipsPanel.tips,
+                onPanelChanged: (_) {},
+                onTip: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final home = tester.getRect(find.textContaining(card.home.name).first);
+    final away = tester.getRect(find.textContaining(card.away.name).first);
+    expect(away.top, greaterThan(home.bottom - 1), reason: 'two lines');
+    expect(
+      away.top - home.top,
+      lessThan(layout.matchupHeight),
+      reason: 'no third line of logos between them',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  group('compact mode', () {
+    test('sits between standard and wide, only with the chips on one row', () {
+      for (final scale in [1.0, 1.35, 1.5]) {
+        final measured = _layout(390, scale, samples);
+        final before = _layout(measured.compactMinWidth - 1, scale, samples);
+        final at = _layout(measured.compactMinWidth + 1, scale, samples);
+
+        expect(measured.compactMinWidth, lessThan(measured.wideMinWidth));
+        expect(before.mode, isNot(TipsCardMode.compact));
+        expect(at.mode, TipsCardMode.compact);
+        expect(
+          at.choices,
+          TipsChoiceArrangement.inline,
+          reason: 'a grid of chips would cost more than the matchup saves',
+        );
+      }
+    });
+
+    test('is two lines, so the card is shorter than the standard one', () {
+      final compact = _layout(700, 1.0, samples);
+      final standardWidth = _layout(
+        _layout(390, 1.0, samples).compactMinWidth - 1,
+        1.0,
+        samples,
+      );
+
+      expect(compact.mode, TipsCardMode.compact);
+      expect(standardWidth.mode, isNot(TipsCardMode.compact));
+      expect(compact.cardExtent, lessThan(standardWidth.cardExtent));
+      expect(compact.matchupHeight, lessThan(standardWidth.matchupHeight));
+    });
+  });
+
   testWidgets('panels fit immediately on each side of measured transitions', (
     tester,
   ) async {
@@ -380,6 +454,7 @@ void main() {
       final measured = _layout(390, scale, samples);
       for (final threshold in [
         measured.standardMinWidth,
+        measured.compactMinWidth,
         measured.wideMinWidth,
       ]) {
         for (final width in [threshold - 1, threshold + 1]) {
@@ -521,8 +596,8 @@ void main() {
       final roomy = _layout(700, 1.0, samples);
       // Neither is a wide card. The header still has the room in one of them,
       // which is the question that should decide this.
-      expect(narrow.mode, TipsCardMode.standard);
-      expect(roomy.mode, TipsCardMode.standard);
+      expect(narrow.mode, isNot(TipsCardMode.wide));
+      expect(roomy.mode, isNot(TipsCardMode.wide));
       expect(narrow.inlineRoundLabel, isFalse);
       expect(roomy.inlineRoundLabel, isTrue);
     },

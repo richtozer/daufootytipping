@@ -24,7 +24,6 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
     required this.dauRound,
     required this.dauCompsViewModel,
     required this.selectedTipper,
-    required this.isPercentStatsPage,
     this.inlineRoundLabel = false,
     this.margin = const EdgeInsets.all(4.0),
     this.backgroundColor,
@@ -41,7 +40,6 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
   final DAURound dauRound;
   final DAUCompsViewModel dauCompsViewModel;
   final Tipper selectedTipper;
-  final bool isPercentStatsPage;
   final EdgeInsetsGeometry margin;
   final Color? backgroundColor;
 
@@ -87,9 +85,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
 
     return Card(
       margin: margin,
-      color:
-          backgroundColor ??
-          (!isPercentStatsPage ? Colors.black54 : Colors.white10),
+      color: backgroundColor ?? Colors.black54,
       surfaceTintColor: League.nrl.colour,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kCardCornerRadius),
@@ -103,38 +99,16 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                 ConstrainedBox(
                   constraints: BoxConstraints(
                     minWidth: 86,
-                    // A tight bound keeps the label stacked; a looser one lets
-                    // it sit inline when the text size leaves room for it.
                     maxWidth: inlineRoundLabel ? 200 : 86,
                   ),
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
-                    children: [
-                      Text(
-                        'Round',
-                        style: TextStyle(
-                          color: !isPercentStatsPage
-                              ? Colors.white70
-                              : Colors.black54,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${dauRound.dAUroundNumber}',
-                        style: TextStyle(
-                          color: !isPercentStatsPage
-                              ? Colors.white70
-                              : Colors.black54,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 30,
-                        ),
-                        softWrap: true,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  // Stacked unless the layout has said there is room, rather
+                  // than wherever a Wrap happens to fit it: the label is
+                  // narrow enough to slip in beside the number at a small text
+                  // size, which made portrait inconsistent.
+                  child: _RoundLabel(
+                    roundNumber: dauRound.dAUroundNumber,
+                    colour: Colors.white70,
+                    inline: inlineRoundLabel,
                   ),
                 ),
                 gamesForLeague.isEmpty
@@ -216,9 +190,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                     children: [
                                       Text(
                                         style: TextStyle(
-                                          color: !isPercentStatsPage
-                                              ? Colors.white70
-                                              : Colors.black54,
+                                          color: Colors.white70,
                                           fontWeight: FontWeight.bold,
                                         ),
                                         'Points: ${league == League.afl ? roundStats.aflPoints : roundStats.nrlPoints} / ${league == League.afl ? roundStats.aflMaxPoints : roundStats.nrlMaxPoints}',
@@ -228,9 +200,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                       ),
                                       Text(
                                         style: TextStyle(
-                                          color: !isPercentStatsPage
-                                              ? Colors.white70
-                                              : Colors.black54,
+                                          color: Colors.white70,
                                           fontWeight: FontWeight.bold,
                                         ),
                                         'UPS/Margins: ${league == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${league == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}',
@@ -246,9 +216,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                           Flexible(
                                             child: Text(
                                               style: TextStyle(
-                                                color: !isPercentStatsPage
-                                                    ? Colors.white70
-                                                    : Colors.black54,
+                                                color: Colors.white70,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                               'Rank: $rankLabel  ',
@@ -263,9 +231,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                           Flexible(
                                             child: Text(
                                               style: TextStyle(
-                                                color: !isPercentStatsPage
-                                                    ? Colors.white70
-                                                    : Colors.black54,
+                                                color: Colors.white70,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                               rankChangeLabel,
@@ -325,6 +291,46 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 'Round' and its number, one above the other or side by side.
+class _RoundLabel extends StatelessWidget {
+  const _RoundLabel({
+    required this.roundNumber,
+    required this.colour,
+    required this.inline,
+  });
+
+  final int roundNumber;
+  final Color colour;
+  final bool inline;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(
+      'Round',
+      style: TextStyle(color: colour, fontWeight: FontWeight.bold),
+      overflow: TextOverflow.ellipsis,
+    );
+    final number = Text(
+      '$roundNumber',
+      style: TextStyle(
+        color: colour,
+        fontWeight: FontWeight.bold,
+        fontSize: 30,
+      ),
+      overflow: TextOverflow.ellipsis,
+    );
+    if (!inline) {
+      return Column(mainAxisSize: MainAxisSize.min, children: [label, number]);
+    }
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 6,
+      children: [label, number],
     );
   }
 }

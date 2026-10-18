@@ -346,7 +346,6 @@ List<Widget> buildRoundLeagueSectionSlivers({
                   dauRound: dauRound,
                   dauCompsViewModel: dauCompsViewModel,
                   selectedTipper: currentTipper,
-                  isPercentStatsPage: isPercentStatsPage,
                 ),
               ),
             ),
@@ -396,7 +395,6 @@ class TipsStickyHeader extends StatelessWidget {
     required this.section,
     required this.dauCompsViewModel,
     required this.currentTipper,
-    required this.isPercentStatsPage,
     this.inlineRoundLabel = false,
     this.topPadding = 0,
     this.backgroundColor,
@@ -406,7 +404,6 @@ class TipsStickyHeader extends StatelessWidget {
   final TipsLeagueSection section;
   final DAUCompsViewModel dauCompsViewModel;
   final Tipper currentTipper;
-  final bool isPercentStatsPage;
   final bool inlineRoundLabel;
   final double topPadding;
   final Color? backgroundColor;
@@ -429,15 +426,12 @@ class TipsStickyHeader extends StatelessWidget {
             dauRound: dauRound,
             dauCompsViewModel: dauCompsViewModel,
             selectedTipper: currentTipper,
-            isPercentStatsPage: isPercentStatsPage,
             // Opaque: this is the one header that has cards scrolling beneath
             // it, and there is no blur here for translucency to serve -- any
             // alpha just lets the card underneath ghost through the text.
             // The inline headers keep their translucency; nothing passes under
             // those.
-            backgroundColor:
-                backgroundColor ??
-                (isPercentStatsPage ? Colors.white12 : Colors.black),
+            backgroundColor: backgroundColor ?? Colors.black,
           ),
         ),
       ),
@@ -473,7 +467,8 @@ class _NoGamesCard extends StatelessWidget {
             child: Center(
               child: Text(
                 'No ${league.name.toUpperCase()} games this round',
-                style: Theme.of(context).textTheme.bodyLarge,
+                style: Theme.of(context).textTheme.bodyLarge
+                    ?.copyWith(color: appPanelTextColor(context)),
               ),
             ),
           ),

@@ -1,8 +1,98 @@
 import 'dart:math' as math;
 
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 
-enum TipsCardMode { wide, standard, stacked }
+/// How a card is arranged.
+///
+/// [wide] is one row, both names beside the "V". [compact] is the carousel
+/// beside a narrow two-line matchup, each logo next to its name, for a short
+/// wide pane such as a phone in landscape. [standard] is the carousel beside
+/// the older three-line matchup. [stacked] puts the matchup above the carousel.
+enum TipsCardMode { wide, compact, standard, stacked }
+
+/// Space either side of a score inside its highlight.
+const double kScoreBadgePadding = 4;
+
+/// A winning score, drawn as a small rounded badge inline with the team's name.
+///
+/// A text background cannot be rounded, so the badge is a widget. It reports
+/// its own size, so measuring the name as text, which has no widgets to ask,
+/// still gives the height and width it will really take.
+class ScoreBadgeSpan extends WidgetSpan {
+  ScoreBadgeSpan({
+    required this.score,
+    required this.scoreStyle,
+    required Color fill,
+    required Color textColor,
+  }) : super(
+         alignment: PlaceholderAlignment.baseline,
+         baseline: TextBaseline.alphabetic,
+         child: DecoratedBox(
+           decoration: BoxDecoration(
+             color: fill,
+             borderRadius: BorderRadius.circular(kCardCornerRadius),
+           ),
+           child: Padding(
+             padding: const EdgeInsets.symmetric(
+               horizontal: kScoreBadgePadding,
+             ),
+             // Not scaled here: the paragraph scales an inline widget by the text
+             // size itself, so scaling the text too would count it twice.
+             child: Text(
+               score,
+               style: scoreStyle.copyWith(color: textColor),
+               textScaler: TextScaler.noScaling,
+             ),
+           ),
+         ),
+       );
+
+  final String score;
+  final TextStyle scoreStyle;
+
+  /// The badge's size and where its text sits, which is what the surrounding
+  /// text needs to place it on its own baseline.
+  PlaceholderDimensions dimensions(TextScaler scaler, TextDirection direction) {
+    final painter = TextPainter(
+      text: TextSpan(text: score, style: scoreStyle),
+      textScaler: scaler,
+      textDirection: direction,
+    )..layout();
+    final dimensions = PlaceholderDimensions(
+      size: Size(
+        painter.width + 2 * scaler.scale(kScoreBadgePadding),
+        painter.height,
+      ),
+      alignment: PlaceholderAlignment.baseline,
+      baseline: TextBaseline.alphabetic,
+      baselineOffset: painter.computeDistanceToActualBaseline(
+        TextBaseline.alphabetic,
+      ),
+    );
+    painter.dispose();
+    return dimensions;
+  }
+}
+
+/// Tells [painter] how big each inline badge in its text will be, which a bare
+/// TextPainter needs before it can lay out text that contains widgets.
+void setBadgeDimensions(TextPainter painter) {
+  final span = painter.text;
+  if (span == null) return;
+  final dimensions = <PlaceholderDimensions>[];
+  span.visitChildren((child) {
+    if (child is PlaceholderSpan) {
+      dimensions.add(
+        child is ScoreBadgeSpan
+            ? child.dimensions(painter.textScaler, painter.textDirection!)
+            : PlaceholderDimensions.empty,
+      );
+    }
+    return true;
+  });
+  if (dimensions.isNotEmpty) painter.setPlaceholderDimensions(dimensions);
+}
 
 /// The width the round block is held to while its label is stacked above the
 /// number. Going inline needs more, and takes it from the stats beside it.
@@ -47,6 +137,7 @@ class TipsCardLayout {
     required this.matchupWidth,
     required this.matchupHeight,
     required this.standardMinWidth,
+    required this.compactMinWidth,
     required this.wideMinWidth,
     required this.headerExtent,
     required this.inlineRoundLabel,
@@ -60,6 +151,7 @@ class TipsCardLayout {
   final double matchupWidth;
   final double matchupHeight;
   final double standardMinWidth;
+  final double compactMinWidth;
   final double wideMinWidth;
 
   /// Whether the round header can sit its label beside the number rather
@@ -118,7 +210,9 @@ class TipsCardLayout {
         text: text,
         textScaler: textScaler,
         textDirection: textDirection,
-      )..layout(maxWidth: math.max(1, maxWidth));
+      );
+      setBadgeDimensions(painter);
+      painter.layout(maxWidth: math.max(1, maxWidth));
       final size = painter.size;
       painter.dispose();
       measured[key] = size;
@@ -189,16 +283,59 @@ class TipsCardLayout {
       standardTeamWidth,
       standardTeamWidth * textScaler.scale(16) / 16,
     );
+    // The compact matchup is two lines, each a logo beside its name, with the
+    // "V" on the shorter name's line. A live card has no logos, and its edit
+    // pencil takes the "V"'s place. Its column is as wide as the longest of
+    // those lines, so no name ever wraps and it is always exactly two lines.
+    double markWidthFor(TipsCardContent card) =>
+        (card.editable
+            ? scaledIconSize(textScaler, textTheme)
+            : measureText('V', body).width) +
+        kStackedMarkGap;
+    double logoRoomFor(TipsCardContent card) =>
+        card.editable ? 0.0 : logoSize + kStackedLogoGap;
+    double compactLineWidth(TipsCardContent card) {
+      final homeWidth = measureSpan(card.home).width;
+      final awayWidth = measureSpan(card.away).width;
+      final markOnHome = markOnHomeLine(
+        homeNameWidth: homeWidth,
+        awayNameWidth: awayWidth,
+      );
+      final mark = markWidthFor(card);
+      return logoRoomFor(card) +
+          math.max(
+            homeWidth + (markOnHome ? mark : 0),
+            awayWidth + (markOnHome ? 0 : mark),
+          );
+    }
+
+    // 16 is the card's margin and the line's padding either side.
+    final compactTeamWidth =
+        cards
+            .fold<double>(
+              0,
+              (value, card) => math.max(value, compactLineWidth(card)),
+            )
+            .ceilToDouble() +
+        16;
     final standardMin = scaledTeamWidth + pairedWidth / viewportFraction + 8;
     final wideMin = inlineTeamWidth + inlineChoicesWidth / viewportFraction + 8;
+    // Only where the carousel keeps room for its chips on one row. Past that
+    // they fall to a grid, which costs more height than the matchup saves.
+    final compactMin =
+        compactTeamWidth + inlineChoicesWidth / viewportFraction + 8;
     final mode = width >= wideMin
         ? TipsCardMode.wide
+        : width >= compactMin
+        ? TipsCardMode.compact
         : width >= standardMin
         ? TipsCardMode.standard
         : TipsCardMode.stacked;
-    final matchupWidth = mode == TipsCardMode.wide
-        ? inlineTeamWidth
-        : scaledTeamWidth;
+    final matchupWidth = switch (mode) {
+      TipsCardMode.wide => inlineTeamWidth,
+      TipsCardMode.compact => compactTeamWidth,
+      _ => scaledTeamWidth,
+    };
     final carouselWidth = mode == TipsCardMode.stacked
         ? width - 8
         : width - 8 - matchupWidth;
@@ -300,16 +437,10 @@ class TipsCardLayout {
     final teamWidth = mode == TipsCardMode.stacked
         ? width - 16
         : matchupWidth - 8;
-    // The stacked matchup is two lines, each a logo beside its name, with the
-    // "V" on the shorter name's line. A live card has no logos, and its edit
-    // pencil takes the "V"'s place.
+    // The stacked and compact matchups are two lines of the same layout.
     double stackedMatchupHeight(TipsCardContent card) {
-      final markWidth =
-          (card.editable
-              ? scaledIconSize(textScaler, textTheme)
-              : measureText('V', body).width) +
-          kStackedMarkGap;
-      final logoRoom = card.editable ? 0.0 : logoSize + kStackedLogoGap;
+      final markWidth = markWidthFor(card);
+      final logoRoom = logoRoomFor(card);
       final markOnHome = markOnHomeLine(
         homeNameWidth: measureSpan(card.home).width,
         awayNameWidth: measureSpan(card.away).width,
@@ -326,7 +457,7 @@ class TipsCardLayout {
     }
 
     final matchupHeight = cards.fold<double>(0, (height, card) {
-      if (mode == TipsCardMode.stacked) {
+      if (mode == TipsCardMode.stacked || mode == TipsCardMode.compact) {
         return math.max(height, stackedMatchupHeight(card));
       }
       final middleHeight = card.editable
@@ -360,9 +491,12 @@ class TipsCardLayout {
     // where they can still manage a single line. Trading two header lines for
     // three is no saving.
     final roundInlineWidth = roundLabel.width + 6 + roundNumber.width;
+    // Only for the arrangements with width to spare, so the familiar portrait
+    // header, with Round stacked over its number, is unchanged.
     final inlineRoundLabel =
+        (mode == TipsCardMode.wide || mode == TipsCardMode.compact) &&
         headerStatsWidth + kStackedRoundBlockWidth + roundInlineWidth <=
-        width - 8;
+            width - 8;
     final headerRound = inlineRoundLabel
         ? math.max(roundLabel.height, roundNumber.height)
         : roundLabel.height + roundNumber.height;
@@ -399,6 +533,7 @@ class TipsCardLayout {
       matchupWidth: matchupWidth,
       matchupHeight: matchupHeight,
       standardMinWidth: standardMin,
+      compactMinWidth: compactMin,
       wideMinWidth: wideMin,
       headerExtent: headerExtent,
       inlineRoundLabel: inlineRoundLabel,

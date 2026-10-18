@@ -18,6 +18,7 @@ class TipsChoicePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: appInnerPanelColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kCardCornerRadius),
       ),

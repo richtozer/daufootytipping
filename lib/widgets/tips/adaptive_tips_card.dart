@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -36,24 +37,42 @@ class TipsTeamDisplay {
   /// Must be unique within the route: one tag per team per screen.
   final String? heroTag;
 
-  TextSpan text(TextTheme theme, {bool rankAfterName = false}) => TextSpan(
-    style: theme.titleMedium,
-    children: [
-      if (rank != null && !rankAfterName)
-        TextSpan(text: '$rank ', style: theme.labelSmall),
-      TextSpan(text: name),
-      if (rank != null && rankAfterName)
-        TextSpan(text: ' $rank', style: theme.labelSmall),
-      if (score != null)
-        TextSpan(
-          text: ' $score',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            backgroundColor: winner ? Colors.lightGreen.shade200 : null,
+  /// The team's line: rank, name and score. A winning score is a rounded badge
+  /// in [highlight], with [onHighlight] text; otherwise it is plain bold text.
+  /// The colours matter only when drawing, not when measuring.
+  TextSpan text(
+    TextTheme theme, {
+    bool rankAfterName = false,
+    Color highlight = kSelectionLightColor,
+    Color onHighlight = kOnSelectionLightColor,
+  }) {
+    final scoreStyle = (theme.titleMedium ?? const TextStyle()).copyWith(
+      fontWeight: FontWeight.bold,
+    );
+    return TextSpan(
+      style: theme.titleMedium,
+      children: [
+        if (rank != null && !rankAfterName)
+          TextSpan(text: '$rank ', style: theme.labelSmall),
+        TextSpan(text: name),
+        if (rank != null && rankAfterName)
+          TextSpan(text: ' $rank', style: theme.labelSmall),
+        if (score != null && winner) ...[
+          const TextSpan(text: ' '),
+          ScoreBadgeSpan(
+            score: '$score',
+            scoreStyle: scoreStyle,
+            fill: highlight,
+            textColor: onHighlight,
           ),
-        ),
-    ],
-  );
+        ] else if (score != null)
+          TextSpan(
+            text: ' $score',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+      ],
+    );
+  }
 }
 
 class TipsCardDisplay {
@@ -278,7 +297,12 @@ class AdaptiveTipsCard extends StatelessWidget {
     Widget team(TipsTeamDisplay team, {bool rankAfterName = false}) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text.rich(
-        team.text(Theme.of(context).textTheme, rankAfterName: rankAfterName),
+        team.text(
+          appPanelTextTheme(context),
+          rankAfterName: rankAfterName,
+          highlight: appSelectionColor(context),
+          onHighlight: appOnSelectionColor(context),
+        ),
         textAlign: TextAlign.center,
       ),
     );
@@ -300,29 +324,37 @@ class AdaptiveTipsCard extends StatelessWidget {
       label: editable ? 'Edit live score' : 'Compare teams',
       child: InkWell(
         onTap: onMatchup,
-        child: Center(
-          child: layout.mode == TipsCardMode.wide
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(child: team(data.home)),
-                    middle,
-                    Flexible(
-                      child: team(
-                        data.away,
-                        rankAfterName:
-                            data.status == TipsStatus.upcoming ||
-                            data.status == TipsStatus.today,
-                      ),
+        // The "V" and the edit pencil take the panel's text colour too.
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: appPanelTextColor(context)),
+          child: IconTheme.merge(
+            data: IconThemeData(color: appPanelTextColor(context)),
+            child: Center(
+              child: layout.mode == TipsCardMode.wide
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(child: team(data.home)),
+                        middle,
+                        Flexible(
+                          child: team(
+                            data.away,
+                            rankAfterName:
+                                data.status == TipsStatus.upcoming ||
+                                data.status == TipsStatus.today,
+                          ),
+                        ),
+                      ],
+                    )
+                  : layout.mode == TipsCardMode.stacked ||
+                        layout.mode == TipsCardMode.compact
+                  ? _stackedTeams(context, logo, editable)
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [team(data.home), middle, team(data.away)],
                     ),
-                  ],
-                )
-              : layout.mode == TipsCardMode.stacked
-              ? _stackedTeams(context, logo, editable)
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [team(data.home), middle, team(data.away)],
-                ),
+            ),
+          ),
         ),
       ),
     );
@@ -336,7 +368,7 @@ class AdaptiveTipsCard extends StatelessWidget {
     Widget Function(TipsTeamDisplay team) logo,
     bool editable,
   ) {
-    final theme = Theme.of(context).textTheme;
+    final theme = appPanelTextTheme(context);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
     double nameWidth(TipsTeamDisplay team) {
@@ -344,7 +376,9 @@ class AdaptiveTipsCard extends StatelessWidget {
         text: team.text(theme),
         textScaler: scaler,
         textDirection: direction,
-      )..layout();
+      );
+      setBadgeDimensions(painter);
+      painter.layout();
       final width = painter.width;
       painter.dispose();
       return width;
@@ -374,7 +408,14 @@ class AdaptiveTipsCard extends StatelessWidget {
               const SizedBox(width: kStackedLogoGap),
             ],
             Flexible(
-              child: Text.rich(team.text(theme), textAlign: TextAlign.center),
+              child: Text.rich(
+                team.text(
+                  theme,
+                  highlight: appSelectionColor(context),
+                  onHighlight: appOnSelectionColor(context),
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
             if (markAfter) ...[const SizedBox(width: kStackedMarkGap), mark],
           ],
@@ -523,8 +564,9 @@ class AdaptiveTipsCard extends StatelessWidget {
   }
 
   Widget _info(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
+    final theme = appPanelTextTheme(context);
     return Card(
+      color: appInnerPanelColor(context),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: LayoutBuilder(
@@ -569,7 +611,7 @@ class AdaptiveTipsCard extends StatelessWidget {
   }
 
   Widget _result(BuildContext context) {
-    final lines = data.resultSpans(Theme.of(context).textTheme);
+    final lines = data.resultSpans(appPanelTextTheme(context));
     Widget line(TextSpan text) {
       return Padding(
         padding: const EdgeInsets.all(2),
@@ -577,9 +619,11 @@ class AdaptiveTipsCard extends StatelessWidget {
       );
     }
 
-    // Break by meaning rather than wherever the width runs out: the result and
-    // the tip belong together, as do the two point totals. All four sit on one
-    // line where they fit, and fall to two balanced lines where they do not.
+    // Break by meaning: the result and the tip belong together, as do the two
+    // point totals. Whether the pairs share a line is settled by the longest
+    // they can be, not by this card's own text, so every card in the list
+    // reads alike: a short result must not sit inline beside its tip when the
+    // card above stacks them.
     Widget group(Iterable<TextSpan> texts) => Wrap(
       alignment: WrapAlignment.center,
       spacing: 12,
@@ -587,20 +631,49 @@ class AdaptiveTipsCard extends StatelessWidget {
     );
     final half = (lines.length / 2).ceil();
 
-    // Asked of the width rather than of the card's overall arrangement: a
-    // standard card in landscape has room to pair these up even though it is
-    // not wide enough for the inline layout. Wrap stacks them again by itself
-    // wherever the room runs out.
     return Card(
-      child: Center(
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 12,
-          children: [
-            group(lines.take(half)),
-            if (lines.length > half) group(lines.skip(half)),
-          ],
-        ),
+      color: appInnerPanelColor(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final style = DefaultTextStyle.of(context).style
+              .merge(lines.firstOrNull?.style)
+              .copyWith(fontWeight: FontWeight.bold);
+          final scaler = MediaQuery.textScalerOf(context);
+          double widthOf(String text) {
+            final painter = TextPainter(
+              text: TextSpan(text: text, style: style),
+              textDirection: Directionality.of(context),
+              textScaler: scaler,
+            )..layout();
+            final width = painter.width + 4;
+            painter.dispose();
+            return width;
+          }
+
+          double pair(String first, String second) =>
+              widthOf(first) + widthOf(second) + 12;
+          final pairsFit =
+              constraints.maxWidth >=
+              math.max(
+                pair('Result: Away 13+', 'Your tip: Away 13+'),
+                pair('Your Points: -2 / 4', 'Avg Points: -0.12 / 4'),
+              );
+          return Center(
+            child: pairsFit
+                ? Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    children: [
+                      group(lines.take(half)),
+                      if (lines.length > half) group(lines.skip(half)),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [for (final text in lines) line(text)],
+                  ),
+          );
+        },
       ),
     );
   }
