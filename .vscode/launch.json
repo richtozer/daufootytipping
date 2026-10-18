@@ -8,7 +8,8 @@
       "flutterMode": "debug",
       "program": "lib/main.dart",
       "toolArgs": [
-        "--dart-define=USE_FIREBASE_EMULATORS=true"
+        "--dart-define=USE_FIREBASE_EMULATORS=true",
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
       ]
     },
     {
@@ -18,7 +19,8 @@
       "flutterMode": "debug",
       "program": "lib/main.dart",
       "toolArgs": [
-        "--dart-define=USE_FIREBASE_EMULATORS=false"
+        "--dart-define=USE_FIREBASE_EMULATORS=false",
+        "--dart-define=WEB_APP_CHECK_DEBUG_TOKEN=${env:WEB_APP_CHECK_DEBUG_TOKEN}"
       ]
     },
     {
