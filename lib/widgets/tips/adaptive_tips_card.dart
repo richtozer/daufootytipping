@@ -91,6 +91,7 @@ class TipsCardDisplay {
     this.loading = false,
     this.saving = false,
     this.canTip = true,
+    this.defaultTip = false,
   });
   final String id;
   final TipsTeamDisplay home;
@@ -106,6 +107,9 @@ class TipsCardDisplay {
   final bool loading;
   final bool saving;
   final bool canTip;
+
+  /// The tip was given automatically for a missed game, not chosen.
+  final bool defaultTip;
 
   String label(GameResult value) =>
       league == League.afl ? value.afl : value.nrl;
@@ -171,6 +175,7 @@ class AdaptiveTipsCard extends StatelessWidget {
     this.percentStats = false,
     this.onTip,
     this.onMatchup,
+    this.onInterimScore,
   });
   final TipsCardDisplay data;
   final TipsCardLayout layout;
@@ -179,6 +184,10 @@ class AdaptiveTipsCard extends StatelessWidget {
   final bool percentStats;
   final ValueChanged<GameResult>? onTip;
   final VoidCallback? onMatchup;
+
+  /// Tapping the result of a game on an interim score, which lists the games
+  /// whose scores can be corrected.
+  final VoidCallback? onInterimScore;
 
   @override
   Widget build(BuildContext context) {
@@ -642,12 +651,63 @@ class AdaptiveTipsCard extends StatelessWidget {
     );
   }
 
+  /// What a tipper is told when they tap the (i) on a tip they were given.
+  static const String _defaultTipNote =
+      'You did not tip this game and were automatically given a default tip of [Away].\n\n'
+      'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄';
+
+  void _showDefaultTipNote(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 10),
+        backgroundColor: Colors.orange,
+        content: Text(_defaultTipNote, style: TextStyle(color: Colors.black)),
+      ),
+    );
+  }
+
+  static const String _averagePointsNote =
+      'This is the average points collected by tippers for this game. Your aim is to collect more points than this to improve your ranking. If the game score is not finalised then this is an interim average.';
+
+  static const String _interimScoreNote =
+      'Scores are based on interim live score data.';
+
   Widget _result(BuildContext context) {
     final lines = data.resultSpans(appPanelTextTheme(context));
-    Widget line(TextSpan text) {
+    // A tip the tipper was given, not chosen, is picked out in orange with an
+    // (i) that says why.
+    final Color defaultTipColour =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark
+        ? Colors.orange.shade300
+        : Colors.orange.shade800;
+    Widget line(TextSpan text, {bool defaultTip = false}) {
+      if (!defaultTip) {
+        return Padding(
+          padding: const EdgeInsets.all(2),
+          child: Text.rich(text, textAlign: TextAlign.center),
+        );
+      }
+      final tinted = TextSpan(
+        style: text.style?.copyWith(color: defaultTipColour),
+        children: text.children,
+      );
       return Padding(
         padding: const EdgeInsets.all(2),
-        child: Text.rich(text, textAlign: TextAlign.center),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text.rich(tinted, textAlign: TextAlign.center)),
+            const SizedBox(width: 2),
+            InkWell(
+              onTap: () => _showDefaultTipNote(context),
+              child: Icon(
+                Icons.info_outline,
+                size: 18,
+                color: defaultTipColour,
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -656,14 +716,20 @@ class AdaptiveTipsCard extends StatelessWidget {
     // they can be, not by this card's own text, so every card in the list
     // reads alike: a short result must not sit inline beside its tip when the
     // card above stacks them.
-    Widget group(Iterable<TextSpan> texts) => Wrap(
+    final tiles = [
+      for (var i = 0; i < lines.length; i++)
+        i == 3
+            ? Tooltip(message: _averagePointsNote, child: line(lines[i]))
+            : line(lines[i], defaultTip: data.defaultTip && i == 1),
+    ];
+    Widget group(Iterable<Widget> items) => Wrap(
       alignment: WrapAlignment.center,
       spacing: 12,
-      children: [for (final text in texts) line(text)],
+      children: items.toList(),
     );
     final half = (lines.length / 2).ceil();
 
-    return Card(
+    final Widget result = Card(
       color: appInnerPanelColor(context),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -696,16 +762,27 @@ class AdaptiveTipsCard extends StatelessWidget {
                     alignment: WrapAlignment.center,
                     spacing: 12,
                     children: [
-                      group(lines.take(half)),
-                      if (lines.length > half) group(lines.skip(half)),
+                      group(tiles.take(half)),
+                      if (tiles.length > half) group(tiles.skip(half)),
                     ],
                   )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [for (final text in lines) line(text)],
-                  ),
+                : Column(mainAxisSize: MainAxisSize.min, children: tiles),
           );
         },
+      ),
+    );
+    final onInterimScore = this.onInterimScore;
+    if (data.status != TipsStatus.interim || onInterimScore == null) {
+      return result;
+    }
+    // A game on an interim score says so, and opens the list of games whose
+    // scores can be corrected.
+    return Tooltip(
+      message: _interimScoreNote,
+      child: InkWell(
+        onTap: onInterimScore,
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+        child: result,
       ),
     );
   }

@@ -76,6 +76,7 @@ TipsCardDisplay tipsCardDisplayFor({
     loading: percentStatsLoading,
     saving: gameTipViewModel.savingTip,
     canTip: canTip,
+    defaultTip: gameTipViewModel.tip?.isDefaultTip() ?? false,
   );
 }
 

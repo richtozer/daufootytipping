@@ -7,6 +7,7 @@ import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_livescoring_modal.dart';
+import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -319,6 +320,7 @@ class _GameListItemState extends State<GameListItem> {
           ? null
           : (option) => submitTip(context, gameTipsViewModelConsumer, option),
       onMatchup: () => _openMatchup(context, gameTipsViewModelConsumer),
+      onInterimScore: () => LiveScoresWarningCard.showLiveScoreDetails(context),
     );
   }
 

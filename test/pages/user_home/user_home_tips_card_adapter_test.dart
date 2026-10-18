@@ -68,6 +68,22 @@ void main() {
   final future = DateTime.now().toUtc().add(const Duration(days: 7));
   final past = DateTime.now().toUtc().subtract(const Duration(days: 7));
 
+  test('a tip given automatically for a missed game reaches the card', () {
+    final game = _game(startTimeUTC: past);
+    final chosen = _tip(game);
+    final given = Tip(
+      game: game,
+      tipper: chosen.tipper,
+      tip: GameResult.d,
+      // The epoch is how a default tip is marked.
+      submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true),
+    );
+
+    expect(_display(game, tip: given).defaultTip, isTrue);
+    expect(_display(game, tip: chosen).defaultTip, isFalse);
+    expect(_display(game).defaultTip, isFalse);
+  });
+
   test('an interim score takes precedence over the live game state', () {
     final scoring = Scoring(
       crowdSourcedScores: [
