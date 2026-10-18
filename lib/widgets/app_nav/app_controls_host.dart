@@ -14,6 +14,10 @@ const String kBackActionLabel = 'Back';
 /// Gap between the controls and the edge of the display, or of its inset.
 const double kControlsEdgeMargin = 12;
 
+/// How close Back and the page actions sit to the display edge in an inset too
+/// slim to centre them in: just inside the edge, over the inset.
+const double kControlsInsetEdgeMargin = 4;
+
 /// The gap kept between the side controls and the content beside them.
 const double kControlsContentGap = 8;
 
@@ -92,7 +96,7 @@ class AppControlsHost extends StatelessWidget {
                   : null,
               right: axis == Axis.horizontal
                   ? media.padding.right + kControlsEdgeMargin
-                  : _rightOffset(media.padding),
+                  : _rightOffset(media.padding, mode),
               bottom: aboveKeyboard
                   ? media.viewInsets.bottom + kControlsEdgeMargin
                   : _bottomOffset(media.padding, media.size, axis),
@@ -138,7 +142,7 @@ class AppControlsHost extends StatelessWidget {
     // From the same offset the controls are placed at, so the room reserved is
     // exactly the room they take whatever the inset is.
     final sideRoom =
-        _rightOffset(padding) + kGlassSideThickness + kControlsContentGap;
+        _rightOffset(padding, mode) + kGlassSideThickness + kControlsContentGap;
     return padding.copyWith(
       right: padding.right > sideRoom ? padding.right : sideRoom,
     );
@@ -158,15 +162,22 @@ class AppControlsHost extends StatelessWidget {
 
   /// Where the controls sit from the right edge. Centred in an inset wide
   /// enough to hold them, so they take room the content could not use anyway.
-  /// In a slimmer inset, such as the side a Dynamic Island or camera is on in
-  /// landscape, they sit clear of it, in the content's area, which is told to
-  /// leave room for them: over the inset they would cover what is in it. With
-  /// no inset they float clear of the edge.
-  double _rightOffset(EdgeInsets padding) {
+  /// In a slimmer inset the tall tab pill sits clear of it, in the content's
+  /// area, which is told to leave room for it: in landscape the inset can hold
+  /// a Dynamic Island, and the pill is tall enough to reach it. Back and the
+  /// page actions are short, so they tuck just inside the display edge, over
+  /// the inset, as there is nothing in it for them to cover. With no inset
+  /// they float clear of the edge.
+  double _rightOffset(EdgeInsets padding, AppControlsMode mode) {
     if (padding.right >= kSideControlsInsetWidth) {
       return (padding.right - kGlassSideThickness) / 2;
     }
-    return padding.right + kControlsEdgeMargin;
+    if (padding.right <= 0) {
+      return kControlsEdgeMargin;
+    }
+    return mode == AppControlsMode.tabs
+        ? padding.right + kControlsEdgeMargin
+        : kControlsInsetEdgeMargin;
   }
 }
 
