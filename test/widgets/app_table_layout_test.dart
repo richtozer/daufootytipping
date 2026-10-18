@@ -69,20 +69,19 @@ void main() {
       }
     });
 
-    test('only as many groups turn as the width needs', () {
+    test('once one numeric heading turns, every numeric heading turns', () {
       final natural = measure(2000, columns: grouped, rows: rows());
       expect(
         natural.headings.every((h) => h == AppHeadingLayout.horizontal),
         isTrue,
       );
 
-      // Narrow enough to need some compacting, but not all of it.
       final tight = measure(330, columns: grouped, rows: rows());
-      final compacted = tight.headings
-          .where((h) => h != AppHeadingLayout.horizontal)
-          .length;
-      expect(compacted, greaterThan(0));
-      expect(compacted, lessThan(grouped.length - 1));
+      expect(tight.headings, contains(AppHeadingLayout.rotated));
+      for (var i = 0; i < grouped.length; i++) {
+        if (!grouped[i].numeric) continue;
+        expect(tight.headings[i], AppHeadingLayout.rotated);
+      }
     });
   });
 

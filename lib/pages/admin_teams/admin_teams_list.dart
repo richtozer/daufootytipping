@@ -91,7 +91,7 @@ class _TeamsListPageState extends State<TeamsListPage> {
             title: 'Admin Teams',
             scrollsUnderControls: true,
             body: Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: appAdminBodyPadding(context),
               child: AppTable(
                 columns: _columns,
                 rows: _rows(teamsViewModelConsumer.teams),

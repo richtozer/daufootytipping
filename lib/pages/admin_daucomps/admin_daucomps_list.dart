@@ -38,7 +38,7 @@ class DAUCompsListPage extends StatelessWidget with WatchItMixin {
         ),
       ],
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: appAdminBodyPadding(context),
         child: FutureBuilder<List<DAUComp>>(
           future: daucompsViewModel.getDAUcomps(),
           builder: (BuildContext context, AsyncSnapshot<List<DAUComp>> snapshot) {

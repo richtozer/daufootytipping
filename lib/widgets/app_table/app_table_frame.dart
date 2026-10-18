@@ -154,6 +154,10 @@ class _AppTableFrameState extends State<AppTableFrame> {
   /// through every page to the table inside it.
   final _measurements = AppTableMeasurementCache();
 
+  /// The room beside the rows for their scrollbar: none where the table is only
+  /// as tall as its rows and so does not scroll.
+  double get _lane => widget.fill ? AppTableLayout.scrollbarLane : 0;
+
   /// The band the rows occupy, so the heading can sit on the same rails.
   double _contentWidth(BuildContext context, double width) {
     final body =
@@ -170,6 +174,7 @@ class _AppTableFrameState extends State<AppTableFrame> {
       metrics: metrics,
       width: width,
       frozenLeading: widget.frozenLeading,
+      scrollsVertically: widget.fill,
     );
     return layout.contentWidth;
   }
@@ -191,7 +196,7 @@ class _AppTableFrameState extends State<AppTableFrame> {
           final double content = math.min(
             rest,
             _contentWidth(context, rest - _horizontalPadding * 2) +
-                AppTableLayout.scrollbarLane +
+                _lane +
                 _horizontalPadding * 2,
           );
           const EdgeInsets railPadding = EdgeInsets.fromLTRB(16, 8, 8, 8);
@@ -251,7 +256,7 @@ class _AppTableFrameState extends State<AppTableFrame> {
   Widget _railed(BuildContext context, double pane, Widget heading) {
     final double available = math.max(
       1.0,
-      pane - AppTableLayout.scrollbarLane - _horizontalPadding * 2,
+      pane - _lane - _horizontalPadding * 2,
     );
     final double content = _contentWidth(
       context,
@@ -261,7 +266,7 @@ class _AppTableFrameState extends State<AppTableFrame> {
       padding: EdgeInsets.fromLTRB(
         _horizontalPadding,
         8,
-        _horizontalPadding + AppTableLayout.scrollbarLane,
+        _horizontalPadding + _lane,
         8,
       ),
       child: Align(

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -15,7 +16,7 @@ export 'app_table_layout.dart';
 export 'app_table_models.dart';
 
 /// Content-sized table with a sticky header and frozen leading columns.
-/// Requires bounded width and height. Sorting and row data are caller-owned.
+/// Requires bounded width and, unless it fits its rows, height. Sorting and row data are caller-owned.
 /// Replace row/column lists when content changes; do not mutate them in place.
 class AppTable extends StatefulWidget {
   const AppTable({
@@ -28,6 +29,8 @@ class AppTable extends StatefulWidget {
     this.empty,
     this.sortAscendingLabel = 'Ascending',
     this.sortDescendingLabel = 'Descending',
+    this.fitToRows = false,
+    this.scrollbarColour,
   });
   final List<AppColumn> columns;
   final List<AppRow> rows;
@@ -35,6 +38,15 @@ class AppTable extends StatefulWidget {
   final AppSort? sort;
   final void Function(int column, bool ascending)? onSort;
   final Widget? empty;
+
+  /// Sizes the table to its rows instead of filling the height it is given, for
+  /// a section of a page that scrolls as a whole. It never scrolls its rows, so
+  /// it has no scrollbar lane beside them and keeps the width.
+  final bool fitToRows;
+
+  /// The colour of the scrollbars: a league's own, on a page about that league.
+  /// The NRL green where the table is not about one.
+  final Color? scrollbarColour;
 
   /// Localizable descriptions for assistive technology.
   final String sortAscendingLabel;
@@ -63,7 +75,10 @@ class _AppTableState extends State<AppTable> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final body = theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
-    final heading = body.copyWith(fontWeight: FontWeight.w700);
+    final heading = body.copyWith(
+      fontWeight: FontWeight.w700,
+      color: kTableHeaderTextColor,
+    );
     final direction = Directionality.of(context);
     _metrics = _measurements.measure(
       columns: widget.columns,
@@ -75,7 +90,7 @@ class _AppTableState extends State<AppTable> {
     );
     return LayoutBuilder(
       builder: (context, bounds) {
-        if (!bounds.hasBoundedHeight) {
+        if (!widget.fitToRows && !bounds.hasBoundedHeight) {
           throw FlutterError(
             'AppTable requires a bounded height, for example an Expanded child.',
           );
@@ -84,10 +99,17 @@ class _AppTableState extends State<AppTable> {
           metrics: _metrics,
           width: bounds.maxWidth,
           frozenLeading: widget.frozenLeading,
+          scrollsVertically: !widget.fitToRows,
         );
-        final lane = AppTableLayout.scrollbarLane;
-        final horizontalLane = layout.scrollsHorizontally ? lane : 0.0;
-        final contentHeight = math.max(0.0, bounds.maxHeight - horizontalLane);
+        final barThickness = AppTableLayout.scrollbarLane;
+        final lane = widget.fitToRows ? 0.0 : barThickness;
+        final horizontalLane = layout.scrollsHorizontally ? barThickness : 0.0;
+        final availableHeight = widget.fitToRows
+            ? layout.headerHeight +
+                  layout.rowHeight * widget.rows.length +
+                  horizontalLane
+            : bounds.maxHeight;
+        final contentHeight = math.max(0.0, availableHeight - horizontalLane);
         final headerViewport = math.min(
           layout.headerHeight,
           math.max(
@@ -115,8 +137,10 @@ class _AppTableState extends State<AppTable> {
           0.0,
           (layout.viewportWidth - layout.contentWidth) / 2,
         );
-        final endPadding = AppScrollEndPadding.of(context);
-        final scrollsVertically =
+        final endPadding = widget.fitToRows
+            ? 0.0
+            : AppScrollEndPadding.of(context);
+        final overflowsVertically =
             widget.rows.length * layout.rowHeight + endPadding >
             contentHeight - headerViewport;
         final rows = widget.rows.isEmpty && widget.empty != null
@@ -130,8 +154,14 @@ class _AppTableState extends State<AppTable> {
                 itemBuilder: (context, index) =>
                     _row(context, layout, heading, body, index),
               );
-        final thumb = theme.colorScheme.onSurfaceVariant.withValues(
-          alpha: 0.55,
+        // A league colour, in both modes: strong enough to stand out from the
+        // pale green row shading.
+        final thumb = widget.scrollbarColour ?? League.nrl.colour;
+        // The lanes a bar runs in are a shade off the rows, so the bar sits on a
+        // track of its own rather than melting into a white or shaded row.
+        final trackColour = Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          theme.colorScheme.surface,
         );
         // The heading is held outside the vertical scrollbar and slid against
         // the horizontal offset instead of being carried by the scroller.
@@ -140,7 +170,47 @@ class _AppTableState extends State<AppTable> {
         // that height twice: once because the rows exclude it, and again from
         // any padding meant to clear it. The thumb then stopped a heading
         // short of the last row.
-        return ClipRRect(
+        final scrollers = Padding(
+          padding: EdgeInsets.only(bottom: horizontalLane),
+          child: RawScrollbar(
+            key: const Key('appTableVerticalScrollbar'),
+            controller: _vertical,
+            thumbVisibility: overflowsVertically,
+            thickness: AppTableLayout.scrollbarThickness,
+            scrollbarOrientation: direction == TextDirection.ltr
+                ? ScrollbarOrientation.right
+                : ScrollbarOrientation.left,
+            // Follows the table rather than the pane: a centred table
+            // leaves a bar at the pane's edge floating away from the
+            // rows it describes. A full-width table has no gap.
+            // The track stops where the last row does at the end of
+            // the scroll, above the room kept for the controls.
+            padding: EdgeInsetsDirectional.only(end: sideGap)
+                .resolve(direction)
+                .copyWith(bottom: endPadding),
+            thumbColor: thumb,
+            notificationPredicate: (notification) =>
+                notification.metrics.axis == Axis.vertical,
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(end: lane),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context)
+                    .copyWith(scrollbars: false),
+                child: SingleChildScrollView(
+                  controller: _horizontal,
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: layout.viewportWidth),
+                    child: Center(
+                      child: SizedBox(width: layout.contentWidth, child: rows),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final table = ClipRRect(
           clipper: _TableCornerClipper(
             horizontalInset: sideGap,
             radius: kCardCornerRadius,
@@ -155,7 +225,7 @@ class _AppTableState extends State<AppTable> {
                 child: DecoratedBox(
                   key: const Key('appTableHeaderBackground'),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
+                    color: kTableHeaderColor,
                     border: Border(
                       bottom: BorderSide(color: theme.dividerColor),
                     ),
@@ -198,65 +268,102 @@ class _AppTableState extends State<AppTable> {
                 // lane, the vertical bar must not count it. So the horizontal
                 // one takes the outside and the lane is spent before the
                 // vertical one begins.
-                child: RawScrollbar(
-                  controller: _horizontal,
-                  thumbVisibility: layout.scrollsHorizontally,
-                  thickness: 8,
-                  scrollbarOrientation: ScrollbarOrientation.bottom,
-                  // Explicit, because a scrollbar insets itself by the ambient
-                  // MediaQuery padding otherwise, and the floating controls add
-                  // their room to that. Left to it the bar rode up over the rows.
-                  padding: EdgeInsets.zero,
-                  thumbColor: thumb,
-                  notificationPredicate: (notification) =>
-                      notification.metrics.axis == Axis.horizontal,
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: horizontalLane),
-                    child: RawScrollbar(
-                      key: const Key('appTableVerticalScrollbar'),
-                      controller: _vertical,
-                      thumbVisibility: scrollsVertically,
-                      thickness: 8,
-                      scrollbarOrientation: direction == TextDirection.ltr
-                          ? ScrollbarOrientation.right
-                          : ScrollbarOrientation.left,
-                      // Follows the table rather than the pane: a centred table
-                      // leaves a bar at the pane's edge floating away from the
-                      // rows it describes. A full-width table has no gap.
-                      padding: EdgeInsetsDirectional.only(end: sideGap)
-                          .resolve(direction),
-                      thumbColor: thumb,
-                      notificationPredicate: (notification) =>
-                          notification.metrics.axis == Axis.vertical,
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.only(end: lane),
-                        child: ScrollConfiguration(
-                          behavior: ScrollConfiguration.of(context)
-                              .copyWith(scrollbars: false),
-                          child: SingleChildScrollView(
-                            controller: _horizontal,
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minWidth: layout.viewportWidth,
+                // The rows' colour also fills the bars' lanes, so the bars sit on
+                // the table rather than floating over the backdrop. The lane
+                // beside the rows ends with the last row, not with the room
+                // left below it for the floating controls.
+                child: Stack(
+                  children: [
+                    PositionedDirectional(
+                      end: sideGap,
+                      top: 0,
+                      bottom: horizontalLane,
+                      width: lane,
+                      child: AnimatedBuilder(
+                        animation: _vertical,
+                        builder: (context, child) {
+                          final offset = _vertical.hasClients
+                              ? _vertical.offset
+                              : 0.0;
+                          return Align(
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: lane,
+                              height: math.max(
+                                0.0,
+                                widget.rows.length * layout.rowHeight - offset,
                               ),
-                              child: Center(
-                                child: SizedBox(
-                                  width: layout.contentWidth,
-                                  child: rows,
-                                ),
-                              ),
+                              child: child,
                             ),
-                          ),
-                        ),
+                          );
+                        },
+                        child: ColoredBox(color: trackColour),
                       ),
                     ),
-                  ),
+                    AnimatedBuilder(
+                      animation: _vertical,
+                      child: scrollers,
+                      builder: (context, child) {
+                        // Where the last row ends, the horizontal bar follows
+                        // it up, rather than sitting orphaned at the foot of the
+                        // pane under the room kept for the floating controls.
+                        final offset = _vertical.hasClients
+                            ? _vertical.offset
+                            : 0.0;
+                        final rowsEnd =
+                            widget.rows.length * layout.rowHeight - offset;
+                        final barGap = horizontalLane == 0
+                            ? 0.0
+                            : math.max(
+                                0.0,
+                                contentHeight - headerViewport - rowsEnd,
+                              );
+                        return Stack(
+                          children: [
+                            if (horizontalLane > 0)
+                              PositionedDirectional(
+                                start: sideGap,
+                                end: sideGap,
+                                bottom: barGap,
+                                height: horizontalLane,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: trackColour,
+                                    borderRadius: BorderRadius.vertical(
+                                      bottom: Radius.circular(
+                                        kCardCornerRadius,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            RawScrollbar(
+                              controller: _horizontal,
+                              thumbVisibility: layout.scrollsHorizontally,
+                              thickness: AppTableLayout.scrollbarThickness,
+                              scrollbarOrientation: ScrollbarOrientation.bottom,
+                              // Explicit, because a scrollbar insets itself by the
+                              // ambient MediaQuery padding otherwise, and the
+                              // floating controls add their room to that.
+                              padding: EdgeInsets.only(bottom: barGap),
+                              thumbColor: thumb,
+                              notificationPredicate: (notification) =>
+                                  notification.metrics.axis == Axis.horizontal,
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         );
+        return widget.fitToRows
+            ? SizedBox(height: availableHeight, child: table)
+            : table;
       },
     );
   }
@@ -271,7 +378,7 @@ class _AppTableState extends State<AppTable> {
     final theme = Theme.of(context);
     final row = index == null ? null : widget.rows[index];
     final colour = index == null
-        ? theme.colorScheme.surfaceContainerHighest
+        ? Colors.transparent
         : Color.alphaBlend(
             row?.colour ?? Colors.transparent,
             theme.colorScheme.surface,
@@ -376,6 +483,7 @@ class _AppTableState extends State<AppTable> {
       child: selected
           ? ExcludeSemantics(
               child: Icon(
+                color: kTableHeaderTextColor,
                 widget.sort?.ascending == true
                     ? Icons.arrow_upward
                     : Icons.arrow_downward,

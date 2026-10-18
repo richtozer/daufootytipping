@@ -2,8 +2,19 @@ import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
+import 'package:daufootytipping/widgets/app_nav/app_nav_placement.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
+
+/// Whether the page is short enough, as in landscape, that its padding is
+/// better spent on content.
+bool appAdminIsShort(BuildContext context) =>
+    MediaQuery.sizeOf(context).height < kShortPaneHeight;
+
+/// The padding round an admin page's body, trimmed where height is scarce.
+EdgeInsets appAdminBodyPadding(BuildContext context) => appAdminIsShort(context)
+    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2)
+    : const EdgeInsets.all(8);
 
 /// The shell every admin page shares: a plain title, then the page.
 ///
@@ -49,7 +60,9 @@ class AppAdminPage extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: appAdminIsShort(context)
+                    ? const EdgeInsets.fromLTRB(16, 4, 16, 0)
+                    : const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(

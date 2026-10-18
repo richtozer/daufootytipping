@@ -154,7 +154,10 @@ class AppTableLayout {
     required this.frozenLeading,
   });
 
-  static const scrollbarLane = 14.0;
+  /// The scrollbar's thickness, and the lane it runs in: no wider than the bar,
+  /// so the bar fills its lane rather than sitting against one edge of it.
+  static const scrollbarThickness = 8.0;
+  static const scrollbarLane = scrollbarThickness;
   static const sortIconSize = 18.0;
   static const sortGap = 4.0;
   final List<double> widths;
@@ -178,6 +181,7 @@ class AppTableLayout {
     required TextStyle cellStyle,
     TextDirection direction = TextDirection.ltr,
     int frozenLeading = 1,
+    bool scrollsVertically = true,
   }) {
     return resolve(
       metrics: AppTableMetrics.extract(
@@ -190,6 +194,7 @@ class AppTableLayout {
       ),
       width: width,
       frozenLeading: frozenLeading,
+      scrollsVertically: scrollsVertically,
     );
   }
 
@@ -198,6 +203,10 @@ class AppTableLayout {
     required AppTableMetrics metrics,
     required double width,
     int frozenLeading = 1,
+
+    /// Whether the rows scroll, and so need a lane for the bar beside them. A
+    /// table that is as tall as its rows has none, and keeps the width.
+    bool scrollsVertically = true,
   }) {
     final columns = metrics.columns;
     final headingSizes = metrics.headingSizes;
@@ -213,7 +222,7 @@ class AppTableLayout {
     if (frozenLeading < 0 || frozenLeading > columns.length) {
       throw ArgumentError('Invalid frozen column count or row cell count.');
     }
-    final viewport = width - scrollbarLane;
+    final viewport = width - (scrollsVertically ? scrollbarLane : 0);
     final painter = TextPainter(
       textDirection: metrics.direction,
       textScaler: metrics.textScaler,
@@ -249,6 +258,15 @@ class AppTableLayout {
     var widths = natural();
     double total() => widths.fold(0, (sum, value) => sum + value);
     final headings = List.filled(columns.length, AppHeadingLayout.horizontal);
+    double compactWidth(int i) =>
+        math.max(
+          content[i],
+          math.max(
+            headingSizes[i].height,
+            columns[i].sortable ? sortIconSize : 0.0,
+          ),
+        ) +
+        padding * 2;
     if (total() > viewport) {
       padding = 4;
       widths = natural();
@@ -260,15 +278,6 @@ class AppTableLayout {
       // was spare, when a heading or two on its side would have been enough.
       // Columns in a heading group go together, so related columns such as NRL
       // and AFL always read alike.
-      double compactWidth(int i) =>
-          math.max(
-            content[i],
-            math.max(
-              headingSizes[i].height,
-              columns[i].sortable ? sortIconSize : 0.0,
-            ),
-          ) +
-          padding * 2;
       bool canWrap(int i) {
         final target = compactWidth(i) - padding * 2;
         final wrapped = text(
@@ -327,6 +336,16 @@ class AppTableLayout {
           headings[i] = option.layout;
           widths[i] = math.min(widths[i], compactWidth(i));
         }
+      }
+    }
+    // Headings that are partly upright and partly on their side read as a
+    // mess. Once one has turned, every numeric heading turns too, so the
+    // figures read as one set, and each is narrower for it.
+    if (headings.contains(AppHeadingLayout.rotated)) {
+      for (var i = 0; i < columns.length; i++) {
+        if (!columns[i].numeric) continue;
+        headings[i] = AppHeadingLayout.rotated;
+        widths[i] = math.min(widths[i], compactWidth(i));
       }
     }
     // Shorten widest text columns only after using compact headings.
