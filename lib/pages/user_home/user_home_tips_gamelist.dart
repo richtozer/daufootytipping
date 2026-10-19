@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -8,6 +10,7 @@ import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:flutter/material.dart';
 
 const double kTipsWelcomeHeaderHeight = 175;
@@ -397,7 +400,6 @@ class TipsStickyHeader extends StatelessWidget {
     required this.currentTipper,
     this.inlineRoundLabel = false,
     this.topPadding = 0,
-    this.backgroundColor,
     super.key,
   });
 
@@ -406,7 +408,6 @@ class TipsStickyHeader extends StatelessWidget {
   final Tipper currentTipper;
   final bool inlineRoundLabel;
   final double topPadding;
-  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -418,20 +419,30 @@ class TipsStickyHeader extends StatelessWidget {
       child: SizedBox(
         height: section.headerExtent,
         child: RepaintBoundary(
-          child: RoundLeagueHeaderListTile(
-            inlineRoundLabel: inlineRoundLabel,
-            league: section.league,
-            logoWidth: 50,
-            logoHeight: 50,
-            dauRound: dauRound,
-            dauCompsViewModel: dauCompsViewModel,
-            selectedTipper: currentTipper,
-            // Opaque: this is the one header that has cards scrolling beneath
-            // it, and there is no blur here for translucency to serve -- any
-            // alpha just lets the card underneath ghost through the text.
-            // The inline headers keep their translucency; nothing passes under
-            // those.
-            backgroundColor: backgroundColor ?? Colors.black,
+          // The same see-through colour as the headers that scroll with the
+          // list. This is the one with cards passing beneath it, so what is
+          // behind it is blurred: without that the cards ghost through the text.
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(kCardCornerRadius),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: kGlassBlurSigma,
+                  sigmaY: kGlassBlurSigma,
+                ),
+                child: RoundLeagueHeaderListTile(
+                  inlineRoundLabel: inlineRoundLabel,
+                  league: section.league,
+                  logoWidth: 50,
+                  logoHeight: 50,
+                  dauRound: dauRound,
+                  dauCompsViewModel: dauCompsViewModel,
+                  selectedTipper: currentTipper,
+                  margin: EdgeInsets.zero,
+                ),
+              ),
+            ),
           ),
         ),
       ),
