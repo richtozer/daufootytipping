@@ -55,7 +55,8 @@ const double kGlassSideLabelSpacing = 0.2;
 const double kGlassBlurSigma = 14;
 
 /// The colours of the app's glass controls: frosted over the backdrop, on the
-/// same tint as the panel cards, with the selection green on the chosen item.
+/// same surface colour as the panel cards, so the selection green on the chosen
+/// item stands out from it.
 ///
 /// Follows the platform brightness, as the rest of the app's custom surfaces
 /// do, so the controls match the scheme the screens around them are in.
@@ -69,28 +70,18 @@ class AppGlassStyle {
     required this.selectedForeground,
   });
 
-  // The panel colour with a green tint of its own, so a control over bright
-  // content, such as a table's white rows, is as green as one over the backdrop
-  // rather than washing out to white.
-  static final Color _lightFill = Color.alphaBlend(
-    const Color(0x73C5E1A5),
-    kPanelLightColor,
-  );
-  static final Color _darkFill = Color.alphaBlend(
-    const Color(0x338BC34A),
-    kPanelDarkColor,
-  );
-
   static final AppGlassStyle light = AppGlassStyle._(
-    fill: _lightFill,
+    fill: kPanelLightColor,
     shadow: Color(0x3D142808),
     foreground: Color(0xFF14200C),
-    selectedFill: kSelectionLightColor,
+    // Deeper than the pale selection green, which is close to the pale surface it
+    // sits on: the same green as the chosen chip on a tips card.
+    selectedFill: Color(0xFF8BC34A),
     selectedForeground: kOnSelectionLightColor,
   );
 
   static final AppGlassStyle dark = AppGlassStyle._(
-    fill: _darkFill,
+    fill: kPanelDarkColor,
     shadow: Color(0x80000000),
     foreground: Color(0xFFE8EFDF),
     selectedFill: kSelectionDarkColor,
