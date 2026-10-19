@@ -539,14 +539,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       restorationScopeId: 'app',
-      theme: withCardCornerButtons(
-        FlexThemeData.light(
-          scheme: FlexScheme.green,
-          fontFamily: appFontFamily,
+      theme: withNavGreenControls(
+        withCardCornerButtons(
+          FlexThemeData.light(
+            scheme: FlexScheme.green,
+            fontFamily: appFontFamily,
+          ),
         ),
       ),
-      darkTheme: withCardCornerButtons(
-        FlexThemeData.dark(scheme: FlexScheme.green, fontFamily: appFontFamily),
+      darkTheme: withNavGreenControls(
+        withCardCornerButtons(
+          FlexThemeData.dark(
+            scheme: FlexScheme.green,
+            fontFamily: appFontFamily,
+          ),
+        ),
       ),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',

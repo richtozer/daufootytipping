@@ -139,4 +139,42 @@ void main() {
     expect(await innerColour(Brightness.light), isNull);
     expect(await innerColour(Brightness.dark), kInnerPanelDarkColor);
   });
+
+  group('withNavGreenControls', () {
+    Color? resolve(WidgetStateProperty<Color?>? property, WidgetState state) =>
+        property?.resolve({state});
+
+    for (final (brightness, green, onGreen) in [
+      (Brightness.light, kControlGreenLight, kOnControlGreenLight),
+      (Brightness.dark, kControlGreenDark, kOnControlGreenDark),
+    ]) {
+      test('switches, boxes and radios are the nav green, $brightness', () {
+        final theme = withNavGreenControls(
+          ThemeData(brightness: brightness, useMaterial3: true),
+        );
+
+        expect(
+          resolve(theme.switchTheme.trackColor, WidgetState.selected),
+          green,
+        );
+        expect(
+          resolve(theme.switchTheme.thumbColor, WidgetState.selected),
+          onGreen,
+        );
+        expect(
+          resolve(theme.checkboxTheme.fillColor, WidgetState.selected),
+          green,
+        );
+        expect(
+          resolve(theme.radioTheme.fillColor, WidgetState.selected),
+          green,
+        );
+        // Off, they keep the theme's own look.
+        expect(
+          resolve(theme.switchTheme.trackColor, WidgetState.disabled),
+          isNull,
+        );
+      });
+    }
+  });
 }

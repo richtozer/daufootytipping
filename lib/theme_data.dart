@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/league.dart';
 import 'package:flutter/material.dart';
 
 /// The corner radius of the app's cards and panels: the tips game card, its
@@ -35,6 +36,17 @@ const Color kPanelLightColor = Colors.white70;
 /// White at about 14%, so the dark backdrop reads through it instead of the
 /// panel glowing against it.
 const Color kPanelDarkColor = Color(0x24FFFFFF);
+
+/// What a panel card's fill comes to: the panel colour with the faint surface
+/// tint the cards carry at their elevation, in the NRL's green. Anything that
+/// is to look like a card, such as the navigation pill, uses this fill, so the
+/// two are the same colour over the same backdrop.
+Color panelCardSurface(Brightness brightness) =>
+    ElevationOverlay.applySurfaceTint(
+      brightness == Brightness.dark ? kPanelDarkColor : kPanelLightColor,
+      League.nrl.colour,
+      1,
+    );
 
 /// The translucent surface the tips cards, the stats panel and similar panels
 /// share, following the system brightness as the app's other custom surfaces do.
@@ -103,6 +115,45 @@ ThemeData withCardCornerButtons(ThemeData theme) {
     textButtonTheme: TextButtonThemeData(
       style: withShape(theme.textButtonTheme.style),
     ),
+  );
+}
+
+/// The green of the navigation's buttons, and of the controls that are switched
+/// on: a switch, a ticked box, a chosen radio. Deeper than the pale selection
+/// green, with the text colour that goes on it.
+const Color kControlGreenLight = Color(0xFF8BC34A);
+const Color kOnControlGreenLight = kOnSelectionLightColor;
+const Color kControlGreenDark = kSelectionDarkColor;
+const Color kOnControlGreenDark = kOnSelectionDarkColor;
+
+/// Gives the switches, tick boxes and radio buttons the navigation's green when
+/// they are on, so they match the buttons beside them instead of the theme's
+/// own dark green.
+///
+/// A control that sets its own colour, such as the admin switches whose thumb
+/// warns in red or orange, still wins over this.
+ThemeData withNavGreenControls(ThemeData theme) {
+  final dark = theme.brightness == Brightness.dark;
+  final green = dark ? kControlGreenDark : kControlGreenLight;
+  final onGreen = dark ? kOnControlGreenDark : kOnControlGreenLight;
+  WidgetStateProperty<Color?> whenOn(Color on) =>
+      WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? on : null,
+      );
+  return theme.copyWith(
+    switchTheme: theme.switchTheme.copyWith(
+      trackColor: whenOn(green),
+      thumbColor: whenOn(onGreen),
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+        (states) =>
+            states.contains(WidgetState.selected) ? Colors.transparent : null,
+      ),
+    ),
+    checkboxTheme: theme.checkboxTheme.copyWith(
+      fillColor: whenOn(green),
+      checkColor: WidgetStatePropertyAll(onGreen),
+    ),
+    radioTheme: theme.radioTheme.copyWith(fillColor: whenOn(green)),
   );
 }
 
