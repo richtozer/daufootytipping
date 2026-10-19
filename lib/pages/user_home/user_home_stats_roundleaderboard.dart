@@ -94,7 +94,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
               leading: avatarPic(entry.key, widget.roundNumberToDisplay),
             ),
             AppCell.text(entry.value.rank.toString()),
-            AppCell.text(
+            AppCell.total(
               (entry.value.aflPoints + entry.value.nrlPoints).toString(),
             ),
             AppCell.text(entry.value.nrlPoints.toString()),

@@ -59,6 +59,10 @@ class AppCell {
        child = null,
        intrinsicSize = Size.zero,
        semanticLabel = semanticLabel ?? value;
+
+  /// A column's total, set in bold so it stands out from the figures it sums.
+  const AppCell.total(String value)
+    : this.text(value, style: const TextStyle(fontWeight: FontWeight.w700));
   const AppCell.widget(
     Widget widget, {
     required this.intrinsicSize,

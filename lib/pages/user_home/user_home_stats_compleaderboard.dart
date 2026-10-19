@@ -91,7 +91,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
             ),
             AppCell.text(entry.rank.toString()),
             _rankChangeCell(entry, style, scaler, direction),
-            AppCell.text(entry.total.toString()),
+            AppCell.total(entry.total.toString()),
             AppCell.text(entry.nRL.toString()),
             AppCell.text(entry.aFL.toString()),
             AppCell.text(entry.numRoundsWon.toString()),

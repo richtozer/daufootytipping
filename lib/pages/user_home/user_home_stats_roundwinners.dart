@@ -90,7 +90,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                 leading: avatarPic(winner.tipper, winner.roundNumber),
                 leadingSize: const Size(30, 30),
               ),
-              AppCell.text(winner.total.toString()),
+              AppCell.total(winner.total.toString()),
               AppCell.text(winner.nRL.toString()),
               AppCell.text(winner.aFL.toString()),
               AppCell.text((winner.aflMargins + winner.nrlMargins).toString()),

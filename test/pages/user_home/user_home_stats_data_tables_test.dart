@@ -589,6 +589,10 @@ void main() {
           'nMu': round % 5,
         }),
     ];
+    // The view model ranks each round after loading them.
+    for (final point in points) {
+      point.rank = point.roundNumber % 5 + 1;
+    }
     when(() => statsViewModel.getTipperRoundPointsForComp(selectedTipper))
         .thenAnswer((_) => List.of(points));
     return points;
@@ -641,8 +645,8 @@ void main() {
     points.last.nrlPoints = 99;
     notify();
     await tester.pump();
-    expect(table().rows.first.cells[2].text, '99');
-    for (var column = 0; column < 6; column++) {
+    expect(table().rows.first.cells[3].text, '99');
+    for (var column = 0; column < 8; column++) {
       table().onSort!(column, true);
       await tester.pump();
       notify();
@@ -652,6 +656,15 @@ void main() {
           .toList();
       expect(values, orderedEquals(List.of(values)..sort()));
     }
+    // Latest round first again: its season total is every round's points.
+    table().onSort!(0, false);
+    await tester.pump();
+    final everyRoundsPoints = points.fold<int>(
+      0,
+      (total, point) => total + point.nrlPoints + point.aflPoints,
+    );
+    expect(table().rows.first.cells[7].text, everyRoundsPoints.toString());
+    expect(table().rows.first.cells[1].text, '${24 % 5 + 1}');
     final targetRound = int.parse(table().rows.first.cells.first.text!);
     table().rows.first.onTap!();
     await tester.pumpAndSettle();
