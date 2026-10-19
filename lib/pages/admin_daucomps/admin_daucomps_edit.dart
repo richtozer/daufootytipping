@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:daufootytipping/models/daucomp.dart';
@@ -66,6 +67,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  /// What the Run updates action last showed, so the page rebuilds only when
+  /// that changes.
+  late ({bool ready, bool busy}) _shownRunUpdates;
+
   // Controllers for round start and end dates are now managed by AdminDaucompsEditRoundsTable
 
   @override
@@ -78,6 +83,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           compKey: widget.daucomp?.dbkey,
           configViewModel: context.read<ConfigViewModel>(),
         );
+    _shownRunUpdates = _runUpdatesState();
+    _pageDauCompsViewModel.addListener(_refreshRunUpdatesAction);
+    // The admin view models finish loading without notifying, and Run updates
+    // needs them, so the page checks again once loading is done.
+    unawaited(
+      _pageDauCompsViewModel.otherViewModelsLoadComplete.then(
+        (_) => _refreshRunUpdatesAction(),
+      ),
+    );
     _daucompNameController = TextEditingController(text: widget.daucomp?.name);
     _daucompAflJsonURLController = TextEditingController(
       text: widget.daucomp?.aflFixtureJsonURL.toString(),
@@ -133,6 +147,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     _daucompNrlJsonURLController.dispose();
     _nrlRegularCompEndDateController.dispose();
     _aflRegularCompEndDateController.dispose();
+    _pageDauCompsViewModel.removeListener(_refreshRunUpdatesAction);
     if (_ownsPageDauCompsViewModel) {
       _pageDauCompsViewModel.dispose();
     }
@@ -497,13 +512,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     if (daucomp == null) {
       return null;
     }
-    final busy =
-        statsViewModel != null &&
-        adminUpdatesBusy(_pageDauCompsViewModel, statsViewModel);
+    final state = _runUpdatesState();
     return AppGlassAction(
       icon: Icons.sync,
-      label: busy ? 'Updating' : 'Run updates',
-      onPressed: statsViewModel == null || busy
+      label: state.busy ? 'Updating' : 'Run updates',
+      onPressed: statsViewModel == null || state.busy
           ? null
           : () => runAdminUpdates(
               context: context,
@@ -514,6 +527,33 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   setState(() => disableBack = disabled),
             ),
     );
+  }
+
+  /// Whether Run updates has anything to run against yet, and whether an
+  /// update is already under way.
+  ({bool ready, bool busy}) _runUpdatesState() {
+    final statsViewModel = _pageDauCompsViewModel.statsViewModel;
+    if (statsViewModel == null) {
+      return (ready: false, busy: false);
+    }
+    return (
+      ready: true,
+      busy: adminUpdatesBusy(_pageDauCompsViewModel, statsViewModel),
+    );
+  }
+
+  /// The action sits in the app bar, outside the page's Consumer, so nothing
+  /// rebuilds it when the view model loads or a download starts. Without this
+  /// it stayed disabled until an unrelated edit rebuilt the page.
+  void _refreshRunUpdatesAction() {
+    if (!mounted) {
+      return;
+    }
+    final state = _runUpdatesState();
+    if (state == _shownRunUpdates) {
+      return;
+    }
+    setState(() => _shownRunUpdates = state);
   }
 
   Future<void> _confirmDiscardChanges(bool didPop) async {

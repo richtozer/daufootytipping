@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -105,6 +107,8 @@ void main() {
     when(() => pageDauCompsViewModel.selectedDAUComp).thenReturn(viewedComp);
     when(() => pageDauCompsViewModel.unassignedGames).thenReturn(const []);
     when(() => pageDauCompsViewModel.isDownloading).thenReturn(false);
+    when(() => pageDauCompsViewModel.otherViewModelsLoadComplete)
+        .thenAnswer((_) async {});
     when(() => pageDauCompsViewModel.statsViewModel)
         .thenReturn(pageStatsViewModel);
     when(() => pageDauCompsViewModel.linkGamesWithRounds(any()))
@@ -183,6 +187,100 @@ void main() {
     expect(find.byIcon(Icons.save), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back), findsOneWidget);
     expect(find.text('Run Updates'), findsNothing, reason: 'no in-page button');
+  });
+
+  group('Run updates availability', () {
+    Future<void> openEditPage(WidgetTester tester) async {
+      await tester.pumpWidget(
+        appWithControls(appControls, home: const SizedBox.shrink()),
+      );
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => DAUCompsEditPage(
+                viewedComp,
+                adminDauCompsViewModel: pageDauCompsViewModel,
+              ),
+            ),
+          );
+      await tester.pumpAndSettle();
+    }
+
+    // The action is enabled when its tap handler is set.
+    VoidCallback? runUpdatesOnTap(WidgetTester tester) => tester
+        .widget<InkResponse>(
+          find.ancestor(
+            of: find.byIcon(Icons.sync),
+            matching: find.byType(InkResponse),
+          ),
+        )
+        .onTap;
+
+    testWidgets(
+      'is available as soon as the admin view models have loaded, with no form edit',
+      (tester) async {
+        // The admin view models load after the page opens, and loading does
+        // not notify listeners; the stats view model simply appears.
+        final loaded = Completer<void>();
+        StatsViewModel? loadedStats;
+        when(() => pageDauCompsViewModel.statsViewModel)
+            .thenAnswer((_) => loadedStats);
+        when(() => pageDauCompsViewModel.otherViewModelsLoadComplete)
+            .thenAnswer((_) => loaded.future);
+
+        await openEditPage(tester);
+        expect(
+          runUpdatesOnTap(tester),
+          isNull,
+          reason: 'nothing to run updates against until loading finishes',
+        );
+
+        loadedStats = pageStatsViewModel;
+        loaded.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          runUpdatesOnTap(tester),
+          isNotNull,
+          reason:
+              'Run updates must not wait for an unrelated change to the form',
+        );
+      },
+    );
+
+    testWidgets(
+      'follows the download, disabled while it runs and enabled after',
+      (tester) async {
+        final listeners = <VoidCallback>[];
+        when(() => pageDauCompsViewModel.addListener(any())).thenAnswer((
+          invocation,
+        ) {
+          listeners.add(invocation.positionalArguments.first as VoidCallback);
+        });
+
+        await openEditPage(tester);
+        expect(runUpdatesOnTap(tester), isNotNull);
+
+        when(() => pageDauCompsViewModel.isDownloading).thenReturn(true);
+        for (final listener in List<VoidCallback>.of(listeners)) {
+          listener();
+        }
+        await tester.pumpAndSettle();
+        expect(
+          runUpdatesOnTap(tester),
+          isNull,
+          reason: 'a download is running',
+        );
+
+        when(() => pageDauCompsViewModel.isDownloading).thenReturn(false);
+        for (final listener in List<VoidCallback>.of(listeners)) {
+          listener();
+        }
+        await tester.pumpAndSettle();
+        expect(runUpdatesOnTap(tester), isNotNull);
+      },
+    );
   });
 
   testWidgets(
