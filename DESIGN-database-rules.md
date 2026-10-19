@@ -483,14 +483,14 @@ floor only. Announce it lightly, with web reload guidance (D13).
    deployment script, the identity audit script, hardened test isolation and 253 + 91 + 62
    automated checks (149 of the Node checks need no emulator: `npm run test:unit`). The deploy script
    refuses an empty or stale allowlist. The Dart functions change (the admin endpoints check the
-   allowlist) is committed (`b511932`) but **not yet deployed**.
+   allowlist) was deployed on 2026-10-19 (`f0820ef`).
 3. **Immediate owner actions** (no code): raise `minAppVersion` to `1.4.0` (step A); inspect the
    production Firestore rules (D11); run `scripts/verify_admin_auth_uids.mjs` and confirm the admin
    UIDs; check store version adoption. **Status:** done, except the Firestore inspection.
 4. **Deploy R1** (owner decision, after the actions above): audit fixes, then the Dart functions,
    then the rules, then the post-deploy verification (phase 3 doc, section 6). **Status:** the rules were
-   deployed first (2026-10-06) because R1 does not depend on the functions; the Dart functions deploy
-   and most of the post-deploy verification are still to do.
+   deployed first (2026-10-06) because R1 does not depend on the functions; the Dart functions followed
+   on 2026-10-19. Most of the post-deploy verification with real accounts is still to do.
 5. **Server pieces** (step 2) with tests, including the proofs re-run against the production
    database handle.
 6. **R2 client release** (step 3), including the update-button fix.

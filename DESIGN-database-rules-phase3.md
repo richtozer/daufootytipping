@@ -6,9 +6,8 @@ Companion to [DESIGN-database-rules.md](DESIGN-database-rules.md) (section 5 ste
 **Status: R1 is deployed to production** (2026-10-06 13:03Z, commit `a5f9f52`, allowlist revision
 `58f7e4904e46`, rules sha256 `959f840c20d9`; see section 6). The live rules were read back after
 deploying and are identical to `database.rules.json`, and were still identical on 2026-10-19 with no
-rollback. The Dart functions change that makes the admin endpoints check the same allowlist is
-committed (`b511932`, 2026-10-18) but **not deployed** (there is no functions entry in
-`config/deployments/allowlist-deployments.jsonl`). Phase 4 (server pieces) and R2 are not started.
+rollback. The Dart functions change that makes the admin endpoints check the same allowlist was deployed on
+2026-10-19 (commit `f0820ef`, allowlist revision `58f7e4904e46`; see section 6). Phase 4 (server pieces) and R2 are not started.
 **One production incident occurred during this phase** (section 8): a test I wrote deployed fixture
 rules to production, and the owner rolled them back. The test isolation was then rebuilt (section 8).
 `test:live` remains unrun pending review.
@@ -212,7 +211,7 @@ refuse it inside the repo otherwise) and delete it when you have finished
    fix the items in section 4 by hand.
 4. Raise `minAppVersion` to `1.4.0` and let some time pass.
 
-## 6. R1 deployment procedure (rules deployed 2026-10-06; Dart functions pending)
+## 6. R1 deployment procedure (rules deployed 2026-10-06; Dart functions deployed 2026-10-19)
 
 Every deployment names its target project explicitly and is run only on the owner's explicit
 instruction in chat, never by a test.
@@ -252,16 +251,40 @@ instruction in chat, never by a test.
 - **Step 2:** done (section 3).
 - **Step 3:** the ruleset was installed and committed (`a5f9f52`). The existing indexes
   (`AllTippers`, `DAUCompsGames`) are preserved.
-- **Step 4, Dart functions: not done.** The rules went first because R1 does not depend on the new
-  functions: role writes are admin-only under R1, so the old database-role check in the admin
-  endpoints can no longer be self-granted by a client. The functions change is committed (`b511932`)
-  and still to deploy.
+- **Step 4, Dart functions: deferred to 2026-10-19** (see below). The rules went first because R1 does
+  not depend on the new functions: role writes are admin-only under R1, so the old database-role check
+  in the admin endpoints can no longer be self-granted by a client.
 - **Step 5:** `scripts/deploy-database-rules.sh --project dau-footy-tipping-f8a42 --yes --allow-dirty`
   (the tree was dirty only because of unrelated UI work in progress; the ruleset and config were
   committed and clean). Production `minAppVersion` was already `1.4.0`. The live rules were then read
   back with `firebase database:get /.settings/rules` and were identical to `database.rules.json`.
   The deployment record is committed (`4854bab`).
 - **Step 6:** partly done, below.
+
+### Dart functions deployment (2026-10-19)
+
+`scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only dart --yes`, from `f0820ef` with a
+clean tree, on the owner's instruction (the competition is closed, so it is the off-season).
+
+- The gate passed: allowlist check, manifest generation, analyzer and tests for `dau_shared` and
+  `functions_dart`, then the Linux build. This deploy also ships whatever Dart backend dependency
+  updates (`34f4c10`) were not already live.
+- **The Firebase CLI exited with an error** (exit 2): four of the six functions
+  (`admin-fixture-download`, `admin-scoring-rescore`, `scheduled-fixture-download`, `app-badge-count`)
+  reported "Task index 0 failed: timed out after 30000ms", and `admin-check-fixture-url` and
+  `backend-scoring-command` reported success. The script therefore did not write its deployment
+  record or print its "Done" summary.
+- **Verification that the code is live:** all six Cloud Run services have a latest ready revision
+  created during the deploy (16:30:06 to 16:31:11Z), Ready, with 100% of traffic. The four reported
+  failures are therefore a CLI-side timeout while waiting on slower revisions, not failed revisions.
+  Each service answers an unauthenticated request with its own 401 or 403 from our code, and no
+  error-level log entries appeared. The record was then written by hand with
+  `node scripts/build_admin_allowlist.mjs --record functions`.
+- **Not verified:** an allowlisted admin actually running an admin action (fixture download or
+  rescore), and a database-role admin who is not on the allowlist being refused. Both need a real
+  account token.
+- A repeat run of the script would retry the four updates and may time out the same way; it is not
+  needed for the code to be live, and only lets Firebase's own bookkeeping catch up.
 
 ### Post-deploy verification on production (2026-10-07)
 
@@ -320,7 +343,7 @@ Prerequisites, separated by what they gate:
 
 | Gate | Needs |
 |---|---|
-| **R1 (the admin-security fix)** | **Done 2026-10-06:** verified admins; the 1.4.0 floor in place; the real-client emulator smoke test (web, exact SDK, section 3); guarded deployment and the recovery ruleset. **Remaining for the full admin fix:** deploy the Dart functions |
+| **R1 (the admin-security fix)** | **Done 2026-10-06:** verified admins; the 1.4.0 floor in place; the real-client emulator smoke test (web, exact SDK, section 3); guarded deployment and the recovery ruleset. **Dart functions deployed 2026-10-19** (the admin endpoints check the allowlist) |
 | **Identity migration (later)** | duplicate identities, alias collisions and ambiguous contacts resolved; a reviewed mapping; a freeze and re-audit. These do not delay R1 |
 | **Claiming pre-kickoff tip secrecy** | Firestore `tipLogs2` inspected and secured |
 
@@ -399,9 +422,8 @@ twice during development, against the emulators, before the review that led to t
 
 ## 9. Next
 
-1. **Deploy the Dart functions** (`scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only dart`,
-   `--dry-run` first): `b511932` makes the admin endpoints check the allowlist. It is a separate
-   production deploy for the owner to authorise (it is the off-season).
+1. **Exercise the admin endpoints with real accounts:** a fixture download as an allowlisted admin (it
+   should work) and as a database-role admin who is not on the allowlist (it should be refused).
 2. **Finish the post-deploy verification** (end of section 6), mainly with real accounts and devices.
 3. **Inspect the production Firestore rules** (`tipLogs2`, design D11).
 4. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
