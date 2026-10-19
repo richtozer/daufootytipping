@@ -304,6 +304,67 @@ void main() {
   });
 
   group('AppGlassButton and AppGlassGroup', () {
+    testWidgets('buttons are the green of a selected tab, the pill is not', (
+      tester,
+    ) async {
+      Color? surfaceColour(Finder within) => tester
+          .widgetList<DecoratedBox>(
+            find.descendant(of: within, matching: find.byType(DecoratedBox)),
+          )
+          .map((box) => box.decoration)
+          .whereType<ShapeDecoration>()
+          .firstWhere((decoration) => decoration.color != null)
+          .color;
+
+      for (final (brightness, style) in [
+        (Brightness.light, AppGlassStyle.light),
+        (Brightness.dark, AppGlassStyle.dark),
+      ]) {
+        await tester.pumpWidget(
+          _host(
+            AppGlassButton(
+              action: AppGlassAction(
+                icon: Icons.arrow_back,
+                label: 'Back',
+                onPressed: () {},
+              ),
+            ),
+            brightness: brightness,
+          ),
+        );
+        expect(surfaceColour(find.byType(AppGlassButton)), style.selectedFill);
+
+        await tester.pumpWidget(
+          _host(
+            AppGlassGroup(
+              actions: [
+                AppGlassAction(icon: Icons.add, label: 'Add', onPressed: () {}),
+                AppGlassAction(
+                  icon: Icons.arrow_back,
+                  label: 'Back',
+                  onPressed: () {},
+                ),
+              ],
+            ),
+            brightness: brightness,
+          ),
+        );
+        expect(surfaceColour(find.byType(AppGlassGroup)), style.selectedFill);
+
+        await tester.pumpWidget(
+          _host(
+            AppGlassPill(
+              destinations: _destinations,
+              selectedIndex: 0,
+              onSelected: (_) {},
+            ),
+            brightness: brightness,
+          ),
+        );
+        expect(surfaceColour(find.byType(AppGlassPill)), style.fill);
+      }
+    });
+
     testWidgets('a button names itself and reports a tap', (tester) async {
       var pressed = 0;
       await tester.pumpWidget(
@@ -350,6 +411,32 @@ void main() {
         tester.getSize(find.byType(AppGlassGroup)).height,
         kGlassHorizontalThickness,
       );
+    });
+
+    testWidgets('a group is separate buttons with the backdrop between', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          AppGlassGroup(
+            axis: Axis.vertical,
+            actions: [
+              AppGlassAction(icon: Icons.add, label: 'Add', onPressed: () {}),
+              AppGlassAction(
+                icon: Icons.arrow_back,
+                label: 'Back',
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      final buttons = find.byType(AppGlassButton);
+      expect(buttons, findsNWidgets(2));
+      final upper = tester.getRect(buttons.at(0));
+      final lower = tester.getRect(buttons.at(1));
+      expect(lower.top - upper.bottom, kGlassButtonGap);
+      expect(upper.width, kGlassSideThickness);
     });
 
     testWidgets('a vertical group is as thick as the side pill', (

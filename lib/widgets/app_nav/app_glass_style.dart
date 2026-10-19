@@ -51,6 +51,9 @@ const double kGlassSideLabelSize = 9;
 const double kGlassHorizontalLabelSpacing = 3;
 const double kGlassSideLabelSpacing = 0.2;
 
+/// The gap between the buttons of a group, which lets the backdrop show through.
+const double kGlassButtonGap = 8;
+
 /// How much the surface behind a glass control is blurred.
 const double kGlassBlurSigma = 14;
 
@@ -71,17 +74,17 @@ class AppGlassStyle {
   });
 
   static final AppGlassStyle light = AppGlassStyle._(
-    fill: kPanelLightColor,
+    fill: panelCardSurface(Brightness.light),
     shadow: Color(0x3D142808),
     foreground: Color(0xFF14200C),
     // Deeper than the pale selection green, which is close to the pale surface it
     // sits on: the same green as the chosen chip on a tips card.
-    selectedFill: Color(0xFF8BC34A),
+    selectedFill: kControlGreenLight,
     selectedForeground: kOnSelectionLightColor,
   );
 
   static final AppGlassStyle dark = AppGlassStyle._(
-    fill: kPanelDarkColor,
+    fill: panelCardSurface(Brightness.dark),
     shadow: Color(0x80000000),
     foreground: Color(0xFFE8EFDF),
     selectedFill: kSelectionDarkColor,

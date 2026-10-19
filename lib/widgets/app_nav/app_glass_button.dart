@@ -34,6 +34,7 @@ class AppGlassButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
+      selectedFill: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kGlassOuterRadius),
       ),
@@ -45,8 +46,9 @@ class AppGlassButton extends StatelessWidget {
   }
 }
 
-/// Several actions sharing one glass pill so they read as a set, such as Add
-/// and Back on an admin list.
+/// Several actions side by side, such as Add and Back on an admin list. Each is
+/// its own glass button, with a little of the backdrop showing between them so
+/// they read as separate controls that belong together.
 class AppGlassGroup extends StatelessWidget {
   const AppGlassGroup({
     super.key,
@@ -60,25 +62,20 @@ class AppGlassGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final horizontal = axis == Axis.horizontal;
-    final extent = horizontal ? kGlassItemExtent : kGlassSideItemWidth;
-    final items = [
-      for (final action in actions)
-        SizedBox.square(
-          dimension: extent,
-          child: _ActionIcon(action: action, iconSize: 24),
-        ),
+    final size = horizontal ? kGlassHorizontalThickness : kGlassSideThickness;
+    final buttons = [
+      for (var index = 0; index < actions.length; index++) ...[
+        if (index > 0)
+          SizedBox(
+            width: horizontal ? kGlassButtonGap : 0,
+            height: horizontal ? 0 : kGlassButtonGap,
+          ),
+        AppGlassButton(action: actions[index], size: size),
+      ],
     ];
-    return AppGlassSurface(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kGlassOuterRadius),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(kGlassPadding),
-        child: horizontal
-            ? Row(mainAxisSize: MainAxisSize.min, children: items)
-            : Column(mainAxisSize: MainAxisSize.min, children: items),
-      ),
-    );
+    return horizontal
+        ? Row(mainAxisSize: MainAxisSize.min, children: buttons)
+        : Column(mainAxisSize: MainAxisSize.min, children: buttons);
   }
 }
 
