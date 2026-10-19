@@ -273,11 +273,13 @@ class TipsCardLayout {
     final logoSize = teamLogoSize(textScaler, textTheme);
     final middleWidth = logoSize * 2 + measureText(' V ', body).width;
     final inlineTeamWidth = largestName * 2 + math.max(88.0, middleWidth + 16);
-    final inlineChoicesWidth =
-        (percentStats
-            ? percentWidth * 5 + 48 + 48 + trophyGrowth
-            : chipWidths.fold<double>(0, (a, b) => a + b) + 48) +
-        32;
+    // A row of five percentage chips is their widths, the four 8 px gaps, the
+    // row's 8 px either side, the result trophy's room in one of them, and the
+    // card's margins: counted up, not rounded generously, so a card goes inline
+    // as soon as the chips really fit.
+    final inlineChoicesWidth = percentStats
+        ? percentWidth * 5 + 32 + 16 + trophySize + 6 + 8 + 4
+        : chipWidths.fold<double>(0, (a, b) => a + b) + 48 + 32;
     // Card margins, panel padding and chip border/rounding allowance are included.
     final scaledTeamWidth = math.max(
       standardTeamWidth,
@@ -324,13 +326,22 @@ class TipsCardLayout {
     // they fall to a grid, which costs more height than the matchup saves.
     final compactMin =
         compactTeamWidth + inlineChoicesWidth / viewportFraction + 8;
-    final mode = width >= wideMin
+    final modeForWidth = width >= wideMin
         ? TipsCardMode.wide
         : width >= compactMin
         ? TipsCardMode.compact
         : width >= standardMin
         ? TipsCardMode.standard
         : TipsCardMode.stacked;
+    // A percentage card whose chips would be left in the 2 / 1 / 2 pyramid beside
+    // the matchup goes to the stacked layout when that gives the chips a single
+    // row: the matchup above, the five percentages below it.
+    final bool stackedGivesInlineChips =
+        percentStats &&
+        modeForWidth == TipsCardMode.standard &&
+        (width - 8 - scaledTeamWidth) * viewportFraction < inlineChoicesWidth &&
+        (width - 8) * viewportFraction >= inlineChoicesWidth;
+    final mode = stackedGivesInlineChips ? TipsCardMode.stacked : modeForWidth;
     final matchupWidth = switch (mode) {
       TipsCardMode.wide => inlineTeamWidth,
       TipsCardMode.compact => compactTeamWidth,
