@@ -33,8 +33,10 @@ class AppGlassButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Green says "go", so a button that cannot be pressed takes the plain
+    // frosted fill; the dimmed icon alone left it looking live.
     return AppGlassSurface(
-      selectedFill: true,
+      selectedFill: action.onPressed != null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kGlassOuterRadius),
       ),

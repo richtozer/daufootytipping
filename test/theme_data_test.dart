@@ -180,6 +180,30 @@ void main() {
           isNull,
         );
       });
+
+      test(
+        'a disabled control is not green even when it is on, $brightness',
+        () {
+          final theme = withNavGreenControls(
+            ThemeData(brightness: brightness, useMaterial3: true),
+          );
+          final onAndDisabled = {WidgetState.selected, WidgetState.disabled};
+
+          expect(theme.switchTheme.trackColor!.resolve(onAndDisabled), isNull);
+          expect(theme.switchTheme.thumbColor!.resolve(onAndDisabled), isNull);
+          expect(theme.checkboxTheme.fillColor!.resolve(onAndDisabled), isNull);
+          expect(
+            theme.checkboxTheme.checkColor!.resolve(onAndDisabled),
+            isNull,
+          );
+          expect(theme.radioTheme.fillColor!.resolve(onAndDisabled), isNull);
+          // Enabled, the tick keeps its colour on the green.
+          expect(
+            theme.checkboxTheme.checkColor!.resolve({WidgetState.selected}),
+            onGreen,
+          );
+        },
+      );
     }
   });
 }

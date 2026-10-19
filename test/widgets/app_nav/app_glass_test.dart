@@ -365,6 +365,52 @@ void main() {
       }
     });
 
+    testWidgets('a disabled button is not green, so it reads as disabled', (
+      tester,
+    ) async {
+      Color? surfaceColour(Finder within) => tester
+          .widgetList<DecoratedBox>(
+            find.descendant(of: within, matching: find.byType(DecoratedBox)),
+          )
+          .map((box) => box.decoration)
+          .whereType<ShapeDecoration>()
+          .firstWhere((decoration) => decoration.color != null)
+          .color;
+
+      for (final (brightness, style) in [
+        (Brightness.light, AppGlassStyle.light),
+        (Brightness.dark, AppGlassStyle.dark),
+      ]) {
+        await tester.pumpWidget(
+          _host(
+            AppGlassGroup(
+              actions: [
+                AppGlassAction(icon: Icons.add, label: 'Add', onPressed: () {}),
+                const AppGlassAction(
+                  icon: Icons.save,
+                  label: 'Save',
+                  onPressed: null,
+                ),
+              ],
+            ),
+            brightness: brightness,
+          ),
+        );
+
+        expect(
+          surfaceColour(find.byType(AppGlassButton).at(0)),
+          style.selectedFill,
+          reason: 'an enabled button stays green',
+        );
+        expect(
+          surfaceColour(find.byType(AppGlassButton).at(1)),
+          style.fill,
+          reason:
+              'a disabled button takes the plain frosted fill, not the green',
+        );
+      }
+    });
+
     testWidgets('a button names itself and reports a tap', (tester) async {
       var pressed = 0;
       await tester.pumpWidget(

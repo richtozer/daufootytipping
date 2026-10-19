@@ -127,8 +127,8 @@ const Color kControlGreenDark = kSelectionDarkColor;
 const Color kOnControlGreenDark = kOnSelectionDarkColor;
 
 /// Gives the switches, tick boxes and radio buttons the navigation's green when
-/// they are on, so they match the buttons beside them instead of the theme's
-/// own dark green.
+/// they are on and usable, so they match the buttons beside them instead of the
+/// theme's own dark green. Disabled, they go back to the theme's greys.
 ///
 /// A control that sets its own colour, such as the admin switches whose thumb
 /// warns in red or orange, still wins over this.
@@ -136,9 +136,15 @@ ThemeData withNavGreenControls(ThemeData theme) {
   final dark = theme.brightness == Brightness.dark;
   final green = dark ? kControlGreenDark : kControlGreenLight;
   final onGreen = dark ? kOnControlGreenDark : kOnControlGreenLight;
+  // A disabled control that is on keeps the theme's own greys: green would
+  // make it look usable.
   WidgetStateProperty<Color?> whenOn(Color on) =>
       WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected) ? on : null,
+        (states) =>
+            states.contains(WidgetState.selected) &&
+                !states.contains(WidgetState.disabled)
+            ? on
+            : null,
       );
   return theme.copyWith(
     switchTheme: theme.switchTheme.copyWith(
@@ -151,7 +157,9 @@ ThemeData withNavGreenControls(ThemeData theme) {
     ),
     checkboxTheme: theme.checkboxTheme.copyWith(
       fillColor: whenOn(green),
-      checkColor: WidgetStatePropertyAll(onGreen),
+      checkColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled) ? null : onGreen,
+      ),
     ),
     radioTheme: theme.radioTheme.copyWith(fillColor: whenOn(green)),
     // The one filled button, for the choice that goes ahead: the same green and
