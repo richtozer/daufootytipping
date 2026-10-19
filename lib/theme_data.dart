@@ -154,6 +154,18 @@ ThemeData withNavGreenControls(ThemeData theme) {
       checkColor: WidgetStatePropertyAll(onGreen),
     ),
     radioTheme: theme.radioTheme.copyWith(fillColor: whenOn(green)),
+    // The one filled button, for the choice that goes ahead: the same green and
+    // dark text as the navigation's buttons.
+    filledButtonTheme: FilledButtonThemeData(
+      style: (theme.filledButtonTheme.style ?? const ButtonStyle()).copyWith(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled) ? null : green,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled) ? null : onGreen,
+        ),
+      ),
+    ),
   );
 }
 

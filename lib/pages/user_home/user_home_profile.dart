@@ -3,7 +3,6 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
-import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_help.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -12,6 +11,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_alias_dialog.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
 import 'package:daufootytipping/widgets/app_panel_card.dart';
@@ -83,7 +83,7 @@ class Profile extends StatelessWidget with WatchItMixin {
 
                   if (tipper.name.isEmpty) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _showEditNameDialog(context, tipper);
+                      showEditAliasDialog(context, tipper);
                     });
                   }
                   return Column(
@@ -122,7 +122,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                         onPressed: tipper.isAnonymous
                                             ? null
                                             : () {
-                                                _showEditNameDialog(
+                                                showEditAliasDialog(
                                                   context,
                                                   tipper,
                                                 );
@@ -401,117 +401,6 @@ class Profile extends StatelessWidget with WatchItMixin {
           ),
         ),
       ),
-    );
-  }
-
-  void _showEditNameDialog(BuildContext context, Tipper tipper) {
-    final TextEditingController nameController = TextEditingController(
-      text: tipper.name,
-    );
-    String? errorMessage;
-    bool isNewTipper = tipper.name.isEmpty;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dismissing the dialog without saving
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return AlertDialog(
-              title: isNewTipper
-                  ? const Text('Create Tipper Alias')
-                  : const Text('Edit Tipper Alias'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'This is the name other tippers will see you as in the '
-                    'competition. It must be unique.',
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: nameController,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Tipper Alias',
-                      hintText: 'e.g. The Oracle',
-                    ),
-                  ),
-                  if (errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        errorMessage!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                ],
-              ),
-              actions: [
-                if (!isNewTipper)
-                  TextButton(
-                    child: const Text('Cancel'),
-                    onPressed: () {
-                      if (tipper.name.isEmpty) {
-                        // Prevent navigation away without saving a valid name
-                        setState(() {
-                          errorMessage = 'You must enter a valid tipper alias.';
-                        });
-                      } else {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                TextButton(
-                  child: const Text('Save'),
-                  onPressed: () async {
-                    String newName = nameController.text.trim();
-                    if (newName.isEmpty) {
-                      setState(() {
-                        errorMessage = 'Alias cannot be empty.';
-                      });
-                      return;
-                    }
-                    if (newName.length < 2) {
-                      setState(() {
-                        errorMessage =
-                            'Alias must be at least 2 characters long.';
-                      });
-                      return;
-                    }
-                    try {
-                      // Update the tipper name in the database
-                      await di<TippersViewModel>().setTipperName(
-                        tipper.dbkey!,
-                        newName,
-                      );
-
-                      // if the tipper is new then navigate to the home page,
-                      // otherwise just close the dialog
-                      if (isNewTipper) {
-                        if (context.mounted) {
-                          Navigator.of(context).pushReplacement(
-                            appPageRoute((context) => const HomePage()),
-                          );
-                        }
-                      } else {
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      }
-                    } catch (e) {
-                      setState(() {
-                        errorMessage = 'Error: $e';
-                      });
-                    }
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 

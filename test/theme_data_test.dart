@@ -169,6 +169,11 @@ void main() {
           resolve(theme.radioTheme.fillColor, WidgetState.selected),
           green,
         );
+        // The filled button is the same green, with the same dark text.
+        final filled = theme.filledButtonTheme.style!;
+        expect(filled.backgroundColor!.resolve({}), green);
+        expect(filled.foregroundColor!.resolve({}), onGreen);
+        expect(filled.backgroundColor!.resolve({WidgetState.disabled}), isNull);
         // Off, they keep the theme's own look.
         expect(
           resolve(theme.switchTheme.trackColor, WidgetState.disabled),
