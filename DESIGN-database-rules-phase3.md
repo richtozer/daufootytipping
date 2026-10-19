@@ -7,7 +7,8 @@ Companion to [DESIGN-database-rules.md](DESIGN-database-rules.md) (section 5 ste
 `58f7e4904e46`, rules sha256 `959f840c20d9`; see section 6). The live rules were read back after
 deploying and are identical to `database.rules.json`, and were still identical on 2026-10-19 with no
 rollback. The Dart functions change that makes the admin endpoints check the same allowlist was deployed on
-2026-10-19 (commit `f0820ef`, allowlist revision `58f7e4904e46`; see section 6). Phase 4 (server pieces) and R2 are not started.
+2026-10-19 (commit `f0820ef`, allowlist revision `58f7e4904e46`; see section 6). The admin endpoints were then verified from a real device: they accepted an allowlisted admin and
+refused a database-role admin who is not on the list. Phase 4 (server pieces) and R2 are not started.
 **One production incident occurred during this phase** (section 8): a test I wrote deployed fixture
 rules to production, and the owner rolled them back. The test isolation was then rebuilt (section 8).
 `test:live` remains unrun pending review.
@@ -280,9 +281,17 @@ clean tree, on the owner's instruction (the competition is closed, so it is the 
   Each service answers an unauthenticated request with its own 401 or 403 from our code, and no
   error-level log entries appeared. The record was then written by hand with
   `node scripts/build_admin_allowlist.mjs --record functions`.
-- **Not verified:** an allowlisted admin actually running an admin action (fixture download or
-  rescore), and a database-role admin who is not on the allowlist being refused. Both need a real
-  account token.
+- **Verified afterwards, the same day, from a release build (1.4.1+713, `a187f5f`) on the owner's iPhone,
+  read from the Cloud Run request logs:**
+  - an allowlisted admin's rescore: `admin-scoring-rescore` returned **200** (16:57Z);
+  - the same admin's fixture download: `admin-fixture-download` returned **200** (16:59Z), followed by
+    a **200** from `backend-scoring-command`, the automatic rescore the download triggers;
+  - **the refusal case:** the owner's own trusted test tipper, given the database role `admin` but
+    not on the allowlist, got **403 PERMISSION_DENIED "User is not authorized as admin"** from
+    `admin-scoring-rescore` (17:03Z), rejected before any work was done. The role was left as `admin`
+    on that account deliberately: under R1 the allowlist decides, so the role confers nothing;
+  - no other warnings or errors from any Dart function since the deploy, apart from the deliberate
+    unauthenticated probes made during verification (401/403).
 - A repeat run of the script would retry the four updates and may time out the same way; it is not
   needed for the code to be live, and only lets Firebase's own bookkeeping catch up.
 
@@ -303,10 +312,10 @@ confirmed that way. Tipping was not possible because the competition is closed. 
 skipped on production, having been exercised against the same rules in the emulator (accepted, then
 reverted).
 
-**Still to verify** (needs real accounts or devices, or the Dart functions deploy): an allowlisted
-admin's edit; Apple and Google sign-in; new registration; push delivery on a real device; fixture
-download and rescore; scheduled scoring and the reminders function; a 1.3.x client's write being
-rejected (covered by tests only).
+**Still to verify** (needs real accounts or devices): an allowlisted admin's database edit (for
+example `AppConfig`); Apple and Google sign-in; new registration; push delivery on a real device;
+scheduled scoring and the reminders function; a 1.3.x client's write being rejected (covered by tests
+only). The admin endpoints are verified (see the Dart functions deployment above).
 
 **Rollback ladder (use the smallest step that fixes the problem):**
 
@@ -422,9 +431,8 @@ twice during development, against the emulators, before the review that led to t
 
 ## 9. Next
 
-1. **Exercise the admin endpoints with real accounts:** a fixture download as an allowlisted admin (it
-   should work) and as a database-role admin who is not on the allowlist (it should be refused).
-2. **Finish the post-deploy verification** (end of section 6), mainly with real accounts and devices.
-3. **Inspect the production Firestore rules** (`tipLogs2`, design D11).
-4. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
+1. **Finish the post-deploy verification** (the "Still to verify" list in section 6), mainly with real
+   accounts and devices. The admin endpoints are done.
+2. **Inspect the production Firestore rules** (`tipLogs2`, design D11).
+3. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
    user can edit another tipper's `email` or `logon`) stays until R2.
