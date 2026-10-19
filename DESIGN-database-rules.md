@@ -477,17 +477,20 @@ floor only. Announce it lightly, with web reload guidance (D13).
 1. **Inventory and spike: DONE.** See [DESIGN-database-rules-phase1.md](DESIGN-database-rules-phase1.md).
    Spike tests live in `rules_test/` (47 rules tests, a 10-check claim spike and a 52-check
    identity protocol spike).
-2. **Phase 3 status: built and tested, not deployed** (see
+2. **Phase 3 status: built, tested, and R1 deployed to production on 2026-10-06** (see
    [DESIGN-database-rules-phase3.md](DESIGN-database-rules-phase3.md)): R1 rules template and
    generator, the recovery ruleset, the allowlist consumers, the Dart endpoint change, the guarded
    deployment script, the identity audit script, hardened test isolation and 253 + 91 + 62
-   automated checks (149 of the Node checks need no emulator: `npm run test:unit`). **R1 cannot be deployed until the admin UIDs are verified
-   and added to `config/admin-auth-uids.json`** (the deploy script refuses an empty list).
+   automated checks (149 of the Node checks need no emulator: `npm run test:unit`). The deploy script
+   refuses an empty or stale allowlist. The Dart functions change (the admin endpoints check the
+   allowlist) is committed (`b511932`) but **not yet deployed**.
 3. **Immediate owner actions** (no code): raise `minAppVersion` to `1.4.0` (step A); inspect the
    production Firestore rules (D11); run `scripts/verify_admin_auth_uids.mjs` and confirm the admin
-   UIDs; check store version adoption.
+   UIDs; check store version adoption. **Status:** done, except the Firestore inspection.
 4. **Deploy R1** (owner decision, after the actions above): audit fixes, then the Dart functions,
-   then the rules, then the post-deploy verification (phase 3 doc, section 6).
+   then the rules, then the post-deploy verification (phase 3 doc, section 6). **Status:** the rules were
+   deployed first (2026-10-06) because R1 does not depend on the functions; the Dart functions deploy
+   and most of the post-deploy verification are still to do.
 5. **Server pieces** (step 2) with tests, including the proofs re-run against the production
    database handle.
 6. **R2 client release** (step 3), including the update-button fix.
@@ -618,3 +621,6 @@ floor only. Announce it lightly, with web reload guidance (D13).
 | 3 | Web update failure is operational, not off-season only | D13 and the announcement requirement |
 | 3 | Raw emails cannot be RTDB index keys | `LogonIndex` keyed by SHA-256 (D2) |
 | 3 | Distinguish API inspection from empirical testing | Phase report updated: REST ETag path inspected, not run (D3, report section 4) |
+| 4 | Live audit command fails without credentials; deploy guard; UID classification (Auth decides account vs placeholder); rollback too broad; contact-field limits | Fail-fast credential check, guarded deploy script, Auth-driven classification, `r1-recovery` variant, limits documented (phase 3 report sections 1, 6, 7) |
+| 5 | "Tests cannot reach production" overstated: the network guard covered only Node; loopback check; stub location; launcher and Dart; substring project match | OS boundary (`sandbox-exec`), explicit `FIREBASE_BIN` stub, exact project matching; the claim was retracted (phase 3 report section 8) |
+| 6 | Smoke test served SDK 12.19.0, not the release's 12.18.0; broad `pkill`; backend admin operations untested; wording | Exact-SDK enforcement, recorded process groups, limits and wording corrected, rerun 43 of 43; backend checks listed as post-deploy (phase 3 report section 3) |

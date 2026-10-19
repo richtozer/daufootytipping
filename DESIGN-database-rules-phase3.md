@@ -3,14 +3,15 @@
 Companion to [DESIGN-database-rules.md](DESIGN-database-rules.md) (section 5 steps 0 and 1) and
 [DESIGN-database-rules-phase1.md](DESIGN-database-rules-phase1.md).
 
-**Status: built and tested; R1 is not deployed.** The owner has since populated
-`config/admin-auth-uids.json` with 4 admin UIDs (allowlist revision `58f7e4904e46`); the generated
-outputs are in step with it (`--check` passes). I have not seen the verification output, so I
-cannot confirm the UIDs are the right people. `database.rules.json` is untouched and no Cloud
-Function was deployed. **One production incident occurred during this phase** (section 8): a test I
-wrote deployed fixture rules to production, and the owner rolled them back. The test isolation was
-then rebuilt (section 8) and `test:live` remains unrun pending review. R1 should not be deployed until
-the owner has confirmed each admin UID (section 5) and the other prerequisites in section 7 are met.
+**Status: R1 is deployed to production** (2026-10-06 13:03Z, commit `a5f9f52`, allowlist revision
+`58f7e4904e46`, rules sha256 `959f840c20d9`; see section 6). The live rules were read back after
+deploying and are identical to `database.rules.json`, and were still identical on 2026-10-19 with no
+rollback. The Dart functions change that makes the admin endpoints check the same allowlist is
+committed (`b511932`, 2026-10-18) but **not deployed** (there is no functions entry in
+`config/deployments/allowlist-deployments.jsonl`). Phase 4 (server pieces) and R2 are not started.
+**One production incident occurred during this phase** (section 8): a test I wrote deployed fixture
+rules to production, and the owner rolled them back. The test isolation was then rebuilt (section 8).
+`test:live` remains unrun pending review.
 
 ## 1. What was built
 
@@ -27,7 +28,7 @@ the owner has confirmed each admin UID (section 5) and the other prerequisites i
 | `scripts/verify_admin_auth_uids.mjs` | Read-only admin UID verification against Firebase Auth; runs offline from Firebase CLI exports or live; fails fast without credentials |
 | `scripts/deploy-database-rules.sh` | Guarded database rules deployment: explicit `--project` (required with `--yes`), explicit `FIREBASE_BIN`, checks the file Firebase actually ships, records the allowlist revision; `--variant r1-recovery` for compatibility rollbacks |
 | `config/generated/database.rules.r1-recovery.json` | Generated recovery ruleset: R1 minus validation strictness, plus legacy 1.3.x Stats writers; every allowlist and identity protection kept |
-| `config/deployments/allowlist-deployments.jsonl` | Written by deployments (not yet created): which allowlist revision each rules/functions deployment used |
+| `config/deployments/allowlist-deployments.jsonl` | Written by deployments (one entry so far, the 2026-10-06 R1 rules deployment): which allowlist revision each rules/functions deployment used |
 | `rules_test/support/isolated.sh` (OS boundary), `support/no_production.mjs`, `support/safety.mjs`, `support/firebase_stub.sh`, `os_boundary.test.mjs`, `safety.test.mjs`, `deploy_scripts.test.mjs`, `deploy_functions.test.mjs`, a dedicated `rules_test/firebase.json` | Test isolation (section 8) |
 | `scripts/lib/admin_access.mjs` | Shared helpers: Auth-export lookups, a guard that refuses an unignored export (password hashes), credential check with a clear error |
 | `rules_test/r1.rules.test.mjs` | 39 R1 conformance and rejection tests |
@@ -162,7 +163,20 @@ The Firebase Auth cross-check (`--auth-check`, which proposes a backfill uid per
 flags unverified emails and uids already used by another record) is built and tested, but **not
 run against production**: it needs your credentials.
 
-## 5. What the owner must do before R1 can be deployed
+## 5. Owner actions before R1 (status as of 2026-10-19)
+
+R1 is deployed, so this section is now a record. Status of each action:
+
+1. **Verify the admin UIDs: done.** The verification run found all four admin records in Firebase
+   Auth, each with a matching, verified account and no shared UID (verdict OK for each); the owner
+   then instructed the deployment.
+2. **Inspect the production Firestore rules (D11): still open.** It gates only the claim of pre-kickoff
+   tip secrecy, not R1.
+3. **Identity audit with the Auth check:** not recorded here as run. It gates the identity migration,
+   not R1.
+4. **`minAppVersion` 1.4.0: done.** Production reads `1.4.0` (checked 2026-10-06 and 2026-10-19).
+
+The original instructions follow, kept for reference.
 
 The scripts need data from production. **Option A needs nothing beyond the Firebase CLI you are
 already logged into** and keeps the scripts offline; option B needs Google Application Default
@@ -198,10 +212,10 @@ refuse it inside the repo otherwise) and delete it when you have finished
    fix the items in section 4 by hand.
 4. Raise `minAppVersion` to `1.4.0` and let some time pass.
 
-## 6. R1 deployment procedure (not yet run)
+## 6. R1 deployment procedure (rules deployed 2026-10-06; Dart functions pending)
 
-Every deployment names its target project explicitly, and no step below is run by an automated
-tool or test.
+Every deployment names its target project explicitly and is run only on the owner's explicit
+instruction in chat, never by a test.
 
 1. `cd rules_test && npm test && npm run test:unit && npm run test:dart` all green (they run inside the
    OS boundary and refuse to run without it);
@@ -229,6 +243,47 @@ tool or test.
    scoring event fires; the reminders function runs; a new user registers; **a push token registers
    on a real iOS or Android device** (the smoke test cannot prove this); a 1.3.x client's write is
    rejected; an anonymous user browses read-only.
+
+### What was done on 2026-10-06
+
+- **Step 1, gates:** all passed with 0 failures: unit tests 149 (144 pass, 5 skipped), rules suite 253
+  (248 pass, 5 skipped), Dart spikes all checks passed. The skips are the `test:live` suite and boundary
+  checks for credential files that do not exist on that machine.
+- **Step 2:** done (section 3).
+- **Step 3:** the ruleset was installed and committed (`a5f9f52`). The existing indexes
+  (`AllTippers`, `DAUCompsGames`) are preserved.
+- **Step 4, Dart functions: not done.** The rules went first because R1 does not depend on the new
+  functions: role writes are admin-only under R1, so the old database-role check in the admin
+  endpoints can no longer be self-granted by a client. The functions change is committed (`b511932`)
+  and still to deploy.
+- **Step 5:** `scripts/deploy-database-rules.sh --project dau-footy-tipping-f8a42 --yes --allow-dirty`
+  (the tree was dirty only because of unrelated UI work in progress; the ruleset and config were
+  committed and clean). Production `minAppVersion` was already `1.4.0`. The live rules were then read
+  back with `firebase database:get /.settings/rules` and were identical to `database.rules.json`.
+  The deployment record is committed (`4854bab`).
+- **Step 6:** partly done, below.
+
+### Post-deploy verification on production (2026-10-07)
+
+A debug build (1.4.1+713) on the iPhone Duo simulator, run against production with the emulators off,
+signed in as a standard tipper:
+
+- it started cleanly with no runtime errors;
+- it registered a push token (the tipper had none) and wrote its last-login time, and **both writes
+  were accepted by R1**;
+- the Tips tab (round headers with points and rank, game cards) and the Competition Leaderboard
+  rendered live data with no error text.
+
+Limits: the simulator's screen capture was blank for the agent, so screens were read through the
+Flutter widget inspector; the Percentage Tipped page and the Profile tab (no admin options) were not
+confirmed that way. Tipping was not possible because the competition is closed. The alias edit was
+skipped on production, having been exercised against the same rules in the emulator (accepted, then
+reverted).
+
+**Still to verify** (needs real accounts or devices, or the Dart functions deploy): an allowlisted
+admin's edit; Apple and Google sign-in; new registration; push delivery on a real device; fixture
+download and rescore; scheduled scoring and the reminders function; a 1.3.x client's write being
+rejected (covered by tests only).
 
 **Rollback ladder (use the smallest step that fixes the problem):**
 
@@ -265,7 +320,7 @@ Prerequisites, separated by what they gate:
 
 | Gate | Needs |
 |---|---|
-| **R1 (the admin-security fix)** | independently verified admins; the 1.4.0 cutoff confirmed; the real-client emulator smoke test (done for web on the exact SDK, section 3); guarded deployment and the recovery ruleset prepared (done) |
+| **R1 (the admin-security fix)** | **Done 2026-10-06:** verified admins; the 1.4.0 floor in place; the real-client emulator smoke test (web, exact SDK, section 3); guarded deployment and the recovery ruleset. **Remaining for the full admin fix:** deploy the Dart functions |
 | **Identity migration (later)** | duplicate identities, alias collisions and ambiguous contacts resolved; a reviewed mapping; a freeze and re-audit. These do not delay R1 |
 | **Claiming pre-kickoff tip secrecy** | Firestore `tipLogs2` inspected and secured |
 
@@ -344,6 +399,10 @@ twice during development, against the emulators, before the review that led to t
 
 ## 9. Next
 
-- Owner actions (section 5); then deployment per section 6 (a decision for the owner). The
-  real-client emulator smoke test is done for the web build on the release's exact Firebase JS SDK.
-- Phase 4 (server pieces) and the R2 client, per the design.
+1. **Deploy the Dart functions** (`scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only dart`,
+   `--dry-run` first): `b511932` makes the admin endpoints check the allowlist. It is a separate
+   production deploy for the owner to authorise (it is the off-season).
+2. **Finish the post-deploy verification** (end of section 6), mainly with real accounts and devices.
+3. **Inspect the production Firestore rules** (`tipLogs2`, design D11).
+4. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
+   user can edit another tipper's `email` or `logon`) stays until R2.
