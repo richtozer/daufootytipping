@@ -429,7 +429,10 @@ floor only. Announce it lightly, with web reload guidance (D13).
    `authuid` that does not match the Auth user for the record's email, multiple records per
    email, alias collisions, and the admin list (run `scripts/verify_admin_auth_uids.mjs`). Fix
    by hand. The 2026 export suggests this is small: 2 active placeholder users, 1 real-UID
-   duplicate pair, 3 `logon` and 4 alias collision groups.
+   duplicate pair, 3 `logon` and 4 alias collision groups. **Run 2026-10-19 with the Auth check**
+   (5 October exports): 52 placeholder-backed records, 4 of them active (12 are stale UIDs not in Auth,
+   3 are backfill candidates of which 1 has a verified email), and the same duplicate and collision
+   groups (phase 3 report, section 4).
 1. **R1: interim rules (deploy first; closes today's exposure).** Deployed together with the
    Dart admin endpoint change (D12), because rules alone leave the backend's role scan in place.
    Baseline: clients 1.4.0 and 1.4.1 only.

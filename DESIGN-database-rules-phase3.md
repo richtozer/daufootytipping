@@ -161,9 +161,47 @@ patterns: it signals only recorded process groups and a browser carrying a per-r
 | Tip or token nodes for a missing tipper | 0 / 0 | |
 | Games with an unparsable `DateUtc` | 0 of 2,121 | epoch backfill is deterministic |
 
-The Firebase Auth cross-check (`--auth-check`, which proposes a backfill uid per placeholder and
-flags unverified emails and uids already used by another record) is built and tested, but **not
-run against production**: it needs your credentials.
+The Firebase Auth cross-check (which proposes a backfill uid per placeholder and flags unverified
+emails and uids already used by another record) was run on 2026-10-19; see below.
+
+### With the Auth cross-check (run 2026-10-19, on the 5 October exports)
+
+Run offline and read-only, inside the test suite's operating-system boundary (no network):
+`node scripts/audit_identity.mjs --file test/data/db-now.json --auth-export test/data/auth-export.json`.
+Firebase Auth is the authority: a record is an account only if its `authuid` exists in Auth. No
+placeholder file was written (it would contain email addresses). Counts only:
+
+| Finding | Shape-only audit (above) | With the Auth check |
+|---|---|---|
+| Tippers / active in 2026 | 211 / 80 | 214 / 80 |
+| Admins; with a placeholder or missing uid | 4; 0 | 4; 0 |
+| Placeholder-backed records / active in 2026 | 40 / 2 | **52 / 4** |
+| Real-UID duplicate groups / placeholder groups | 1 / 3 | 1 / 3 |
+| Duplicate `logon` / `email` groups | 3 / 2 | 3 / 2 |
+| A `logon` equal to another record's `email` | 5 | 5 |
+| Contact not trimmed and lower-case | 1 | 1 |
+| Alias collision groups / empty aliases | 4 / 2 | 4 / 2 |
+| Orphaned tips / orphaned tokens / missing `authuid` | 0 / 0 / 0 | 0 / 0 / 0 |
+| Games with an unparsable `DateUtc` | 0 of 2,121 | 0 of 2,126 |
+
+The 52 placeholder-backed records are:
+
+- **37** plain email placeholders with no matching Auth account (1 active);
+- **12** with a well-formed UID that does not exist in Auth and no account for their email (2 active):
+  stale or deleted accounts, which is why the count is higher than the shape-only 40;
+- **3** backfill candidates (Auth has exactly one account with the record's email, and none is already
+  claimed by another record): 1 with a verified email and 2 with an unverified one (1 active).
+
+Of the 13 Auth disagreements, 12 are the stale UIDs above and 1 is a record whose account exists but
+whose verified email differs from the record's contact.
+
+Reading: nothing here blocks R2; it is data work the migration must handle. The 4 active
+placeholder-backed users would be relinked at their next login through the placeholder claim path
+(`replaceIf`, design D3). An unverified backfill candidate must not be linked automatically, since an
+unverified email may belong to someone else. The duplicates, collisions and cross-matching contacts need
+the owner's decisions; an opaque-ID worklist (no names) can be produced. The exports are from 2026-10-05,
+so refresh them before any backfill, and delete `test/data/auth-export.json` (it holds password hashes)
+when finished.
 
 ## 5. Owner actions before R1 (status as of 2026-10-19)
 
@@ -174,8 +212,8 @@ R1 is deployed, so this section is now a record. Status of each action:
    then instructed the deployment.
 2. **Inspect the production Firestore rules (D11): done 2026-10-19** (section 6): no client can read
    Firestore, and a version-controlled ruleset replaced the old one.
-3. **Identity audit with the Auth check:** not recorded here as run. It gates the identity migration,
-   not R1.
+3. **Identity audit with the Auth check: done 2026-10-19**, on the 5 October exports (section 4). It
+   gates the identity migration, not R1; its findings need the owner's decisions before that migration.
 4. **`minAppVersion` 1.4.0: done.** Production reads `1.4.0` (checked 2026-10-06 and 2026-10-19).
 
 The original instructions follow, kept for reference.
