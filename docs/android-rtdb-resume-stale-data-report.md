@@ -2,7 +2,9 @@
 
 **Status:** Unresolved, with successful instrumented reproductions and completed independent review. Builds 708 and 709 captured the failure on a physical Pixel and showed that only a new Android process restored synchronization. The next candidate adds a manually started secondary Firebase client experiment only; no further recovery behavior has been selected.
 
-**Report updated:** 7 September 2026
+**Report updated:** 19 October 2026 (an iOS observation was added; every other section is as of 7 September 2026)
+
+**iOS:** one uninstrumented observation on 19 October 2026 shares this report's central signature (a retained process stopped getting acknowledgements from the Realtime Database and only a new process recovered). See *iOS observation*. The resume diagnostics now run on iOS as well, observing only.
 
 **Testing after 6 September 2026:** the comp closes and organic score changes stop, but the defect remains fully reproducible using self-authored writes to a dedicated test node or test competition. One boundary does break: cards constructed after the final round completes never subscribe to games updates, so the widget-level check silently stops being meaningful — most importantly after a cold start. Read *Post-season testing* before designing the next reproduction.
 
@@ -40,6 +42,25 @@ Both approaches are covered by unit tests, but neither has demonstrated the requ
 - Force-quitting and reopening the Android app loaded the finalized state.
 
 The exact Android build number, Pixel model, Android version, battery-optimization settings, and background duration were not captured in that earlier report. The later instrumented reproduction below captured the build and background interval, but the Pixel model variant, Android version, and battery/background-restriction settings remain to be recorded.
+
+### iOS observation — 19 October 2026
+
+A single, uninstrumented observation, recorded because it shares the central signature of this report: a retained process stopped getting acknowledgements from the Realtime Database, and only a new process recovered. The earlier reports above found iOS healthy, including after long background intervals, so this is the first sign that iOS may be affected. It is one data point, with differences from the Android reproductions (listed below), and proves nothing yet. All times are UTC.
+
+- **Device and app:** iPhone 16 Pro (iPhone17,1), iOS 27.2 (24B5110a). Release build `1.4.1+713` from commit `a187f5f`, development-signed and installed over the store build. **No resume diagnostics** were present: the recorder ran on Android only at that time.
+- **Healthy period:** the build made successful backend calls from 16:57Z. The last database writes before the stall were admin edits to a test tipper at 17:16:13Z and 17:17:09Z, each accepted within seconds.
+- **The stall:** at 18:02:00Z (the tip's own timestamp), about 45 minutes after that write and an unknown time after the app was last in the foreground, a god-mode tip was submitted. The app showed a spinner and no error. Production still had no such write at 18:05:35Z or 18:07:27Z.
+- **Recovery:** the app was force-quit and reopened. The write reached the server at about 18:08:58Z, when the tip-written backend functions ran, so the new process replayed the persisted write. The server accepted it, which rules out a rules rejection.
+- **Afterwards:** in the same build, a second tip from the new process at 18:15:07Z reached the server within about six seconds.
+
+**Not captured:** whether the app had been in the background and for how long; `/.info/connected` or any native connection state; the phone's network conditions; App Check state. The build was development-signed, a difference from the store-signed Android reproduction that cannot be excluded.
+
+**Observations about the code (not conclusions):**
+
+- On resume, iOS runs only the one-off games read. The RTDB transport restart is Android-only (`AppResumeDataRefresher.refresh`).
+- Tip submission awaits the server acknowledgement with no timeout (`GameTipViewModel.addTip`), so a stalled connection shows as an endless spinner. The Firestore tip-log step runs after the acknowledgement, so it is lost if the process is killed first.
+
+**Next:** diagnostics build `1.4.1+713.1`, built with `ANDROID_RESUME_DIAGNOSTICS=true`. The recorder now runs on iOS and only observes (process ids carry the platform name, for example `iOS-…`; the resume reconnect stays Android-only, so this shows what an unmitigated iOS process does). Protocol: background the app for a long interval, resume it, open Profile, admin functions, Resume diagnostics and note `/.info/connected`, try a tip or another write, then export the log chunks. Compare with the Android signature: the connection state stays `false`, reads return from cache within milliseconds, and only a new process recovers.
 
 ## Instrumented physical-Pixel reproduction — 4-5 September 2026
 
