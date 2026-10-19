@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -385,6 +386,44 @@ void main() {
             .details['reason'],
         'resume_attempt_finished',
       );
+    });
+  });
+
+  group('AppResumeDiagnostics.supportsPlatform', () {
+    test('records on the two phone platforms, where the resume stall is seen', () {
+      expect(
+        AppResumeDiagnostics.supportsPlatform(
+          TargetPlatform.android,
+          isWeb: false,
+        ),
+        isTrue,
+      );
+      expect(
+        AppResumeDiagnostics.supportsPlatform(TargetPlatform.iOS, isWeb: false),
+        isTrue,
+      );
+    });
+
+    test('does not record on web or on the desktop platforms', () {
+      for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+        expect(
+          AppResumeDiagnostics.supportsPlatform(platform, isWeb: true),
+          isFalse,
+          reason: 'web has no file storage for the log ($platform)',
+        );
+      }
+      for (final platform in [
+        TargetPlatform.macOS,
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+        TargetPlatform.fuchsia,
+      ]) {
+        expect(
+          AppResumeDiagnostics.supportsPlatform(platform, isWeb: false),
+          isFalse,
+          reason: '$platform is not a phone platform',
+        );
+      }
     });
   });
 }

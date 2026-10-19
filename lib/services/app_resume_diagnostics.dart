@@ -233,7 +233,7 @@ class ResumeDiagnosticsRecorder {
     _pendingWrites = _pendingWrites.then((_) => _appendAndPersist(event)).catchError(
       (Object error, StackTrace stackTrace) {
         log(
-          'Failed to persist Android resume diagnostics: $error',
+          'Failed to persist resume diagnostics: $error',
           error: error,
           stackTrace: stackTrace,
         );
@@ -928,6 +928,16 @@ class AppResumeDiagnostics {
       '/Diagnostics/androidResumeProbe';
   static const String configProbeKey = 'resumeProbe';
 
+  /// Whether the recorder runs on [platform]: the two phone platforms, where a
+  /// long-backgrounded process can stop talking to the Realtime Database. It
+  /// only observes. The reconnect on resume is still Android-only
+  /// (AppResumeDataRefresher), so an iOS run shows what an unmitigated process
+  /// does.
+  static bool supportsPlatform(TargetPlatform platform, {required bool isWeb}) {
+    return !isWeb &&
+        (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
+  }
+
   static ResumeDiagnosticsRecorder? _recorder;
   static StreamSubscription<DatabaseEvent>? _connectionSubscription;
   static RealtimeDatabaseDiagnosticProbe? _extendedProbe;
@@ -960,9 +970,10 @@ class AppResumeDiagnostics {
       return;
     }
     final DateTime processStartUtc = DateTime.now().toUtc();
+    final String platformName = '${processDetails['platform'] ?? 'unknown'}';
     final ResumeDiagnosticsRecorder recorder = ResumeDiagnosticsRecorder(
       storage: await createResumeDiagnosticsStorage(),
-      processId: 'android-${processStartUtc.microsecondsSinceEpoch}',
+      processId: '$platformName-${processStartUtc.microsecondsSinceEpoch}',
     );
     await recorder.initialize(processDetails: processDetails);
     _recorder = recorder;
@@ -993,7 +1004,7 @@ class AppResumeDiagnostics {
       );
     } catch (error, stackTrace) {
       log(
-        'Failed to enqueue Android resume diagnostics: $error',
+        'Failed to enqueue resume diagnostics: $error',
         error: error,
         stackTrace: stackTrace,
       );

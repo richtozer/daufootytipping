@@ -129,7 +129,7 @@ class _ResumeDiagnosticsPageState extends State<ResumeDiagnosticsPage> {
       appBar: AppBar(
         // Back is the floating control, not the app bar's.
         automaticallyImplyLeading: false,
-        title: const Text('Android resume diagnostics'),
+        title: const Text('Resume diagnostics'),
         actions: [
           IconButton(
             tooltip: 'Reload diagnostics',

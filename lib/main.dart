@@ -72,8 +72,10 @@ Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb &&
-      defaultTargetPlatform == TargetPlatform.android &&
+  if (AppResumeDiagnostics.supportsPlatform(
+        defaultTargetPlatform,
+        isWeb: kIsWeb,
+      ) &&
       AppResumeDiagnostics.compileTimeEnabled) {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
@@ -91,7 +93,7 @@ Future<void> main() async {
       );
     } catch (error, stackTrace) {
       log(
-        'Android resume diagnostics initialization failed; continuing without diagnostics: $error',
+        'Resume diagnostics initialization failed; continuing without diagnostics: $error',
         error: error,
         stackTrace: stackTrace,
       );
