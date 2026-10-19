@@ -491,8 +491,9 @@ floor only. Announce it lightly, with web reload guidance (D13).
    then the rules, then the post-deploy verification (phase 3 doc, section 6). **Status:** the rules were
    deployed first (2026-10-06) because R1 does not depend on the functions; the Dart functions followed
    on 2026-10-19, and the admin endpoints were verified from a real device (an allowlisted admin
-   accepted, a database-role admin who is not on the list refused). Sign-in, registration, push
-   delivery and the scheduled functions are still to verify.
+   accepted, a database-role admin who is not on the list refused), as was an allowlisted admin's
+   database edit. Sign-in, registration, push delivery and the scheduled functions are still to
+   verify.
 5. **Server pieces** (step 2) with tests, including the proofs re-run against the production
    database handle.
 6. **R2 client release** (step 3), including the update-button fix.

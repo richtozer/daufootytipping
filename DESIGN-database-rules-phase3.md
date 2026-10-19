@@ -8,7 +8,8 @@ Companion to [DESIGN-database-rules.md](DESIGN-database-rules.md) (section 5 ste
 deploying and are identical to `database.rules.json`, and were still identical on 2026-10-19 with no
 rollback. The Dart functions change that makes the admin endpoints check the same allowlist was deployed on
 2026-10-19 (commit `f0820ef`, allowlist revision `58f7e4904e46`; see section 6). The admin endpoints were then verified from a real device: they accepted an allowlisted admin and
-refused a database-role admin who is not on the list. Phase 4 (server pieces) and R2 are not started.
+refused a database-role admin who is not on the list, and an allowlisted admin's database edit was
+accepted (section 6). Phase 4 (server pieces) and R2 are not started.
 **One production incident occurred during this phase** (section 8): a test I wrote deployed fixture
 rules to production, and the owner rolled them back. The test isolation was then rebuilt (section 8).
 `test:live` remains unrun pending review.
@@ -312,10 +313,27 @@ confirmed that way. Tipping was not possible because the competition is closed. 
 skipped on production, having been exercised against the same rules in the emulator (accepted, then
 reverted).
 
-**Still to verify** (needs real accounts or devices): an allowlisted admin's database edit (for
-example `AppConfig`); Apple and Google sign-in; new registration; push delivery on a real device;
-scheduled scoring and the reminders function; a 1.3.x client's write being rejected (covered by tests
-only). The admin endpoints are verified (see the Dart functions deployment above).
+### Admin database edit on production (2026-10-19)
+
+From the owner's iPhone, signed in as an allowlisted admin, the owner marked the test tipper (their own
+trusted test account) paid for the current comp, then unpaid again. Production was polled with
+read-only CLI reads while they did it:
+
+| Time (UTC) | The test tipper's `compsParticipatedIn` |
+|---|---|
+| before | empty |
+| 17:16:13 | the 2026 comp key (marked paid) |
+| 17:17:09 | empty again (marked unpaid) |
+
+`compsParticipatedIn` is an admin-only field under R1, so both writes were accepted by the rules
+for an allowlisted account. The tipper's data was back to its original state afterwards. The watcher
+reported one false change at 17:16:31 (the Firebase CLI echoed a one-off error beside the same
+value); direct reads at that moment showed no change.
+
+**Still to verify** (needs real accounts or devices): Apple and Google sign-in; new registration; push
+delivery on a real device; scheduled scoring and the reminders function; a 1.3.x client's write being
+rejected (covered by tests only). The admin endpoints and an allowlisted admin's database edit are
+verified (above).
 
 **Rollback ladder (use the smallest step that fixes the problem):**
 
@@ -432,7 +450,7 @@ twice during development, against the emulators, before the review that led to t
 ## 9. Next
 
 1. **Finish the post-deploy verification** (the "Still to verify" list in section 6), mainly with real
-   accounts and devices. The admin endpoints are done.
+   accounts and devices. The admin endpoints and database edit are done.
 2. **Inspect the production Firestore rules** (`tipLogs2`, design D11).
 3. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
    user can edit another tipper's `email` or `logon`) stays until R2.
