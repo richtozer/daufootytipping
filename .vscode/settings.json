@@ -8,6 +8,9 @@
     "search.exclude": {
         "**/build/**": true
     },
+    "dart.analysisExcludedFolders": [
+        ".claude"
+    ],
     "gradle.nestedProjects": [
         "android"
     ],
