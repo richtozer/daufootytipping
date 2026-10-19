@@ -9,7 +9,8 @@ deploying and are identical to `database.rules.json`, and were still identical o
 rollback. The Dart functions change that makes the admin endpoints check the same allowlist was deployed on
 2026-10-19 (commit `f0820ef`, allowlist revision `58f7e4904e46`; see section 6). The admin endpoints were then verified from a real device: they accepted an allowlisted admin and
 refused a database-role admin who is not on the list, and an allowlisted admin's database edit was
-accepted (section 6). Phase 4 (server pieces) and R2 are not started.
+accepted (section 6). The production Firestore rules were also inspected and replaced (2026-10-19,
+section 6). Phase 4 (server pieces) and R2 are not started.
 **One production incident occurred during this phase** (section 8): a test I wrote deployed fixture
 rules to production, and the owner rolled them back. The test isolation was then rebuilt (section 8).
 `test:live` remains unrun pending review.
@@ -171,8 +172,8 @@ R1 is deployed, so this section is now a record. Status of each action:
 1. **Verify the admin UIDs: done.** The verification run found all four admin records in Firebase
    Auth, each with a matching, verified account and no shared UID (verdict OK for each); the owner
    then instructed the deployment.
-2. **Inspect the production Firestore rules (D11): still open.** It gates only the claim of pre-kickoff
-   tip secrecy, not R1.
+2. **Inspect the production Firestore rules (D11): done 2026-10-19** (section 6): no client can read
+   Firestore, and a version-controlled ruleset replaced the old one.
 3. **Identity audit with the Auth check:** not recorded here as run. It gates the identity migration,
    not R1.
 4. **`minAppVersion` 1.4.0: done.** Production reads `1.4.0` (checked 2026-10-06 and 2026-10-19).
@@ -330,6 +331,48 @@ for an allowlisted account. The tipper's data was back to its original state aft
 reported one false change at 17:16:31 (the Firebase CLI echoed a one-off error beside the same
 value); direct reads at that moment showed no change.
 
+### Firestore rules (2026-10-19)
+
+**Finding.** The production Firestore rules were read-only through the Firebase Rules API (the
+owner's gcloud login). There was one release, last changed 2025-04-23 (ruleset `5f0233f3`), and it
+contained a single match: `tipLogs/{year}/{round}/{tipperId}/{gameId}/{tipTimestamp}` with
+`allow write: if true` (the comment said "authenticated"; the rule was open to anyone). There was no
+read rule anywhere, so everything not matched was denied. Consequences:
+
+1. **Tip secrecy is not at risk from Firestore.** No client can read any Firestore data, so design
+   D11's concern (picks and identities in `tipLogs2` being client-readable) does not apply.
+2. **Tip logging had silently stopped.** The client moved from the nested `tipLogs/...` path to the flat
+   `tipLogs2` collection on 2026-05-10 (`1c261ad`), but no rule covered `tipLogs2`, so every client write
+   was denied and the client only logged the error. `tipLogs2` held 12,400 entries, all from
+   2025-04-27 to 2025-07-27, and none after the change. The log for the rest of the 2026 season was not
+   recorded and cannot be recovered; the tips themselves are in the Realtime Database.
+3. **The old path was open to the internet** (anonymous writes), a spam and cost risk but not a
+   disclosure.
+
+**Fix** (`06cc9cb`): `firestore.rules`, with the `firestore` entry in `firebase.json`. A signed-in
+tipper (not the anonymous browsing account) may create a `tipLogs2` entry that has `createdAt` equal to
+the server time, a `submittedAtUTC` timestamp, string `tipperId`, `gameId`, `compId` and `tip`, a
+`tipResult` of `a` to `e` or `z`, and at most 40 fields. All reads, updates and deletes and every other
+path are denied, including the old nested path. The shape check is deliberately loose, so a field added
+to the client later cannot silently stop logging again. `rules_test/firestore.rules.test.mjs` has 17
+tests, including one that reads the client source's field list to catch drift, and the suite now runs a
+Firestore emulator alongside the Database one. Seven deliberate breakages of the rules (reads opened,
+updates opened, anonymous allowed, sign-in dropped, server time not forced, field cap removed, old path
+reopened) were each caught.
+
+**Deployment:** `firebase deploy --only firestore:rules --project dau-footy-tipping-f8a42`, at about
+18:14Z. The live release (`cloud.firestore`, ruleset `1689f54a`) was read back and is identical to
+`firestore.rules`. The previous rules text is in the commit message, as the rollback. The deployment
+scripts and `config/deployments` cover only the Realtime Database and the functions, so this deployment
+has no record file.
+
+**Verified from the owner's iPhone:** a god-mode tip on the test tipper at 18:15:07Z landed in the
+Realtime Database within seconds, and `tipLogs2` went from 12,400 to 12,401 three seconds later (a
+24-field entry, app 1.4.1 build 713, ios, with the god-mode shape: submitted by someone other than the
+tipper). An earlier attempt the same hour was inconclusive for the Firestore log: the phone's connection
+to the database stalled, the write was only sent after a force-quit and relaunch, and the relaunched
+process replays the database write without the logging step.
+
 **Still to verify** (needs real accounts or devices): Apple and Google sign-in; new registration; push
 delivery on a real device; scheduled scoring and the reminders function; a 1.3.x client's write being
 rejected (covered by tests only). The admin endpoints and an allowlisted admin's database edit are
@@ -372,7 +415,7 @@ Prerequisites, separated by what they gate:
 |---|---|
 | **R1 (the admin-security fix)** | **Done 2026-10-06:** verified admins; the 1.4.0 floor in place; the real-client emulator smoke test (web, exact SDK, section 3); guarded deployment and the recovery ruleset. **Dart functions deployed 2026-10-19** (the admin endpoints check the allowlist) |
 | **Identity migration (later)** | duplicate identities, alias collisions and ambiguous contacts resolved; a reviewed mapping; a freeze and re-audit. These do not delay R1 |
-| **Claiming pre-kickoff tip secrecy** | Firestore `tipLogs2` inspected and secured |
+| **Claiming pre-kickoff tip secrecy** | **Done 2026-10-19:** Firestore rules inspected (no client has read access) and replaced by a version-controlled create-only ruleset |
 
 ## 8. Incident and prevention
 
@@ -451,6 +494,5 @@ twice during development, against the emulators, before the review that led to t
 
 1. **Finish the post-deploy verification** (the "Still to verify" list in section 6), mainly with real
    accounts and devices. The admin endpoints and database edit are done.
-2. **Inspect the production Firestore rules** (`tipLogs2`, design D11).
-3. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
+2. **Phase 4 (server pieces) and the R2 client**, per the design. R1's known concession (any signed-in
    user can edit another tipper's `email` or `logon`) stays until R2.

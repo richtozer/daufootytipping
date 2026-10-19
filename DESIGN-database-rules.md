@@ -57,7 +57,9 @@ endpoints. Closing this is the first rollout step (section 5).
   up by the backend, see D9.)
 - **Firestore is a second surface.** The client writes `tipLogs2` (an audit log of every tip,
   `gametip_viewmodel.dart:431`). The repo has no `firestore.rules` and `firebase.json` has no
-  Firestore rules entry, so its rules live only in the console and are unverified.
+  Firestore rules entry, so its rules lived only in the console and were unverified. (Inspected
+  2026-10-19: no client had read access, logging had silently stopped on 2026-05-10, and the old path
+  was open to anyone; a version-controlled ruleset is now deployed. See D11.)
 - `mergeTippers` moves tips, copies `logon` and `authuid` onto the target, deletes the
   original. It runs as an admin from the client.
 - Admin = `tipperRole == 'admin'` on the tipper record. Admin "god mode" writes tips as
@@ -363,6 +365,15 @@ Target state: a version-controlled `firestore.rules` (with the `firestore` entry
 `firebase.json`) allowing authenticated **create-only** with field validation and **no client
 read, update or delete**, or move the write to a callable. Included in this release.
 
+**Status (2026-10-19): done, ahead of the release.** The production rules were inspected through the
+Firebase Rules API: there was no read rule at all, so no client could read `tipLogs2` and the secrecy
+concern does not apply. The real problems were that the old rules covered only the previous nested
+`tipLogs/...` path (open to anyone to write) and not `tipLogs2`, so tip logging had silently failed
+since the client moved to `tipLogs2` on 2026-05-10. `firestore.rules` (create-only for signed-in
+tipper accounts, loose shape check, 40-field cap, everything else denied) is deployed and verified from a
+real device (phase 3 report, section 6). Cloud Firestore remains a separate surface from the
+Realtime Database rules, with no deployment script of its own.
+
 ### D12. R1 admin allowlist (temporary)
 Until `AuthIndex` is authoritative, an admin cannot be derived safely from the database, and the
 current Dart admin endpoints trust `authuid` plus `tipperRole` in publicly writable data. R1
@@ -486,7 +497,8 @@ floor only. Announce it lightly, with web reload guidance (D13).
    allowlist) was deployed on 2026-10-19 (`f0820ef`).
 3. **Immediate owner actions** (no code): raise `minAppVersion` to `1.4.0` (step A); inspect the
    production Firestore rules (D11); run `scripts/verify_admin_auth_uids.mjs` and confirm the admin
-   UIDs; check store version adoption. **Status:** done, except the Firestore inspection.
+   UIDs; check store version adoption. **Status:** done, including the Firestore inspection
+   (2026-10-19).
 4. **Deploy R1** (owner decision, after the actions above): audit fixes, then the Dart functions,
    then the rules, then the post-deploy verification (phase 3 doc, section 6). **Status:** the rules were
    deployed first (2026-10-06) because R1 does not depend on the functions; the Dart functions followed
@@ -500,7 +512,8 @@ floor only. Announce it lightly, with web reload guidance (D13).
 7. **R2 rules, floor and cutover** (steps 4 and 5).
 8. **Cleanup:** remove old code paths and the allowlist, update `docs/admin_authorization.md`,
    remove the dead `useBackendScoringBranches` flag.
-9. **Firestore `tipLogs2` rules** (D11) are part of this release, not a follow-up.
+9. **Firestore `tipLogs2` rules** (D11) were part of this release as planned, and were deployed ahead of
+   it on 2026-10-19.
 
 ## 7. Testing
 
@@ -563,8 +576,8 @@ floor only. Announce it lightly, with web reload guidance (D13).
   none up to 40). Mitigation: keep to a handful per path; check during post-deploy verification.
 - The production Dart database handle (REST or Admin SDK) is not the one exercised by the
   spikes. Mitigation: choose it in phase 4 and re-run the protocol tests against it.
-- Firestore `tipLogs2` may be client-readable, defeating pre-kickoff secrecy. Mitigation: D11,
-  inspected now; no secrecy claim until closed.
+- Firestore `tipLogs2` may be client-readable, defeating pre-kickoff secrecy. **Resolved 2026-10-19:**
+  inspected (no client read access exists) and replaced by version-controlled rules (D11).
 - Legacy tip shape in live data may fail `.validate`. Mitigation: validation accepts both.
 - Users who do not update before a cutoff are locked out, and web users cannot recover with the
   current button. Mitigation: announcement with reload guidance, D13.
