@@ -1,3 +1,4 @@
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:flutter/material.dart';
 
@@ -16,6 +17,14 @@ class ConnectionLossNotice extends StatelessWidget {
   static const String message =
       'Not connected. If you have signal and this continues, restart the app.';
 
+  /// The app's AFL red, so the notice reads as part of the app and stands out
+  /// against the green theme. It is the same in the light and dark themes.
+  static final Color background = League.afl.colour;
+
+  /// White on [background] has a contrast of about 4.7:1 (WCAG AA needs 4.5:1
+  /// for text this size); a test pins it.
+  static const Color foreground = Colors.white;
+
   /// Names the dismiss control for screen readers.
   static const String dismissLabel = 'Dismiss';
 
@@ -27,9 +36,8 @@ class ConnectionLossNotice extends StatelessWidget {
         if (!monitor.noticeVisible) {
           return const SizedBox.shrink();
         }
-        final colors = Theme.of(context).colorScheme;
         return Material(
-          color: colors.tertiaryContainer,
+          color: background,
           elevation: 3,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
@@ -37,7 +45,7 @@ class ConnectionLossNotice extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.cloud_off, color: colors.onTertiaryContainer),
+                const Icon(Icons.cloud_off, color: foreground),
                 const SizedBox(width: 10),
                 Flexible(
                   // Only the message is announced when it appears; the Dismiss
@@ -46,7 +54,7 @@ class ConnectionLossNotice extends StatelessWidget {
                     liveRegion: true,
                     child: Text(
                       message,
-                      style: TextStyle(color: colors.onTertiaryContainer),
+                      style: const TextStyle(color: foreground),
                     ),
                   ),
                 ),
@@ -59,7 +67,7 @@ class ConnectionLossNotice extends StatelessWidget {
                   onTap: monitor.dismiss,
                   excludeSemantics: true,
                   child: IconButton(
-                    icon: Icon(Icons.close, color: colors.onTertiaryContainer),
+                    icon: const Icon(Icons.close, color: foreground),
                     onPressed: monitor.dismiss,
                   ),
                 ),

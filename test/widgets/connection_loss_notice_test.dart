@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
@@ -69,6 +71,64 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text(ConnectionLossNotice.message), findsNothing);
+  });
+
+  group('colours', () {
+    double contrast(Color a, Color b) {
+      final first = a.computeLuminance();
+      final second = b.computeLuminance();
+      return (math.max(first, second) + 0.05) /
+          (math.min(first, second) + 0.05);
+    }
+
+    test('are the AFL red with white text', () {
+      expect(ConnectionLossNotice.background, League.afl.colour);
+      expect(ConnectionLossNotice.foreground, Colors.white);
+    });
+
+    test('keep white text readable on the red (WCAG AA, 4.5:1)', () {
+      expect(
+        contrast(
+          ConnectionLossNotice.background,
+          ConnectionLossNotice.foreground,
+        ),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+
+    for (final ThemeData theme in [ThemeData.light(), ThemeData.dark()]) {
+      testWidgets('are drawn the same in the ${theme.brightness.name} theme', (
+        tester,
+      ) async {
+        await pumpNotice(tester, theme: theme);
+        await showNotice(tester);
+
+        final material = tester.widget<Material>(
+          find
+              .descendant(
+                of: find.byType(ConnectionLossNotice),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(material.color, League.afl.colour);
+        expect(
+          tester
+              .widget<Text>(find.text(ConnectionLossNotice.message))
+              .style
+              ?.color,
+          Colors.white,
+        );
+        expect(
+          tester.widget<Icon>(find.byIcon(Icons.cloud_off)).color,
+          Colors.white,
+        );
+        expect(
+          tester.widget<Icon>(find.byIcon(Icons.close)).color,
+          Colors.white,
+        );
+      });
+    }
   });
 
   testWidgets('shows nothing while the connection is fine', (tester) async {
