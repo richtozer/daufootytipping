@@ -69,10 +69,16 @@ class ConnectionLossMonitor extends ChangeNotifier {
   bool _foreground;
   bool _connected = false;
   bool _dismissed = false;
-  bool _noticeVisible = false;
+  bool _connectionLost = false;
 
-  /// Whether the notice should be on screen now.
-  bool get noticeVisible => _noticeVisible;
+  /// Whether the connection has been down, in the foreground, for the
+  /// threshold. For places that must keep saying so however often the user has
+  /// dismissed the banner, such as a card on the Profile page.
+  bool get connectionLost => _connectionLost;
+
+  /// Whether the dismissible banner should be on screen now: the connection is
+  /// lost and the user has not dismissed it for this outage.
+  bool get noticeVisible => _connectionLost && !_dismissed;
 
   /// Tells the monitor whether the app is in the foreground.
   void setForeground(bool foreground) {
@@ -90,11 +96,11 @@ class ConnectionLossMonitor extends ChangeNotifier {
   /// Hides the notice for the rest of this outage. A later outage shows it
   /// again.
   void dismiss() {
-    if (!_noticeVisible) {
+    if (!noticeVisible) {
       return;
     }
     _dismissed = true;
-    _setVisible(false);
+    notifyListeners();
     _report(noticeDismissedEvent, <String, Object>{
       'visible_seconds': _secondsSince(_shownAt),
     });
@@ -116,19 +122,19 @@ class ConnectionLossMonitor extends ChangeNotifier {
       _downSince = null;
       _shownAt = null;
       _shownThisOutage = false;
-      _setVisible(false);
+      _setConnectionLost(false);
       return;
     }
     _downSince ??= _clock();
-    if (_dismissed || _noticeVisible || _timer != null) {
+    if (_connectionLost || _timer != null) {
       return;
     }
     _timer = Timer(threshold, () {
       _timer = null;
-      if (_foreground && !_connected && !_dismissed) {
+      if (_foreground && !_connected) {
         _shownAt = _clock();
         _shownThisOutage = true;
-        _setVisible(true);
+        _setConnectionLost(true);
         _report(noticeShownEvent, <String, Object>{
           'down_seconds': _secondsSince(_downSince),
         });
@@ -160,11 +166,11 @@ class ConnectionLossMonitor extends ChangeNotifier {
     }
   }
 
-  void _setVisible(bool visible) {
-    if (_noticeVisible == visible) {
+  void _setConnectionLost(bool lost) {
+    if (_connectionLost == lost) {
       return;
     }
-    _noticeVisible = visible;
+    _connectionLost = lost;
     notifyListeners();
   }
 

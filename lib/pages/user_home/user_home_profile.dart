@@ -15,6 +15,7 @@ import 'package:daufootytipping/pages/user_home/user_home_profile_alias_dialog.d
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
 import 'package:daufootytipping/widgets/app_panel_card.dart';
+import 'package:daufootytipping/widgets/connection_loss_profile_card.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -393,6 +394,10 @@ class Profile extends StatelessWidget with WatchItMixin {
                           ),
                         ),
                       ),
+                      // Last, nearest the thumb. It builds nothing until the
+                      // connection has been lost for a while, and cannot be
+                      // dismissed.
+                      const ConnectionLossProfileCard(),
                     ],
                   );
                 },

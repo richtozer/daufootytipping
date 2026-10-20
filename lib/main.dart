@@ -391,6 +391,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
       analytics: FirebaseAnalyticsService(),
     );
+    // The Profile page shows the same state on a card that cannot be dismissed.
+    if (di.isRegistered<ConnectionLossMonitor>()) {
+      di.unregister<ConnectionLossMonitor>();
+    }
+    di.registerSingleton<ConnectionLossMonitor>(_connectionLossMonitor);
     WidgetsBinding.instance.addObserver(this);
   }
 

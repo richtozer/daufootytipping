@@ -198,6 +198,81 @@ void main() {
     });
   });
 
+  group('connectionLost, for places that cannot be dismissed', () {
+    test('is false while the connection is up', () async {
+      connection.add(true);
+      await pause(afterThreshold);
+
+      expect(monitor.connectionLost, isFalse);
+    });
+
+    test(
+      'is true once the notice would be shown, and false again on reconnect',
+      () async {
+        connection.add(false);
+        await pause(beforeThreshold);
+        expect(monitor.connectionLost, isFalse);
+
+        await pause(afterThreshold);
+        expect(monitor.connectionLost, isTrue);
+
+        connection.add(true);
+        await pause(Duration.zero);
+        expect(monitor.connectionLost, isFalse);
+      },
+    );
+
+    test('stays true after the banner is dismissed', () async {
+      connection.add(false);
+      await pause(afterThreshold);
+
+      monitor.dismiss();
+
+      expect(monitor.noticeVisible, isFalse);
+      expect(monitor.connectionLost, isTrue);
+    });
+
+    test(
+      'is false in the background and the wait restarts on return',
+      () async {
+        connection.add(false);
+        await pause(afterThreshold);
+
+        monitor.setForeground(false);
+        expect(monitor.connectionLost, isFalse);
+
+        monitor.setForeground(true);
+        expect(monitor.connectionLost, isFalse);
+        await pause(afterThreshold);
+        expect(monitor.connectionLost, isTrue);
+      },
+    );
+
+    test(
+      'a dismissal does not stop it being true for a prolonged outage',
+      () async {
+        connection.add(false);
+        await pause(afterThreshold);
+        monitor.dismiss();
+        await pause(afterThreshold);
+
+        expect(monitor.connectionLost, isTrue);
+        expect(monitor.noticeVisible, isFalse);
+      },
+    );
+
+    test('tells listeners when it changes', () async {
+      connection.add(false);
+      await pause(afterThreshold);
+      final afterShown = notifications;
+
+      connection.add(true);
+      await pause(Duration.zero);
+
+      expect(notifications, afterShown + 1);
+    });
+  });
+
   group('reporting to analytics', () {
     late RecordingAnalytics analytics;
     late StreamController<bool?> own;
