@@ -40,7 +40,11 @@ void main() {
     child: const Scaffold(body: Text('home')),
   );
 
-  Widget app(Widget home, {EdgeInsets viewInsets = EdgeInsets.zero}) {
+  Widget app(
+    Widget home, {
+    EdgeInsets viewInsets = EdgeInsets.zero,
+    Widget? notice,
+  }) {
     return MaterialApp(
       navigatorObservers: [observer],
       builder: (context, child) => MediaQuery(
@@ -48,6 +52,7 @@ void main() {
         child: AppControlsHost(
           viewModel: viewModel,
           observer: observer,
+          notice: notice,
           child: child!,
         ),
       ),
@@ -79,6 +84,59 @@ void main() {
     expect(find.byType(AppGlassPill), findsOneWidget);
     await tester.tap(find.text('STATS'));
     expect(selected, [1]);
+  });
+
+  testWidgets('a notice floats above the bottom controls, not under them', (
+    tester,
+  ) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      app(homeWithTabs(), notice: const Text('heads up')),
+    );
+    await tester.pumpAndSettle();
+
+    final noticeBottom = tester.getBottomLeft(find.text('heads up')).dy;
+    final pillTop = tester.getTopLeft(find.byType(AppGlassPill)).dy;
+    expect(noticeBottom, lessThanOrEqualTo(pillTop));
+    expect(tester.getTopLeft(find.text('heads up')).dx, greaterThanOrEqualTo(0));
+  });
+
+  testWidgets('a notice stays clear of the side controls on a short wide display', (
+    tester,
+  ) async {
+    useView(tester, const Size(844, 390));
+    await tester.pumpWidget(
+      app(homeWithTabs(), notice: const Text('heads up')),
+    );
+    await tester.pumpAndSettle();
+
+    final noticeRight = tester.getTopRight(find.text('heads up')).dx;
+    final pillLeft = tester.getTopLeft(find.byType(AppGlassPill)).dx;
+    expect(noticeRight, lessThanOrEqualTo(pillLeft));
+  });
+
+  testWidgets('a notice rides above the keyboard', (tester) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      app(
+        const Scaffold(body: Text('form')),
+        viewInsets: const EdgeInsets.only(bottom: 300),
+        notice: const Text('heads up'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final noticeBottom = tester.getBottomLeft(find.text('heads up')).dy;
+    expect(noticeBottom, lessThanOrEqualTo(844 - 300));
+  });
+
+  testWidgets('no notice leaves the layout as it was', (tester) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(app(homeWithTabs()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('heads up'), findsNothing);
+    expect(find.byType(AppGlassPill), findsOneWidget);
   });
 
   testWidgets('shows nothing where no screen owns the tabs', (tester) async {

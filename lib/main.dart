@@ -12,11 +12,14 @@ import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
+import 'package:daufootytipping/widgets/connection_loss_notice.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_data_refresher.dart';
+import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/app_resume_refresh_coordinator.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
@@ -309,6 +312,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _coreWarmupScheduled = false;
   late final AppResumeDataRefresher _resumeDataRefresher;
   late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
+  late final ConnectionLossMonitor _connectionLossMonitor;
   final AppControlsViewModel _appControlsViewModel = AppControlsViewModel();
   late final AppControlsObserver _appControlsObserver = AppControlsObserver(
     _appControlsViewModel,
@@ -376,11 +380,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         database: configuredRealtimeDatabase,
       );
     }
+    _connectionLossMonitor = ConnectionLossMonitor(
+      connectionStates: configuredRealtimeDatabase
+          .ref('.info/connected')
+          .onValue
+          .map<bool?>(
+            (event) => event.snapshot.value is bool
+                ? event.snapshot.value as bool
+                : null,
+          ),
+      analytics: FirebaseAnalyticsService(),
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _connectionLossMonitor.setForeground(state == AppLifecycleState.resumed);
     unawaited(_resumeRefreshCoordinator.handleLifecycleState(state));
   }
 
@@ -464,6 +480,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _connectionLossMonitor.dispose();
     _appControlsViewModel.dispose();
     super.dispose();
   }
@@ -568,6 +585,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       builder: (context, navigator) => AppControlsHost(
         viewModel: _appControlsViewModel,
         observer: _appControlsObserver,
+        notice: ConnectionLossNotice(monitor: _connectionLossMonitor),
         child: navigator!,
       ),
       // The shell no longer caps the app. Each screen owns its width, so the

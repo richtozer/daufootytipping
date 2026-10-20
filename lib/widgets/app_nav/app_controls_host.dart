@@ -42,6 +42,7 @@ class AppControlsHost extends StatelessWidget {
     required this.viewModel,
     required this.observer,
     required this.child,
+    this.notice,
   });
 
   final AppControlsViewModel viewModel;
@@ -49,6 +50,11 @@ class AppControlsHost extends StatelessWidget {
 
   /// The Navigator.
   final Widget child;
+
+  /// A transient notice, such as a lost connection, floated just clear of the
+  /// controls and the content's reserved edge. It sizes itself, and builds an
+  /// empty box when there is nothing to say.
+  final Widget? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -71,18 +77,17 @@ class AppControlsHost extends StatelessWidget {
             keyboardUp &&
             mode == AppControlsMode.back &&
             viewModel.pageActions.isNotEmpty;
+        final contentPadding = _contentPadding(
+          media.padding,
+          media.size,
+          axis,
+          mode,
+        );
         return Stack(
           children: [
             Positioned.fill(
               child: MediaQuery(
-                data: media.copyWith(
-                  padding: _contentPadding(
-                    media.padding,
-                    media.size,
-                    axis,
-                    mode,
-                  ),
-                ),
+                data: media.copyWith(padding: contentPadding),
                 child: child,
               ),
             ),
@@ -115,6 +120,15 @@ class AppControlsHost extends StatelessWidget {
                 faded: axis == Axis.horizontal && viewModel.controlsFaded,
               ),
             ),
+            if (notice != null)
+              Positioned(
+                left: media.padding.left + kControlsEdgeMargin,
+                right: contentPadding.right + kControlsEdgeMargin,
+                bottom:
+                    math.max(contentPadding.bottom, media.viewInsets.bottom) +
+                    kControlsContentGap,
+                child: notice!,
+              ),
           ],
         );
       },
