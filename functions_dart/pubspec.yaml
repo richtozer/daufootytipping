@@ -10,6 +10,7 @@ dependencies:
   firebase_functions: ^0.8.0
   firebase_admin: ^0.3.1+5
   firebase_dart: ^1.6.2
+  crypto: ^3.0.6
   http: ^1.2.0
   intl: ^0.20.3
   dau_shared:

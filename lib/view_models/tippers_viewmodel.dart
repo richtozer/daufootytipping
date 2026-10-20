@@ -16,23 +16,9 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:dau_shared/services/identity_keys.dart' show normaliseAlias;
 
 class TippersViewModel extends ChangeNotifier {
-  /// Strips emoji, symbols, accents, and extra whitespace so that
-  /// "R e i s y", "Reisy🏈", and "Réisy" all normalise to "reisy".
-  static String _normaliseAlias(String alias) {
-    // Remove emoji and other non-letter/non-digit/non-space characters
-    final stripped = alias.replaceAll(
-      RegExp(
-        r'[^\p{Letter}\p{Number}\s]',
-        unicode: true,
-      ),
-      '',
-    );
-    // Collapse whitespace and lowercase
-    return stripped.replaceAll(RegExp(r'\s+'), '').toLowerCase();
-  }
-
   List<Tipper> _tippers = [];
   List<Tipper> get tippers => _tippers;
 
@@ -216,9 +202,9 @@ class TippersViewModel extends ChangeNotifier {
       throw 'Tipper name cannot be empty';
     }
 
-    final normalisedNew = _normaliseAlias(newName);
+    final normalisedNew = normaliseAlias(newName);
     if (_tippers.any(
-      (tipper) => _normaliseAlias(tipper.name) == normalisedNew,
+      (tipper) => normaliseAlias(tipper.name) == normalisedNew,
     )) {
       throw 'Tipper name $newName is too similar to an existing alias.\n\nIf you were a tipper in previous years, then it may be that you have duplicate profiles. This is likely due to changing logon methods.\n\nPlease contact DAU Support to resolve this issue.';
     }
@@ -632,9 +618,9 @@ class TippersViewModel extends ChangeNotifier {
 
     // Prevent duplicate aliases (normalised to ignore case, emoji, symbols, spacing)
     if (name != null) {
-      final normalisedNew = _normaliseAlias(name);
+      final normalisedNew = normaliseAlias(name);
       if (_tippers.any(
-        (tipper) => _normaliseAlias(tipper.name) == normalisedNew,
+        (tipper) => normaliseAlias(tipper.name) == normalisedNew,
       )) {
         throw 'Tipper name $name is too similar to an existing alias. Please choose a different alias.';
       }

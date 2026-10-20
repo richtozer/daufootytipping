@@ -35,3 +35,15 @@ const String scheduledFixtureDownloadEndpoint = 'scheduled-fixture-download';
 
 /// Invoked by the TypeScript triggers to recalculate app badge counts.
 const String appBadgeCountEndpoint = 'app-badge-count';
+
+/// Callable: links the signed-in user to a tipper record, or creates one.
+const String linkOrCreateTipperEndpoint = 'link-or-create-tipper';
+
+/// Callable: changes the signed-in tipper's alias, enforcing uniqueness.
+const String updateTipperAliasEndpoint = 'update-tipper-alias';
+
+/// Callable: moves a push token to the signed-in tipper.
+const String registerDeviceTokenEndpoint = 'register-device-token';
+
+/// Callable: removes a push token from the signed-in tipper.
+const String unregisterDeviceTokenEndpoint = 'unregister-device-token';

@@ -45,6 +45,24 @@ const fixture = () => ({
 });
 
 describe('normalisation', () => {
+  it('agrees with the Dart implementation on every shared vector', () => {
+    const vectors = JSON.parse(readFileSync(resolve(import.meta.dirname, '../config/identity-vectors.json'), 'utf8'));
+    assert.ok(vectors.aliases.length > 10);
+    for (const { input, normalised } of vectors.aliases) {
+      assert.equal(normaliseAlias(input), normalised, `alias ${JSON.stringify(input)}`);
+    }
+    for (const { input, normalised } of vectors.emails) {
+      assert.equal(normaliseEmail(input), normalised, `email ${JSON.stringify(input)}`);
+    }
+  });
+
+  it('does not use the whole-string lower-casing that disagrees with Dart', () => {
+    assert.equal(normaliseAlias('İstanbul'), 'istanbul');
+    assert.equal(normaliseAlias('ΟΔΥΣΣΕΥΣ'), 'οδυσσευσ');
+    assert.equal(normaliseEmail('İSTANBUL@Example.com'), 'istanbul@example.com');
+    assert.equal(normaliseEmail('ΟΔΥΣΣΕΥΣ@example.com'), 'οδυσσευσ@example.com');
+  });
+
   it('matches the client rule for aliases and the planned rule for emails', () => {
     assert.equal(normaliseAlias('Big Fan!'), 'bigfan');
     assert.equal(normaliseAlias(' B i g F a n '), 'bigfan');

@@ -46,12 +46,25 @@ const UID_SHAPE = /^[A-Za-z0-9]{28}$/;
 const isPlausibleUid = (value) => typeof value === "string" && value.length >= 1 && value.length <= 128;
 const ALIAS_MAX = 64;
 
-export const normaliseEmail = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
-/** Same rule as the client's _normaliseAlias: strip non letters/digits/space, drop spaces, lower-case. */
+/**
+ * Lower-cases the way Dart does, because Dart is authoritative for every index key (packages/dau_shared,
+ * functions_dart). Dart lower-cases one code point at a time with the simple Unicode mapping, while
+ * JavaScript's whole-string `toLowerCase` also applies full and contextual mappings. They differ for
+ * U+0130 (JS gives "i" + U+0307) and for a capital sigma at the end of a word (JS gives the final form),
+ * so lower-case per code point and map U+0130 to "i". Both runtimes are checked against
+ * config/identity-vectors.json.
+ */
+export const lowerCaseLikeDart = (value) =>
+  Array.from(value, (character) => (character === "\u0130" ? "i" : character.toLowerCase())).join("");
+
+/** Same rule as `normaliseEmail` in packages/dau_shared: trim, then lower-case. */
+export const normaliseEmail = (value) => (typeof value === "string" ? lowerCaseLikeDart(value.trim()) : "");
+
+/** Same rule as `normaliseAlias` in packages/dau_shared: strip non letters/digits/space, drop spaces, lower-case. */
 export function normaliseAlias(value) {
   if (typeof value !== "string") return "";
-  return value.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, "").toLowerCase();
+  return lowerCaseLikeDart(value.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, ""));
 }
 
 const asObject = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {});
