@@ -915,6 +915,29 @@ void main() {
       expect(capturedUpdates, contains('/AllDAUComps/comp2026/lastFixtureUTC'));
       expect(capturedUpdates, contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'));
       expect(capturedUpdates, contains('/DAUCompsGames/comp2026/afl-01-001/HomeTeamScore'));
+      // The numeric kickoff goes in the same atomic update as DateUtc, for
+      // every game, and agrees with it.
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/DAUCompsGames/comp2026/nrl-01-001/DateUtc',
+          '2026-06-02T19:00:00Z',
+        ),
+      );
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/DAUCompsGames/comp2026/nrl-01-001/DateUtcEpochMs',
+          1780426800000,
+        ),
+      );
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/DAUCompsGames/comp2026/afl-01-001/DateUtcEpochMs',
+          1780340400000,
+        ),
+      );
       expect(
         capturedUpdates,
         containsPair(

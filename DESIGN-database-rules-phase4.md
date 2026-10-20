@@ -185,7 +185,7 @@ Estimates are working figures for focused effort, not commitments.
 |---|---|---|---|
 | M1 | **Foundation.** Extract the REST handle (fail-closed ETag). `claim`, `release`, `replaceIf`, lease primitives, `resolveCallerTipper` (bidirectional check). Port the 10-check CAS spike and the primitive parts of the 52-check identity spike to `dart test` on the REST handle against the emulator. Establish that the runtime service account can look up Firebase Auth users: first by reading its IAM roles (read-only metadata), and only if that is inconclusive a deployed probe that is **strictly read-only** (look up an existing account the owner names; no user is created), separately authorised. Establish whether the real callable code can run locally (Dart functions under the emulator suite, or `bin/server.dart` run directly against emulators). | Ported checks green on the REST handle; mutation check (loosened `replaceIf`) fails; Auth lookup result and local-callable answer recorded. | 3 to 4 d |
 | M2 | **Shared code in `dau_shared`:** `normaliseAlias` (+ 64-char cap), `normaliseEmail`, `logonIndexKey` (base64url SHA-256), kickoff serializer, public/private `Tipper`, endpoint ids. | Unit tests; client and functions import it; no behaviour change shipped. | 2 d |
-| M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
+| M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. **Built (section 6c); patch not applied, functions not deployed.** | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
 | M3b | **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
 | M4a | **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
@@ -290,6 +290,38 @@ auth-required, which holds only if anonymous browsing signs in anonymously befor
 attach (D10). Checks: cold start signed out; cold start signed in; sign-out then reconnect (listeners
 torn down and re-attached, no permission-denied loop); anonymous browse then sign-in (listeners
 re-subscribe); airplane-mode recovery.
+
+### 6c. Progress: M3, the numeric kickoff (20 October 2026; built and tested, nothing applied or deployed)
+
+**Writers.** One shared parser and formatter (`packages/dau_shared/lib/services/kickoff_time.dart`) is
+the only place a kickoff string becomes milliseconds. `FixtureImportApplier` adds `DateUtcEpochMs` to a
+game's attributes whenever it has a `DateUtc`, so the Dart functions (scheduled and admin downloads)
+write both in the same atomic multi-path update, and the client's own import path writes them in the same
+batch. `Game.toJson` writes both, with the epoch derived from the same string, so the client's
+change-detection stays quiet after the backfill. A `DateUtc` that cannot be read fails the import and
+names the game; nothing is written without a usable kickoff. The parser reads the stored form
+(`2026-03-01 02:15:00Z`), the `T` form and milliseconds, as `DateTime.parse` does, and refuses a time not
+stated as UTC and dates that do not exist; `config/kickoff-vectors.json` pins Dart and Node to the same
+answers.
+
+**Backfill and verifier.** `scripts/backfill_kickoff_epoch.mjs` reads an export (or the live database)
+and prints how many games are right, missing, wrong or unreadable, optionally writes a patch of
+`DAUCompsGames/{comp}/{game}/DateUtcEpochMs` values, and with `--verify` exits 1 unless every game is
+right. It has no way to write to the database (a test checks the code for that). It is the completeness
+gate for the cutover pre-flight.
+
+**State of the real data** (20 October export): 2,126 games in five comps, every `DateUtc` readable, none
+with the epoch yet. The patch is `test/data/kickoff-epoch-patch.json` (git-ignored).
+
+**To apply (each a separate go):**
+1. Deploy the Dart functions with the new writers (`scripts/deploy-functions.sh --only dart`), so any
+   fixture download from then on writes both.
+2. Apply the patch with triggers suppressed, so the scoring functions do not run once per game:
+   `firebase database:update / test/data/kickoff-epoch-patch.json --project dau-footy-tipping-f8a42
+   --disable-triggers`. Re-export, then `--verify` must pass.
+3. The client change rides the next client release. Until then an old client's admin import would write
+   `DateUtc` without the epoch, so the verifier is run again at the pre-flight and the patch re-applied
+   if needed.
 
 ## 7. Timeline, back-planned from the season
 

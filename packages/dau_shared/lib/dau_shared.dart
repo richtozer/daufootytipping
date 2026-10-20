@@ -29,6 +29,7 @@ export 'constants/paths.dart';
 export 'services/combined_rounds_service.dart';
 export 'services/fixture_import_applier.dart';
 export 'services/identity_keys.dart';
+export 'services/kickoff_time.dart';
 export 'services/ladder_calculation_service.dart';
 export 'services/outstanding_tips_calculator.dart';
 export 'services/rounds_linking_service.dart';

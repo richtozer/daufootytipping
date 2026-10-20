@@ -1,0 +1,61 @@
+{
+  "_about": "Test vectors for the kickoff time parser (kickoffEpochMsFromDateUtc in packages/dau_shared, kickoffEpochMs in scripts/backfill_kickoff_epoch.mjs). Generated with Node and asserted by the Dart and Node tests so both read exactly the same strings and give the same milliseconds.",
+  "valid": [
+    {
+      "input": "2026-03-01 02:15:00Z",
+      "epochMs": 1772331300000
+    },
+    {
+      "input": "2026-03-01T02:15:00Z",
+      "epochMs": 1772331300000
+    },
+    {
+      "input": "2025-03-02 00:00:00Z",
+      "epochMs": 1740873600000
+    },
+    {
+      "input": "2024-03-03 02:30:00Z",
+      "epochMs": 1709433000000
+    },
+    {
+      "input": "2026-10-19 16:59:58Z",
+      "epochMs": 1792429198000
+    },
+    {
+      "input": "2026-03-01T02:15:00.250Z",
+      "epochMs": 1772331300250
+    },
+    {
+      "input": "2026-03-01 02:15:00.5Z",
+      "epochMs": 1772331300500
+    },
+    {
+      "input": "2024-02-29 12:00:00Z",
+      "epochMs": 1709208000000
+    },
+    {
+      "input": "2026-12-31 23:59:59Z",
+      "epochMs": 1798761599000
+    },
+    {
+      "input": "2000-01-01 00:00:00Z",
+      "epochMs": 946684800000
+    }
+  ],
+  "invalid": [
+    "",
+    "tomorrow",
+    "2026-03-01",
+    "2026-03-01 02:15:00",
+    "2026-03-01T02:15:00",
+    "2026-03-01 02:15:00+11:00",
+    "2026-03-01 02:15:00.1234Z",
+    "2026-13-01 02:15:00Z",
+    "2026-02-30 02:15:00Z",
+    "2026-03-01 25:15:00Z",
+    "2026-03-01 02:60:00Z",
+    "2025-02-29 12:00:00Z",
+    " 2026-03-01 02:15:00Z",
+    "2026-03-01 02:15:00Z "
+  ]
+}

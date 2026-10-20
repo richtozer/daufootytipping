@@ -4,9 +4,9 @@ import 'daucomp.dart';
 import 'dauround.dart';
 import 'scoring.dart';
 import 'league.dart';
+import '../services/kickoff_time.dart';
 import 'scoring_gamestats.dart';
 import 'team.dart';
-import 'package:intl/intl.dart';
 
 enum GameState {
   notStarted, // game start time is in the future
@@ -111,8 +111,10 @@ class Game implements Comparable<Game> {
     'HomeTeam': homeTeam.dbkey.substring(4),
     'AwayTeam': awayTeam.dbkey.substring(4),
     'Location': location,
-    'DateUtc':
-        '${DateFormat('yyyy-MM-dd HH:mm:ss').format(startTimeUTC).toString()}Z',
+    dateUtcKey: dateUtcFromDateTime(startTimeUTC),
+    dateUtcEpochMsKey: kickoffEpochMsFromDateUtc(
+      dateUtcFromDateTime(startTimeUTC),
+    ),
     'RoundNumber': fixtureRoundNumber,
     'MatchNumber': fixtureMatchNumber,
     'HomeTeamScore': (scoring != null) ? scoring!.homeTeamScore : null,
