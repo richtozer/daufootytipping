@@ -4,7 +4,9 @@
 
 **Report updated:** 20 October 2026 (two iOS observations were added; every other section is as of 7 September 2026)
 
-**iOS:** two observations now share this report's central signature (a retained process stopped getting acknowledgements from the Realtime Database and only a new process recovered): one uninstrumented on 19 October 2026, and one on 20 October 2026 with the diagnostics running (*iOS observation 2*). The resume diagnostics run on iOS as well, observing only. The second trace is consistent with the Android signature but cannot confirm it, because the recorder does not log writes and stops watching the connection about half a second after each resume.
+**iOS root cause confirmed (20 October 2026).** The phone's own log shows the mechanism for the 20 October stall: an App Check token refresh failed at resume because the network was not ready, the database server then killed the connection with `Invalid appcheck token`, and the native client never reconnects after a server kill. See *iOS root cause: confirmed from the device log*. Android has the same outward signature and the same kill mechanism in its client, but no native Android log has been captured, so Android is not yet confirmed.
+
+**iOS (earlier notes, superseded by the above for 20 October):** two observations now share this report's central signature (a retained process stopped getting acknowledgements from the Realtime Database and only a new process recovered): one uninstrumented on 19 October 2026, and one on 20 October 2026 with the diagnostics running (*iOS observation 2*). The resume diagnostics run on iOS as well, observing only. The second trace is consistent with the Android signature but cannot confirm it, because the recorder does not log writes and stops watching the connection about half a second after each resume.
 
 **Testing after 6 September 2026:** the comp closes and organic score changes stop, but the defect remains fully reproducible using self-authored writes to a dedicated test node or test competition. One boundary does break: cards constructed after the final round completes never subscribe to games updates, so the widget-level check silently stops being meaningful — most importantly after a cold start. Read *Post-season testing* before designing the next reproduction.
 
@@ -94,12 +96,43 @@ In the two processes that were fresh, the connection was normal: process `iOS-17
 
 **What it does not show.** The recorder stops watching about 0.5 s after each resume, so the time to reconnect, or whether it happened, is unknown for the seven. Writes are not logged, so the Save's start time, its elapsed time and its connection state at issue are not known. One process, one device, development-signed, one OS beta. Not tested: whether the stall depends on the length of the background interval (the failing resumes had 21 s to 25 min; nothing here separates them from the two that recovered).
 
-**Status of the next steps (20 October 2026).** Steps 1 and 3 were built and installed on the iPhone as diagnostics build `1.4.1+713.2` (commit `13b90c6`). Step 2 (the iOS reconnect experiment) has not been started. New log records to look for: `sdk_connection_changed` (every change of the SDK connection state, with how long the previous state lasted, independent of any resume), and `rtdb_write_started`, `rtdb_write_still_pending` (at 10, 30, 60 and 120 s), `rtdb_write_completed` and `rtdb_write_failed` for tip submissions and admin tipper edits. The admin edit screen and tip submission now stop waiting after 15 s and say the change is queued, in every build. The Profile button is now "Resume diagnostics".
+**Status of the next steps (20 October 2026).** The root cause was then confirmed from the device log (next section), which withdraws step 2. Steps 1 and 3 were built and installed on the iPhone as diagnostics build `1.4.1+713.2` (commit `13b90c6`). Step 2 (the iOS reconnect experiment) has not been started. New log records to look for: `sdk_connection_changed` (every change of the SDK connection state, with how long the previous state lasted, independent of any resume), and `rtdb_write_started`, `rtdb_write_still_pending` (at 10, 30, 60 and 120 s), `rtdb_write_completed` and `rtdb_write_failed` for tip submissions and admin tipper edits. The admin edit screen and tip submission now stop waiting after 15 s and say the change is queued, in every build. The Profile button is now "Resume diagnostics".
 
 **Candidate next steps (as written on 20 October, before they were built):**
 1. Instrument, observing only: log each RTDB write's start, completion and elapsed time with the connection state at issue (tipper edit and tip submission first); keep the connection watch running until `true` or 120 s after each resume and log the time to reconnect. This turns the next stall into direct evidence.
 2. If that confirms the stall, try the Android-style restart (`goOffline()` / `goOnline()` and wait for `/.info/connected`) on iOS behind the diagnostics flag. The Android version of this has not been shown to work, so treat it as an experiment, not a fix.
 3. Independently of the cause, bound the user-visible wait: a time limit on the admin edit screen's save (it currently blocks leaving while busy, with no timeout) and on tip submission, with a "queued, will apply when the connection recovers" message.
+
+### iOS root cause: confirmed from the device log — 20 October 2026
+
+The 20 October stall is explained by the iPhone's own unified log, collected afterwards with `sudo log collect --device-udid <udid> --last 6h` (the archive covered 09:17 to 15:17 UTC; the matching lines are kept, git-ignored, in `test/data/ios-stall-2026-10-20-firebase-log-lines.log`). Times are UTC. The app process id in the log (`Runner[3593]`, 10:52:27 to 12:06:52) is the long-lived process in the table above. The archive holds exactly one token failure and one kill.
+
+| Time | Source | Event |
+|---|---|---|
+| 11:47:23 | app trace, resume 7 | connection `true` |
+| 11:48:33.1 | FirebaseAuth `I-AUT000018` | `Error getting App Check token; using placeholder token instead`: `NSURLErrorDomain -1005` "The network connection was lost" on `generateAppAttestChallenge` for the production iOS app |
+| 11:48:34.256 | app trace, resume 8 | attempt starts, connection `false`, no reconnect |
+| 11:48:34.6 | FirebaseDatabase `I-RDB034005` | `connection was forcefully killed by the server. Will not attempt reconnect. Reason: Invalid appcheck token` |
+| 11:48:34 to 12:06:51 | app trace, resumes 9 to 11 | never reconnects; the admin edit hangs; force-quit at 12:06:51; the new process delivers the queued write |
+
+**The chain.** Resume at about 56 minutes of process age (token lifetime 3600 s; the SDK refreshes ahead of expiry) means a refresh is due, the network is not ready so the refresh fails, a placeholder token is used, enforcement on the database rejects it, the server kills the connection, and that client stays dead. The token was not necessarily expired: a refresh was due and failed. The one-hour lifetime sets how often that exposure arises; it is not the defect.
+
+**Why nothing recovers it** (iOS SDK source in the build checkout, `FPersistentConnection.m` and `FIRDatabaseConnectionContextProvider.m`). A server `kill` adds the interrupt reason `server_kill`; the SDK only reconnects when there are no interrupt reasons; `goOnline()` removes only its own reason. So `goOffline()`/`goOnline()` and Airplane mode cannot recover the client; only a new process does. A failed App Check fetch is logged and the connection is opened anyway, because enforcement is the backend's job. Queued writes stay on disk and are delivered by the next process. This is the signature recorded for Android in the 4 to 5 September reproduction (three `goOffline()`/`goOnline()` cycles did not help), so it was in the data from the start.
+
+**Native wake precedes Dart.** The failed refresh began about 0.3 s before the first Dart lifecycle event and about 1.2 s before the resume attempt was recorded. The SDK wakes and reconnects on its own before the app's Dart code can act, so a fix that waits for `AppLifecycleState.resumed` is too late. The database has to be held offline already when the app is backgrounded.
+
+**What this does not prove.**
+- It is confirmed for this one iOS occurrence. Android is unconfirmed. The Android client has the same `server_kill` interrupt reason, the string `Invalid appcheck token`, and an `INVALID_TOKEN_THRESHOLD` of 3 (read from the `firebase-database` 22.0.1 library on the build machine; how the threshold is used was not read), but no Android native log exists.
+- The Auth line proves the shared App Check provider failed at that moment. It does not strictly prove the database used that exact placeholder; the server's `Invalid appcheck token` independently shows it received an invalid one.
+- The recorder cannot see App Check token state. Only a native log shows this failure.
+
+**Set aside after checking the code.** Three explanations offered during the investigation do not apply here. (1) `FirebaseApp.configure()` in `AppDelegate.swift`: the call is not there (removed in September 2024). (2) Persistence setting order: on iOS the first plugin call caches the database instance and later `setPersistenceCacheSizeBytes` calls return early, which is why iOS needs `setPersistenceEnabled` first (and means iOS probably runs at the default cache size), but `setLoggingEnabled` is a static call, Android re-applies settings on every call, and persistence demonstrably works in the diagnostics builds (a cold-start games snapshot arrived 131 ms after process start). (3) Starting the database before App Check is activated: the SDK asks for a token on every connection attempt, so the order does not strand it. None of these explains the stall, and none should be bundled into the fix.
+
+**Mitigations, in order (decided 20 October; separate changes so the effect of each is visible).**
+1. Reversible TTL increase: raise the iOS App Attest token lifetime from 1 hour to 7 days in the Firebase console. This reduces how often a refresh falls due at a resume, so it reduces the exposure but does not remove the race, and it lengthens the useful life of a stolen token. It doubles as an A/B test.
+2. Foreground connection-loss notice, because a killed client cannot recover itself: when `/.info/connected` stays false in the foreground, tell the user to restart the app.
+3. Capture a native Android log at the next stale occurrence (plug the Pixel in before force-stopping; `adb logcat -d`), to confirm or rule out the same cause there.
+4. Design and test, separately, the durable fix: hold the database offline while the app is backgrounded (after a short grace so in-flight tip writes finish), and on resume force-refresh the App Check token, with retry, before allowing the database online. The first iOS experiment listed below (an iOS `goOffline()`/`goOnline()` on resume) is withdrawn: it cannot clear a server kill.
 
 ## Instrumented physical-Pixel reproduction — 4-5 September 2026
 
