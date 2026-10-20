@@ -85,8 +85,8 @@ Current Repo Notes (subject to change)
 - Flutter project with tests in `test/` and app code in `lib/`.
 - Coverage file: `coverage/lcov.info`.
 - As of last scan, ViewModels had 0% coverage; add tests before refactoring them.
-- DAUCompsViewModel composes Games/Stats/Tips/Tippers ViewModels and FixtureDownloadService; mock these in tests.
-- Snapshot processing and fixture update logic are now delegated to services (see Refactors section); prefer adding tests at the service layer first.
+- DAUCompsViewModel composes Games/Stats/Tips/Tippers ViewModels; mock these in tests. Fixture downloads run only in the admin-fixture-download Cloud Function; the client has no local import.
+- Snapshot processing is delegated to services (see Refactors section); prefer adding tests at the service layer first.
 
 If you want any of these defaults changed, edit this file and the agent will follow it going forward.
 

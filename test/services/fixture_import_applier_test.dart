@@ -1,15 +1,19 @@
 import 'package:test/test.dart';
 
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/services/fixture_import_applier.dart';
+import 'package:dau_shared/services/fixture_import_applier.dart';
 
 void main() {
-  Map<String, dynamic> game({required int round, required int match, String league = 'nrl'}) => {
-        'RoundNumber': round,
-        'MatchNumber': match,
-        'Location': 'X',
-        'DateUtc': '2025-01-01T00:00:00Z',
-      };
+  Map<String, dynamic> game({
+    required int round,
+    required int match,
+    String league = 'nrl',
+  }) => {
+    'RoundNumber': round,
+    'MatchNumber': match,
+    'Location': 'X',
+    'DateUtc': '2025-01-01T00:00:00Z',
+  };
 
   test('buildGameUpdates creates dbkeys and attributes for both leagues', () {
     final applier = const FixtureImportApplier();
@@ -64,7 +68,9 @@ void main() {
     );
 
     // Initially empty -> should compute
-    final computed = applier.computeCombinedRoundsIfMissing(compWithRounds, [game(round: 1, match: 1)]);
+    final computed = applier.computeCombinedRoundsIfMissing(compWithRounds, [
+      game(round: 1, match: 1),
+    ]);
     expect(computed, isNotNull);
 
     // With rounds -> should return null
@@ -75,7 +81,9 @@ void main() {
       nrlFixtureJsonURL: Uri.parse('https://nrl'),
       daurounds: computed!,
     );
-    final none = applier.computeCombinedRoundsIfMissing(comp2, [game(round: 2, match: 2)]);
+    final none = applier.computeCombinedRoundsIfMissing(comp2, [
+      game(round: 2, match: 2),
+    ]);
     expect(none, isNull);
   });
 }

@@ -326,11 +326,15 @@ with the epoch yet. The patch was `test/data/kickoff-epoch-patch.json` (git-igno
    (`test/data/games-pre-patch-2026-10-20.json`, git-ignored) is the rollback point: undoing the backfill is
    removing the `DateUtcEpochMs` keys, which nothing reads yet.
 
-**Still to do.** The client change rides the next client release. Until then an old client's admin
-import (a fallback in `getNetworkFixtureData` that runs only when the Cloud Functions base URL is not
-configured) would write `DateUtc` without the epoch, so the verifier is run again at the pre-flight and
-the patch re-applied if needed. The R2 client should delete that fallback (M7), so the client has no
-import path at all.
+**Client import removed (20 October 2026).** The client used to have a local fallback in
+`getNetworkFixtureData` that downloaded fixtures itself and wrote games under the admin allowlist when the
+Cloud Functions base URL was not configured. It is deleted, along with the services only it used. With no
+URL configured the call now throws a `StateError` that the admin screen shows. The client has no import
+path, so the only writer of `DateUtc` is the Dart functions, which write the epoch with it. The released
+client on `main` still has the fallback until the next release, so the verifier is run again at the
+pre-flight and the patch re-applied if needed. `GamesViewModel.updateGameAttribute` and
+`saveBatchOfGameAttributes` now have no caller outside their tests; M7 can delete them with the other
+client game-write code.
 
 ## 7. Timeline, back-planned from the season
 

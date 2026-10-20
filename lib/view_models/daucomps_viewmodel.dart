@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -8,11 +9,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
-import 'package:daufootytipping/services/combined_rounds_service.dart';
-import 'package:daufootytipping/services/combined_rounds_persistence.dart';
-import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/daucomps_snapshot_applier.dart';
-import 'package:daufootytipping/services/lock_manager.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
 import 'package:daufootytipping/repositories/daucomps_repository.dart';
 import 'package:daufootytipping/services/rounds_linking_service.dart';
@@ -20,10 +17,6 @@ import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
-import 'package:daufootytipping/services/fixture_download_service.dart';
-import 'package:daufootytipping/services/fixture_update_service.dart';
-import 'package:daufootytipping/services/analytics_service.dart';
-import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:dau_shared/constants/function_endpoints.dart';
@@ -35,27 +28,18 @@ import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart';
 
-enum LeagueLadderAvailability {
-  unknown,
-  ready,
-  insufficientData,
-  unavailable,
-}
+enum LeagueLadderAvailability { unknown, ready, insufficientData, unavailable }
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   List<DAUComp> get daucomps => _daucomps;
-  // Lazily access database reference to avoid Firebase initialization during pure unit tests
-  DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
-  final String?
-  _initDAUCompDbKey; // this is the comp to init with. typically the active comp, but can be any comp when in admin mode
+  final String? _initDAUCompDbKey; // this is the comp to init with. typically the active comp, but can be any comp when in admin mode
   String? get initDAUCompDbKey => _initDAUCompDbKey;
 
   DAUComp? _activeDAUComp;
-  DAUComp? get activeDAUComp =>
-      _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
+  DAUComp? get activeDAUComp => _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
 
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp =>
@@ -98,14 +82,10 @@ class DAUCompsViewModel extends ChangeNotifier {
   List<Game>? _cachedGroupedGamesSource;
   int? _cachedGroupedGamesCount;
   Map<League, List<Game>>? _cachedGroupedGames;
-  final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
-  final DauCompsSnapshotApplier _snapshotApplier = const DauCompsSnapshotApplier();
-  final LockManager _lockManager = const LockManager();
+  final DauCompsSnapshotApplier _snapshotApplier =
+      const DauCompsSnapshotApplier();
   late final UrlHealthChecker _urlHealthChecker;
-  final AnalyticsService _analytics;
-  final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
-  final FixtureImportApplier _importApplier = const FixtureImportApplier();
   final KickoffRefreshScheduler _kickoffRefreshScheduler;
   final SelectionInitCoordinator _selectionInit;
   final String? _cloudFunctionsBaseURLOverride;
@@ -125,8 +105,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     this._adminMode, {
     bool skipInit = false,
     DauCompsRepository? repo,
-    FixtureDownloadService? fixtureDownloader,
-    AnalyticsService? analytics,
     TippersViewModel Function()? tippers,
     SelectionInitCoordinator? selectionInit,
     UrlHealthChecker? urlHealthChecker,
@@ -137,21 +115,19 @@ class DAUCompsViewModel extends ChangeNotifier {
     String? Function()? adminCheckFixtureUrlURLProvider,
     Future<String?> Function()? adminCheckFixtureUrlURLLoader,
     KickoffRefreshScheduler? kickoffRefreshScheduler,
-  })  : _repo = repo ?? FirebaseDauCompsRepository(),
-        _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
-        _analytics = analytics ?? FirebaseAnalyticsService(),
-        _tippers = tippers ?? (() => di<TippersViewModel>()),
-        _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
-        _kickoffRefreshScheduler =
-            kickoffRefreshScheduler ?? KickoffRefreshScheduler(),
-        _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
-        _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
-        _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
-        _adminCheckFixtureUrlURLProvider = adminCheckFixtureUrlURLProvider,
-        _adminCheckFixtureUrlURLLoader = adminCheckFixtureUrlURLLoader,
-        _cloudFunctionsBaseURLOverride =
-            cloudFunctionsBaseURLOverride ??
-            resolveDefaultCloudFunctionsBaseURLOverride() {
+  }) : _repo = repo ?? FirebaseDauCompsRepository(),
+       _tippers = tippers ?? (() => di<TippersViewModel>()),
+       _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
+       _kickoffRefreshScheduler =
+           kickoffRefreshScheduler ?? KickoffRefreshScheduler(),
+       _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
+       _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
+       _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
+       _adminCheckFixtureUrlURLProvider = adminCheckFixtureUrlURLProvider,
+       _adminCheckFixtureUrlURLLoader = adminCheckFixtureUrlURLLoader,
+       _cloudFunctionsBaseURLOverride =
+           cloudFunctionsBaseURLOverride ??
+           resolveDefaultCloudFunctionsBaseURLOverride() {
     _urlHealthChecker =
         urlHealthChecker ??
         UrlHealthChecker(
@@ -218,7 +194,6 @@ class DAUCompsViewModel extends ChangeNotifier {
         log('In admin mode');
       }
     }
-
   }
 
   Future<void> changeDisplayedDAUComp(
@@ -300,10 +275,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             },
             createStatsViewModel: (comp, gamesVm) => StartupProfiling.trackSync(
               'startup.create_stats_view_model',
-              () => StatsViewModel(
-                comp,
-                gamesVm,
-              ),
+              () => StatsViewModel(comp, gamesVm),
             ),
             createTipsViewModel: (gamesVm) => StartupProfiling.trackSync(
               'startup.create_tips_view_model',
@@ -351,10 +323,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     final res = await _selectionInit.initializeAdmin(
       selectedComp: _selectedDAUComp!,
       createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
-      createStatsViewModel: (comp, gamesVm) => StatsViewModel(
-        comp,
-        gamesVm,
-      ),
+      createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
     );
 
     gamesViewModel = res.gamesViewModel;
@@ -399,10 +368,14 @@ class DAUCompsViewModel extends ChangeNotifier {
 
         // Refresh pointers to active/selected comps
         if (_activeDAUComp != null) {
-          _activeDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _activeDAUComp!.dbkey);
+          _activeDAUComp = _daucomps.firstWhereOrNull(
+            (c) => c.dbkey == _activeDAUComp!.dbkey,
+          );
         }
         if (_selectedDAUComp != null) {
-          _selectedDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _selectedDAUComp!.dbkey);
+          _selectedDAUComp = _daucomps.firstWhereOrNull(
+            (c) => c.dbkey == _selectedDAUComp!.dbkey,
+          );
         }
         _clearGroupedGamesCache();
 
@@ -436,39 +409,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-
   // parsing and cutoff logic is now handled by DaucompsRoundsParser service
-
-  
-
-  Future<bool> _acquireLock(DAUComp daucompToUpdate) async {
-    DatabaseReference lockRef = _db.child(
-      _lockManager.lockPathForComp(daucompsPath, daucompToUpdate.dbkey!),
-    );
-    DataSnapshot snapshot = await lockRef.get();
-
-    if (snapshot.exists) {
-      DateTime? lockTimestamp;
-      if (snapshot.value is String) {
-        lockTimestamp = DateTime.tryParse(snapshot.value as String);
-      } else {
-        lockTimestamp = null;
-      }
-      if (_lockManager.isLockFresh(lockTimestamp, DateTime.now(), const Duration(hours: 24))) {
-        return false; // Lock is already held by another instance
-      }
-    }
-
-    await lockRef.set(DateTime.now().toIso8601String());
-    return true; // Lock acquired successfully
-  }
-
-  Future<void> _releaseLock(DAUComp daucompToUpdate) async {
-    DatabaseReference lockRef = _db.child(
-      _lockManager.lockPathForComp(daucompsPath, daucompToUpdate.dbkey!),
-    );
-    await lockRef.set(null);
-  }
 
   HttpsCallable _adminCallable(
     String functionName,
@@ -476,7 +417,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     required Duration timeout,
   }) {
     final uri = Uri.parse(configuredURL);
-    final isLocalEmulatorUrl = uri.scheme == 'http' &&
+    final isLocalEmulatorUrl =
+        uri.scheme == 'http' &&
         (uri.host == '127.0.0.1' ||
             uri.host == 'localhost' ||
             uri.host == '10.0.2.2');
@@ -536,10 +478,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     return cloudFunctionFixtureDownloadMessage(result.data);
   }
 
-  Future<String> getNetworkFixtureData(
-    DAUComp daucompToUpdate, {
-    bool useCloudFunction = true,
-  }) async {
+  Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
     _lastFixtureDownloadRanViaCloudFunction = false;
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
@@ -558,72 +497,57 @@ class DAUCompsViewModel extends ChangeNotifier {
       return message;
     }
 
-    String? cloudFunctionsBaseURL;
-    if (useCloudFunction) {
-      cloudFunctionsBaseURL = resolveConfiguredCloudFunctionsBaseURL();
-      final String configDescription =
-          parseCloudFunctionsBaseURLValue(
-            _cloudFunctionsBaseURLProvider?.call(),
-          ) ??
-          '<not set>';
-      final String overrideDescription =
-          parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
-          '<not set>';
-      log(
-        'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from ConfigViewModel (config=$configDescription, override=$overrideDescription)',
-      );
-    } else {
-      log(
-        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function disabled for this call. Falling back to local execution.',
-      );
-    }
-
-    if (useCloudFunction && cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
-      log('DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...');
-      _isDownloading = true;
-      notifyListeners();
-      try {
-        const functionName = adminFixtureDownloadEndpoint;
-        final callable = _adminCallable(
-          functionName,
-          cloudFunctionsBaseURL,
-          timeout: const Duration(minutes: 2),
-        );
-        final result = await callable.call(<String, dynamic>{
-          'compKey': daucompToUpdate.dbkey,
-        });
-        final String message = cloudFunctionFixtureDownloadMessage(
-          result.data,
-        );
-        _lastFixtureDownloadRanViaCloudFunction = true;
-        log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
-        return message;
-      } catch (e, stackTrace) {
-        log('DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e.', error: e, stackTrace: stackTrace);
-        rethrow;
-      } finally {
-        _isDownloading = false;
-        notifyListeners();
-      }
-    }
-
-    if (useCloudFunction) {
-      log(
-        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function not configured. Executing local fixture download...',
-      );
-    } else {
-      log('DAUCompsViewModel_getNetworkFixtureData: Executing local fixture download...');
-    }
-    return _fixtureUpdater.runUpdate(
-      comp: daucompToUpdate,
-      acquireLock: () => _acquireLock(daucompToUpdate),
-      releaseLock: () => _releaseLock(daucompToUpdate),
-      setDownloading: (v) {
-        _isDownloading = v;
-        notifyListeners();
-      },
-      processFetched: (comp, nrl, afl) => _processFetchedFixtures(comp, nrl, afl),
+    final String? cloudFunctionsBaseURL =
+        resolveConfiguredCloudFunctionsBaseURL();
+    final String configDescription =
+        parseCloudFunctionsBaseURLValue(
+          _cloudFunctionsBaseURLProvider?.call(),
+        ) ??
+        '<not set>';
+    final String overrideDescription =
+        parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
+        '<not set>';
+    log(
+      'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from ConfigViewModel (config=$configDescription, override=$overrideDescription)',
     );
+    if (cloudFunctionsBaseURL == null || cloudFunctionsBaseURL.isEmpty) {
+      throw StateError(
+        'Fixture download backend is not configured. Set /AppConfig/$cloudFunctionsBaseURLKey.',
+      );
+    }
+
+    log(
+      'DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...',
+    );
+    _isDownloading = true;
+    notifyListeners();
+    try {
+      const functionName = adminFixtureDownloadEndpoint;
+      final callable = _adminCallable(
+        functionName,
+        cloudFunctionsBaseURL,
+        timeout: const Duration(minutes: 2),
+      );
+      final result = await callable.call(<String, dynamic>{
+        'compKey': daucompToUpdate.dbkey,
+      });
+      final String message = cloudFunctionFixtureDownloadMessage(result.data);
+      _lastFixtureDownloadRanViaCloudFunction = true;
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message',
+      );
+      return message;
+    } catch (e, stackTrace) {
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e.',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    } finally {
+      _isDownloading = false;
+      notifyListeners();
+    }
   }
 
   static String? parseCloudFunctionsBaseURLValue(Object? value) {
@@ -704,14 +628,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     log(
       'DAUCompsViewModel_checkFixtureUrlActiveViaCloudFunction: checking $uri via $functionName.',
     );
-    final result = await callable.call(<String, dynamic>{'url': uri.toString()});
+    final result = await callable.call(<String, dynamic>{
+      'url': uri.toString(),
+    });
     final data = result.data;
     if (data is Map && data['active'] is bool) {
       return data['active'] as bool;
     }
-    throw StateError(
-      'Unexpected $functionName response for $uri: $data',
-    );
+    throw StateError('Unexpected $functionName response for $uri: $data');
   }
 
   static String? resolveDefaultCloudFunctionsBaseURLOverride({
@@ -769,92 +693,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     return 'Successfully updated fixtures via Cloud Function';
   }
 
-  Future<String> _processFetchedFixtures(
-    DAUComp daucompToUpdate,
-    List<dynamic> nrlGames,
-    List<dynamic> aflGames,
-  ) async {
-    // Build and apply per-game updates
-    final ops = _importApplier.buildGameUpdates(nrlGames, aflGames);
-    final futures = <Future>[];
-    for (final op in ops) {
-      for (final entry in op.attributes.entries) {
-        futures.add(
-          gamesViewModel!.updateGameAttribute(
-            op.dbkey,
-            entry.key,
-            entry.value,
-            op.league,
-          ),
-        );
-      }
-    }
-    await Future.wait(futures);
-    await gamesViewModel!.saveBatchOfGameAttributes();
-
-    // Tag games with league in-place (keeps previous behavior for raw arrays)
-    _importApplier.tagGamesWithLeagueInPlace(nrlGames, 'nrl');
-    _importApplier.tagGamesWithLeagueInPlace(aflGames, 'afl');
-
-    List<dynamic> allGames = nrlGames + aflGames;
-    final combined = _importApplier.computeCombinedRoundsIfMissing(daucompToUpdate, allGames);
-    if (combined != null) {
-      log('DAUCompsViewModel()_fetchAndProcessFixtureData No existing rounds found. Creating $combinedRoundsPath with round start stop times.');
-      await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
-    } else {
-      log('DAUCompsViewModel()_fetchAndProcessFixtureData Existing rounds found. Skipping updating $combinedRoundsPath round start stop time update.');
-    }
-
-    String res =
-        'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
-    await _analytics.logEvent('fixture_download',
-        parameters: {'comp': daucompToUpdate.name, 'result': res});
-
-    daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
-    updateCompAttribute(
-      daucompToUpdate.dbkey!,
-      lastFixtureUTCKey,
-      daucompToUpdate.lastFixtureUpdateTimestampUTC!.toIso8601String(),
-    );
-    await saveBatchOfCompAttributes();
-
-    return res;
-  }
-
-  // tagging handled via FixtureImportApplier
-
-  Future<void> _updateRoundStartEndTimesBasedOnFixture(
-    DAUComp daucomp,
-    List<dynamic> rawGames,
-  ) async {
-    await initialDAUCompLoadComplete;
-
-    // Build rounds using a pure service to improve testability
-    final roundsBuilder = CombinedRoundsService();
-    final combined = roundsBuilder.buildCombinedRounds(rawGames);
-
-    // Update the database with calculated rounds
-    await _updateCombinedRoundsInDatabase(combined, daucomp);
-  }
-
-
-  Future<void> _updateCombinedRoundsInDatabase(
-    List<DAURound> combinedRounds,
-    DAUComp daucomp,
-  ) async {
-    log('In daucompsviewmodel._updateCombinedRoundsInDatabase()');
-    await initialDAUCompLoadComplete;
-
-    final batch = _roundsPersistence.buildCombinedRoundsUpdates(
-      daucomp,
-      combinedRounds,
-      daucompsPath: daucompsPath,
-      combinedRoundsPath: combinedRoundsPath,
-    );
-    updates.addAll(batch);
-    await saveBatchOfCompAttributes();
-  }
-
   bool _isLinkingGames = false;
   bool get isLinkingGames => _isLinkingGames;
 
@@ -906,7 +744,9 @@ class DAUCompsViewModel extends ChangeNotifier {
     for (var compDbKey in compDbKeys) {
       final DAUComp? daucomp = await findComp(compDbKey);
       if (daucomp == null) {
-        log('DAUCompsViewModel.resolveCompsList: compDbKey not found: $compDbKey');
+        log(
+          'DAUCompsViewModel.resolveCompsList: compDbKey not found: $compDbKey',
+        );
       } else if (daucomp.dbkey == compDbKey) {
         daucompList.add(daucomp);
       }
@@ -943,10 +783,12 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('Adding new DAUComp record');
       final key = await _repo.newCompKey(daucompsPath);
       updates['$daucompsPath/$key/$compNameKey'] = newDAUComp.name;
-      updates['$daucompsPath/$key/$aflFixtureJsonURLKey'] =
-          newDAUComp.aflFixtureJsonURL.toString();
-      updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] =
-          newDAUComp.nrlFixtureJsonURL.toString();
+      updates['$daucompsPath/$key/$aflFixtureJsonURLKey'] = newDAUComp
+          .aflFixtureJsonURL
+          .toString();
+      updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] = newDAUComp
+          .nrlFixtureJsonURL
+          .toString();
       newDAUComp.dbkey = key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
@@ -1128,8 +970,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     selectedTipperTipsViewModel = null;
   }
 
-  // per-game processing handled via FixtureImportApplier
-
   @override
   void dispose() {
     _daucompsStream.cancel();
@@ -1156,7 +996,8 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   LeagueLadderAvailability getLeagueLadderAvailability(League league) {
-    return _cachedLadderAvailability[league] ?? LeagueLadderAvailability.unknown;
+    return _cachedLadderAvailability[league] ??
+        LeagueLadderAvailability.unknown;
   }
 
   Future<LeagueLadder?> getOrCalculateLeagueLadder(
@@ -1253,8 +1094,10 @@ class DAUCompsViewModel extends ChangeNotifier {
         final bool sameCompStillSelected =
             identical(_selectedDAUComp, selectedComp) ||
             _selectedDAUComp?.dbkey == selectedComp.dbkey;
-        final bool sameGamesViewModelStillActive =
-            identical(gamesViewModel, currentGamesViewModel);
+        final bool sameGamesViewModelStillActive = identical(
+          gamesViewModel,
+          currentGamesViewModel,
+        );
 
         if (sameCompStillSelected && sameGamesViewModelStillActive) {
           _cachedLadders[league] = calculatedLadder;
@@ -1271,8 +1114,10 @@ class DAUCompsViewModel extends ChangeNotifier {
         final bool sameCompStillSelected =
             identical(_selectedDAUComp, selectedComp) ||
             _selectedDAUComp?.dbkey == selectedComp.dbkey;
-        final bool sameGamesViewModelStillActive =
-            identical(gamesViewModel, currentGamesViewModel);
+        final bool sameGamesViewModelStillActive = identical(
+          gamesViewModel,
+          currentGamesViewModel,
+        );
 
         if (sameCompStillSelected && sameGamesViewModelStillActive) {
           _cachedLadderAvailability[league] =

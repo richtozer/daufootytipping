@@ -1,3 +1,4 @@
+import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
 import 'package:daufootytipping/models/daucomp.dart';
@@ -6,17 +7,36 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:flutter/foundation.dart';
+
+class MockGamesViewModel extends Mock implements GamesViewModel {}
 
 void main() {
   group('DAUCompsViewModel (characterization)', () {
     test('groupGamesIntoLeagues splits and sorts games', () {
       final vm = DAUCompsViewModel(null, false, skipInit: true);
 
-      final nrlHome = Team(dbkey: 'nrl-home', name: 'NRL Home', league: League.nrl);
-      final nrlAway = Team(dbkey: 'nrl-away', name: 'NRL Away', league: League.nrl);
-      final aflHome = Team(dbkey: 'afl-home', name: 'AFL Home', league: League.afl);
-      final aflAway = Team(dbkey: 'afl-away', name: 'AFL Away', league: League.afl);
+      final nrlHome = Team(
+        dbkey: 'nrl-home',
+        name: 'NRL Home',
+        league: League.nrl,
+      );
+      final nrlAway = Team(
+        dbkey: 'nrl-away',
+        name: 'NRL Away',
+        league: League.nrl,
+      );
+      final aflHome = Team(
+        dbkey: 'afl-home',
+        name: 'AFL Home',
+        league: League.afl,
+      );
+      final aflAway = Team(
+        dbkey: 'afl-away',
+        name: 'AFL Away',
+        league: League.afl,
+      );
 
       final games = <Game>[
         Game(
@@ -80,42 +100,58 @@ void main() {
       expect(grouped[League.afl]![1].fixtureMatchNumber, 2);
     });
 
-    test('groupGamesIntoLeagues returns defensive copies for cached results', () {
-      final vm = DAUCompsViewModel(null, false, skipInit: true);
+    test(
+      'groupGamesIntoLeagues returns defensive copies for cached results',
+      () {
+        final vm = DAUCompsViewModel(null, false, skipInit: true);
 
-      final nrlHome = Team(dbkey: 'nrl-home', name: 'NRL Home', league: League.nrl);
-      final nrlAway = Team(dbkey: 'nrl-away', name: 'NRL Away', league: League.nrl);
+        final nrlHome = Team(
+          dbkey: 'nrl-home',
+          name: 'NRL Home',
+          league: League.nrl,
+        );
+        final nrlAway = Team(
+          dbkey: 'nrl-away',
+          name: 'NRL Away',
+          league: League.nrl,
+        );
 
-      final round = DAURound(
-        dAUroundNumber: 1,
-        firstGameKickOffUTC: DateTime.parse('2025-01-01T00:00:00Z'),
-        lastGameKickOffUTC: DateTime.parse('2025-01-03T00:00:00Z'),
-        games: [
-          Game(
-            dbkey: 'nrl-01-001',
-            league: League.nrl,
-            homeTeam: nrlHome,
-            awayTeam: nrlAway,
-            location: 'Suncorp',
-            startTimeUTC: DateTime.parse('2025-01-01T10:00:00Z'),
-            fixtureRoundNumber: 1,
-            fixtureMatchNumber: 1,
-          ),
-        ],
-      );
+        final round = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.parse('2025-01-01T00:00:00Z'),
+          lastGameKickOffUTC: DateTime.parse('2025-01-03T00:00:00Z'),
+          games: [
+            Game(
+              dbkey: 'nrl-01-001',
+              league: League.nrl,
+              homeTeam: nrlHome,
+              awayTeam: nrlAway,
+              location: 'Suncorp',
+              startTimeUTC: DateTime.parse('2025-01-01T10:00:00Z'),
+              fixtureRoundNumber: 1,
+              fixtureMatchNumber: 1,
+            ),
+          ],
+        );
 
-      final firstGrouped = vm.groupGamesIntoLeagues(round);
-      firstGrouped[League.nrl]!.clear();
+        final firstGrouped = vm.groupGamesIntoLeagues(round);
+        firstGrouped[League.nrl]!.clear();
 
-      final secondGrouped = vm.groupGamesIntoLeagues(round);
+        final secondGrouped = vm.groupGamesIntoLeagues(round);
 
-      expect(secondGrouped[League.nrl]!.length, 1);
-    });
+        expect(secondGrouped[League.nrl]!.length, 1);
+      },
+    );
 
     test('updateRoundAttribute writes correct update path', () {
       final vm = DAUCompsViewModel(null, false, skipInit: true);
 
-      vm.updateRoundAttribute('comp123', 2, 'roundStartDate', '2025-01-01T00:00:00Z');
+      vm.updateRoundAttribute(
+        'comp123',
+        2,
+        'roundStartDate',
+        '2025-01-01T00:00:00Z',
+      );
 
       // roundNumber is 1-based; storage uses 0-based index
       final key = '/AllDAUComps/comp123/combinedRounds2/1/roundStartDate';
@@ -146,7 +182,9 @@ void main() {
         'https://example.org',
       );
       expect(
-        DAUCompsViewModel.parseCloudFunctionsBaseURLValue('  https://example.net  '),
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue(
+          '  https://example.net  ',
+        ),
         'https://example.net',
       );
       expect(
@@ -158,9 +196,7 @@ void main() {
         isNull,
       );
       expect(
-        DAUCompsViewModel.parseCloudFunctionsBaseURLValue({
-          'value': '1.3.9',
-        }),
+        DAUCompsViewModel.parseCloudFunctionsBaseURLValue({'value': '1.3.9'}),
         isNull,
       );
     });
@@ -258,30 +294,33 @@ void main() {
       );
     });
 
-    test('backend rescore loads a URL when the provider is not ready', () async {
-      var loadCount = 0;
-      final vm = DAUCompsViewModel(
-        null,
-        false,
-        skipInit: true,
-        cloudFunctionsBaseURLOverride: 'not-a-url',
-        adminScoringRescoreURLProvider: () => null,
-        adminScoringRescoreURLLoader: () async {
-          loadCount += 1;
-          return 'not-a-url';
-        },
-      );
-      final comp = DAUComp(
-        dbkey: 'comp-2026',
-        name: 'Test Comp',
-        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
-        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
-        daurounds: const [],
-      );
+    test(
+      'backend rescore loads a URL when the provider is not ready',
+      () async {
+        var loadCount = 0;
+        final vm = DAUCompsViewModel(
+          null,
+          false,
+          skipInit: true,
+          cloudFunctionsBaseURLOverride: 'not-a-url',
+          adminScoringRescoreURLProvider: () => null,
+          adminScoringRescoreURLLoader: () async {
+            loadCount += 1;
+            return 'not-a-url';
+          },
+        );
+        final comp = DAUComp(
+          dbkey: 'comp-2026',
+          name: 'Test Comp',
+          aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+          nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+          daurounds: const [],
+        );
 
-      await expectLater(vm.rescoreWithBackend(comp), throwsStateError);
-      expect(loadCount, 1);
-    });
+        await expectLater(vm.rescoreWithBackend(comp), throwsStateError);
+        expect(loadCount, 1);
+      },
+    );
 
     test('deployed callable URL remains a complete service URL', () {
       const configuredUrl =
@@ -323,6 +362,36 @@ void main() {
           targetPlatform: TargetPlatform.iOS,
         ),
         isNull,
+      );
+    });
+
+    test('fixture download throws when no backend URL is configured, instead of importing in the client', () async {
+      final comp = DAUComp(
+        dbkey: 'comp-2026',
+        name: 'Test Comp',
+        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+        daurounds: const [],
+      );
+      final gamesViewModel = MockGamesViewModel();
+      when(() => gamesViewModel.selectedDAUComp).thenReturn(comp);
+      final vm = DAUCompsViewModel(
+        null,
+        false,
+        skipInit: true,
+        cloudFunctionsBaseURLOverride: 'not-a-url',
+        cloudFunctionsBaseURLProvider: () => null,
+      );
+      vm.gamesViewModel = gamesViewModel;
+      vm.completeInitialDAUCompLoadForTest();
+      vm.completeOtherViewModelsForTest();
+
+      await expectLater(vm.getNetworkFixtureData(comp), throwsStateError);
+
+      expect(vm.isDownloading, isFalse);
+      expect(vm.lastFixtureDownloadRanViaCloudFunction, isFalse);
+      verifyNever(
+        () => gamesViewModel.updateGameAttribute(any(), any(), any(), any()),
       );
     });
 

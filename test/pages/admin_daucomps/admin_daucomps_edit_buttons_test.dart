@@ -160,7 +160,7 @@ void main() {
     expect(disableBackStates.last, false);
   });
 
-  testWidgets('runs backend scoring after local fixture download', (
+  testWidgets('runs backend scoring when the fixture download did not run', (
     tester,
   ) async {
     await tester.pumpWidget(
