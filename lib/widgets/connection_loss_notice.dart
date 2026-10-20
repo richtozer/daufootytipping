@@ -16,6 +16,9 @@ class ConnectionLossNotice extends StatelessWidget {
   static const String message =
       'Not connected. If you have signal and this continues, restart the app.';
 
+  /// Names the dismiss control for screen readers.
+  static const String dismissLabel = 'Dismiss';
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -47,10 +50,18 @@ class ConnectionLossNotice extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Dismiss',
-                  icon: Icon(Icons.close, color: colors.onTertiaryContainer),
-                  onPressed: monitor.dismiss,
+                // No tooltip: the notice sits above the Navigator, where no
+                // Overlay exists to show one (the same constraint as the
+                // floating controls). Screen readers get the label instead.
+                Semantics(
+                  button: true,
+                  label: dismissLabel,
+                  onTap: monitor.dismiss,
+                  excludeSemantics: true,
+                  child: IconButton(
+                    icon: Icon(Icons.close, color: colors.onTertiaryContainer),
+                    onPressed: monitor.dismiss,
+                  ),
                 ),
               ],
             ),

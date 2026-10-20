@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/app_controls_test_app.dart';
 
 void main() {
   late StreamController<bool?> connection;
@@ -44,6 +47,30 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('shows in the app as main.dart places it, above the Navigator', (
+    tester,
+  ) async {
+    final controls = AppControlsViewModel();
+    addTearDown(controls.dispose);
+    await tester.pumpWidget(
+      appWithControls(
+        controls,
+        home: const Scaffold(body: Text('home')),
+        notice: ConnectionLossNotice(monitor: monitor),
+      ),
+    );
+    await showNotice(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text(ConnectionLossNotice.message), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text(ConnectionLossNotice.message), findsNothing);
+  });
+
   testWidgets('shows nothing while the connection is fine', (tester) async {
     await pumpNotice(tester);
     connection.add(true);
@@ -78,15 +105,11 @@ void main() {
         ),
       );
       expect(
-        tester.getSemantics(find.byTooltip('Dismiss')),
+        tester.getSemantics(find.byIcon(Icons.close)),
         matchesSemantics(
-          tooltip: 'Dismiss',
+          label: ConnectionLossNotice.dismissLabel,
           isButton: true,
           hasTapAction: true,
-          hasFocusAction: true,
-          isEnabled: true,
-          isFocusable: true,
-          hasEnabledState: true,
         ),
       );
       handle.dispose();
@@ -108,7 +131,7 @@ void main() {
     await pumpNotice(tester);
     await showNotice(tester);
 
-    await tester.tap(find.byTooltip('Dismiss'));
+    await tester.tap(find.byIcon(Icons.close));
     await tester.pump();
 
     expect(find.text(ConnectionLossNotice.message), findsNothing);

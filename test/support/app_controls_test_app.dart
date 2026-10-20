@@ -14,13 +14,18 @@ AppControlsViewModel registerAppControlsViewModel() {
 
 /// The app as main.dart builds it, with the floating controls above the
 /// Navigator, so a test can tap Back or a page's actions.
-Widget appWithControls(AppControlsViewModel viewModel, {required Widget home}) {
+Widget appWithControls(
+  AppControlsViewModel viewModel, {
+  required Widget home,
+  Widget? notice,
+}) {
   final observer = AppControlsObserver(viewModel);
   return MaterialApp(
     navigatorObservers: [observer],
     builder: (context, navigator) => AppControlsHost(
       viewModel: viewModel,
       observer: observer,
+      notice: notice,
       child: navigator!,
     ),
     home: home,
