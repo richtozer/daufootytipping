@@ -37,6 +37,21 @@ const String configPathRoot = '/AppConfig';
 const String tipsPathRoot = '/AllTips';
 const String statsPathRoot = '/Stats';
 
+/// Server-owned identity data. No client writes any of these in the final
+/// rules; the identity callables and the audit job are the only writers.
+const String tipperPrivatePath = '/TipperPrivate';
+const String authIndexPath = '/AuthIndex';
+const String aliasIndexPath = '/AliasIndex';
+const String logonIndexPath = '/LogonIndex';
+const String createIntentsPath = '/CreateIntents';
+const String identityLocksPath = '/IdentityLocks';
+const String identityOpsPath = '/IdentityOps';
+const String placeholdersPath = '/Placeholders';
+
+/// Server-only configuration (identity mode, aggregator mode). Closed to
+/// every client under every ruleset.
+const String serverConfigPath = '/ServerConfig';
+
 /// Legacy/client-owned scoring branches under [statsPathRoot].
 const String roundStatsLegacyRoot = 'round_stats_v3';
 const String gameStatsLegacyRoot = 'game_stats_v3';

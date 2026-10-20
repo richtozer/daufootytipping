@@ -7,45 +7,13 @@ import 'package:firebase_functions/firebase_functions.dart'
     hide Credential, DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
+import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
 import 'admin_allowlist.g.dart';
-
-// firebase_functions 0.7 replaced its specialized HttpsError subclasses with
-// HttpResponseException. These adapters preserve the existing domain-specific
-// catch clauses while using the new runtime-recognized exception type.
-class InvalidArgumentError extends HttpResponseException {
-  InvalidArgumentError(String message)
-      : super(400, message, status: 'INVALID_ARGUMENT');
-}
-
-class UnauthenticatedError extends HttpResponseException {
-  UnauthenticatedError(String message)
-      : super(401, message, status: 'UNAUTHENTICATED');
-}
-
-class PermissionDeniedError extends HttpResponseException {
-  PermissionDeniedError(String message)
-      : super(403, message, status: 'PERMISSION_DENIED');
-}
-
-class NotFoundError extends HttpResponseException {
-  NotFoundError(String message) : super(404, message, status: 'NOT_FOUND');
-}
-
-class AbortedError extends HttpResponseException {
-  AbortedError(String message) : super(409, message, status: 'ABORTED');
-}
-
-class InternalError extends HttpResponseException {
-  InternalError(String message) : super(500, message, status: 'INTERNAL');
-}
-
-class UnavailableError extends HttpResponseException {
-  UnavailableError(String message) : super(503, message, status: 'UNAVAILABLE');
-}
 
 void logFunction(String message) {
   stdout.writeln('[adminFixtureDownload] $message');
@@ -1240,240 +1208,25 @@ class _StandaloneBackendScoringDatabaseHandle
 }
 
 class _RestBackendScoringDatabaseHandle extends _BackendScoringDatabaseHandle {
-  _RestBackendScoringDatabaseHandle(this._client, this._databaseUrl);
+  _RestBackendScoringDatabaseHandle(this._database);
 
-  final dynamic _client;
-  final String _databaseUrl;
+  final RestDatabase _database;
 
   static Future<_RestBackendScoringDatabaseHandle> create({
     required dynamic runtimeAdminApp,
     required String databaseUrl,
   }) async {
-    final client = await runtimeAdminApp.client;
-    return _RestBackendScoringDatabaseHandle(client, databaseUrl);
+    final http.Client client = await runtimeAdminApp.client;
+    return _RestBackendScoringDatabaseHandle(
+      RestDatabase(client: client, databaseUrl: databaseUrl),
+    );
   }
 
   @override
-  dynamic ref(String path) => _RestDatabaseReference(
-        client: _client,
-        databaseUrl: _databaseUrl,
-        path: path,
-      );
+  dynamic ref(String path) => _database.ref(path);
 
   @override
   Future<void> close() async {}
-}
-
-class _RestDatabaseReference {
-  _RestDatabaseReference({
-    required dynamic client,
-    required String databaseUrl,
-    required String path,
-  })  : _client = client,
-        _databaseUrl = databaseUrl,
-        _path = path;
-
-  final dynamic _client;
-  final String _databaseUrl;
-  final String _path;
-  static const Duration _requestTimeout = Duration(seconds: 15);
-
-  String? get _key {
-    final segments = _path.split('/').where((segment) => segment.isNotEmpty);
-    return segments.isEmpty ? null : segments.last;
-  }
-
-  Future<DataSnapshot> once() async {
-    final response = await runRtdbRestRequest(
-      _client.get(_uri()),
-      operation: 'read',
-      path: _path,
-    );
-    _throwForRestError(response, 'read', _path);
-    return _RestDataSnapshot(_key, _decodeRestBody(response.body as String));
-  }
-
-  Future<void> set(dynamic value) async {
-    final response = await runRtdbRestRequest(
-      _client.put(
-        _uri(),
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode(value),
-      ),
-      operation: 'set',
-      path: _path,
-    );
-    _throwForRestError(response, 'set', _path);
-  }
-
-  Future<void> update(Map<dynamic, dynamic> value) async {
-    final response = await runRtdbRestRequest(
-      _client.patch(
-        _uri(),
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode(value),
-      ),
-      operation: 'update',
-      path: _path,
-    );
-    _throwForRestError(response, 'update', _path);
-  }
-
-  Future<TransactionResult> runTransaction(
-    TransactionHandler transactionHandler, {
-    Duration timeout = const Duration(seconds: 5),
-  }) async {
-    final deadline = DateTime.now().add(timeout);
-    var attempts = 0;
-    while (DateTime.now().isBefore(deadline)) {
-      attempts += 1;
-      final readResponse = await runRtdbRestRequest(
-        _client.get(
-          _uri(),
-          headers: const {'X-Firebase-ETag': 'true'},
-        ),
-        operation: 'transaction read',
-        path: _path,
-        timeout: _remainingTransactionTime(deadline, attempts),
-      );
-      _throwForRestError(readResponse, 'transaction read', _path);
-      final etag = readResponse.headers['etag'] as String?;
-      final currentValue = _decodeRestBody(readResponse.body as String);
-      final mutableData = MutableData(_key, currentValue);
-      final updatedData = await transactionHandler(mutableData);
-      if (updatedData == null) {
-        return _RestTransactionResult(
-          committed: false,
-          dataSnapshot: _RestDataSnapshot(_key, currentValue),
-        );
-      }
-
-      final writeResponse = await runRtdbRestRequest(
-        _client.put(
-          _uri(),
-          headers: {
-            'content-type': 'application/json',
-            'if-match': etag ?? '*',
-          },
-          body: jsonEncode(updatedData.value),
-        ),
-        operation: 'transaction write',
-        path: _path,
-        timeout: _remainingTransactionTime(deadline, attempts),
-      );
-      if (writeResponse.statusCode == 412) {
-        continue;
-      }
-      _throwForRestError(writeResponse, 'transaction write', _path);
-      return _RestTransactionResult(
-        committed: true,
-        dataSnapshot: _RestDataSnapshot(
-          _key,
-          _decodeRestBody(writeResponse.body as String),
-        ),
-      );
-    }
-
-    throw AbortedError(
-      'RTDB transaction timed out at $_path after $attempts attempts',
-    );
-  }
-
-  Duration _remainingTransactionTime(DateTime deadline, int attempts) {
-    final remaining = deadline.difference(DateTime.now());
-    if (remaining <= Duration.zero) {
-      throw AbortedError(
-        'RTDB transaction timed out at $_path after $attempts attempts',
-      );
-    }
-    return remaining < _requestTimeout ? remaining : _requestTimeout;
-  }
-
-  Uri _uri() {
-    return buildRtdbRestUri(databaseUrl: _databaseUrl, path: _path);
-  }
-}
-
-Uri buildRtdbRestUri({
-  required String databaseUrl,
-  required String path,
-}) {
-  final baseUri = Uri.parse(databaseUrl);
-  final databasePathSegments = baseUri.pathSegments
-      .where((segment) => segment.isNotEmpty)
-      .toList();
-  final referencePathSegments =
-      path.split('/').where((segment) => segment.isNotEmpty).toList();
-  final restPathSegments = referencePathSegments.isEmpty
-      ? const ['.json']
-      : [
-          ...referencePathSegments.take(referencePathSegments.length - 1),
-          '${referencePathSegments.last}.json',
-        ];
-
-  return baseUri.replace(
-    pathSegments: [...databasePathSegments, ...restPathSegments],
-  );
-}
-
-Future<T> runRtdbRestRequest<T>(
-  Future<T> request, {
-  required String operation,
-  required String path,
-  Duration timeout = const Duration(seconds: 15),
-}) async {
-  try {
-    return await request.timeout(timeout);
-  } on TimeoutException {
-    throw UnavailableError(
-      'RTDB REST $operation timed out after '
-      '${timeout.inMilliseconds}ms at $path',
-    );
-  }
-}
-
-class _RestDataSnapshot implements DataSnapshot {
-  _RestDataSnapshot(this.key, this.value);
-
-  @override
-  final String? key;
-
-  @override
-  final dynamic value;
-}
-
-class _RestTransactionResult implements TransactionResult {
-  _RestTransactionResult({
-    required this.committed,
-    required this.dataSnapshot,
-  });
-
-  @override
-  final bool committed;
-
-  @override
-  final DataSnapshot? dataSnapshot;
-
-  @override
-  FirebaseDatabaseException? get error => null;
-}
-
-dynamic _decodeRestBody(String body) {
-  if (body.isEmpty) {
-    return null;
-  }
-  return jsonDecode(body);
-}
-
-void _throwForRestError(dynamic response, String operation, String path) {
-  final statusCode = response.statusCode as int;
-  if (statusCode >= 200 && statusCode < 300) {
-    return;
-  }
-  throw InternalError(
-    'RTDB REST $operation failed for $path with HTTP $statusCode: '
-    '${response.body}',
-  );
 }
 
 class _RuntimeAdminCredential implements Credential {

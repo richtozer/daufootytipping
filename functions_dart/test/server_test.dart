@@ -6,6 +6,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:firebase_dart/database.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dau_shared/dau_shared.dart';
+import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/rtdb/rest_database.dart';
 import '../bin/server.dart';
 
 class MockDatabase extends Mock {

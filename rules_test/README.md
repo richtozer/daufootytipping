@@ -6,7 +6,7 @@ Automated checks for the Realtime Database rules work (see `../DESIGN-database-r
 ```bash
 npm test            # everything that needs only the Database and Firestore emulators (demo project)
 npm run test:unit   # no emulator needed: boundary canaries, generator, audit, deploy scripts, safety checks
-npm run test:dart   # the Dart protocol spikes against the Database emulator
+npm run test:dart   # the Dart protocol spikes and the functions_dart identity tests against the Database emulator
 npm run test:live   # the live CLI paths against the Auth + Database emulators (see "Not run")
 ```
 
