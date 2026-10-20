@@ -175,7 +175,7 @@ App Check-enforced callables, awaited by the client before it starts protected l
   length at 64 characters.
 - **Index keys must be valid RTDB keys** (no `.`, `$`, `#`, `[`, `]`, `/`). `AliasIndex` keys are
   the normalised alias (Unicode letters and digits only, so already valid). **`LogonIndex` keys
-  are `base64url(SHA-256(normalisedEmail))`**, where `normalisedEmail` is trim plus lower-case;
+  are `base64url(SHA-256(normalisedEmail))` without padding (43 characters)**, where `normalisedEmail` is trim plus lower-case;
   raw emails cannot be keys because they contain `.`, and hashing also keeps addresses out of
   keys and logs.
 
@@ -189,8 +189,9 @@ spanning them would lock the whole tree. Instead:
   which succeeds only if the current value is null, already `value`, or exactly the audited
   placeholder. **Proven in phase 1** with `firebase_dart`'s `runTransaction` against the emulator
   (`rules_test/dart_spike`). The project's separate REST ETag implementation is inspected, not
-  run; phase 2 picks the production handle for the deployed callables and re-runs these tests
-  against it (a deployed check, since the emulator uses a different path).
+  run; phase 4 (P1) keeps and extracts that REST handle as the production handle, fails closed on a
+  missing ETag, and re-runs these primitives against it on the emulator, which supports the same
+  conditional writes (`functions_dart/test/identity`).
 - **Ordered, idempotent steps with fail-closed partial states** (the bidirectional check in D1
   means a half-finished operation grants no access):
   - *Link:* `replaceIf` the record's `authuid` (null, same uid, or the exact audited
