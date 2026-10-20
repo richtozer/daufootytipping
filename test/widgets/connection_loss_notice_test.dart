@@ -131,6 +131,17 @@ void main() {
     }
   });
 
+  test(
+    'the wording is about tips not being lodged, which is what is at stake',
+    () {
+      expect(
+        ConnectionLossNotice.message,
+        contains('your tips may not be lodged'),
+      );
+      expect(ConnectionLossNotice.message, contains('restart the app'));
+    },
+  );
+
   testWidgets('shows nothing while the connection is fine', (tester) async {
     await pumpNotice(tester);
     connection.add(true);

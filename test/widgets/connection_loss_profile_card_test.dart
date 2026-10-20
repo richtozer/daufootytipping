@@ -74,6 +74,17 @@ void main() {
     await tester.pump();
   }
 
+  test(
+    'the wording is about tips not being lodged, which is what is at stake',
+    () {
+      expect(
+        ConnectionLossProfileCard.detail,
+        startsWith('Your tips may not be lodged'),
+      );
+      expect(ConnectionLossProfileCard.detail, contains('restart the app'));
+    },
+  );
+
   testWidgets('shows nothing while the connection is fine', (tester) async {
     await pumpCard(tester);
     connection.add(true);
