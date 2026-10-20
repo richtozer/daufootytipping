@@ -186,7 +186,7 @@ Estimates are working figures for focused effort, not commitments.
 | M1 | **Foundation.** Extract the REST handle (fail-closed ETag). `claim`, `release`, `replaceIf`, lease primitives, `resolveCallerTipper` (bidirectional check). Port the 10-check CAS spike and the primitive parts of the 52-check identity spike to `dart test` on the REST handle against the emulator. Establish that the runtime service account can look up Firebase Auth users: first by reading its IAM roles (read-only metadata), and only if that is inconclusive a deployed probe that is **strictly read-only** (look up an existing account the owner names; no user is created), separately authorised. Establish whether the real callable code can run locally (Dart functions under the emulator suite, or `bin/server.dart` run directly against emulators). | Ported checks green on the REST handle; mutation check (loosened `replaceIf`) fails; Auth lookup result and local-callable answer recorded. | 3 to 4 d |
 | M2 | **Shared code in `dau_shared`:** `normaliseAlias` (+ 64-char cap), `normaliseEmail`, `logonIndexKey` (base64url SHA-256), kickoff serializer, public/private `Tipper`, endpoint ids. | Unit tests; client and functions import it; no behaviour change shipped. | 2 d |
 | M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. **Done (section 6c): functions deployed and patch applied and verified 20 October 2026.** | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
-| M3b | **Built and proven locally (section 6d); not deployed.** **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
+| M3b | **Done: built, proven and deployed 20 October 2026 (section 6d).** **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
 | M4a | **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
 | M4c | **Admin callables** `adminCreateTipper`, merge, reassign, delete, `adminSetTipperRole`, `adminUpdateTipperContact`; leases and `IdentityOps` journal; scheduled audit and reaper. Existing admin endpoints move to `resolveCallerTipper` at cutover. | Crash injection after every step; one lease-takeover winner; **stale-holder scenario passes (section 6b)**; forged index or `authuid` rejected; last admin cannot be removed; audit reports every violation class. | 9 to 11 d |
@@ -336,7 +336,7 @@ pre-flight and the patch re-applied if needed. `GamesViewModel.updateGameAttribu
 `saveBatchOfGameAttributes` now have no caller outside their tests; M7 can delete them with the other
 client game-write code.
 
-### 6d. Progress: M3b, the backend readers (20 October 2026; built and proven locally, not deployed)
+### 6d. Progress: M3b, the backend readers (20 October 2026; built, proven and deployed)
 
 **Dart (scoring, app-badge count).** `functions_dart/lib/identity/backend_tippers.dart` replaces two
 near-identical loaders and two helpers in `server.dart`. It joins each public tipper record with
@@ -374,9 +374,11 @@ shapes, except one, below.
 3. **No anonymous tippers exist in production today**, so the `isAnonymous` path is protected by tests,
    not exercised by real data.
 
-**To deploy (each a separate go, before any purge):** Dart functions (`scripts/deploy-functions.sh
---only dart`) and the TypeScript functions (`--only default`, which carries the trigger and the reminders).
-Neither changes behaviour while every record is still in the legacy shape.
+**Deployed (20 October 2026, 19:05 to 19:06 UTC, run by the owner):** `scripts/deploy-functions.sh --project
+dau-footy-tipping-f8a42 --only all --yes` from `development` at 49091c9. All ten TypeScript functions
+reported success. The Dart CLI again printed "timed out after 30000ms" for four of six functions; Cloud Run
+showed all six on new revisions, Ready and at 100% of traffic, and no error-level logs followed. Behaviour
+is unchanged while every record is still in the legacy shape; the readers matter at the purge.
 
 ## 7. Timeline, back-planned from the season
 
