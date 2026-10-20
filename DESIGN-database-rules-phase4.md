@@ -235,6 +235,11 @@ one change to existing production behaviour in M1 and is covered by a test.
 5. **Existing records store `acctCreatedUTC` and `acctLoggedOnUTC` with `DateTime.toString()`** (space
    separator), not ISO 8601. `DateTime.parse` reads both. The backfill copies the stored strings as they
    are, so the private copy equals the public one.
+6. **Tipper records carry two legacy fields outside the public/private partition:** `tipperID` (134 of 214
+   records, an opaque id or the literal `blah`) and `active` (84 records, a boolean). Neither is personal
+   data and the current client does not write them. The purge and the restore move only the seven private
+   fields and leave every other field alone, and the audit reports unknown fields as information, not as a
+   violation. The partition test covers what the model writes today, not these legacy extras.
 
 **Added after the second review.** `holdsLease` (a worker checks it before each step) and `newOperationId`
 (unique lease owners and journal keys), both tested, including the taken-over worker at primitive level.
@@ -277,6 +282,8 @@ These are requirements for the milestone named, to be met before cutover. They d
 
 **M5, live scores.** The mixed-writer replay above, plus the official-score-mid-aggregation case under
 both `active` and `compat`.
+
+**M7, queued tips and the kickoff lock.** The client now stops waiting 15 seconds after a tip or admin edit is submitted and tells the user it is queued (build 713.2 onwards). Under R1 a queued tip sent after kickoff is still accepted. Under R2 the kickoff lock rejects it, and the user would hear nothing, because a rejection after the limit is only logged. Before R2: decide the wording of the queued-tip message so it does not promise delivery after kickoff, and surface a late rejection (for example, a notice on next launch). Add a test with a queued tip rejected by the rules.
 
 **M7, reference data requires authentication.** `/Teams`, `/AllDAUComps` and `/DAUCompsGames` stay
 auth-required, which holds only if anonymous browsing signs in anonymously before any of those listeners

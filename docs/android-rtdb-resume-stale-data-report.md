@@ -2,9 +2,9 @@
 
 **Status:** Unresolved, with successful instrumented reproductions and completed independent review. Builds 708 and 709 captured the failure on a physical Pixel and showed that only a new Android process restored synchronization. The next candidate adds a manually started secondary Firebase client experiment only; no further recovery behavior has been selected.
 
-**Report updated:** 19 October 2026 (an iOS observation was added; every other section is as of 7 September 2026)
+**Report updated:** 20 October 2026 (two iOS observations were added; every other section is as of 7 September 2026)
 
-**iOS:** one uninstrumented observation on 19 October 2026 shares this report's central signature (a retained process stopped getting acknowledgements from the Realtime Database and only a new process recovered). See *iOS observation*. The resume diagnostics now run on iOS as well, observing only.
+**iOS:** two observations now share this report's central signature (a retained process stopped getting acknowledgements from the Realtime Database and only a new process recovered): one uninstrumented on 19 October 2026, and one on 20 October 2026 with the diagnostics running (*iOS observation 2*). The resume diagnostics run on iOS as well, observing only. The second trace is consistent with the Android signature but cannot confirm it, because the recorder does not log writes and stops watching the connection about half a second after each resume.
 
 **Testing after 6 September 2026:** the comp closes and organic score changes stop, but the defect remains fully reproducible using self-authored writes to a dedicated test node or test competition. One boundary does break: cards constructed after the final round completes never subscribe to games updates, so the widget-level check silently stops being meaningful — most importantly after a cold start. Read *Post-season testing* before designing the next reproduction.
 
@@ -61,6 +61,45 @@ A single, uninstrumented observation, recorded because it shares the central sig
 - Tip submission awaits the server acknowledgement with no timeout (`GameTipViewModel.addTip`), so a stalled connection shows as an endless spinner. The Firestore tip-log step runs after the acknowledgement, so it is lost if the process is killed first.
 
 **Next:** diagnostics build `1.4.1+713.1`, built with `ANDROID_RESUME_DIAGNOSTICS=true`. The recorder now runs on iOS and only observes (process ids carry the platform name, for example `iOS-…`; the resume reconnect stays Android-only, so this shows what an unmitigated iOS process does). Protocol: background the app for a long interval, resume it, open Profile, admin functions, Resume diagnostics and note `/.info/connected`, try a tip or another write, then export the log chunks. Compare with the Android signature: the connection state stays `false`, reads return from cache within milliseconds, and only a new process recovers.
+
+### iOS observation 2 — 20 October 2026 (diagnostics running)
+
+The first iOS observation with the recorder on. All times are UTC. Device and build: the same iPhone 16 Pro, diagnostics build `1.4.1+713.1` (release mode, `ANDROID_RESUME_DIAGNOSTICS=true`).
+
+**What happened.** An administrator edit (a tipper's role, one field) was saved on the phone. The edit screen stayed on its busy indicator and refused to close. The server still held the old value at 12:05:42Z. The app was force-quit and reopened (new process at 12:06:53Z); by 12:07:16Z the server held the new value. The write was queued on the device and delivered by the new process, as on 19 October. The exact moment of the Save is not recorded: the recorder does not log writes. It was between the resume at 11:55:05Z and 12:05:42Z.
+
+**The trace (four processes).** Process `iOS-1792493547651526` ran from 10:52:28Z to 12:06:51Z, 74 minutes, suspended and resumed 11 times, each after 1 second to 25 minutes in the background. At each resume the recorder watches `/.info/connected` until the resume pipeline ends, then cancels the watch.
+
+| Resume | Background before | First state | Reconnect seen | Pipeline `get()` took |
+|---|---|---|---|---|
+| 1 (10:56:01) | 38 s | false | **yes, 157 ms** | 113 ms |
+| 2 (11:21:05) | 25 min | false | no | 14 ms |
+| 3 (11:21:52) | 3 s | true | (already) | 15 ms |
+| 4 (11:26:03) | 3 min 45 s | false | no | 16 ms |
+| 5 (11:31:55) | 5 min 18 s | false | **yes, 305 ms** | 12 ms |
+| 6 (11:35:38) | 3 min 42 s | false | no | 16 ms |
+| 7 (11:47:23) | 1 s (after 11 min in the foreground) | true | (already) | 12 ms |
+| 8 (11:48:34) | 43 s | false | no | 8 ms |
+| 9 (11:55:05) | 6 min 30 s | false | no | 16 ms |
+| 10 (12:03:55) | 8 min 27 s | false | no | 10 ms |
+| 11 (12:05:21) | 21 s | false | no | 15 ms |
+
+In the two processes that were fresh, the connection was normal: process `iOS-1792488512083135` showed `true` 18 ms after its only resume check (09:38:58Z, after 10 minutes in the background); the process started at 12:06:53Z showed `false` then `true` 222 ms later (12:08:14Z).
+
+**What it shows.**
+- Nine of the eleven resume checks in the long-lived process began disconnected, which is normal for iOS after backgrounding. In only two (resumes 1 and 5) did the recorder see the reconnect, within 157 and 305 ms. In the other seven no reconnect was seen in the roughly half second the recorder watches, and the three checks nearest the Save (9, 10 and 11) were among them.
+- In those seven, the pipeline's `get()` returned in 8 to 16 ms and the pipeline reported `fixture_refresh_completed` as a success. With the SDK reporting disconnected, that read is the local cache (a disconnected `get()` falls back to it). Latency alone does not prove this, because the connected resumes 3, 5 and 7 also took 12 to 15 ms (only resume 1 took 113 ms, a real round trip). The pattern matches the *Executive summary*: the pipeline reports success whether the read was fresh or stale.
+- The pending write was still undelivered at 12:05:42Z, 21 seconds after the last resume check, and had been delivered by 12:07:16Z, within 23 seconds of the new process starting. How long it had been pending before 12:05:42Z is not known.
+- The connection does recover by itself at other times: resumes 3 and 7 found it already `true`. This process was not permanently dead, which differs from the Android reproductions, where the state stayed `false` through eight pipelines.
+
+**What it does not show.** The recorder stops watching about 0.5 s after each resume, so the time to reconnect, or whether it happened, is unknown for the seven. Writes are not logged, so the Save's start time, its elapsed time and its connection state at issue are not known. One process, one device, development-signed, one OS beta. Not tested: whether the stall depends on the length of the background interval (the failing resumes had 21 s to 25 min; nothing here separates them from the two that recovered).
+
+**Status of the next steps (20 October 2026).** Steps 1 and 3 were built and installed on the iPhone as diagnostics build `1.4.1+713.2` (commit `13b90c6`). Step 2 (the iOS reconnect experiment) has not been started. New log records to look for: `sdk_connection_changed` (every change of the SDK connection state, with how long the previous state lasted, independent of any resume), and `rtdb_write_started`, `rtdb_write_still_pending` (at 10, 30, 60 and 120 s), `rtdb_write_completed` and `rtdb_write_failed` for tip submissions and admin tipper edits. The admin edit screen and tip submission now stop waiting after 15 s and say the change is queued, in every build. The Profile button is now "Resume diagnostics".
+
+**Candidate next steps (as written on 20 October, before they were built):**
+1. Instrument, observing only: log each RTDB write's start, completion and elapsed time with the connection state at issue (tipper edit and tip submission first); keep the connection watch running until `true` or 120 s after each resume and log the time to reconnect. This turns the next stall into direct evidence.
+2. If that confirms the stall, try the Android-style restart (`goOffline()` / `goOnline()` and wait for `/.info/connected`) on iOS behind the diagnostics flag. The Android version of this has not been shown to work, so treat it as an experiment, not a fix.
+3. Independently of the cause, bound the user-visible wait: a time limit on the admin edit screen's save (it currently blocks leaving while busy, with no timeout) and on tip submission, with a "queued, will apply when the connection recovers" message.
 
 ## Instrumented physical-Pixel reproduction — 4-5 September 2026
 
