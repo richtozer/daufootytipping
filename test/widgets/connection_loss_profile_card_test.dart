@@ -74,16 +74,19 @@ void main() {
     await tester.pump();
   }
 
-  test(
-    'the wording is about tips not being lodged, which is what is at stake',
-    () {
-      expect(
-        ConnectionLossProfileCard.detail,
-        startsWith('Your tips may not be lodged'),
-      );
-      expect(ConnectionLossProfileCard.detail, contains('restart the app'));
-    },
-  );
+  test('the wording reassures about tips and gives the way back', () {
+    expect(
+      ConnectionLossProfileCard.detail,
+      startsWith('Your tips are kept on this phone'),
+    );
+    expect(ConnectionLossProfileCard.detail, contains('lodged'));
+    expect(ConnectionLossProfileCard.detail, contains('restart the app'));
+    expect(
+      ConnectionLossProfileCard.detail,
+      isNot(contains('lost')),
+      reason: 'the tips are queued, not lost',
+    );
+  });
 
   testWidgets('shows nothing while the connection is fine', (tester) async {
     await pumpCard(tester);

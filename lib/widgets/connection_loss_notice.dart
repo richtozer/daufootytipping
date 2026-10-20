@@ -3,7 +3,8 @@ import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:flutter/material.dart';
 
 /// Tells the user that the app has lost its connection to the database, that
-/// their tips may therefore not be lodged, and that restarting is the way back, shown only while [ConnectionLossMonitor]
+/// their tips are kept and will be lodged when it returns, and that restarting is
+/// the way back, shown only while [ConnectionLossMonitor]
 /// says the loss has gone on long enough to matter.
 ///
 /// The wording covers two cases that look the same from here: a connection the
@@ -15,8 +16,9 @@ class ConnectionLossNotice extends StatelessWidget {
   final ConnectionLossMonitor monitor;
 
   static const String message =
-      'Not connected: your tips may not be lodged. If you have signal and this '
-      'continues, restart the app.';
+      'Not connected. Your tips are kept on this phone and will be lodged when '
+      'you are back online. If you have signal and this continues, restart the '
+      'app.';
 
   /// The app's AFL red, so the notice reads as part of the app and stands out
   /// against the green theme. It is the same in the light and dark themes.

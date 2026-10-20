@@ -131,16 +131,16 @@ void main() {
     }
   });
 
-  test(
-    'the wording is about tips not being lodged, which is what is at stake',
-    () {
-      expect(
-        ConnectionLossNotice.message,
-        contains('your tips may not be lodged'),
-      );
-      expect(ConnectionLossNotice.message, contains('restart the app'));
-    },
-  );
+  test('the wording reassures about tips and gives the way back', () {
+    expect(ConnectionLossNotice.message, contains('Your tips are kept'));
+    expect(ConnectionLossNotice.message, contains('lodged'));
+    expect(ConnectionLossNotice.message, contains('restart the app'));
+    expect(
+      ConnectionLossNotice.message,
+      isNot(contains('lost')),
+      reason: 'the tips are queued, not lost',
+    );
+  });
 
   testWidgets('shows nothing while the connection is fine', (tester) async {
     await pumpNotice(tester);

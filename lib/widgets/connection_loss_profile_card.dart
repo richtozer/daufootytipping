@@ -23,9 +23,9 @@ class ConnectionLossProfileCard extends StatefulWidget {
   static const String heading = 'Not connected';
 
   static const String detail =
-      'Your tips may not be lodged while you are disconnected, and what you '
-      'see may be out of date. If you have signal and this continues, restart '
-      'the app.';
+      'Your tips are kept on this phone and will be lodged when you are back '
+      'online, but what you see may be out of date. If you have signal and '
+      'this continues, restart the app.';
 
   @override
   State<ConnectionLossProfileCard> createState() =>
