@@ -293,11 +293,35 @@ re-subscribe); airplane-mode recovery.
 
 ## 7. Timeline, back-planned from the season
 
-Planning assumption: round 1 around **early March 2027**. That is an assumption, not a deadline. The
-real anchor is **K, the earliest actual match in any competition the app supports** (including opening
-rounds and overseas fixtures), and when registration and tipping open, because the cutover needs the
-quiet period before those. Every date below moves with K (the plan keeps about two weeks between the
-purge and K). K is confirmed from the published 2027 fixtures before Gate A.
+**K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
+NRL games in Las Vegas, which fall on a Sunday in Australia. The first kickoff in each comp was:
+
+| Season | First kickoff (UTC) | Australian eastern | Where | First AFL game |
+|---|---|---|---|---|
+| 2024 | Sun 3 Mar 02:30 | Sun 3 Mar 13:30 | Allegiant Stadium | Thu 7 Mar |
+| 2025 | Sun 2 Mar 00:00 | Sun 2 Mar 11:00 | Allegiant Stadium | Fri 7 Mar |
+| 2026 | Sun 1 Mar 02:15 | Sun 1 Mar 13:15 | Allegiant Stadium | Thu 5 Mar |
+
+Each year it is the first Sunday of March, which is also the Sunday of ISO week 9; both rules give
+**Sunday 7 March 2027** for 2027. Treat that as the expected K, and **Sunday 28 February 2027** (the
+Sunday before) as the cautious bound. The fixture feeds the app downloads are not published yet (the
+2027 NRL and AFL feeds returned HTTP 404 on 20 October 2026), so this is an estimate to be replaced by the
+published draw; re-check monthly and when the draw is announced. Under the expected K the purge keeps about
+two weeks of margin; under the bound it keeps four to six days, which is still before the season but
+leaves little slack, so the dates move earlier if the draw shows 28 February.
+
+**When tipping opens.** The same extract shows tipping beginning later each year, and the bulk of tippers
+starting only days before kickoff:
+
+| Season | Comp record created | First tip | 10th tipper starts | 40th tipper starts |
+|---|---|---|---|---|
+| 2025 | 20 Jan | 20 Jan (40 days before K) | 31 Jan (29 days before) | 27 Feb (2 days before) |
+| 2026 | 17 Feb | 17 Feb (11 days before K) | 24 Feb (4 days before) | 27 Feb (1 day before) |
+
+The administrator decides when the comp is created, which is when tipping opens. Create the 2027 comp
+**after** cutover step B if the schedule allows, so the freeze and the purge run with as little tipping and
+registration going on as possible. The cutover is built to run with tipping open (tipping continues during
+the freeze), so this is a preference, not a requirement. Every date below moves with K.
 
 | When | What |
 |---|---|
@@ -446,9 +470,11 @@ The owner concurred on 2026-10-20 with the reviewer's recommendations on each po
 1. **Two-step cutover with about seven days of exposure before the purge: accepted.** The earlier
    suggestion to hide fields behind the R2 rules was withdrawn by its author: a readable parent cannot
    hide selected children. The exposure is bounded by a dated purge and a rehearsed restore.
-2. **Season start date: open, and defined as K** (section 7): the earliest actual match in any competition
-   the app supports, including opening rounds and overseas fixtures, plus when registration and tipping
-   open. To be confirmed from the published 2027 fixtures before Gate A.
+2. **Season start date: estimated, and defined as K** (section 7): the earliest actual match in any
+   competition the app supports, plus when registration and tipping open. From the last three seasons the
+   opener is the Las Vegas NRL games on the first Sunday of March (Australian time), so **expected K is
+   Sunday 7 March 2027, with Sunday 28 February as the cautious bound**; the 2027 feeds are not published
+   yet. To be replaced by the published draw before Gate A.
 3. **Freeze window: accepted as a 30-minute target with an abort point,** 04:00 to 05:00 AEDT on a
    weekday (section 8). Owner to confirm attendance once the date is set.
 4. **Production probes: accepted in principle, each separately authorised when ready.** The M1 Auth
