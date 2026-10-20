@@ -186,7 +186,7 @@ Estimates are working figures for focused effort, not commitments.
 | M1 | **Foundation.** Extract the REST handle (fail-closed ETag). `claim`, `release`, `replaceIf`, lease primitives, `resolveCallerTipper` (bidirectional check). Port the 10-check CAS spike and the primitive parts of the 52-check identity spike to `dart test` on the REST handle against the emulator. Establish that the runtime service account can look up Firebase Auth users: first by reading its IAM roles (read-only metadata), and only if that is inconclusive a deployed probe that is **strictly read-only** (look up an existing account the owner names; no user is created), separately authorised. Establish whether the real callable code can run locally (Dart functions under the emulator suite, or `bin/server.dart` run directly against emulators). | Ported checks green on the REST handle; mutation check (loosened `replaceIf`) fails; Auth lookup result and local-callable answer recorded. | 3 to 4 d |
 | M2 | **Shared code in `dau_shared`:** `normaliseAlias` (+ 64-char cap), `normaliseEmail`, `logonIndexKey` (base64url SHA-256), kickoff serializer, public/private `Tipper`, endpoint ids. | Unit tests; client and functions import it; no behaviour change shipped. | 2 d |
 | M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. **Done (section 6c): functions deployed and patch applied and verified 20 October 2026.** | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
-| M3b | **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
+| M3b | **Built and proven locally (section 6d); not deployed.** **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
 | M4a | **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
 | M4c | **Admin callables** `adminCreateTipper`, merge, reassign, delete, `adminSetTipperRole`, `adminUpdateTipperContact`; leases and `IdentityOps` journal; scheduled audit and reaper. Existing admin endpoints move to `resolveCallerTipper` at cutover. | Crash injection after every step; one lease-takeover winner; **stale-holder scenario passes (section 6b)**; forged index or `authuid` rejected; last admin cannot be removed; audit reports every violation class. | 9 to 11 d |
@@ -336,6 +336,48 @@ pre-flight and the patch re-applied if needed. `GamesViewModel.updateGameAttribu
 `saveBatchOfGameAttributes` now have no caller outside their tests; M7 can delete them with the other
 client game-write code.
 
+### 6d. Progress: M3b, the backend readers (20 October 2026; built and proven locally, not deployed)
+
+**Dart (scoring, app-badge count).** `functions_dart/lib/identity/backend_tippers.dart` replaces two
+near-identical loaders and two helpers in `server.dart`. It joins each public tipper record with
+`/TipperPrivate/{id}`: a private field is used only when the public record does not carry it, so a
+1.4.x client's newer public write wins until the purge, and after the purge the private record answers.
+A missing private record is fine (today), a private record with no public record is never read, and an
+unknown role or odd type is an ordinary tipper rather than a crash. `isAnonymous` is what scoring and
+the badge count need: an anonymous tipper counts as paid for every comp, so losing the flag at the
+purge would drop them silently. A test shows exactly that failure without the private record.
+
+**TypeScript.** `tipperWrittenAppBadge` compared `isAnonymous` and `compsParticipatedIn` before and
+after each write. A flag that has simply left the record (the purge) is now not a change, so the purge
+is a no-op for every tipper; creation, deletion, a changed `compsParticipatedIn` and a flag that is still
+there and now differs still sync. After the purge an anonymous-to-real change is no longer visible to
+that trigger, and the hourly reconcile sweep picks it up inside the badge window. The not-tipped
+reminders greet a tipper by the public `name` only; that lookup is now a tested helper
+(`reminder_recipients.ts`), which also stops an empty `/AllTippers` from crashing the run.
+
+**Proof.** 16 unit tests of the Dart readers over the legacy, coexisting and purged shapes; TypeScript
+tests for the trigger and the reminder name; the five mock-based scoring tests in `server_test.dart`
+now stub the empty private node. **Dry run:** a copy of the 20 October production export went through
+the real REST handle into the emulator in the three shapes (`backend_tippers_export_test.dart`, skipped
+unless `test/data/production-export.json` exists). All 214 tippers read identically in all three
+shapes, except one, below.
+
+**Findings that change the purge tool (M4a, M8).**
+1. **One production tipper has none of the public fields** (no name, photo or paid comps: only contact
+   fields, and one comp of tips). Removing the private fields leaves an empty node, and the database
+   keeps no empty node, so that tipper would vanish from `/AllTippers` and from every reader. The
+   purge must leave every tipper a public node (for example a `name`), and the audit should check it.
+2. **Two legacy fields, `active` (84 records) and `tipperID` (134), are in neither list.** Nothing reads
+   them (the `active` and `tipperID` hits in the code are unrelated). The purge as written leaves them in
+   the public record; decide whether to leave or delete them, but do not assume every field is in one of
+   the two lists. The model's comment now says so.
+3. **No anonymous tippers exist in production today**, so the `isAnonymous` path is protected by tests,
+   not exercised by real data.
+
+**To deploy (each a separate go, before any purge):** Dart functions (`scripts/deploy-functions.sh
+--only dart`) and the TypeScript functions (`--only default`, which carries the trigger and the reminders).
+Neither changes behaviour while every record is still in the legacy shape.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
@@ -430,8 +472,9 @@ the audit job, function errors and support messages.
 
 **Step B: drain, then purge.** Preconditions: M3b deployed and proven; window clean; fresh backup. Set
 mode `freeze` and drain, so no request admitted under `coexist` is still running and none can restore a
-public contact field afterwards. Take the snapshot, remove the public PII fields from every record,
-set mode `final`, run the audit (which now fails on any public contact data) and the post-deploy
+public contact field afterwards. Take the snapshot, remove the public PII fields from every record
+(and **leave every tipper a public node**: the database keeps no empty node, and one production tipper
+today has none of the public fields, section 6d), set mode `final`, run the audit (which now fails on any public contact data) and the post-deploy
 verification again. The purge is idempotent and is run once more after a short wait as a sweep. The
 snapshot and the restore script stay for at least one season month.
 

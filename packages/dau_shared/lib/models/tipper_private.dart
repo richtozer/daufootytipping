@@ -9,8 +9,10 @@ const List<String> tipperPublicFieldNames = <String>[
 ];
 
 /// The fields only the tipper and administrators may read. They live at
-/// `/TipperPrivate/{tipperId}`. Everything in a tipper record is in exactly one
-/// of these two lists, and the purge and restore steps move whole lists.
+/// `/TipperPrivate/{tipperId}`. The purge and restore steps move whole lists.
+/// Every field the app writes is in exactly one of the two lists. Production
+/// data also has two legacy fields, `active` and `tipperID`, on some records;
+/// nothing reads them and they are in neither list.
 const List<String> tipperPrivateFieldNames = <String>[
   'authuid',
   'tipperRole',

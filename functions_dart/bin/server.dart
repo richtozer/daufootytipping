@@ -8,6 +8,7 @@ import 'package:firebase_functions/firebase_functions.dart'
 import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/identity/backend_tippers.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
@@ -646,7 +647,7 @@ Future<Response> _handleAppBadgeCountRequestWithRuntimeApp(
           db: dbHandle.database,
           comp: comp,
         ),
-        allTippers: await _loadBackendScoringTippers(dbHandle.database),
+        allTippers: await loadBackendTippers(dbHandle.database),
         tipsByTipperRaw: await _loadBackendScoringTipsByTipperRaw(
           db: dbHandle.database,
           compKey: compKey,
@@ -2041,7 +2042,7 @@ _handleTipWrittenBackendScoringCommand({
     '${paths.scoringIdempotencyBackendRoot}/${command.commandId}',
   );
   final comp = await _loadBackendScoringComp(db, command.compKey);
-  final tipper = await _loadBackendScoringTipper(db, command.tipperId!);
+  final tipper = await loadBackendTipper(db, command.tipperId!);
 
   try {
     final games = await _loadBackendScoringGames(
@@ -2356,7 +2357,7 @@ _handleAdminRescoreBackendScoringCommand({
       db: db,
       comp: comp,
     );
-    final allTippers = await _loadBackendScoringTippers(db);
+    final allTippers = await loadBackendTippers(db);
     final tipsByTipperRaw = await _loadBackendScoringTipsByTipperRaw(
       db: db,
       compKey: command.compKey,
@@ -2551,7 +2552,7 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     );
   }
 
-  final rawTippers = allTippers ?? await _loadBackendScoringTippers(db);
+  final rawTippers = allTippers ?? await loadBackendTippers(db);
   final rawTips = tipsByTipperRaw ??
       await _loadBackendScoringTipsByTipperRaw(
         db: db,
@@ -2636,36 +2637,6 @@ class _RoundTipLoadResult {
   });
 }
 
-List<DAUComp> _buildBackendScoringPaidComps(dynamic compsParticipatedIn) {
-  final rawCompKeys = <dynamic>[];
-  if (compsParticipatedIn is List) {
-    rawCompKeys.addAll(compsParticipatedIn);
-  } else if (compsParticipatedIn is Map) {
-    rawCompKeys.addAll(compsParticipatedIn.values);
-  } else {
-    return const [];
-  }
-
-  final comps = <DAUComp>[];
-  for (final rawCompKey in rawCompKeys) {
-    final compKey = rawCompKey.toString().trim();
-    if (compKey.isEmpty) {
-      continue;
-    }
-    comps.add(
-      DAUComp(
-        dbkey: compKey,
-        name: compKey,
-        aflFixtureJsonURL: Uri.parse('https://example.invalid/afl-fixtures.json'),
-        nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl-fixtures.json'),
-        daurounds: const [],
-      ),
-    );
-  }
-
-  return comps;
-}
-
 Tip _buildDefaultTipForStartedGame(Game game, Tipper tipper) {
   return Tip(
     game: game,
@@ -2702,44 +2673,6 @@ Map<String, Tip> _applyDefaultTipsForStartedGames({
   }
 
   return augmentedTips;
-}
-
-Future<List<Tipper>> _loadBackendScoringTippers(dynamic db) async {
-  final tippersSnapshot = await db.ref(paths.tippersPath).once();
-  final tippers = <Tipper>[];
-  if (tippersSnapshot.value is! Map) {
-    return tippers;
-  }
-
-  final tippersRaw = Map<String, dynamic>.from(tippersSnapshot.value as Map);
-  for (final entry in tippersRaw.entries) {
-    final tipperRaw = entry.value;
-    if (tipperRaw is! Map) {
-      continue;
-    }
-
-    tippers.add(
-      Tipper(
-        dbkey: entry.key,
-        authuid: tipperRaw['authuid'] as String? ?? '',
-        email: tipperRaw['email'] as String?,
-        logon: tipperRaw['logon'] as String?,
-        name: tipperRaw['name'] as String? ?? entry.key,
-        tipperRole: tipperRaw['tipperRole'] != null
-            ? TipperRole.values.byName(tipperRaw['tipperRole'] as String)
-            : TipperRole.tipper,
-        photoURL: tipperRaw['photoURL'] as String?,
-        compsPaidFor: _buildBackendScoringPaidComps(
-          tipperRaw['compsParticipatedIn'],
-        ),
-        acctCreatedUTC: _tryParseDateTime(tipperRaw['acctCreatedUTC']),
-        acctLoggedOnUTC: _tryParseDateTime(tipperRaw['acctLoggedOnUTC']),
-        isAnonymous: tipperRaw['isAnonymous'] as bool? ?? false,
-      ),
-    );
-  }
-
-  return tippers;
 }
 
 Future<Map<String, dynamic>> _loadBackendScoringTipsByTipperRaw({
@@ -2926,36 +2859,6 @@ Future<DAUComp> _loadBackendScoringComp(dynamic db, String compKey) async {
   final compRaw = Map<String, dynamic>.from(compSnapshot.value as Map);
   final rounds = _deserializeCombinedRounds(compRaw);
   return DAUComp.fromJson(compRaw, compKey, rounds);
-}
-
-Future<Tipper> _loadBackendScoringTipper(
-  dynamic db,
-  String tipperId,
-) async {
-  final tipperSnapshot =
-      await db.ref('${paths.tippersPath}/$tipperId').once();
-  if (tipperSnapshot.value == null) {
-    throw NotFoundError('Tipper not found for key: $tipperId');
-  }
-
-  final tipperRaw = Map<String, dynamic>.from(tipperSnapshot.value as Map);
-  return Tipper(
-    dbkey: tipperId,
-    authuid: tipperRaw['authuid'] as String? ?? '',
-    email: tipperRaw['email'] as String?,
-    logon: tipperRaw['logon'] as String?,
-    name: tipperRaw['name'] as String? ?? tipperId,
-    tipperRole: tipperRaw['tipperRole'] != null
-        ? TipperRole.values.byName(tipperRaw['tipperRole'] as String)
-        : TipperRole.tipper,
-    photoURL: tipperRaw['photoURL'] as String?,
-    compsPaidFor: _buildBackendScoringPaidComps(
-      tipperRaw['compsParticipatedIn'],
-    ),
-    acctCreatedUTC: _tryParseDateTime(tipperRaw['acctCreatedUTC']),
-    acctLoggedOnUTC: _tryParseDateTime(tipperRaw['acctLoggedOnUTC']),
-    isAnonymous: tipperRaw['isAnonymous'] as bool? ?? false,
-  );
 }
 
 List<DAURound> _deserializeCombinedRounds(Map<String, dynamic> compRaw) {
@@ -3252,13 +3155,6 @@ Future<Map<String, Tip>> _loadBackendScoringTipsForTipper({
     tipper: tipper,
     now: now,
   );
-}
-
-DateTime? _tryParseDateTime(dynamic value) {
-  if (value is String && value.isNotEmpty) {
-    return DateTime.tryParse(value);
-  }
-  return null;
 }
 
 bool _isIdempotencyExpired(

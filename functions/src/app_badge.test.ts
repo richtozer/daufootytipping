@@ -405,6 +405,62 @@ test("tipperEligibilityChanged ignores profile-only edits", () => {
   ), true);
 });
 
+test("tipperEligibilityChanged: purging private fields changes nothing", () => {
+  const legacy = {
+    name: "Pat",
+    photoURL: "https://example.com/pat.png",
+    compsParticipatedIn: ["comp-1"],
+    authuid: "auth-pat",
+    tipperRole: "tipper",
+    email: "pat@example.com",
+    logon: "pat@example.com",
+    isAnonymous: false,
+    acctCreatedUTC: "2025-02-01T03:04:05.000Z",
+    acctLoggedOnUTC: "2026-03-01T04:05:06.000Z",
+  };
+  const purged = {
+    name: "Pat",
+    photoURL: "https://example.com/pat.png",
+    compsParticipatedIn: ["comp-1"],
+  };
+  assert.equal(tipperEligibilityChanged(legacy, purged), false);
+  // A tipper who is anonymous keeps the flag in /TipperPrivate; its leaving
+  // this record is not a change either.
+  assert.equal(tipperEligibilityChanged(
+    {name: "Guest", isAnonymous: true},
+    {name: "Guest"},
+  ), false);
+  assert.equal(tipperEligibilityChanged(
+    {name: "Pat", isAnonymous: false},
+    {name: "Pat"},
+  ), false);
+});
+
+test("tipperEligibilityChanged still sees every real change", () => {
+  // Paid comps changed, before or after the purge.
+  assert.equal(tipperEligibilityChanged(
+    {name: "Pat", compsParticipatedIn: ["comp-1"]},
+    {name: "Pat", compsParticipatedIn: ["comp-1", "comp-2"]},
+  ), true);
+  assert.equal(tipperEligibilityChanged(
+    {name: "Pat"},
+    {name: "Pat", compsParticipatedIn: ["comp-1"]},
+  ), true);
+  // The flag is still on the record and now says something different.
+  assert.equal(tipperEligibilityChanged(
+    {name: "Guest", isAnonymous: true},
+    {name: "Guest", isAnonymous: false},
+  ), true);
+  assert.equal(tipperEligibilityChanged(
+    {name: "Pat"},
+    {name: "Pat", isAnonymous: true},
+  ), true);
+  // A record created or deleted.
+  assert.equal(tipperEligibilityChanged(null, {name: "New"}), true);
+  assert.equal(tipperEligibilityChanged({name: "Gone"}, null), true);
+  assert.equal(tipperEligibilityChanged(null, null), false);
+});
+
 test("kickoff sweep does not call the worker without a recent kickoff", async () => {
   const db = new FakeDatabase({
     "/AppConfig/currentDAUComp": "comp-1",

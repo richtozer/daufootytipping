@@ -19,6 +19,23 @@ class MockDatabaseReference extends Mock implements DatabaseReference {}
 class MockDataSnapshot extends Mock implements DataSnapshot {}
 class MockTransactionResult extends Mock implements TransactionResult {}
 
+/// The scoring loaders also read `/TipperPrivate`. These tests run before any
+/// private records exist, so both nodes are empty.
+void _stubNoPrivateTippers(MockDatabase mockDb, {String? tipperId}) {
+  void stubEmpty(String path) {
+    final reference = MockDatabaseReference();
+    final snapshot = MockDataSnapshot();
+    when(() => mockDb.ref(path)).thenReturn(reference);
+    when(() => reference.once()).thenAnswer((_) async => snapshot);
+    when(() => snapshot.value).thenReturn(null);
+  }
+
+  stubEmpty('/TipperPrivate');
+  if (tipperId != null) {
+    stubEmpty('/TipperPrivate/$tipperId');
+  }
+}
+
 class DuckTypedDatabase {
   DuckTypedDatabase(this.values);
 
@@ -1898,6 +1915,7 @@ void main() {
         ],
       });
 
+      _stubNoPrivateTippers(mockDb, tipperId: 'tipper-1');
       when(() => mockDb.ref('/AllTippers/tipper-1')).thenReturn(mockTipperRef);
       when(() => mockTipperRef.once()).thenAnswer((_) async => mockTipperSnapshot);
       when(() => mockTipperSnapshot.value).thenReturn({
@@ -2100,6 +2118,7 @@ void main() {
             .thenAnswer((_) async => mockLiveScoresSnapshot);
         when(() => mockLiveScoresSnapshot.value).thenReturn(null);
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
         when(() => mockAllTippersRef.once())
             .thenAnswer((_) async => mockAllTippersSnapshot);
@@ -2381,6 +2400,7 @@ void main() {
           },
         });
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
         when(() => mockAllTippersRef.once())
             .thenAnswer((_) async => mockAllTippersSnapshot);
@@ -2587,6 +2607,7 @@ void main() {
           },
         });
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
         when(() => mockAllTippersRef.once())
             .thenAnswer((_) async => mockAllTippersSnapshot);
@@ -2803,6 +2824,7 @@ void main() {
           },
         });
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
         when(() => mockAllTippersRef.once())
             .thenAnswer((_) async => mockAllTippersSnapshot);

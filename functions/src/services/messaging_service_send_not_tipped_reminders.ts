@@ -3,6 +3,7 @@ import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
 import {isGameWithinCompCutoff} from
   "./game_comp_eligibility";
+import {reminderRecipientName} from "./reminder_recipients";
 
 // Schedule: "20 21-9 * 3-9 *"
 // Minute 20 Twenty minutes past the hour
@@ -94,10 +95,9 @@ export const sendHourlyReminders =
 
     for (const tipperId in tippersWithTokens) {
       if (Object.prototype.hasOwnProperty.call(tippersWithTokens, tipperId)) {
-        const tipper = tippers[tipperId];
         // if (tipper.compsParticipatedIn && tipper.compsParticipatedIn
         // .includes(compDBKey)) {
-        const tipperName = tipper?.name ?? tipperId;
+        const tipperName = reminderRecipientName(tippers, tipperId);
         const tokens = tippersWithTokens[tipperId];
         let gamesNotTipped = 0;
 

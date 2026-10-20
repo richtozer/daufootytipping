@@ -320,8 +320,27 @@ export function tipperEligibilityChanged(
   before: unknown,
   after: unknown,
 ): boolean {
-  return JSON.stringify(eligibilityFields(before)) !==
-    JSON.stringify(eligibilityFields(after));
+  if (!isRecord(before) || !isRecord(after)) {
+    // A record was created or deleted.
+    return isRecord(before) !== isRecord(after);
+  }
+  return JSON.stringify(before.compsParticipatedIn ?? null) !==
+    JSON.stringify(after.compsParticipatedIn ?? null) ||
+    anonymityChanged(before.isAnonymous, after.isAnonymous);
+}
+
+/**
+ * `isAnonymous` moves to /TipperPrivate when the public records are purged
+ * (DESIGN-database-rules-phase4.md, M3b). A flag that has simply left the
+ * record has not changed, so the purge touches no tipper's badge. Only a flag
+ * that is still here and now says something different is a change.
+ * @param {unknown} before The flag before the write.
+ * @param {unknown} after The flag after the write.
+ * @return {boolean} Whether the tipper's anonymity changed.
+ */
+function anonymityChanged(before: unknown, after: unknown): boolean {
+  if (typeof after !== "boolean") return false;
+  return (before === true) !== after;
 }
 
 async function requestBadgeCounts(
@@ -519,14 +538,6 @@ function isInScheduledBoundaryWindow(
   return Number.isFinite(boundaryMs) &&
     boundaryMs > scheduledTimeMs - SCHEDULE_BOUNDARY_WINDOW_MS &&
     boundaryMs <= scheduledTimeMs;
-}
-
-function eligibilityFields(value: unknown): unknown {
-  if (!isRecord(value)) return null;
-  return {
-    isAnonymous: value.isAnonymous === true,
-    compsParticipatedIn: value.compsParticipatedIn ?? null,
-  };
 }
 
 function sameSnapshotValue(before: SnapshotLike, after: SnapshotLike): boolean {
