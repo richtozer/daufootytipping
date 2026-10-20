@@ -6,8 +6,10 @@ import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
@@ -264,7 +266,17 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> saveBatchOfTipperChangesToDb() async {
+  /// Writes the pending tipper changes.
+  ///
+  /// The database only completes a write when the server acknowledges it, so a
+  /// stalled connection leaves the caller waiting indefinitely. A caller that
+  /// shows a busy indicator passes [acknowledgementLimit]: if the server has not
+  /// answered by then, the write stays queued on the device and a
+  /// [WriteNotConfirmedException] is thrown so the screen can say so. A write
+  /// the server rejects still throws its own error.
+  Future<void> saveBatchOfTipperChangesToDb({
+    Duration? acknowledgementLimit,
+  }) async {
     try {
       if (!_initialLoadCompleter.isCompleted) {
         log(
@@ -275,7 +287,30 @@ class TippersViewModel extends ChangeNotifier {
           'TippersViewModel() tipper load complete, saveBatchOfTipperAttributes()',
         );
       }
-      await _db.update(updates);
+      final Map<String, Object?> changes = Map<String, Object?>.of(updates);
+      final Future<void> write = AppResumeDiagnostics.trackWrite<void>(
+        'tipper_update',
+        () => _db.update(changes),
+        details: <String, Object?>{'pathCount': changes.length},
+      );
+      if (acknowledgementLimit == null) {
+        await write;
+        return;
+      }
+      final WriteAcknowledgement acknowledgement = await awaitAcknowledgement(
+        write,
+        limit: acknowledgementLimit,
+        onLateError: (Object error, StackTrace stackTrace) {
+          log(
+            'TippersViewModel() queued tipper update was rejected: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        },
+      );
+      if (acknowledgement == WriteAcknowledgement.stillPending) {
+        throw const WriteNotConfirmedException('tipper update');
+      }
     } finally {
       updates.clear();
       _savingTipper = false;

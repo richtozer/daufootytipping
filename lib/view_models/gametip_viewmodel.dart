@@ -9,8 +9,10 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -73,6 +75,7 @@ class GameTipViewModel extends ChangeNotifier {
   final DatabaseReference _db;
   final TipAnalyticsLogger _logAnalyticsEvent;
   final TipLogWriter? _writeTipLog;
+  final Duration _writeAcknowledgementLimit;
   bool _disposed = false;
   late final bool _listensToGamesViewModel;
 
@@ -103,9 +106,11 @@ class GameTipViewModel extends ChangeNotifier {
     DatabaseReference? database,
     TipAnalyticsLogger? logAnalyticsEvent,
     TipLogWriter? writeTipLog,
+    Duration writeAcknowledgementLimit = defaultWriteAcknowledgementLimit,
   })  : _db = database ?? configuredDatabaseRef(),
         _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
-        _writeTipLog = writeTipLog {
+        _writeTipLog = writeTipLog,
+        _writeAcknowledgementLimit = writeAcknowledgementLimit {
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
     _gameState = game.gameState;
@@ -365,7 +370,34 @@ class GameTipViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['${p.tipsPathRoot}/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
-      await _db.update(updates);
+      final Future<void> write = AppResumeDiagnostics.trackWrite<void>(
+        'tip_submit',
+        () => _db.update(updates),
+        details: const <String, Object?>{'pathCount': 1},
+      );
+      final WriteAcknowledgement acknowledgement = await awaitAcknowledgement(
+        write,
+        limit: _writeAcknowledgementLimit,
+        onLateError: (Object error, StackTrace stackTrace) {
+          log(
+            'GameTipsViewModel.addTip() queued tip was rejected: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        },
+      );
+      if (acknowledgement == WriteAcknowledgement.stillPending) {
+        // The database keeps the write and sends it when the connection
+        // recovers. Keep the Firestore record of the tip for when it does.
+        unawaited(
+          write.then<void>(
+            (_) => (_writeTipLog ?? _addLogOfTipToFirestore)(tip),
+            onError: (Object _) {},
+          ),
+        );
+        log('GameTipsViewModel.addTip() tip not confirmed within the limit');
+        throw const WriteNotConfirmedException('tip submission');
+      }
       log('new tip submitted: ${updates.toString()}');
 
       _tip = tip; // update the tip with the new tip

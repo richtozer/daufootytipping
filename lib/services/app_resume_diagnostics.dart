@@ -946,6 +946,20 @@ class AppResumeDiagnostics {
   static int? _activeConnectionObserverGeneration;
   static bool? _latestSdkReportedConnected;
   static DateTime? _latestConnectionSampleUtc;
+  static StreamSubscription<DatabaseEvent>? _trackingSubscription;
+  static bool? _trackedConnected;
+  static DateTime? _trackedConnectedSinceUtc;
+  static int _writeCounter = 0;
+
+  /// How long a write may stay unacknowledged before each reminder is
+  /// recorded. The process may be killed before the write ever completes, so
+  /// the evidence has to be written while it is still pending.
+  static const List<Duration> pendingWriteReminders = <Duration>[
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+    Duration(seconds: 60),
+    Duration(seconds: 120),
+  ];
 
   static bool get enabled => _recorder != null;
   static bool get extendedProbeActive => _extendedProbe?.active ?? false;
@@ -1091,6 +1105,117 @@ class AppResumeDiagnostics {
             : nowUtc.difference(sampleUtc).inMilliseconds,
       },
     );
+  }
+
+  /// Watches `/.info/connected` for the life of the process and records every
+  /// change (not every event). Unlike the per-resume observer, it is not
+  /// cancelled when a resume pipeline ends, so it shows how long a reconnect
+  /// took, or that none happened.
+  static void startConnectionTracking({required FirebaseDatabase database}) {
+    if (_recorder == null || _trackingSubscription != null) {
+      return;
+    }
+    _trackingSubscription = database.ref('.info/connected').onValue.listen(
+      (event) {
+        final bool? connected = event.snapshot.value is bool
+            ? event.snapshot.value as bool
+            : null;
+        final DateTime nowUtc = DateTime.now().toUtc();
+        final bool? previous = _trackedConnected;
+        final DateTime? since = _trackedConnectedSinceUtc;
+        if (since != null && connected == previous) {
+          return;
+        }
+        _trackedConnected = connected;
+        _trackedConnectedSinceUtc = nowUtc;
+        record(
+          'sdk_connection_changed',
+          details: <String, Object?>{
+            'connected': connected,
+            'previousConnected': previous,
+            'previousStateMs': since == null
+                ? null
+                : nowUtc.difference(since).inMilliseconds,
+          },
+          attachToActiveAttempt: false,
+        );
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        record(
+          'connection_tracking_error',
+          details: <String, Object?>{'error': error.toString()},
+          anomalous: true,
+          attachToActiveAttempt: false,
+        );
+      },
+    );
+  }
+
+  /// Runs [write] and records when it started, how long it took and whether
+  /// the connection was up when it was issued. Records a reminder while it is
+  /// still unacknowledged. [name] and [details] must not contain the data
+  /// written. Does nothing extra when diagnostics are off.
+  static Future<T> trackWrite<T>(
+    String name,
+    Future<T> Function() write, {
+    Map<String, Object?> details = const <String, Object?>{},
+    List<Duration> reminders = pendingWriteReminders,
+  }) async {
+    if (_recorder == null) {
+      return write();
+    }
+    final int writeId = ++_writeCounter;
+    final Stopwatch stopwatch = Stopwatch()..start();
+    Map<String, Object?> state() {
+      final DateTime? since = _trackedConnectedSinceUtc;
+      return <String, Object?>{
+        'writeId': writeId,
+        'name': name,
+        'elapsedMs': stopwatch.elapsedMilliseconds,
+        'connected': _trackedConnected,
+        'connectedStateMs': since == null
+            ? null
+            : DateTime.now().toUtc().difference(since).inMilliseconds,
+      };
+    }
+
+    record(
+      'rtdb_write_started',
+      details: <String, Object?>{...details, ...state()},
+      attachToActiveAttempt: false,
+    );
+    final List<Timer> reminderTimers = <Timer>[
+      for (final Duration delay in reminders)
+        Timer(delay, () {
+          record(
+            'rtdb_write_still_pending',
+            details: state(),
+            anomalous: true,
+            attachToActiveAttempt: false,
+          );
+        }),
+    ];
+    try {
+      final T result = await write();
+      record(
+        'rtdb_write_completed',
+        details: state(),
+        attachToActiveAttempt: false,
+      );
+      return result;
+    } catch (error) {
+      record(
+        'rtdb_write_failed',
+        details: <String, Object?>{...state(), 'error': error.toString()},
+        anomalous: true,
+        attachToActiveAttempt: false,
+      );
+      rethrow;
+    } finally {
+      for (final Timer timer in reminderTimers) {
+        timer.cancel();
+      }
+    }
   }
 
   static void finishAttempt({bool anomalous = false}) {
@@ -1394,6 +1519,13 @@ class AppResumeDiagnostics {
     _activeConnectionObserverGeneration = null;
     _latestSdkReportedConnected = null;
     _latestConnectionSampleUtc = null;
+    final StreamSubscription<DatabaseEvent>? trackingSubscription =
+        _trackingSubscription;
+    _trackingSubscription = null;
+    await trackingSubscription?.cancel();
+    _trackedConnected = null;
+    _trackedConnectedSinceUtc = null;
+    _writeCounter = 0;
     _recorder = null;
   }
 }

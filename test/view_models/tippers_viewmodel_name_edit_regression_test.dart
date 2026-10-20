@@ -14,7 +14,9 @@ class NameEditTestTippersViewModel extends TippersViewModel {
   ) async {}
 
   @override
-  Future<void> saveBatchOfTipperChangesToDb() async {}
+  Future<void> saveBatchOfTipperChangesToDb({
+    Duration? acknowledgementLimit,
+  }) async {}
 }
 
 void main() {

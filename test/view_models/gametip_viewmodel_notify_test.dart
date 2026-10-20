@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
@@ -8,6 +10,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
@@ -402,6 +405,118 @@ void main() {
         containsPair('r', GameResult.b.name),
       );
       verify(() => mockTipsViewModel.waitForTipUpdate(tip)).called(1);
+
+      vm.dispose();
+    });
+
+    test(
+      'addTip stops waiting when the server does not answer, and keeps the tip log for when it does',
+      () async {
+        final currentGame = buildGame(
+          startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+          homeScore: 0,
+          awayScore: 0,
+        );
+        final dauCompsViewModel = MockDAUCompsViewModel();
+        final tippersViewModel = MockTippersViewModel();
+        when(
+          () => mockGamesViewModel.findGame(currentGame.dbkey),
+        ).thenAnswer((_) async => currentGame);
+        when(
+          () => dauCompsViewModel.selectedTipperTipsViewModel,
+        ).thenReturn(null);
+        when(() => tippersViewModel.inGodMode).thenReturn(false);
+        di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
+        di.registerSingleton<TippersViewModel>(tippersViewModel);
+
+        final Completer<void> serverAnswer = Completer<void>();
+        when(() => mockDb.update(any())).thenAnswer((_) => serverAnswer.future);
+        var tipLogsWritten = 0;
+        final vm = GameTipViewModel(
+          tipper,
+          currentComp,
+          currentGame,
+          mockTipsViewModel,
+          database: mockDb,
+          logAnalyticsEvent: (_, _) async {},
+          writeTipLog: (_) async {
+            tipLogsWritten++;
+          },
+          writeAcknowledgementLimit: const Duration(milliseconds: 30),
+        );
+        await settleAsyncWork();
+        final tip = Tip(
+          game: currentGame,
+          tipper: tipper,
+          tip: GameResult.b,
+          submittedTimeUTC: DateTime.utc(2030, 1, 1, 9),
+        );
+
+        await expectLater(
+          vm.addTip(tip),
+          throwsA(isA<WriteNotConfirmedException>()),
+        );
+
+        expect(vm.savingTip, isFalse, reason: 'the spinner must stop');
+        expect(tipLogsWritten, 0, reason: 'nothing is confirmed yet');
+        verifyNever(() => mockTipsViewModel.waitForTipUpdate(any()));
+
+        serverAnswer.complete();
+        await settleAsyncWork();
+
+        expect(
+          tipLogsWritten,
+          1,
+          reason: 'the record of the tip is kept once the server confirms it',
+        );
+
+        vm.dispose();
+      },
+    );
+
+    test('addTip rethrows a rejection that arrives before the limit', () async {
+      final currentGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+        homeScore: 0,
+        awayScore: 0,
+      );
+      final dauCompsViewModel = MockDAUCompsViewModel();
+      final tippersViewModel = MockTippersViewModel();
+      when(
+        () => mockGamesViewModel.findGame(currentGame.dbkey),
+      ).thenAnswer((_) async => currentGame);
+      when(
+        () => dauCompsViewModel.selectedTipperTipsViewModel,
+      ).thenReturn(null);
+      when(() => tippersViewModel.inGodMode).thenReturn(false);
+      di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
+      di.registerSingleton<TippersViewModel>(tippersViewModel);
+      when(
+        () => mockDb.update(any()),
+      ).thenAnswer((_) async => throw StateError('permission denied'));
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        currentGame,
+        mockTipsViewModel,
+        database: mockDb,
+        logAnalyticsEvent: (_, _) async {},
+        writeTipLog: (_) async {},
+      );
+      await settleAsyncWork();
+
+      await expectLater(
+        vm.addTip(
+          Tip(
+            game: currentGame,
+            tipper: tipper,
+            tip: GameResult.b,
+            submittedTimeUTC: DateTime.utc(2030, 1, 1, 9),
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(vm.savingTip, isFalse);
 
       vm.dispose();
     });

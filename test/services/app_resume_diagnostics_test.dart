@@ -389,6 +389,216 @@ void main() {
     });
   });
 
+  group('AppResumeDiagnostics connection tracking', () {
+    late MemoryResumeDiagnosticsStorage storage;
+    late ResumeDiagnosticsRecorder recorder;
+    late MockFirebaseDatabase database;
+    late MockDatabaseReference connectionReference;
+    late StreamController<DatabaseEvent> connectionEvents;
+
+    setUp(() async {
+      await AppResumeDiagnostics.resetForTest();
+      storage = MemoryResumeDiagnosticsStorage();
+      recorder = ResumeDiagnosticsRecorder(storage: storage, processId: 'p');
+      await recorder.initialize();
+      AppResumeDiagnostics.installRecorderForTest(recorder);
+
+      database = MockFirebaseDatabase();
+      connectionReference = MockDatabaseReference();
+      connectionEvents = StreamController<DatabaseEvent>.broadcast();
+      when(
+        () => database.ref('.info/connected'),
+      ).thenReturn(connectionReference);
+      when(
+        () => connectionReference.onValue,
+      ).thenAnswer((_) => connectionEvents.stream);
+    });
+
+    tearDown(() async {
+      await AppResumeDiagnostics.resetForTest();
+      await connectionEvents.close();
+    });
+
+    Future<List<ResumeDiagnosticEvent>> eventsNamed(String stage) async {
+      await recorder.flush();
+      return (await recorder.readEvents())
+          .where((event) => event.stage == stage)
+          .toList();
+    }
+
+    test('records each change of state, not each repeated event', () async {
+      AppResumeDiagnostics.startConnectionTracking(database: database);
+      connectionEvents.add(_databaseEvent(value: false));
+      connectionEvents.add(_databaseEvent(value: false));
+      connectionEvents.add(_databaseEvent(value: true));
+      connectionEvents.add(_databaseEvent(value: true));
+      await Future<void>.delayed(Duration.zero);
+
+      final List<ResumeDiagnosticEvent> changes = await eventsNamed(
+        'sdk_connection_changed',
+      );
+
+      expect(changes.map((event) => event.details['connected']), <bool>[
+        false,
+        true,
+      ]);
+      expect(changes.first.details['previousConnected'], isNull);
+      expect(changes.last.details['previousConnected'], isFalse);
+      expect(changes.last.details['previousStateMs'], isA<int>());
+    });
+
+    test('keeps watching after a resume attempt finishes', () async {
+      AppResumeDiagnostics.startConnectionTracking(database: database);
+      AppResumeDiagnostics.beginAttempt(database: database);
+      connectionEvents.add(_databaseEvent(value: false));
+      await Future<void>.delayed(Duration.zero);
+      AppResumeDiagnostics.finishAttempt();
+      await Future<void>.delayed(Duration.zero);
+
+      connectionEvents.add(_databaseEvent(value: true));
+      await Future<void>.delayed(Duration.zero);
+
+      final List<ResumeDiagnosticEvent> changes = await eventsNamed(
+        'sdk_connection_changed',
+      );
+      expect(changes.map((event) => event.details['connected']), <bool>[
+        false,
+        true,
+      ]);
+    });
+
+    test('starts only once', () async {
+      AppResumeDiagnostics.startConnectionTracking(database: database);
+      AppResumeDiagnostics.startConnectionTracking(database: database);
+      connectionEvents.add(_databaseEvent(value: true));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(await eventsNamed('sdk_connection_changed'), hasLength(1));
+    });
+
+    test('does nothing when diagnostics are off', () async {
+      await AppResumeDiagnostics.resetForTest();
+
+      AppResumeDiagnostics.startConnectionTracking(database: database);
+
+      verifyNever(() => database.ref(any()));
+    });
+  });
+
+  group('AppResumeDiagnostics.trackWrite', () {
+    late MemoryResumeDiagnosticsStorage storage;
+    late ResumeDiagnosticsRecorder recorder;
+
+    setUp(() async {
+      await AppResumeDiagnostics.resetForTest();
+      storage = MemoryResumeDiagnosticsStorage();
+      recorder = ResumeDiagnosticsRecorder(storage: storage, processId: 'p');
+      await recorder.initialize();
+      AppResumeDiagnostics.installRecorderForTest(recorder);
+    });
+
+    tearDown(() async {
+      await AppResumeDiagnostics.resetForTest();
+    });
+
+    Future<List<ResumeDiagnosticEvent>> writeEvents() async {
+      await recorder.flush();
+      return (await recorder.readEvents())
+          .where((event) => event.stage.startsWith('rtdb_write_'))
+          .toList();
+    }
+
+    test('records the start and completion of a write and returns its result', () async {
+      final int result = await AppResumeDiagnostics.trackWrite<int>(
+        'tip_submit',
+        () async => 42,
+        details: const <String, Object?>{'pathCount': 1},
+      );
+
+      expect(result, 42);
+      final List<ResumeDiagnosticEvent> events = await writeEvents();
+      expect(events.map((event) => event.stage), <String>[
+        'rtdb_write_started',
+        'rtdb_write_completed',
+      ]);
+      expect(events.first.details['name'], 'tip_submit');
+      expect(events.first.details['pathCount'], 1);
+      expect(events.first.details['writeId'], events.last.details['writeId']);
+      expect(events.last.details['elapsedMs'], isA<int>());
+    });
+
+    test('records a failure and rethrows it', () async {
+      await expectLater(
+        AppResumeDiagnostics.trackWrite<void>(
+          'tipper_update',
+          () async => throw StateError('permission denied'),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      final List<ResumeDiagnosticEvent> events = await writeEvents();
+      expect(events.map((event) => event.stage), <String>[
+        'rtdb_write_started',
+        'rtdb_write_failed',
+      ]);
+      expect(events.last.anomalous, isTrue);
+      expect(events.last.details['error'], contains('permission denied'));
+    });
+
+    test('records a reminder while a write is still unacknowledged, then its late completion', () async {
+      final Completer<void> serverAnswer = Completer<void>();
+
+      final Future<void> tracked = AppResumeDiagnostics.trackWrite<void>(
+        'tipper_update',
+        () => serverAnswer.future,
+        reminders: const <Duration>[Duration(milliseconds: 20)],
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      serverAnswer.complete();
+      await tracked;
+
+      final List<ResumeDiagnosticEvent> events = await writeEvents();
+      expect(events.map((event) => event.stage), <String>[
+        'rtdb_write_started',
+        'rtdb_write_still_pending',
+        'rtdb_write_completed',
+      ]);
+      expect(events[1].anomalous, isTrue);
+      expect(events[1].details['elapsedMs'] as int, greaterThanOrEqualTo(20));
+    });
+
+    test('a write that finishes before its reminder leaves no reminder', () async {
+      await AppResumeDiagnostics.trackWrite<void>(
+        'tipper_update',
+        () async {},
+        reminders: const <Duration>[Duration(milliseconds: 30)],
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      final List<ResumeDiagnosticEvent> events = await writeEvents();
+      expect(
+        events.map((event) => event.stage),
+        isNot(contains('rtdb_write_still_pending')),
+      );
+    });
+
+    test('adds nothing and still runs the write when diagnostics are off', () async {
+      await AppResumeDiagnostics.resetForTest();
+      var ran = false;
+
+      final int result = await AppResumeDiagnostics.trackWrite<int>(
+        'tip_submit',
+        () async {
+          ran = true;
+          return 7;
+        },
+      );
+
+      expect(ran, isTrue);
+      expect(result, 7);
+    });
+  });
+
   group('AppResumeDiagnostics.supportsPlatform', () {
     test('records on the two phone platforms, where the resume stall is seen', () {
       expect(

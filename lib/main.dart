@@ -371,6 +371,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ? AppResumeDiagnostics.finishAttempt
           : null,
     );
+    if (AppResumeDiagnostics.enabled) {
+      AppResumeDiagnostics.startConnectionTracking(
+        database: configuredRealtimeDatabase,
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
   }
 

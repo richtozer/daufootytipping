@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -28,7 +29,9 @@ void main() {
   Future<void> pumpEditPage(WidgetTester tester) async {
     // Pushed, as it is in the app, so the floating controls offer Back and Save.
     await tester.pumpWidget(
-      appWithControls(appControls, home: const SizedBox.shrink()),
+      // A Scaffold underneath, as the tippers list is in the app, so a snackbar
+      // shown as the edit page closes has somewhere to appear.
+      appWithControls(appControls, home: const Scaffold(body: SizedBox.shrink())),
     );
     tester
         .state<NavigatorState>(find.byType(Navigator))
@@ -74,7 +77,11 @@ void main() {
     ).thenAnswer((_) async => null);
     when(() => mockTippersViewModel.updateTipperAttribute(any(), any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockTippersViewModel.saveBatchOfTipperChangesToDb())
+    when(
+      () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+        acknowledgementLimit: any(named: 'acknowledgementLimit'),
+      ),
+    )
         .thenAnswer((_) async {});
 
     di.registerSingleton<DAUCompsViewModel>(mockDauCompsViewModel);
@@ -155,6 +162,62 @@ void main() {
       expect(find.widgetWithText(TextButton, 'OK'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'a save the server has not answered tells the user it is queued and lets them leave',
+    (tester) async {
+      when(
+        () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+          acknowledgementLimit: any(named: 'acknowledgementLimit'),
+        ),
+      ).thenThrow(const WriteNotConfirmedException('tipper update'));
+      await pumpEditPage(tester);
+
+      await tester.enterText(
+        find.byKey(TipperAdminEditPage.emailFieldKey),
+        'updated@example.com',
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.save));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('is queued on this device'), findsOneWidget);
+      expect(
+        find.byKey(TipperAdminEditPage.emailFieldKey),
+        findsNothing,
+        reason: 'the screen closes instead of staying on a busy indicator',
+      );
+      verify(
+        () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+          acknowledgementLimit: defaultWriteAcknowledgementLimit,
+        ),
+      ).called(1);
+    },
+  );
+
+  testWidgets('a save the server rejects keeps the user on the screen', (
+    tester,
+  ) async {
+    when(
+      () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+        acknowledgementLimit: any(named: 'acknowledgementLimit'),
+      ),
+    ).thenAnswer((_) async => throw Exception('permission denied'));
+    await pumpEditPage(tester);
+
+    await tester.enterText(
+      find.byKey(TipperAdminEditPage.emailFieldKey),
+      'updated@example.com',
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.save));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Failed to update Tipper record'), findsOneWidget);
+    expect(find.byKey(TipperAdminEditPage.emailFieldKey), findsOneWidget);
+  });
 
   testWidgets('save does not persist logon updates', (tester) async {
     await pumpEditPage(tester);

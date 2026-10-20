@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:flutter/material.dart';
 
@@ -50,6 +51,18 @@ Future<void> submitTip(
     }
 
     await gameTipViewModel.addTip(_tipFor(gameTipViewModel, option));
+  } on WriteNotConfirmedException catch (e) {
+    log('Tip not confirmed yet: $e');
+    if (!context.mounted) {
+      return;
+    }
+    _notify(
+      context,
+      Colors.orange,
+      'Your tip has not been confirmed yet. It is queued on this phone and '
+      'will be sent when the connection recovers. If it is still not '
+      'confirmed in a minute, restart the app.',
+    );
   } catch (e) {
     final message = 'Error submitting tip: $e';
     log(message);

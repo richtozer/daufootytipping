@@ -113,7 +113,7 @@ Builds from `main` explicitly set the same value to `false`, so the diagnostic r
 1. Wait for **Android Play Build and Deploy** on the `testing` branch to finish successfully.
 2. On the physical Android test device, use a Google account enrolled in the app's Play internal-testing track.
 3. Open Google Play, update the app, and confirm the installed version/build matches the `testing` branch version in `pubspec.yaml`.
-4. Sign in with an app administrator account. The Profile admin options should contain **Android Resume Diagnostics**. Its presence confirms the diagnostic flag is active.
+4. Sign in with an app administrator account. The Profile admin options should contain **Resume diagnostics**. Its presence confirms the diagnostic flag is active.
 
 ### Capture the long-background failure
 
@@ -122,7 +122,7 @@ Builds from `main` explicitly set the same value to `false`, so the diagnostic r
 3. While the app remains backgrounded, confirm the backend fixture changes to finalized official scores.
 4. Leave the existing app process backgrounded for the intended interval. Test a shorter Doze/device-idle cycle first, then repeat overnight or for several days.
 5. Resume directly into the existing app process and record whether the Tips page changes from interim to finalized without navigation or force quit.
-6. Before force-quitting, open **Profile → Admin functions → Android Resume Diagnostics**, tap reload, then copy the newline-delimited JSON trace.
+6. Before force-quitting, open **Profile → Admin functions → Resume diagnostics**, tap reload, then copy the newline-delimited JSON trace.
 7. Save the trace with the device model, Android version, app build, background duration, network type/changes, battery optimization setting, exact game keys, and screenshots.
 8. After preserving the stale-resume trace, force-quit and reopen the app. Copy the trace again so the cold-start sequence can be compared with the failed resume.
 

@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tipper_merge.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
@@ -14,6 +15,18 @@ import 'package:email_validator/email_validator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+
+/// How a save of the tipper record ended.
+enum _SaveOutcome {
+  /// The server accepted the change.
+  saved,
+
+  /// The change is queued on this device; the server has not answered yet.
+  queued,
+
+  /// The change was rejected, or could not be started.
+  notSaved,
+}
 
 class TipperAdminEditPage extends StatefulWidget {
   static const Key nameFieldKey = ValueKey('tipper-admin-name-field');
@@ -173,13 +186,19 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     });
 
     bool saveFailed = false;
+    bool saveQueued = false;
     try {
       await tippersViewModel.updateTipperAttribute(
         tipper.dbkey!,
         "compsParticipatedIn",
         tipper.compsPaidFor.map((paidComp) => paidComp.dbkey).toList(),
       );
-      await tippersViewModel.saveBatchOfTipperChangesToDb();
+      await tippersViewModel.saveBatchOfTipperChangesToDb(
+        acknowledgementLimit: defaultWriteAcknowledgementLimit,
+      );
+    } on WriteNotConfirmedException catch (e) {
+      log('Paid competitions change for ${tipper.dbkey} is queued: $e');
+      saveQueued = true;
     } on Exception catch (e) {
       log(
         'Failed to auto-save paid competitions change for ${tipper.dbkey}: $e',
@@ -200,17 +219,27 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 2),
-        backgroundColor: saveFailed ? Colors.red : Colors.green,
+        backgroundColor: saveFailed
+            ? Colors.red
+            : saveQueued
+            ? Colors.orange
+            : Colors.green,
         content: Text(
           saveFailed
               ? 'Could not save paid status change. Please try again.'
+              : saveQueued
+              ? _queuedMessage('Paid status change')
               : 'Paid status saved.',
         ),
       ),
     );
   }
 
-  Future<bool> _saveTipper(BuildContext context) async {
+  String _queuedMessage(String change) =>
+      '$change is queued on this device. The server has not confirmed it yet; '
+      'it will apply when the connection recovers.';
+
+  Future<_SaveOutcome> _saveTipper(BuildContext context) async {
     try {
       // make sure the email and logon are not assigned to another tipper
       Tipper? tipperWithDupEmail = await tippersViewModel
@@ -238,11 +267,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             ),
           );
         }
-        return false;
+        return _SaveOutcome.notSaved;
       }
 
       if (tipper.dbkey == null) {
-        return false;
+        return _SaveOutcome.notSaved;
       }
 
       await tippersViewModel.updateTipperAttribute(
@@ -269,9 +298,23 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         tipper.compsPaidFor.map((comp) => comp.dbkey).toList(),
       );
 
-      await tippersViewModel.saveBatchOfTipperChangesToDb();
+      await tippersViewModel.saveBatchOfTipperChangesToDb(
+        acknowledgementLimit: defaultWriteAcknowledgementLimit,
+      );
 
-      return true;
+      return _SaveOutcome.saved;
+    } on WriteNotConfirmedException catch (e) {
+      log('Tipper ${tipper.dbkey} update is queued: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
+            content: Text(_queuedMessage('Your change')),
+          ),
+        );
+      }
+      return _SaveOutcome.queued;
     } on Exception catch (e) {
       log('Failed to update tipper ${tipper.dbkey}: $e');
       if (context.mounted) {
@@ -290,7 +333,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           ),
         );
       }
-      return false;
+      return _SaveOutcome.notSaved;
     }
   }
 
@@ -302,14 +345,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       _manualSaveInProgress = true;
     });
 
-    final bool didSave = await _saveTipper(context);
+    final _SaveOutcome outcome = await _saveTipper(context);
     if (!mounted) return;
 
     setState(() {
       _manualSaveInProgress = false;
     });
 
-    if (didSave && context.mounted) {
+    if (outcome != _SaveOutcome.notSaved && context.mounted) {
       Navigator.of(context).pop(true);
     }
   }

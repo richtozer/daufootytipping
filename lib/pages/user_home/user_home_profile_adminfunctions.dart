@@ -70,7 +70,7 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                 ),
                 if (AppResumeDiagnostics.enabled)
                   OutlinedButton(
-                    child: const Text('Android Resume Diagnostics'),
+                    child: const Text('Resume diagnostics'),
                     onPressed: () {
                       Navigator.of(context).push(
                         appPageRoute(
