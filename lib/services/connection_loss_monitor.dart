@@ -70,6 +70,7 @@ class ConnectionLossMonitor extends ChangeNotifier {
   bool _connected = false;
   bool _dismissed = false;
   bool _connectionLost = false;
+  int _persistentSurfaces = 0;
 
   /// Whether the connection has been down, in the foreground, for the
   /// threshold. For places that must keep saying so however often the user has
@@ -95,7 +96,27 @@ class ConnectionLossMonitor extends ChangeNotifier {
 
   /// Hides the notice for the rest of this outage. A later outage shows it
   /// again.
-  void dismiss() {
+  void dismiss() => _dismiss(by: 'user');
+
+  /// A surface that says the same thing and cannot be dismissed, such as the
+  /// Profile card, calls this when it comes on screen and
+  /// [persistentSurfaceHidden] when it goes. While one is showing the banner
+  /// would only sit on top of it, so the banner steps aside: one already showing
+  /// is dismissed for the user, and the dismissal lasts for that outage even
+  /// after the surface goes.
+  void persistentSurfaceShown() {
+    _persistentSurfaces++;
+    _dismiss(by: 'profile_card');
+  }
+
+  /// Tells the monitor a surface from [persistentSurfaceShown] has gone.
+  void persistentSurfaceHidden() {
+    if (_persistentSurfaces > 0) {
+      _persistentSurfaces--;
+    }
+  }
+
+  void _dismiss({required String by}) {
     if (!noticeVisible) {
       return;
     }
@@ -103,6 +124,7 @@ class ConnectionLossMonitor extends ChangeNotifier {
     notifyListeners();
     _report(noticeDismissedEvent, <String, Object>{
       'visible_seconds': _secondsSince(_shownAt),
+      'by': by,
     });
   }
 
@@ -134,9 +156,16 @@ class ConnectionLossMonitor extends ChangeNotifier {
       if (_foreground && !_connected) {
         _shownAt = _clock();
         _shownThisOutage = true;
+        // With a surface that cannot be dismissed already on screen, that is
+        // where the user is told, and the banner never appears.
+        final bool onSurface = _persistentSurfaces > 0;
+        if (onSurface) {
+          _dismissed = true;
+        }
         _setConnectionLost(true);
         _report(noticeShownEvent, <String, Object>{
           'down_seconds': _secondsSince(_downSince),
+          'surface': onSurface ? 'profile_card' : 'banner',
         });
       }
     });

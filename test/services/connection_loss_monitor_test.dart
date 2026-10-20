@@ -273,6 +273,88 @@ void main() {
     });
   });
 
+  group('a surface that cannot be dismissed is on screen', () {
+    // The Profile card says the same thing and cannot be dismissed, so the
+    // banner must not sit on top of it.
+    test('the banner never appears while it is on screen, though the connection is lost', () async {
+      monitor.persistentSurfaceShown();
+      connection.add(false);
+      await pause(afterThreshold);
+
+      expect(monitor.connectionLost, isTrue);
+      expect(monitor.noticeVisible, isFalse);
+    });
+
+    test(
+      'a banner already showing is dismissed for the user when it arrives',
+      () async {
+        connection.add(false);
+        await pause(afterThreshold);
+        expect(monitor.noticeVisible, isTrue);
+
+        monitor.persistentSurfaceShown();
+
+        expect(monitor.noticeVisible, isFalse);
+        expect(monitor.connectionLost, isTrue);
+      },
+    );
+
+    test(
+      'and it stays dismissed after the surface goes, for that outage',
+      () async {
+        connection.add(false);
+        await pause(afterThreshold);
+        monitor.persistentSurfaceShown();
+        monitor.persistentSurfaceHidden();
+        await pause(afterThreshold);
+
+        expect(monitor.noticeVisible, isFalse);
+        expect(monitor.connectionLost, isTrue);
+      },
+    );
+
+    test('the next outage shows the banner again', () async {
+      connection.add(false);
+      await pause(afterThreshold);
+      monitor.persistentSurfaceShown();
+      monitor.persistentSurfaceHidden();
+
+      connection.add(true);
+      await pause(Duration.zero);
+      connection.add(false);
+      await pause(afterThreshold);
+
+      expect(monitor.noticeVisible, isTrue);
+    });
+
+    test('coming and going before any outage changes nothing', () async {
+      monitor.persistentSurfaceShown();
+      monitor.persistentSurfaceHidden();
+      connection.add(false);
+      await pause(afterThreshold);
+
+      expect(monitor.noticeVisible, isTrue);
+    });
+
+    test('two surfaces keep the banner away until both have gone', () async {
+      monitor.persistentSurfaceShown();
+      monitor.persistentSurfaceShown();
+      monitor.persistentSurfaceHidden();
+      connection.add(false);
+      await pause(afterThreshold);
+
+      expect(monitor.noticeVisible, isFalse);
+    });
+
+    test('hiding more often than showing is harmless', () async {
+      monitor.persistentSurfaceHidden();
+      connection.add(false);
+      await pause(afterThreshold);
+
+      expect(monitor.noticeVisible, isTrue);
+    });
+  });
+
   group('reporting to analytics', () {
     late RecordingAnalytics analytics;
     late StreamController<bool?> own;
@@ -305,7 +387,10 @@ void main() {
 
         expect(analytics.events, hasLength(1));
         expect(analytics.events.single.name, 'connection_lost_notice_shown');
-        expect(analytics.events.single.parameters, {'down_seconds': 31});
+        expect(analytics.events.single.parameters, {
+          'down_seconds': 31,
+          'surface': 'banner',
+        });
       },
     );
 
@@ -344,7 +429,10 @@ void main() {
       reporting.dismiss();
 
       expect(analytics.events.last.name, 'connection_lost_notice_dismissed');
-      expect(analytics.events.last.parameters, {'visible_seconds': 12});
+      expect(analytics.events.last.parameters, {
+        'visible_seconds': 12,
+        'by': 'user',
+      });
     });
 
     test(
@@ -405,6 +493,34 @@ void main() {
       own.add(true);
       await pause(Duration.zero);
       expect(reporting.noticeVisible, isFalse);
+    });
+
+    test(
+      'logs the surface when the card is already showing, and no dismissal',
+      () async {
+        reporting.persistentSurfaceShown();
+        own.add(false);
+        await pause(afterThreshold);
+
+        expect(analytics.events.map((event) => event.name), [
+          'connection_lost_notice_shown',
+        ]);
+        expect(analytics.events.single.parameters['surface'], 'profile_card');
+      },
+    );
+
+    test('logs that the card dismissed a banner that was showing', () async {
+      own.add(false);
+      await pause(afterThreshold);
+      now = now.add(const Duration(seconds: 7));
+
+      reporting.persistentSurfaceShown();
+
+      expect(analytics.events.last.name, 'connection_lost_notice_dismissed');
+      expect(analytics.events.last.parameters, {
+        'visible_seconds': 7,
+        'by': 'profile_card',
+      });
     });
 
     test('event names are stable, since dashboards will key on them', () {

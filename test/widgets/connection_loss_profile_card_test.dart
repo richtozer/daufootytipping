@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_panel_card.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
 import 'package:daufootytipping/widgets/connection_loss_profile_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/app_controls_test_app.dart';
 
 void main() {
   late StreamController<bool?> connection;
@@ -222,5 +225,113 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text(ConnectionLossProfileCard.detail), findsOneWidget);
+  });
+
+  group('with the banner', () {
+    late AppControlsViewModel controls;
+
+    setUp(() => controls = AppControlsViewModel());
+    tearDown(() => controls.dispose());
+
+    Future<void> pumpApp(WidgetTester tester, {required Widget home}) {
+      return tester.pumpWidget(
+        appWithControls(
+          controls,
+          home: home,
+          notice: ConnectionLossNotice(monitor: monitor),
+        ),
+      );
+    }
+
+    Widget cardPage() =>
+        Scaffold(body: ConnectionLossProfileCard(monitor: monitor));
+
+    Future<void> push(WidgetTester tester, Widget page) async {
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(MaterialPageRoute<void>(builder: (_) => page));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the banner does not sit on top of the card', (tester) async {
+      await pumpApp(tester, home: cardPage());
+      await tester.pump();
+      await loseConnection(tester);
+      await tester.pump();
+
+      expect(find.text(ConnectionLossProfileCard.heading), findsOneWidget);
+      expect(find.text(ConnectionLossNotice.message), findsNothing);
+    });
+
+    testWidgets('a banner already showing is dismissed when the card appears', (
+      tester,
+    ) async {
+      await pumpApp(tester, home: const Scaffold(body: Text('elsewhere')));
+      await loseConnection(tester);
+      expect(find.text(ConnectionLossNotice.message), findsOneWidget);
+
+      await push(tester, cardPage());
+
+      expect(find.text(ConnectionLossProfileCard.heading), findsOneWidget);
+      expect(find.text(ConnectionLossNotice.message), findsNothing);
+    });
+
+    testWidgets('and it stays dismissed after leaving, for that outage', (
+      tester,
+    ) async {
+      await pumpApp(tester, home: const Scaffold(body: Text('elsewhere')));
+      await loseConnection(tester);
+      await push(tester, cardPage());
+
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      expect(find.text(ConnectionLossNotice.message), findsNothing);
+      expect(monitor.connectionLost, isTrue);
+    });
+
+    testWidgets('a page pushed over the card lets the banner show', (
+      tester,
+    ) async {
+      await pumpApp(tester, home: cardPage());
+      await tester.pump();
+      await push(tester, const Scaffold(body: Text('covering page')));
+
+      await loseConnection(tester);
+      await tester.pump();
+
+      expect(find.text(ConnectionLossNotice.message), findsOneWidget);
+    });
+
+    testWidgets('uncovering the card dismisses the banner again', (
+      tester,
+    ) async {
+      await pumpApp(tester, home: cardPage());
+      await tester.pump();
+      await push(tester, const Scaffold(body: Text('covering page')));
+      await loseConnection(tester);
+      await tester.pump();
+      expect(find.text(ConnectionLossNotice.message), findsOneWidget);
+
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      expect(find.text(ConnectionLossNotice.message), findsNothing);
+      expect(find.text(ConnectionLossProfileCard.heading), findsOneWidget);
+    });
+
+    testWidgets('once the card is gone a new outage shows the banner', (
+      tester,
+    ) async {
+      await pumpApp(tester, home: cardPage());
+      await tester.pump();
+      await pumpApp(tester, home: const Scaffold(body: Text('no card now')));
+      await tester.pump();
+
+      await loseConnection(tester);
+      await tester.pump();
+
+      expect(find.text(ConnectionLossNotice.message), findsOneWidget);
+    });
   });
 }
