@@ -10,9 +10,8 @@ const List<String> tipperPublicFieldNames = <String>[
 
 /// The fields only the tipper and administrators may read. They live at
 /// `/TipperPrivate/{tipperId}`. The purge and restore steps move whole lists.
-/// Every field the app writes is in exactly one of the two lists. Production
-/// data also has two legacy fields, `active` and `tipperID`, on some records;
-/// nothing reads them and they are in neither list.
+/// Every field the app writes is in exactly one of the two lists; the legacy
+/// fields in [tipperLegacyFieldNames] are in neither.
 const List<String> tipperPrivateFieldNames = <String>[
   'authuid',
   'tipperRole',
@@ -22,6 +21,24 @@ const List<String> tipperPrivateFieldNames = <String>[
   'acctCreatedUTC',
   'acctLoggedOnUTC',
 ];
+
+/// Two legacy fields that some production records still carry (`active` on 84 of
+/// 214, `tipperID` on 134, on 20 October 2026). Nothing reads them. They are in
+/// neither list above and the purge deletes them.
+const List<String> tipperLegacyFieldNames = <String>['active', 'tipperID'];
+
+/// The public name a tipper is given at the purge when their record has none of
+/// the public fields, so that the record is not left empty (the database keeps
+/// no empty node and the tipper would disappear). One production tipper signed
+/// up in 2025 without entering an alias. The tail of the id keeps two such
+/// tippers apart; it is never claimed as an alias.
+String placeholderTipperName(String tipperId) {
+  const tailLength = 6;
+  final tail = tipperId.length > tailLength
+      ? tipperId.substring(tipperId.length - tailLength)
+      : tipperId;
+  return 'Unnamed tipper $tail';
+}
 
 /// The private part of a tipper record (DESIGN-database-rules.md, D6).
 ///

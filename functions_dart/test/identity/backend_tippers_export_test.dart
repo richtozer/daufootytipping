@@ -15,10 +15,10 @@ import '../support/tipper_view.dart';
 /// The tippers go through the real REST handle into the emulator in three shapes, and the backend
 /// must see the same tippers in all of them.
 ///
-/// One difference is known: a tipper whose record has none of the public fields (no name, photo or
-/// paid comps) would have an empty public node after the purge, and the database keeps no empty
-/// nodes, so the tipper would vanish. The purge tool must leave every tipper a public node. This
-/// test fails on any other difference.
+/// The purge is modelled as the plan decides it: the private and legacy fields are removed, and a
+/// tipper whose record has none of the public fields gets a placeholder name (the database keeps no
+/// empty node, so without one the tipper would vanish). The only difference the backend may then see
+/// is that placeholder name.
 final File _export = File('../test/data/production-export.json');
 
 String? _skipReason() {
@@ -73,59 +73,61 @@ void main() {
         tipper.dbkey!: tipperView(tipper),
     };
 
-    test('the backend sees the same tippers before, during and after', () async {
-      final root =
-          jsonDecode(_export.readAsStringSync()) as Map<String, dynamic>;
-      final records = <String, Map<Object?, Object?>>{
-        for (final entry
-            in (root['AllTippers'] as Map<String, dynamic>).entries)
-          entry.key: Map<Object?, Object?>.from(entry.value as Map),
-      };
-      expect(records, isNotEmpty);
+    test(
+      'the backend sees the same tippers before, during and after',
+      () async {
+        final root =
+            jsonDecode(_export.readAsStringSync()) as Map<String, dynamic>;
+        final records = <String, Map<Object?, Object?>>{
+          for (final entry
+              in (root['AllTippers'] as Map<String, dynamic>).entries)
+            entry.key: Map<Object?, Object?>.from(entry.value as Map),
+        };
+        expect(records, isNotEmpty);
 
-      await database.ref(tippersPath).set(records);
-      final legacy = await loadAll();
-      expect(legacy.length, records.length);
+        await database.ref(tippersPath).set(records);
+        final legacy = await loadAll();
+        expect(legacy.length, records.length);
 
-      await database.ref(tipperPrivatePath).set({
-        for (final entry in records.entries)
-          entry.key: _fields(entry.value, tipperPrivateFieldNames),
-      });
-      expect(
-        _differences(legacy, await loadAll()),
-        isEmpty,
-        reason: 'public and private records together',
-      );
+        await database.ref(tipperPrivatePath).set({
+          for (final entry in records.entries)
+            entry.key: _fields(entry.value, tipperPrivateFieldNames),
+        });
+        expect(
+          _differences(legacy, await loadAll()),
+          isEmpty,
+          reason: 'public and private records together',
+        );
 
-      final purged = {
-        for (final entry in records.entries)
-          entry.key: _fields(entry.value, tipperPublicFieldNames),
-      };
-      final noPublicField = [
-        for (final entry in purged.entries)
-          if (entry.value.isEmpty) entry.key,
-      ];
-      await database.ref(tippersPath).set(purged);
-      expect(
-        _differences(legacy, await loadAll()).toSet(),
-        {for (final key in noPublicField) '$key: missing'},
-        reason:
-            'public records purged: only tippers left with no public node may differ',
-      );
+        final placeholders = [
+          for (final entry in records.entries)
+            if (_fields(entry.value, tipperPublicFieldNames).isEmpty) entry.key,
+        ];
+        final purged = {
+          for (final entry in records.entries)
+            entry.key: placeholders.contains(entry.key)
+                ? {'name': placeholderTipperName(entry.key)}
+                : _fields(entry.value, tipperPublicFieldNames),
+        };
+        await database.ref(tippersPath).set(purged);
+        expect(_differences(legacy, await loadAll()).toSet(), {
+          for (final key in placeholders) '$key: [name]',
+        }, reason: 'public records purged: only a placeholder name may differ');
 
-      final anonymous = legacy.values.where(
-        (view) => view['isAnonymous'] == true,
-      );
-      final paid = legacy.values.where(
-        (view) => (view['compsPaidFor']! as List).isNotEmpty,
-      );
-      // ignore: avoid_print
-      print(
-        'dry run: ${legacy.length} tippers; the backend saw the same in all '
-        'three shapes except ${noPublicField.length} with no public field, '
-        'who would have no public node after a purge '
-        '(${paid.length} with paid comps, ${anonymous.length} anonymous)',
-      );
-    }, skip: _skipReason());
+        final anonymous = legacy.values.where(
+          (view) => view['isAnonymous'] == true,
+        );
+        final paid = legacy.values.where(
+          (view) => (view['compsPaidFor']! as List).isNotEmpty,
+        );
+        // ignore: avoid_print
+        print(
+          'dry run: ${legacy.length} tippers; the backend saw the same in all '
+          'three shapes except ${placeholders.length} given a placeholder name '
+          '(${paid.length} with paid comps, ${anonymous.length} anonymous)',
+        );
+      },
+      skip: _skipReason(),
+    );
   });
 }

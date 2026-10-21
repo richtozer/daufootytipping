@@ -97,4 +97,31 @@ void main() {
       expect({...tipperPublicFieldNames, ...tipperPrivateFieldNames}, written);
     });
   });
+
+  group('purge rules', () {
+    test(
+      'the legacy fields are in neither the public nor the private list',
+      () {
+        for (final field in tipperLegacyFieldNames) {
+          expect(tipperPublicFieldNames, isNot(contains(field)));
+          expect(tipperPrivateFieldNames, isNot(contains(field)));
+        }
+      },
+    );
+
+    test(
+      'a placeholder name is readable, never empty, and differs per tipper',
+      () {
+        expect(
+          placeholderTipperName('-OKSr7pvsw7wu_w7ZwQq'),
+          'Unnamed tipper w7ZwQq',
+        );
+        expect(
+          placeholderTipperName('-OKSr7pvsw7wu_w7ZwQq'),
+          isNot(placeholderTipperName('-OKSr7pvsw7wu_w7AAAAA')),
+        );
+        expect(placeholderTipperName('abc'), 'Unnamed tipper abc');
+      },
+    );
+  });
 }

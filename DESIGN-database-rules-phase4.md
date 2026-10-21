@@ -362,15 +362,18 @@ the real REST handle into the emulator in the three shapes (`backend_tippers_exp
 unless `test/data/production-export.json` exists). All 214 tippers read identically in all three
 shapes, except one, below.
 
-**Findings that change the purge tool (M4a, M8).**
+**Findings that change the purge tool (M4a, M8), and the owner's decisions (21 October 2026).**
 1. **One production tipper has none of the public fields** (no name, photo or paid comps: only contact
-   fields, and one comp of tips). Removing the private fields leaves an empty node, and the database
-   keeps no empty node, so that tipper would vanish from `/AllTippers` and from every reader. The
-   purge must leave every tipper a public node (for example a `name`), and the audit should check it.
+   fields, and six tips in the closed 2025 comp). Removing the private fields would leave an empty node,
+   and the database keeps no empty node, so that tipper would vanish from `/AllTippers` and from every
+   reader. A bug in 2025 let new tippers sign up without entering an alias. **Decision: the purge gives
+   such a tipper a placeholder name** (`placeholderTipperName` in `dau_shared`: "Unnamed tipper" and the
+   last six characters of their id; never claimed as an alias, so the M4a alias index skips it). The purge
+   must leave every tipper a public node, and the audit checks it. The dry run models exactly this and
+   sees only that name differ.
 2. **Two legacy fields, `active` (84 records) and `tipperID` (134), are in neither list.** Nothing reads
-   them (the `active` and `tipperID` hits in the code are unrelated). The purge as written leaves them in
-   the public record; decide whether to leave or delete them, but do not assume every field is in one of
-   the two lists. The model's comment now says so.
+   them. **Decision: the purge deletes both** (`tipperLegacyFieldNames` in `dau_shared`), and the restore
+   script does not bring them back, because they are not part of the snapshot's private list.
 3. **No anonymous tippers exist in production today**, so the `isAnonymous` path is protected by tests,
    not exercised by real data.
 
@@ -475,8 +478,8 @@ the audit job, function errors and support messages.
 **Step B: drain, then purge.** Preconditions: M3b deployed and proven; window clean; fresh backup. Set
 mode `freeze` and drain, so no request admitted under `coexist` is still running and none can restore a
 public contact field afterwards. Take the snapshot, remove the public PII fields from every record
-(and **leave every tipper a public node**: the database keeps no empty node, and one production tipper
-today has none of the public fields, section 6d), set mode `final`, run the audit (which now fails on any public contact data) and the post-deploy
+(give a tipper who has no public field a placeholder name, and delete the legacy `active` and `tipperID`
+fields: decisions 8 and 9, section 6d), set mode `final`, run the audit (which now fails on any public contact data) and the post-deploy
 verification again. The purge is idempotent and is run once more after a short wait as a sweep. The
 snapshot and the restore script stay for at least one season month.
 
@@ -579,3 +582,8 @@ The owner concurred on 2026-10-20 with the reviewer's recommendations on each po
    before those listeners attach (D10); checked by the M7 acceptance items in section 6b.
 7. **Live-score fallback: accepted as in section 3** (Gates A and B; prepared `compat` mode, owner-enabled;
    otherwise interim scores for R2-client users are the accepted cost).
+8. **A tipper with no public field gets a placeholder name at the purge** (21 October 2026). One tipper
+   signed up in 2025 without an alias, because of a bug that year. Without a name the purge would leave
+   an empty node and the tipper would vanish. Section 6d.
+9. **The legacy `active` and `tipperID` fields are deleted in the purge** (21 October 2026). Nothing
+   reads them. Section 6d.
