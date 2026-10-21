@@ -38,12 +38,14 @@ BackfillInput _input(
   List<String> accounts = const [_adminUid, _otherUid, _thirdUid],
   Set<String> allowlist = const {_adminUid},
   Map<String, String> approvedLinks = const {},
+  Set<String> approvedAliasOwners = const {},
   Map<String, Object?> extra = const {},
 }) => BackfillInput(
   database: {'AllTippers': tippers, ...extra},
   authUsers: _users(accounts),
   adminAllowlist: allowlist,
   approvedLinks: approvedLinks,
+  approvedAliasOwners: approvedAliasOwners,
 );
 
 /// A database with one allowlisted administrator, so tests of other things are
@@ -69,6 +71,7 @@ BackfillInput _inputAfter(BackfillInput input, BackfillPlan plan) =>
       authUsers: input.authUsers,
       adminAllowlist: input.adminAllowlist,
       approvedLinks: input.approvedLinks,
+      approvedAliasOwners: input.approvedAliasOwners,
     );
 
 void main() {
@@ -295,7 +298,7 @@ void main() {
         );
         expect(plan.writes['AliasIndex/reisy'], 'busy');
         expect(_subjects(plan, FindingKind.aliasShared), [
-          'busy,quiet,placeholder',
+          'busy,quiet,placeholder [ranking]',
         ]);
       },
     );
@@ -379,6 +382,267 @@ void main() {
         );
       },
     );
+  });
+
+  group('an approved link may not create a duplicate', () {
+    test('onto an account another record already holds is rejected', () {
+      final plan = planIdentityBackfill(
+        _input(
+          _withAdmin({
+            'holder': _tipper(name: 'Holder', authuid: _otherUid),
+            'pat': _tipper(name: 'Pat', authuid: 'pat@example.com'),
+          }),
+          approvedLinks: {'pat': _otherUid},
+        ),
+      );
+      expect(_subjects(plan, FindingKind.approvedLinkRejected), ['pat']);
+      expect(plan.hasBlockingFindings, true);
+      expect(plan.writes.containsKey('AllTippers/pat/authuid'), false);
+      expect(_subjects(plan, FindingKind.duplicateAccountUid), isEmpty);
+    });
+
+    test('two links to one account are both rejected', () {
+      final plan = planIdentityBackfill(
+        _input(
+          _withAdmin({
+            'a': _tipper(name: 'A', authuid: 'a@example.com'),
+            'b': _tipper(name: 'B', authuid: 'b@example.com'),
+          }),
+          approvedLinks: {'a': _otherUid, 'b': _otherUid},
+        ),
+      );
+      expect(_subjects(plan, FindingKind.approvedLinkRejected), ['a', 'b']);
+      expect(
+        plan.writes.keys.where((key) => key.startsWith('AllTippers')),
+        isEmpty,
+      );
+    });
+  });
+
+  group('what the backfill check does and does not say', () {
+    test(
+      'a duplicate account leaves the check green but is not cutover ready',
+      () {
+        final input = _input(
+          _withAdmin({
+            'a': _tipper(name: 'A', authuid: _otherUid),
+            'b': _tipper(name: 'B', authuid: _otherUid),
+          }),
+        );
+        final applied = planIdentityBackfill(
+          _inputAfter(input, planIdentityBackfill(input)),
+        );
+        expect(applied.isClean, true);
+        expect(applied.hasCutoverBlockers, true);
+        expect(applied.isCutoverReady, false);
+        expect(_subjects(applied, FindingKind.duplicateAccountUid), ['a,b']);
+      },
+    );
+
+    test(
+      'data with no duplicates or ambiguities is cutover ready once applied',
+      () {
+        final input = _input(
+          _withAdmin({
+            'pat': _tipper(
+              name: 'Pat',
+              authuid: _otherUid,
+              logon: 'pat@example.com',
+            ),
+          }),
+        );
+        final applied = planIdentityBackfill(
+          _inputAfter(input, planIdentityBackfill(input)),
+        );
+        expect(applied.isCutoverReady, true);
+      },
+    );
+
+    test(
+      'unclaimed login emails, shared aliases and ambiguous contacts all block the cutover',
+      () {
+        for (final kind in [
+          FindingKind.duplicateAccountUid,
+          FindingKind.aliasShared,
+          FindingKind.logonShared,
+          FindingKind.emailShared,
+          FindingKind.loginMatchesOtherEmail,
+        ]) {
+          expect(kind.blocksCutover, true, reason: kind.name);
+          expect(
+            kind.blocking,
+            false,
+            reason: '${kind.name} does not stop the backfill',
+          );
+        }
+        expect(FindingKind.aliasUnusable.blocksCutover, false);
+        expect(FindingKind.noAuthuid.blocksCutover, false);
+      },
+    );
+  });
+
+  group('ambiguity between login and contact emails', () {
+    test('a contact email shared by two records is reported', () {
+      final plan = planIdentityBackfill(
+        _input(
+          _withAdmin({
+            'a': _tipper(
+              name: 'A',
+              authuid: _otherUid,
+              email: 'Shared@Example.com',
+            ),
+            'b': _tipper(
+              name: 'B',
+              authuid: _thirdUid,
+              email: ' shared@example.com',
+            ),
+          }),
+        ),
+      );
+      expect(_subjects(plan, FindingKind.emailShared), ['a,b']);
+    });
+
+    test(
+      "one record's login equal to another's contact email is reported once",
+      () {
+        final plan = planIdentityBackfill(
+          _input(
+            _withAdmin({
+              'a': _tipper(
+                name: 'A',
+                authuid: _otherUid,
+                logon: 'x@example.com',
+                email: 'y@example.com',
+              ),
+              'b': _tipper(
+                name: 'B',
+                authuid: _thirdUid,
+                logon: 'y@example.com',
+                email: 'x@example.com',
+              ),
+            }),
+          ),
+        );
+        expect(_subjects(plan, FindingKind.loginMatchesOtherEmail), ['a,b']);
+        expect(_subjects(plan, FindingKind.logonShared), isEmpty);
+      },
+    );
+
+    test(
+      "a record's own login and contact email being the same is not ambiguity",
+      () {
+        final plan = planIdentityBackfill(
+          _input(
+            _withAdmin({
+              'a': _tipper(
+                name: 'A',
+                authuid: _otherUid,
+                logon: 'x@example.com',
+                email: 'x@example.com',
+              ),
+            }),
+          ),
+        );
+        expect(_subjects(plan, FindingKind.loginMatchesOtherEmail), isEmpty);
+        expect(_subjects(plan, FindingKind.emailShared), isEmpty);
+      },
+    );
+  });
+
+  group('who owns a shared alias', () {
+    Map<String, Object?> sam({required List<String> busyTips}) => {
+      'AppConfig': {'currentDAUComp': 'comp-1'},
+      'AllTips': {
+        'comp-1': {
+          for (final id in busyTips) id: {'g1': 1, 'g2': 2},
+        },
+      },
+    };
+
+    Map<String, Object?> twoSams() => _withAdmin({
+      'sam1': _tipper(name: 'Sam', authuid: _otherUid),
+      'sam2': _tipper(name: 'Sam', authuid: _thirdUid),
+    });
+
+    test(
+      'a claim already made is kept when the tip counts later favour the other record',
+      () {
+        final first = _input(twoSams(), extra: sam(busyTips: ['sam1']));
+        expect(planIdentityBackfill(first).writes['AliasIndex/sam'], 'sam1');
+
+        final applied = _inputAfter(first, planIdentityBackfill(first));
+        final flipped = BackfillInput(
+          database: {
+            ...applied.database,
+            ...sam(busyTips: ['sam2']),
+          },
+          authUsers: applied.authUsers,
+          adminAllowlist: applied.adminAllowlist,
+        );
+        final plan = planIdentityBackfill(flipped);
+        expect(plan.isClean, true, reason: 'no false drift');
+        expect(_subjects(plan, FindingKind.aliasShared), [
+          'sam1,sam2 [existing claim]',
+        ]);
+      },
+    );
+
+    test('an owner-approved record owns it, whatever the ranking says', () {
+      final plan = planIdentityBackfill(
+        _input(
+          twoSams(),
+          extra: sam(busyTips: ['sam1']),
+          approvedAliasOwners: {'sam2'},
+        ),
+      );
+      expect(plan.writes['AliasIndex/sam'], 'sam2');
+      expect(_subjects(plan, FindingKind.aliasShared), [
+        'sam2,sam1 [approved]',
+      ]);
+      expect(plan.hasBlockingFindings, false);
+    });
+
+    test(
+      'an approval that disagrees with a claim already made is reported, not overwritten',
+      () {
+        final first = _input(twoSams(), extra: sam(busyTips: ['sam1']));
+        final applied = _inputAfter(first, planIdentityBackfill(first));
+        final plan = planIdentityBackfill(
+          BackfillInput(
+            database: applied.database,
+            authUsers: applied.authUsers,
+            adminAllowlist: applied.adminAllowlist,
+            approvedAliasOwners: {'sam2'},
+          ),
+        );
+        expect(_subjects(plan, FindingKind.existingDiffers), [
+          'AliasIndex/sam',
+        ]);
+        expect(plan.writes.containsKey('AliasIndex/sam'), false);
+      },
+    );
+
+    test('an approval for a record that shares no alias blocks the patch', () {
+      final plan = planIdentityBackfill(
+        _input(
+          _withAdmin({'solo': _tipper(name: 'Solo', authuid: _otherUid)}),
+          approvedAliasOwners: {'solo', 'ghost'},
+        ),
+      );
+      expect(_subjects(plan, FindingKind.approvedAliasRejected), [
+        'ghost',
+        'solo',
+      ]);
+      expect(plan.hasBlockingFindings, true);
+    });
+
+    test('approving two records of one alias blocks the patch', () {
+      final plan = planIdentityBackfill(
+        _input(twoSams(), approvedAliasOwners: {'sam1', 'sam2'}),
+      );
+      expect(_subjects(plan, FindingKind.approvedAliasRejected), ['sam1,sam2']);
+      expect(plan.hasBlockingFindings, true);
+    });
   });
 
   group('administrators must match the allowlist both ways', () {

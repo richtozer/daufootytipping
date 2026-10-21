@@ -187,7 +187,7 @@ Estimates are working figures for focused effort, not commitments.
 | M2 | **Shared code in `dau_shared`:** `normaliseAlias` (+ 64-char cap), `normaliseEmail`, `logonIndexKey` (base64url SHA-256), kickoff serializer, public/private `Tipper`, endpoint ids. | Unit tests; client and functions import it; no behaviour change shipped. | 2 d |
 | M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. **Done (section 6c): functions deployed and patch applied and verified 20 October 2026.** | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
 | M3b | **Done: built, proven and deployed 20 October 2026 (section 6d).** **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
-| M4a | **Tool built and tested (section 6e); dry run on fresh Auth data and the apply are next.** **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
+| M4a | **Tool built, tested and corrected after review (section 6e); the dry run on fresh Auth data, owner review and the apply are next.** **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
 | M4c | **Admin callables** `adminCreateTipper`, merge, reassign, delete, `adminSetTipperRole`, `adminUpdateTipperContact`; leases and `IdentityOps` journal; scheduled audit and reaper. Existing admin endpoints move to `resolveCallerTipper` at cutover. | Crash injection after every step; one lease-takeover winner; **stale-holder scenario passes (section 6b)**; forged index or `authuid` rejected; last admin cannot be removed; audit reports every violation class. | 9 to 11 d |
 | M5 | **Live-score aggregator**, shadow first. History ordering: numeric `t`, else parsed legacy `submittedTimeUTC`, else the push key's microseconds. The `current` write is a version-guarded transaction (`basedOnCount`) that is also skipped when the game already has an official score; the audit job sweeps any `current` left behind for a completed game (the import clears the game's whole live node, so an in-flight aggregation can recreate it). `gameComplete` never set. **Activation (`active`) only after R2 rules deploy**, when no client can write `current`. | **Synthetic game-day replay** on the emulator: mixed legacy and new entries, shuffled and duplicated deliveries, an official score arriving mid-stream, compared with golden vectors from the current client algorithm. **Mixed-writer replay** (a legacy client's `current` writes interleaved with the aggregator over the same history converge to one displayed score and do not flap). Shadow canary in the test comp. | 6 d |
@@ -266,6 +266,16 @@ These are requirements for the milestone named, to be met before cutover. They d
   by a test that holds a coexist request open across the mode change and the purge.
 - The purge tool is idempotent and re-runnable; the audit gains a "public contact data present after
   purge" violation class.
+
+**M4b, ambiguity is rejected by scanning, not by a missing claim.** The backfill leaves a login email shared
+by two records unclaimed, and an unclaimed email looks like one never seen. `linkOrCreateTipper` must therefore
+search every record's `logon` and `email` for the caller's verified address and reject an ambiguous result
+before it creates or claims anything. Integration tests on the REST handle: (a) two records with the same login
+email: the call is rejected as ambiguous, no claim is created and nothing is written; (b) one record's login
+equal to another's contact email: rejected as ambiguous; (c) a login that matches exactly one record by `email`
+only is linked, with the claim written; (d) the same address in different case or with surrounding spaces
+matches the same records; (e) a login email no record holds creates a new tipper only when `createLinkedTipper`
+allows it.
 
 **M4c, a stale worker resuming.**
 - Lease owners are operation ids, never admin uids (two requests from one admin cannot both hold it).
@@ -383,57 +393,94 @@ reported success. The Dart CLI again printed "timed out after 30000ms" for four 
 showed all six on new revisions, Ready and at 100% of traffic, and no error-level logs followed. Behaviour
 is unchanged while every record is still in the legacy shape; the readers matter at the purge.
 
-### 6e. Progress: M4a, the identity backfill tool (21 October 2026; built and tested, nothing applied)
+### 6e. Progress: M4a, the identity backfill tool (21 October 2026; built, tested and corrected after a review; nothing applied)
 
 **What it is.** An offline Dart tool, `functions_dart/bin/identity_backfill.dart` (logic in
-`lib/identity/backfill_plan.dart` and `backfill_cli.dart`). It reads a database export, a `firebase
-auth:export` file (only uid, email and verified flag are read; the password hashes are not), the admin
-allowlist and the owner's reviewed link decisions, and writes a multi-path patch and a findings file. It never
-contacts Firebase. A patch is applied with the Firebase CLI, as M3's was, by `scripts/apply-identity-backfill.sh`.
+`lib/identity/backfill_plan.dart` and `backfill_cli.dart`). It reads a database export, a slim list of Firebase
+Auth accounts (uid, email, verified flag), the admin allowlist and the owner's reviewed decisions, and writes a
+multi-path patch and a findings file. It never contacts Firebase. A patch is applied with the Firebase CLI, as
+M3's was, by `scripts/apply-identity-backfill.sh`.
 
 **One function does three jobs.** It computes the full set of entries the current records call for
 (`TipperPrivate/{id}` as a copy of the seven private fields exactly as stored; `AuthIndex/{uid}`;
 `AliasIndex/{key}`; `LogonIndex/{hash}`; `Placeholders/{id}` for records whose `authuid` is not an Auth
 account), then compares that with the database. An empty place becomes a write; a place holding something
 else is a finding and is never overwritten. So the first run is the backfill, `--check` after it is the
-verifier (zero writes, zero findings), and `--check` later is the **drift report**: a changed alias, contact
-or account shows as a new write or a differing entry, a deleted tipper's entries as stale ones. Alias keys
-come from the Dart normaliser, as section 6a requires.
+verifier, and `--check` later is the **drift report**: a changed alias, contact or account shows as a new
+write or a differing entry, a deleted tipper's entries as stale ones. Alias keys come from the Dart
+normaliser, as section 6a requires.
+
+**Two different checks, on purpose.** `--check` says the backfill is in place and nothing blocks it; it stays
+green with duplicates and ambiguities still present, because nothing is lost by leaving them for now. It
+**does not mean the identities are ready for R2.** Every finding is labelled `BLOCKS` (settle before
+applying), `cutover` (does not stop the backfill, must be resolved before the cutover) or `info`; the output
+ends by saying which of the two checks passed, and **`--strict` is the cutover check**: it fails while any
+`cutover` finding remains. The `cutover` findings are: two records on one real account, a shared alias, a
+shared login email, a shared contact email, and one record's login being another's contact email.
 
 **Policies, each reported and none guessed.**
-- *Real account or placeholder* is decided only by the Auth export. An approved link (owner-reviewed, from a
-  git-ignored file) is the one case that writes to a public record: it sets `authuid` there and in the private
-  copy, so they agree. A link to an unknown account, or onto a record that already holds a different real
-  account, is rejected and blocks.
-- *Two records on one real account:* neither is indexed; both are listed.
-- *A shared alias:* one record claims it (a real account first, then most tips in the current comp, then most
-  paid comps, then lowest id) so a new sign-up cannot take it; the rest are listed. *A shared login email:*
-  nobody claims it, so a later link attempt stays ambiguous instead of silently picking one.
+- *Real account or placeholder* is decided only by the Auth accounts. An approved link (owner-reviewed, from a
+  git-ignored decisions file) is the one case that writes to a public record: it sets `authuid` there and in
+  the private copy so they agree. A link is **rejected, and blocks**, if the account does not exist, if the
+  record already holds a different real account, or **if another record, or another approved link, already
+  holds that account** (an approved link may never create a duplicate).
+- *Two records on one real account that already exist:* neither is indexed; both are listed as a `cutover`
+  finding, not hidden in a green result.
+- *A shared alias:* one record claims it, so a new sign-up cannot take it, and the rest are listed. The ranking
+  (a real account first, then most tips in the current comp, then most paid comps, then lowest id) is only a
+  **proposal**. The owner approves the four proposed owners in the decisions file (`aliasOwners`); an approval
+  overrides the ranking. A claim already in the database is **kept**, so tip counts changing later cannot flip
+  an owner the owner has seen. Each shared alias in the output says whether its owner came from `[ranking]`,
+  `[existing claim]` or `[approved]`.
+- *A shared login email:* nobody claims it. **A missing claim does not by itself make a link attempt
+  ambiguous.** An unclaimed email looks the same as one never seen, so the link callable must find every
+  candidate by scanning the records' `logon` **and** `email` fields and reject an ambiguous match before it
+  creates or claims anything (acceptance requirement in section 6b, M4b). This tool only reports the
+  collisions, including a login that equals another record's contact email.
 - *Anonymous records* are copied but never indexed. *A record with no name* gets no alias claim (the
   placeholder name from decision 8 is never claimed).
 - *Administrators must match the allowlist both ways.* An admin role on an account that is not allowlisted, a
   placeholder or a shared account blocks the patch, as does an allowlisted account with no admin record. This
   is the privilege-expansion check: under the AuthIndex rules a database admin record becomes an administrator.
 
-**Proof.** 30 planner tests (every policy, re-runs, renames, deletions, byte-identical output whatever the data
-order, only identity roots touched); 14 command-line tests (no names in output, hashes never read, patch not
-written while anything blocks, personal-data files must be git-ignored); 8 tests of the apply script with fake
-`firebase` and `dart`; and the plan applied to the Database emulator through the production REST handle and
-re-checked clean, on synthetic data with unicode aliases and on the real records (214 tippers: every key
-accepted, verifier clean). The apply script re-plans from live data and writes only if that is byte-identical
-to the reviewed patch, then verifies; it names the project and suppresses triggers.
+**Auth data and password hashes.** `firebase auth:export` always includes password hashes. The planner
+**refuses any file that still carries them**; `scripts/slim_auth_export.mjs` reduces an export to uid, email and
+verified flag (and can delete the full export at once), so the hashes never reach the planner. The slimmer
+itself reads the full export once, so the full file exists for seconds in a private folder.
 
-**Preview on the real data** (20 October export, with account status guessed from uid shape because no Auth
-export is on disk): 214 tippers, 829 writes, and exactly the findings the owner's worklist predicted: one
-shared real account (items 4 to 6), four shared aliases (items 4, 5, 9), three shared login emails, and one
-blocker, the LivToz admin record. LivToz is `tipper` in production now, so a fresh export clears it.
+**The apply script and what it can and cannot guarantee.** It re-reads the live database **and a fresh Auth
+export** (slimmed at once), plans again, and writes only if the result is byte-identical to the reviewed
+patch, so an account created or deleted since the review stops it. It reads the five identity nodes and the
+tipper list before planning and again just before the write, and any difference stops it. The write itself is
+the Firebase CLI's unconditional multi-path update: there is no conditional write, so the window between the
+second read and the write cannot be zero. That is acceptable here because no client or function can write the
+identity nodes (the rules name none of them, so they are denied), which leaves one place a concurrent writer
+could be overwritten: the `authuid` of a link the owner approved. Draining running operations is the M4b
+server-mode freeze and does not apply before those callables exist. It names the project, suppresses
+triggers, then re-checks and prints the verifier output.
 
-**Scheduled drift report.** Delivered as the on-demand `--check`. A deployed schedule belongs with the
-scheduled audit and reaper in M4c.
+**Proof.** 43 planner tests (every policy, the duplicate-link guard, alias ownership kept and approved, email
+ambiguity, re-runs, renames, deletions, byte-identical output whatever the data order, only identity roots
+touched); 19 command-line tests (no names in output, raw Auth exports with hashes refused, patch not written
+while anything blocks, personal-data files must be git-ignored, `--check` against `--strict`); 10 tests of the
+apply script (including a change during planning stopping the write); 3 of the slimmer; and the plan applied
+to the Database emulator through the production REST handle and re-checked clean. **That last test proves
+storage compatibility and repeatability, not identity correctness:** on the 214 real records the accounts and
+administrators were guessed from uid shape, so it shows the database accepts every key and the verifier is
+repeatable. Only a run on real Auth data shows which accounts and administrators are right.
 
-**Next, each a separate go.** (1) `firebase auth:export` (a read of production Auth; the file holds password
-hashes, so it is deleted straight after the run), a fresh `database:get /`, then the real dry run for the owner
-to review, with the item-1 link in the approved-links file. (2) Apply with the script. (3) Re-run `--check`.
+**Preview on the real data** (20 October export, account status guessed from uid shape): 214 tippers and the
+findings the owner's worklist predicted: one shared real account (items 4 to 6), four shared aliases
+(items 4, 5, 9), three shared login emails, and one blocker, the LivToz admin record. LivToz is `tipper` in
+production now, so a fresh export clears it.
+
+**Scheduled drift report: deferred, not done.** What exists is the on-demand `--check`. A deployed schedule
+belongs with the scheduled audit and reaper in M4c.
+
+**Next, each a separate go.** (1) A fresh `firebase auth:export` (a read of production Auth), slimmed and
+deleted at once, and a fresh `database:get /`; the real dry run for the owner to review, with the item-1 link and
+the four proposed alias owners in a decisions file. (2) Apply with the script. (3) `--check`, and later
+`--strict` before the cutover.
 
 ## 7. Timeline, back-planned from the season
 

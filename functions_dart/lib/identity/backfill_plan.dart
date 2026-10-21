@@ -21,6 +21,7 @@ class BackfillInput {
     required this.authUsers,
     required this.adminAllowlist,
     this.approvedLinks = const <String, String>{},
+    this.approvedAliasOwners = const <String>{},
   });
 
   /// The whole database as one JSON object (a `firebase database:get /` export).
@@ -37,22 +38,41 @@ class BackfillInput {
   /// that person, for records whose stored `authuid` is only a placeholder.
   /// Without an entry here a candidate is never linked.
   final Map<String, String> approvedLinks;
+
+  /// Owner-reviewed choices of which record owns a shared alias, as tipper
+  /// ids. Without one, the ranking proposes an owner (and a claim already in
+  /// the database is kept), but a proposal is not an approval.
+  final Set<String> approvedAliasOwners;
 }
 
 /// What a finding is about. Each one lists tipper ids (or index keys) only, never names or addresses.
+///
+/// Two different questions are asked of a plan. Is it safe to apply and is the
+/// backfill in place? Only [blocking] findings say no. Are the identities ready
+/// for the R2 cutover? [blocksCutover] findings say not yet: they are accepted
+/// during the backfill, because nothing is lost by leaving them for now, but
+/// they must be resolved before real people depend on the new rules.
 enum FindingKind {
   /// Two records hold the same real account. Neither is indexed.
-  duplicateAccountUid(blocking: false),
+  duplicateAccountUid(blocking: false, blocksCutover: true),
 
-  /// Two or more records share a normalised alias. One ranked record claims it.
-  aliasShared(blocking: false),
+  /// Two or more records share a normalised alias. One record claims it.
+  aliasShared(blocking: false, blocksCutover: true),
 
   /// A record's name cannot be an alias (blank, too long, or only symbols).
   aliasUnusable(blocking: false),
 
-  /// Two or more records share a login email. Nobody claims it, so a link
-  /// attempt on it stays ambiguous rather than silently picking one.
-  logonShared(blocking: false),
+  /// Two or more records share a login email. Nobody claims it. A missing
+  /// claim is not by itself a refusal: the link callable must find every
+  /// candidate by scanning and reject an ambiguous match (section 6b, M4b).
+  logonShared(blocking: false, blocksCutover: true),
+
+  /// Two or more records share a contact email.
+  emailShared(blocking: false, blocksCutover: true),
+
+  /// One record's login email is another record's contact email, so a person
+  /// arriving with that address matches two records.
+  loginMatchesOtherEmail(blocking: false, blocksCutover: true),
 
   /// A record has an admin role but its account is not on the allowlist, is
   /// not an account at all, or is shared. Under the AuthIndex rules it would
@@ -62,12 +82,17 @@ enum FindingKind {
   /// An allowlisted account has no admin record to match.
   allowlistedUidWithoutAdminRecord(blocking: true),
 
-  /// An approved link is not usable: the account does not exist, or the record
-  /// already holds a different real account.
+  /// An approved link is not usable: the account does not exist, the record
+  /// already holds a different real account, or another record (or another
+  /// approved link) already holds that account, which would make a duplicate.
   approvedLinkRejected(blocking: true),
 
   /// An approved link names a record that does not exist.
   approvedLinkUnknownTipper(blocking: true),
+
+  /// An approved alias owner is not a record that shares an alias, or two
+  /// records of one shared alias were both approved.
+  approvedAliasRejected(blocking: true),
 
   /// An entry already in the database is not what the data now calls for
   /// (the drift report, or a pass-1 re-run).
@@ -79,10 +104,14 @@ enum FindingKind {
   /// A record that is not an account or a placeholder: it has no `authuid`.
   noAuthuid(blocking: false);
 
-  const FindingKind({required this.blocking});
+  const FindingKind({required this.blocking, this.blocksCutover = false});
 
   /// Whether the patch must not be applied until this is settled.
   final bool blocking;
+
+  /// Whether this must be resolved before the R2 cutover, though it does not
+  /// stop the backfill.
+  final bool blocksCutover;
 }
 
 /// One class of problem and where it was found.
@@ -104,7 +133,7 @@ class BackfillPlan {
   });
 
   /// A multi-path update (`path -> value`) that makes the database match the
-  /// plan. It only ever fills empty places, with two exceptions: the `authuid`
+  /// plan. It only ever fills empty places, with one exception: the `authuid`
   /// of an owner-approved link. Keys are sorted so that two plans of the same
   /// data are byte-identical.
   final Map<String, Object?> writes;
@@ -117,8 +146,19 @@ class BackfillPlan {
   bool get hasBlockingFindings =>
       findings.any((finding) => finding.kind.blocking);
 
-  /// True when the database already matches the plan and nothing is amiss.
+  /// True when the database already matches the plan and nothing blocks it.
+  /// This is the backfill check. It says nothing about readiness for R2:
+  /// findings that [FindingKind.blocksCutover] can remain.
   bool get isClean => writes.isEmpty && !hasBlockingFindings;
+
+  /// Findings that must be resolved before the R2 cutover (and that do not
+  /// block the backfill).
+  bool get hasCutoverBlockers =>
+      findings.any((finding) => finding.kind.blocksCutover);
+
+  /// The stricter check for the cutover: the backfill is in place and every
+  /// duplicate and ambiguity has been resolved.
+  bool get isCutoverReady => isClean && !hasCutoverBlockers;
 }
 
 /// Plans the identity backfill, or checks it: the same function does both.
@@ -157,6 +197,15 @@ BackfillPlan planIdentityBackfill(BackfillInput input) {
   }
 
   // Owner-approved links first, because they decide which uid a record holds.
+  // A link may never create a duplicate: the account must not already be held
+  // by another record, nor be the target of another approved link.
+  final storedHolders = <String, List<String>>{};
+  for (final record in records.values) {
+    final stored = record.storedAuthuid;
+    if (stored != null) {
+      (storedHolders[stored] ??= <String>[]).add(record.id);
+    }
+  }
   final publicWrites = <String, Object?>{};
   for (final entry in input.approvedLinks.entries) {
     final record = records[entry.key];
@@ -170,7 +219,15 @@ BackfillPlan planIdentityBackfill(BackfillInput input) {
         stored != null &&
         stored != entry.value &&
         input.authUsers.containsKey(stored);
-    if (account == null || storedIsOtherAccount) {
+    final heldByAnotherRecord = (storedHolders[entry.value] ?? const <String>[])
+        .any((holder) => holder != record.id);
+    final targetedTwice =
+        input.approvedLinks.values.where((uid) => uid == entry.value).length >
+        1;
+    if (account == null ||
+        storedIsOtherAccount ||
+        heldByAnotherRecord ||
+        targetedTwice) {
       note(FindingKind.approvedLinkRejected, entry.key);
       continue;
     }
@@ -237,11 +294,56 @@ BackfillPlan planIdentityBackfill(BackfillInput input) {
     }
     (aliasGroups[aliasIndexKey(name)] ??= <_Record>[]).add(record);
   }
+  final sharedAliasMembers = <String>{};
   for (final entry in aliasGroups.entries) {
     final group = entry.value..sort(_byClaimPriority);
-    aliasClaims[entry.key] = group.first.id;
     if (group.length > 1) {
-      note(FindingKind.aliasShared, group.map((record) => record.id).join(','));
+      sharedAliasMembers.addAll(group.map((record) => record.id));
+    }
+    final approved = group
+        .where((record) => input.approvedAliasOwners.contains(record.id))
+        .toList();
+    final existing = _valueAtPath(
+      input.database,
+      '$aliasIndexPathKey/${entry.key}',
+    );
+    final _Record winner;
+    final String basis;
+    if (approved.length > 1) {
+      note(
+        FindingKind.approvedAliasRejected,
+        approved.map((record) => record.id).join(','),
+      );
+      winner = group.first;
+      basis = 'ranking';
+    } else if (approved.length == 1) {
+      winner = approved.single;
+      basis = 'approved';
+    } else if (existing is String &&
+        group.any((record) => record.id == existing)) {
+      // A claim already made is kept, so the tip counts changing later cannot
+      // flip an owner the owner has seen.
+      winner = group.firstWhere((record) => record.id == existing);
+      basis = 'existing claim';
+    } else {
+      winner = group.first;
+      basis = 'ranking';
+    }
+    aliasClaims[entry.key] = winner.id;
+    if (group.length > 1) {
+      final ordered = [
+        winner,
+        ...group.where((record) => record.id != winner.id),
+      ];
+      note(
+        FindingKind.aliasShared,
+        '${ordered.map((record) => record.id).join(',')} [$basis]',
+      );
+    }
+  }
+  for (final id in input.approvedAliasOwners.toList()..sort()) {
+    if (!sharedAliasMembers.contains(id)) {
+      note(FindingKind.approvedAliasRejected, id);
     }
   }
 
@@ -263,6 +365,37 @@ BackfillPlan planIdentityBackfill(BackfillInput input) {
       note(FindingKind.logonShared, group.map((record) => record.id).join(','));
     }
   }
+
+  // Contact emails: a shared one, or a login that is another record's contact,
+  // makes a person arriving with that address match more than one record.
+  final emailGroups = <String, List<_Record>>{};
+  for (final record in records.values) {
+    final email = record.email;
+    if (record.isAnonymous || email == null || normaliseEmail(email).isEmpty) {
+      continue;
+    }
+    (emailGroups[normaliseEmail(email)] ??= <_Record>[]).add(record);
+  }
+  for (final group in emailGroups.values.where((group) => group.length > 1)) {
+    note(FindingKind.emailShared, group.map((record) => record.id).join(','));
+  }
+  final loginMatches = <String>{};
+  for (final record in records.values) {
+    final logon = record.logon;
+    if (record.isAnonymous || logon == null) {
+      continue;
+    }
+    final others = (emailGroups[normaliseEmail(logon)] ?? const <_Record>[])
+        .where((other) => other.id != record.id);
+    if (others.isNotEmpty) {
+      loginMatches.add(
+        ([record.id, ...others.map((other) => other.id)]..sort()).join(','),
+      );
+    }
+  }
+  loginMatches.forEach(
+    (group) => note(FindingKind.loginMatchesOtherEmail, group),
+  );
 
   // The desired entries, then the comparison with what is there.
   final desired = <String, Object?>{};
@@ -381,6 +514,7 @@ class _Record {
   String? get name =>
       fields['name'] is String ? fields['name'] as String : null;
   String? get logon => _text(fields['logon']);
+  String? get email => _text(fields['email']);
   bool get isAnonymous => fields['isAnonymous'] == true;
   bool get isAdmin => fields['tipperRole'] == TipperRole.admin.name;
 
