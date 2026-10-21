@@ -1,0 +1,447 @@
+import 'dart:convert';
+
+import 'package:dart_functions/identity/keys.dart';
+import 'package:dau_shared/constants/paths.dart' as paths;
+import 'package:dau_shared/dau_shared.dart';
+
+/// A Firebase Auth user, reduced to what the backfill needs.
+class AuthUser {
+  const AuthUser({required this.uid, this.email, this.emailVerified = false});
+
+  final String uid;
+  final String? email;
+  final bool emailVerified;
+}
+
+/// What the backfill reads. Everything is already in memory: the tool never
+/// touches the network.
+class BackfillInput {
+  const BackfillInput({
+    required this.database,
+    required this.authUsers,
+    required this.adminAllowlist,
+    this.approvedLinks = const <String, String>{},
+  });
+
+  /// The whole database as one JSON object (a `firebase database:get /` export).
+  final Map<String, Object?> database;
+
+  /// Firebase Auth users by uid. Firebase Auth is the authority on whether an
+  /// `authuid` is a real account or a placeholder.
+  final Map<String, AuthUser> authUsers;
+
+  /// The Auth uids allowed to administer today (`config/admin-auth-uids.json`).
+  final Set<String> adminAllowlist;
+
+  /// Owner-reviewed links from a tipper record to the Firebase account that is
+  /// that person, for records whose stored `authuid` is only a placeholder.
+  /// Without an entry here a candidate is never linked.
+  final Map<String, String> approvedLinks;
+}
+
+/// What a finding is about. Each one lists tipper ids (or index keys) only, never names or addresses.
+enum FindingKind {
+  /// Two records hold the same real account. Neither is indexed.
+  duplicateAccountUid(blocking: false),
+
+  /// Two or more records share a normalised alias. One ranked record claims it.
+  aliasShared(blocking: false),
+
+  /// A record's name cannot be an alias (blank, too long, or only symbols).
+  aliasUnusable(blocking: false),
+
+  /// Two or more records share a login email. Nobody claims it, so a link
+  /// attempt on it stays ambiguous rather than silently picking one.
+  logonShared(blocking: false),
+
+  /// A record has an admin role but its account is not on the allowlist, is
+  /// not an account at all, or is shared. Under the AuthIndex rules it would
+  /// become an administrator, so this must be settled first.
+  adminNotOnAllowlist(blocking: true),
+
+  /// An allowlisted account has no admin record to match.
+  allowlistedUidWithoutAdminRecord(blocking: true),
+
+  /// An approved link is not usable: the account does not exist, or the record
+  /// already holds a different real account.
+  approvedLinkRejected(blocking: true),
+
+  /// An approved link names a record that does not exist.
+  approvedLinkUnknownTipper(blocking: true),
+
+  /// An entry already in the database is not what the data now calls for
+  /// (the drift report, or a pass-1 re-run).
+  existingDiffers(blocking: true),
+
+  /// An index or private entry exists that no record calls for any more.
+  unexpectedEntry(blocking: true),
+
+  /// A record that is not an account or a placeholder: it has no `authuid`.
+  noAuthuid(blocking: false);
+
+  const FindingKind({required this.blocking});
+
+  /// Whether the patch must not be applied until this is settled.
+  final bool blocking;
+}
+
+/// One class of problem and where it was found.
+class Finding {
+  const Finding(this.kind, this.subjects);
+
+  final FindingKind kind;
+
+  /// Tipper ids, groups of tipper ids joined with a comma, or database paths.
+  final List<String> subjects;
+}
+
+/// The result of planning.
+class BackfillPlan {
+  const BackfillPlan({
+    required this.writes,
+    required this.findings,
+    required this.counts,
+  });
+
+  /// A multi-path update (`path -> value`) that makes the database match the
+  /// plan. It only ever fills empty places, with two exceptions: the `authuid`
+  /// of an owner-approved link. Keys are sorted so that two plans of the same
+  /// data are byte-identical.
+  final Map<String, Object?> writes;
+
+  final List<Finding> findings;
+
+  /// Summary figures, by name.
+  final Map<String, int> counts;
+
+  bool get hasBlockingFindings =>
+      findings.any((finding) => finding.kind.blocking);
+
+  /// True when the database already matches the plan and nothing is amiss.
+  bool get isClean => writes.isEmpty && !hasBlockingFindings;
+}
+
+/// Plans the identity backfill, or checks it: the same function does both.
+///
+/// It computes the full set of entries the current records call for (the
+/// private record, the `AuthIndex`, `AliasIndex` and `LogonIndex` claims and the
+/// audited placeholders), then compares that with what the database holds. A
+/// place that is empty becomes a write. A place that holds something else is a
+/// finding and is never overwritten. So the first run is the backfill; a run
+/// after it is the verifier, and a later run is the drift report.
+BackfillPlan planIdentityBackfill(BackfillInput input) {
+  final tippers = _objectAt(input.database, tippersPathKey);
+  final currentComp = _textAt(input.database, ['AppConfig', 'currentDAUComp']);
+  final currentTips = currentComp == null
+      ? const <String, Object?>{}
+      : _objectAt(
+          _objectAt(input.database, _root(paths.tipsPathRoot)),
+          currentComp,
+        );
+
+  final findings = <FindingKind, List<String>>{};
+  void note(FindingKind kind, String subject) =>
+      (findings[kind] ??= <String>[]).add(subject);
+
+  final records = <String, _Record>{};
+  for (final id in tippers.keys.toList()..sort()) {
+    final raw = tippers[id];
+    if (raw is! Map) {
+      continue;
+    }
+    records[id] = _Record(
+      id,
+      Map<String, Object?>.from(raw),
+      tipCount: _objectAt(currentTips, id).length,
+    );
+  }
+
+  // Owner-approved links first, because they decide which uid a record holds.
+  final publicWrites = <String, Object?>{};
+  for (final entry in input.approvedLinks.entries) {
+    final record = records[entry.key];
+    if (record == null) {
+      note(FindingKind.approvedLinkUnknownTipper, entry.key);
+      continue;
+    }
+    final stored = record.storedAuthuid;
+    final account = input.authUsers[entry.value];
+    final storedIsOtherAccount =
+        stored != null &&
+        stored != entry.value &&
+        input.authUsers.containsKey(stored);
+    if (account == null || storedIsOtherAccount) {
+      note(FindingKind.approvedLinkRejected, entry.key);
+      continue;
+    }
+    record.linkedUid = entry.value;
+    if (stored != entry.value) {
+      publicWrites['$tippersPathKey/${record.id}/authuid'] = entry.value;
+    }
+  }
+
+  // What is each record's uid: a real account, a placeholder, or nothing.
+  final accountHolders = <String, List<_Record>>{};
+  for (final record in records.values) {
+    final uid = record.effectiveAuthuid;
+    if (uid == null) {
+      note(FindingKind.noAuthuid, record.id);
+    } else if (input.authUsers.containsKey(uid)) {
+      record.isAccount = true;
+      (accountHolders[uid] ??= <_Record>[]).add(record);
+    }
+  }
+  final indexedUids = <String, String>{};
+  for (final entry in accountHolders.entries) {
+    if (entry.value.length > 1) {
+      note(
+        FindingKind.duplicateAccountUid,
+        (entry.value.map((record) => record.id).toList()..sort()).join(','),
+      );
+      continue;
+    }
+    final record = entry.value.single;
+    if (isValidRtdbKey(entry.key) && !record.isAnonymous) {
+      indexedUids[entry.key] = record.id;
+    }
+  }
+
+  // Administrators must match the allowlist both ways.
+  final allowlistedWithRecord = <String>{};
+  for (final record in records.values.where((record) => record.isAdmin)) {
+    final uid = record.effectiveAuthuid;
+    final soleAccount = uid != null && indexedUids[uid] == record.id;
+    if (soleAccount && input.adminAllowlist.contains(uid)) {
+      allowlistedWithRecord.add(uid);
+    } else {
+      note(FindingKind.adminNotOnAllowlist, record.id);
+    }
+  }
+  for (final uid in input.adminAllowlist.toList()..sort()) {
+    if (!allowlistedWithRecord.contains(uid)) {
+      note(FindingKind.allowlistedUidWithoutAdminRecord, uid);
+    }
+  }
+
+  // Alias claims: one ranked winner per normalised alias; the rest are listed.
+  final aliasClaims = <String, String>{};
+  final aliasGroups = <String, List<_Record>>{};
+  for (final record in records.values) {
+    final name = record.name;
+    if (record.isAnonymous || name == null) {
+      continue;
+    }
+    if (!isValidAlias(name)) {
+      note(FindingKind.aliasUnusable, record.id);
+      continue;
+    }
+    (aliasGroups[aliasIndexKey(name)] ??= <_Record>[]).add(record);
+  }
+  for (final entry in aliasGroups.entries) {
+    final group = entry.value..sort(_byClaimPriority);
+    aliasClaims[entry.key] = group.first.id;
+    if (group.length > 1) {
+      note(FindingKind.aliasShared, group.map((record) => record.id).join(','));
+    }
+  }
+
+  // Login email claims: only an unshared one is claimed.
+  final logonClaims = <String, String>{};
+  final logonGroups = <String, List<_Record>>{};
+  for (final record in records.values) {
+    final logon = record.logon;
+    if (record.isAnonymous || logon == null || normaliseEmail(logon).isEmpty) {
+      continue;
+    }
+    (logonGroups[logonIndexKey(logon)] ??= <_Record>[]).add(record);
+  }
+  for (final entry in logonGroups.entries) {
+    final group = entry.value..sort((a, b) => a.id.compareTo(b.id));
+    if (group.length == 1) {
+      logonClaims[entry.key] = group.single.id;
+    } else {
+      note(FindingKind.logonShared, group.map((record) => record.id).join(','));
+    }
+  }
+
+  // The desired entries, then the comparison with what is there.
+  final desired = <String, Object?>{};
+  for (final record in records.values) {
+    desired['$tipperPrivatePathKey/${record.id}'] = record.privateFields();
+    final placeholder = record.placeholder;
+    if (placeholder != null && !record.isAccount) {
+      desired['$placeholdersPathKey/${record.id}'] = placeholder;
+    }
+  }
+  for (final entry in indexedUids.entries) {
+    desired['$authIndexPathKey/${entry.key}'] = entry.value;
+  }
+  for (final entry in aliasClaims.entries) {
+    desired['$aliasIndexPathKey/${entry.key}'] = entry.value;
+  }
+  for (final entry in logonClaims.entries) {
+    desired['$logonIndexPathKey/${entry.key}'] = entry.value;
+  }
+
+  final writes = <String, Object?>{...publicWrites};
+  var alreadyPresent = 0;
+  for (final entry in desired.entries) {
+    final actual = _valueAtPath(input.database, entry.key);
+    if (actual == null) {
+      writes[entry.key] = entry.value;
+    } else if (_sameValue(actual, entry.value)) {
+      alreadyPresent += 1;
+    } else {
+      note(FindingKind.existingDiffers, entry.key);
+    }
+  }
+  for (final root in [
+    tipperPrivatePathKey,
+    authIndexPathKey,
+    aliasIndexPathKey,
+    logonIndexPathKey,
+    placeholdersPathKey,
+  ]) {
+    for (final key in _objectAt(input.database, root).keys) {
+      if (!desired.containsKey('$root/$key')) {
+        note(FindingKind.unexpectedEntry, '$root/$key');
+      }
+    }
+  }
+
+  final sortedWrites = <String, Object?>{
+    for (final key in writes.keys.toList()..sort()) key: writes[key],
+  };
+  return BackfillPlan(
+    writes: sortedWrites,
+    findings: [
+      for (final kind in FindingKind.values)
+        if (findings[kind] != null) Finding(kind, findings[kind]!..sort()),
+    ],
+    counts: {
+      'tippers': records.length,
+      'accounts': records.values.where((record) => record.isAccount).length,
+      'placeholders': records.values
+          .where((record) => !record.isAccount && record.placeholder != null)
+          .length,
+      'authIndexClaims': indexedUids.length,
+      'aliasClaims': aliasClaims.length,
+      'logonClaims': logonClaims.length,
+      'writes': sortedWrites.length,
+      'alreadyPresent': alreadyPresent,
+      'approvedLinks': publicWrites.length,
+    },
+  );
+}
+
+/// The root names used in the multi-path updates (the shared paths without
+/// their leading slash).
+final String tippersPathKey = _root(paths.tippersPath);
+final String tipperPrivatePathKey = _root(paths.tipperPrivatePath);
+final String authIndexPathKey = _root(paths.authIndexPath);
+final String aliasIndexPathKey = _root(paths.aliasIndexPath);
+final String logonIndexPathKey = _root(paths.logonIndexPath);
+final String placeholdersPathKey = _root(paths.placeholdersPath);
+
+String _root(String path) => path.substring(1);
+
+/// Who should hold a shared alias: a real account first, then the tipper with
+/// the most tips in the current comp, then the most paid comps, then the lowest
+/// id (so the answer never depends on the order of the data).
+int _byClaimPriority(_Record a, _Record b) {
+  if (a.isAccount != b.isAccount) {
+    return a.isAccount ? -1 : 1;
+  }
+  if (a.tipCount != b.tipCount) {
+    return b.tipCount.compareTo(a.tipCount);
+  }
+  if (a.paidCompCount != b.paidCompCount) {
+    return b.paidCompCount.compareTo(a.paidCompCount);
+  }
+  return a.id.compareTo(b.id);
+}
+
+class _Record {
+  _Record(this.id, this.fields, {required this.tipCount});
+
+  final String id;
+  final Map<String, Object?> fields;
+  final int tipCount;
+  String? linkedUid;
+  bool isAccount = false;
+
+  String? get storedAuthuid => _text(fields['authuid']);
+
+  /// The approved uid if the owner linked this record, else what is stored.
+  String? get effectiveAuthuid => linkedUid ?? storedAuthuid;
+
+  /// The stored `authuid` when it is not an account, kept exactly as written.
+  String? get placeholder => linkedUid == null ? storedAuthuid : null;
+
+  String? get name =>
+      fields['name'] is String ? fields['name'] as String : null;
+  String? get logon => _text(fields['logon']);
+  bool get isAnonymous => fields['isAnonymous'] == true;
+  bool get isAdmin => fields['tipperRole'] == TipperRole.admin.name;
+
+  int get paidCompCount {
+    final comps = fields['compsParticipatedIn'];
+    if (comps is List) {
+      return comps.length;
+    }
+    return comps is Map ? comps.length : 0;
+  }
+
+  /// The seven private fields exactly as stored, with the approved uid in
+  /// place of a placeholder.
+  Map<String, Object?> privateFields() {
+    return <String, Object?>{
+      for (final field in tipperPrivateFieldNames)
+        if (field == 'authuid' && linkedUid != null)
+          field: linkedUid
+        else if (fields.containsKey(field))
+          field: fields[field],
+    };
+  }
+}
+
+String? _text(Object? raw) => raw is String && raw.isNotEmpty ? raw : null;
+
+Map<String, Object?> _objectAt(Map<String, Object?> parent, String key) {
+  final value = parent[key];
+  return value is Map ? Map<String, Object?>.from(value) : <String, Object?>{};
+}
+
+String? _textAt(Map<String, Object?> root, List<String> path) {
+  Object? node = root;
+  for (final segment in path) {
+    node = node is Map ? node[segment] : null;
+  }
+  return node is String && node.isNotEmpty ? node : null;
+}
+
+Object? _valueAtPath(Map<String, Object?> root, String path) {
+  Object? node = root;
+  for (final segment in path.split('/')) {
+    node = node is Map ? node[segment] : null;
+  }
+  return node;
+}
+
+/// Equality of two stored values regardless of key order.
+bool _sameValue(Object? a, Object? b) => _canonical(a) == _canonical(b);
+
+String _canonical(Object? value) => jsonEncode(_sorted(value));
+
+Object? _sorted(Object? value) {
+  if (value is Map) {
+    return <String, Object?>{
+      for (final key in (value.keys.map((k) => k.toString()).toList()..sort()))
+        key: _sorted(value[key]),
+    };
+  }
+  if (value is List) {
+    return value.map(_sorted).toList();
+  }
+  return value;
+}

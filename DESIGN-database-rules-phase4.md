@@ -187,7 +187,7 @@ Estimates are working figures for focused effort, not commitments.
 | M2 | **Shared code in `dau_shared`:** `normaliseAlias` (+ 64-char cap), `normaliseEmail`, `logonIndexKey` (base64url SHA-256), kickoff serializer, public/private `Tipper`, endpoint ids. | Unit tests; client and functions import it; no behaviour change shipped. | 2 d |
 | M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. **Done (section 6c): functions deployed and patch applied and verified 20 October 2026.** | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
 | M3b | **Done: built, proven and deployed 20 October 2026 (section 6d).** **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
-| M4a | **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
+| M4a | **Tool built and tested (section 6e); dry run on fresh Auth data and the apply are next.** **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
 | M4c | **Admin callables** `adminCreateTipper`, merge, reassign, delete, `adminSetTipperRole`, `adminUpdateTipperContact`; leases and `IdentityOps` journal; scheduled audit and reaper. Existing admin endpoints move to `resolveCallerTipper` at cutover. | Crash injection after every step; one lease-takeover winner; **stale-holder scenario passes (section 6b)**; forged index or `authuid` rejected; last admin cannot be removed; audit reports every violation class. | 9 to 11 d |
 | M5 | **Live-score aggregator**, shadow first. History ordering: numeric `t`, else parsed legacy `submittedTimeUTC`, else the push key's microseconds. The `current` write is a version-guarded transaction (`basedOnCount`) that is also skipped when the game already has an official score; the audit job sweeps any `current` left behind for a completed game (the import clears the game's whole live node, so an in-flight aggregation can recreate it). `gameComplete` never set. **Activation (`active`) only after R2 rules deploy**, when no client can write `current`. | **Synthetic game-day replay** on the emulator: mixed legacy and new entries, shuffled and duplicated deliveries, an official score arriving mid-stream, compared with golden vectors from the current client algorithm. **Mixed-writer replay** (a legacy client's `current` writes interleaved with the aggregator over the same history converge to one displayed score and do not flap). Shadow canary in the test comp. | 6 d |
@@ -237,9 +237,9 @@ one change to existing production behaviour in M1 and is covered by a test.
    are, so the private copy equals the public one.
 6. **Tipper records carry two legacy fields outside the public/private partition:** `tipperID` (134 of 214
    records, an opaque id or the literal `blah`) and `active` (84 records, a boolean). Neither is personal
-   data and the current client does not write them. The purge and the restore move only the seven private
-   fields and leave every other field alone, and the audit reports unknown fields as information, not as a
-   violation. The partition test covers what the model writes today, not these legacy extras.
+   data and the current client does not write them. The restore moves only the seven private fields; the
+   purge also deletes these two legacy fields (decision 9, section 6d). The audit reports any other unknown
+   field as information, not as a violation. The partition test covers what the model writes today.
 
 **Added after the second review.** `holdsLease` (a worker checks it before each step) and `newOperationId`
 (unique lease owners and journal keys), both tested, including the taken-over worker at primitive level.
@@ -382,6 +382,58 @@ dau-footy-tipping-f8a42 --only all --yes` from `development` at 49091c9. All ten
 reported success. The Dart CLI again printed "timed out after 30000ms" for four of six functions; Cloud Run
 showed all six on new revisions, Ready and at 100% of traffic, and no error-level logs followed. Behaviour
 is unchanged while every record is still in the legacy shape; the readers matter at the purge.
+
+### 6e. Progress: M4a, the identity backfill tool (21 October 2026; built and tested, nothing applied)
+
+**What it is.** An offline Dart tool, `functions_dart/bin/identity_backfill.dart` (logic in
+`lib/identity/backfill_plan.dart` and `backfill_cli.dart`). It reads a database export, a `firebase
+auth:export` file (only uid, email and verified flag are read; the password hashes are not), the admin
+allowlist and the owner's reviewed link decisions, and writes a multi-path patch and a findings file. It never
+contacts Firebase. A patch is applied with the Firebase CLI, as M3's was, by `scripts/apply-identity-backfill.sh`.
+
+**One function does three jobs.** It computes the full set of entries the current records call for
+(`TipperPrivate/{id}` as a copy of the seven private fields exactly as stored; `AuthIndex/{uid}`;
+`AliasIndex/{key}`; `LogonIndex/{hash}`; `Placeholders/{id}` for records whose `authuid` is not an Auth
+account), then compares that with the database. An empty place becomes a write; a place holding something
+else is a finding and is never overwritten. So the first run is the backfill, `--check` after it is the
+verifier (zero writes, zero findings), and `--check` later is the **drift report**: a changed alias, contact
+or account shows as a new write or a differing entry, a deleted tipper's entries as stale ones. Alias keys
+come from the Dart normaliser, as section 6a requires.
+
+**Policies, each reported and none guessed.**
+- *Real account or placeholder* is decided only by the Auth export. An approved link (owner-reviewed, from a
+  git-ignored file) is the one case that writes to a public record: it sets `authuid` there and in the private
+  copy, so they agree. A link to an unknown account, or onto a record that already holds a different real
+  account, is rejected and blocks.
+- *Two records on one real account:* neither is indexed; both are listed.
+- *A shared alias:* one record claims it (a real account first, then most tips in the current comp, then most
+  paid comps, then lowest id) so a new sign-up cannot take it; the rest are listed. *A shared login email:*
+  nobody claims it, so a later link attempt stays ambiguous instead of silently picking one.
+- *Anonymous records* are copied but never indexed. *A record with no name* gets no alias claim (the
+  placeholder name from decision 8 is never claimed).
+- *Administrators must match the allowlist both ways.* An admin role on an account that is not allowlisted, a
+  placeholder or a shared account blocks the patch, as does an allowlisted account with no admin record. This
+  is the privilege-expansion check: under the AuthIndex rules a database admin record becomes an administrator.
+
+**Proof.** 30 planner tests (every policy, re-runs, renames, deletions, byte-identical output whatever the data
+order, only identity roots touched); 14 command-line tests (no names in output, hashes never read, patch not
+written while anything blocks, personal-data files must be git-ignored); 8 tests of the apply script with fake
+`firebase` and `dart`; and the plan applied to the Database emulator through the production REST handle and
+re-checked clean, on synthetic data with unicode aliases and on the real records (214 tippers: every key
+accepted, verifier clean). The apply script re-plans from live data and writes only if that is byte-identical
+to the reviewed patch, then verifies; it names the project and suppresses triggers.
+
+**Preview on the real data** (20 October export, with account status guessed from uid shape because no Auth
+export is on disk): 214 tippers, 829 writes, and exactly the findings the owner's worklist predicted: one
+shared real account (items 4 to 6), four shared aliases (items 4, 5, 9), three shared login emails, and one
+blocker, the LivToz admin record. LivToz is `tipper` in production now, so a fresh export clears it.
+
+**Scheduled drift report.** Delivered as the on-demand `--check`. A deployed schedule belongs with the
+scheduled audit and reaper in M4c.
+
+**Next, each a separate go.** (1) `firebase auth:export` (a read of production Auth; the file holds password
+hashes, so it is deleted straight after the run), a fresh `database:get /`, then the real dry run for the owner
+to review, with the item-1 link in the approved-links file. (2) Apply with the script. (3) Re-run `--check`.
 
 ## 7. Timeline, back-planned from the season
 
