@@ -172,9 +172,9 @@ class BackfillDecisions {
   final Set<String> aliasOwners;
 }
 
-/// Reads the decisions file: `{ "links": { "<tipperId>": "<authUid>" },
-/// "aliasOwners": [ "<tipperId>" ] }`. Keys that begin with an underscore are
-/// comments.
+/// Reads the decisions file: a JSON object with `links` (an object mapping a
+/// tipper id to an Auth uid) and `aliasOwners` (a list of tipper ids). Keys that
+/// begin with an underscore are comments.
 BackfillDecisions parseDecisions(Object? decoded) {
   if (decoded is! Map) {
     throw const FormatException('The decisions must be a JSON object.');

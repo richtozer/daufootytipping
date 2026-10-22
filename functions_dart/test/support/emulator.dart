@@ -31,14 +31,18 @@ class _EmulatorAdminClient extends http.BaseClient {
   }
 }
 
-/// The production REST handle, pointed at the emulator.
-RestDatabase openEmulatorDatabase() {
+/// The production REST handle, pointed at the emulator. [wrap] puts a client of
+/// the test's own in front of the connection, to make requests fail on purpose.
+RestDatabase openEmulatorDatabase({
+  http.Client Function(http.Client inner)? wrap,
+}) {
   final host = _emulatorHost;
   if (host == null) {
     throw StateError(emulatorSkipReason!);
   }
+  final admin = _EmulatorAdminClient(http.Client());
   return RestDatabase(
-    client: _EmulatorAdminClient(http.Client()),
+    client: wrap == null ? admin : wrap(admin),
     databaseUrl: 'http://$host/?ns=$emulatorNamespace',
   );
 }

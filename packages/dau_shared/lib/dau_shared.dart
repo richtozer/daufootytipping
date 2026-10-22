@@ -23,6 +23,7 @@ export 'models/tipperrole.dart';
 
 // Constants
 export 'constants/function_endpoints.dart';
+export 'constants/identity_reasons.dart';
 export 'constants/paths.dart';
 
 // Services

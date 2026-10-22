@@ -393,9 +393,9 @@ BackfillPlan planIdentityBackfill(BackfillInput input) {
       );
     }
   }
-  loginMatches.forEach(
-    (group) => note(FindingKind.loginMatchesOtherEmail, group),
-  );
+  for (final group in loginMatches) {
+    note(FindingKind.loginMatchesOtherEmail, group);
+  }
 
   // The desired entries, then the comparison with what is there.
   final desired = <String, Object?>{};

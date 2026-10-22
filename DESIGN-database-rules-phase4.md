@@ -514,13 +514,28 @@ deleted at once, and a fresh `database:get /`; the real dry run for the owner to
 the four proposed alias owners in a decisions file. (2) Apply with the script. (3) `--check`, and later
 `--strict` before the cutover.
 
-### 6f. M4b plan: the identity callables (22 October 2026; amended after a second review; nothing built)
+### 6f. M4b plan: the identity callables (22 October 2026; amended after a second review; B1 built, rest not)
 
 **Amended after review.** Four changes, each now a requirement below: an expired in-flight marker blocks the drain
 instead of being deleted (a timed-out Cloud Run request can keep running); rename and login-address changes are
 journalled and serialised per tipper so a retry never guesses the old claim; token ownership is coordinated by a
 compare-and-set index, not just an atomic write, and the replay limitation is stated; candidate discovery covers
 public records so a record a 1.4.x client creates after the backfill is found, not duplicated.
+
+**B1 built (22 October 2026, local, not deployed).** `lib/identity/server_mode.dart` (the five modes; anything
+unreadable is `off`; `checkAdmission` with `not_available` and `unavailable` refusals), `admission.dart`
+(`runAdmitted`: marker first, then the mode, always remove the marker, fail closed when either cannot be done,
+start and end log lines with the operation id), `mode_control.dart` (a store over the REST handle for tests and
+one over the Firebase CLI for the owner, `setIdentityMode` that merges and logs, and `drainInflight`),
+`mode_cli.dart` and `bin/identity_mode.dart` (`status`, `set <mode> [--yes]`, `drain [--ack-stale id]`; `set`
+shows what it would do unless `--yes`). `errors.dart` gained `FailedPreconditionError` and a structured `reason`
+on every error type, and `dau_shared` the reason constants. **The drain never deletes a marker on age and never
+reports quiet while one remains.** Proof: 11 mode and admission unit tests, 16 drain, store and mode-change
+tests, 13 command-line tests, 15 emulator tests (the marker is visible before the mode is read; a freeze written
+between the two is honoured; a slow request admitted before a freeze finishes, a request after it is refused and
+the drain waits for the slow one; a marker that cannot be removed is left and keeps the drain from reporting
+quiet until acknowledged; a marker or mode failure refuses the request). **Mutation checks:** a drain that
+deletes overdue markers fails six tests, and an admission that reads the mode before writing the marker fails two.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
@@ -590,10 +605,11 @@ and the two account timestamps refreshed; a new record needs an alias that passe
    controls that device, so an authenticated tipper who learns another's token could register it and receive
    that user's reminders. That is no weaker than today (a 1.4.x client can do the same directly), the effect is
    limited to notifications, and it is recorded as an accepted tradeoff, not a security property.
-7. **Mode tool: `scripts/identity-mode.mjs`, Node, through the Firebase CLI** (so no extra credentials), with
+7. **Mode tool: `functions_dart/bin/identity_mode.dart`, through the Firebase CLI** (so no extra credentials; built in
+   Dart rather than Node so the drain is proven against the real admission code), with
    `set <mode>`, `status` and the drain of section 5. The drain **blocks on any stale marker** (listed by operation
    id, non-zero exit) and clears one only with `--ack-stale <opId>`; every mutating handler logs a start and an
-   end line with its operation id so the owner can check. Its logic takes an injected executor so it is
+   end line with its operation id so the owner can check. Its store takes an injected process runner so it is
    unit-tested; it writes the mode and a log entry, never the whole node (it would erase `inflight`). A missing
    or unreadable mode is `off`.
 8. **Structured errors.** `reason` is one of `not_available`, `unavailable`, `unverified_email`,
