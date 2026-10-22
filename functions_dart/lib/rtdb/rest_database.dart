@@ -27,18 +27,78 @@ class AtomicUpdateResult {
 /// database returns, which is the compare-and-set the identity protocol is
 /// built on (DESIGN-database-rules.md, D3).
 class RestDatabase {
-  RestDatabase({required http.Client client, required String databaseUrl})
-    : _client = client,
-      _databaseUrl = databaseUrl;
+  RestDatabase({
+    required http.Client client,
+    required String databaseUrl,
+    Duration requestTimeout = defaultRestRequestTimeout,
+  }) : _client = client,
+       _databaseUrl = databaseUrl,
+       _requestTimeout = requestTimeout;
 
   final http.Client _client;
   final String _databaseUrl;
+  final Duration _requestTimeout;
+
+  /// Every write sent through this handle, until it has finished.
+  final WriteLedger writes = WriteLedger();
 
   RestDatabaseReference ref(String path) => RestDatabaseReference(
     client: _client,
     databaseUrl: _databaseUrl,
     path: path,
+    ledger: writes,
+    requestTimeout: _requestTimeout,
   );
+}
+
+/// How long one REST request is waited for.
+const Duration defaultRestRequestTimeout = Duration(seconds: 15);
+
+/// Remembers the writes in flight on a [RestDatabase].
+///
+/// Giving up on a request (a timeout) stops *waiting* for it; it does not stop
+/// it. The request can still reach the database afterwards. A caller that must
+/// know nothing of its own is still being written, such as the admission
+/// wrapper deciding whether it may clear its in-flight marker, asks [settled].
+/// Only writes are tracked: a read that outlives its caller changes nothing.
+class WriteLedger {
+  int _pending = 0;
+  final List<Completer<void>> _waiters = [];
+
+  /// How many writes have been sent and have not yet finished (either way).
+  int get pendingCount => _pending;
+
+  /// Notes [request], a write that has been sent, and returns it unchanged.
+  Future<T> track<T>(Future<T> request) {
+    _pending += 1;
+    request.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
+      _pending -= 1;
+      if (_pending == 0) {
+        for (final waiter in _waiters) {
+          waiter.complete();
+        }
+        _waiters.clear();
+      }
+    });
+    return request;
+  }
+
+  /// Completes true once no write is in flight, or false if some still are
+  /// after [timeout].
+  Future<bool> settled({required Duration timeout}) async {
+    if (_pending == 0) {
+      return true;
+    }
+    final waiter = Completer<void>();
+    _waiters.add(waiter);
+    try {
+      await waiter.future.timeout(timeout);
+      return true;
+    } on TimeoutException {
+      _waiters.remove(waiter);
+      return _pending == 0;
+    }
+  }
 }
 
 class RestDatabaseReference {
@@ -47,17 +107,26 @@ class RestDatabaseReference {
     required String databaseUrl,
     required String path,
     Random? random,
+    WriteLedger? ledger,
+    Duration requestTimeout = defaultRestRequestTimeout,
   }) : _client = client,
        _databaseUrl = databaseUrl,
        _path = path,
-       _random = random ?? Random();
+       _random = random ?? Random(),
+       _ledger = ledger,
+       _requestTimeout = requestTimeout;
 
   final http.Client _client;
   final String _databaseUrl;
   final String _path;
   final Random _random;
-  static const Duration _requestTimeout = Duration(seconds: 15);
+  final WriteLedger? _ledger;
+  final Duration _requestTimeout;
   static const int _maxRetryDelayMillis = 200;
+
+  /// Notes a write with the ledger, if there is one.
+  Future<T> _tracked<T>(Future<T> write) =>
+      _ledger == null ? write : _ledger.track(write);
 
   String get path => _path;
 
@@ -71,6 +140,8 @@ class RestDatabaseReference {
     databaseUrl: _databaseUrl,
     path: '$_path/$childPath',
     random: _random,
+    ledger: _ledger,
+    requestTimeout: _requestTimeout,
   );
 
   Future<DataSnapshot> once() async {
@@ -78,6 +149,7 @@ class RestDatabaseReference {
       _client.get(_uri()),
       operation: 'read',
       path: _path,
+      timeout: _requestTimeout,
     );
     _throwForRestError(response, 'read', _path);
     return _RestDataSnapshot(_key, _decodeRestBody(response.body));
@@ -85,35 +157,42 @@ class RestDatabaseReference {
 
   Future<void> set(Object? value) async {
     final response = await runRtdbRestRequest(
-      _client.put(
-        _uri(),
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode(value),
+      _tracked(
+        _client.put(
+          _uri(),
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode(value),
+        ),
       ),
       operation: 'set',
       path: _path,
+      timeout: _requestTimeout,
     );
     _throwForRestError(response, 'set', _path);
   }
 
   Future<void> update(Map<Object?, Object?> value) async {
     final response = await runRtdbRestRequest(
-      _client.patch(
-        _uri(),
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode(value),
+      _tracked(
+        _client.patch(
+          _uri(),
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode(value),
+        ),
       ),
       operation: 'update',
       path: _path,
+      timeout: _requestTimeout,
     );
     _throwForRestError(response, 'update', _path);
   }
 
   Future<void> remove() async {
     final response = await runRtdbRestRequest(
-      _client.delete(_uri()),
+      _tracked(_client.delete(_uri())),
       operation: 'remove',
       path: _path,
+      timeout: _requestTimeout,
     );
     _throwForRestError(response, 'remove', _path);
   }
@@ -159,10 +238,12 @@ class RestDatabaseReference {
       }
 
       final writeResponse = await runRtdbRestRequest(
-        _client.put(
-          _uri(),
-          headers: {'content-type': 'application/json', 'if-match': etag},
-          body: jsonEncode(nextValue),
+        _tracked(
+          _client.put(
+            _uri(),
+            headers: {'content-type': 'application/json', 'if-match': etag},
+            body: jsonEncode(nextValue),
+          ),
         ),
         operation: 'transaction write',
         path: _path,

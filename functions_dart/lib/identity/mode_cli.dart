@@ -24,7 +24,8 @@ Options for set and drain:
   --max-wait-s <n>                how long to wait for running requests (default 300)
   --ack-stale <id,id>             clear stale markers you have checked in the logs (see below)
 
-  --project <id>                  default $defaultModeToolProject
+  --project <id>                  default $defaultModeToolProject for status, drain and a set without --yes.
+                                  Anything that changes data (set --yes, drain --ack-stale) must name it.
 
 A marker is "stale" when its request is overdue (older than its 60 second timeout plus 30 seconds). Overdue does
 not mean finished: a timed-out request can keep running. The drain never deletes a marker on age and never
@@ -51,6 +52,13 @@ Future<int> runModeCli(
     parsed = _Parsed.parse(arguments);
   } on FormatException catch (error) {
     err.writeln('${error.message}\n\n$modeToolUsage');
+    return 2;
+  }
+  if (parsed.changesData && !parsed.projectExplicit) {
+    err.writeln(
+      'ERROR: this changes data, so the project must be named: add --project <id> '
+      '(production is $defaultModeToolProject).',
+    );
     return 2;
   }
   final store = storeFor(parsed.project);
@@ -195,6 +203,7 @@ class _Parsed {
   _Parsed({
     required this.command,
     required this.project,
+    required this.projectExplicit,
     required this.modeArgument,
     required this.pilotUids,
     required this.yes,
@@ -205,12 +214,21 @@ class _Parsed {
 
   final String command;
   final String project;
+
+  /// Whether --project was given, rather than the default being assumed.
+  final bool projectExplicit;
   final String? modeArgument;
   final Set<String>? pilotUids;
   final bool yes;
   final bool noDrain;
   final int maxWaitSeconds;
   final Set<String> acknowledge;
+
+  /// Whether this invocation writes or deletes anything. A set without --yes
+  /// only shows what it would do; a drain only deletes with --ack-stale.
+  bool get changesData =>
+      (command == 'set' && yes) ||
+      (command == 'drain' && acknowledge.isNotEmpty);
 
   static _Parsed parse(List<String> arguments) {
     if (arguments.isEmpty || arguments.first == '--help') {
@@ -260,6 +278,7 @@ class _Parsed {
     return _Parsed(
       command: command,
       project: values['--project'] ?? defaultModeToolProject,
+      projectExplicit: values.containsKey('--project'),
       modeArgument: modeArgument,
       pilotUids: values.containsKey('--pilot-uids')
           ? list(values['--pilot-uids'])

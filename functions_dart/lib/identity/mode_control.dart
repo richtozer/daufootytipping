@@ -132,10 +132,26 @@ class CliModeStore implements ModeStore {
   }
 }
 
-/// Reads the stored markers, malformed ones included.
+/// The in-flight node holds something that is not a set of markers.
+///
+/// This is raised, not treated as "nothing running": corrupted data must not
+/// produce a false "quiet".
+class MalformedInflightError extends StateError {
+  MalformedInflightError(Object found)
+    : super(
+        'The in-flight node holds ${found.runtimeType}, not a set of markers. '
+        'Investigate $inflightPath before relying on any drain.',
+      );
+}
+
+/// Reads the stored markers, malformed entries included. A missing node (null)
+/// means no marker; any other value that is not a map is an error.
 List<InflightMarker> parseInflight(Object? raw) {
-  if (raw is! Map) {
+  if (raw == null) {
     return const <InflightMarker>[];
+  }
+  if (raw is! Map) {
+    throw MalformedInflightError(raw);
   }
   return [
     for (final entry in raw.entries)

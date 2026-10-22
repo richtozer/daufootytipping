@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -24,11 +25,8 @@ class _Script {
   });
 }
 
-http.Response _read(Object? body, {String? etag = 'etag-1'}) => http.Response(
-  jsonEncode(body),
-  200,
-  headers: {'etag': ?etag},
-);
+http.Response _read(Object? body, {String? etag = 'etag-1'}) =>
+    http.Response(jsonEncode(body), 200, headers: {'etag': ?etag});
 
 RestDatabaseReference _ref(http.Client client) => RestDatabaseReference(
   client: client,
@@ -222,4 +220,114 @@ void main() {
       );
     },
   );
+  group('WriteLedger', () {
+    test(
+      'counts a write from the moment it is sent until it finishes, either way',
+      () async {
+        final ledger = WriteLedger();
+        final ok = Completer<int>();
+        final failing = Completer<int>();
+        ledger.track(ok.future);
+        ledger.track(failing.future).ignore();
+        expect(ledger.pendingCount, 2);
+
+        ok.complete(1);
+        await Future<void>.delayed(Duration.zero);
+        expect(ledger.pendingCount, 1);
+
+        failing.completeError(StateError('boom'));
+        await Future<void>.delayed(Duration.zero);
+        expect(ledger.pendingCount, 0);
+      },
+    );
+
+    test('settled is true at once when nothing is pending', () async {
+      expect(
+        await WriteLedger().settled(timeout: const Duration(seconds: 1)),
+        true,
+      );
+    });
+
+    test(
+      'settled waits for the last write, and gives up with false at the timeout',
+      () async {
+        final ledger = WriteLedger();
+        final slow = Completer<void>();
+        ledger.track(slow.future);
+
+        expect(
+          await ledger.settled(timeout: const Duration(milliseconds: 50)),
+          false,
+        );
+        expect(
+          ledger.pendingCount,
+          1,
+          reason: 'giving up on waiting does not stop the write',
+        );
+
+        final waiting = ledger.settled(timeout: const Duration(seconds: 2));
+        slow.complete();
+        expect(await waiting, true);
+      },
+    );
+
+    test(
+      'a timed-out REST write stays pending until the request itself finishes',
+      () async {
+        final release = Completer<http.Response>();
+        final client = MockClient((request) => release.future);
+        final database = RestDatabase(
+          client: client,
+          databaseUrl: 'https://example.invalid',
+          requestTimeout: const Duration(milliseconds: 50),
+        );
+
+        await expectLater(
+          database.ref('/Slot').set('x'),
+          throwsA(isA<UnavailableError>()),
+        );
+        expect(
+          database.writes.pendingCount,
+          1,
+          reason: 'the caller gave up; the request did not',
+        );
+
+        release.complete(http.Response('null', 200));
+        expect(
+          await database.writes.settled(timeout: const Duration(seconds: 2)),
+          true,
+        );
+      },
+    );
+
+    test(
+      'reads are not tracked, because a read that outlives its caller changes nothing',
+      () async {
+        final client = MockClient(
+          (request) async => http.Response('null', 200),
+        );
+        final database = RestDatabase(
+          client: client,
+          databaseUrl: 'https://example.invalid',
+        );
+        await database.ref('/Slot').once();
+        expect(database.writes.pendingCount, 0);
+      },
+    );
+
+    test('children of a reference share the ledger and the timeout', () async {
+      final release = Completer<http.Response>();
+      final database = RestDatabase(
+        client: MockClient((request) => release.future),
+        databaseUrl: 'https://example.invalid',
+        requestTimeout: const Duration(milliseconds: 50),
+      );
+      await expectLater(
+        database.ref('/A').child('b').remove(),
+        throwsA(isA<UnavailableError>()),
+      );
+      expect(database.writes.pendingCount, 1);
+      release.complete(http.Response('null', 200));
+    });
+  });
 }

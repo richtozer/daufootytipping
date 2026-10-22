@@ -537,6 +537,23 @@ the drain waits for the slow one; a marker that cannot be removed is left and ke
 quiet until acknowledged; a marker or mode failure refuses the request). **Mutation checks:** a drain that
 deletes overdue markers fails six tests, and an admission that reads the mode before writing the marker fails two.
 
+**B1 corrected after a third review (22 October 2026).** (1) **A timed-out write can outlive its handler.**
+The REST handle's timeout stops waiting for a request without cancelling it, so a write could reach the database
+after the handler had exited and its marker been cleared, and a drain could have called the system quiet. The
+handle now records every write it sends (`WriteLedger`) until the request itself finishes, and the admission
+wrapper clears its marker only when the handler has ended **and its writes have settled**; otherwise it keeps the
+marker, logs `writesSettled=false`, and clears it in the background only when they do finish (if the process ends
+first, the marker stays and the drain reports it stale). An end line with `writesSettled=false` never justifies
+clearing a marker. A marker write that times out and lands late is removed the same way. (2) **Corrupt in-flight
+data is an error, not "nothing running":** a missing node means no markers, but a string, number or list raises
+`MalformedInflightError` and stops the command. (3) **The tool must be told the project for anything that
+changes data** (`set --yes`, `drain --ack-stale`); only `status`, a dry-run `set` and a drain without
+acknowledgements default to production. Tests: the reviewer's scenario (a write times out, the handler exits, the
+request completes later while the drain watches: not quiet until it settles, and the write does land), the
+ledger, malformed data in the parser, the store and the command, and the project rule. Mutation checks: an
+admission that clears the marker without waiting fails the late-write test; a parser that treats corrupt data as
+empty fails three.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in

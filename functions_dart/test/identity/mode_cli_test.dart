@@ -1,5 +1,6 @@
 import 'package:dart_functions/identity/admission.dart';
 import 'package:dart_functions/identity/mode_cli.dart';
+import 'package:dart_functions/identity/mode_control.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:test/test.dart';
 
@@ -20,11 +21,15 @@ void main() {
     project = null;
   });
 
-  Future<_Result> run(List<String> args) async {
+  /// Runs the tool. Unless [bare], the project is named, as anything that
+  /// changes data must.
+  Future<_Result> run(List<String> args, {bool bare = false}) async {
     final out = StringBuffer();
     final err = StringBuffer();
     final code = await runModeCli(
-      args,
+      bare || args.contains('--project')
+          ? args
+          : [...args, '--project', 'demo-x'],
       storeFor: (p) {
         project = p;
         return store;
@@ -70,7 +75,7 @@ void main() {
     test(
       'names the production project by default and takes --project',
       () async {
-        await run(['status']);
+        await run(['status'], bare: true);
         expect(project, defaultModeToolProject);
         await run(['status', '--project', 'demo-x']);
         expect(project, 'demo-x');
@@ -90,7 +95,13 @@ void main() {
     test(
       'with --yes switches the mode and, for a mode that forbids things, drains',
       () async {
-        final result = await run(['set', 'freeze', '--yes']);
+        final result = await run([
+          'set',
+          'freeze',
+          '--yes',
+          '--project',
+          'demo-x',
+        ]);
         expect(result.code, 0, reason: result.out + result.err);
         expect(store.config.mode, IdentityMode.freeze);
         expect(
@@ -101,7 +112,13 @@ void main() {
     );
 
     test('a mode that only allows things does not wait', () async {
-      final result = await run(['set', 'coexist', '--yes']);
+      final result = await run([
+        'set',
+        'coexist',
+        '--yes',
+        '--project',
+        'demo-x',
+      ]);
       expect(result.code, 0);
       expect(result.out, isNot(contains('Waiting for running requests')));
     });
@@ -132,7 +149,13 @@ void main() {
       'a stale marker blocks, with the way to check it and to clear it',
       () async {
         store.markers.add(marker('ghost', ageSeconds: 600));
-        final result = await run(['set', 'off', '--yes']);
+        final result = await run([
+          'set',
+          'off',
+          '--yes',
+          '--project',
+          'demo-x',
+        ]);
         expect(result.code, 1);
         expect(result.out, contains('STALE, INVESTIGATE: ghost'));
         expect(result.out, contains('op=ghost'));
@@ -143,16 +166,35 @@ void main() {
 
     test('--no-drain skips the wait and says so', () async {
       store.markers.add(marker('busy', ageSeconds: 1));
-      final result = await run(['set', 'off', '--yes', '--no-drain']);
+      final result = await run([
+        'set',
+        'off',
+        '--yes',
+        '--no-drain',
+        '--project',
+        'demo-x',
+      ]);
       expect(result.code, 0);
       expect(result.out, contains('may still be running'));
     });
 
     test('pilot needs users, and an unknown mode is refused', () async {
-      final noPilots = await run(['set', 'pilot', '--yes']);
+      final noPilots = await run([
+        'set',
+        'pilot',
+        '--yes',
+        '--project',
+        'demo-x',
+      ]);
       expect(noPilots.code, 2);
       expect(noPilots.err, contains('pilot'));
-      final unknown = await run(['set', 'banana', '--yes']);
+      final unknown = await run([
+        'set',
+        'banana',
+        '--yes',
+        '--project',
+        'demo-x',
+      ]);
       expect(unknown.code, 2);
       expect(unknown.err, contains('Unknown mode'));
       final pilot = await run([
@@ -170,7 +212,13 @@ void main() {
   group('drain', () {
     test('acknowledging a stale marker clears it', () async {
       store.markers.add(marker('ghost', ageSeconds: 600));
-      final result = await run(['drain', '--ack-stale', 'ghost']);
+      final result = await run([
+        'drain',
+        '--ack-stale',
+        'ghost',
+        '--project',
+        'demo-x',
+      ]);
       expect(result.code, 0, reason: result.out);
       expect(result.out, contains('Cleared stale marker ghost'));
       expect(store.removed, ['ghost']);
@@ -208,4 +256,68 @@ void main() {
       },
     );
   });
+  group('naming the project', () {
+    test(
+      'anything that changes data must name the project, and nothing is touched without it',
+      () async {
+        store.markers.add(marker('ghost', ageSeconds: 600));
+        for (final args in [
+          ['set', 'freeze', '--yes'],
+          ['drain', '--ack-stale', 'ghost'],
+          ['set', 'off', '--yes', '--ack-stale', 'ghost'],
+        ]) {
+          final result = await run(args, bare: true);
+          expect(result.code, 2, reason: '$args');
+          expect(
+            result.err,
+            contains('the project must be named'),
+            reason: '$args',
+          );
+        }
+        expect(store.updates, isEmpty);
+        expect(store.removed, isEmpty);
+        expect(project, isNull, reason: 'no store was even opened');
+      },
+    );
+
+    test(
+      'reading needs no project: status, a dry-run set and a drain without --ack-stale use the default',
+      () async {
+        for (final args in [
+          ['status'],
+          ['set', 'freeze'],
+          ['drain', '--max-wait-s', '0'],
+        ]) {
+          project = null;
+          await run(args, bare: true);
+          expect(project, defaultModeToolProject, reason: '$args');
+        }
+        expect(store.updates, isEmpty);
+      },
+    );
+  });
+
+  test(
+    'corrupt in-flight data stops the command with an error instead of saying quiet',
+    () async {
+      final out = StringBuffer();
+      final err = StringBuffer();
+      final code = await runModeCli(
+        ['drain'],
+        storeFor: (_) => _CorruptStore(),
+        out: out,
+        err: err,
+      );
+      expect(code, 1);
+      expect(err.toString(), contains('not a set of markers'));
+      expect(out.toString(), isNot(contains('Quiet')));
+    },
+  );
+}
+
+/// A store whose in-flight node is corrupt.
+class _CorruptStore extends FakeModeStore {
+  @override
+  Future<List<InflightMarker>> readInflight() async =>
+      parseInflight('corrupted');
 }

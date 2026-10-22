@@ -74,12 +74,18 @@ class Admission {
 ///    are read, so no admitted request can be invisible to a drain: each side's
 ///    second read sees the other's first write.
 /// 3. If the mode forbids the call, refuse; otherwise run [body].
-/// 4. Always remove the marker. If that fails the marker stays, and the drain
-///    reports it as stale rather than declaring the system quiet.
+/// 4. Remove the marker only once the handler has ended **and every write it
+///    sent has finished**. Giving up on a request (a timeout) stops waiting for
+///    it but does not stop it, so a write can still reach the database after
+///    the handler has exited. If writes are still unsettled after
+///    [writeSettleGrace] the marker is kept, and removed in the background only
+///    when they finish; if that never happens the drain reports it as stale.
+///    If removal fails the marker stays too.
 ///
-/// A start line and an end line carrying the operation id are logged, so that
-/// an owner looking at a stale marker can see from the logs whether the
-/// operation ended.
+/// A start line and an end line carrying the operation id are logged. The end
+/// line says `writesSettled=true` or `false`: an end line with `false` does NOT
+/// mean the operation has finished writing, so it never justifies clearing the
+/// marker.
 ///
 /// Any failure to write the marker or read the mode refuses the request: it
 /// fails closed.
@@ -92,6 +98,7 @@ Future<T> runAdmitted<T>({
   String Function()? newId,
   void Function(String line)? log,
   Future<void> Function()? afterMarkerWritten,
+  Duration writeSettleGrace = const Duration(seconds: 5),
 }) async {
   final clock = nowMs ?? () => DateTime.now().millisecondsSinceEpoch;
   final void Function(String line) write =
@@ -111,6 +118,9 @@ Future<T> runAdmitted<T>({
     write(
       '[identity] refused op=$operationId callable=$callable: marker not written ($error)',
     );
+    // The write may still land after we gave up waiting. If it does, the
+    // marker belongs to nobody, so remove it once the write has finished.
+    _removeWhenSettled(database, markerRef, operationId, write);
     throw _tryAgain();
   }
   write('[identity] start op=$operationId callable=$callable');
@@ -139,9 +149,43 @@ Future<T> runAdmitted<T>({
     }
     rethrow;
   } finally {
-    write('[identity] end op=$operationId callable=$callable outcome=$outcome');
-    await _removeMarker(markerRef, operationId, write);
+    final settled = await database.writes.settled(timeout: writeSettleGrace);
+    write(
+      '[identity] end op=$operationId callable=$callable outcome=$outcome '
+      'writesSettled=$settled',
+    );
+    if (settled) {
+      await _removeMarker(markerRef, operationId, write);
+    } else {
+      write(
+        '[identity] marker kept op=$operationId: '
+        '${database.writes.pendingCount} write(s) still unsettled',
+      );
+      _removeWhenSettled(database, markerRef, operationId, write);
+    }
   }
+}
+
+/// Removes the marker in the background once every write on [database] has
+/// finished. Never throws. If the process ends first, the marker stays, and the
+/// drain reports it as stale.
+void _removeWhenSettled(
+  RestDatabase database,
+  RestDatabaseReference markerRef,
+  String operationId,
+  void Function(String line) write,
+) {
+  unawaited(() async {
+    try {
+      final settled = await database.writes.settled(timeout: staleMarkerAfter);
+      if (settled) {
+        await _removeMarker(markerRef, operationId, write);
+        write('[identity] marker cleared op=$operationId: writes settled');
+      }
+    } on Object catch (error) {
+      write('[identity] marker not cleared op=$operationId: $error');
+    }
+  }());
 }
 
 Future<void> _removeMarker(

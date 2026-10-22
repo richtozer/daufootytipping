@@ -35,6 +35,7 @@ class _EmulatorAdminClient extends http.BaseClient {
 /// the test's own in front of the connection, to make requests fail on purpose.
 RestDatabase openEmulatorDatabase({
   http.Client Function(http.Client inner)? wrap,
+  Duration? requestTimeout,
 }) {
   final host = _emulatorHost;
   if (host == null) {
@@ -44,6 +45,7 @@ RestDatabase openEmulatorDatabase({
   return RestDatabase(
     client: wrap == null ? admin : wrap(admin),
     databaseUrl: 'http://$host/?ns=$emulatorNamespace',
+    requestTimeout: requestTimeout ?? defaultRestRequestTimeout,
   );
 }
 

@@ -403,4 +403,61 @@ void main() {
       await expectLater(failing.readMode(), throwsStateError);
     });
   });
+  group('reading the in-flight node', () {
+    test('a missing node means nothing is running', () {
+      expect(parseInflight(null), isEmpty);
+      expect(parseInflight(<String, Object?>{}), isEmpty);
+    });
+
+    test(
+      'anything that is not a set of markers is an error, never a false quiet',
+      () {
+        for (final bad in [
+          'oops',
+          7,
+          3.5,
+          true,
+          <Object?>['a', 'b'],
+          <Object?>[],
+        ]) {
+          expect(
+            () => parseInflight(bad),
+            throwsA(isA<MalformedInflightError>()),
+            reason: '$bad',
+          );
+        }
+      },
+    );
+
+    test(
+      'a malformed entry inside the node is kept as a stale marker, not dropped',
+      () {
+        final markers = parseInflight({
+          'good': {'callable': 'link', 'startedAtMs': 5},
+          'bad': 'nonsense',
+          'worse': {'callable': 7, 'startedAtMs': 'soon'},
+        });
+        expect(markers.map((m) => m.operationId), ['bad', 'good', 'worse']);
+        expect(
+          markers.where((m) => m.startedAtMs == null).map((m) => m.operationId),
+          ['bad', 'worse'],
+        );
+      },
+    );
+
+    test(
+      'the CLI store raises it too, so the drain cannot report quiet over corrupt data',
+      () async {
+        final store = CliModeStore(
+          project: 'p',
+          runner: (executable, arguments) async =>
+              ProcessResult(0, 0, '"corrupted"', ''),
+        );
+        await expectLater(
+          store.readInflight(),
+          throwsA(isA<MalformedInflightError>()),
+        );
+      },
+    );
+  });
 }

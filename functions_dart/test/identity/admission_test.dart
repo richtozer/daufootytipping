@@ -27,6 +27,39 @@ class _SelectiveFailure extends http.BaseClient {
   }
 }
 
+/// Holds the requests the test selects until it opens the gate, then forwards
+/// them: a request that outlives the caller that gave up on it.
+class _Gate extends http.BaseClient {
+  _Gate(this._inner, this._hold);
+
+  final http.Client _inner;
+  final bool Function(http.BaseRequest request) _hold;
+  final Completer<void> _open = Completer<void>();
+
+  void open() => _open.complete();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (_hold(request)) {
+      await _open.future;
+    }
+    return _inner.send(request);
+  }
+}
+
+Future<void> _eventually(
+  Future<bool> Function() check, {
+  Duration within = const Duration(seconds: 5),
+}) async {
+  final deadline = DateTime.now().add(within);
+  while (!await check()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('condition not met within $within');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+  }
+}
+
 Future<Map<String, Object?>> _markers(RestDatabase database) async {
   final value = (await database.ref(inflightPath).once()).value;
   return value is Map ? Map<String, Object?>.from(value) : <String, Object?>{};
@@ -258,22 +291,18 @@ void main() {
       skip: skip,
     );
 
-    test(
-      'logs a start line and an end line carrying the operation id',
-      () async {
-        await setMode('coexist');
-        final id = await admitted((admission) async => admission.operationId);
-        expect(
-          log.first,
-          '[identity] start op=$id callable=link-or-create-tipper',
-        );
-        expect(
-          log.last,
-          '[identity] end op=$id callable=link-or-create-tipper outcome=ok',
-        );
-      },
-      skip: skip,
-    );
+    test('logs a start line and an end line carrying the operation id', () async {
+      await setMode('coexist');
+      final id = await admitted((admission) async => admission.operationId);
+      expect(
+        log.first,
+        '[identity] start op=$id callable=link-or-create-tipper',
+      );
+      expect(
+        log.last,
+        '[identity] end op=$id callable=link-or-create-tipper outcome=ok writesSettled=true',
+      );
+    }, skip: skip);
   });
 
   group('the drain, with the real admission code', () {
@@ -417,5 +446,139 @@ void main() {
       await setIdentityMode(store, mode: IdentityMode.coexist, nowMs: 100);
       expect((await _markers(database)).keys, ['keep']);
     }, skip: emulatorSkipReason);
+  });
+  group('a write that outlives the handler', () {
+    late final RestDatabase database = openEmulatorDatabase();
+    late List<String> log;
+
+    setUp(() async {
+      await clearEmulatorDatabase(database);
+      await database.ref(identityModePath).update({'mode': 'coexist'});
+      log = [];
+    });
+
+    test(
+      'keeps the marker, so the drain is never quiet while the write is still on its way',
+      () async {
+        late _Gate held;
+        final gated = openEmulatorDatabase(
+          requestTimeout: const Duration(milliseconds: 200),
+          wrap: (inner) => held = _Gate(
+            inner,
+            (request) =>
+                request.method == 'PUT' &&
+                request.url.path.contains('/Scratch/'),
+          ),
+        );
+
+        // The handler's write is held; the handler gives up after 200 ms and exits with an error.
+        await expectLater(
+          runAdmitted<void>(
+            database: gated,
+            callable: 'link-or-create-tipper',
+            uid: 'user-1',
+            log: log.add,
+            writeSettleGrace: const Duration(milliseconds: 300),
+            body: (_) async => gated.ref('/Scratch/x').set('late'),
+          ),
+          throwsA(isA<UnavailableError>()),
+        );
+
+        // The handler has ended, but its end line says its write has not settled...
+        expect(log.any((line) => line.contains('writesSettled=false')), true);
+        expect(log.any((line) => line.contains('marker kept')), true);
+        // ...the marker is still there...
+        expect(await _markers(database), hasLength(1));
+        // ...the write has not reached the database...
+        expect((await database.ref('/Scratch/x').once()).value, isNull);
+
+        // ...and the drain does not call that quiet.
+        final store = RestModeStore(database);
+        final during = await drainInflight(
+          store,
+          nowMs: () => DateTime.now().millisecondsSinceEpoch,
+          pollInterval: const Duration(milliseconds: 20),
+          maxWait: const Duration(milliseconds: 150),
+          sleep: (d) => Future<void>.delayed(d),
+        );
+        expect(during.quiet, false);
+        expect(during.stillRunning, hasLength(1));
+
+        // The request completes afterwards, and it does land: the risk was real.
+        held.open();
+        await _eventually(
+          () async => (await database.ref('/Scratch/x').once()).value == 'late',
+        );
+        await _eventually(() async => (await _markers(database)).isEmpty);
+        expect(log.any((line) => line.contains('marker cleared')), true);
+
+        final after = await drainInflight(
+          store,
+          nowMs: () => DateTime.now().millisecondsSinceEpoch,
+          sleep: (d) => Future<void>.delayed(d),
+        );
+        expect(
+          after.quiet,
+          true,
+          reason: 'quiet only once the write had settled',
+        );
+      },
+      skip: skip,
+    );
+
+    test(
+      'a marker write that times out and lands late is tidied up once it does',
+      () async {
+        late _Gate held;
+        final gated = openEmulatorDatabase(
+          requestTimeout: const Duration(milliseconds: 200),
+          wrap: (inner) => held = _Gate(
+            inner,
+            (request) =>
+                request.method == 'PUT' &&
+                request.url.path.contains('/inflight/'),
+          ),
+        );
+        var ran = false;
+        await expectLater(
+          runAdmitted<void>(
+            database: gated,
+            callable: 'link-or-create-tipper',
+            uid: 'user-1',
+            log: log.add,
+            body: (_) async => ran = true,
+          ),
+          throwsA(isA<UnavailableError>()),
+        );
+        expect(ran, false);
+
+        held.open(); // the marker write reaches the database after the request was refused
+        await _eventually(
+          () async => log.any((line) => line.contains('marker cleared')),
+        );
+        expect(
+          await _markers(database),
+          isEmpty,
+          reason: 'nobody owns that marker, so it is removed',
+        );
+      },
+      skip: skip,
+    );
+
+    test(
+      'a handler whose writes all finished clears its marker at once',
+      () async {
+        await runAdmitted<void>(
+          database: database,
+          callable: 'link-or-create-tipper',
+          uid: 'user-1',
+          log: log.add,
+          body: (_) async => database.ref('/Scratch/y').set(1),
+        );
+        expect(log.last, contains('writesSettled=true'));
+        expect(await _markers(database), isEmpty);
+      },
+      skip: skip,
+    );
   });
 }
