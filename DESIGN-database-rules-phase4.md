@@ -165,13 +165,21 @@ protocol closes that:
    written *before* the markers are read, no admitted request can be missed (each side's second read
    sees the other's first write).
 2. **Drain** (the mode tool, after writing a mode that forbids a shape or all mutation). Poll
-   `inflight` until it is empty. A marker older than the hard timeout plus a margin belongs to a dead
-   request (the platform has killed it); the tool reports it, removes it, and carries on. The tool
-   exits only when drained, and prints the result.
+   `inflight` until it is empty. **An old marker is not proof that its request has ended.** Cloud Run
+   returns 504 at the timeout, but its documentation says closing the connection does not terminate the
+   container instance and that it may keep working on the request. So the tool never removes a marker on
+   age alone and never reports quiet while one remains. A marker older than the hard timeout plus a margin is
+   reported as `STALE, investigate` (callable, operation id, age) and the drain exits non-zero. A handler
+   that does finish removes its own marker, and every mutating handler logs a start line and an end line
+   carrying its operation id, so the owner can confirm from the logs that the operation ended (or that its
+   instance is gone) and then clear it with an explicit `--ack-stale <opId>`. Nothing is declared quiet on a
+   guess. (A fence that stops a late worker committing needs a conditional write tied to the marker across
+   several locations, which the database does not offer; the per-step compare-and-set of section 6b's stale
+   worker case is the mitigation inside one operation.)
 3. **The stop-and-drain step precedes both reconcile and purge** (section 8). The audit job also
-   reports any marker older than the timeout.
+   reports any marker older than the timeout, as a violation.
 4. `off` as the emergency stop therefore means: no new mutations at once, running ones finish within
-   the timeout, and the drain output says when it is quiet.
+   the timeout or are reported as stale and investigated, and the drain output says when it is quiet.
 
 The aggregator has its own flag, `/ServerConfig/liveScores/mode` = `shadow` (compute and log) |
 `active` (write `current`; for use when no client can) | `compat` (write `current` while legacy writers
@@ -260,8 +268,9 @@ These are requirements for the milestone named, to be met before cutover. They d
   starts after the mode change is refused; drain completes only after the slow one finishes.
 - The marker-then-mode order is exercised with the mode changing between the two reads (no admitted
   request is invisible to the drain).
-- A crashed request's marker is reported and removed after the timeout, and does not block the drain
-  forever.
+- A marker older than the hard timeout is reported as stale and **blocks** the drain (non-zero exit, listed by
+  operation id). It is cleared only by an explicit acknowledgement after the logs show the operation ended. A
+  handler that finishes late removes its own marker, and the drain then completes.
 - After purge-preparation drains, an old `coexist` request cannot restore public contact fields: proved
   by a test that holds a coexist request open across the mode change and the purge.
 - The purge tool is idempotent and re-runnable; the audit gains a "public contact data present after
@@ -505,7 +514,13 @@ deleted at once, and a fresh `database:get /`; the real dry run for the owner to
 the four proposed alias owners in a decisions file. (2) Apply with the script. (3) `--check`, and later
 `--strict` before the cutover.
 
-### 6f. M4b plan: the identity callables (22 October 2026; proposed, nothing built)
+### 6f. M4b plan: the identity callables (22 October 2026; amended after a second review; nothing built)
+
+**Amended after review.** Four changes, each now a requirement below: an expired in-flight marker blocks the drain
+instead of being deleted (a timed-out Cloud Run request can keep running); rename and login-address changes are
+journalled and serialised per tipper so a retry never guesses the old claim; token ownership is coordinated by a
+compare-and-set index, not just an atomic write, and the replay limitation is stated; candidate discovery covers
+public records so a record a 1.4.x client creates after the backfill is found, not duplicated.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
@@ -525,35 +540,62 @@ and the two account timestamps refreshed; a new record needs an alias that passe
 **Design decisions (proposed, for the owner to confirm or change).**
 1. **No Auth lookup at run time.** D2 wanted "claimed" verified against Firebase Auth. The backfill already
    audited every placeholder (`/Placeholders/{id}`), so a candidate is linkable only if its private `authuid` is
-   absent, already the caller, or exactly its audited placeholder; anything else is claimed by someone and is
-   refused. This removes the unconfirmed M1 item (the service account's Auth-lookup ability). Cost: a record
-   created by a 1.4.x client with an unaudited placeholder is refused (fail closed, "contact support") until the
-   next backfill pass audits it; the drift report lists such records.
-2. **Candidates are the union of `logon` and `email` matches, on the normalised address.** Exactly one: link.
-   None: create (if allowed). More than one: reject as ambiguous before anything is written. This is stricter than
-   today's first-match-wins and is what 6b requires. Found by scanning `/TipperPrivate` (about 200 small
-   records), only on the first-link path, so cost is irrelevant.
-3. **Order of writes** (D3, unchanged): link = `replaceIf` the private `authuid`, then claim `AuthIndex[uid]` as
-   the commit, compensating on a lost race; create = durable `CreateIntents/{uid}`, claim alias, claim login,
-   write records, claim `AuthIndex` last, release the intent; rename = claim the new alias, write `name`, release
-   the old claim only if this tipper owns it. A crash after any step leaves a state the bidirectional check
-   treats as no access, and the same caller's retry completes it.
+   absent, already the caller, or exactly its audited placeholder; anything else, **including ownership the
+   callable cannot establish, is treated as claimed** and refused. This removes the unconfirmed M1 item (the
+   service account's Auth-lookup ability) from the callable's critical path; the audits still need Auth.
+2. **Candidates are the union of `logon` and `email` matches on the normalised address, across public and private
+   records.** During coexistence a 1.4.x client can create a public record after the backfill that has no
+   `TipperPrivate` entry, so scanning private records alone would miss it and create a duplicate. Discovery
+   therefore merges every public and private record (the M3b merge: a present public field wins, the private
+   record fills the rest). A match with no private record is *unaudited*: it counts as a candidate, so no
+   duplicate is ever created, and is refused for linking (`reason: needs_audit`, "contact support") until the
+   next backfill pass audits it. Exactly one audited candidate: link. None: create, if allowed. More than one,
+   or any unaudited match: reject before anything is written. The scan runs only on the first-link path.
+3. **Operations are recoverable, and "safe" means no incorrect access.** For link and create no access exists
+   until the commit (claiming `AuthIndex[uid]`), so every earlier state grants none. After the commit access
+   exists, and later steps (profile refresh, rename, a login-address change) never remove it. Link: `replaceIf`
+   the private `authuid`, then claim `AuthIndex[uid]` as the commit, compensating on a lost race. Create: a
+   durable `CreateIntents/{uid}`, claim alias, claim login, write records, claim `AuthIndex` last, release the
+   intent. **Operations on one tipper are serialised** by the `IdentityLocks/{tipperId}` lease (owner = the
+   operation id; a live lease refuses a second request as `aborted`, "try again"; an expired lease is taken over
+   by compare-and-set on the exact stale value). **Moving a claim** (an alias on rename, the login address when
+   it changes) is journalled in a new server-only node `/ClaimMoves/{tipperId}` = `{kind, fromKey, toKey,
+   toValue, startedAtMs}` so a retry never has to guess the old claim from a name that has already changed:
+   under the lease, finish any move already journalled; write the journal with `fromKey` taken from the tipper's
+   *current* claim; claim `toKey` (held by another tipper: delete the journal and refuse `alias_taken` or
+   `claimed`); write the new value (public and private as the mode requires); release `fromKey` only if this
+   tipper owns it; delete the journal. A crash after any step is completed by the retry. A **login-address
+   change** is a contact change, not an incidental profile overwrite: the verified address comes only from the
+   authenticated token, it moves the `LogonIndex` claim as above and is refused if another tipper holds it, and
+   the contact `email` is filled only when missing or invalid and never overwritten.
 4. **Shape by mode.** `pilot` and `coexist` write the legacy public shape as well as the private record and
    indexes, so 1.4.x clients keep finding the tipper; `final` writes the minimal public shape (decisions 8, 9).
    One module builds both shapes. A callable never releases a claim that does not point at its own tipper and
    tolerates drift from a direct 1.4.x edit.
 5. **`linkOrCreateTipper` is also the sign-in refresh.** R2 clients cannot write the private timestamps, so for an
-   already-linked caller it validates the link and refreshes `acctLoggedOnUTC`, `photoURL` and contact fields,
-   returning `existing`. The client reads its own `AuthIndex` entry first and calls this in the background, so a
+   already-linked caller it validates the link and refreshes `acctLoggedOnUTC` and `photoURL` (a changed login
+   address goes through the claim move of decision 3), returning `existing`. The client reads its own `AuthIndex` entry first and calls this in the background, so a
    function outage never stops a linked user starting. **Timestamps are server time** (`acctLoggedOnUTC` always,
    `acctCreatedUTC` only on create), not Firebase metadata: nothing depends on the difference.
-6. **Token callables are mutating, so the mode gates them too.** Register moves a token to the caller's tipper
-   and removes it from every other tipper in one atomic multi-path update (the token is validated as a database
-   key); unregister removes it from the caller's tipper only.
+6. **Token callables are mutating, so the mode gates them too, and ownership is coordinated, not merely written
+   atomically.** An atomic update does not stop two callers that both scanned before either wrote from both
+   adding the token. A new server-only index `/TokenOwners/{token}` = tipper id, changed only by compare-and-set,
+   linearises ownership. Register: set the owner to the caller; scan `/AllTippersTokens` and remove the token
+   from every other tipper (this also covers legacy holders, since 1.4.x clients write directly and do not know
+   the index); write the caller's entry; read the owner again and, if it is no longer the caller, remove the
+   caller's own entry. Two callers registering the same absent token at once therefore converge on the last
+   compare-and-set winner. Unregister releases the owner **only if it is still the caller**, then removes the
+   caller's entry, so a delayed unregister from a former owner leaves a later owner's registration intact. The
+   token is validated as a database key. **Accepted limitation:** knowing a push token does not prove the caller
+   controls that device, so an authenticated tipper who learns another's token could register it and receive
+   that user's reminders. That is no weaker than today (a 1.4.x client can do the same directly), the effect is
+   limited to notifications, and it is recorded as an accepted tradeoff, not a security property.
 7. **Mode tool: `scripts/identity-mode.mjs`, Node, through the Firebase CLI** (so no extra credentials), with
-   `set <mode>`, `status` and the drain of section 5 (poll `inflight`, report and remove markers older than 90
-   seconds). Its logic takes an injected executor so it is unit-tested; it writes the mode and a log entry, never
-   the whole node (it would erase `inflight`). A missing or unreadable mode is `off`.
+   `set <mode>`, `status` and the drain of section 5. The drain **blocks on any stale marker** (listed by operation
+   id, non-zero exit) and clears one only with `--ack-stale <opId>`; every mutating handler logs a start and an
+   end line with its operation id so the owner can check. Its logic takes an injected executor so it is
+   unit-tested; it writes the mode and a log entry, never the whole node (it would erase `inflight`). A missing
+   or unreadable mode is `off`.
 8. **Structured errors.** `reason` is one of `not_available`, `unavailable`, `unverified_email`,
    `ambiguous`, `claimed`, `alias_taken`, `invalid_alias`, `creation_disabled`, `not_linked`, `invalid_token`.
 
@@ -565,14 +607,20 @@ B7 deploy in `off` (owner go), then the `pilot` check with a throwaway user and 
 **Proof required** (on the REST handle against the emulator, mutation checks included): every case in 6b for
 M4b (including the scan-based ambiguity tests (a) to (e)); exact-placeholder replacement and refusal of any
 other value; a real uid never replaced; racing uids, one winner; crash injection after every step of link,
-create and rename followed by a retry; double-tap create makes one record; alias and login conflicts roll back
-cleanly; drift tolerance; mode gating of every mutating callable in every mode (`off` and a non-pilot uid
-refused, `freeze` unavailable, `final` minimal shape); the admission and drain cases of 6b; the token move is
-atomic and a stolen-token replay moves it to the caller only.
+create, rename and login-address change followed by a retry; double-tap create makes one record; alias and login
+conflicts roll back cleanly; drift tolerance; mode gating of every mutating callable in every mode (`off` and a
+non-pilot uid refused, `freeze` unavailable, `final` minimal shape); the admission and drain cases of 6b.
+Added after the second review: **two concurrent renames of one tipper** leave exactly one alias claim for it and
+no leak; **a crash after the name changed, then a retry** releases the right old claim; **a record created by a
+1.4.x client after the backfill** (public, no `TipperPrivate`) is found and refused as unaudited, and no duplicate
+is created; **two callers registering the same absent token at once** end with exactly one owner and one entry;
+**a delayed unregister** from a former owner leaves the later owner's registration intact; a stale marker blocks
+the drain until acknowledged.
 
-**Risks.** An unaudited placeholder (decision 1) leaves a person unable to link until the next audit; anonymous
-callers and unverified emails are refused outright; the client must refresh its token after verification
-(M7); callable latency adds to first link only. Estimate: 9 days as in the table.
+**Risks.** An unaudited placeholder or record (decisions 1 and 2) leaves a person unable to link until the next
+audit; an expired marker needs a human (decision 7); anonymous callers and unverified emails are refused
+outright; the client must refresh its token after verification (M7); callable latency adds to first link only.
+Estimate: 9 days as in the table, plus about a day for the claim-move journal and the token index.
 
 ## 7. Timeline, back-planned from the season
 
