@@ -474,6 +474,19 @@ findings the owner's worklist predicted: one shared real account (items 4 to 6),
 (items 4, 5, 9), three shared login emails, and one blocker, the LivToz admin record. LivToz is `tipper` in
 production now, so a fresh export clears it.
 
+**Real dry run (21 and 22 October 2026).** On a fresh Auth export (227 accounts, slimmed and the full export
+deleted at once) and a fresh database export: 214 tippers, 165 real accounts, 49 placeholders; 830 writes
+(214 `TipperPrivate`, 163 `AuthIndex`, 208 `AliasIndex`, 195 `LogonIndex`, 49 `Placeholders`, and the one
+approved link's public `authuid`); **no blocking finding**, and the four administrator records match the four
+allowlisted accounts. The owner approved the link (item 1) and the four proposed shared-alias owners; the
+patch is unchanged by the approvals. Findings that remain, all blocking the cutover and not the backfill: one
+shared real account, four shared aliases, three shared login emails, two shared contact emails, and three
+cases of a login equal to another record's contact email (the worklist's Tier 3). The apply script's
+check-only run against production on 22 October confirmed that the live database and a fresh Auth export still
+produce exactly the reviewed patch. **Not yet applied.** One read of the whole database stalled for ten
+minutes during the first check-only attempt (a one-off: a repeat took eight seconds); the script has no read
+timeout, which is worth adding before the cutover scripts.
+
 **Scheduled drift report: deferred, not done.** What exists is the on-demand `--check`. A deployed schedule
 belongs with the scheduled audit and reaper in M4c.
 
