@@ -505,6 +505,75 @@ deleted at once, and a fresh `database:get /`; the real dry run for the owner to
 the four proposed alias owners in a decisions file. (2) Apply with the script. (3) `--check`, and later
 `--strict` before the cutover.
 
+### 6f. M4b plan: the identity callables (22 October 2026; proposed, nothing built)
+
+**Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
+(endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
+mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in
+`pilot` by a write-enabled check, each deploy and check on a separate owner go. All use `RestDatabase` in every
+environment (6a, finding 2), App Check enforced, a 60-second hard timeout, and the existing error types
+(`failed-precondition` and a structured `reason` detail are added so the client can tell *why*).
+
+**What the existing client does, which the callables must reproduce** (read from `tippers_viewmodel.dart`
+and `firebase_messaging_service.dart`): anonymous users stay local-only and are never persisted; a signed-in
+user must have a verified email before linking (the sign-in screen already enforces it, so requiring
+`email_verified` loses nobody, but the client must force-refresh its token after verifying); an existing record
+gets `logon` set to the account email, `email` filled if missing or invalid, `isAnonymous` cleared, `photoURL`
+and the two account timestamps refreshed; a new record needs an alias that passes the uniqueness check, role
+`tipper`, and `AppConfig/createLinkedTipper` true; the current match is exact-string on `logon`, then `email`.
+
+**Design decisions (proposed, for the owner to confirm or change).**
+1. **No Auth lookup at run time.** D2 wanted "claimed" verified against Firebase Auth. The backfill already
+   audited every placeholder (`/Placeholders/{id}`), so a candidate is linkable only if its private `authuid` is
+   absent, already the caller, or exactly its audited placeholder; anything else is claimed by someone and is
+   refused. This removes the unconfirmed M1 item (the service account's Auth-lookup ability). Cost: a record
+   created by a 1.4.x client with an unaudited placeholder is refused (fail closed, "contact support") until the
+   next backfill pass audits it; the drift report lists such records.
+2. **Candidates are the union of `logon` and `email` matches, on the normalised address.** Exactly one: link.
+   None: create (if allowed). More than one: reject as ambiguous before anything is written. This is stricter than
+   today's first-match-wins and is what 6b requires. Found by scanning `/TipperPrivate` (about 200 small
+   records), only on the first-link path, so cost is irrelevant.
+3. **Order of writes** (D3, unchanged): link = `replaceIf` the private `authuid`, then claim `AuthIndex[uid]` as
+   the commit, compensating on a lost race; create = durable `CreateIntents/{uid}`, claim alias, claim login,
+   write records, claim `AuthIndex` last, release the intent; rename = claim the new alias, write `name`, release
+   the old claim only if this tipper owns it. A crash after any step leaves a state the bidirectional check
+   treats as no access, and the same caller's retry completes it.
+4. **Shape by mode.** `pilot` and `coexist` write the legacy public shape as well as the private record and
+   indexes, so 1.4.x clients keep finding the tipper; `final` writes the minimal public shape (decisions 8, 9).
+   One module builds both shapes. A callable never releases a claim that does not point at its own tipper and
+   tolerates drift from a direct 1.4.x edit.
+5. **`linkOrCreateTipper` is also the sign-in refresh.** R2 clients cannot write the private timestamps, so for an
+   already-linked caller it validates the link and refreshes `acctLoggedOnUTC`, `photoURL` and contact fields,
+   returning `existing`. The client reads its own `AuthIndex` entry first and calls this in the background, so a
+   function outage never stops a linked user starting. **Timestamps are server time** (`acctLoggedOnUTC` always,
+   `acctCreatedUTC` only on create), not Firebase metadata: nothing depends on the difference.
+6. **Token callables are mutating, so the mode gates them too.** Register moves a token to the caller's tipper
+   and removes it from every other tipper in one atomic multi-path update (the token is validated as a database
+   key); unregister removes it from the caller's tipper only.
+7. **Mode tool: `scripts/identity-mode.mjs`, Node, through the Firebase CLI** (so no extra credentials), with
+   `set <mode>`, `status` and the drain of section 5 (poll `inflight`, report and remove markers older than 90
+   seconds). Its logic takes an injected executor so it is unit-tested; it writes the mode and a log entry, never
+   the whole node (it would erase `inflight`). A missing or unreadable mode is `off`.
+8. **Structured errors.** `reason` is one of `not_available`, `unavailable`, `unverified_email`,
+   `ambiguous`, `claimed`, `alias_taken`, `invalid_alias`, `creation_disabled`, `not_linked`, `invalid_token`.
+
+**Build order, each step committed and tested before the next.** B1 mode, admission wrapper, drain, mode tool.
+B2 shared request and response types in `dau_shared` (used by the M7 client). B3 `linkOrCreateTipper`.
+B4 `updateTipperAlias`. B5 token callables. B6 registration in `server.dart`, options, manifest test.
+B7 deploy in `off` (owner go), then the `pilot` check with a throwaway user and scratch data (separate go).
+
+**Proof required** (on the REST handle against the emulator, mutation checks included): every case in 6b for
+M4b (including the scan-based ambiguity tests (a) to (e)); exact-placeholder replacement and refusal of any
+other value; a real uid never replaced; racing uids, one winner; crash injection after every step of link,
+create and rename followed by a retry; double-tap create makes one record; alias and login conflicts roll back
+cleanly; drift tolerance; mode gating of every mutating callable in every mode (`off` and a non-pilot uid
+refused, `freeze` unavailable, `final` minimal shape); the admission and drain cases of 6b; the token move is
+atomic and a stolen-token replay moves it to the caller only.
+
+**Risks.** An unaudited placeholder (decision 1) leaves a person unable to link until the next audit; anonymous
+callers and unverified emails are refused outright; the client must refresh its token after verification
+(M7); callable latency adds to first link only. Estimate: 9 days as in the table.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
