@@ -187,7 +187,7 @@ Estimates are working figures for focused effort, not commitments.
 | M2 | **Shared code in `dau_shared`:** `normaliseAlias` (+ 64-char cap), `normaliseEmail`, `logonIndexKey` (base64url SHA-256), kickoff serializer, public/private `Tipper`, endpoint ids. | Unit tests; client and functions import it; no behaviour change shipped. | 2 d |
 | M3 | **`DateUtcEpochMs`:** writers (`Game.toJson`, `FixtureImportApplier`), backfill, verifier. **Done (section 6c): functions deployed and patch applied and verified 20 October 2026.** | Verifier: 100% of games numeric and equal to `DateUtc`. | 3 d |
 | M3b | **Done: built, proven and deployed 20 October 2026 (section 6d).** **Backend readers adapted** to read identity fields from `TipperPrivate` (`isAnonymous` for scoring) and tolerate absent public PII; prove `tipperWrittenAppBadge` is a no-op for unchanged `compsParticipatedIn`; prove reminders and scoring against records with the PII fields removed. | Tests plus a dry run against a copy of production data in the emulator. Deployed **before** any purge. | 2 d |
-| M4a | **Tool built, tested and corrected after review (section 6e); the dry run on fresh Auth data, owner review and the apply are next.** **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
+| M4a | **Done 22 October 2026 (section 6e): tool built and corrected after review, real dry run reviewed and approved by the owner, backfill applied and verified; cutover findings remain for M4c.** **Identity backfill** (pass 1) from the reviewed Auth mapping, written as a **Dart tool** (alias keys must come from the Dart function, section 6a); scheduled **drift report**. | Dry run reviewed by owner; audit clean; unlinked historical tippers listed separately (section 8). | 4 d |
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
 | M4c | **Admin callables** `adminCreateTipper`, merge, reassign, delete, `adminSetTipperRole`, `adminUpdateTipperContact`; leases and `IdentityOps` journal; scheduled audit and reaper. Existing admin endpoints move to `resolveCallerTipper` at cutover. | Crash injection after every step; one lease-takeover winner; **stale-holder scenario passes (section 6b)**; forged index or `authuid` rejected; last admin cannot be removed; audit reports every violation class. | 9 to 11 d |
 | M5 | **Live-score aggregator**, shadow first. History ordering: numeric `t`, else parsed legacy `submittedTimeUTC`, else the push key's microseconds. The `current` write is a version-guarded transaction (`basedOnCount`) that is also skipped when the game already has an official score; the audit job sweeps any `current` left behind for a completed game (the import clears the game's whole live node, so an in-flight aggregation can recreate it). `gameComplete` never set. **Activation (`active`) only after R2 rules deploy**, when no client can write `current`. | **Synthetic game-day replay** on the emulator: mixed legacy and new entries, shuffled and duplicated deliveries, an official score arriving mid-stream, compared with golden vectors from the current client algorithm. **Mixed-writer replay** (a legacy client's `current` writes interleaved with the aggregator over the same history converge to one displayed score and do not flap). Shadow canary in the test comp. | 6 d |
@@ -483,9 +483,19 @@ patch is unchanged by the approvals. Findings that remain, all blocking the cuto
 shared real account, four shared aliases, three shared login emails, two shared contact emails, and three
 cases of a login equal to another record's contact email (the worklist's Tier 3). The apply script's
 check-only run against production on 22 October confirmed that the live database and a fresh Auth export still
-produce exactly the reviewed patch. **Not yet applied.** One read of the whole database stalled for ten
+produce exactly the reviewed patch. One read of the whole database stalled for ten
 minutes during the first check-only attempt (a one-off: a repeat took eight seconds); the script has no read
 timeout, which is worth adding before the cutover scripts.
+
+**Applied (22 October 2026, run by the owner).** `scripts/apply-identity-backfill.sh --apply` re-checked, wrote the
+830 entries with triggers off, and its verifier then found 0 writes left and 829 entries in place. Spot checks
+of production: the linked record agrees in its public `authuid`, its `AuthIndex` entry and its private record,
+and no function logged an error afterwards. The planner's `--strict` still fails, correctly, on the cutover
+findings above, which the admin callables of M4c resolve (merge, reassign, delete). **Rollback** of the
+backfill is a patch that restores every written path to what it held before (null for the new nodes, the old
+placeholder for the one public `authuid`); it was built from the pre-apply export, proved offline to restore
+that export exactly, and is kept with the reviewed patch in the git-ignored `test/data/`. Nothing reads the new
+nodes yet, so leaving them in place is harmless. The slim Auth file was deleted.
 
 **Scheduled drift report: deferred, not done.** What exists is the on-demand `--check`. A deployed schedule
 belongs with the scheduled audit and reaper in M4c.
