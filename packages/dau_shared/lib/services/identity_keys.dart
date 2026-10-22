@@ -34,3 +34,12 @@ bool isValidAlias(String alias) {
 
 /// Reduces a login email address to the form used to compare and index it.
 String normaliseEmail(String email) => email.trim().toLowerCase();
+
+final RegExp _contactEmail = RegExp(
+  r'^[a-zA-Z0-9.a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$',
+);
+
+/// Whether [email] looks like an address worth keeping as a tipper's contact
+/// email. The same rule the app has always applied, now in one place.
+bool isValidContactEmail(String? email) =>
+    email != null && _contactEmail.hasMatch(email);

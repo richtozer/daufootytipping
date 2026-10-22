@@ -554,6 +554,29 @@ ledger, malformed data in the parser, the store and the command, and the project
 admission that clears the marker without waiting fails the late-write test; a parser that treats corrupt data as
 empty fails three.
 
+**B2 and B3 built (22 October 2026, local, not deployed).** B2: the request and result types in
+`dau_shared/lib/models/identity_callables.dart` (strict `fromJson`, 63 shared tests). B3: `link_or_create.dart`
+with `tipper_records.dart` (public and private halves joined; candidates are the union of login and contact
+email, normalised), `claim_moves.dart` (the journalled, resumable move of an alias or login claim), `tipper_lease.dart`
+(per-tipper lease, left to expire after a simulated crash), `tipper_shapes.dart`, `caller_token.dart`, `push_id.dart`
+and `faults.dart` (a crash-injection seam, null in production). Behaviour as planned: anonymous and unverified
+refused; an account already linked is validated and refreshed (stamp, photo, a changed login address by a claim
+move); a record is linked only if its private `authuid` is empty, already the caller, or exactly its audited
+placeholder; ambiguity and any unaudited or half-present match are refused before the first write; a create
+claims an intent, the alias, the login, writes the records and commits last. **Proof:** 45 handler tests and 14
+claim-move tests on the emulator, including a crash after every step of a link, a create and a move followed by a
+retry, ten accounts racing for one record, a double tap, two accounts choosing one alias, the legacy-created record
+after the backfill, and many rounds of two concurrent renames. **Mutation checks, all caught:** login-only matching,
+ignoring unaudited records, replacing any stored `authuid`, no lease, and the stale-old-claim bug below.
+**What the tests found, now fixed:** (1) a rename retried after a crash computed its old claim *before* finishing the
+pending move and leaked the first target; the move now derives the old claim itself after finishing any pending
+move. (2) A link that crashed after its commit left the placeholder audit entry and a create's intent behind; both
+are tidied by the next link or refresh. (3) A double tap whose twin committed first was told "alias taken"; it now
+recognises its own account as linked. **Two changes to the plan to note:** `CreateIntents/{uid}` holds
+`{tipperId, createdAtMs, aliasKey, logonKey}` rather than a string, so a retry with a different alias or address
+releases the first claims instead of leaking them; and `/ClaimMoves` is a new server-only node that M6's rulesets
+must keep closed, like the other identity nodes. Next: B4 `updateTipperAlias`, B5 tokens, B6 registration.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in

@@ -48,6 +48,11 @@ const String identityLocksPath = '/IdentityLocks';
 const String identityOpsPath = '/IdentityOps';
 const String placeholdersPath = '/Placeholders';
 
+/// The journal of a claim being moved (an alias on rename, the login address
+/// when it changes), keyed by tipper id. Server-only, like the other identity
+/// nodes; it exists so a retry never has to guess the old claim.
+const String claimMovesPath = '/ClaimMoves';
+
 /// Server-only configuration (identity mode, aggregator mode). Closed to
 /// every client under every ruleset.
 const String serverConfigPath = '/ServerConfig';

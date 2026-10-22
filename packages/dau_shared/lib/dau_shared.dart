@@ -5,6 +5,7 @@ export 'models/dauround.dart';
 export 'models/devicetoken.dart';
 export 'models/fixture.dart';
 export 'models/game.dart';
+export 'models/identity_callables.dart';
 export 'models/ladder_team.dart';
 export 'models/league.dart';
 export 'models/league_ladder.dart';
