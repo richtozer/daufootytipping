@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/app_loading_screen.dart';
+import 'package:daufootytipping/pages/user_auth/app_root_navigator.dart';
 import 'package:daufootytipping/pages/user_auth/startup_connection_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
@@ -21,6 +22,7 @@ import 'package:daufootytipping/services/app_resume_data_refresher.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
+import 'package:daufootytipping/services/retired_view_models.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/app_resume_refresh_coordinator.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
@@ -314,6 +316,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
   late final ConnectionLossMonitor _connectionLossMonitor;
   final AppControlsViewModel _appControlsViewModel = AppControlsViewModel();
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final RetiredViewModels _retiredViewModels = RetiredViewModels(di);
   late final AppControlsObserver _appControlsObserver = AppControlsObserver(
     _appControlsViewModel,
   );
@@ -325,6 +329,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       di.unregister<AppControlsViewModel>();
     }
     di.registerSingleton<AppControlsViewModel>(_appControlsViewModel);
+    if (di.isRegistered<AppRootNavigator>()) {
+      di.unregister<AppRootNavigator>();
+    }
+    di.registerSingleton<AppRootNavigator>(
+      AppRootNavigator(
+        navigatorKey: _navigatorKey,
+        rootBuilder: _buildRootPage,
+        onReturn: _forgetCoreViewModelRegistration,
+        onOldRoutesGone: _retiredViewModels.disposeRetired,
+      ),
+    );
     _resumeDataRefresher = AppResumeDataRefresher(
       platform: defaultTargetPlatform,
       reconnectRealtimeDatabase: _reconnectRealtimeDatabaseAfterResume,
@@ -537,6 +552,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
   }
 
+  /// Makes the next root page register fresh core view models, so whoever
+  /// signs in next does not see the last user's tipper or comp state. The old
+  /// ones are disposed once the screens that used them have gone.
+  void _forgetCoreViewModelRegistration() {
+    _retiredViewModels
+      ..retire<TippersViewModel>()
+      ..retire<DAUCompsViewModel>();
+    _registeredActiveCompKey = null;
+    _registeredCreateLinkedTipper = null;
+  }
+
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
     final bool createLinkedTipper = configViewModel.createLinkedTipper!;
@@ -576,6 +602,61 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _scheduleCoreViewModelWarmup();
   }
 
+  /// The app's first screen: the config gate, then the startup screens or
+  /// sign-in. [AppRootNavigator] shows it again after signing out.
+  Widget _buildRootPage(BuildContext context) {
+    return Consumer<ConfigViewModel>(
+      builder: (context, configViewModel, child) {
+        return FutureBuilder<void>(
+          future: configViewModel.initialLoadComplete,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const AppLoadingScreen();
+            }
+
+            if (snapshot.error is ConfigConnectionFailure) {
+              return StartupConnectionScreen(
+                monitor: _connectionLossMonitor,
+                onRetry: () => _retryStartupConnection(configViewModel),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return LoginIssueScreen(
+                message: 'Unexpected startup error. ${snapshot.error}',
+                displaySignOutButton: false,
+                onRetry: () {
+                  configViewModel.retryInitialLoad();
+                },
+              );
+            }
+
+            // if required config is missing, display error
+            if (!configViewModel.hasRequiredBootstrapConfig) {
+              // display LoginErrorScreen
+              return LoginIssueScreen(
+                message: 'Unexpected startup error. Contact support: https://interview.coach/tipping',
+                displaySignOutButton: false,
+                onRetry: () {
+                  configViewModel.retryInitialLoad();
+                },
+              );
+            } else {
+              _registerCoreViewModelsIfNeeded(configViewModel);
+
+              return UserAuthPage(
+                configViewModel.minAppVersion,
+                isUserLoggingOut: false,
+                createLinkedTipper: configViewModel.createLinkedTipper!,
+                googleClientId: configViewModel.googleClientId ?? '',
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -600,6 +681,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
+      navigatorKey: _navigatorKey,
       navigatorObservers: [_appControlsObserver],
       builder: (context, navigator) => AppControlsHost(
         viewModel: _appControlsViewModel,
@@ -609,56 +691,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       // The shell no longer caps the app. Each screen owns its width, so the
       // tips list can use a tablet's display while forms stay readable.
-      home: Consumer<ConfigViewModel>(
-        builder: (context, configViewModel, child) {
-          return FutureBuilder<void>(
-            future: configViewModel.initialLoadComplete,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const AppLoadingScreen();
-              }
-
-              if (snapshot.error is ConfigConnectionFailure) {
-                return StartupConnectionScreen(
-                  monitor: _connectionLossMonitor,
-                  onRetry: () => _retryStartupConnection(configViewModel),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return LoginIssueScreen(
-                  message: 'Unexpected startup error. ${snapshot.error}',
-                  displaySignOutButton: false,
-                  onRetry: () {
-                    configViewModel.retryInitialLoad();
-                  },
-                );
-              }
-
-              // if required config is missing, display error
-              if (!configViewModel.hasRequiredBootstrapConfig) {
-                // display LoginErrorScreen
-                return LoginIssueScreen(
-                  message: 'Unexpected startup error. Contact support: https://interview.coach/tipping',
-                  displaySignOutButton: false,
-                  onRetry: () {
-                    configViewModel.retryInitialLoad();
-                  },
-                );
-              } else {
-                _registerCoreViewModelsIfNeeded(configViewModel);
-
-                return UserAuthPage(
-                  configViewModel.minAppVersion,
-                  isUserLoggingOut: false,
-                  createLinkedTipper: configViewModel.createLinkedTipper!,
-                  googleClientId: configViewModel.googleClientId ?? '',
-                );
-              }
-            },
-          );
-        },
-      ),
+      home: Builder(builder: _buildRootPage),
     );
   }
 }
