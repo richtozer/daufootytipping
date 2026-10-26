@@ -1,3 +1,4 @@
+import 'package:daufootytipping/pages/user_auth/auth_fade_route.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_background.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
@@ -73,8 +74,8 @@ class LoginIssueScreen extends StatelessWidget {
                             ),
                             onPressed: () {
                               Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(
-                                  builder: (context) => const UserAuthPage(
+                                authFadeRoute(
+                                  (context) => const UserAuthPage(
                                     null,
                                     isUserLoggingOut: true,
                                     createLinkedTipper: false,

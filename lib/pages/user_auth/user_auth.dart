@@ -6,6 +6,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_sign_in_form.dart';
 import 'package:daufootytipping/pages/user_auth/app_loading_screen.dart';
+import 'package:daufootytipping/pages/user_auth/auth_fade_route.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_background.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
@@ -220,7 +221,7 @@ class UserAuthPageState extends State<UserAuthPage> {
         return;
       }
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (BuildContext context) => const MyApp()),
+        authFadeRoute((BuildContext context) => const MyApp()),
         (Route<dynamic> route) => false,
       );
     });

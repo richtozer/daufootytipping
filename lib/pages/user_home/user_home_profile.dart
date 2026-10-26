@@ -8,6 +8,7 @@ import 'package:daufootytipping/pages/user_home/user_home_profile_help.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/pages/user_auth/auth_fade_route.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
@@ -160,7 +161,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                         ),
                                         onPressed: () {
                                           Navigator.of(context).pushReplacement(
-                                            appPageRoute(
+                                            authFadeRoute(
                                               (context) => const UserAuthPage(
                                                 null,
                                                 isUserLoggingOut: true,
