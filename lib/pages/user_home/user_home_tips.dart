@@ -634,9 +634,7 @@ class TipsTabState extends State<TipsTab> {
   @override
   Widget build(BuildContext context) {
     if (_showLoadingPlaceholder || daucompsViewModel.selectedDAUComp == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.orange),
-      );
+      return Center(child: CircularProgressIndicator(color: League.afl.colour));
     }
 
     // The list has to be laid out for its scroll controller to attach, and
@@ -653,7 +651,7 @@ class TipsTabState extends State<TipsTab> {
           child: _buildTipsList(),
         ),
         if (!_hasPlacedOnce)
-          const Center(child: CircularProgressIndicator(color: Colors.orange)),
+          Center(child: CircularProgressIndicator(color: League.afl.colour)),
       ],
     );
   }
@@ -664,8 +662,8 @@ class TipsTabState extends State<TipsTab> {
         _syncCardLayout(context, constraints.maxWidth);
         final cardLayout = _cardLayout;
         if (cardLayout == null) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.orange),
+          return Center(
+            child: CircularProgressIndicator(color: League.afl.colour),
           );
         }
         return KeyboardListener(

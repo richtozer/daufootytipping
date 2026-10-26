@@ -21,9 +21,7 @@ class StatsTab extends StatelessWidget {
     final dauCompsVM = context.watch<DAUCompsViewModel>();
     final selectedComp = dauCompsVM.selectedDAUComp;
     if (selectedComp == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.orange),
-      );
+      return Center(child: CircularProgressIndicator(color: League.afl.colour));
     }
 
     // Bottom aligned so the rows stay within thumb reach, but a short
