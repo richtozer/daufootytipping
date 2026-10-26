@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
+import 'package:daufootytipping/widgets/notice_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,16 +83,13 @@ void main() {
     }
 
     test('are the AFL red with white text', () {
-      expect(ConnectionLossNotice.background, League.afl.colour);
-      expect(ConnectionLossNotice.foreground, Colors.white);
+      expect(NoticeBanner.background, League.afl.colour);
+      expect(NoticeBanner.foreground, Colors.white);
     });
 
     test('keep white text readable on the red (WCAG AA, 4.5:1)', () {
       expect(
-        contrast(
-          ConnectionLossNotice.background,
-          ConnectionLossNotice.foreground,
-        ),
+        contrast(NoticeBanner.background, NoticeBanner.foreground),
         greaterThanOrEqualTo(4.5),
       );
     });
@@ -178,7 +176,7 @@ void main() {
       expect(
         tester.getSemantics(find.byIcon(Icons.close)),
         matchesSemantics(
-          label: ConnectionLossNotice.dismissLabel,
+          label: NoticeBanner.dismissLabel,
           isButton: true,
           hasTapAction: true,
         ),

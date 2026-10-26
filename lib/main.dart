@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/pages/user_auth/startup_connection_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
     as firebase_app_check_debug_token;
@@ -405,6 +406,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     unawaited(_resumeRefreshCoordinator.handleLifecycleState(state));
   }
 
+  /// Restarts the database transport, since a connection the server has ended
+  /// (for example over a rejected App Check token) never comes back on its own,
+  /// then loads the config again. If the connection does not come back, the
+  /// startup screen stays so the user can try again or reopen the app.
+  Future<void> _retryStartupConnection(ConfigViewModel configViewModel) async {
+    try {
+      await restartRealtimeDatabaseConnection();
+    } catch (error) {
+      log('Startup retry could not reconnect the database: $error');
+      return;
+    }
+    await configViewModel.retryInitialLoad();
+  }
+
   Future<void> _reconnectRealtimeDatabaseAfterResume() async {
     final stopwatch = Stopwatch()..start();
     log('Android resume RTDB reconnect started');
@@ -602,6 +617,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
                 return _StartupLoadingScreen(spinnerColor: League.afl.colour);
+              }
+
+              if (snapshot.error is ConfigConnectionFailure) {
+                return StartupConnectionScreen(
+                  monitor: _connectionLossMonitor,
+                  onRetry: () => _retryStartupConnection(configViewModel),
+                );
               }
 
               if (snapshot.hasError) {

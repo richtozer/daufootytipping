@@ -9,6 +9,21 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
+/// The startup config read could not reach the database: it timed out, or App
+/// Check kept refusing it. From the device this looks the same as having no
+/// signal, so the user is told about the connection rather than shown an error.
+class ConfigConnectionFailure implements Exception {
+  const ConfigConnectionFailure(this.lastError);
+
+  /// The last error the config listener reported, if any. For the log only.
+  final Object? lastError;
+
+  @override
+  String toString() => lastError == null
+      ? 'Config load could not reach the database.'
+      : 'Config load could not reach the database. Last error: $lastError';
+}
+
 class ConfigViewModel extends ChangeNotifier {
   final DatabaseReference _db;
   late StreamSubscription<DatabaseEvent> _configStream;
@@ -111,15 +126,16 @@ class ConfigViewModel extends ChangeNotifier {
 
   void _armInitialLoadTimeout(Completer<void> completer) {
     completer.future.timeout(_initialLoadTimeout).catchError((_) {
-      if (!identical(_initialLoadCompleter, completer) || completer.isCompleted) {
+      if (!identical(_initialLoadCompleter, completer) ||
+          completer.isCompleted) {
         return;
       }
 
-      final Object? lastInitialLoadError = _lastInitialLoadError;
-      final String message = lastInitialLoadError == null
-          ? 'Config load timed out. Please check your connection or we may be having backend issues.'
-          : 'Config load timed out. Last startup error: $lastInitialLoadError';
-      completer.completeError(message);
+      final ConfigConnectionFailure failure = ConfigConnectionFailure(
+        _lastInitialLoadError,
+      );
+      log('ConfigViewModel initial load failed: $failure');
+      completer.completeError(failure);
       notifyListeners();
     });
   }
@@ -220,7 +236,9 @@ class ConfigViewModel extends ChangeNotifier {
 
     if (_retryableStartupReconnectAttempts >=
         _maxRetryableStartupReconnectAttempts) {
-      _initialLoadCompleter.completeError(error);
+      final ConfigConnectionFailure failure = ConfigConnectionFailure(error);
+      log('ConfigViewModel initial load failed: $failure');
+      _initialLoadCompleter.completeError(failure);
       notifyListeners();
       return;
     }

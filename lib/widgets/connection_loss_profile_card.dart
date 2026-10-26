@@ -1,6 +1,7 @@
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
+import 'package:daufootytipping/widgets/notice_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -71,7 +72,7 @@ class _ConnectionLossProfileCardState extends State<ConnectionLossProfileCard> {
     }
     _registered = _onScreen;
     if (_onScreen) {
-      _source.persistentSurfaceShown();
+      _source.persistentSurfaceShown('profile_card');
     } else {
       _source.persistentSurfaceHidden();
     }
@@ -87,7 +88,7 @@ class _ConnectionLossProfileCardState extends State<ConnectionLossProfileCard> {
         }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          color: ConnectionLossNotice.background,
+          color: NoticeBanner.background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(kCardCornerRadius),
           ),
@@ -97,7 +98,7 @@ class _ConnectionLossProfileCardState extends State<ConnectionLossProfileCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.cloud_off, color: ConnectionLossNotice.foreground),
+                Icon(Icons.cloud_off, color: NoticeBanner.foreground),
                 SizedBox(width: 12),
                 Expanded(child: _Message()),
               ],
@@ -114,7 +115,7 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const TextStyle style = TextStyle(color: ConnectionLossNotice.foreground);
+    const TextStyle style = TextStyle(color: NoticeBanner.foreground);
     // The heading and the advice are announced together when the card appears;
     // there is nothing here to act on but the advice itself.
     return Semantics(

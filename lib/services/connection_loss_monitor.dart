@@ -71,6 +71,7 @@ class ConnectionLossMonitor extends ChangeNotifier {
   bool _dismissed = false;
   bool _connectionLost = false;
   int _persistentSurfaces = 0;
+  String _latestSurface = 'banner';
 
   /// Whether the connection has been down, in the foreground, for the
   /// threshold. For places that must keep saying so however often the user has
@@ -104,9 +105,12 @@ class ConnectionLossMonitor extends ChangeNotifier {
   /// would only sit on top of it, so the banner steps aside: one already showing
   /// is dismissed for the user, and the dismissal lasts for that outage even
   /// after the surface goes.
-  void persistentSurfaceShown() {
+  ///
+  /// [surface] names it in analytics, such as `profile_card`.
+  void persistentSurfaceShown(String surface) {
     _persistentSurfaces++;
-    _dismiss(by: 'profile_card');
+    _latestSurface = surface;
+    _dismiss(by: surface);
   }
 
   /// Tells the monitor a surface from [persistentSurfaceShown] has gone.
@@ -165,7 +169,7 @@ class ConnectionLossMonitor extends ChangeNotifier {
         _setConnectionLost(true);
         _report(noticeShownEvent, <String, Object>{
           'down_seconds': _secondsSince(_downSince),
-          'surface': onSurface ? 'profile_card' : 'banner',
+          'surface': onSurface ? _latestSurface : 'banner',
         });
       }
     });

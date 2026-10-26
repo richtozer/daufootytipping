@@ -5,6 +5,7 @@ import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_panel_card.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
+import 'package:daufootytipping/widgets/notice_banner.dart';
 import 'package:daufootytipping/widgets/connection_loss_profile_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -190,13 +191,13 @@ void main() {
       ),
     );
     expect(card.color, League.afl.colour);
-    expect(card.color, ConnectionLossNotice.background);
+    expect(card.color, NoticeBanner.background);
     expect(
       tester
           .widget<Text>(find.text(ConnectionLossProfileCard.heading))
           .style
           ?.color,
-      ConnectionLossNotice.foreground,
+      NoticeBanner.foreground,
     );
   });
 
