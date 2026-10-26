@@ -4,8 +4,8 @@ import 'dart:developer';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/pages/user_auth/app_loading_screen.dart';
 import 'package:daufootytipping/pages/user_auth/startup_connection_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
@@ -30,7 +30,6 @@ import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
-import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -616,7 +615,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             future: configViewModel.initialLoadComplete,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
-                return _StartupLoadingScreen(spinnerColor: League.afl.colour);
+                return const AppLoadingScreen();
               }
 
               if (snapshot.error is ConfigConnectionFailure) {
@@ -660,23 +659,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           );
         },
       ),
-    );
-  }
-}
-
-class _StartupLoadingScreen extends StatelessWidget {
-  const _StartupLoadingScreen({required this.spinnerColor});
-
-  final Color spinnerColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const AppBackdrop(),
-        Center(child: CircularProgressIndicator(color: spinnerColor)),
-      ],
     );
   }
 }

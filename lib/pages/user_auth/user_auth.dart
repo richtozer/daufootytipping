@@ -5,6 +5,7 @@ import 'package:daufootytipping/main.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_sign_in_form.dart';
+import 'package:daufootytipping/pages/user_auth/app_loading_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_background.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
@@ -113,15 +114,13 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   Future<Tipper?> _loadCachedTipper(String currentUid) async {
     try {
-      final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? json = prefs.getString(_cachedTipperKey);
       if (json == null) return null;
 
-      final Map<String, dynamic> data =
-          Map<String, dynamic>.from(
-            jsonDecode(json) as Map,
-          );
+      final Map<String, dynamic> data = Map<String, dynamic>.from(
+        jsonDecode(json) as Map,
+      );
       if (data['authuid'] != currentUid) return null;
 
       return Tipper.fromCacheJson(data);
@@ -133,12 +132,8 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   Future<void> _saveCachedTipper(Tipper tipper) async {
     try {
-      final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
-      await prefs.setString(
-        _cachedTipperKey,
-        jsonEncode(tipper.toCacheJson()),
-      );
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cachedTipperKey, jsonEncode(tipper.toCacheJson()));
     } catch (e) {
       log('UserAuthPage: failed to cache tipper: $e');
     }
@@ -146,8 +141,7 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   Future<void> _clearCachedTipper() async {
     try {
-      final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.remove(_cachedTipperKey);
     } catch (e) {
       log('UserAuthPage: failed to clear cached tipper: $e');
@@ -211,9 +205,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       _linkOrCreateTipperFuture = StartupProfiling.trackAsync(
         'startup.update_or_create_tipper',
         () => _updateOrCreateTipper(name, tipper),
-        arguments: <String, Object?>{
-          'hasExistingTipper': tipper != null,
-        },
+        arguments: <String, Object?>{'hasExistingTipper': tipper != null},
       );
     }
     return _linkOrCreateTipperFuture!;
@@ -391,7 +383,7 @@ class UserAuthPageState extends State<UserAuthPage> {
         );
       }
 
-      return const _AuthLoadingScreen();
+      return const AppLoadingScreen();
     }
 
     return Scaffold(
@@ -418,10 +410,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         SizedBox(height: 50),
-                        Padding(
-                          padding: EdgeInsets.all(20),
-                          child: AppIcon(),
-                        ),
+                        Padding(padding: EdgeInsets.all(20), child: AppIcon()),
                         SizedBox(height: 20),
                         SizedBox(
                           width: 300,
@@ -451,7 +440,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                 }
                 if (authenticatedFirebaseUser == null &&
                     authSnapshot.connectionState == ConnectionState.waiting) {
-                  return const _AuthLoadingScreen();
+                  return const AppLoadingScreen();
                 }
                 if (!authSnapshot.hasData) {
                   return UserAuthSignInForm(
@@ -472,8 +461,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                   authenticatedFirebaseUser.sendEmailVerification();
 
                   return const LoginIssueScreen(
-                    message:
-                        'Your email is not verified. Please check your inbox or junk/spam and verify your email first. Then try log in again',
+                    message: 'Your email is not verified. Please check your inbox or junk/spam and verify your email first. Then try log in again',
                     msgColor: Colors.green,
                   );
                 }
@@ -486,102 +474,82 @@ class UserAuthPageState extends State<UserAuthPage> {
 
                 return FutureBuilder<Tipper?>(
                   future: _existingTipperFuture,
-                  builder:
-                      (
-                        BuildContext context,
-                        AsyncSnapshot<Tipper?> snapshot,
-                      ) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const _AuthLoadingScreen();
-                        } else if (snapshot.hasError) {
-                          return LoginIssueScreen(
-                            message:
-                                'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping',
-                          );
-                        } else if (snapshot.data == null) {
-                          // This means no existing Tipper record
-                          if (authenticatedFirebaseUser.isAnonymous) {
-                            // For new anonymous users, bypass edit name dialog
-                            return FutureBuilder<bool>(
-                              future: _ensureLinkOrCreateTipperFuture(
-                                key: 'anonymous-user',
-                                name: null,
-                                tipper: null,
-                              ),
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    AsyncSnapshot<bool> updateSnapshot,
-                                  ) {
-                                    if (updateSnapshot.connectionState ==
-                                        ConnectionState.waiting) {
-                                      return const _AuthLoadingScreen();
-                                    } else if (updateSnapshot.hasError) {
-                                      return LoginIssueScreen(
-                                        message:
-                                            'Error creating anonymous user: ${updateSnapshot.error}. Contact support.',
-                                      );
-                                    } else if (updateSnapshot.data == false) {
-                                      return LoginIssueScreen(
-                                        message:
-                                            'Failed to create anonymous user. Contact support.',
-                                      );
-                                    } else {
-                                      // Successfully created anonymous user
-                                      return const HomePage();
-                                    }
-                                  },
-                            );
-                          } else {
-                            // For new non-anonymous users, show edit name dialog as before
-                            if (!_newTipperDialogShown) {
-                              _newTipperDialogShown = true;
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _showEditNameDialog(context, null);
-                              });
-                            }
-                            return Container(); // Return an empty container while waiting for user input
-                          }
-                        } else {
-                          // Existing tipper found — set the authenticated tipper
-                          // immediately so HomePage can render without waiting for
-                          // the background DB metadata update to complete.
-                          final Tipper existingTipper = snapshot.data!;
-                          di<TippersViewModel>().setAuthenticatedTipper(
-                            existingTipper,
-                          );
-                          _saveCachedTipper(existingTipper);
-                          _ensureLinkOrCreateTipperFuture(
-                            key: existingTipper.dbkey ?? existingTipper.authuid,
-                            name: existingTipper.name,
-                            tipper: existingTipper,
-                          ).catchError((Object e) {
-                            log('Background tipper update failed: $e');
-                            return false;
-                          }).ignore();
-                          return const HomePage();
+                  builder: (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const AppLoadingScreen();
+                    } else if (snapshot.hasError) {
+                      return LoginIssueScreen(
+                        message:
+                            'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping',
+                      );
+                    } else if (snapshot.data == null) {
+                      // This means no existing Tipper record
+                      if (authenticatedFirebaseUser.isAnonymous) {
+                        // For new anonymous users, bypass edit name dialog
+                        return FutureBuilder<bool>(
+                          future: _ensureLinkOrCreateTipperFuture(
+                            key: 'anonymous-user',
+                            name: null,
+                            tipper: null,
+                          ),
+                          builder:
+                              (
+                                BuildContext context,
+                                AsyncSnapshot<bool> updateSnapshot,
+                              ) {
+                                if (updateSnapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const AppLoadingScreen();
+                                } else if (updateSnapshot.hasError) {
+                                  return LoginIssueScreen(
+                                    message:
+                                        'Error creating anonymous user: ${updateSnapshot.error}. Contact support.',
+                                  );
+                                } else if (updateSnapshot.data == false) {
+                                  return LoginIssueScreen(
+                                    message: 'Failed to create anonymous user. Contact support.',
+                                  );
+                                } else {
+                                  // Successfully created anonymous user
+                                  return const HomePage();
+                                }
+                              },
+                        );
+                      } else {
+                        // For new non-anonymous users, show edit name dialog as before
+                        if (!_newTipperDialogShown) {
+                          _newTipperDialogShown = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _showEditNameDialog(context, null);
+                          });
                         }
-                      },
+                        return Container(); // Return an empty container while waiting for user input
+                      }
+                    } else {
+                      // Existing tipper found — set the authenticated tipper
+                      // immediately so HomePage can render without waiting for
+                      // the background DB metadata update to complete.
+                      final Tipper existingTipper = snapshot.data!;
+                      di<TippersViewModel>().setAuthenticatedTipper(
+                        existingTipper,
+                      );
+                      _saveCachedTipper(existingTipper);
+                      _ensureLinkOrCreateTipperFuture(
+                        key: existingTipper.dbkey ?? existingTipper.authuid,
+                        name: existingTipper.name,
+                        tipper: existingTipper,
+                      ).catchError((Object e) {
+                        log('Background tipper update failed: $e');
+                        return false;
+                      }).ignore();
+                      return const HomePage();
+                    }
+                  },
                 );
               },
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-class _AuthLoadingScreen extends StatelessWidget {
-  const _AuthLoadingScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const UserAuthBackground(
-      overlayColor: Colors.transparent,
-      child: Center(
-        child: CircularProgressIndicator(color: Colors.orange),
       ),
     );
   }

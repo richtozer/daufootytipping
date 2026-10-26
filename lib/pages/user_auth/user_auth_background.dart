@@ -1,51 +1,24 @@
 import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:flutter/material.dart';
 
+/// The backdrop behind the startup and sign-in screens: the grass under the
+/// same veil the home page lays over it, so moving from one to the other does
+/// not change the background.
 class UserAuthBackground extends StatelessWidget {
   final Widget child;
-  final Color? overlayColor;
 
-  const UserAuthBackground({super.key, required this.child, this.overlayColor});
+  const UserAuthBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
     final bool isDarkMode =
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final Color effectiveOverlayColor =
-        overlayColor ??
-        (isDarkMode ? Colors.transparent : const Color(0x8AFFFFFF));
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        ColorFiltered(
-          colorFilter: isDarkMode
-              ? const ColorFilter.matrix(<double>[
-                  1.08,
-                  0,
-                  0,
-                  0,
-                  -46,
-                  0,
-                  1.08,
-                  0,
-                  0,
-                  -46,
-                  0,
-                  0,
-                  1.08,
-                  0,
-                  -46,
-                  0,
-                  0,
-                  0,
-                  1,
-                  0,
-                ])
-              : const ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
-          child: const AppBackdrop(),
-        ),
-        ColoredBox(color: effectiveOverlayColor),
+        const AppBackdrop(),
+        ColoredBox(color: isDarkMode ? Colors.black54 : Colors.white54),
         child,
       ],
     );
