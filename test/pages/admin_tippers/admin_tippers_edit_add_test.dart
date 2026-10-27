@@ -263,6 +263,94 @@ void main() {
     );
   });
 
+  group('paid ticks', () {
+    final DAUComp comp = DAUComp(
+      dbkey: 'comp-2026',
+      name: 'DAU 2026',
+      aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+      nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+      daurounds: const [],
+    );
+
+    GestureTapCallback? saveTap(WidgetTester tester) => tester
+        .widget<InkResponse>(
+          find.ancestor(
+            of: find.byIcon(Icons.save),
+            matching: find.byType(InkResponse),
+          ),
+        )
+        .onTap;
+
+    Future<void> tickComp(WidgetTester tester) async {
+      await tester.ensureVisible(find.byType(Checkbox));
+      await tester.tap(find.byType(Checkbox));
+      // The floating controls take the page's new Save a frame later.
+      await tester.pump();
+      await tester.pump();
+    }
+
+    setUp(() {
+      when(() => mockDauCompsViewModel.getDAUcomps())
+          .thenAnswer((_) async => <DAUComp>[comp]);
+    });
+
+    testWidgets('a tick is a draft that only Save writes', (tester) async {
+      await pumpEditPage(tester);
+      expect(saveTap(tester), isNull);
+
+      await tickComp(tester);
+
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+      expect(saveTap(tester), isNotNull);
+      verifyNever(
+        () => mockTippersViewModel.updateTipperAttribute(
+          any(),
+          'compsParticipatedIn',
+          any(),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.save));
+      await tester.pumpAndSettle();
+
+      verify(
+        () => mockTippersViewModel.updateTipperAttribute(
+          'tipper-1',
+          'compsParticipatedIn',
+          <String>['comp-2026'],
+        ),
+      ).called(1);
+    });
+
+    testWidgets('unticking again leaves nothing to save', (tester) async {
+      await pumpEditPage(tester);
+
+      await tickComp(tester);
+      await tickComp(tester);
+
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+      expect(saveTap(tester), isNull);
+    });
+
+    testWidgets('discarding a tick leaves the tipper unpaid', (tester) async {
+      await pumpEditPage(tester);
+      await tickComp(tester);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TipperAdminEditPage), findsNothing);
+      expect(tipper.compsPaidFor, isEmpty);
+      verifyNever(
+        () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+          acknowledgementLimit: any(named: 'acknowledgementLimit'),
+        ),
+      );
+    });
+  });
+
   testWidgets('Merge sits in the floating controls ahead of Save', (
     tester,
   ) async {

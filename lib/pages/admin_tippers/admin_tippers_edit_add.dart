@@ -10,6 +10,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:intl/intl.dart';
@@ -64,17 +65,20 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late String _originalEmail;
   late String _originalLogon;
   late bool _originalAdmin;
+  late Set<String> _originalPaidCompKeys;
+
+  /// The comps ticked as paid. A draft, like the fields, until Save writes it.
+  late Set<String> _paidCompKeys;
+
+  /// Fetched once, so ticking a comp does not reload the table.
+  late final Future<List<DAUComp>> _compsFuture;
 
   bool _hasDraftChanges = false;
   bool _manualSaveInProgress = false;
-  bool _paidForAutoSaveInProgress = false;
   bool _godModeChangeInProgress = false;
   bool _allowPop = false;
 
-  bool get _isBusy =>
-      _manualSaveInProgress ||
-      _paidForAutoSaveInProgress ||
-      _godModeChangeInProgress;
+  bool get _isBusy => _manualSaveInProgress || _godModeChangeInProgress;
   bool get _canSave => _hasDraftChanges && !_isBusy;
   bool get _shouldCollapseLogon =>
       _sameEmail(_tipperEmailController.text, _tipperLogonController.text);
@@ -112,6 +116,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     _originalEmail = tipper.email ?? '';
     _originalLogon = tipper.logon ?? '';
     _originalAdmin = admin;
+    _originalPaidCompKeys = {
+      for (final DAUComp comp in tipper.compsPaidFor) ?comp.dbkey,
+    };
+    _paidCompKeys = {..._originalPaidCompKeys};
+    _compsFuture = di<DAUCompsViewModel>().getDAUcomps();
   }
 
   @override
@@ -129,7 +138,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         _tipperNameController.text != _originalName ||
         _tipperEmailController.text != _originalEmail ||
         _tipperLogonController.text != _originalLogon ||
-        admin != _originalAdmin;
+        admin != _originalAdmin ||
+        !setEquals(_paidCompKeys, _originalPaidCompKeys);
 
     if (_hasDraftChanges == hasChanges && !forceRebuild) return;
     setState(() {
@@ -160,81 +170,15 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     return discard ?? false;
   }
 
-  void _setCompPaidForState(DAUComp comp, bool isPaid) {
-    final bool isAlreadyPaid = tipper.compsPaidFor.any(
-      (paidComp) => paidComp.dbkey == comp.dbkey,
-    );
-
-    if (isPaid && !isAlreadyPaid) {
-      tipper.compsPaidFor.add(comp);
+  void _setCompPaid(DAUComp comp, bool isPaid) {
+    final String? compKey = comp.dbkey;
+    if (compKey == null) return;
+    if (isPaid) {
+      _paidCompKeys.add(compKey);
+    } else {
+      _paidCompKeys.remove(compKey);
     }
-
-    if (!isPaid && isAlreadyPaid) {
-      tipper.compsPaidFor.removeWhere(
-        (paidComp) => paidComp.dbkey == comp.dbkey,
-      );
-    }
-  }
-
-  Future<void> _savePaidCompSelection(DAUComp comp, bool isPaid) async {
-    if (_isBusy || tipper.dbkey == null) return;
-
-    final bool previousValue = tipper.paidForComp(comp);
-    if (previousValue == isPaid) return;
-
-    setState(() {
-      _setCompPaidForState(comp, isPaid);
-      _paidForAutoSaveInProgress = true;
-    });
-
-    bool saveFailed = false;
-    bool saveQueued = false;
-    try {
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "compsParticipatedIn",
-        tipper.compsPaidFor.map((paidComp) => paidComp.dbkey).toList(),
-      );
-      await tippersViewModel.saveBatchOfTipperChangesToDb(
-        acknowledgementLimit: defaultWriteAcknowledgementLimit,
-      );
-    } on WriteNotConfirmedException catch (e) {
-      log('Paid competitions change for ${tipper.dbkey} is queued: $e');
-      saveQueued = true;
-    } on Exception catch (e) {
-      log(
-        'Failed to auto-save paid competitions change for ${tipper.dbkey}: $e',
-      );
-      saveFailed = true;
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      if (saveFailed) {
-        _setCompPaidForState(comp, previousValue);
-      }
-      _paidForAutoSaveInProgress = false;
-    });
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 2),
-        backgroundColor: saveFailed
-            ? Colors.red
-            : saveQueued
-            ? Colors.orange
-            : Colors.green,
-        content: Text(
-          saveFailed
-              ? 'Could not save paid status change. Please try again.'
-              : saveQueued
-              ? _queuedMessage('Paid status change')
-              : 'Paid status saved.',
-        ),
-      ),
-    );
+    _refreshDraftState(forceRebuild: true);
   }
 
   String _queuedMessage(String change) =>
@@ -297,7 +241,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       await tippersViewModel.updateTipperAttribute(
         tipper.dbkey!,
         "compsParticipatedIn",
-        tipper.compsPaidFor.map((comp) => comp.dbkey).toList(),
+        _paidCompKeys.toList(),
       );
 
       await tippersViewModel.saveBatchOfTipperChangesToDb(
@@ -541,16 +485,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                 : null,
                           ),
                           onChanged: (value) {
-                            setState(() {
-                              admin = value;
-                              _hasDraftChanges =
-                                  _tipperNameController.text != _originalName ||
-                                  _tipperEmailController.text !=
-                                      _originalEmail ||
-                                  _tipperLogonController.text !=
-                                      _originalLogon ||
-                                  admin != _originalAdmin;
-                            });
+                            admin = value;
+                            _refreshDraftState(forceRebuild: true);
                           },
                         ),
                       ],
@@ -667,7 +603,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                     // if the tipper is a paid up member, then show a tick
                     // allow the admin to edit which comps this tipper has paid for
                     FutureBuilder<List<DAUComp>>(
-                      future: di<DAUCompsViewModel>().getDAUcomps(),
+                      future: _compsFuture,
                       builder:
                           (
                             BuildContext context,
@@ -702,17 +638,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      if (_paidForAutoSaveInProgress)
-                                        const Padding(
-                                          padding: EdgeInsets.only(left: 8),
-                                          child: SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                   DataTable(
@@ -730,23 +655,18 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                             cells: [
                                               DataCell(
                                                 Checkbox(
-                                                  value: tipper.paidForComp(
-                                                    comp,
-                                                  ),
+                                                  value:
+                                                      tipper.isAnonymous ||
+                                                      _paidCompKeys.contains(
+                                                        comp.dbkey,
+                                                      ),
                                                   onChanged: _isBusy
                                                       ? null
-                                                      : (bool? value) {
-                                                          log(
-                                                            'Checkbox changed to $value',
-                                                          );
-                                                          if (value == null) {
-                                                            return;
-                                                          }
-                                                          _savePaidCompSelection(
-                                                            comp,
-                                                            value,
-                                                          );
-                                                        },
+                                                      : (bool? value) =>
+                                                            _setCompPaid(
+                                                              comp,
+                                                              value ?? false,
+                                                            ),
                                                 ),
                                               ),
                                               DataCell(Text(comp.name)),
