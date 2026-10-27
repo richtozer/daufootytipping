@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -104,8 +105,7 @@ class TippersViewModel extends ChangeNotifier {
     );
 
     if (snapshot.exists) {
-      List<Tipper?> tippersList =
-          await Tipper.fromJsonList(
+      List<Tipper?> tippersList = await Tipper.fromJsonList(
         snapshot.value,
         di<DAUCompsViewModel>().resolveCompsList,
       );
@@ -122,7 +122,6 @@ class TippersViewModel extends ChangeNotifier {
       // fresh Tipper objects from the stream. Without this, these
       // references go stale after every Firebase update.
       _refreshAuthenticatedTipperReference();
-
     } else {
       log(
         'TippersViewModel() Tipper db Listener: No tippers found in database',
@@ -476,10 +475,19 @@ class TippersViewModel extends ChangeNotifier {
   /// When [tipper] is a cached copy (empty [compsPaidFor]) but the
   /// Firebase stream has already populated [_tippers], this method
   /// promotes to the fresh object so downstream consumers see full data.
+  ///
+  /// The sign-in page calls this whenever it rebuilds, so a call for the
+  /// tipper already signed in keeps any god mode selection.
   void setAuthenticatedTipper(Tipper tipper) {
     tipper = _promoteToFreshTipperReference(tipper);
+    final bool keepGodModeSelection =
+        _authenticatedTipper != null &&
+        _authenticatedTipper?.dbkey == tipper.dbkey &&
+        inGodMode;
     _authenticatedTipper = tipper;
-    _selectedTipper = tipper;
+    if (!keepGodModeSelection) {
+      _selectedTipper = tipper;
+    }
     // Cached tipper with empty compsPaidFor should not unblock stats until
     // the Firebase tippers stream has populated fresh references.
     unawaited(
@@ -529,9 +537,7 @@ class TippersViewModel extends ChangeNotifier {
             : _authenticatedTipper!;
         _authenticatedTipper = tipperToUse;
         _selectedTipper = tipperToUse;
-        await _completeIsUserLinkedWhenReady(
-          awaitMessagingRegistration: true,
-        );
+        await _completeIsUserLinkedWhenReady(awaitMessagingRegistration: true);
       }
 
       return userIsLinked;

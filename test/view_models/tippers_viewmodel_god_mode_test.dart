@@ -76,5 +76,28 @@ void main() {
       expect(viewModel.selectedTipper, same(adminTipper));
       expect(notificationCount, 1);
     });
+
+    test(
+      'keeps god mode when the same tipper is set as authenticated again',
+      () async {
+        await viewModel.changeSelectedTipperAfterRefresh(
+          godModeTipper,
+          refreshSelectedTipperViewModels: () async {},
+        );
+
+        viewModel.setAuthenticatedTipper(adminTipper);
+
+        expect(viewModel.selectedTipper, same(godModeTipper));
+        expect(viewModel.inGodMode, isTrue);
+      },
+    );
+
+    test('selects a newly authenticated tipper', () {
+      viewModel.setAuthenticatedTipper(godModeTipper);
+
+      expect(viewModel.authenticatedTipper, same(godModeTipper));
+      expect(viewModel.selectedTipper, same(godModeTipper));
+      expect(viewModel.inGodMode, isFalse);
+    });
   });
 }
