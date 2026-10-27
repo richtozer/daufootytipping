@@ -470,6 +470,20 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       child: AppAdminPage(
         title: 'Edit Tipper',
         actions: [
+          AppGlassAction.text(
+            label: 'Merge',
+            onPressed: _isBusy
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdminTipperMergeEditPage(
+                        widget.tippersViewModel,
+                        tipper,
+                      ),
+                    ),
+                  ),
+          ),
           ?_godModeAction(context),
           AppGlassAction(
             icon: _manualSaveInProgress ? Icons.hourglass_bottom : Icons.save,
@@ -513,6 +527,31 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             },
                             onChanged: (_) => _refreshDraftState(),
                           ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'DAU\nAdmin:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Switch(
+                          value: admin,
+                          thumbColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Colors.orange
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              admin = value;
+                              _hasDraftChanges =
+                                  _tipperNameController.text != _originalName ||
+                                  _tipperEmailController.text !=
+                                      _originalEmail ||
+                                  _tipperLogonController.text !=
+                                      _originalLogon ||
+                                  admin != _originalAdmin;
+                            });
+                          },
                         ),
                       ],
                     ),
@@ -724,51 +763,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   ],
                 ),
               ),
-              const Spacer(),
-              Row(
-                children: [
-                  const Text(
-                    'DAU\nAdmin:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Switch(
-                    value: admin,
-                    thumbColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? Colors.orange
-                          : null,
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        admin = value;
-                        _hasDraftChanges =
-                            _tipperNameController.text != _originalName ||
-                            _tipperEmailController.text != _originalEmail ||
-                            _tipperLogonController.text != _originalLogon ||
-                            admin != _originalAdmin;
-                      });
-                    },
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: _isBusy
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AdminTipperMergeEditPage(
-                                  widget.tippersViewModel,
-                                  tipper,
-                                ),
-                              ),
-                            );
-                          },
-                    child: const Text('Merge...'),
-                  ),
-                ],
-              ),
-              const Spacer(),
             ],
           ),
         ),

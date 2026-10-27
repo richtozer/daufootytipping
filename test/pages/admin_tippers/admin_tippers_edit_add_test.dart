@@ -263,6 +263,19 @@ void main() {
     );
   });
 
+  testWidgets('Merge sits in the floating controls ahead of Save', (
+    tester,
+  ) async {
+    await pumpEditPage(tester);
+
+    expect(find.text('Merge'), findsOneWidget);
+    expect(find.byType(ElevatedButton), findsNothing);
+    expect(
+      tester.getCenter(find.text('Merge')).dx,
+      lessThan(tester.getCenter(find.byIcon(Icons.save)).dx),
+    );
+  });
+
   group('god mode action', () {
     late TippersViewModel realTippersViewModel;
     late Tipper authenticatedAdmin;
