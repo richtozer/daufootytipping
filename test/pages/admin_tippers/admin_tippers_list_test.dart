@@ -8,6 +8,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -136,6 +137,26 @@ void main() {
       tester.getTopLeft(find.text('admin')).dx,
       tester.getTopLeft(find.text('Maree')).dx,
     );
+    expect(
+      tester.widget<Text>(find.text('admin')).style?.fontWeight,
+      FontWeight.bold,
+    );
+    expect(
+      tester.widget<Text>(find.text('Maree')).style?.fontWeight,
+      isNot(FontWeight.bold),
+    );
+  });
+
+  testWidgets('shows the last login date without the time', (tester) async {
+    await openPage(tester);
+
+    expect(
+      find.text(
+        DateFormat('dd MMM yy').format(DateTime.utc(2026, 3, 7).toLocal()),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining(':'), findsNothing);
   });
 
   testWidgets('the Paid heading turns on its side on a phone', (tester) async {

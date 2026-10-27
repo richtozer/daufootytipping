@@ -565,9 +565,11 @@ class _AppTableState extends State<AppTable> {
     final value = cell.text;
     Widget child;
     if (value != null) {
-      Widget line(String text) => Text(
+      Widget line(String text, {bool first = true}) => Text(
         text,
-        style: body.merge(cell.style),
+        style: first
+            ? body.merge(cell.style)
+            : body.merge(cell.style).merge(cell.laterLinesStyle),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: column.numeric ? TextAlign.end : TextAlign.start,
@@ -580,8 +582,9 @@ class _AppTableState extends State<AppTable> {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                for (final text in value.split('\n').take(cell.maxLines))
-                  line(text),
+                for (final (lineIndex, text)
+                    in value.split('\n').take(cell.maxLines).indexed)
+                  line(text, first: lineIndex == 0),
               ],
             );
       if (cell.leading != null) {

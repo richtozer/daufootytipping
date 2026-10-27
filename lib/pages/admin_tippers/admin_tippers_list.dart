@@ -332,6 +332,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
                     ? '${tipper.name}\nadmin'
                     : tipper.name,
                 maxLines: 2,
+                laterLinesStyle: const TextStyle(fontWeight: FontWeight.bold),
                 leadingSize: const Size.square(_avatarSize),
                 leading: avatarPic(tipper),
                 semanticLabel: tipper.tipperRole == TipperRole.admin
@@ -350,7 +351,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     if (dateTime == null) {
       return '?';
     }
-    return DateFormat('dd MMM yy HH:mm').format(dateTime.toLocal());
+    return DateFormat('dd MMM yy').format(dateTime.toLocal());
   }
 
   Widget avatarPic(Tipper tipper) {

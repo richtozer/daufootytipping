@@ -54,6 +54,7 @@ class AppCell {
     this.leading,
     this.leadingSize = Size.zero,
     this.maxLines = 1,
+    this.laterLinesStyle,
     String? semanticLabel,
   }) : text = value,
        child = null,
@@ -72,7 +73,8 @@ class AppCell {
        style = null,
        leading = null,
        leadingSize = Size.zero,
-       maxLines = 1;
+       maxLines = 1,
+       laterLinesStyle = null;
 
   /// The forward arrow that ends a row which opens something, to sit under an
   /// [AppColumn.navigation]. The row itself is the control, so the arrow carries
@@ -91,6 +93,10 @@ class AppCell {
   /// Explicit lines remain measurable; long content still elides per cell.
   final int maxLines;
   final TextStyle? style;
+
+  /// Merged over [style] for the lines after the first, such as a label under a
+  /// name. Measured with it, so the column is wide enough for those lines.
+  final TextStyle? laterLinesStyle;
   final Widget? child;
   final Widget? leading;
   final Size leadingSize;

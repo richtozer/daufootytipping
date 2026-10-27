@@ -71,7 +71,24 @@ class AppTableMetrics {
           final leading = cell.leading == null
               ? 0.0
               : cell.leadingSize.width + 8;
-          final size = value == null ? cell.intrinsicSize : text(value, style);
+          final Size size;
+          final TextStyle? laterLinesStyle = cell.laterLinesStyle;
+          if (value == null) {
+            size = cell.intrinsicSize;
+          } else if (laterLinesStyle == null || !value.contains('\n')) {
+            size = text(value, style);
+          } else {
+            final lines = value.split('\n').take(cell.maxLines).toList();
+            final sizes = [
+              text(lines.first, style),
+              for (final line in lines.skip(1))
+                text(line, style.merge(laterLinesStyle)),
+            ];
+            size = Size(
+              sizes.map((lineSize) => lineSize.width).reduce(math.max),
+              sizes.fold(0.0, (sum, lineSize) => sum + lineSize.height),
+            );
+          }
           if (!size.width.isFinite ||
               !size.height.isFinite ||
               size.width < 0 ||
