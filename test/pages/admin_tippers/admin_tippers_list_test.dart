@@ -120,14 +120,31 @@ void main() {
     expect(shown(tester), ['Alex', 'Maree', 'Zara']);
   });
 
-  testWidgets('tapping the Role heading sorts by role', (tester) async {
+  testWidgets('marks admins under their name, with no Role column', (
+    tester,
+  ) async {
     await openPage(tester);
 
-    await tester.tap(find.text('Role'));
-    await tester.pumpAndSettle();
+    expect(find.text('Role'), findsNothing);
+    expect(find.text('admin'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('admin')).dy,
+      greaterThan(tester.getTopLeft(find.text('Maree')).dy),
+      reason: 'admin sits under the name',
+    );
+    expect(
+      tester.getTopLeft(find.text('admin')).dx,
+      tester.getTopLeft(find.text('Maree')).dx,
+    );
+  });
 
-    // admin sorts before tipper, then by name within a role.
-    expect(shown(tester), ['Maree', 'Alex', 'Zara']);
+  testWidgets('the Paid heading turns on its side on a phone', (tester) async {
+    await openPage(tester);
+
+    expect(
+      find.ancestor(of: find.text('Paid'), matching: find.byType(RotatedBox)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the filter narrows the rows', (tester) async {

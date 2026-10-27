@@ -1,4 +1,5 @@
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
@@ -21,11 +22,13 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 
 class _TippersAdminPageState extends State<TippersAdminPage> {
   static const _columns = [
+    // An admin is marked under their name rather than in a Role column, and
+    // Paid is a narrow column whose heading the table can turn on its side, so
+    // a narrow screen keeps its width for the names.
     AppColumn.text('Name', sortable: true),
-    AppColumn.text('Role', sortable: true),
     AppColumn.text('Last login', sortable: true, descendingFirst: true),
     AppColumn.text('Logon', sortable: true),
-    AppColumn.text('Paid', sortable: true, descendingFirst: true),
+    AppColumn.numeric('Paid', sortable: true),
     AppColumn.navigation(),
   ];
   static const double _avatarSize = 40;
@@ -33,7 +36,7 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
   late final ScrollController _scrollController;
   late final TextEditingController _searchController;
   // Most recent logon first, so the people using the app now are at the top.
-  int _sortColumn = 2;
+  int _sortColumn = 1;
   bool _ascending = false;
 
   @override
@@ -285,16 +288,15 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     final sorted = [...tippers]
       ..sort((a, b) {
         final primary = switch (_sortColumn) {
-          1 => a.tipperRole.name.compareTo(b.tipperRole.name),
-          2 =>
+          1 =>
             (a.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0))
                 .compareTo(
                   b.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0),
                 ),
-          3 => (a.logon ?? '').toLowerCase().compareTo(
+          2 => (a.logon ?? '').toLowerCase().compareTo(
             (b.logon ?? '').toLowerCase(),
           ),
-          4 => (_paidForCurrentComp(a) ? 1 : 0).compareTo(
+          3 => (_paidForCurrentComp(a) ? 1 : 0).compareTo(
             _paidForCurrentComp(b) ? 1 : 0,
           ),
           _ => byName(a, b),
@@ -326,11 +328,16 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             ),
             cells: [
               AppCell.text(
-                tipper.name,
+                tipper.tipperRole == TipperRole.admin
+                    ? '${tipper.name}\nadmin'
+                    : tipper.name,
+                maxLines: 2,
                 leadingSize: const Size.square(_avatarSize),
                 leading: avatarPic(tipper),
+                semanticLabel: tipper.tipperRole == TipperRole.admin
+                    ? '${tipper.name}, admin'
+                    : tipper.name,
               ),
-              AppCell.text(tipper.tipperRole.name),
               AppCell.text(formatDateTime(tipper.acctLoggedOnUTC)),
               AppCell.text(tipper.logon ?? ''),
               AppCell.text(_paidForCurrentComp(tipper) ? '\$' : ''),
