@@ -433,6 +433,31 @@ void main() {
       );
     });
 
+    testWidgets(
+      'a text button shows its label a word to a line, at the same size',
+      (tester) async {
+        var pressed = 0;
+        await tester.pumpWidget(
+          _host(
+            AppGlassButton(
+              action: AppGlassAction.text(
+                label: 'Exit God Mode',
+                onPressed: () => pressed++,
+              ),
+            ),
+          ),
+        );
+        expect(find.bySemanticsLabel('Exit God Mode'), findsOneWidget);
+        await tester.tap(find.text('Exit\nGod\nMode'));
+        expect(pressed, 1);
+        expect(
+          tester.getSize(find.byType(AppGlassButton)),
+          const Size.square(kGlassHorizontalThickness),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('a group routes each tap to its own action', (tester) async {
       final pressed = <String>[];
       AppGlassAction action(IconData icon, String label) => AppGlassAction(

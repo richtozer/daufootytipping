@@ -291,7 +291,7 @@ void main() {
     });
 
     testWidgets(
-      'waits for the tip view model refresh, then returns to the home page',
+      'waits for the tip view model refresh, then goes back to the tipper list',
       (tester) async {
         final refreshCompleter = Completer<void>();
         var notificationCount = 0;
@@ -302,7 +302,7 @@ void main() {
             .thenAnswer((_) => refreshCompleter.future);
 
         await pumpEditPage(tester);
-        await tester.tap(find.byIcon(Icons.visibility));
+        await tester.tap(find.text('God\nMode'));
         await tester.pump();
 
         expect(realTippersViewModel.selectedTipper, same(tipper));
@@ -328,7 +328,7 @@ void main() {
       );
 
       await pumpEditPage(tester);
-      await tester.tap(find.byIcon(Icons.visibility_off));
+      await tester.tap(find.text('Exit\nGod\nMode'));
       await tester.pumpAndSettle();
 
       expect(realTippersViewModel.selectedTipper, same(authenticatedAdmin));
@@ -341,7 +341,7 @@ void main() {
           .thenAnswer((_) async => throw StateError('refresh failed'));
 
       await pumpEditPage(tester);
-      await tester.tap(find.byIcon(Icons.visibility));
+      await tester.tap(find.text('God\nMode'));
       await tester.pumpAndSettle();
 
       expect(realTippersViewModel.inGodMode, isFalse);

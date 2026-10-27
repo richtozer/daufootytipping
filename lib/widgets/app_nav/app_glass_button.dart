@@ -2,18 +2,23 @@ import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_surface.dart';
 import 'package:flutter/material.dart';
 
-/// One symbol-only action. [label] names it for screen readers, since
+/// One action, shown as a symbol. [label] names it for screen readers, since
 /// the symbol carries no text of its own. There is no tooltip: the controls sit
 /// above the Navigator, where no Overlay exists to show one.
 @immutable
 class AppGlassAction {
   const AppGlassAction({
-    required this.icon,
+    required IconData this.icon,
     required this.label,
     required this.onPressed,
   });
 
-  final IconData icon;
+  /// An action with no fitting symbol, which shows its [label] instead, one
+  /// word to a line, in a button the same size as the others.
+  const AppGlassAction.text({required this.label, required this.onPressed})
+    : icon = null;
+
+  final IconData? icon;
   final String label;
   final VoidCallback? onPressed;
 }
@@ -104,7 +109,38 @@ class _ActionIcon extends StatelessWidget {
           child: Center(
             child: Opacity(
               opacity: action.onPressed == null ? 0.4 : 1,
-              child: Icon(action.icon, size: iconSize, color: style.foreground),
+              child: _content(style),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _content(AppGlassStyle style) {
+    final IconData? icon = action.icon;
+    if (icon != null) {
+      return Icon(icon, size: iconSize, color: style.foreground);
+    }
+    // The label is already the button's semantics, so the text is not read
+    // out a second time. It scales down rather than overflow at large text
+    // sizes, since the button keeps the size of its neighbours.
+    return ExcludeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.all(kGlassPadding),
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: kGlassMaxLabelTextScale,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              action.label.split(' ').join('\n'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: style.foreground,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: kGlassLabelLineHeight,
+              ),
             ),
           ),
         ),

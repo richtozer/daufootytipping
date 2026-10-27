@@ -369,15 +369,14 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     if (di<DAUCompsViewModel>().selectedDAUComp == null) return null;
     final TippersViewModel viewModel = di<TippersViewModel>();
     final bool isGodModeTipper = _isGodModeTipper(viewModel);
-    return AppGlassAction(
-      icon: isGodModeTipper ? Icons.visibility_off : Icons.visibility,
-      label: isGodModeTipper ? 'Exit god mode' : 'God mode',
+    return AppGlassAction.text(
+      label: isGodModeTipper ? 'Exit God Mode' : 'God Mode',
       onPressed: _isBusy ? null : () => _onGodModePressed(context, viewModel),
     );
   }
 
   /// Turns god mode on for this tipper, or off if it is already on for them,
-  /// then returns to the home page to see the app as the selected tipper.
+  /// then goes back to the tipper list.
   Future<void> _onGodModePressed(
     BuildContext context,
     TippersViewModel viewModel,
@@ -449,7 +448,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         ),
       );
     }
-    navigator.popUntil((Route<dynamic> route) => route.isFirst);
+    navigator.pop();
   }
 
   @override
