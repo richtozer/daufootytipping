@@ -315,6 +315,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     final bool isGodModeTipper = _isGodModeTipper(viewModel);
     return AppGlassAction.text(
       label: isGodModeTipper ? 'Exit God Mode' : 'God Mode',
+      // Red, as the god mode banner and the god mode tipper's row are.
+      colour: isGodModeTipper ? Colors.red : null,
       onPressed: _isBusy ? null : () => _onGodModePressed(context, viewModel),
     );
   }

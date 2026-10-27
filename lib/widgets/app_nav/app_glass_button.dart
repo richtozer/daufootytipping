@@ -11,16 +11,25 @@ class AppGlassAction {
     required IconData this.icon,
     required this.label,
     required this.onPressed,
+    this.colour,
   });
 
   /// An action with no fitting symbol, which shows its [label] instead, one
   /// word to a line, in a button the same size as the others.
-  const AppGlassAction.text({required this.label, required this.onPressed})
-    : icon = null;
+  const AppGlassAction.text({
+    required this.label,
+    required this.onPressed,
+    this.colour,
+  }) : icon = null;
 
   final IconData? icon;
   final String label;
   final VoidCallback? onPressed;
+
+  /// A fill of its own in place of the green, with white on it, for an action
+  /// that has to stand apart, such as leaving god mode. A disabled action
+  /// still takes the plain frosted fill.
+  final Color? colour;
 }
 
 /// A single action as a floating glass square, such as Back.
@@ -42,6 +51,7 @@ class AppGlassButton extends StatelessWidget {
     // frosted fill; the dimmed icon alone left it looking live.
     return AppGlassSurface(
       selectedFill: action.onPressed != null,
+      fillColour: action.onPressed == null ? null : action.colour,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kGlassOuterRadius),
       ),
@@ -118,9 +128,12 @@ class _ActionIcon extends StatelessWidget {
   }
 
   Widget _content(AppGlassStyle style) {
+    final Color foreground = action.colour != null && action.onPressed != null
+        ? Colors.white
+        : style.foreground;
     final IconData? icon = action.icon;
     if (icon != null) {
-      return Icon(icon, size: iconSize, color: style.foreground);
+      return Icon(icon, size: iconSize, color: foreground);
     }
     // The label is already the button's semantics, so the text is not read
     // out a second time. It scales down rather than overflow at large text
@@ -136,7 +149,7 @@ class _ActionIcon extends StatelessWidget {
               action.label.split(' ').join('\n'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: style.foreground,
+                color: foreground,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 height: kGlassLabelLineHeight,

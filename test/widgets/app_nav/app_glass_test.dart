@@ -458,6 +458,58 @@ void main() {
       },
     );
 
+    testWidgets('an action with its own colour fills with it, under white', (
+      tester,
+    ) async {
+      Color? surfaceColour() => tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(AppGlassButton),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((box) => box.decoration)
+          .whereType<ShapeDecoration>()
+          .firstWhere((decoration) => decoration.color != null)
+          .color;
+
+      await tester.pumpWidget(
+        _host(
+          AppGlassButton(
+            action: AppGlassAction.text(
+              label: 'Exit God Mode',
+              colour: Colors.red,
+              onPressed: () {},
+            ),
+          ),
+          brightness: Brightness.dark,
+        ),
+      );
+      expect(surfaceColour(), Colors.red);
+      expect(
+        tester.widget<Text>(find.text('Exit\nGod\nMode')).style?.color,
+        Colors.white,
+      );
+
+      await tester.pumpWidget(
+        _host(
+          const AppGlassButton(
+            action: AppGlassAction.text(
+              label: 'Exit God Mode',
+              colour: Colors.red,
+              onPressed: null,
+            ),
+          ),
+          brightness: Brightness.dark,
+        ),
+      );
+      expect(
+        surfaceColour(),
+        AppGlassStyle.dark.fill,
+        reason: 'a disabled action takes the plain frosted fill',
+      );
+    });
+
     testWidgets('a group routes each tap to its own action', (tester) async {
       final pressed = <String>[];
       AppGlassAction action(IconData icon, String label) => AppGlassAction(

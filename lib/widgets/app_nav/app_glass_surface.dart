@@ -13,6 +13,7 @@ class AppGlassSurface extends StatelessWidget {
     required this.shape,
     required this.child,
     this.selectedFill = false,
+    this.fillColour,
   });
 
   /// The outline.
@@ -22,6 +23,9 @@ class AppGlassSurface extends StatelessWidget {
   /// Draws it in the green of a selected tab, as Back and the page actions are,
   /// instead of the plain frosted fill of the tab pill.
   final bool selectedFill;
+
+  /// A fill of the control's own, such as the god mode red, in place of both.
+  final Color? fillColour;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +62,9 @@ class AppGlassSurface extends StatelessWidget {
             ),
             child: DecoratedBox(
               decoration: ShapeDecoration(
-                color: selectedFill ? style.selectedFill : style.fill,
+                color:
+                    fillColour ??
+                    (selectedFill ? style.selectedFill : style.fill),
                 shape: shape,
               ),
               child: child,
