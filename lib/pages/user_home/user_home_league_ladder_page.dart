@@ -505,7 +505,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
       // The comparison stacks the ladder above the historical matchups on a
       // page that scrolls as a whole, so the table is only as tall as its rows.
       fitToRows: _isComparisonMode,
-      scrollbarColour: widget.league.colour,
+      // The AFL ladder keeps the AFL red; other tables take the nav green.
+      scrollbarColour: widget.league == League.afl ? League.afl.colour : null,
     );
   }
 

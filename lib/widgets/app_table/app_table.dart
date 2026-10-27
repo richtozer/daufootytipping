@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
@@ -154,9 +154,10 @@ class _AppTableState extends State<AppTable> {
                 itemBuilder: (context, index) =>
                     _row(context, layout, heading, body, index),
               );
-        // A league colour, in both modes: strong enough to stand out from the
-        // pale green row shading.
-        final thumb = widget.scrollbarColour ?? League.nrl.colour;
+        // The green of the floating nav buttons, so the bars read as part of
+        // the same controls. A page about one league can pass its own colour.
+        final thumb =
+            widget.scrollbarColour ?? AppGlassStyle.of(context).selectedFill;
         // The lanes a bar runs in are a shade off the rows, so the bar sits on a
         // track of its own rather than melting into a white or shaded row.
         final trackColour = Color.alphaBlend(

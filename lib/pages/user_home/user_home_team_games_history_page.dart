@@ -276,7 +276,6 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
                               ascending: _sortAscending,
                             ),
                       onSort: _onSort,
-                      scrollbarColour: widget.league.colour,
                     ),
                   ),
           ),

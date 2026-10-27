@@ -1,3 +1,4 @@
+import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -104,6 +105,38 @@ void main() {
       (bar) => bar.scrollbarOrientation == ScrollbarOrientation.bottom,
     );
     expect(horizontal.padding, EdgeInsets.zero);
+  });
+
+  testWidgets('scrollbars take the nav green unless given a colour', (
+    tester,
+  ) async {
+    Future<Set<Color?>> thumbs({Color? scrollbarColour}) async {
+      tester.view.physicalSize = const Size(250, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(fontFamily: 'Roboto'),
+          home: Scaffold(
+            body: AppTable(
+              columns: tableColumns,
+              rows: tableRows(),
+              scrollbarColour: scrollbarColour,
+            ),
+          ),
+        ),
+      );
+      return {
+        for (final bar in tester.widgetList<RawScrollbar>(
+          find.byType(RawScrollbar),
+        ))
+          bar.thumbColor,
+      };
+    }
+
+    expect(await thumbs(), {AppGlassStyle.light.selectedFill});
+    expect(await thumbs(scrollbarColour: Colors.red), {Colors.red});
   });
 
   testWidgets('the heading carries on over the scrollbar lane', (tester) async {

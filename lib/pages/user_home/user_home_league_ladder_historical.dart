@@ -51,10 +51,16 @@ class _LeagueLadderHistoricalMatchupsState
     final values = <Object?>[
       isDarkMode,
       for (final matchup in matchups) ...[
-        matchup.month, matchup.year, matchup.isCurrentYear, matchup.winType,
-        matchup.userTipTeamName, matchup.winningTeamName,
-        matchup.pastGame.scoring?.homeTeamScore, matchup.pastGame.scoring?.awayTeamScore,
-        matchup.pastGame.homeTeam.logoURI, matchup.pastGame.awayTeam.logoURI,
+        matchup.month,
+        matchup.year,
+        matchup.isCurrentYear,
+        matchup.winType,
+        matchup.userTipTeamName,
+        matchup.winningTeamName,
+        matchup.pastGame.scoring?.homeTeamScore,
+        matchup.pastGame.scoring?.awayTeamScore,
+        matchup.pastGame.homeTeam.logoURI,
+        matchup.pastGame.awayTeam.logoURI,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
@@ -65,15 +71,23 @@ class _LeagueLadderHistoricalMatchupsState
         ? Colors.lightGreen[900]
         : Colors.lightGreen[200];
     _rows = [
-      for (final matchup in matchups) AppRow(
-        colour: _tippedCorrectly(matchup) ? correctColour : null,
-        cells: [
-          AppCell.text(matchup.isCurrentYear ? matchup.month : '${matchup.month} ${matchup.year}'),
-          _tipCell(matchup),
-          _winnerCell(matchup),
-          AppCell.text('${matchup.pastGame.scoring?.homeTeamScore ?? '-'} - '
-            '${matchup.pastGame.scoring?.awayTeamScore ?? '-'}'),
-        ]),
+      for (final matchup in matchups)
+        AppRow(
+          colour: _tippedCorrectly(matchup) ? correctColour : null,
+          cells: [
+            AppCell.text(
+              matchup.isCurrentYear
+                  ? matchup.month
+                  : '${matchup.month} ${matchup.year}',
+            ),
+            _tipCell(matchup),
+            _winnerCell(matchup),
+            AppCell.text(
+              '${matchup.pastGame.scoring?.homeTeamScore ?? '-'} - '
+              '${matchup.pastGame.scoring?.awayTeamScore ?? '-'}',
+            ),
+          ],
+        ),
     ];
     return _rows;
   }
@@ -84,24 +98,39 @@ class _LeagueLadderHistoricalMatchupsState
 
   AppCell _tipCell(HistoricalMatchupUIData matchup) {
     if (matchup.userTipTeamName.isEmpty) {
-      return const AppCell.text('N/A',
-        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic));
+      return const AppCell.text(
+        'N/A',
+        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+      );
     }
-    return AppCell.text(matchup.userTipTeamName,
-      semanticLabel: '${matchup.userTipTeamName}, ${_tippedCorrectly(matchup) ? 'correct' : 'incorrect'} tip');
+    return AppCell.text(
+      matchup.userTipTeamName,
+      semanticLabel:
+          '${matchup.userTipTeamName}, ${_tippedCorrectly(matchup) ? 'correct' : 'incorrect'} tip',
+    );
   }
 
   AppCell _winnerCell(HistoricalMatchupUIData matchup) {
     final home = matchup.winType == 'Home';
     final hasWinner = home || matchup.winType == 'Away';
     final label = home ? 'Home' : 'Away';
-    return AppCell.text(matchup.winningTeamName,
-      style: TextStyle(fontWeight: matchup.winType == 'Draw'
-          ? FontWeight.normal : FontWeight.w500),
-      semanticLabel: hasWinner ? '$label, ${matchup.winningTeamName}' : matchup.winningTeamName,
+    return AppCell.text(
+      matchup.winningTeamName,
+      style: TextStyle(
+        fontWeight: matchup.winType == 'Draw'
+            ? FontWeight.normal
+            : FontWeight.w500,
+      ),
+      semanticLabel: hasWinner
+          ? '$label, ${matchup.winningTeamName}'
+          : matchup.winningTeamName,
       leadingSize: hasWinner ? const Size(20, 20) : Size.zero,
       leading: hasWinner
-          ? _buildTeamLogo(home ? matchup.pastGame.homeTeam.logoURI : matchup.pastGame.awayTeam.logoURI)
+          ? _buildTeamLogo(
+              home
+                  ? matchup.pastGame.homeTeam.logoURI
+                  : matchup.pastGame.awayTeam.logoURI,
+            )
           : null,
     );
   }
@@ -331,8 +360,7 @@ class _LeagueLadderHistoricalMatchupsState
       heading: const AppTableHeading(
         leading: Icon(Icons.history, size: 50),
         title: 'Historical Matchups',
-        description:
-            'Recent head-to-head history between these teams. Includes your tipping history (where available). Green shading marks games you tipped correctly.',
+        description: 'Recent head-to-head history between these teams. Includes your tipping history (where available). Green shading marks games you tipped correctly.',
       ),
       table: _matchupsTable(context),
     );
@@ -383,19 +411,17 @@ class _LeagueLadderHistoricalMatchupsState
     return Padding(
       padding: const EdgeInsets.all(5.0),
       child: AppTable(
-          columns: columns,
-          rows: _tableRows(context),
-          frozenLeading: 1,
-          sort: sortColumn == null
-              ? null
-              : AppSort(
-                  column: sortColumn,
-                  ascending: _historicalSortAscending,
-                ),
-          onSort: _onHistoricalSort,
-          fitToRows: true,
-          scrollbarColour: widget.league.colour,
-        ),
+        columns: columns,
+        rows: _tableRows(context),
+        frozenLeading: 1,
+        sort: sortColumn == null
+            ? null
+            : AppSort(column: sortColumn, ascending: _historicalSortAscending),
+        onSort: _onHistoricalSort,
+        fitToRows: true,
+        // The AFL ladder keeps the AFL red; other tables take the nav green.
+        scrollbarColour: widget.league == League.afl ? League.afl.colour : null,
+      ),
     );
   }
 }
