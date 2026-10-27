@@ -310,11 +310,12 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
         for (final tipper in _sorted(tippers))
           AppRow(
             key: ValueKey(tipper.dbkey),
-            // A tipper in god mode is tinted red.
+            // A tipper in god mode takes the god mode banner's red, which is
+            // strong enough for the row's text in light and dark mode alike.
             colour:
                 tipperViewModel.inGodMode &&
                     tipper.dbkey == tipperViewModel.selectedTipper.dbkey
-                ? Colors.red[100]
+                ? Colors.red
                 : null,
             onTap: () => Navigator.push(
               context,
