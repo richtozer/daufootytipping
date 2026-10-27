@@ -31,7 +31,10 @@ void main() {
     await tester.pumpWidget(
       // A Scaffold underneath, as the tippers list is in the app, so a snackbar
       // shown as the edit page closes has somewhere to appear.
-      appWithControls(appControls, home: const Scaffold(body: SizedBox.shrink())),
+      appWithControls(
+        appControls,
+        home: const Scaffold(body: SizedBox.shrink()),
+      ),
     );
     tester
         .state<NavigatorState>(find.byType(Navigator))
@@ -81,8 +84,7 @@ void main() {
       () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
         acknowledgementLimit: any(named: 'acknowledgementLimit'),
       ),
-    )
-        .thenAnswer((_) async {});
+    ).thenAnswer((_) async {});
 
     di.registerSingleton<DAUCompsViewModel>(mockDauCompsViewModel);
   });
@@ -261,11 +263,13 @@ void main() {
     );
   });
 
-  testWidgets(
-    'god mode switch waits for tip view model refresh before notify',
-    (tester) async {
-      final realTippersViewModel = TippersViewModel(true, skipInit: true);
-      final authenticatedAdmin = Tipper(
+  group('god mode button', () {
+    late TippersViewModel realTippersViewModel;
+    late Tipper authenticatedAdmin;
+
+    setUp(() {
+      realTippersViewModel = TippersViewModel(true, skipInit: true);
+      authenticatedAdmin = Tipper(
         dbkey: 'admin-auth',
         authuid: 'auth-admin',
         email: 'admin@example.com',
@@ -273,40 +277,83 @@ void main() {
         tipperRole: TipperRole.admin,
         compsPaidFor: const [],
       );
-      final selectedComp = DAUComp(
-        dbkey: 'comp-1',
-        name: 'Comp',
-        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
-        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
-        daurounds: const [],
-      );
-      final refreshCompleter = Completer<void>();
-      var notificationCount = 0;
-
       realTippersViewModel.setLinkedTippersForTest(authenticatedAdmin);
-      realTippersViewModel.addListener(() {
-        notificationCount++;
-      });
       di.registerSingleton<TippersViewModel>(realTippersViewModel);
-      when(() => mockDauCompsViewModel.selectedDAUComp)
-          .thenReturn(selectedComp);
+      when(() => mockDauCompsViewModel.selectedDAUComp).thenReturn(
+        DAUComp(
+          dbkey: 'comp-1',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+          nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+          daurounds: const [],
+        ),
+      );
+    });
+
+    testWidgets(
+      'waits for the tip view model refresh, then returns to the home page',
+      (tester) async {
+        final refreshCompleter = Completer<void>();
+        var notificationCount = 0;
+        realTippersViewModel.addListener(() {
+          notificationCount++;
+        });
+        when(() => mockDauCompsViewModel.selectedTipperChanged())
+            .thenAnswer((_) => refreshCompleter.future);
+
+        await pumpEditPage(tester);
+        expect(find.text('God mode'), findsOneWidget);
+
+        await tester.tap(find.byKey(TipperAdminEditPage.godModeButtonKey));
+        await tester.pump();
+
+        expect(realTippersViewModel.selectedTipper, same(tipper));
+        expect(notificationCount, 0);
+        expect(find.byType(TipperAdminEditPage), findsOneWidget);
+
+        refreshCompleter.complete();
+        await tester.pumpAndSettle();
+
+        expect(notificationCount, 1);
+        expect(realTippersViewModel.inGodMode, isTrue);
+        expect(find.byType(TipperAdminEditPage), findsNothing);
+        verify(() => mockDauCompsViewModel.selectedTipperChanged()).called(1);
+      },
+    );
+
+    testWidgets('exits god mode for the tipper it is on for', (tester) async {
       when(() => mockDauCompsViewModel.selectedTipperChanged())
-          .thenAnswer((_) => refreshCompleter.future);
+          .thenAnswer((_) async {});
+      await realTippersViewModel.changeSelectedTipperAfterRefresh(
+        tipper,
+        refreshSelectedTipperViewModels: () async {},
+      );
 
       await pumpEditPage(tester);
+      expect(find.text('Exit god mode'), findsOneWidget);
 
-      await tester.tap(find.byKey(TipperAdminEditPage.godModeSwitchKey));
-      await tester.pump();
+      await tester.tap(find.byKey(TipperAdminEditPage.godModeButtonKey));
+      await tester.pumpAndSettle();
 
-      expect(realTippersViewModel.selectedTipper, same(tipper));
-      expect(notificationCount, 0);
+      expect(realTippersViewModel.selectedTipper, same(authenticatedAdmin));
+      expect(realTippersViewModel.inGodMode, isFalse);
+      expect(find.byType(TipperAdminEditPage), findsNothing);
+    });
 
-      refreshCompleter.complete();
-      await tester.pump();
-      await tester.pump();
+    testWidgets('stays on the page if the refresh fails', (tester) async {
+      when(() => mockDauCompsViewModel.selectedTipperChanged())
+          .thenAnswer((_) async => throw StateError('refresh failed'));
 
-      expect(notificationCount, 1);
-      verify(() => mockDauCompsViewModel.selectedTipperChanged()).called(1);
-    },
-  );
+      await pumpEditPage(tester);
+      await tester.tap(find.byKey(TipperAdminEditPage.godModeButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(realTippersViewModel.inGodMode, isFalse);
+      expect(find.byType(TipperAdminEditPage), findsOneWidget);
+      expect(
+        find.text('Could not refresh tips for god mode. Please try again.'),
+        findsOneWidget,
+      );
+    });
+  });
 }

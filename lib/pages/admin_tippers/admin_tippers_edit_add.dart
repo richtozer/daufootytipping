@@ -35,7 +35,7 @@ class TipperAdminEditPage extends StatefulWidget {
   static const Key lastLoginFieldKey = ValueKey(
     'tipper-admin-last-login-field',
   );
-  static const Key godModeSwitchKey = ValueKey('tipper-admin-god-mode-switch');
+  static const Key godModeButtonKey = ValueKey('tipper-admin-god-mode-button');
   static const Key emailInfoButtonKey = ValueKey(
     'tipper-admin-email-info-button',
   );
@@ -70,9 +70,13 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   bool _hasDraftChanges = false;
   bool _manualSaveInProgress = false;
   bool _paidForAutoSaveInProgress = false;
+  bool _godModeChangeInProgress = false;
   bool _allowPop = false;
 
-  bool get _isBusy => _manualSaveInProgress || _paidForAutoSaveInProgress;
+  bool get _isBusy =>
+      _manualSaveInProgress ||
+      _paidForAutoSaveInProgress ||
+      _godModeChangeInProgress;
   bool get _canSave => _hasDraftChanges && !_isBusy;
   bool get _shouldCollapseLogon =>
       _sameEmail(_tipperEmailController.text, _tipperLogonController.text);
@@ -357,6 +361,102 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     }
   }
 
+  bool _isGodModeTipper(TippersViewModel viewModel) =>
+      viewModel.inGodMode && viewModel.selectedTipper.dbkey == tipper.dbkey;
+
+  /// God mode is not part of the tipper record, so it is an action that takes
+  /// effect at once rather than a field waiting for Save.
+  Widget _buildGodModeButton(BuildContext context, TippersViewModel viewModel) {
+    final bool isGodModeTipper = _isGodModeTipper(viewModel);
+    return OutlinedButton(
+      key: TipperAdminEditPage.godModeButtonKey,
+      style: isGodModeTipper
+          ? OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+            )
+          : null,
+      onPressed: _isBusy ? null : () => _onGodModePressed(context, viewModel),
+      child: Text(isGodModeTipper ? 'Exit god mode' : 'God mode'),
+    );
+  }
+
+  /// Turns god mode on for this tipper, or off if it is already on for them,
+  /// then returns to the home page to see the app as the selected tipper.
+  Future<void> _onGodModePressed(
+    BuildContext context,
+    TippersViewModel viewModel,
+  ) async {
+    final Tipper? authenticatedTipper = viewModel.authenticatedTipper;
+    if (authenticatedTipper == null) return;
+    final bool isGodModeTipper = _isGodModeTipper(viewModel);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final NavigatorState navigator = Navigator.of(context);
+
+    if (!isGodModeTipper && authenticatedTipper.dbkey == tipper.dbkey) {
+      messenger.showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!await _confirmDiscardDraftChanges(context) || !mounted) return;
+
+    final String? previousGodModeTipperName =
+        viewModel.inGodMode && !isGodModeTipper
+        ? viewModel.selectedTipper.name
+        : null;
+    setState(() {
+      _godModeChangeInProgress = true;
+    });
+
+    try {
+      await viewModel.changeSelectedTipperAfterRefresh(
+        isGodModeTipper ? authenticatedTipper : tipper,
+        refreshSelectedTipperViewModels: () =>
+            di<DAUCompsViewModel>().selectedTipperChanged(),
+      );
+    } catch (error, stackTrace) {
+      log(
+        'TipperAdminEditPage: failed to change god mode tipper: $error',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        setState(() {
+          _godModeChangeInProgress = false;
+        });
+      }
+      messenger.showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Could not refresh tips for god mode. Please try again.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    if (previousGodModeTipperName != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'God mode changed from $previousGodModeTipperName to ${tipper.name}',
+          ),
+        ),
+      );
+    }
+    navigator.popUntil((Route<dynamic> route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -420,101 +520,23 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                           ),
                         ),
                         if (di<DAUCompsViewModel>().selectedDAUComp != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 12),
-                              const Text(
-                                'God\nmode: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              ChangeNotifierProvider<TippersViewModel>.value(
-                                value: di<TippersViewModel>(),
-                                child: Consumer<TippersViewModel>(
-                                  builder: (context, tippersViewModelConsumer, child) {
-                                    return Switch(
-                                      key: TipperAdminEditPage.godModeSwitchKey,
-                                      value:
-                                          (tippersViewModelConsumer.inGodMode &&
-                                          tippersViewModelConsumer
-                                                  .selectedTipper ==
-                                              tipper),
-                                      thumbColor:
-                                          WidgetStateProperty.resolveWith(
-                                            (states) =>
-                                                states.contains(
-                                                  WidgetState.selected,
-                                                )
-                                                ? Colors.red
-                                                : null,
-                                          ),
-                                      onChanged: (value) async {
-                                        if (value == true) {
-                                          if (tippersViewModelConsumer
-                                                  .authenticatedTipper ==
-                                              tipper) {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                                  SnackBar(
-                                                    backgroundColor: Colors.red,
-                                                    content: const Text(
-                                                      'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.',
-                                                    ),
-                                                  ),
-                                                );
-                                            return;
-                                          }
-                                          if (tippersViewModelConsumer
-                                              .inGodMode) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                backgroundColor: Colors.red,
-                                                content: Text(
-                                                  'God mode changed from ${tippersViewModelConsumer.selectedTipper.name} to ${tipper.name}',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                        final selectedTipper = value == true
-                                            ? tipper
-                                            : tippersViewModelConsumer
-                                                  .authenticatedTipper!;
-                                        try {
-                                          await tippersViewModelConsumer
-                                              .changeSelectedTipperAfterRefresh(
-                                                selectedTipper,
-                                                refreshSelectedTipperViewModels:
-                                                    () => di<DAUCompsViewModel>()
-                                                        .selectedTipperChanged(),
-                                              );
-                                        } catch (error, stackTrace) {
-                                          log(
-                                            'TipperAdminEditPage: failed to change god mode tipper: $error',
-                                            error: error,
-                                            stackTrace: stackTrace,
-                                          );
-                                          if (!context.mounted) {
-                                            return;
-                                          }
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                                const SnackBar(
-                                                  backgroundColor: Colors.red,
-                                                  content: Text(
-                                                    'Could not refresh tips for god mode. Please try again.',
-                                                  ),
-                                                ),
-                                              );
-                                        }
-                                      },
-                                    );
-                                  },
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child:
+                                ChangeNotifierProvider<TippersViewModel>.value(
+                                  value: di<TippersViewModel>(),
+                                  child: Consumer<TippersViewModel>(
+                                    builder:
+                                        (
+                                          context,
+                                          tippersViewModelConsumer,
+                                          child,
+                                        ) => _buildGodModeButton(
+                                          context,
+                                          tippersViewModelConsumer,
+                                        ),
+                                  ),
                                 ),
-                              ),
-                            ],
                           ),
                       ],
                     ),
