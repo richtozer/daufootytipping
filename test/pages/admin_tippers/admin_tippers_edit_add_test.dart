@@ -263,7 +263,7 @@ void main() {
     );
   });
 
-  group('god mode button', () {
+  group('god mode action', () {
     late TippersViewModel realTippersViewModel;
     late Tipper authenticatedAdmin;
 
@@ -302,9 +302,7 @@ void main() {
             .thenAnswer((_) => refreshCompleter.future);
 
         await pumpEditPage(tester);
-        expect(find.text('God mode'), findsOneWidget);
-
-        await tester.tap(find.byKey(TipperAdminEditPage.godModeButtonKey));
+        await tester.tap(find.byIcon(Icons.visibility));
         await tester.pump();
 
         expect(realTippersViewModel.selectedTipper, same(tipper));
@@ -330,9 +328,7 @@ void main() {
       );
 
       await pumpEditPage(tester);
-      expect(find.text('Exit god mode'), findsOneWidget);
-
-      await tester.tap(find.byKey(TipperAdminEditPage.godModeButtonKey));
+      await tester.tap(find.byIcon(Icons.visibility_off));
       await tester.pumpAndSettle();
 
       expect(realTippersViewModel.selectedTipper, same(authenticatedAdmin));
@@ -345,7 +341,7 @@ void main() {
           .thenAnswer((_) async => throw StateError('refresh failed'));
 
       await pumpEditPage(tester);
-      await tester.tap(find.byKey(TipperAdminEditPage.godModeButtonKey));
+      await tester.tap(find.byIcon(Icons.visibility));
       await tester.pumpAndSettle();
 
       expect(realTippersViewModel.inGodMode, isFalse);

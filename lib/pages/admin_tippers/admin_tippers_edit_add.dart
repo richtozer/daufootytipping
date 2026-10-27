@@ -13,7 +13,6 @@ import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 /// How a save of the tipper record ended.
@@ -35,7 +34,6 @@ class TipperAdminEditPage extends StatefulWidget {
   static const Key lastLoginFieldKey = ValueKey(
     'tipper-admin-last-login-field',
   );
-  static const Key godModeButtonKey = ValueKey('tipper-admin-god-mode-button');
   static const Key emailInfoButtonKey = ValueKey(
     'tipper-admin-email-info-button',
   );
@@ -364,20 +362,17 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   bool _isGodModeTipper(TippersViewModel viewModel) =>
       viewModel.inGodMode && viewModel.selectedTipper.dbkey == tipper.dbkey;
 
-  /// God mode is not part of the tipper record, so it is an action that takes
-  /// effect at once rather than a field waiting for Save.
-  Widget _buildGodModeButton(BuildContext context, TippersViewModel viewModel) {
+  /// God mode is not part of the tipper record, so it sits with Save in the
+  /// floating controls as an action that takes effect at once, rather than
+  /// among the fields waiting for Save. There is no god mode without a comp.
+  AppGlassAction? _godModeAction(BuildContext context) {
+    if (di<DAUCompsViewModel>().selectedDAUComp == null) return null;
+    final TippersViewModel viewModel = di<TippersViewModel>();
     final bool isGodModeTipper = _isGodModeTipper(viewModel);
-    return OutlinedButton(
-      key: TipperAdminEditPage.godModeButtonKey,
-      style: isGodModeTipper
-          ? OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-            )
-          : null,
+    return AppGlassAction(
+      icon: isGodModeTipper ? Icons.visibility_off : Icons.visibility,
+      label: isGodModeTipper ? 'Exit god mode' : 'God mode',
       onPressed: _isBusy ? null : () => _onGodModePressed(context, viewModel),
-      child: Text(isGodModeTipper ? 'Exit god mode' : 'God mode'),
     );
   }
 
@@ -476,6 +471,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       child: AppAdminPage(
         title: 'Edit Tipper',
         actions: [
+          ?_godModeAction(context),
           AppGlassAction(
             icon: _manualSaveInProgress ? Icons.hourglass_bottom : Icons.save,
             label: 'Save',
@@ -519,25 +515,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                             onChanged: (_) => _refreshDraftState(),
                           ),
                         ),
-                        if (di<DAUCompsViewModel>().selectedDAUComp != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child:
-                                ChangeNotifierProvider<TippersViewModel>.value(
-                                  value: di<TippersViewModel>(),
-                                  child: Consumer<TippersViewModel>(
-                                    builder:
-                                        (
-                                          context,
-                                          tippersViewModelConsumer,
-                                          child,
-                                        ) => _buildGodModeButton(
-                                          context,
-                                          tippersViewModelConsumer,
-                                        ),
-                                  ),
-                                ),
-                          ),
                       ],
                     ),
 
