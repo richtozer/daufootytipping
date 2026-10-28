@@ -6,7 +6,6 @@ import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart'
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
-import 'package:daufootytipping/widgets/app_nav/app_nav_placement.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -107,24 +106,76 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     );
   }
 
-  Widget _filterField() {
-    return Consumer<SearchQueryProvider>(
-      builder: (context, searchQueryProvider, child) {
-        if (_searchController.text != searchQueryProvider.searchQuery) {
-          _searchController.text = searchQueryProvider.searchQuery;
-        }
-        return TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            labelText: 'Filter tippers',
-            prefixIcon: Icon(Icons.search),
-            border: OutlineInputBorder(),
+  /// The tippers the filter lets through. A leading `!` inverts it, `id=` looks
+  /// at the database key, and `godmode` shows only the tipper in God Mode.
+  List<Tipper> _matching(TippersViewModel tipperViewModel, String searchQuery) {
+    final tippers = tipperViewModel.tippers;
+    if (searchQuery.isEmpty) return tippers;
+
+    final bool isNegativeSearch = searchQuery.startsWith('!');
+    final String query = isNegativeSearch
+        ? searchQuery.substring(1)
+        : searchQuery;
+
+    if (query == 'godmode') {
+      return tippers.where((tipper) {
+        return tipperViewModel.inGodMode &&
+            tipper.dbkey == tipperViewModel.selectedTipper.dbkey;
+      }).toList();
+    }
+    return tippers.where((tipper) {
+      if (query.startsWith('id=')) {
+        final idQuery = query.substring(3).toLowerCase();
+        return tipper.dbkey?.toLowerCase().contains(idQuery) ?? false;
+      }
+      final bool matches =
+          tipper.name.toLowerCase().contains(query) ||
+          (tipper.email?.toLowerCase().contains(query) ?? false) ||
+          (tipper.logon?.toLowerCase().contains(query) ?? false) ||
+          tipper.tipperRole.name.toLowerCase().contains(query) ||
+          tipper.compsPaidFor.any(
+            (comp) => comp.name.toLowerCase().contains(query),
+          );
+      return isNegativeSearch ? !matches : matches;
+    }).toList();
+  }
+
+  /// One line for everything above the table: the filter, with how many tippers
+  /// it lets through and the help for it at its end.
+  Widget _filterRow(
+    BuildContext context, {
+    required SearchQueryProvider searchQueryProvider,
+    required int shown,
+    required int total,
+  }) {
+    if (_searchController.text != searchQueryProvider.searchQuery) {
+      _searchController.text = searchQueryProvider.searchQuery;
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          labelText: 'Filter tippers',
+          isDense: true,
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$shown of $total'),
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                tooltip: 'Filter help',
+                onPressed: () => _showSearchHelpDialog(context),
+              ),
+            ],
           ),
-          onChanged: (value) {
-            searchQueryProvider.updateSearchQuery(value.toLowerCase());
-          },
-        );
-      },
+          border: const OutlineInputBorder(),
+        ),
+        onChanged: (value) {
+          searchQueryProvider.updateSearchQuery(value.toLowerCase());
+        },
+      ),
     );
   }
 
@@ -135,138 +186,35 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
       child: AppAdminPage(
         title: 'Admin Tippers',
         scrollsUnderControls: true,
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            // Short and wide, as in landscape, the filter, the count and the
-            // help share a line to give the table the height.
-            final condensed =
-                constraints.maxHeight < kShortPaneHeight &&
-                constraints.maxWidth >= kWideEnoughForRail;
-            return Padding(
-              padding: appAdminBodyPadding(context),
-              child: Column(
+        body: Padding(
+          padding: appAdminBodyPadding(context),
+          child: Consumer2<TippersViewModel, SearchQueryProvider>(
+            builder: (context, tipperViewModel, searchQueryProvider, child) {
+              final tippers = _matching(
+                tipperViewModel,
+                searchQueryProvider.searchQuery,
+              );
+              return Column(
                 children: [
-                  if (!condensed)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: _filterField(),
-                    ),
+                  _filterRow(
+                    context,
+                    searchQueryProvider: searchQueryProvider,
+                    shown: tippers.length,
+                    total: tipperViewModel.tippers.length,
+                  ),
                   Expanded(
-                    child: Consumer2<TippersViewModel, SearchQueryProvider>(
-                      builder:
-                          (
-                            context,
-                            tipperViewModel,
-                            searchQueryProvider,
-                            child,
-                          ) {
-                            var tippers = tipperViewModel.tippers;
-                            int totalTippers = tippers.length;
-                            String searchQuery =
-                                searchQueryProvider.searchQuery;
-                            if (searchQuery.isNotEmpty) {
-                              bool isNegativeSearch = searchQuery.startsWith(
-                                '!',
-                              );
-                              String query = isNegativeSearch
-                                  ? searchQuery.substring(1)
-                                  : searchQuery;
-
-                              // Add godmode filter
-                              if (query == 'godmode') {
-                                tippers = tippers.where((tipper) {
-                                  return tipperViewModel.inGodMode &&
-                                      tipper.dbkey ==
-                                          tipperViewModel.selectedTipper.dbkey;
-                                }).toList();
-                              } else {
-                                tippers = tippers.where((tipper) {
-                                  // Check for id= prefix for dbkey search
-                                  if (query.startsWith('id=')) {
-                                    final idQuery = query
-                                        .substring(3)
-                                        .toLowerCase();
-                                    return (tipper.dbkey
-                                            ?.toLowerCase()
-                                            .contains(idQuery) ??
-                                        false);
-                                  }
-
-                                  bool matches =
-                                      (tipper.name.toLowerCase().contains(
-                                        query,
-                                      )) ||
-                                      (tipper.email?.toLowerCase().contains(
-                                            query,
-                                          ) ??
-                                          false) ||
-                                      (tipper.logon?.toLowerCase().contains(
-                                            query,
-                                          ) ??
-                                          false) ||
-                                      (tipper.tipperRole.name
-                                          .toLowerCase()
-                                          .contains(query)) ||
-                                      tipper.compsPaidFor.any(
-                                        (comp) => comp.name
-                                            .toLowerCase()
-                                            .contains(query),
-                                      );
-                                  return isNegativeSearch ? !matches : matches;
-                                }).toList();
-                              }
-                            }
-                            int filteredTippers = tippers.length;
-                            return Column(
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: condensed ? 2.0 : 8.0,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      if (condensed) ...[
-                                        Expanded(child: _filterField()),
-                                        const SizedBox(width: 16),
-                                      ],
-                                      Text(
-                                        'Showing $filteredTippers of $totalTippers tippers',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.info_outline),
-                                        onPressed: () {
-                                          _showSearchHelpDialog(context);
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: AppTable(
-                                    columns: _columns,
-                                    rows: _rows(tippers, tipperViewModel),
-                                    sort: AppSort(
-                                      column: _sortColumn,
-                                      ascending: _ascending,
-                                    ),
-                                    onSort: _onSort,
-                                    empty: const Center(
-                                      child: Text('No tippers'),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
+                    child: AppTable(
+                      columns: _columns,
+                      rows: _rows(tippers, tipperViewModel),
+                      sort: AppSort(column: _sortColumn, ascending: _ascending),
+                      onSort: _onSort,
+                      empty: const Center(child: Text('No tippers')),
                     ),
                   ),
                 ],
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

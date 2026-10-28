@@ -109,7 +109,32 @@ void main() {
 
     expect(find.byType(AppTable), findsOneWidget);
     expect(shown(tester), ['Maree', 'Zara', 'Alex']);
-    expect(find.text('Showing 3 of 3 tippers'), findsOneWidget);
+    expect(find.text('3 of 3'), findsOneWidget);
+  });
+
+  testWidgets('the filter, its count and its help share one row', (
+    tester,
+  ) async {
+    await openPage(tester);
+
+    final field = tester.getRect(find.byType(TextField));
+    final count = tester.getRect(find.text('3 of 3'));
+    final help = tester.getRect(find.byIcon(Icons.info_outline));
+    // Inside the filter's own box, on its line: no row of their own above the
+    // table.
+    expect(field.contains(count.center), isTrue);
+    expect(field.contains(help.center), isTrue);
+    expect(find.text('Showing 3 of 3 tippers'), findsNothing);
+  });
+
+  testWidgets('the help icon explains how to filter', (tester) async {
+    await openPage(tester);
+
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.textContaining('Filter tippers by name'), findsOneWidget);
   });
 
   testWidgets('tapping the Name heading sorts by name', (tester) async {
@@ -175,6 +200,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shown(tester), ['Zara']);
-    expect(find.text('Showing 1 of 3 tippers'), findsOneWidget);
+    expect(find.text('1 of 3'), findsOneWidget);
   });
 }
