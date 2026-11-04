@@ -35,8 +35,8 @@ dependencies:
     path: packages/dau_shared
   cached_network_image: ^4.0.0
   carousel_slider: ^5.0.0
-  cloud_firestore: ^6.9.0
-  cloud_functions: ^6.4.0
+  cloud_firestore: ^6.10.2
+  cloud_functions: ^6.5.1
   collection: ^1.18.0
   crypto: ^3.0.6
   # Asset-only: supplies the CupertinoIcons font family referenced by
@@ -44,13 +44,13 @@ dependencies:
   cupertino_icons: ^2.0.0
   dio: ^5.3.4
   email_validator: ^3.0.0
-  firebase_analytics: ^12.5.0
-  firebase_app_check: ^0.4.7
-  firebase_auth: ^6.6.1
-  firebase_core: ^4.14.0
-  firebase_crashlytics: ^5.3.0
-  firebase_database: ^12.5.0
-  firebase_messaging: ^16.6.0
+  firebase_analytics: ^12.6.1
+  firebase_app_check: ^0.4.9
+  firebase_auth: ^6.7.1
+  firebase_core: ^4.15.2
+  firebase_crashlytics: ^5.4.1
+  firebase_database: ^12.6.1
+  firebase_messaging: ^16.7.1
   flex_color_scheme: ^8.1.0
   flutter:
     sdk: flutter
