@@ -829,9 +829,14 @@ callables, 403 `PERMISSION_DENIED` for the secret-protected three), so the redep
 crash. Every service has the public invoker; the function addresses follow `https://<name>-rjp4ue2oxa-as.a.run.app`.
 The server's startup refusal of `FIREBASE_DEBUG_FEATURES` means those responses also show it is not set.
 
+*Verified with a real tip.* The owner changed one tip in the unpaid tippers competition (there is no separate test
+competition) at 07:55 UTC. `tipWrittenBackendScoring` started, `backend-scoring-command` answered 200 in 0.54 s on
+the new revision, and the wrapper finished `ok`; `tipWrittenAppBadge` also finished `ok`. No request reached the Dart
+`app-badge-count` endpoint in that window (the badge path may be gated by its flag), so that endpoint is verified
+only as answering strangers. The project logged no entries at ERROR or above in the 25 minutes after the deploy.
+
 *Not yet verified.* A real signed-in request refused by `off` (the only check that reaches the production database
-opener, and it needs a real ID token and App Check token); an ordinary tip in the test comp flowing through
-`backend-scoring-command`; and the pilot, which is a separate go.
+opener, and it needs a real ID token and App Check token), and the pilot, which is a separate go.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
