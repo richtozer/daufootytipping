@@ -297,7 +297,7 @@ refusal. Widget or view-model tests cover each.
 - The lease TTL (5 minutes) exceeds the mutating callables' hard timeout (60 seconds), so a taken-over
   worker is expected to be dead already, except for a platform pause. That is a reduction of risk, not a
   guarantee: a worker can still have a write in the network or resume after a pause, which is why the write
-  fence, the hold and the unresolved-tipper policy exist (sixth-review paragraph in 6f).
+  fence and the hold exist, and the remainder is an accepted limitation (scope reset in 6f).
 - Before every step the worker checks `holdsLease`, and **every step's write is a compare-and-set on the
   exact value the step expects** (copy a tip only if the target is absent; delete the source only if it
   still equals what was copied; transfer an index entry with `replaceIf` or an owner-checked release). A
@@ -724,9 +724,8 @@ Database has no write that is conditional on another location, so there is no tr
 *before* the lease expired and delivered long after is stopped only by the hold, which exists only if its worker
 lived to extend it. The residual is a worker that dies or freezes between the fence check and the send, with the
 request then held in the network for longer than the lease; the periodic audit (M4c) can detect what gets
-through, but detection is not prevention or recovery, and **the gate before normal operation is the
-unresolved-tipper policy in the paragraph that follows, not the audit merely running.** A consequence for the
-client (M7): a tipper whose operation left writes unresolved is refused as `busy`
+through, but detection is not prevention or recovery, and this residual is an **accepted limitation** (see the scope reset below),
+not a release requirement. A consequence for the client (M7): a tipper whose operation left writes unresolved is refused as `busy`
 for up to 15 minutes, and sign-in's refresh takes the lease, so the client's handling of `busy` at sign-in is
 specified narrowly in the M7 items below.
 
@@ -761,27 +760,50 @@ explicit; no code changed, and the wording above was corrected where it overclai
    another operation can proceed over unresolved state. The 15 minutes is an operational holding period, and the
    retained marker blocks a drain, not ordinary requests. The throwaway pilot is validation of the wiring; it is not
    evidence that this concurrency risk has gone.
-2. *The audit detects; it cannot guarantee prevention or recovery.* It can find inconsistent claims or records but
-   cannot necessarily rebuild a value that was overwritten with no journal entry. So the gate before the pilot
-   extends beyond a throwaway user, or `coexist` begins, is an **unresolved-tipper policy that is built and
-   tested**, not a scheduled audit that is running. **Proposed policy (decision 10, the owner's to confirm):**
-   (a) *Flag:* an operation's in-flight marker records the tipper it holds a lease on (it does not yet), and a marker
-   retained because an outcome was unknown or writes were unsettled *is* the flag; there is no separate node.
-   (b) *Block:* while a tipper has a retained marker, ordinary mutations on that tipper are refused as `busy`
-   instead of proceeding over unresolved state. (c) *Reconcile:* a scheduled job (M4c) checks each flagged tipper
-   against the invariants (claims, records, journal); if they hold it clears the marker, which is the same
-   acknowledgement an administrator would give; if a journalled move is pending it finishes it; otherwise the tipper
-   stays flagged and is reported, and an administrator reconciles it with a tool that shows the tipper's records,
-   claims, journal and the retained operation's log lines. (d) *Limits:* alias and login moves are journalled, so
-   they can be finished or reversed; other profile fields are not, so an overwritten one is recovered by asking the
-   tipper. (e) *Test:* a tipper flagged by a lost response is blocked, then cleared by a consistent check; one with
-   an inconsistent state stays flagged and blocked.
+2. *The audit detects; it cannot guarantee prevention or recovery.* The review proposed a flag, a block and a
+   scheduled reconcile as the gate before broader use, and then corrected its own proposal: a database that is
+   consistent now does not prove a delayed write cannot arrive later, so nothing may be cleared automatically on
+   that evidence. **This is superseded by the scope reset below, which does not build any of it.** What survives is
+   the caution: a retained marker is cleared by a person who has looked at the tipper, never by a check that the data
+   looks consistent, and a journal lets a pending move be resumed but does not make reversing it safe if another
+   record has since acquired the old alias or login.
 3. *"Use the cached tipper" has a narrow meaning.* Added to the M7 acceptance items (6b): it applies only to an
-   already-linked user whose background refresh returned `busy`, and only if the cached tipper was written for the
+   already-linked user whose background refresh returned `busy`, which means the refresh is deferred, not that
+   sign-in failed, and only if the cached tipper was written for the
    *currently signed-in uid*. A first-time link or create that fails for any reason is a failed sign-in, never a
    successful one; after an account switch the previous account's cached profile is neither used nor shown, and is
    cleared; and any other refusal (`needs_audit`, `ambiguous`, `claimed`, `unverified_email`, `not_linked`) is a real
    refusal, not something to paper over with a cache.
+
+**Scope reset (6 November 2026).** The owner called a halt to hardening: this is not a mission-critical app, it
+should be fast and stable, and rounds of review answering ever rarer timing failures were making the project
+harder to reason about, which is itself a reliability cost. The reviewing agent agreed and said it had contributed.
+**The hardening scope is frozen.** The fixes already made stay (the token ordering, atomic and recoverable create,
+the authentication and App Check checks through the real pipeline, the production-deploy safeguards, and the
+lease, marker and ledger changes of the fifth review); nothing is refactored out, and nothing new is added to this
+layer.
+
+*What blocks a release from here:* a credible account takeover, lost tips, a broken everyday flow, or an unsafe
+deployment. Reviews should say which of those a finding is, and otherwise mark it an acceptable limitation.
+
+*Accepted limitations (documented, not release requirements):*
+- A write that is delayed in the network for longer than a lease (several minutes) can still disturb the operation
+  that took the tipper over. The Realtime Database has no conditional multi-node write, so there is no fencing
+  token. The fence, the hold and the deadline make it rare; they do not make it impossible.
+- An operation whose write ended with an unknown outcome leaves its in-flight marker (and, for a write still
+  pending, a longer lease). That blocks a drain; it does not block ordinary requests.
+- There is no automatic reconciliation, no per-tipper flag or block, and no clearing tool. **Decision 10 is
+  therefore decided the simple way, below.**
+
+*How a rare unresolved operation is handled:* the log says so (`marker kept ... without a confirmed outcome`, `lease
+held`), the drain tool lists the marker, and the owner looks at the tipper and repairs it by hand. A brief
+disruption to that tipper's profile changes is acceptable. When repairing, look at who holds the tipper's old alias
+or login now, and clear the marker only after looking at the tipper. If this ever happens in practice, revisit it
+then. (An alert on those log lines, set up in Cloud Logging, is optional and is not code.)
+
+*Where testing goes instead:* ordinary use. Sign-in and the first link of an account, switching accounts, tipping,
+kickoff locks, admin changes to tippers, reminders, and the existing scoring and badge functions after the redeploy.
+The M7 cached-tipper items in 6b stay because they are about sign-in and account switching, which are everyday flows.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
@@ -1091,9 +1113,7 @@ The owner concurred on 2026-10-20 with the reviewer's recommendations on each po
    an empty node and the tipper would vanish. Section 6d.
 9. **The legacy `active` and `tipperID` fields are deleted in the purge** (21 October 2026). Nothing
    reads them. Section 6d.
-10. **Unresolved-tipper policy: proposed (6 November 2026), awaiting the owner's decision.** A tipper whose
-    operation left an outcome unknown is flagged by a retained marker, blocked from ordinary mutations as `busy`, and
-    cleared by a consistent check or an administrator. It is the gate before the pilot extends beyond a throwaway
-    user or `coexist` begins. The cost is that a tipper in that state cannot change their alias or complete a
-    refreshing sign-in until it is cleared (minutes with the scheduled check; longer if an administrator is needed).
-    Section 6f, sixth-review paragraph.
+10. **Unresolved operations are handled by hand, and the hardening scope is frozen** (6 November 2026). The proposed
+    flag, block and scheduled reconcile are not built. A rare operation with an unknown outcome is found in the log
+    and the drain tool's list, and the owner repairs the tipper manually, accepting a brief disruption to that
+    tipper's profile changes. Accepted limitations and what blocks a release are in the scope reset in section 6f.

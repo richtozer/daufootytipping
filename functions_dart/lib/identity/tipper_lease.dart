@@ -47,8 +47,8 @@ const Duration leaseWriteMargin = Duration(seconds: 30);
 /// ends; a write that has finished with an unknown outcome leaves just the
 /// lease's own remaining time. Once either has run out another operation can
 /// proceed over unresolved state, and the in-flight marker that is kept blocks a
-/// drain, not ordinary requests. The unresolved-tipper policy in the plan
-/// (section 6f) is what is meant to deal with that.
+/// drain, not ordinary requests. The plan (section 6f, scope reset) records
+/// that as an accepted limitation, repaired by hand if it ever happens.
 const Duration unresolvedWriteHold = Duration(minutes: 15);
 
 /// How long the lease waits for the worker's own writes to finish before it
