@@ -9,6 +9,8 @@ import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dart_functions/errors.dart';
 import 'package:dart_functions/identity/backend_tippers.dart';
+import 'package:dart_functions/identity/callables.dart';
+import 'package:dart_functions/rtdb/emulator_admin_client.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
@@ -175,6 +177,15 @@ void main(List<String> args) async {
           rethrow;
         }
       },
+    );
+
+    // The identity callables (link-or-create-tipper, update-tipper-alias,
+    // register-device-token, unregister-device-token). They are deployed in
+    // mode `off`, in which every one of them refuses (section 5 of
+    // DESIGN-database-rules-phase4.md).
+    registerIdentityCallables(
+      firebase,
+      openDatabase: () => _openIdentityDatabase(runtimeAdminApp),
     );
 
     firebase.https.onRequest(
@@ -1278,6 +1289,27 @@ dynamic _initializeLegacyAdminApp(
     appName,
   );
 }
+
+/// The database handle for one identity request: a new [RestDatabase] each time,
+/// so the writes it tracks are that request's own. [runtimeAdminApp] is untyped
+/// for the same reason as in [_openBackendScoringDatabase]: its type belongs to
+/// a package this one does not depend on directly.
+Future<RestDatabase> _openIdentityDatabase(dynamic runtimeAdminApp) async {
+  final env = Platform.environment;
+  final databaseUrl = resolveDatabaseUrl(environment: env);
+  final emulatorHost = env['FIREBASE_DATABASE_EMULATOR_HOST'];
+  if (emulatorHost != null && emulatorHost.isNotEmpty) {
+    return RestDatabase(
+      client: _emulatorClient ??= EmulatorAdminClient(http.Client()),
+      databaseUrl: databaseUrl,
+    );
+  }
+  final http.Client client = await runtimeAdminApp.client;
+  return RestDatabase(client: client, databaseUrl: databaseUrl);
+}
+
+/// Shared by every identity request in the emulator: one connection pool.
+EmulatorAdminClient? _emulatorClient;
 
 Future<_BackendScoringDatabaseHandle> _openBackendScoringDatabase({
   dynamic runtimeAdminApp,

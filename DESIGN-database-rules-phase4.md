@@ -629,6 +629,53 @@ plainly:** B6 and the deployment readiness review; the handler deadline describe
 out keeps running its Dart code, so each handler must stop itself at the next step boundary); and the points in
 "Risks".
 
+**B6, registration (6 November 2026).** `registerIdentityCallables` (`lib/identity/callables.dart`) registers the
+four callables with `identityCallableOptions` (region `asia-southeast1`, 60-second timeout, App Check enforced) and
+`server.dart` calls it. Every request goes through one path: no verified sign-in is refused as `UNAUTHENTICATED`; the
+body is read strictly *before* the database is opened (a malformed one never touches it); each request gets a
+database handle of its own, so the writes the admission wrapper waits for are that request's; the handler runs inside
+`runAdmitted`; and a `HandlerDeadline` (50 seconds, ten before Cloud Run gives up) is the handler's checkpoint, so a
+request stops at its next step instead of running on after the client has its 504. A stop at the deadline releases
+the lease and the marker and leaves any journalled claim move for the next call to finish, as a crash does.
+`functions.yaml` is regenerated and the manifest test names the four ids and the 60-second timeout.
+
+*Tested through the real callable pipeline, not around it* (`test/identity/callables_test.dart`, 70 tests). The
+registered callables are driven by firebase_functions' own test client with a real ID-token verifier (a test key
+pair, adapted from the package's fixture, with its licence header) and the real App Check verifier (its key set
+answered from the same test key by `http.runWithClient`, everything else passing through). Proved: without an App
+Check token, with a garbage, wrongly signed or expired one, with a tampered, expired or wrong-project ID token, and
+with no ID token, each of the four callables is refused with 401 and the database is never opened; a valid pair
+reaches the handler; mode `off`, `pilot` for a caller outside the list, and `freeze` are refused with
+`not_available`, `not_available` and `unavailable` and leave the database exactly as it was (the marker is cleared);
+a pilot caller is let through; a malformed request is refused before the database is opened; the tipper acted on
+is the caller's even when the request names another; a handler past its deadline stops, and the same request
+succeeds afterwards. **Six mutants** (App Check enforcement removed, admission wrapper bypassed, deadline checkpoint
+removed, one database handle shared across requests, unauthenticated caller not refused, provider claim not read)
+each fail the suite: 16, 12, 1, 1, 4 and 1 tests.
+
+*Two things the pipeline tests found.* (1) The manifest does not record `enforceAppCheck`, so a manifest test cannot
+show it is on; only a runtime test can, and now does. (2) The runtime copies only custom claims and a fixed set of
+standard ones into `request.auth.token`; **the `firebase` claim, which says how the user signed in, is not among
+them**, so `CallerToken.isAnonymous` could never have been true in production. Harmless so far (an anonymous account
+has no verified email and was refused anyway, with `unverified_email` instead of `not_linked`), but the check was
+dead. The provider is now read from the raw token's payload, which the runtime has already verified.
+
+*Deployment readiness review.* The compiled `bin/server` was also run against the Database emulator (not just
+`registerIdentityCallables` in-process) and called over HTTP with unsigned tokens: refused in `off`, 401 without
+App Check or without an ID token, create, refresh, rename, register and unregister all correct, no marker or lease
+left behind, and the existing admin callables still registered. What that does **not** cover is the production
+branch of `_openIdentityDatabase` (`runtimeAdminApp.client` against the live database), which is the same client
+the backend-scoring code already uses in production, and is what B7's first call exercises. Points to know before
+the go: (a) the admission wrapper writes its marker *before* it reads the mode, so a deploy in `off` is not
+write-free: each call from a signed-in, App Check-passing caller writes and then clears a marker under
+`/ServerConfig/identity/inflight`; nothing calls them until the R2 client ships, so in practice none will; (b) the
+runtime skips token verification whenever `FIREBASE_DEBUG_FEATURES` contains `skipTokenVerification`, with no
+emulator check; nothing in the repository or its `.env` files sets it, and it must never be set on a deployed
+function; (c) `deploy-functions.sh --only dart` redeploys all six existing Dart functions with the new binary as well
+as adding the four (their tests pass, and it is the off-season); (d) the new nodes (`/TokenOwners`, `/ClaimMoves`,
+`/CreateIntents`, `/IdentityLocks`, `/ServerConfig`, `/Placeholders`) are named in no R1 rule, so clients cannot read
+or write them, and M6's rulesets must keep it so.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in

@@ -178,7 +178,7 @@ packages:
     source: hosted
     version: "0.3.1"
   dart_jsonwebtoken:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: dart_jsonwebtoken
       sha256: ad84e60181696513d04d5f2078e0bbc20365b911f46f647797317414bdc88fbe
@@ -241,7 +241,7 @@ packages:
     source: hosted
     version: "0.3.1+5"
   firebase_admin_sdk:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: firebase_admin_sdk
       sha256: b1ef0c20eda905c89a1634ccc19d9dbd7895f42ac60c0cf1de49b20003f168b8

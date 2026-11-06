@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dart_functions/rtdb/emulator_admin_client.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:http/http.dart' as http;
 
@@ -17,20 +18,6 @@ final String? emulatorSkipReason = _emulatorHost == null
     ? 'needs FIREBASE_DATABASE_EMULATOR_HOST (run npm run test:dart in rules_test)'
     : null;
 
-/// A client that authenticates to the emulator as its admin, the way the
-/// deployed functions' service account bypasses rules in production.
-class _EmulatorAdminClient extends http.BaseClient {
-  _EmulatorAdminClient(this._inner);
-
-  final http.Client _inner;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers['Authorization'] = 'Bearer owner';
-    return _inner.send(request);
-  }
-}
-
 /// The production REST handle, pointed at the emulator. [wrap] puts a client of
 /// the test's own in front of the connection, to make requests fail on purpose.
 RestDatabase openEmulatorDatabase({
@@ -41,7 +28,7 @@ RestDatabase openEmulatorDatabase({
   if (host == null) {
     throw StateError(emulatorSkipReason!);
   }
-  final admin = _EmulatorAdminClient(http.Client());
+  final admin = EmulatorAdminClient(http.Client());
   return RestDatabase(
     client: wrap == null ? admin : wrap(admin),
     databaseUrl: 'http://$host/?ns=$emulatorNamespace',

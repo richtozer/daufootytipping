@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dart_functions/identity/server_mode.dart';
 import 'package:dau_shared/constants/function_endpoints.dart';
 import 'package:test/test.dart';
 
@@ -21,6 +22,18 @@ void main() {
     adminFixtureDownloadEndpoint,
     adminScoringRescoreEndpoint,
     adminCheckFixtureUrlEndpoint,
+    linkOrCreateTipperEndpoint,
+    updateTipperAliasEndpoint,
+    registerDeviceTokenEndpoint,
+    unregisterDeviceTokenEndpoint,
+  ];
+  // The mutating identity callables: the 60-second timeout is the one the
+  // admission wrapper's drain assumes (mutatingCallableTimeout).
+  const identityEndpoints = <String>[
+    linkOrCreateTipperEndpoint,
+    updateTipperAliasEndpoint,
+    registerDeviceTokenEndpoint,
+    unregisterDeviceTokenEndpoint,
   ];
   const httpsEndpoints = <String>[
     backendScoringCommandEndpoint,
@@ -49,6 +62,15 @@ void main() {
     for (final id in callableEndpoints) {
       test('$id is a callable trigger', () {
         expect(_endpointBlock(manifest, id), contains('callableTrigger:'));
+      });
+    }
+
+    for (final id in identityEndpoints) {
+      test('$id has the 60-second timeout the drain assumes', () {
+        expect(
+          _endpointBlock(manifest, id),
+          contains('timeoutSeconds: ${mutatingCallableTimeout.inSeconds}'),
+        );
       });
     }
 
