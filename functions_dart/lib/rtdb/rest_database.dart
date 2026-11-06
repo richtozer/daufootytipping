@@ -54,37 +54,77 @@ class RestDatabase {
 /// How long one REST request is waited for.
 const Duration defaultRestRequestTimeout = Duration(seconds: 15);
 
-/// Remembers the writes in flight on a [RestDatabase].
+/// Called just before a write is sent, and refuses it by throwing.
+typedef WriteFence = void Function();
+
+/// Remembers the writes of a [RestDatabase]: which are still in flight, and
+/// which ended without a confirmed outcome.
 ///
 /// Giving up on a request (a timeout) stops *waiting* for it; it does not stop
 /// it. The request can still reach the database afterwards. A caller that must
 /// know nothing of its own is still being written, such as the admission
 /// wrapper deciding whether it may clear its in-flight marker, asks [settled].
+///
+/// "Finished" is not "known". A write that ends with an HTTP response below 500
+/// has a known outcome (2xx applied; 4xx, including the 412 of a lost
+/// compare-and-set, not applied). A write that ends in a transport error (a
+/// reset, a lost response) or a 5xx may or may not have been applied. Those are
+/// counted in [uncertainCount], and a caller that clears protection only when
+/// an operation is resolved must check it as well as [settled].
+///
 /// Only writes are tracked: a read that outlives its caller changes nothing.
 class WriteLedger {
   int _pending = 0;
+  int _uncertain = 0;
   final List<Completer<void>> _waiters = [];
+
+  /// Asked before every write is sent. A lease holder sets it for the time it
+  /// holds the lease, so a worker that was paused past its lease and then
+  /// resumes cannot go on writing (see `withTipperLease`). Null means no check.
+  WriteFence? fence;
 
   /// How many writes have been sent and have not yet finished (either way).
   int get pendingCount => _pending;
 
-  /// Notes [request], a write that has been sent, and returns it unchanged.
-  Future<T> track<T>(Future<T> request) {
+  /// How many writes finished without a confirmed outcome: a transport error
+  /// or a 5xx. They may have been applied.
+  int get uncertainCount => _uncertain;
+
+  /// Sends a write with [send] and notes it. The [fence], if any, is asked
+  /// first; if it throws, nothing is sent. [isUncertain] says whether a
+  /// completed result leaves the outcome unknown; an error always does.
+  Future<T> track<T>(
+    Future<T> Function() send, {
+    bool Function(T result)? isUncertain,
+  }) {
+    fence?.call();
     _pending += 1;
-    request.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
-      _pending -= 1;
-      if (_pending == 0) {
-        for (final waiter in _waiters) {
-          waiter.complete();
-        }
-        _waiters.clear();
-      }
-    });
+    final request = Future<T>.sync(send);
+    request
+        .then<void>(
+          (result) {
+            if (isUncertain?.call(result) ?? false) {
+              _uncertain += 1;
+            }
+          },
+          onError: (Object _) {
+            _uncertain += 1;
+          },
+        )
+        .whenComplete(() {
+          _pending -= 1;
+          if (_pending == 0) {
+            for (final waiter in _waiters) {
+              waiter.complete();
+            }
+            _waiters.clear();
+          }
+        });
     return request;
   }
 
   /// Completes true once no write is in flight, or false if some still are
-  /// after [timeout].
+  /// after [timeout]. True says nothing about outcomes: see [uncertainCount].
   Future<bool> settled({required Duration timeout}) async {
     if (_pending == 0) {
       return true;
@@ -124,9 +164,14 @@ class RestDatabaseReference {
   final Duration _requestTimeout;
   static const int _maxRetryDelayMillis = 200;
 
-  /// Notes a write with the ledger, if there is one.
-  Future<T> _tracked<T>(Future<T> write) =>
-      _ledger == null ? write : _ledger.track(write);
+  /// Sends a write through the ledger, if there is one.
+  Future<http.Response> _tracked(Future<http.Response> Function() send) =>
+      _ledger == null
+      ? send()
+      : _ledger.track(
+          send,
+          isUncertain: (response) => response.statusCode >= 500,
+        );
 
   String get path => _path;
 
@@ -158,7 +203,7 @@ class RestDatabaseReference {
   Future<void> set(Object? value) async {
     final response = await runRtdbRestRequest(
       _tracked(
-        _client.put(
+        () => _client.put(
           _uri(),
           headers: const {'content-type': 'application/json'},
           body: jsonEncode(value),
@@ -174,7 +219,7 @@ class RestDatabaseReference {
   Future<void> update(Map<Object?, Object?> value) async {
     final response = await runRtdbRestRequest(
       _tracked(
-        _client.patch(
+        () => _client.patch(
           _uri(),
           headers: const {'content-type': 'application/json'},
           body: jsonEncode(value),
@@ -189,7 +234,7 @@ class RestDatabaseReference {
 
   Future<void> remove() async {
     final response = await runRtdbRestRequest(
-      _tracked(_client.delete(_uri())),
+      _tracked(() => _client.delete(_uri())),
       operation: 'remove',
       path: _path,
       timeout: _requestTimeout,
@@ -239,7 +284,7 @@ class RestDatabaseReference {
 
       final writeResponse = await runRtdbRestRequest(
         _tracked(
-          _client.put(
+          () => _client.put(
             _uri(),
             headers: {'content-type': 'application/json', 'if-match': etag},
             body: jsonEncode(nextValue),

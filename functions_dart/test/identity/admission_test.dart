@@ -251,7 +251,7 @@ void main() {
       );
       expect(
         log.last,
-        '[identity] end op=$id callable=link-or-create-tipper outcome=ok writesSettled=true',
+        '[identity] end op=$id callable=link-or-create-tipper outcome=ok writesSettled=true uncertainWrites=0',
       );
     }, skip: skip);
   });
@@ -473,6 +473,123 @@ void main() {
           true,
           reason: 'quiet only once the write had settled',
         );
+      },
+      skip: skip,
+    );
+
+    test(
+      'a write whose response was lost leaves the marker: it may have been applied',
+      () async {
+        final lossy = openEmulatorDatabase(
+          wrap: (inner) => LoseResponses(
+            inner,
+            (request) =>
+                request.method == 'PUT' &&
+                request.url.path.contains('/Scratch/'),
+          ),
+        );
+
+        await expectLater(
+          runAdmitted<void>(
+            database: lossy,
+            callable: 'link-or-create-tipper',
+            uid: 'user-1',
+            log: log.add,
+            body: (_) async => lossy.ref('/Scratch/x').set('applied'),
+          ),
+          throwsA(anything),
+        );
+
+        expect(
+          (await database.ref('/Scratch/x').once()).value,
+          'applied',
+          reason: 'the write landed although the caller was told it failed',
+        );
+        expect(
+          await _markers(database),
+          hasLength(1),
+          reason: 'the outcome is unknown, so the operation is not resolved',
+        );
+        expect(
+          log.any(
+            (line) =>
+                line.contains('writesSettled=true') &&
+                line.contains('uncertainWrites=1'),
+          ),
+          true,
+          reason: 'the end line says so',
+        );
+        expect(
+          log.any(
+            (line) =>
+                line.contains('marker kept') &&
+                line.contains('without a confirmed outcome'),
+          ),
+          true,
+        );
+        expect(log.any((line) => line.contains('marker cleared')), false);
+
+        // The drain never calls that quiet, however long it waits; only the
+        // owner's acknowledgement clears it.
+        final result = await drainInflight(
+          RestModeStore(database),
+          nowMs: () => DateTime.now().millisecondsSinceEpoch + 91 * 1000,
+          sleep: (_) async {},
+        );
+        expect(result.quiet, false);
+        expect(result.stale, hasLength(1));
+      },
+      skip: skip,
+    );
+
+    test(
+      'a write that was on its way and then loses its response does not clear the marker either',
+      () async {
+        late HoldRequests held;
+        final gated = openEmulatorDatabase(
+          requestTimeout: const Duration(milliseconds: 200),
+          wrap: (inner) => held = HoldRequests(
+            LoseResponses(
+              inner,
+              (request) =>
+                  request.method == 'PUT' &&
+                  request.url.path.contains('/Scratch/'),
+            ),
+            (request) =>
+                request.method == 'PUT' &&
+                request.url.path.contains('/Scratch/'),
+          ),
+        );
+        await expectLater(
+          runAdmitted<void>(
+            database: gated,
+            callable: 'link-or-create-tipper',
+            uid: 'user-1',
+            log: log.add,
+            writeSettleGrace: const Duration(milliseconds: 300),
+            body: (_) async => gated.ref('/Scratch/x').set('late'),
+          ),
+          throwsA(isA<UnavailableError>()),
+        );
+        expect(await _markers(database), hasLength(1));
+
+        held.open();
+        await eventually(
+          () async => (await database.ref('/Scratch/x').once()).value == 'late',
+        );
+        await eventually(
+          () async => log.any(
+            (line) =>
+                line.contains('marker kept') &&
+                line.contains('without a confirmed outcome'),
+          ),
+        );
+        expect(
+          await _markers(database),
+          hasLength(1),
+          reason: 'it finished, but nobody knows what happened to it',
+        );
+        expect(log.any((line) => line.contains('marker cleared')), false);
       },
       skip: skip,
     );

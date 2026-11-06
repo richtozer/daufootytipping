@@ -74,18 +74,23 @@ class Admission {
 ///    are read, so no admitted request can be invisible to a drain: each side's
 ///    second read sees the other's first write.
 /// 3. If the mode forbids the call, refuse; otherwise run [body].
-/// 4. Remove the marker only once the handler has ended **and every write it
-///    sent has finished**. Giving up on a request (a timeout) stops waiting for
-///    it but does not stop it, so a write can still reach the database after
-///    the handler has exited. If writes are still unsettled after
-///    [writeSettleGrace] the marker is kept, and removed in the background only
-///    when they finish; if that never happens the drain reports it as stale.
-///    If removal fails the marker stays too.
+/// 4. Remove the marker only once the handler has ended, **every write it
+///    sent has finished, and every one of them has a known outcome**. Giving up
+///    on a request (a timeout) stops waiting for it but does not stop it, so a
+///    write can still reach the database after the handler has exited. A write
+///    that finished in a transport error or a 5xx may have been applied or not;
+///    that is not a resolved operation either. If writes are still unsettled
+///    after [writeSettleGrace] the marker is kept, and removed in the background
+///    only when they finish with known outcomes. If any write's outcome is
+///    unknown the marker stays for the owner to resolve: the drain reports it as
+///    stale, and the owner acknowledges it after checking the log and the
+///    tipper (`identity_mode drain --ack-stale`). If removal fails the marker
+///    stays too.
 ///
 /// A start line and an end line carrying the operation id are logged. The end
-/// line says `writesSettled=true` or `false`: an end line with `false` does NOT
-/// mean the operation has finished writing, so it never justifies clearing the
-/// marker.
+/// line says `writesSettled=true` or `false`, and `uncertainWrites=N`: an end
+/// line with `false`, or with N above zero, does NOT mean the operation's
+/// writes are accounted for, so it never justifies clearing the marker.
 ///
 /// Any failure to write the marker or read the mode refuses the request: it
 /// fails closed.
@@ -120,7 +125,13 @@ Future<T> runAdmitted<T>({
     );
     // The write may still land after we gave up waiting. If it does, the
     // marker belongs to nobody, so remove it once the write has finished.
-    _removeWhenSettled(database, markerRef, operationId, write);
+    _removeWhenSettled(
+      database,
+      markerRef,
+      operationId,
+      write,
+      mustBeConfirmed: false,
+    );
     throw _tryAgain();
   }
   write('[identity] start op=$operationId callable=$callable');
@@ -150,38 +161,61 @@ Future<T> runAdmitted<T>({
     rethrow;
   } finally {
     final settled = await database.writes.settled(timeout: writeSettleGrace);
+    final uncertain = database.writes.uncertainCount;
     write(
       '[identity] end op=$operationId callable=$callable outcome=$outcome '
-      'writesSettled=$settled',
+      'writesSettled=$settled uncertainWrites=$uncertain',
     );
-    if (settled) {
+    if (settled && uncertain == 0) {
       await _removeMarker(markerRef, operationId, write);
-    } else {
+    } else if (!settled) {
       write(
         '[identity] marker kept op=$operationId: '
         '${database.writes.pendingCount} write(s) still unsettled',
       );
-      _removeWhenSettled(database, markerRef, operationId, write);
+      _removeWhenSettled(
+        database,
+        markerRef,
+        operationId,
+        write,
+        mustBeConfirmed: true,
+      );
+    } else {
+      write(
+        '[identity] marker kept op=$operationId: $uncertain write(s) ended '
+        'without a confirmed outcome',
+      );
     }
   }
 }
 
 /// Removes the marker in the background once every write on [database] has
-/// finished. Never throws. If the process ends first, the marker stays, and the
-/// drain reports it as stale.
+/// finished, and, if [mustBeConfirmed], only if none of them ended without a
+/// known outcome. Never throws. If the process ends first, the marker stays, and
+/// the drain reports it as stale.
 void _removeWhenSettled(
   RestDatabase database,
   RestDatabaseReference markerRef,
   String operationId,
-  void Function(String line) write,
-) {
+  void Function(String line) write, {
+  required bool mustBeConfirmed,
+}) {
   unawaited(() async {
     try {
       final settled = await database.writes.settled(timeout: staleMarkerAfter);
-      if (settled) {
-        await _removeMarker(markerRef, operationId, write);
-        write('[identity] marker cleared op=$operationId: writes settled');
+      if (!settled) {
+        return;
       }
+      if (mustBeConfirmed && database.writes.uncertainCount > 0) {
+        write(
+          '[identity] marker kept op=$operationId: '
+          '${database.writes.uncertainCount} write(s) ended without a '
+          'confirmed outcome',
+        );
+        return;
+      }
+      await _removeMarker(markerRef, operationId, write);
+      write('[identity] marker cleared op=$operationId: writes settled');
     } on Object catch (error) {
       write('[identity] marker not cleared op=$operationId: $error');
     }

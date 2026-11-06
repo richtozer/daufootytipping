@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { SANDBOX_PROJECT_ID, sandboxEnv, writeSandboxFirebaserc, assertSandboxProject } from './support/safety.mjs';
 
@@ -108,6 +108,61 @@ describe('deploy-functions.sh --dry-run runs the checks and stops', () => {
       assert.match(`${dart.stdout}${dart.stderr}`, /empty/);
       const ts = run(sb, ['--dry-run', '--only', 'default', ...DEMO]);
       assert.equal(ts.status, 0, ts.stdout + ts.stderr);
+    });
+  });
+
+  describe('refuses to deploy anything that carries the emulator\'s token-verification bypass', () => {
+    const BYPASS = 'FIREBASE_DEBUG_FEATURES={"skipTokenVerification":true}';
+
+    for (const file of ['functions_dart/.env', 'functions/.env', `functions_dart/.env.${SANDBOX_PROJECT_ID}`, 'functions/.env.local']) {
+      it(`${file} setting FIREBASE_DEBUG_FEATURES: refused, naming the file but never its contents`, () => {
+        for (const only of ['default', 'dart', 'all']) {
+          withSandbox([UID_A], (sb) => {
+            mkdirSync(dirname(join(sb.dir, file)), { recursive: true });
+            writeFileSync(join(sb.dir, file), `API_SECRET=secret-value-123\n${BYPASS}\n`);
+            const r = run(sb, ['--dry-run', '--only', only, ...DEMO]);
+            assert.equal(r.status, 1, `--only ${only}: ${r.stdout}${r.stderr}`);
+            assert.match(r.stderr, new RegExp(file.replace(/\./g, '\\.')));
+            assert.match(r.stderr, /Nothing was deployed/);
+            assert.doesNotMatch(`${r.stdout}${r.stderr}`, /secret-value-123/);
+            assert.deepEqual(deployCalls(sb), []);
+          });
+        }
+      });
+    }
+
+    it('also when the deploying shell has it set', () => {
+      withSandbox(
+        [UID_A],
+        (sb) => {
+          const r = run(sb, ['--dry-run', '--only', 'default', ...DEMO]);
+          assert.equal(r.status, 1);
+          assert.match(r.stderr, /FIREBASE_DEBUG_FEATURES is set in this shell/);
+          assert.deepEqual(deployCalls(sb), []);
+        },
+        { FIREBASE_DEBUG_FEATURES: '{"skipTokenVerification":true}' },
+      );
+    });
+
+    it('catches an exported or spaced assignment', () => {
+      withSandbox([UID_A], (sb) => {
+        mkdirSync(join(sb.dir, 'functions_dart'), { recursive: true });
+        writeFileSync(join(sb.dir, 'functions_dart', '.env'), '  export FIREBASE_DEBUG_FEATURES = {}\n');
+        assert.equal(run(sb, ['--dry-run', '--only', 'default', ...DEMO]).status, 1);
+      });
+    });
+
+    it('is not fooled by a comment or a similarly named variable, and passes an ordinary .env', () => {
+      withSandbox([UID_A], (sb) => {
+        mkdirSync(join(sb.dir, 'functions_dart'), { recursive: true });
+        writeFileSync(
+          join(sb.dir, 'functions_dart', '.env'),
+          '# FIREBASE_DEBUG_FEATURES=never\nFIREBASE_DEBUG_FEATURES_NOTE=hello\nOTHER=1\n',
+        );
+        const r = run(sb, ['--dry-run', '--only', 'default', ...DEMO]);
+        assert.equal(r.status, 0, r.stdout + r.stderr);
+        assert.match(r.stdout, /no authentication bypass is configured/i);
+      });
     });
   });
 

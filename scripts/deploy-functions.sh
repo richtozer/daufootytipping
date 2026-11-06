@@ -139,6 +139,29 @@ echo "Test clients and real users share this backend. Confirm the change is"
 echo "backward compatible with the client version currently on main."
 echo
 
+# firebase_functions skips the verification of ID tokens and App Check tokens when the function's
+# environment has FIREBASE_DEBUG_FEATURES (a switch for the Functions emulator, with no emulator check
+# of its own). Refuse to deploy anything that would carry it. Only the NAMES of the offending files are
+# printed: these files can hold secrets.
+echo "Checking that no authentication bypass is configured..."
+bypass_found=0
+if [ -n "${FIREBASE_DEBUG_FEATURES:-}" ]; then
+  echo "Error: FIREBASE_DEBUG_FEATURES is set in this shell's environment. Unset it before deploying." >&2
+  bypass_found=1
+fi
+shopt -s nullglob
+for env_file in functions/.env functions/.env.* functions_dart/.env functions_dart/.env.*; do
+  if [ -f "$env_file" ] && grep -qE '^[[:space:]]*(export[[:space:]]+)?FIREBASE_DEBUG_FEATURES[[:space:]]*=' "$env_file"; then
+    echo "Error: $env_file sets FIREBASE_DEBUG_FEATURES, which can switch off token verification." >&2
+    bypass_found=1
+  fi
+done
+shopt -u nullglob
+if [ "$bypass_found" -eq 1 ]; then
+  echo "Nothing was deployed. Remove FIREBASE_DEBUG_FEATURES and run again." >&2
+  exit 1
+fi
+
 if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
   echo "Checking the admin allowlist (refuses an empty or stale list)..."
   node "$repo_root/scripts/build_admin_allowlist.mjs" --check

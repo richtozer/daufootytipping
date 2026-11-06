@@ -227,8 +227,8 @@ void main() {
         final ledger = WriteLedger();
         final ok = Completer<int>();
         final failing = Completer<int>();
-        ledger.track(ok.future);
-        ledger.track(failing.future).ignore();
+        ledger.track(() => ok.future);
+        ledger.track(() => failing.future).ignore();
         expect(ledger.pendingCount, 2);
 
         ok.complete(1);
@@ -253,7 +253,7 @@ void main() {
       () async {
         final ledger = WriteLedger();
         final slow = Completer<void>();
-        ledger.track(slow.future);
+        ledger.track(() => slow.future);
 
         expect(
           await ledger.settled(timeout: const Duration(milliseconds: 50)),
@@ -314,6 +314,162 @@ void main() {
         expect(database.writes.pendingCount, 0);
       },
     );
+
+    group('outcomes', () {
+      Future<RestDatabase> databaseAnswering(
+        Future<http.Response> Function(http.Request request) answer,
+      ) async => RestDatabase(
+        client: MockClient(answer),
+        databaseUrl: 'https://example.invalid',
+      );
+
+      test('a 2xx is a known outcome', () async {
+        final database = await databaseAnswering(
+          (request) async => http.Response('null', 200),
+        );
+        await database.ref('/Slot').set('x');
+        expect(database.writes.uncertainCount, 0);
+      });
+
+      test('a 4xx is a known outcome: it was not applied', () async {
+        final database = await databaseAnswering(
+          (request) async => http.Response('{"error":"denied"}', 403),
+        );
+        await expectLater(
+          database.ref('/Slot').set('x'),
+          throwsA(isA<InternalError>()),
+        );
+        expect(database.writes.uncertainCount, 0);
+      });
+
+      test('a lost compare-and-set (412) is a known outcome', () async {
+        var attempt = 0;
+        final database = await databaseAnswering((request) async {
+          if (request.method == 'GET') {
+            return _read('v', etag: 'e${++attempt}');
+          }
+          return attempt < 2
+              ? http.Response('null', 412)
+              : http.Response('"w"', 200);
+        });
+        final result = await database
+            .ref('/Slot')
+            .atomicUpdate((current) => 'w');
+        expect(result.applied, true);
+        expect(database.writes.uncertainCount, 0);
+      });
+
+      test('a 5xx is not: the write may have been applied', () async {
+        final database = await databaseAnswering(
+          (request) async => http.Response('', 503),
+        );
+        await expectLater(
+          database.ref('/Slot').set('x'),
+          throwsA(isA<InternalError>()),
+        );
+        expect(database.writes.uncertainCount, 1);
+      });
+
+      test(
+        'a transport error is not: the response may be what was lost',
+        () async {
+          final database = await databaseAnswering(
+            (request) async => throw http.ClientException('reset'),
+          );
+          await expectLater(
+            database.ref('/Slot').remove(),
+            throwsA(isA<http.ClientException>()),
+          );
+          expect(database.writes.uncertainCount, 1);
+          expect(database.writes.pendingCount, 0);
+          expect(
+            await database.writes.settled(timeout: const Duration(seconds: 1)),
+            true,
+            reason:
+                'settled says the write finished, not that its outcome is known',
+          );
+        },
+      );
+
+      test(
+        'a read that fails is not a write, so it counts for nothing',
+        () async {
+          final database = await databaseAnswering(
+            (request) async => throw http.ClientException('reset'),
+          );
+          await expectLater(
+            database.ref('/Slot').once(),
+            throwsA(isA<http.ClientException>()),
+          );
+          expect(database.writes.uncertainCount, 0);
+        },
+      );
+    });
+
+    group('the write fence', () {
+      test('is asked before every write and can refuse it', () async {
+        final sent = <String>[];
+        final database = RestDatabase(
+          client: MockClient((request) async {
+            sent.add(request.method);
+            return http.Response('null', 200);
+          }),
+          databaseUrl: 'https://example.invalid',
+        );
+        var open = true;
+        database.writes.fence = () {
+          if (!open) {
+            throw UnavailableError('closed');
+          }
+        };
+
+        await database.ref('/Slot').set('x');
+        await database.ref('/Slot').update({'a': 1});
+        await database.ref('/Slot').remove();
+        expect(sent, ['PUT', 'PATCH', 'DELETE']);
+
+        open = false;
+        for (final write in <Future<void> Function()>[
+          () => database.ref('/Slot').set('y'),
+          () => database.ref('/Slot').update({'a': 2}),
+          () => database.ref('/Slot').remove(),
+        ]) {
+          await expectLater(write(), throwsA(isA<UnavailableError>()));
+        }
+        expect(sent, hasLength(3), reason: 'a refused write is never sent');
+        expect(database.writes.pendingCount, 0);
+        expect(database.writes.uncertainCount, 0);
+      });
+
+      test(
+        'also stops the write half of a compare-and-set, not its read',
+        () async {
+          final sent = <String>[];
+          final database = RestDatabase(
+            client: MockClient((request) async {
+              sent.add(request.method);
+              return _read('v');
+            }),
+            databaseUrl: 'https://example.invalid',
+          );
+          database.writes.fence = () => throw UnavailableError('closed');
+          await expectLater(
+            database.ref('/Slot').atomicUpdate((current) => 'w'),
+            throwsA(isA<UnavailableError>()),
+          );
+          expect(sent, ['GET'], reason: 'it read, but never wrote');
+        },
+      );
+
+      test('is not asked about reads', () async {
+        final database = RestDatabase(
+          client: MockClient((request) async => http.Response('1', 200)),
+          databaseUrl: 'https://example.invalid',
+        );
+        database.writes.fence = () => throw UnavailableError('closed');
+        expect((await database.ref('/Slot').once()).value, 1);
+      });
+    });
 
     test('children of a reference share the ledger and the timeout', () async {
       final release = Completer<http.Response>();

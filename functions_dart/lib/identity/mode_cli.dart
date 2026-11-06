@@ -31,6 +31,10 @@ A marker is "stale" when its request is overdue (older than its 60 second timeou
 not mean finished: a timed-out request can keep running. The drain never deletes a marker on age and never
 reports quiet while one remains. To clear one, check the logs for its operation id (an "end" line means it
 finished) and name it in --ack-stale. A marker still within its timeout cannot be acknowledged.
+A marker is also kept when an operation finished but a write of its own ended without a known outcome (a lost
+response or a 5xx): its end line says uncertainWrites=N, with N above 0, and a "marker kept ... without a
+confirmed outcome" line follows. The write may or may not have been applied, so look at the tipper it touched
+before acknowledging.
 Exit codes: 0 quiet or done, 1 not quiet, 2 usage.
 ''';
 

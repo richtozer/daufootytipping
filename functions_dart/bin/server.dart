@@ -7,6 +7,7 @@ import 'package:firebase_functions/firebase_functions.dart'
     hide Credential, DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
+import 'package:dart_functions/auth_bypass_guard.dart';
 import 'package:dart_functions/errors.dart';
 import 'package:dart_functions/identity/backend_tippers.dart';
 import 'package:dart_functions/identity/callables.dart';
@@ -48,6 +49,10 @@ const int _idempotencyPruneLimit = 500;
 const Duration _fixtureDownloadLockTtl = Duration(minutes: 10);
 
 void main(List<String> args) async {
+  // Before anything is registered or served: a deployed function must not be
+  // able to run with token verification switched off.
+  assertNoDebugFeaturesOutsideEmulator(Platform.environment);
+
   await runFunctions((firebase) {
     final runtimeAdminApp = firebase.adminApp;
 

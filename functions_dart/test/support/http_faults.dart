@@ -19,6 +19,26 @@ class FailRequests extends http.BaseClient {
   }
 }
 
+/// Delivers the requests the test selects and then loses the response: the
+/// database applies the write and the caller is told only that the connection
+/// failed. The case where "failed" and "not applied" are not the same thing.
+class LoseResponses extends http.BaseClient {
+  LoseResponses(this._inner, this._lose);
+
+  final http.Client _inner;
+  final bool Function(http.BaseRequest request) _lose;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request);
+    if (_lose(request)) {
+      await response.stream.drain<void>();
+      throw http.ClientException('connection reset', request.url);
+    }
+    return response;
+  }
+}
+
 /// Holds the requests the test selects until it calls [open], then forwards
 /// them: a request that outlives the caller that gave up on it.
 class HoldRequests extends http.BaseClient {

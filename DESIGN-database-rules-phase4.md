@@ -668,13 +668,76 @@ branch of `_openIdentityDatabase` (`runtimeAdminApp.client` against the live dat
 the backend-scoring code already uses in production, and is what B7's first call exercises. Points to know before
 the go: (a) the admission wrapper writes its marker *before* it reads the mode, so a deploy in `off` is not
 write-free: each call from a signed-in, App Check-passing caller writes and then clears a marker under
-`/ServerConfig/identity/inflight`; nothing calls them until the R2 client ships, so in practice none will; (b) the
+`/ServerConfig/identity/inflight`; these endpoints are reachable by any such caller as soon as they are deployed, so
+this is not "nothing calls them": the assurance is that `off` refuses every business mutation, while a temporary
+admission marker remains possible; (b) the
 runtime skips token verification whenever `FIREBASE_DEBUG_FEATURES` contains `skipTokenVerification`, with no
-emulator check; nothing in the repository or its `.env` files sets it, and it must never be set on a deployed
-function; (c) `deploy-functions.sh --only dart` redeploys all six existing Dart functions with the new binary as well
+emulator check; nothing in the repository or its `.env` files sets it, and it is now an executable check
+(see the fifth-review paragraph below), not just a warning; (c) `deploy-functions.sh --only dart` redeploys all six existing Dart functions with the new binary as well
 as adding the four (their tests pass, and it is the off-season); (d) the new nodes (`/TokenOwners`, `/ClaimMoves`,
 `/CreateIntents`, `/IdentityLocks`, `/ServerConfig`, `/Placeholders`) are named in no R1 rule, so clients cannot read
 or write them, and M6's rulesets must keep it so.
+
+**Corrections after a fifth review (6 November 2026).** The review accepted B6 for a controlled deploy in `off` and
+kept the pilot a separate decision. Two limitations were left, both about writes whose outcome is not known, and
+two statements needed correcting. All are addressed; what cannot be closed is stated as a limit.
+
+*Finished is not known.* The write ledger counted a write as settled when its request finished, whatever way it
+finished, so a lost connection (the write may have been applied; only the response was lost) or a 5xx cleared the
+lease and the in-flight marker as if the outcome were known. The ledger now tells them apart: a response below 500
+is a known outcome (2xx applied; 4xx, including the 412 of a lost compare-and-set, not applied), and a transport
+error or a 5xx is counted in `uncertainCount`. `settled` still means "nothing in flight" and says nothing about
+outcomes. **The marker** is cleared only when the writes have settled *and* every one has a known outcome; otherwise
+it stays, the end line says `uncertainWrites=N`, and a "marker kept ... without a confirmed outcome" line follows.
+It is resolved the way every stale marker is, with `identity_mode drain --ack-stale` after the owner has checked
+the tipper (the tool's help says so now); the M4c reaper is to do that automatically. **The lease** is released only
+in the same circumstances; a finished write with an unknown outcome leaves the lease to run out.
+
+*The lease's promise was stated too strongly.* The comment said the lease outlasts any worker, and the 50-second
+deadline is cooperative: it cannot stop a write already sent, or a process that is frozen and resumes later. What the
+code does now, in three layers. (1) **A write fence**: while the body of a lease runs, every write is refused *before
+it is sent* once the lease is within 30 seconds of expiring (the margin covers a last write timing out, the settle
+wait and the hold being written), so a worker that was paused past its lease and resumes cannot carry on. The fence
+sits in the write ledger of the request's database handle (one handle per request, so two operations never fence
+each other); it is lifted for the release afterwards. (2) **A hold**: a worker that ends with writes still on their
+way extends its lease to 15 minutes (a stuck TCP connection gives up after about that long) and releases it when the
+writes finish with known outcomes; until then a successor is refused as busy even after the lease's own five minutes.
+(3) The deadline, as before. The requested scenario is tested: a write is held in the network past the lease's own
+expiry, a second operation tries to take the tipper over and is refused, the write lands, the lease is released, the
+successor proceeds and is not overwritten. A paused worker is tested resuming after its successor has finished: its
+write is refused and the successor's value stands. **Why not cancel a timed-out request instead?** The production
+client (`googleapis_auth`) copies every request into a plain one before sending it, which drops any abort signal, so
+cancellation is not available and the design does not depend on it. **What remains, stated plainly:** the Realtime
+Database has no write that is conditional on another location, so there is no true fencing token. A write sent
+*before* the lease expired and delivered long after is stopped only by the hold, which exists only if its worker
+lived to extend it. The residual is a worker that dies or freezes between the fence check and the send, with the
+request then held in the network for longer than the lease; the periodic audit (M4c) is what catches anything that
+gets through, and **normal operation (pilot beyond a throwaway user, coexist) should not start before that audit
+exists.** A consequence for the client (M7): a tipper whose operation left writes unresolved is refused as `busy`
+for up to 15 minutes, and sign-in's refresh takes the lease, so the client must treat `busy` at sign-in as "carry
+on with the cached tipper and try again", not as a failed sign-in.
+
+*Statements corrected.* "Nothing calls these yet, so none will" was not a guarantee: the endpoints are public once
+deployed. The assurance is that `off` refuses every business mutation, while a temporary admission marker remains
+possible. And the `FIREBASE_DEBUG_FEATURES` warning is now executable: the server refuses to start if the variable
+is set outside the Functions emulator (the emulator is `FUNCTIONS_EMULATOR=true` without Cloud Run's `K_SERVICE`;
+any value is refused, not just the one switch), `deploy-functions.sh` refuses to deploy while the shell or any
+`functions*/.env*` file sets it (printing the file name, never its contents), and both are tested, the first also
+in the compiled server.
+
+*Tests and mutants.* Ledger classification and the fence (9 new), lease hold, keep, fence and timings (10 new), admission
+(2 new), startup guard (6) and deploy script (7 new cases). Twelve mutants of these changes: eleven were caught at
+once; one survived (the background release of a lease ignored unknown outcomes), a test for it was added, and it is
+caught. All suites pass.
+
+*B7, the sequence to follow* (each step needs its own go from the owner): (1) deploy in `off`, after `--dry-run`
+passes (it now includes the bypass check), recording that the six existing Dart functions are redeployed with it;
+(2) verify the deployed environment has no `FIREBASE_DEBUG_FEATURES` and the mode is `off`; (3) exercise the
+deployed denial paths: no App Check and an invalid ID token fail before any database access, and a valid signed-in
+request is refused by `off` with no marker left behind, which also exercises the production database opener; (4)
+check the existing endpoints still work after their redeploy (the local registration test does not show it); (5)
+only then agree the isolated pilot: the exact throwaway account, the exact scratch data, and the cleanup, written
+down before it runs.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
