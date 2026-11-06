@@ -603,6 +603,32 @@ always scans for other holders; and `/TokenOwners` joins `/ClaimMoves` as a node
 Next: B6 registers the four callables in `server.dart` (App Check enforced, 60-second timeout, the admission
 wrapper around each mutating one, the manifest test), then B7, deploy in `off`, which needs the owner's go.
 
+**Corrections after a fourth review (6 November 2026).** The review found a real token race and kept three earlier
+items open; all four are fixed, each with a deterministic or mutation-checked test, and the paragraph above on
+B4 and B5 should be read with this one. (1) **A paused older registration could delete the winner's entry.** A takes
+the token and pauses; B registers completely; A resumes, sees B among the "other holders", deletes B's entry, then
+sees it is not the owner and deletes its own: the token ends up held by nobody. My loops of simultaneous callers
+never forced that order. The ownership record is now `{owner, seq}` and a token entry's value *is* its registration's
+sequence (a UTC time to the microsecond, still a valid ISO time, so the 30-day stale-token cleanup is unaffected). A
+registration removes only entries that are not newer than itself, writes its own entry only if no newer one is there,
+and stands down if the sequence has moved on; entries written directly by a 1.4.x client carry no order and are always
+replaceable. Unregister keeps the sequence as a tombstone, so an older registration finishing after an unregister
+does not bring the token back. Tests force the interleaving through the checkpoint (A paused after each step while B
+completes, three registrations released in reverse order, unregister in between, the same tipper twice); the old
+behaviour fails them. (2) **The per-tipper lease was released while a timed-out write was still on its way**, so a
+successor could start alongside it. It now waits for the worker's writes to settle, as the admission marker does,
+and otherwise stays until they finish or it expires. (3) **A create wrote its two halves as two writes**, and a retry
+after only the private one was refused as needing audit. They are now one atomic update; a lone half is completed
+rather than refused; and an interrupted create is resumed from its own intent instead of being counted as a stranger.
+(4) **A changed create intent replaced its old alias and login keys before they were released**, so a second crash
+leaked those claims. The intent now names every key that may have been claimed, as a set that only grows until the old
+claims are released, and abandoning a create releases everything it names. **Correction to the documentation:**
+registering another tipper's token does not deliver their notifications to the attacker's device (the token still
+identifies the original device); it changes which account that device is sent notifications for. **Still open, stated
+plainly:** B6 and the deployment readiness review; the handler deadline described below (a request Cloud Run has timed
+out keeps running its Dart code, so each handler must stop itself at the next step boundary); and the points in
+"Risks".
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in
@@ -668,9 +694,12 @@ and the two account timestamps refreshed; a new record needs an alias that passe
    compare-and-set winner. Unregister releases the owner **only if it is still the caller**, then removes the
    caller's entry, so a delayed unregister from a former owner leaves a later owner's registration intact. The
    token is validated as a database key. **Accepted limitation:** knowing a push token does not prove the caller
-   controls that device, so an authenticated tipper who learns another's token could register it and receive
-   that user's reminders. That is no weaker than today (a 1.4.x client can do the same directly), the effect is
-   limited to notifications, and it is recorded as an accepted tradeoff, not a security property.
+   controls that device. The token still identifies the original device, so a signed-in tipper who learned
+   another's token cannot make notifications arrive anywhere new. What they can do is change which account that
+   device is sent notifications for: the device's owner could stop receiving their reminders, and the device
+   could be sent the other account's. That is no weaker than today (a 1.4.x client can write the token
+   directly), the effect is limited to notifications, and it is recorded as an accepted tradeoff, not a
+   security property.
 7. **Mode tool: `functions_dart/bin/identity_mode.dart`, through the Firebase CLI** (so no extra credentials; built in
    Dart rather than Node so the drain is proven against the real admission code), with
    `set <mode>`, `status` and the drain of section 5. The drain **blocks on any stale marker** (listed by operation

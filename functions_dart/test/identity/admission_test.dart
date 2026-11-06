@@ -6,59 +6,10 @@ import 'package:dart_functions/identity/mode_control.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/constants/identity_reasons.dart';
-import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 
 import '../support/emulator.dart';
-
-/// Fails the requests the test selects, to prove the wrapper fails closed.
-class _SelectiveFailure extends http.BaseClient {
-  _SelectiveFailure(this._inner, this._fail);
-
-  final http.Client _inner;
-  final bool Function(http.BaseRequest request) _fail;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    if (_fail(request)) {
-      throw http.ClientException('injected failure', request.url);
-    }
-    return _inner.send(request);
-  }
-}
-
-/// Holds the requests the test selects until it opens the gate, then forwards
-/// them: a request that outlives the caller that gave up on it.
-class _Gate extends http.BaseClient {
-  _Gate(this._inner, this._hold);
-
-  final http.Client _inner;
-  final bool Function(http.BaseRequest request) _hold;
-  final Completer<void> _open = Completer<void>();
-
-  void open() => _open.complete();
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    if (_hold(request)) {
-      await _open.future;
-    }
-    return _inner.send(request);
-  }
-}
-
-Future<void> _eventually(
-  Future<bool> Function() check, {
-  Duration within = const Duration(seconds: 5),
-}) async {
-  final deadline = DateTime.now().add(within);
-  while (!await check()) {
-    if (DateTime.now().isAfter(deadline)) {
-      fail('condition not met within $within');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 25));
-  }
-}
+import '../support/http_faults.dart';
 
 Future<Map<String, Object?>> _markers(RestDatabase database) async {
   final value = (await database.ref(inflightPath).once()).value;
@@ -228,7 +179,7 @@ void main() {
     test('it fails closed when the marker cannot be written', () async {
       await setMode('coexist');
       final failing = openEmulatorDatabase(
-        wrap: (inner) => _SelectiveFailure(
+        wrap: (inner) => FailRequests(
           inner,
           (request) =>
               request.method == 'PUT' &&
@@ -249,7 +200,7 @@ void main() {
       () async {
         await setMode('coexist');
         final failing = openEmulatorDatabase(
-          wrap: (inner) => _SelectiveFailure(
+          wrap: (inner) => FailRequests(
             inner,
             (request) =>
                 request.method == 'GET' &&
@@ -272,7 +223,7 @@ void main() {
       () async {
         await setMode('coexist');
         final failing = openEmulatorDatabase(
-          wrap: (inner) => _SelectiveFailure(
+          wrap: (inner) => FailRequests(
             inner,
             (request) =>
                 request.method == 'DELETE' &&
@@ -382,7 +333,7 @@ void main() {
       () async {
         await database.ref(identityModePath).update({'mode': 'coexist'});
         final failing = openEmulatorDatabase(
-          wrap: (inner) => _SelectiveFailure(
+          wrap: (inner) => FailRequests(
             inner,
             (request) =>
                 request.method == 'DELETE' &&
@@ -460,10 +411,10 @@ void main() {
     test(
       'keeps the marker, so the drain is never quiet while the write is still on its way',
       () async {
-        late _Gate held;
+        late HoldRequests held;
         final gated = openEmulatorDatabase(
           requestTimeout: const Duration(milliseconds: 200),
-          wrap: (inner) => held = _Gate(
+          wrap: (inner) => held = HoldRequests(
             inner,
             (request) =>
                 request.method == 'PUT' &&
@@ -506,10 +457,10 @@ void main() {
 
         // The request completes afterwards, and it does land: the risk was real.
         held.open();
-        await _eventually(
+        await eventually(
           () async => (await database.ref('/Scratch/x').once()).value == 'late',
         );
-        await _eventually(() async => (await _markers(database)).isEmpty);
+        await eventually(() async => (await _markers(database)).isEmpty);
         expect(log.any((line) => line.contains('marker cleared')), true);
 
         final after = await drainInflight(
@@ -529,10 +480,10 @@ void main() {
     test(
       'a marker write that times out and lands late is tidied up once it does',
       () async {
-        late _Gate held;
+        late HoldRequests held;
         final gated = openEmulatorDatabase(
           requestTimeout: const Duration(milliseconds: 200),
-          wrap: (inner) => held = _Gate(
+          wrap: (inner) => held = HoldRequests(
             inner,
             (request) =>
                 request.method == 'PUT' &&
@@ -553,7 +504,7 @@ void main() {
         expect(ran, false);
 
         held.open(); // the marker write reaches the database after the request was refused
-        await _eventually(
+        await eventually(
           () async => log.any((line) => line.contains('marker cleared')),
         );
         expect(

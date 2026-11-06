@@ -1,6 +1,7 @@
+import 'dart:math';
+
 import 'package:dart_functions/errors.dart';
 import 'package:dart_functions/identity/caller_token.dart';
-import 'package:dart_functions/identity/claims.dart';
 import 'package:dart_functions/identity/faults.dart';
 import 'package:dart_functions/identity/linked_caller.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
@@ -9,26 +10,43 @@ import 'package:dau_shared/dau_shared.dart';
 
 /// `register-device-token`: moves a push token to the signed-in tipper.
 ///
-/// A token belongs to one device, so it belongs to one tipper. Writing the
-/// caller's entry atomically is not enough: two callers that both scanned
-/// before either wrote would each add it. Ownership is therefore settled by a
-/// compare-and-set on `/TokenOwners/{token}`, which the last writer wins:
+/// A token belongs to one device, so it belongs to one tipper. Two callers can
+/// register one token at once, and a caller can be paused for any length of
+/// time between steps, so ownership is ordered, not just written:
 ///
-/// 1. Make the caller the owner.
-/// 2. Remove the token from every other tipper. This also clears holders that
-///    registered directly (a 1.4.x client does not know the index).
-/// 3. Write the caller's entry.
-/// 4. Read the owner again. If it is no longer the caller, a later registration
-///    took the token, so remove the caller's own entry.
+/// * `/TokenOwners/{token}` holds `{owner, seq}`. Taking the token is a
+///   compare-and-set that gives the caller the next `seq` for that token, so
+///   `seq` is the order in which registrations were made.
+/// * A tipper's entry `/AllTippersTokens/{tipper}/{token}` has as its value the
+///   time of the registration that wrote it, to the microsecond, in UTC. That is
+///   still an ordinary ISO time (the 30-day stale-token cleanup parses it) and
+///   it *is* the `seq`, so an entry says which registration it belongs to.
 ///
-/// The result is that two callers registering the same token at once end with
-/// exactly one holder, the last to claim ownership.
+/// With that order, every step is safe whatever the others are doing:
+///
+/// 1. Take the token (compare-and-set), getting `seq`.
+/// 2. Remove the token from every other tipper, **but only an entry that is not
+///    newer than this registration**. An entry written by a later registration
+///    is left alone: a caller that was paused after step 1 must not delete the
+///    entry of the registration that has since won.
+/// 3. Write the caller's own entry, again only if no newer one is there.
+/// 4. Read the ownership again. If its `seq` is no longer this registration's,
+///    a later registration took the token, so remove this caller's own entry
+///    (only if it still holds this registration's value).
+///
+/// So two callers registering one token at once end with exactly one holder, the
+/// later registration, however their steps interleave. Entries written directly
+/// by a 1.4.x client (a local time with no `Z`) carry no order and are always
+/// replaceable.
 ///
 /// **Accepted limitation:** knowing a push token does not prove the caller
-/// controls that device. A signed-in tipper who learned another's token could
-/// register it and receive that tipper's notifications. This is no weaker than
-/// before (a 1.4.x client can write the token directly) and the effect is
-/// limited to notifications.
+/// controls that device. The token still identifies the original device, so a
+/// signed-in tipper who learned another's token cannot make notifications arrive
+/// anywhere new. What they can do is change which account that device is sent
+/// notifications for: the device's owner could stop receiving their reminders,
+/// and the device could be sent the other account's. This is no weaker than
+/// before (a 1.4.x client can write the token directly) and is limited to
+/// notifications.
 Future<RegisterDeviceTokenResult> registerDeviceToken({
   required RestDatabase database,
   required CallerToken caller,
@@ -40,29 +58,40 @@ Future<RegisterDeviceTokenResult> registerDeviceToken({
   final token = _validToken(request.token);
   final tipperId = await requireLinkedTipper(database, caller.uid);
 
+  // 1. Take the token and learn this registration's place in the order.
   final ownerRef = database.ref('${paths.tokenOwnersPath}/$token');
-  await ownerRef.atomicUpdate(
-    (current) => current == tipperId ? keepCurrentValue : tipperId,
-  );
+  var seq = 0;
+  await ownerRef.atomicUpdate((current) {
+    seq = max(clock() * 1000, _seqOf(current) + 1);
+    return <String, Object?>{'owner': tipperId, 'seq': seq};
+  });
+  final value = _entryValue(seq);
   await checkpoint?.call('token:owner');
 
-  final others = await _otherHolders(database, token, tipperId);
-  if (others.isNotEmpty) {
-    await database.ref('/').update(<Object?, Object?>{
-      for (final other in others)
-        '${_root(paths.tokensPath)}/$other/$token': null,
-    });
+  // 2. Clear the older holders. A newer entry is not ours to remove.
+  for (final other in await _otherHolders(database, token, tipperId)) {
+    await database
+        .ref('${paths.tokensPath}/$other/$token')
+        .atomicUpdate(
+          (current) => current == null || _entrySeq(current) > seq
+              ? keepCurrentValue
+              : null,
+        );
   }
   await checkpoint?.call('token:others-removed');
 
+  // 3. Write the caller's entry, unless a newer registration of its own is there.
   final entryRef = database.ref('${paths.tokensPath}/$tipperId/$token');
-  await entryRef.set(
-    DateTime.fromMillisecondsSinceEpoch(clock(), isUtc: true).toIso8601String(),
+  await entryRef.atomicUpdate(
+    (current) => _entrySeq(current) > seq ? keepCurrentValue : value,
   );
   await checkpoint?.call('token:entry');
 
-  if ((await ownerRef.once()).value != tipperId) {
-    await entryRef.remove();
+  // 4. A later registration may have taken the token meanwhile.
+  if (_seqOf((await ownerRef.once()).value) != seq) {
+    await entryRef.atomicUpdate(
+      (current) => current == value ? null : keepCurrentValue,
+    );
   }
   return RegisterDeviceTokenResult(tipperId: tipperId);
 }
@@ -70,10 +99,12 @@ Future<RegisterDeviceTokenResult> registerDeviceToken({
 /// `unregister-device-token`: removes a push token from the signed-in tipper.
 ///
 /// It only ever touches the caller's own entry, and gives up the ownership
-/// record only if it still names the caller. A delayed unregister from a
-/// former owner therefore cannot disturb whoever registered the token since.
-/// (A client that sends its own unregister and register for one token out of
-/// order defeats itself; the client is expected to serialise those.)
+/// record only if it still names the caller. The record keeps its `seq` (as a
+/// tombstone with no owner), so the order of registrations survives. A delayed
+/// unregister from a former owner therefore cannot disturb whoever registered
+/// the token since. (A client that sends its own unregister and register for
+/// one token out of order defeats itself; the client is expected to serialise
+/// those.)
 Future<UnregisterDeviceTokenResult> unregisterDeviceToken({
   required RestDatabase database,
   required CallerToken caller,
@@ -83,7 +114,12 @@ Future<UnregisterDeviceTokenResult> unregisterDeviceToken({
   final token = _validToken(request.token);
   final tipperId = await requireLinkedTipper(database, caller.uid);
 
-  await release(database.ref('${paths.tokenOwnersPath}/$token'), tipperId);
+  await database.ref('${paths.tokenOwnersPath}/$token').atomicUpdate((current) {
+    if (current is Map && current['owner'] == tipperId) {
+      return <String, Object?>{'seq': _seqOf(current)};
+    }
+    return keepCurrentValue;
+  });
   await checkpoint?.call('untoken:released');
 
   final result = await database
@@ -101,6 +137,29 @@ String _validToken(String token) {
     );
   }
   return token;
+}
+
+/// The order of the registration an ownership record last recorded, or 0.
+int _seqOf(Object? ownership) {
+  if (ownership is Map && ownership['seq'] is num) {
+    return (ownership['seq'] as num).toInt();
+  }
+  return 0;
+}
+
+/// The value of a token entry for the registration with this [seq]: its time,
+/// to the microsecond, in UTC.
+String _entryValue(int seq) =>
+    DateTime.fromMicrosecondsSinceEpoch(seq, isUtc: true).toIso8601String();
+
+/// The order an entry carries, or 0 if it carries none: a value written by a
+/// callable is a UTC time (it ends in `Z`); one written directly by a 1.4.x
+/// client is a local time with no zone.
+int _entrySeq(Object? entryValue) {
+  if (entryValue is String && entryValue.endsWith('Z')) {
+    return DateTime.tryParse(entryValue)?.microsecondsSinceEpoch ?? 0;
+  }
+  return 0;
 }
 
 /// The tippers other than [tipperId] that hold [token]. One read of the whole
@@ -122,5 +181,3 @@ Future<List<String>> _otherHolders(
         entry.key.toString(),
   ]..sort();
 }
-
-String _root(String path) => path.substring(1);

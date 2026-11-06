@@ -63,8 +63,15 @@ Future<LinkOrCreateTipperResult> linkOrCreateTipper({
     );
   }
 
+  // A create of this account's own that was interrupted has left a record (or
+  // half of one) with its login address. That is not a stranger to be refused
+  // or linked: the create is resumed. Anything else that matches still counts.
+  final ownIntent = await _pendingIntentTipperId(database, caller.uid);
   final records = await loadTipperRecords(database);
-  final candidates = findCandidates(records.values, email);
+  final candidates = <TipperRecord>[
+    for (final record in findCandidates(records.values, email))
+      if (record.id != ownIntent) record,
+  ];
   if (candidates.any((record) => record.needsAudit)) {
     throw FailedPreconditionError(
       'This record is waiting to be checked by an administrator. Please contact support.',
@@ -376,17 +383,24 @@ Future<LinkOrCreateTipperResult> _create(
     body: () async {
       await context.at('create:intent');
 
-      // A retry that changed the alias or address: let go of the old claims.
+      // A retry that changed the alias or address: let go of the old claims. The
+      // intent kept naming them until now, so a crash here is finished by the
+      // next retry rather than leaking them.
       for (final stale in intent.staleAliasKeys) {
         await release(database.ref('${paths.aliasIndexPath}/$stale'), tipperId);
       }
       for (final stale in intent.staleLogonKeys) {
         await release(database.ref('${paths.logonIndexPath}/$stale'), tipperId);
       }
+      await _trimIntent(
+        database.ref('${paths.createIntentsPath}/$uid'),
+        releasedAlias: intent.staleAliasKeys,
+        releasedLogon: intent.staleLogonKeys,
+      );
 
       final aliasRef = database.ref('${paths.aliasIndexPath}/$aliasKey');
       if (await claim(aliasRef, tipperId) == ClaimOutcome.heldByOther) {
-        await _abandonCreate(context, tipperId, aliasKey: null, logonKey: null);
+        await _abandonCreate(context, tipperId);
         final twin = await _linkedMeanwhile(context);
         if (twin != null) {
           return twin;
@@ -400,12 +414,7 @@ Future<LinkOrCreateTipperResult> _create(
 
       final logonRef = database.ref('${paths.logonIndexPath}/$logonKey');
       if (await claim(logonRef, tipperId) == ClaimOutcome.heldByOther) {
-        await _abandonCreate(
-          context,
-          tipperId,
-          aliasKey: aliasKey,
-          logonKey: null,
-        );
+        await _abandonCreate(context, tipperId);
         final twin = await _linkedMeanwhile(context);
         if (twin != null) {
           return twin;
@@ -422,13 +431,7 @@ Future<LinkOrCreateTipperResult> _create(
         tipperId,
       );
       if (committed == ClaimOutcome.heldByOther) {
-        await _abandonCreate(
-          context,
-          tipperId,
-          aliasKey: aliasKey,
-          logonKey: logonKey,
-          removeRecords: true,
-        );
+        await _abandonCreate(context, tipperId, removeRecords: true);
         throw _claimed();
       }
       await context.at('create:committed');
@@ -442,8 +445,11 @@ Future<LinkOrCreateTipperResult> _create(
   );
 }
 
-/// Writes the two halves of a new record, each only if absent, so a retry after
-/// a crash does not disturb what is already there.
+/// Writes a new record's two halves in ONE atomic update, so there is never a
+/// private record without its public half (or the reverse) for a retry to trip
+/// over. A retry after a completed write finds both and leaves them; a lone half
+/// (damage, or state left by older code) is completed rather than refused,
+/// because the id came from this account's own intent.
 Future<void> _writeNewRecords(
   _Context context,
   String tipperId,
@@ -451,63 +457,69 @@ Future<void> _writeNewRecords(
 ) async {
   final database = context.database;
   final now = context.clock();
-  final privateRecord = newPrivateRecord(
-    authuid: context.caller.uid,
-    email: context.email,
-    nowMs: now,
-  );
-  final publicRecord = newPublicRecord(
-    legacyShape: context.legacyShape,
-    name: alias,
-    authuid: context.caller.uid,
-    email: context.email,
-    nowMs: now,
-    photoUrl: context.caller.pictureUrl,
-  );
-
   final privateRef = database.ref('${paths.tipperPrivatePath}/$tipperId');
-  final existingPrivate = await privateRef.atomicUpdate(
-    (current) => current == null ? privateRecord : keepCurrentValue,
-  );
-  final stored = existingPrivate.value;
-  final storedAuthuid = stored is Map ? stored['authuid'] : null;
-  if (storedAuthuid != context.caller.uid) {
+  final publicRef = database.ref('${paths.tippersPath}/$tipperId');
+  final existingPrivate = (await privateRef.once()).value;
+  final existingPublic = (await publicRef.once()).value;
+
+  if (existingPrivate is Map &&
+      existingPrivate['authuid'] != context.caller.uid) {
     throw _claimed();
   }
-  await database
-      .ref('${paths.tippersPath}/$tipperId')
-      .atomicUpdate(
-        (current) => current == null ? publicRecord : keepCurrentValue,
-      );
+  final writes = <Object?, Object?>{
+    if (existingPrivate is! Map)
+      '${_root(paths.tipperPrivatePath)}/$tipperId': newPrivateRecord(
+        authuid: context.caller.uid,
+        email: context.email,
+        nowMs: now,
+      ),
+    if (existingPublic is! Map)
+      '${_root(paths.tippersPath)}/$tipperId': newPublicRecord(
+        legacyShape: context.legacyShape,
+        name: alias,
+        authuid: context.caller.uid,
+        email: context.email,
+        nowMs: now,
+        photoUrl: context.caller.pictureUrl,
+      ),
+  };
+  if (writes.isNotEmpty) {
+    await database.ref('/').update(writes);
+  }
 }
 
-/// Rolls back a create that lost a race: the claims it made, optionally the
-/// records it wrote, and the intent.
+String _root(String path) => path.substring(1);
+
+/// Rolls back a create that lost a race: every claim the intent names (the
+/// current ones and any left by earlier attempts), optionally the records it
+/// wrote, and the intent itself. Releases are owner-checked, so a key that is
+/// held by someone else is not touched.
 Future<void> _abandonCreate(
   _Context context,
   String tipperId, {
-  required String? aliasKey,
-  required String? logonKey,
   bool removeRecords = false,
 }) async {
   final database = context.database;
-  if (aliasKey != null) {
-    await release(database.ref('${paths.aliasIndexPath}/$aliasKey'), tipperId);
+  final intentRef = database.ref(
+    '${paths.createIntentsPath}/${context.caller.uid}',
+  );
+  final named = (await intentRef.once()).value;
+  for (final key in _keysIn(named, 'aliasKeys')) {
+    await release(database.ref('${paths.aliasIndexPath}/$key'), tipperId);
   }
-  if (logonKey != null) {
-    await release(database.ref('${paths.logonIndexPath}/$logonKey'), tipperId);
+  for (final key in _keysIn(named, 'logonKeys')) {
+    await release(database.ref('${paths.logonIndexPath}/$key'), tipperId);
   }
   if (removeRecords) {
     await database.ref('${paths.tipperPrivatePath}/$tipperId').remove();
     await database.ref('${paths.tippersPath}/$tipperId').remove();
   }
-  await database
-      .ref('${paths.createIntentsPath}/${context.caller.uid}')
-      .remove();
+  await intentRef.remove();
 }
 
-/// The create intent for this account: the tipper id to use, and any claims an
-/// earlier attempt made under a different alias or address that must now go.
+/// The create intent for this account: the tipper id to use, and the claims an
+/// earlier attempt may have made under a different alias or address, which must
+/// now be released.
 class _Intent {
   const _Intent({
     required this.tipperId,
@@ -520,10 +532,34 @@ class _Intent {
   final List<String> staleLogonKeys;
 }
 
+List<String> _keysIn(Object? intent, String field) {
+  final value = intent is Map ? intent[field] : null;
+  if (value is List) {
+    return <String>[
+      for (final key in value)
+        if (key is String && key.isNotEmpty) key,
+    ];
+  }
+  if (value is Map) {
+    return <String>[
+      for (final key in value.values)
+        if (key is String && key.isNotEmpty) key,
+    ];
+  }
+  return const <String>[];
+}
+
+List<String> _union(List<String> existing, String key) =>
+    <String>{...existing, key}.toList()..sort();
+
 /// Claims `/CreateIntents/{uid}` for this account, or reuses the one an earlier
-/// attempt left, so a retry or a double-tap makes exactly one record. The
-/// stored intent names the alias and login keys, so a retry with different ones
-/// can release the old claims instead of leaking them.
+/// attempt left, so a retry or a double-tap makes exactly one record.
+///
+/// The intent names every alias and login key that may have been claimed on
+/// this account's behalf, as sets that only grow here: a retry with a different
+/// alias adds its key and leaves the old one listed, so the old claim is still
+/// known if the process dies before releasing it. The keys are removed again by
+/// [_trimIntent], and only after they have been released.
 Future<_Intent> _claimIntent(
   RestDatabaseReference ref, {
   required String freshId,
@@ -532,43 +568,76 @@ Future<_Intent> _claimIntent(
   required String logonKey,
 }) async {
   var tipperId = freshId;
-  final staleAlias = <String>[];
-  final staleLogon = <String>[];
+  var staleAlias = <String>[];
+  var staleLogon = <String>[];
   await ref.atomicUpdate((current) {
-    staleAlias.clear();
-    staleLogon.clear();
     if (current is Map && current['tipperId'] is String) {
       tipperId = current['tipperId'] as String;
-      final storedAlias = current['aliasKey'];
-      final storedLogon = current['logonKey'];
-      if (storedAlias is String && storedAlias != aliasKey) {
-        staleAlias.add(storedAlias);
-      }
-      if (storedLogon is String && storedLogon != logonKey) {
-        staleLogon.add(storedLogon);
-      }
-      if (staleAlias.isEmpty && staleLogon.isEmpty) {
+      final aliasKeys = _union(_keysIn(current, 'aliasKeys'), aliasKey);
+      final logonKeys = _union(_keysIn(current, 'logonKeys'), logonKey);
+      staleAlias = <String>[
+        for (final key in aliasKeys)
+          if (key != aliasKey) key,
+      ];
+      staleLogon = <String>[
+        for (final key in logonKeys)
+          if (key != logonKey) key,
+      ];
+      if (aliasKeys.length == _keysIn(current, 'aliasKeys').length &&
+          logonKeys.length == _keysIn(current, 'logonKeys').length) {
         return keepCurrentValue;
       }
       return <String, Object?>{
         ...Map<String, Object?>.from(current),
-        'aliasKey': aliasKey,
-        'logonKey': logonKey,
+        'aliasKeys': aliasKeys,
+        'logonKeys': logonKeys,
       };
     }
     tipperId = freshId;
+    staleAlias = <String>[];
+    staleLogon = <String>[];
     return <String, Object?>{
       'tipperId': freshId,
       'createdAtMs': nowMs,
-      'aliasKey': aliasKey,
-      'logonKey': logonKey,
+      'aliasKeys': <String>[aliasKey],
+      'logonKeys': <String>[logonKey],
     };
   });
   return _Intent(
     tipperId: tipperId,
-    staleAliasKeys: List<String>.of(staleAlias),
-    staleLogonKeys: List<String>.of(staleLogon),
+    staleAliasKeys: staleAlias,
+    staleLogonKeys: staleLogon,
   );
+}
+
+/// Removes keys from the intent once they have been released. Until then the
+/// intent keeps naming them.
+Future<void> _trimIntent(
+  RestDatabaseReference ref, {
+  required List<String> releasedAlias,
+  required List<String> releasedLogon,
+}) async {
+  if (releasedAlias.isEmpty && releasedLogon.isEmpty) {
+    return;
+  }
+  await ref.atomicUpdate((current) {
+    if (current is! Map) {
+      return keepCurrentValue;
+    }
+    final aliasKeys = <String>[
+      for (final key in _keysIn(current, 'aliasKeys'))
+        if (!releasedAlias.contains(key)) key,
+    ];
+    final logonKeys = <String>[
+      for (final key in _keysIn(current, 'logonKeys'))
+        if (!releasedLogon.contains(key)) key,
+    ];
+    return <String, Object?>{
+      ...Map<String, Object?>.from(current),
+      'aliasKeys': aliasKeys,
+      'logonKeys': logonKeys,
+    };
+  });
 }
 
 /// A create that crashed after its commit leaves its intent behind. Once the
@@ -610,4 +679,15 @@ Future<LinkOrCreateTipperResult?> _linkedMeanwhile(_Context context) async {
     tipperId: resolution.tipperId,
     outcome: LinkOutcome.existing,
   );
+}
+
+/// The tipper id of this account's interrupted create, if there is one.
+Future<String?> _pendingIntentTipperId(
+  RestDatabase database,
+  String uid,
+) async {
+  final intent =
+      (await database.ref('${paths.createIntentsPath}/$uid').once()).value;
+  final id = intent is Map ? intent['tipperId'] : null;
+  return id is String && id.isNotEmpty ? id : null;
 }

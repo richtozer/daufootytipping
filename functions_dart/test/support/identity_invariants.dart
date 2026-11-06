@@ -137,42 +137,59 @@ void expectIdentityConsistent(
   }
 }
 
-/// The push token tree: a token is held by at most one tipper, and when both
-/// the ownership index and a holder exist they agree. [allowPending] permits the
-/// short states a crashed registration can leave (the index already names the
-/// new owner while the old holder has not yet been cleared).
+/// The push token tree: a token is held by at most one tipper; when both the
+/// ownership record and a holder exist they agree; and no entry is newer than the
+/// order the ownership record has reached (an entry that outran it would be
+/// from a registration that never took the token). [allowPending] permits the
+/// short states a crashed registration can leave.
 void expectTokensConsistent(
   Map<String, Object?> root, {
   bool allowPending = false,
 }) {
   final tokens = _node(root, 'AllTippersTokens');
   final owners = _node(root, 'TokenOwners');
-  final holders = <String, List<String>>{};
+  final holders = <String, List<MapEntry<String, Object?>>>{};
   for (final entry in tokens.entries) {
     final held = entry.value;
     if (held is! Map) {
       continue;
     }
-    for (final token in held.keys) {
-      (holders['$token'] ??= <String>[]).add(entry.key);
+    for (final token in held.entries) {
+      (holders['${token.key}'] ??= []).add(MapEntry(entry.key, token.value));
     }
   }
   for (final entry in holders.entries) {
-    if (!allowPending) {
-      expect(
-        entry.value,
-        hasLength(1),
-        reason: 'token ${entry.key} is held by ${entry.value}',
-      );
-      final owner = owners[entry.key];
-      if (owner != null) {
+    final ownership = owners[entry.key];
+    final seq = ownership is Map && ownership['seq'] is num
+        ? (ownership['seq'] as num).toInt()
+        : 0;
+    for (final holder in entry.value) {
+      final value = holder.value;
+      if (value is String && value.endsWith('Z')) {
+        final entrySeq = DateTime.parse(value).microsecondsSinceEpoch;
         expect(
-          entry.value.single,
-          owner,
+          entrySeq,
+          lessThanOrEqualTo(seq),
           reason:
-              'token ${entry.key} is held by one tipper and indexed to another',
+              'token ${entry.key}: an entry is newer than the ownership order',
         );
       }
+    }
+    if (allowPending) {
+      continue;
+    }
+    expect(
+      entry.value,
+      hasLength(1),
+      reason: 'token ${entry.key} is held by ${entry.value.map((e) => e.key)}',
+    );
+    final owner = ownership is Map ? ownership['owner'] : null;
+    if (owner != null) {
+      expect(
+        entry.value.single.key,
+        owner,
+        reason: 'token ${entry.key} is held by one tipper and owned by another',
+      );
     }
   }
 }

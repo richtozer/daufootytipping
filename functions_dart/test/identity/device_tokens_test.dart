@@ -98,8 +98,15 @@ void main() {
           : <String, Object?>{};
     }
 
-    Object? ownerOf(Map<String, Object?> root, String token) =>
-        (root['TokenOwners'] as Map?)?[token];
+    Object? ownerOf(Map<String, Object?> root, String token) {
+      final ownership = (root['TokenOwners'] as Map?)?[token];
+      return ownership is Map ? ownership['owner'] : null;
+    }
+
+    int seqOf(Map<String, Object?> root, String token) {
+      final ownership = (root['TokenOwners'] as Map?)?[token];
+      return ownership is Map ? (ownership['seq'] as num).toInt() : 0;
+    }
 
     Future<void> refusedWithoutWriting(
       Future<Object?> Function() action,
@@ -219,10 +226,10 @@ void main() {
       );
 
       test(
-        'ACCEPTED LIMITATION: knowing another tipper\'s token is enough to take it',
+        'ACCEPTED LIMITATION: knowing another tipper\'s token is enough to move it to your account',
         () async {
           // Possession of a push token does not prove control of the device. This documents the behaviour
-          // (the token moves to the caller, as it does today when a 1.4.x client writes it directly).
+          // (the token moves to the caller's account, as it does today when a 1.4.x client writes it directly; it still identifies the original device, so nothing new is delivered to the caller).
           await register(_uidA, _token);
           await register(_uidB, _token);
           final root = await readRoot(db);
@@ -382,6 +389,182 @@ void main() {
             ]);
             expectTokensConsistent(await readRoot(db));
           }
+        },
+        skip: skip,
+      );
+    });
+
+    group('the order of registrations, forced step by step', () {
+      /// Holds a registration at [step] until [until] completes.
+      Checkpoint pauseAt(String step, Future<void> until) =>
+          (reached) async => reached == step ? await until : null;
+
+      Future<void> eventually(Future<bool> Function() check) async {
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (!await check()) {
+          if (DateTime.now().isAfter(deadline)) {
+            fail('condition not met in time');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      }
+
+      /// Starts A's registration and holds it right after it took the token.
+      Future<RegisterDeviceTokenResult> startPausedAt(
+        String step,
+        Completer<void> release,
+        String uid,
+      ) => register(uid, _token, checkpoint: pauseAt(step, release.future));
+
+      for (final step in [
+        'token:owner',
+        'token:others-removed',
+        'token:entry',
+      ]) {
+        test(
+          'A paused after $step while B completes: B keeps the token, and nobody ends up without it',
+          () async {
+            final release = Completer<void>();
+            final a = startPausedAt(step, release, _uidA);
+            await eventually(
+              () async => ownerOf(await readRoot(db), _token) == 't1',
+            );
+
+            await register(
+              _uidB,
+              _token,
+            ); // B's whole registration, while A is paused
+
+            release.complete();
+            await a;
+            final root = await readRoot(db);
+            expect(tokensOf(root, 't2').keys, [
+              _token,
+            ], reason: 'the later registration holds the token');
+            expect(
+              tokensOf(root, 't1'),
+              isEmpty,
+              reason: "A's older registration is gone",
+            );
+            expect(ownerOf(root, _token), 't2');
+            expectTokensConsistent(root);
+          },
+          skip: skip,
+        );
+      }
+
+      test(
+        'three registrations released in reverse order: the latest wins and each older one stands down',
+        () async {
+          final releaseA = Completer<void>();
+          final releaseB = Completer<void>();
+          final a = startPausedAt('token:owner', releaseA, _uidA);
+          await eventually(
+            () async => ownerOf(await readRoot(db), _token) == 't1',
+          );
+          final b = startPausedAt('token:owner', releaseB, _uidB);
+          await eventually(
+            () async => ownerOf(await readRoot(db), _token) == 't2',
+          );
+          await register(_uidC, _token); // C takes it last and completes
+
+          releaseB.complete();
+          await b;
+          releaseA.complete();
+          await a;
+
+          final root = await readRoot(db);
+          for (final loser in ['t1', 't2']) {
+            expect(tokensOf(root, loser), isEmpty, reason: '$loser stood down');
+          }
+          expect(tokensOf(root, 't3').containsKey(_token), true);
+          expect(ownerOf(root, _token), 't3');
+          expectTokensConsistent(root);
+        },
+        skip: skip,
+      );
+
+      test(
+        'an older registration finishing after the token was unregistered does not bring it back',
+        () async {
+          final release = Completer<void>();
+          final a = startPausedAt('token:owner', release, _uidA);
+          await eventually(
+            () async => ownerOf(await readRoot(db), _token) == 't1',
+          );
+          await register(_uidB, _token);
+          await unregister(_uidB, _token); // B registered and then left
+
+          release.complete();
+          await a;
+          final root = await readRoot(db);
+          expect(
+            [
+              for (final id in ['t1', 't2', 't3'])
+                if (tokensOf(root, id).containsKey(_token)) id,
+            ],
+            isEmpty,
+            reason:
+                "A's registration was older than B's, so it does not outlive B's unregister",
+          );
+          expectTokensConsistent(root);
+        },
+        skip: skip,
+      );
+
+      test(
+        'the same tipper registering twice: the later registration is never undone by the earlier one',
+        () async {
+          final release = Completer<void>();
+          final first = startPausedAt('token:owner', release, _uidA);
+          await eventually(
+            () async => ownerOf(await readRoot(db), _token) == 't1',
+          );
+          final firstSeq = seqOf(await readRoot(db), _token);
+          await register(
+            _uidA,
+            _token,
+            at: _t0 + 5000,
+          ); // the same tipper again, completing first
+
+          release.complete();
+          await first;
+          final root = await readRoot(db);
+          expect(tokensOf(root, 't1'), {
+            _token: isNotNull,
+          }, reason: 'still held');
+          expect(seqOf(root, _token), greaterThan(firstSeq));
+          expect(
+            DateTime.parse(
+              tokensOf(root, 't1')[_token]! as String,
+            ).microsecondsSinceEpoch,
+            seqOf(root, _token),
+            reason: 'the entry belongs to the later registration',
+          );
+          expectTokensConsistent(root);
+        },
+        skip: skip,
+      );
+
+      test(
+        'an entry written directly by a 1.4.x client carries no order and is always replaced',
+        () async {
+          await register(_uidA, _legacy);
+          final root = await readRoot(db);
+          expect(tokensOf(root, 't3'), isEmpty);
+          expect(tokensOf(root, 't1').keys, [_legacy]);
+          expect(seqOf(root, _legacy), greaterThan(0));
+        },
+        skip: skip,
+      );
+
+      test(
+        'every entry the callables write is a UTC time the stale-token cleanup can parse',
+        () async {
+          await register(_uidA, _token, at: _t0 + 123);
+          final value = tokensOf(await readRoot(db), 't1')[_token]! as String;
+          expect(value.endsWith('Z'), true);
+          expect(DateTime.tryParse(value), isNotNull);
         },
         skip: skip,
       );

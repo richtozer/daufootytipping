@@ -17,6 +17,7 @@ import 'package:firebase_functions/firebase_functions.dart'
 import 'package:test/test.dart';
 
 import '../support/emulator.dart';
+import '../support/http_faults.dart';
 import '../support/identity_helpers.dart';
 import '../support/identity_invariants.dart';
 
@@ -1011,6 +1012,303 @@ void main() {
         expect((root['AliasIndex'] as Map).values, [result.tipperId]);
         expectIdentityConsistent(root);
       }, skip: skip);
+    });
+
+    group(
+      'creating: records written together, and a retry that resumes its own work',
+      () {
+        Map<String, Object?> halfCreated({
+          bool privateHalf = true,
+          bool publicHalf = false,
+          String authuid = _uidA,
+        }) {
+          final s = IdentitySeed();
+          s.data['CreateIntents'] = {
+            _uidA: {
+              'tipperId': 'T-half',
+              'createdAtMs': _t0,
+              'aliasKeys': [aliasIndexKey('Pat')],
+              'logonKeys': [logonIndexKey('new@example.com')],
+            },
+          };
+          s.data['AliasIndex'] = {aliasIndexKey('Pat'): 'T-half'};
+          s.data['LogonIndex'] = {logonIndexKey('new@example.com'): 'T-half'};
+          if (privateHalf) {
+            s.data['TipperPrivate'] = {
+              'T-half': {
+                'authuid': authuid,
+                'logon': 'new@example.com',
+                'email': 'new@example.com',
+                'tipperRole': 'tipper',
+                'isAnonymous': false,
+              },
+            };
+          }
+          if (publicHalf) {
+            s.data['AllTippers'] = {
+              'T-half': {
+                'name': 'Pat',
+                'authuid': authuid,
+                'logon': 'new@example.com',
+              },
+            };
+          }
+          return s.data;
+        }
+
+        Future<void> seedRaw(Map<String, Object?> data) async {
+          await clearEmulatorDatabase(db);
+          await db.ref('/').set(data);
+        }
+
+        test(
+          'the private and public halves go in ONE atomic update, never as two writes',
+          () async {
+            await seed(IdentitySeed());
+            late RecordRequests recorder;
+            final recording = openEmulatorDatabase(
+              wrap: (inner) => recorder = RecordRequests(inner),
+            );
+            final result = await call(
+              callerToken(_uidA, 'new@example.com'),
+              alias: 'Pat',
+              on: recording,
+            );
+            expect(result.outcome, LinkOutcome.created);
+
+            final recordWrites = [
+              for (final request in recorder.requests)
+                if (request.method != 'GET' &&
+                    (request.body.contains('TipperPrivate/') ||
+                        request.path.contains('TipperPrivate') ||
+                        request.path.contains('AllTippers')))
+                  request,
+            ];
+            final together = recordWrites.where(
+              (r) =>
+                  r.method == 'PATCH' &&
+                  r.body.contains('"TipperPrivate/${result.tipperId}"') &&
+                  r.body.contains('"AllTippers/${result.tipperId}"'),
+            );
+            expect(together, hasLength(1), reason: 'both halves in one update');
+            final separate = recordWrites.where(
+              (r) =>
+                  r.path.contains('/TipperPrivate/${result.tipperId}') ||
+                  r.path.contains('/AllTippers/${result.tipperId}'),
+            );
+            expect(
+              separate,
+              isEmpty,
+              reason: 'and no separate write to either half',
+            );
+            expectIdentityConsistent(await readRoot(db));
+          },
+          skip: skip,
+        );
+
+        test(
+          'a lone private half is completed by the resumed create, not refused as needing audit',
+          () async {
+            await seedRaw(halfCreated());
+            final result = await call(
+              callerToken(_uidA, 'new@example.com'),
+              alias: 'Pat',
+            );
+            expect(result.tipperId, 'T-half');
+            expect(result.outcome, LinkOutcome.created);
+            final root = await readRoot(db);
+            expect(rowAt(root, 'AllTippers', 'T-half')['name'], 'Pat');
+            expect(root['AuthIndex'], {_uidA: 'T-half'});
+            expectIdentityConsistent(root);
+          },
+          skip: skip,
+        );
+
+        test('a lone public half is completed too', () async {
+          await seedRaw(halfCreated(privateHalf: false, publicHalf: true));
+          final result = await call(
+            callerToken(_uidA, 'new@example.com'),
+            alias: 'Pat',
+          );
+          expect(result.tipperId, 'T-half');
+          final root = await readRoot(db);
+          expect(rowAt(root, 'TipperPrivate', 'T-half')['authuid'], _uidA);
+          expectIdentityConsistent(root);
+        }, skip: skip);
+
+        test(
+          'a half that belongs to a different account is never completed',
+          () async {
+            await seedRaw(halfCreated(authuid: _uidB));
+            await expectLater(
+              call(callerToken(_uidA, 'new@example.com'), alias: 'Pat'),
+              refusedAs(identityReasonClaimed),
+            );
+            expect((await readRoot(db))['AuthIndex'], isNull);
+          },
+          skip: skip,
+        );
+
+        test(
+          'a crash just before the commit is resumed as a create, not turned into a link',
+          () async {
+            await seed(IdentitySeed());
+            final caller = callerToken(_uidA, 'new@example.com');
+            await expectLater(
+              call(
+                caller,
+                alias: 'Pat',
+                checkpoint: crashAfter('create:records'),
+              ),
+              throwsA(isA<SimulatedCrash>()),
+            );
+            final result = await call(
+              caller,
+              alias: 'Pat',
+              at: _t0 + tipperLeaseTtl.inMilliseconds + 1,
+            );
+            expect(result.outcome, LinkOutcome.created);
+            expectIdentityConsistent(await readRoot(db));
+          },
+          skip: skip,
+        );
+
+        test(
+          'a stranger who matches the same address still counts: refused as claimed, not resumed over them',
+          () async {
+            final data = halfCreated();
+            (data['TipperPrivate']! as Map)['stranger'] = {
+              'authuid': 'x@example.com',
+              'logon': 'new@example.com',
+              'tipperRole': 'tipper',
+            };
+            data['AllTippers'] = {
+              'stranger': {'name': 'Stranger', 'logon': 'new@example.com'},
+            };
+            await seedRaw(data);
+            await expectLater(
+              call(callerToken(_uidA, 'new@example.com'), alias: 'Pat'),
+              refusedAs(identityReasonClaimed),
+            );
+          },
+          skip: skip,
+        );
+      },
+    );
+
+    group('creating: a changed intent never loses the claims it may have made', () {
+      test(
+        'after two crashed attempts under different aliases, a third leaves only its own claim',
+        () async {
+          await seed(IdentitySeed());
+          final caller = callerToken(_uidA, 'new@example.com');
+          final later = _t0 + tipperLeaseTtl.inMilliseconds + 1;
+
+          // 1. "First" is claimed, then the process dies.
+          await expectLater(
+            call(
+              caller,
+              alias: 'First',
+              checkpoint: crashAfter('create:alias'),
+            ),
+            throwsA(isA<SimulatedCrash>()),
+          );
+          // 2. "Second": the intent now names both keys, and the process dies BEFORE releasing "First".
+          await expectLater(
+            call(
+              caller,
+              alias: 'Second',
+              at: later,
+              checkpoint: crashAfter('create:intent'),
+            ),
+            throwsA(isA<SimulatedCrash>()),
+          );
+          var root = await readRoot(db);
+          final named =
+              (root['CreateIntents'] as Map)[_uidA]['aliasKeys'] as List;
+          expect(named.toSet(), {
+            aliasIndexKey('First'),
+            aliasIndexKey('Second'),
+          }, reason: 'the intent still names the key that is still claimed');
+          expect((root['AliasIndex'] as Map).keys, [aliasIndexKey('First')]);
+
+          // 3. "Third" releases both earlier keys and claims only its own.
+          final result = await call(caller, alias: 'Third', at: later * 2);
+          root = await readRoot(db);
+          expect((root['AliasIndex'] as Map).keys, [aliasIndexKey('Third')]);
+          expect((root['AliasIndex'] as Map).values, [result.tipperId]);
+          expectIdentityConsistent(root);
+        },
+        skip: skip,
+      );
+
+      test('the same for a changed login address', () async {
+        await seed(IdentitySeed());
+        // Attempt 1 under one address, crash after the login claim; attempt 2 under another.
+        await expectLater(
+          call(
+            callerToken(_uidA, 'one@example.com'),
+            alias: 'Pat',
+            checkpoint: crashAfter('create:logon'),
+          ),
+          throwsA(isA<SimulatedCrash>()),
+        );
+        final later = _t0 + tipperLeaseTtl.inMilliseconds + 1;
+        await call(
+          callerToken(_uidA, 'two@example.com'),
+          alias: 'Pat',
+          at: later,
+        );
+        final root = await readRoot(db);
+        expect((root['LogonIndex'] as Map).keys, [
+          logonIndexKey('two@example.com'),
+        ]);
+        expectIdentityConsistent(root);
+      }, skip: skip);
+
+      test(
+        'losing the alias to someone else still releases what earlier attempts claimed',
+        () async {
+          await seed(
+            IdentitySeed()..tipper(
+              't9',
+              name: 'Taken',
+              authuid: _uidB,
+              logon: 'b@example.com',
+              indexAccount: true,
+            ),
+          );
+          final caller = callerToken(_uidA, 'new@example.com');
+          await expectLater(
+            call(
+              caller,
+              alias: 'First',
+              checkpoint: crashAfter('create:alias'),
+            ),
+            throwsA(isA<SimulatedCrash>()),
+          );
+
+          await expectLater(
+            call(
+              caller,
+              alias: 'Taken',
+              at: _t0 + tipperLeaseTtl.inMilliseconds + 1,
+            ),
+            refusedAs(identityReasonAliasTaken),
+          );
+          final root = await readRoot(db);
+          expect((root['AliasIndex'] as Map).keys, [
+            aliasIndexKey('Taken'),
+          ], reason: '"First" was released, only t9 keeps its own');
+          expect(root['CreateIntents'], isNull);
+          expect(
+            root['LogonIndex'] as Map,
+            hasLength(1),
+            reason: 'the abandoned login claim went too',
+          );
+        },
+        skip: skip,
+      );
     });
 
     group('a crash in the middle of a login-address change, then a retry', () {
