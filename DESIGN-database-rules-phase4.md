@@ -286,10 +286,18 @@ only is linked, with the claim written; (d) the same address in different case o
 matches the same records; (e) a login email no record holds creates a new tipper only when `createLinkedTipper`
 allows it.
 
+**M7, the cached tipper after `busy`.** (a) A linked user whose background refresh returns `busy` keeps using the
+cached tipper, and only when the cache was written for the current uid. (b) A first-time link or create that returns
+`busy` or any other error is a failed sign-in. (c) Signing in as a different account never shows or uses the previous
+account's cached profile, and clears it. (d) Every refusal other than `busy` (and `unavailable`) is shown as a
+refusal. Widget or view-model tests cover each.
+
 **M4c, a stale worker resuming.**
 - Lease owners are operation ids, never admin uids (two requests from one admin cannot both hold it).
 - The lease TTL (5 minutes) exceeds the mutating callables' hard timeout (60 seconds), so a taken-over
-  worker is by construction already dead except for a platform pause.
+  worker is expected to be dead already, except for a platform pause. That is a reduction of risk, not a
+  guarantee: a worker can still have a write in the network or resume after a pause, which is why the write
+  fence, the hold and the unresolved-tipper policy exist (sixth-review paragraph in 6f).
 - Before every step the worker checks `holdsLease`, and **every step's write is a compare-and-set on the
   exact value the step expects** (copy a tip only if the target is absent; delete the source only if it
   still equals what was copied; transfer an index entry with `replaceIf` or an owner-checked release). A
@@ -700,8 +708,12 @@ it is sent* once the lease is within 30 seconds of expiring (the margin covers a
 wait and the hold being written), so a worker that was paused past its lease and resumes cannot carry on. The fence
 sits in the write ledger of the request's database handle (one handle per request, so two operations never fence
 each other); it is lifted for the release afterwards. (2) **A hold**: a worker that ends with writes still on their
-way extends its lease to 15 minutes (a stuck TCP connection gives up after about that long) and releases it when the
-writes finish with known outcomes; until then a successor is refused as busy even after the lease's own five minutes.
+way extends its lease to 15 minutes and releases it when the writes finish with known outcomes; until then a
+successor is refused as busy even after the lease's own five minutes. The 15 minutes is an operational holding
+period, chosen to be far longer than a healthy request takes and about as long as a stuck connection can linger; it
+is not a guarantee that nothing arrives later. Only writes still *pending* get it: a write that has finished with an
+unknown outcome leaves just the lease's own remaining time, and once either has run out another operation can
+proceed despite unresolved state. The retained admission marker blocks a drain, not ordinary requests.
 (3) The deadline, as before. The requested scenario is tested: a write is held in the network past the lease's own
 expiry, a second operation tries to take the tipper over and is refused, the write lands, the lease is released, the
 successor proceeds and is not overwritten. A paused worker is tested resuming after its successor has finished: its
@@ -711,11 +723,12 @@ cancellation is not available and the design does not depend on it. **What remai
 Database has no write that is conditional on another location, so there is no true fencing token. A write sent
 *before* the lease expired and delivered long after is stopped only by the hold, which exists only if its worker
 lived to extend it. The residual is a worker that dies or freezes between the fence check and the send, with the
-request then held in the network for longer than the lease; the periodic audit (M4c) is what catches anything that
-gets through, and **normal operation (pilot beyond a throwaway user, coexist) should not start before that audit
-exists.** A consequence for the client (M7): a tipper whose operation left writes unresolved is refused as `busy`
-for up to 15 minutes, and sign-in's refresh takes the lease, so the client must treat `busy` at sign-in as "carry
-on with the cached tipper and try again", not as a failed sign-in.
+request then held in the network for longer than the lease; the periodic audit (M4c) can detect what gets
+through, but detection is not prevention or recovery, and **the gate before normal operation is the
+unresolved-tipper policy in the paragraph that follows, not the audit merely running.** A consequence for the
+client (M7): a tipper whose operation left writes unresolved is refused as `busy`
+for up to 15 minutes, and sign-in's refresh takes the lease, so the client's handling of `busy` at sign-in is
+specified narrowly in the M7 items below.
 
 *Statements corrected.* "Nothing calls these yet, so none will" was not a guarantee: the endpoints are public once
 deployed. The assurance is that `off` refuses every business mutation, while a temporary admission marker remains
@@ -738,6 +751,37 @@ request is refused by `off` with no marker left behind, which also exercises the
 check the existing endpoints still work after their redeploy (the local registration test does not show it); (5)
 only then agree the isolated pilot: the exact throwaway account, the exact scratch data, and the cleanup, written
 down before it runs.
+
+**Qualifications after a sixth review (6 November 2026).** The review judged the fifth round sufficient for B7's
+deploy in `off` and the denial checks, with the throwaway pilot approved separately. It asked that three limits stay
+explicit; no code changed, and the wording above was corrected where it overclaimed.
+
+1. *The lease protection reduces risk; it does not remove it.* See the corrected wording above: the hold covers only
+   still-pending writes, finished-but-unknown writes leave the lease's own remaining time, and once either runs out
+   another operation can proceed over unresolved state. The 15 minutes is an operational holding period, and the
+   retained marker blocks a drain, not ordinary requests. The throwaway pilot is validation of the wiring; it is not
+   evidence that this concurrency risk has gone.
+2. *The audit detects; it cannot guarantee prevention or recovery.* It can find inconsistent claims or records but
+   cannot necessarily rebuild a value that was overwritten with no journal entry. So the gate before the pilot
+   extends beyond a throwaway user, or `coexist` begins, is an **unresolved-tipper policy that is built and
+   tested**, not a scheduled audit that is running. **Proposed policy (decision 10, the owner's to confirm):**
+   (a) *Flag:* an operation's in-flight marker records the tipper it holds a lease on (it does not yet), and a marker
+   retained because an outcome was unknown or writes were unsettled *is* the flag; there is no separate node.
+   (b) *Block:* while a tipper has a retained marker, ordinary mutations on that tipper are refused as `busy`
+   instead of proceeding over unresolved state. (c) *Reconcile:* a scheduled job (M4c) checks each flagged tipper
+   against the invariants (claims, records, journal); if they hold it clears the marker, which is the same
+   acknowledgement an administrator would give; if a journalled move is pending it finishes it; otherwise the tipper
+   stays flagged and is reported, and an administrator reconciles it with a tool that shows the tipper's records,
+   claims, journal and the retained operation's log lines. (d) *Limits:* alias and login moves are journalled, so
+   they can be finished or reversed; other profile fields are not, so an overwritten one is recovered by asking the
+   tipper. (e) *Test:* a tipper flagged by a lost response is blocked, then cleared by a consistent check; one with
+   an inconsistent state stays flagged and blocked.
+3. *"Use the cached tipper" has a narrow meaning.* Added to the M7 acceptance items (6b): it applies only to an
+   already-linked user whose background refresh returned `busy`, and only if the cached tipper was written for the
+   *currently signed-in uid*. A first-time link or create that fails for any reason is a failed sign-in, never a
+   successful one; after an account switch the previous account's cached profile is neither used nor shown, and is
+   cleared; and any other refusal (`needs_audit`, `ambiguous`, `claimed`, `unverified_email`, `not_linked`) is a real
+   refusal, not something to paper over with a cache.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
@@ -1047,3 +1091,9 @@ The owner concurred on 2026-10-20 with the reviewer's recommendations on each po
    an empty node and the tipper would vanish. Section 6d.
 9. **The legacy `active` and `tipperID` fields are deleted in the purge** (21 October 2026). Nothing
    reads them. Section 6d.
+10. **Unresolved-tipper policy: proposed (6 November 2026), awaiting the owner's decision.** A tipper whose
+    operation left an outcome unknown is flagged by a retained marker, blocked from ordinary mutations as `busy`, and
+    cleared by a consistent check or an administrator. It is the gate before the pilot extends beyond a throwaway
+    user or `coexist` begins. The cost is that a tipper in that state cannot change their alias or complete a
+    refreshing sign-in until it is cleared (minutes with the scheduled check; longer if an administrator is needed).
+    Section 6f, sixth-review paragraph.

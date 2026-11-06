@@ -40,9 +40,15 @@ const Duration leaseWriteMargin = Duration(seconds: 30);
 
 /// How long a lease is held when its worker ended with writes still unsettled.
 /// A request that is given up on is not cancelled, and a request stuck in the
-/// network can be delivered much later than a healthy one; a TCP connection
-/// gives up retransmitting after about fifteen minutes. Until the writes finish
-/// with a known outcome, nobody else may take the tipper over.
+/// network can be delivered much later than a healthy one. Fifteen minutes is an
+/// operational holding period: far longer than a healthy request takes, and
+/// about as long as a stuck connection can linger. It is not a guarantee that
+/// nothing arrives later. It applies only to writes still pending when the body
+/// ends; a write that has finished with an unknown outcome leaves just the
+/// lease's own remaining time. Once either has run out another operation can
+/// proceed over unresolved state, and the in-flight marker that is kept blocks a
+/// drain, not ordinary requests. The unresolved-tipper policy in the plan
+/// (section 6f) is what is meant to deal with that.
 const Duration unresolvedWriteHold = Duration(minutes: 15);
 
 /// How long the lease waits for the worker's own writes to finish before it
