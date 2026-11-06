@@ -116,11 +116,8 @@ Future<void> performClaimMove(
   required int nowMs,
   Checkpoint? checkpoint,
 }) async {
+  await finishPendingClaimMove(database, tipperId, mode, checkpoint);
   final journal = database.ref('${paths.claimMovesPath}/$tipperId');
-  final pending = ClaimMove.tryParse((await journal.once()).value);
-  if (pending != null) {
-    await _finish(database, tipperId, pending, mode, checkpoint);
-  }
   final move = ClaimMove(
     kind: kind,
     fromKey: await currentClaimKey(database, tipperId, kind),
@@ -216,5 +213,33 @@ Future<String?> currentClaimKey(
       return logon is String && normaliseEmail(logon).isNotEmpty
           ? logonIndexKey(logon)
           : null;
+  }
+}
+
+/// Finishes the move journalled for [tipperId], if there is one.
+///
+/// Every operation that holds a tipper's lease calls this first, whatever it
+/// was asked to do. Otherwise a retry that finds the work already apparently
+/// done (the new name is written, the new address is stored) would take a "no
+/// change" shortcut and never release the old claim or drop the journal.
+///
+/// A pending move whose target has meanwhile been claimed by another tipper
+/// cannot be finished. It is dropped (the tipper keeps its old state) and the
+/// caller carries on with its own request.
+Future<void> finishPendingClaimMove(
+  RestDatabase database,
+  String tipperId,
+  ServerModeConfig mode,
+  Checkpoint? checkpoint,
+) async {
+  final journal = database.ref('${paths.claimMovesPath}/$tipperId');
+  final pending = ClaimMove.tryParse((await journal.once()).value);
+  if (pending == null) {
+    return;
+  }
+  try {
+    await _finish(database, tipperId, pending, mode, checkpoint);
+  } on ClaimMoveConflict {
+    // _finish has already dropped the journal.
   }
 }

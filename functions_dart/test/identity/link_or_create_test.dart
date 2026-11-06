@@ -2,13 +2,11 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:dart_functions/errors.dart';
-import 'package:dart_functions/identity/admission.dart';
 import 'package:dart_functions/identity/caller.dart';
 import 'package:dart_functions/identity/caller_token.dart';
 import 'package:dart_functions/identity/faults.dart';
 import 'package:dart_functions/identity/keys.dart';
 import 'package:dart_functions/identity/link_or_create.dart';
-import 'package:dart_functions/identity/operation_id.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:dart_functions/identity/tipper_lease.dart';
 import 'package:dart_functions/identity/tipper_shapes.dart';
@@ -19,6 +17,7 @@ import 'package:firebase_functions/firebase_functions.dart'
 import 'package:test/test.dart';
 
 import '../support/emulator.dart';
+import '../support/identity_helpers.dart';
 import '../support/identity_invariants.dart';
 
 const int _t0 = 1700000000000;
@@ -26,121 +25,13 @@ int _seed = 1;
 const String _uidA = 'uidA00000000000000000000001';
 const String _uidB = 'uidB00000000000000000000002';
 
-/// Builds the database a test starts from.
-class _Seed {
-  final Map<String, Object?> data = <String, Object?>{
-    'AppConfig': {'createLinkedTipper': true},
-  };
-
-  Map<String, Object?> _root(String key) =>
-      (data[key] ??= <String, Object?>{}) as Map<String, Object?>;
-
-  /// A tipper. By default fully audited: public and private records, and the
-  /// alias and login claims. [indexAccount] also links [authuid] in `/AuthIndex`.
-  void tipper(
-    String id, {
-    String? name,
-    String? authuid,
-    String? logon,
-    String? email,
-    bool hasPublic = true,
-    bool hasPrivate = true,
-    bool claimAlias = true,
-    bool claimLogon = true,
-    bool indexAccount = false,
-    String? placeholder,
-    bool legacyPublic = true,
-  }) {
-    if (hasPublic) {
-      _root('AllTippers')[id] = <String, Object?>{
-        'name': ?name,
-        if (legacyPublic) ...<String, Object?>{
-          'authuid': ?authuid,
-          'logon': ?logon,
-          'email': ?email,
-          'tipperRole': 'tipper',
-          'isAnonymous': false,
-        },
-      };
-    }
-    if (hasPrivate) {
-      _root('TipperPrivate')[id] = <String, Object?>{
-        'authuid': ?authuid,
-        'logon': ?logon,
-        'email': ?email,
-        'tipperRole': 'tipper',
-        'isAnonymous': false,
-        'acctCreatedUTC': '2025-02-01 03:04:05.000Z',
-      };
-    }
-    if (claimAlias && name != null) {
-      _root('AliasIndex')[aliasIndexKey(name)] = id;
-    }
-    if (claimLogon && logon != null && hasPrivate) {
-      _root('LogonIndex')[logonIndexKey(logon)] = id;
-    }
-    if (indexAccount && authuid != null) {
-      _root('AuthIndex')[authuid] = id;
-    }
-    if (placeholder != null) {
-      _root('Placeholders')[id] = placeholder;
-    }
-  }
-}
-
-CallerToken _caller(
-  String uid,
-  String? email, {
-  bool verified = true,
-  String provider = 'password',
-  String? picture,
-}) => CallerToken(
-  uid: uid,
-  email: email,
-  emailVerified: verified,
-  signInProvider: provider,
-  pictureUrl: picture,
-);
-
-Admission _admission({IdentityMode mode = IdentityMode.coexist}) => Admission(
-  operationId: newOperationId(),
-  config: ServerModeConfig(mode: mode),
-);
-
-/// A checkpoint that makes the operation "crash" right after [step].
-Checkpoint _crashAfter(String step) =>
-    (reached) async => reached == step ? throw SimulatedCrash(step) : null;
-
-String? _reasonOf(Object error) {
-  if (error is! HttpResponseException) {
-    return null;
-  }
-  final details = error.details;
-  return details == null || details.isEmpty
-      ? null
-      : details.first['reason'] as String?;
-}
-
-/// Matches a refusal with this reason.
-Matcher _refusedAs(String reason) => throwsA(
-  predicate<Object>(
-    (error) => _reasonOf(error) == reason,
-    'refused with reason $reason',
-  ),
-);
-
-Map<String, Object?> _at(Map<String, Object?> root, String node, String id) {
-  final value = (root[node] as Map?)?[id];
-  return value is Map ? Map<String, Object?>.from(value) : <String, Object?>{};
-}
-
 void main() {
   final skip = emulatorSkipReason;
 
   group('linkOrCreateTipper', () {
     late final RestDatabase db = openEmulatorDatabase();
 
-    Future<void> seed(_Seed seed) async {
+    Future<void> seed(IdentitySeed seed) async {
       await clearEmulatorDatabase(db);
       await db.ref('/').set(seed.data);
     }
@@ -156,7 +47,7 @@ void main() {
       database: on ?? db,
       caller: caller,
       request: LinkOrCreateTipperRequest(alias: alias),
-      admission: _admission(mode: mode),
+      admission: admissionFor(mode: mode),
       nowMs: () => at,
       checkpoint: checkpoint,
       random: Random(_seed++),
@@ -168,7 +59,7 @@ void main() {
       String reason,
     ) async {
       final before = canonical(await readRoot(db));
-      await expectLater(action(), _refusedAs(reason));
+      await expectLater(action(), refusedAs(reason));
       expect(
         canonical(await readRoot(db)),
         before,
@@ -177,20 +68,20 @@ void main() {
     }
 
     group('who may call', () {
-      setUp(() => seed(_Seed()));
+      setUp(() => seed(IdentitySeed()));
 
       test('an anonymous account is refused', () async {
         await refusedWithoutWriting(
-          () => call(_caller(_uidA, null, provider: 'anonymous')),
+          () => call(callerToken(_uidA, null, provider: 'anonymous')),
           identityReasonNotLinked,
         );
       }, skip: skip);
 
       test('an unverified, missing or blank email is refused', () async {
         for (final caller in [
-          _caller(_uidA, 'a@example.com', verified: false),
-          _caller(_uidA, null),
-          _caller(_uidA, '   '),
+          callerToken(_uidA, 'a@example.com', verified: false),
+          callerToken(_uidA, null),
+          callerToken(_uidA, '   '),
         ]) {
           await refusedWithoutWriting(
             () => call(caller),
@@ -201,7 +92,7 @@ void main() {
 
       test('a uid that cannot be a database key is refused', () async {
         await expectLater(
-          call(_caller('bad.uid', 'a@example.com')),
+          call(callerToken('bad.uid', 'a@example.com')),
           throwsA(isA<InvalidArgumentError>()),
         );
       }, skip: skip);
@@ -212,7 +103,7 @@ void main() {
         bool legacyPublic = true,
         String? email = 'pat.contact@example.com',
       }) async {
-        final s = _Seed()
+        final s = IdentitySeed()
           ..tipper(
             't1',
             name: 'Pat',
@@ -230,7 +121,7 @@ void main() {
         () async {
           await seedLinked();
           final result = await call(
-            _caller(_uidA, 'pat@example.com'),
+            callerToken(_uidA, 'pat@example.com'),
             at: _t0 + 1000,
           );
           expect(result.outcome, LinkOutcome.existing);
@@ -238,14 +129,14 @@ void main() {
 
           final root = await readRoot(db);
           expect(
-            _at(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
+            rowAt(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
             stampOf(_t0 + 1000),
           );
           expect(
-            _at(root, 'AllTippers', 't1')['acctLoggedOnUTC'],
+            rowAt(root, 'AllTippers', 't1')['acctLoggedOnUTC'],
             stampOf(_t0 + 1000),
           );
-          expect(_at(root, 'TipperPrivate', 't1')['authuid'], _uidA);
+          expect(rowAt(root, 'TipperPrivate', 't1')['authuid'], _uidA);
           expectIdentityConsistent(root);
         },
         skip: skip,
@@ -256,7 +147,7 @@ void main() {
         () async {
           await seedLinked(legacyPublic: false);
           await call(
-            _caller(
+            callerToken(
               _uidA,
               'pat@example.com',
               picture: 'https://example.com/p.png',
@@ -265,12 +156,12 @@ void main() {
             at: _t0 + 1000,
           );
           final root = await readRoot(db);
-          expect(_at(root, 'AllTippers', 't1').keys.toSet(), {
+          expect(rowAt(root, 'AllTippers', 't1').keys.toSet(), {
             'name',
             'photoURL',
           });
           expect(
-            _at(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
+            rowAt(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
             stampOf(_t0 + 1000),
           );
           expectIdentityConsistent(root);
@@ -283,7 +174,7 @@ void main() {
         () async {
           await seedLinked(email: 'not an email');
           await call(
-            _caller(
+            callerToken(
               _uidA,
               'pat@example.com',
               picture: 'https://example.com/new.png',
@@ -291,16 +182,19 @@ void main() {
           );
           var root = await readRoot(db);
           expect(
-            _at(root, 'AllTippers', 't1')['photoURL'],
+            rowAt(root, 'AllTippers', 't1')['photoURL'],
             'https://example.com/new.png',
           );
-          expect(_at(root, 'TipperPrivate', 't1')['email'], 'pat@example.com');
+          expect(
+            rowAt(root, 'TipperPrivate', 't1')['email'],
+            'pat@example.com',
+          );
 
           await seedLinked();
-          await call(_caller(_uidA, 'pat@example.com'));
+          await call(callerToken(_uidA, 'pat@example.com'));
           root = await readRoot(db);
           expect(
-            _at(root, 'TipperPrivate', 't1')['email'],
+            rowAt(root, 'TipperPrivate', 't1')['email'],
             'pat.contact@example.com',
           );
         },
@@ -310,7 +204,7 @@ void main() {
       test(
         'an index entry that its record does not agree with is refused for repair and nothing is written',
         () async {
-          final s = _Seed()
+          final s = IdentitySeed()
             ..tipper(
               't1',
               name: 'Pat',
@@ -320,7 +214,7 @@ void main() {
           s.data['AuthIndex'] = {_uidA: 't1'};
           await seed(s);
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'pat@example.com')),
+            () => call(callerToken(_uidA, 'pat@example.com')),
             identityReasonNeedsAudit,
           );
         },
@@ -331,13 +225,16 @@ void main() {
         'a changed login address moves the claim, and the old one is released',
         () async {
           await seedLinked();
-          await call(_caller(_uidA, 'new@example.com'));
+          await call(callerToken(_uidA, 'new@example.com'));
           final root = await readRoot(db);
           expect((root['LogonIndex'] as Map).keys, [
             logonIndexKey('new@example.com'),
           ]);
-          expect(_at(root, 'TipperPrivate', 't1')['logon'], 'new@example.com');
-          expect(_at(root, 'AllTippers', 't1')['logon'], 'new@example.com');
+          expect(
+            rowAt(root, 'TipperPrivate', 't1')['logon'],
+            'new@example.com',
+          );
+          expect(rowAt(root, 'AllTippers', 't1')['logon'], 'new@example.com');
           expectIdentityConsistent(root);
         },
         skip: skip,
@@ -346,7 +243,7 @@ void main() {
       test(
         'a login address another tipper holds is refused, after the refresh, and the old claim stays',
         () async {
-          final s = _Seed()
+          final s = IdentitySeed()
             ..tipper(
               't1',
               name: 'Pat',
@@ -363,16 +260,19 @@ void main() {
             );
           await seed(s);
           await expectLater(
-            call(_caller(_uidA, 'taken@example.com'), at: _t0 + 5),
-            _refusedAs(identityReasonClaimed),
+            call(callerToken(_uidA, 'taken@example.com'), at: _t0 + 5),
+            refusedAs(identityReasonClaimed),
           );
           final root = await readRoot(db);
           expect(
-            _at(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
+            rowAt(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
             stampOf(_t0 + 5),
             reason: 'the refresh still happened',
           );
-          expect(_at(root, 'TipperPrivate', 't1')['logon'], 'pat@example.com');
+          expect(
+            rowAt(root, 'TipperPrivate', 't1')['logon'],
+            'pat@example.com',
+          );
           expect(
             (root['LogonIndex'] as Map)[logonIndexKey('pat@example.com')],
             't1',
@@ -388,7 +288,7 @@ void main() {
         'by login address: the account is linked and the profile is refreshed',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               logon: 'pat@example.com',
@@ -396,7 +296,7 @@ void main() {
             ),
           );
           final result = await call(
-            _caller(_uidA, 'pat@example.com'),
+            callerToken(_uidA, 'pat@example.com'),
             at: _t0 + 10,
           );
           expect(result.outcome, LinkOutcome.linked);
@@ -404,10 +304,10 @@ void main() {
 
           final root = await readRoot(db);
           expect((root['AuthIndex'] as Map)[_uidA], 't1');
-          expect(_at(root, 'TipperPrivate', 't1')['authuid'], _uidA);
-          expect(_at(root, 'AllTippers', 't1')['authuid'], _uidA);
+          expect(rowAt(root, 'TipperPrivate', 't1')['authuid'], _uidA);
+          expect(rowAt(root, 'AllTippers', 't1')['authuid'], _uidA);
           expect(
-            _at(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
+            rowAt(root, 'TipperPrivate', 't1')['acctLoggedOnUTC'],
             stampOf(_t0 + 10),
           );
           expectIdentityConsistent(root);
@@ -420,17 +320,20 @@ void main() {
         'by contact email only: the login address becomes the verified one, claimed',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               logon: 'old.login@example.com',
               email: 'pat@example.com',
             ),
           );
-          final result = await call(_caller(_uidA, 'pat@example.com'));
+          final result = await call(callerToken(_uidA, 'pat@example.com'));
           expect(result.outcome, LinkOutcome.linked);
           final root = await readRoot(db);
-          expect(_at(root, 'TipperPrivate', 't1')['logon'], 'pat@example.com');
+          expect(
+            rowAt(root, 'TipperPrivate', 't1')['logon'],
+            'pat@example.com',
+          );
           expect((root['LogonIndex'] as Map).keys, [
             logonIndexKey('pat@example.com'),
           ]);
@@ -441,9 +344,9 @@ void main() {
 
       test('matches regardless of case and surrounding spaces', () async {
         await seed(
-          _Seed()..tipper('t1', name: 'Pat', logon: ' Pat@Example.COM '),
+          IdentitySeed()..tipper('t1', name: 'Pat', logon: ' Pat@Example.COM '),
         );
-        final result = await call(_caller(_uidA, 'pat@example.com'));
+        final result = await call(callerToken(_uidA, 'pat@example.com'));
         expect(result.tipperId, 't1');
         expectIdentityConsistent(await readRoot(db));
       }, skip: skip);
@@ -452,7 +355,7 @@ void main() {
         'an audited placeholder is replaced, and its audit entry is removed',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               authuid: 'old.player@example.com',
@@ -460,10 +363,10 @@ void main() {
               placeholder: 'old.player@example.com',
             ),
           );
-          final result = await call(_caller(_uidA, 'pat@example.com'));
+          final result = await call(callerToken(_uidA, 'pat@example.com'));
           expect(result.outcome, LinkOutcome.linked);
           final root = await readRoot(db);
-          expect(_at(root, 'TipperPrivate', 't1')['authuid'], _uidA);
+          expect(rowAt(root, 'TipperPrivate', 't1')['authuid'], _uidA);
           expect(root['Placeholders'], isNull);
           expectIdentityConsistent(root);
         },
@@ -474,7 +377,7 @@ void main() {
         'a value that is not exactly the audited placeholder is claimed, and nothing is written',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               authuid: 'a-different-value',
@@ -483,7 +386,7 @@ void main() {
             ),
           );
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'pat@example.com')),
+            () => call(callerToken(_uidA, 'pat@example.com')),
             identityReasonClaimed,
           );
         },
@@ -495,7 +398,7 @@ void main() {
         () async {
           for (final looksLike in ['x@example.com', _uidB, 'plainstring']) {
             await seed(
-              _Seed()..tipper(
+              IdentitySeed()..tipper(
                 't1',
                 name: 'Pat',
                 authuid: looksLike,
@@ -503,7 +406,7 @@ void main() {
               ),
             );
             await refusedWithoutWriting(
-              () => call(_caller(_uidA, 'pat@example.com')),
+              () => call(callerToken(_uidA, 'pat@example.com')),
               identityReasonClaimed,
             );
           }
@@ -515,7 +418,7 @@ void main() {
         'a record already held by another real account is never taken over',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               authuid: _uidB,
@@ -524,7 +427,7 @@ void main() {
             ),
           );
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'pat@example.com')),
+            () => call(callerToken(_uidA, 'pat@example.com')),
             identityReasonClaimed,
           );
         },
@@ -535,14 +438,14 @@ void main() {
         'the same account finishing its own half-linked record completes it',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               authuid: _uidA,
               logon: 'pat@example.com',
             ),
           );
-          final result = await call(_caller(_uidA, 'pat@example.com'));
+          final result = await call(callerToken(_uidA, 'pat@example.com'));
           expect(result.outcome, LinkOutcome.linked);
           expectIdentityConsistent(await readRoot(db));
         },
@@ -555,7 +458,7 @@ void main() {
         'two records with the same login address are ambiguous and nothing is written',
         () async {
           await seed(
-            _Seed()
+            IdentitySeed()
               ..tipper(
                 't1',
                 name: 'Pat',
@@ -570,7 +473,7 @@ void main() {
               ),
           );
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'same@example.com')),
+            () => call(callerToken(_uidA, 'same@example.com')),
             identityReasonAmbiguous,
           );
         },
@@ -581,7 +484,7 @@ void main() {
         "one record's login equal to another's contact email is ambiguous",
         () async {
           await seed(
-            _Seed()
+            IdentitySeed()
               ..tipper(
                 't1',
                 name: 'Pat',
@@ -596,7 +499,7 @@ void main() {
               ),
           );
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'x@example.com')),
+            () => call(callerToken(_uidA, 'x@example.com')),
             identityReasonAmbiguous,
           );
         },
@@ -607,7 +510,7 @@ void main() {
         'a record created by a 1.4.x client after the backfill is found, refused as unaudited, and no duplicate is made',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               'legacy-made',
               name: 'Newbie',
               authuid: 'x@example.com',
@@ -618,7 +521,10 @@ void main() {
             ),
           );
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'new@example.com'), alias: 'Newbie Two'),
+            () => call(
+              callerToken(_uidA, 'new@example.com'),
+              alias: 'Newbie Two',
+            ),
             identityReasonNeedsAudit,
           );
           expect((await readRoot(db))['AllTippers'] as Map, hasLength(1));
@@ -630,7 +536,7 @@ void main() {
         'a private record with no public record is not linkable either',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               logon: 'pat@example.com',
@@ -638,7 +544,7 @@ void main() {
             ),
           );
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'pat@example.com')),
+            () => call(callerToken(_uidA, 'pat@example.com')),
             identityReasonNeedsAudit,
           );
         },
@@ -649,7 +555,7 @@ void main() {
         'an unaudited match blocks creating a new record even when the alias is free',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               'legacy-made',
               name: 'Newbie',
               logon: 'new@example.com',
@@ -659,8 +565,11 @@ void main() {
             ),
           );
           await expectLater(
-            call(_caller(_uidA, 'new@example.com'), alias: 'Totally Different'),
-            _refusedAs(identityReasonNeedsAudit),
+            call(
+              callerToken(_uidA, 'new@example.com'),
+              alias: 'Totally Different',
+            ),
+            refusedAs(identityReasonNeedsAudit),
           );
         },
         skip: skip,
@@ -672,7 +581,7 @@ void main() {
         'ten different accounts at once: exactly one wins, the rest are told it is claimed, and the data is consistent',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               authuid: 'old@example.com',
@@ -683,7 +592,7 @@ void main() {
           final outcomes = await Future.wait([
             for (var index = 0; index < 10; index++)
               call(
-                _caller(
+                callerToken(
                   'racer${index.toString().padLeft(22, '0')}',
                   'pat@example.com',
                 ),
@@ -695,7 +604,7 @@ void main() {
           expect(losses, hasLength(9));
           for (final loss in losses) {
             expect(
-              _reasonOf(loss),
+              reasonOf(loss),
               anyOf(identityReasonClaimed, identityReasonBusy),
             );
           }
@@ -708,7 +617,7 @@ void main() {
 
       test('one account calling twice at once ends with one link', () async {
         await seed(
-          _Seed()..tipper(
+          IdentitySeed()..tipper(
             't1',
             name: 'Pat',
             authuid: 'old@example.com',
@@ -719,16 +628,16 @@ void main() {
         final outcomes = await Future.wait([
           for (var index = 0; index < 2; index++)
             call(
-              _caller(_uidA, 'pat@example.com'),
+              callerToken(_uidA, 'pat@example.com'),
             ).then<Object>((r) => r, onError: (Object e) => e),
         ]);
         expect(outcomes.whereType<LinkOrCreateTipperResult>(), isNotEmpty);
         for (final outcome in outcomes.whereType<HttpResponseException>()) {
-          expect(_reasonOf(outcome), identityReasonBusy);
+          expect(reasonOf(outcome), identityReasonBusy);
         }
         // A later call settles whatever the race left.
         expect(
-          (await call(_caller(_uidA, 'pat@example.com'))).outcome,
+          (await call(callerToken(_uidA, 'pat@example.com'))).outcome,
           LinkOutcome.existing,
         );
         final root = await readRoot(db);
@@ -746,7 +655,7 @@ void main() {
       ]) {
         test('after $step', () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't1',
               name: 'Pat',
               authuid: 'old@example.com',
@@ -754,10 +663,10 @@ void main() {
               placeholder: 'old@example.com',
             ),
           );
-          final caller = _caller(_uidA, 'pat@example.com');
+          final caller = callerToken(_uidA, 'pat@example.com');
 
           await expectLater(
-            call(caller, checkpoint: _crashAfter(step)),
+            call(caller, checkpoint: crashAfter(step)),
             throwsA(isA<SimulatedCrash>()),
           );
           var root = await readRoot(db);
@@ -771,14 +680,14 @@ void main() {
           // The crashed worker's lease is still live, so an immediate retry waits...
           await expectLater(
             call(caller, at: _t0 + 1000),
-            _refusedAs(identityReasonBusy),
+            refusedAs(identityReasonBusy),
           );
 
           // ...and nobody else can take the half-linked record, even once the lease has expired.
           final expired = _t0 + tipperLeaseTtl.inMilliseconds + 1;
           await expectLater(
-            call(_caller(_uidB, 'pat@example.com'), at: expired),
-            _refusedAs(identityReasonClaimed),
+            call(callerToken(_uidB, 'pat@example.com'), at: expired),
+            refusedAs(identityReasonClaimed),
           );
 
           // ...and once it has expired the retry completes the job.
@@ -796,14 +705,14 @@ void main() {
     });
 
     group('creating a new record', () {
-      Future<void> seedEmpty() => seed(_Seed());
+      Future<void> seedEmpty() => seed(IdentitySeed());
 
       test(
         'writes both halves, the claims and the commit (legacy shape)',
         () async {
           await seedEmpty();
           final result = await call(
-            _caller(
+            callerToken(
               _uidA,
               'new@example.com',
               picture: 'https://example.com/p.png',
@@ -822,7 +731,7 @@ void main() {
             id,
           );
           final private = TipperPrivate.fromJson(
-            _at(root, 'TipperPrivate', id),
+            rowAt(root, 'TipperPrivate', id),
           );
           expect(private.authuid, _uidA);
           expect(private.tipperRole, TipperRole.tipper);
@@ -832,7 +741,7 @@ void main() {
             private.acctCreatedUTC,
             DateTime.fromMillisecondsSinceEpoch(_t0 + 5, isUtc: true),
           );
-          final publicRecord = _at(root, 'AllTippers', id);
+          final publicRecord = rowAt(root, 'AllTippers', id);
           expect(publicRecord['name'], 'New Player');
           expect(publicRecord['authuid'], _uidA);
           expect(publicRecord['logon'], 'new@example.com');
@@ -849,12 +758,12 @@ void main() {
         () async {
           await seedEmpty();
           final pilot = await call(
-            _caller(_uidA, 'a@example.com'),
+            callerToken(_uidA, 'a@example.com'),
             alias: 'Pilot Pat',
             mode: IdentityMode.pilot,
           );
           expect(
-            _at(
+            rowAt(
               await readRoot(db),
               'AllTippers',
               pilot.tipperId,
@@ -863,12 +772,12 @@ void main() {
           );
 
           final created = await call(
-            _caller(_uidB, 'b@example.com'),
+            callerToken(_uidB, 'b@example.com'),
             alias: 'Final Fran',
             mode: IdentityMode.finalShape,
           );
           expect(
-            _at(
+            rowAt(
               await readRoot(db),
               'AllTippers',
               created.tipperId,
@@ -883,10 +792,11 @@ void main() {
       test(
         'is refused when creating is switched off, with nothing written',
         () async {
-          final s = _Seed()..data['AppConfig'] = {'createLinkedTipper': false};
+          final s = IdentitySeed()
+            ..data['AppConfig'] = {'createLinkedTipper': false};
           await seed(s);
           await refusedWithoutWriting(
-            () => call(_caller(_uidA, 'new@example.com'), alias: 'Pat'),
+            () => call(callerToken(_uidA, 'new@example.com'), alias: 'Pat'),
             identityReasonCreationDisabled,
           );
         },
@@ -899,7 +809,7 @@ void main() {
           await seedEmpty();
           for (final alias in [null, '', '   ', '🏈🏈', 'x' * 65]) {
             await refusedWithoutWriting(
-              () => call(_caller(_uidA, 'new@example.com'), alias: alias),
+              () => call(callerToken(_uidA, 'new@example.com'), alias: alias),
               identityReasonInvalidAlias,
             );
           }
@@ -911,7 +821,7 @@ void main() {
         'a taken alias rolls back everything, however it is spelled',
         () async {
           await seed(
-            _Seed()..tipper(
+            IdentitySeed()..tipper(
               't9',
               name: 'Reisy',
               authuid: _uidB,
@@ -921,7 +831,7 @@ void main() {
           );
           for (final alias in ['Reisy', 'R e i s y 🏈', 'reisy']) {
             await refusedWithoutWriting(
-              () => call(_caller(_uidA, 'new@example.com'), alias: alias),
+              () => call(callerToken(_uidA, 'new@example.com'), alias: alias),
               identityReasonAliasTaken,
             );
           }
@@ -932,12 +842,12 @@ void main() {
       test(
         'a login address already claimed rolls back the alias claim and the intent',
         () async {
-          final s = _Seed();
+          final s = IdentitySeed();
           s.data['LogonIndex'] = {logonIndexKey('new@example.com'): 'someone'};
           await seed(s);
           await expectLater(
-            call(_caller(_uidA, 'new@example.com'), alias: 'Free Alias'),
-            _refusedAs(identityReasonClaimed),
+            call(callerToken(_uidA, 'new@example.com'), alias: 'Free Alias'),
+            refusedAs(identityReasonClaimed),
           );
           final root = await readRoot(db);
           expect(root['AliasIndex'], isNull);
@@ -952,11 +862,11 @@ void main() {
         () async {
           await seedEmpty();
           final first = await call(
-            _caller(_uidA, 'new@example.com'),
+            callerToken(_uidA, 'new@example.com'),
             alias: 'Pat',
           );
           final second = await call(
-            _caller(_uidA, 'new@example.com'),
+            callerToken(_uidA, 'new@example.com'),
             alias: 'Pat',
           );
           expect(second.outcome, LinkOutcome.existing);
@@ -972,20 +882,20 @@ void main() {
         final outcomes = await Future.wait([
           for (var index = 0; index < 3; index++)
             call(
-              _caller(_uidA, 'new@example.com'),
+              callerToken(_uidA, 'new@example.com'),
               alias: 'Pat',
             ).then<Object>((r) => r, onError: (Object e) => e),
         ]);
         expect(outcomes.whereType<LinkOrCreateTipperResult>(), isNotEmpty);
         for (final error in outcomes.whereType<HttpResponseException>()) {
-          expect(_reasonOf(error), identityReasonBusy);
+          expect(reasonOf(error), identityReasonBusy);
         }
         final root = await readRoot(db);
         expect(root['AllTippers'] as Map, hasLength(1));
         expect(root['AuthIndex'] as Map, hasLength(1));
         expect(root['AliasIndex'] as Map, hasLength(1));
         await call(
-          _caller(_uidA, 'new@example.com'),
+          callerToken(_uidA, 'new@example.com'),
           alias: 'Pat',
         ); // settles any race leftovers
         expectIdentityConsistent(await readRoot(db));
@@ -997,17 +907,17 @@ void main() {
           await seedEmpty();
           final outcomes = await Future.wait([
             call(
-              _caller(_uidA, 'a@example.com'),
+              callerToken(_uidA, 'a@example.com'),
               alias: 'Same Name',
             ).then<Object>((r) => r, onError: (Object e) => e),
             call(
-              _caller(_uidB, 'b@example.com'),
+              callerToken(_uidB, 'b@example.com'),
               alias: 'same  name',
             ).then<Object>((r) => r, onError: (Object e) => e),
           ]);
           expect(outcomes.whereType<LinkOrCreateTipperResult>(), hasLength(1));
           final loser = outcomes.whereType<HttpResponseException>().single;
-          expect(_reasonOf(loser), identityReasonAliasTaken);
+          expect(reasonOf(loser), identityReasonAliasTaken);
 
           final root = await readRoot(db);
           expect(root['AllTippers'] as Map, hasLength(1));
@@ -1032,11 +942,11 @@ void main() {
         'create:committed',
       ]) {
         test('after $step', () async {
-          await seed(_Seed());
-          final caller = _caller(_uidA, 'new@example.com');
+          await seed(IdentitySeed());
+          final caller = callerToken(_uidA, 'new@example.com');
 
           await expectLater(
-            call(caller, alias: 'Pat', checkpoint: _crashAfter(step)),
+            call(caller, alias: 'Pat', checkpoint: crashAfter(step)),
             throwsA(isA<SimulatedCrash>()),
           );
           var root = await readRoot(db);
@@ -1051,7 +961,7 @@ void main() {
 
           await expectLater(
             call(caller, alias: 'Pat', at: _t0 + 1000),
-            _refusedAs(identityReasonBusy),
+            refusedAs(identityReasonBusy),
           );
 
           final result = await call(
@@ -1072,21 +982,21 @@ void main() {
       }
 
       test('a retry with a different alias lets go of the first one', () async {
-        await seed(_Seed());
-        final caller = _caller(_uidA, 'new@example.com');
+        await seed(IdentitySeed());
+        final caller = callerToken(_uidA, 'new@example.com');
         await expectLater(
           call(
             caller,
             alias: 'First Choice',
-            checkpoint: _crashAfter('create:alias'),
+            checkpoint: crashAfter('create:alias'),
           ),
           throwsA(isA<SimulatedCrash>()),
         );
 
         // Meanwhile nobody else can have the abandoned-but-held alias...
         await expectLater(
-          call(_caller(_uidB, 'b@example.com'), alias: 'First Choice'),
-          _refusedAs(identityReasonAliasTaken),
+          call(callerToken(_uidB, 'b@example.com'), alias: 'First Choice'),
+          refusedAs(identityReasonAliasTaken),
         );
 
         final result = await call(
@@ -1101,6 +1011,83 @@ void main() {
         expect((root['AliasIndex'] as Map).values, [result.tipperId]);
         expectIdentityConsistent(root);
       }, skip: skip);
+    });
+
+    group('a crash in the middle of a login-address change, then a retry', () {
+      for (final step in [
+        'move:journalled',
+        'move:claimed',
+        'move:written',
+        'move:released',
+      ]) {
+        test('after $step', () async {
+          await seed(
+            IdentitySeed()..tipper(
+              't1',
+              name: 'Pat',
+              authuid: _uidA,
+              logon: 'old@example.com',
+              indexAccount: true,
+            ),
+          );
+          final caller = callerToken(_uidA, 'new@example.com');
+
+          await expectLater(
+            call(caller, checkpoint: crashAfter(step)),
+            throwsA(isA<SimulatedCrash>()),
+          );
+          expectIdentityConsistent(await readRoot(db), allowPending: true);
+
+          // By the time of the retry the address may already be stored as the new one; the
+          // retry must still release the old claim and drop the journal, not take a shortcut.
+          final result = await call(
+            caller,
+            at: _t0 + tipperLeaseTtl.inMilliseconds + 1,
+          );
+          expect(result.outcome, LinkOutcome.existing);
+          final root = await readRoot(db);
+          expect((root['LogonIndex'] as Map).keys, [
+            logonIndexKey('new@example.com'),
+          ]);
+          expect(
+            rowAt(root, 'TipperPrivate', 't1')['logon'],
+            'new@example.com',
+          );
+          expectIdentityConsistent(root);
+        }, skip: skip);
+      }
+
+      test(
+        'a link by contact email that crashed after writing the new address finishes on retry',
+        () async {
+          await seed(
+            IdentitySeed()..tipper(
+              't1',
+              name: 'Pat',
+              logon: 'old.login@example.com',
+              email: 'pat@example.com',
+            ),
+          );
+          final caller = callerToken(_uidA, 'pat@example.com');
+          await expectLater(
+            call(caller, checkpoint: crashAfter('move:written')),
+            throwsA(isA<SimulatedCrash>()),
+          );
+
+          final result = await call(
+            caller,
+            at: _t0 + tipperLeaseTtl.inMilliseconds + 1,
+          );
+          expect(result.tipperId, 't1');
+          final root = await readRoot(db);
+          expect((root['LogonIndex'] as Map).keys, [
+            logonIndexKey('pat@example.com'),
+          ]);
+          expect(root['AuthIndex'], {_uidA: 't1'});
+          expectIdentityConsistent(root);
+        },
+        skip: skip,
+      );
     });
 
     group('caller token', () {

@@ -142,6 +142,12 @@ Future<LinkOrCreateTipperResult> _link(
   body: () async {
     final database = context.database;
     final uid = context.caller.uid;
+    await finishPendingClaimMove(
+      database,
+      record.id,
+      context.admission.config,
+      context.checkpoint,
+    );
     final authuidRef = database.ref(
       '${paths.tipperPrivatePath}/${record.id}/authuid',
     );
@@ -284,6 +290,12 @@ Future<LinkOrCreateTipperResult> _refresh(
   operationId: context.admission.operationId,
   nowMs: context.clock,
   body: () async {
+    await finishPendingClaimMove(
+      context.database,
+      tipperId,
+      context.admission.config,
+      context.checkpoint,
+    );
     final records = await loadTipperRecords(context.database);
     final record = records[tipperId];
     if (record == null || record.needsAudit) {

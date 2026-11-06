@@ -53,6 +53,11 @@ const String placeholdersPath = '/Placeholders';
 /// nodes; it exists so a retry never has to guess the old claim.
 const String claimMovesPath = '/ClaimMoves';
 
+/// Who owns each push token: `/TokenOwners/{token}` is a tipper id, changed only
+/// by compare-and-set, so two callers registering one token at once end with
+/// exactly one owner. Server-only, like the other identity nodes.
+const String tokenOwnersPath = '/TokenOwners';
+
 /// Server-only configuration (identity mode, aggregator mode). Closed to
 /// every client under every ruleset.
 const String serverConfigPath = '/ServerConfig';

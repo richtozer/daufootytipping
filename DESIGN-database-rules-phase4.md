@@ -577,6 +577,32 @@ recognises its own account as linked. **Two changes to the plan to note:** `Crea
 releases the first claims instead of leaking them; and `/ClaimMoves` is a new server-only node that M6's rulesets
 must keep closed, like the other identity nodes. Next: B4 `updateTipperAlias`, B5 tokens, B6 registration.
 
+**B4 and B5 built (6 November 2026, local, not deployed).** B4 `update_alias.dart`: the signed-in tipper renames
+themselves, found from the verified uid only, under their lease, as a journalled claim move; the alias already held
+changes nothing, a spelling change that keeps the key only rewrites the name, a taken alias is `alias_taken`, a
+claim that is not this tipper's is never released and a stale one it cannot know about is left for the audit.
+B5 `device_tokens.dart`: `register` makes the caller the owner of `/TokenOwners/{token}` by compare-and-set, clears
+the token from every other tipper (including holders that wrote directly, which the index has never seen), writes
+the caller's entry, then reads the owner again and removes its own entry if a later registration took the token;
+`unregister` gives up the ownership only if it still names the caller and only touches the caller's own entry, so a
+delayed unregister from a former owner cannot disturb the later owner. **Proof:** 23 alias and 28 token tests on the
+emulator, including a crash after every step followed by a retry, two renames of one tipper at once and two tippers
+choosing one alias (12 rounds each), two callers and five callers registering one absent token at once (15 and 10
+rounds, one holder and a matching owner every time), a register racing an unregister, and the accepted
+replay limitation written down as a test. **Mutation checks, all caught:** skipping the finish-pending step in the
+alias and in the link handlers, no lease, no final ownership re-check (caught three runs out of three), an
+unregister that releases the owner whoever it is, and a register that does not clear other holders.
+**The tests found one more bug, now fixed, and it is the review's scenario at handler level:** after a crash with
+the new name already written, a retry that asked for the same alias saw "nothing to change" and took the
+shortcut, so the old claim and the journal were never cleaned up. The same shortcut existed on the login-address
+path of link and refresh. **Every operation that holds a tipper's lease now finishes any pending move first**
+(`finishPendingClaimMove`), whatever it was asked to do; a pending move whose target was claimed meanwhile is
+dropped and the request carries on. **Notes for later:** push tokens that the reminders function prunes leave a
+stale `/TokenOwners` entry, harmless but for the M4c reaper to clear; the index needs no backfill because register
+always scans for other holders; and `/TokenOwners` joins `/ClaimMoves` as a node M6's rulesets must keep closed.
+Next: B6 registers the four callables in `server.dart` (App Check enforced, 60-second timeout, the admission
+wrapper around each mutating one, the manifest test), then B7, deploy in `off`, which needs the owner's go.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in

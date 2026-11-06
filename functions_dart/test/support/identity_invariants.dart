@@ -136,3 +136,43 @@ void expectIdentityConsistent(
     );
   }
 }
+
+/// The push token tree: a token is held by at most one tipper, and when both
+/// the ownership index and a holder exist they agree. [allowPending] permits the
+/// short states a crashed registration can leave (the index already names the
+/// new owner while the old holder has not yet been cleared).
+void expectTokensConsistent(
+  Map<String, Object?> root, {
+  bool allowPending = false,
+}) {
+  final tokens = _node(root, 'AllTippersTokens');
+  final owners = _node(root, 'TokenOwners');
+  final holders = <String, List<String>>{};
+  for (final entry in tokens.entries) {
+    final held = entry.value;
+    if (held is! Map) {
+      continue;
+    }
+    for (final token in held.keys) {
+      (holders['$token'] ??= <String>[]).add(entry.key);
+    }
+  }
+  for (final entry in holders.entries) {
+    if (!allowPending) {
+      expect(
+        entry.value,
+        hasLength(1),
+        reason: 'token ${entry.key} is held by ${entry.value}',
+      );
+      final owner = owners[entry.key];
+      if (owner != null) {
+        expect(
+          entry.value.single,
+          owner,
+          reason:
+              'token ${entry.key} is held by one tipper and indexed to another',
+        );
+      }
+    }
+  }
+}
