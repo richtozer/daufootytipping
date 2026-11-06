@@ -805,6 +805,34 @@ then. (An alert on those log lines, set up in Cloud Logging, is optional and is 
 kickoff locks, admin changes to tippers, reminders, and the existing scoring and badge functions after the redeploy.
 The M7 cached-tipper items in 6b stay because they are about sign-in and account switching, which are everyday flows.
 
+**B7 step 1, deployed in `off` (6 November 2026).** `scripts/deploy-functions.sh --only dart` deployed `b34349a1` to
+the production project (recorded in `config/deployments/allowlist-deployments.jsonl`), run by the owner. The mode was
+`off` with nothing in flight before and after, and no business call has been made.
+
+*What the deploy did.* The Firebase CLI reported errors on both runs (6 and then 7 of the 10 Dart functions "failed",
+each `Task index 0 failed: timed out after 30000ms`). None of the Cloud Run operations returned an error: the CLI
+stops waiting for a long-running operation after about 30 seconds, and several rollouts take longer. The second
+run created another new revision of every service, so repeating the deploy does not help. Afterwards all 10 Dart
+services (and the two TypeScript badge functions) had their newest revision ready.
+
+*One manual step was needed.* `register-device-token` and `unregister-device-token` were created but never got the
+public-invoker setting, because the CLI timed out before the step that adds it, so Cloud Run refused every call
+(403) before our code ran. The owner added `allUsers` with `roles/run.invoker` to both with `gcloud run services
+add-iam-policy-binding`, the setting the other callables already have; App Check and the ID token still do the
+authenticating. The runbook (`docs/backend-scoring-deploy.md`) now says to check this after the first deploy of new
+functions.
+
+*Verified, with nothing but unauthenticated requests and read-only commands.* Mode `off`, nothing in flight. All four
+new callables return our JSON 401 (`UNAUTHENTICATED`) with no credentials and with garbage tokens, so the real wrapper
+refuses before the handler. The six existing endpoints answer with their own refusals (401 for the three admin
+callables, 403 `PERMISSION_DENIED` for the secret-protected three), so the redeployed binary starts and does not
+crash. Every service has the public invoker; the function addresses follow `https://<name>-rjp4ue2oxa-as.a.run.app`.
+The server's startup refusal of `FIREBASE_DEBUG_FEATURES` means those responses also show it is not set.
+
+*Not yet verified.* A real signed-in request refused by `off` (the only check that reaches the production database
+opener, and it needs a real ID token and App Check token); an ordinary tip in the test comp flowing through
+`backend-scoring-command`; and the pilot, which is a separate go.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in

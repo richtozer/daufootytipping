@@ -92,6 +92,29 @@ two-step sequence.
 After this first deployment, the Dart HTTPS URL should remain stable. Future
 deployments can deploy both codebases together if the env files remain present.
 
+## If the deploy reports "timed out after 30000ms"
+
+`firebase deploy` can print `Task index 0 failed: timed out after 30000ms` and list several Dart functions as
+failed even though nothing went wrong: it stops waiting for a Cloud Run operation after about 30 seconds, and
+rollouts of several services at once take longer. Do not run the whole deploy again; every run makes a new
+revision of every service. Check the real state instead:
+
+```bash
+gcloud run services list --project dau-footy-tipping-f8a42 --region asia-southeast1 --format="table(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.conditions[0].status)"
+```
+
+Healthy means the created and ready revisions match and the status is `True`. Then check each **new** service has
+its public invoker, because the CLI adds it after the create finishes and a timeout can skip it (the symptom is a
+403 from Google, or an HTML 401, instead of our JSON 401):
+
+```bash
+gcloud run services get-iam-policy <name> --project dau-footy-tipping-f8a42 --region asia-southeast1
+gcloud run services add-iam-policy-binding <name> --project dau-footy-tipping-f8a42 --region asia-southeast1 --member=allUsers --role=roles/run.invoker
+```
+
+If the deploy script stopped, also run `node scripts/build_admin_allowlist.mjs --record functions` yourself so the
+deployment record is written.
+
 ## Region Migration Notes
 
 Changing function regions creates new functions in the new region rather than
