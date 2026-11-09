@@ -47,3 +47,8 @@ const String registerDeviceTokenEndpoint = 'register-device-token';
 
 /// Callable: removes a push token from the signed-in tipper.
 const String unregisterDeviceTokenEndpoint = 'unregister-device-token';
+
+/// Callable: detaches the signed-in user's account from their tipper record
+/// (keeping the record and its history), so the account can then be deleted
+/// and the person can later sign up again and be linked to the same record.
+const String unlinkMyAccountEndpoint = 'unlink-my-account';

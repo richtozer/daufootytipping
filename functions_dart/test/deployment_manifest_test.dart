@@ -26,6 +26,7 @@ void main() {
     updateTipperAliasEndpoint,
     registerDeviceTokenEndpoint,
     unregisterDeviceTokenEndpoint,
+    unlinkMyAccountEndpoint,
   ];
   // The mutating identity callables: the 60-second timeout is the one the
   // admission wrapper's drain assumes (mutatingCallableTimeout).
@@ -34,6 +35,7 @@ void main() {
     updateTipperAliasEndpoint,
     registerDeviceTokenEndpoint,
     unregisterDeviceTokenEndpoint,
+    unlinkMyAccountEndpoint,
   ];
   const httpsEndpoints = <String>[
     backendScoringCommandEndpoint,

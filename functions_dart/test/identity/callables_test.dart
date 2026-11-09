@@ -35,6 +35,7 @@ final Map<String, Object?> _validBodies = <String, Object?>{
   updateTipperAliasEndpoint: <String, Object?>{'alias': 'Patricia'},
   registerDeviceTokenEndpoint: <String, Object?>{'token': _token},
   unregisterDeviceTokenEndpoint: <String, Object?>{'token': _token},
+  unlinkMyAccountEndpoint: <String, Object?>{},
 };
 
 /// What came back: the HTTP status and, for an error, its `error` object.
@@ -556,6 +557,28 @@ void main() {
         );
         expectTokensConsistent(root);
       });
+
+      test(
+        'unlink-my-account detaches the caller only, whatever the request names',
+        () async {
+          final reply = await asPat(unlinkMyAccountEndpoint, <String, Object?>{
+            'tipperId': 't2',
+            'uid': _uidB,
+          });
+          expect(reply.status, 200, reason: '${reply.body}');
+          expect(reply.result, <String, Object?>{'unlinked': true});
+          final root = await readRoot(db);
+          expect((root['AuthIndex'] as Map).containsKey(_uidA), false);
+          expect((root['AuthIndex'] as Map)[_uidB], 't2');
+          expect(rowAt(root, 'TipperPrivate', 't2')['authuid'], _uidB);
+          expect(rowAt(root, 'AllTippers', 't1')['name'], 'Pat');
+
+          // Signed in as the same account again, there is nothing left to detach.
+          final again = await asPat(unlinkMyAccountEndpoint);
+          expect(again.status, 200);
+          expect(again.result, <String, Object?>{'unlinked': false});
+        },
+      );
 
       test('a token moves to whoever registered it last', () async {
         await asPat(registerDeviceTokenEndpoint);

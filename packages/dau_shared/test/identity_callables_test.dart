@@ -132,4 +132,32 @@ void main() {
       );
     });
   });
+
+  group('UnlinkMyAccount', () {
+    test('the request takes nothing and ignores whatever is sent', () {
+      expect(UnlinkMyAccountRequest.fromJson(null).toJson(), isEmpty);
+      expect(
+        UnlinkMyAccountRequest.fromJson({
+          'tipperId': 't2',
+          'uid': 'u',
+        }).toJson(),
+        isEmpty,
+      );
+    });
+
+    test('the result says whether anything was detached', () {
+      expect(
+        UnlinkMyAccountResult.fromJson({'unlinked': true}).unlinked,
+        isTrue,
+      );
+      expect(UnlinkMyAccountResult.fromJson({'unlinked': false}).toJson(), {
+        'unlinked': false,
+      });
+      expect(
+        () => UnlinkMyAccountResult.fromJson({'unlinked': 'yes'}),
+        throwsFormatException,
+      );
+      expect(() => UnlinkMyAccountResult.fromJson(null), throwsFormatException);
+    });
+  });
 }

@@ -78,7 +78,9 @@ void _report(
 }
 
 void main() {
-  group('replay of the real identity data', () {
+  // The skip is on the group, not the test: a skipped test still runs its group's setUpAll,
+  // which reads the snapshot and would fail when there is none.
+  group('replay of the real identity data', skip: _skipReason(), () {
     late final RestDatabase db = openEmulatorDatabase();
     late Map<String, Object?> snapshot;
 
@@ -285,7 +287,6 @@ void main() {
           'ok',
         }, reason: 'every token went in and out');
       },
-      skip: _skipReason(),
       timeout: const Timeout(Duration(minutes: 8)),
     );
   });

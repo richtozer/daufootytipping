@@ -7,6 +7,7 @@ import 'package:dart_functions/identity/device_tokens.dart';
 import 'package:dart_functions/identity/faults.dart';
 import 'package:dart_functions/identity/handler_deadline.dart';
 import 'package:dart_functions/identity/link_or_create.dart';
+import 'package:dart_functions/identity/unlink_account.dart';
 import 'package:dart_functions/identity/update_alias.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/dau_shared.dart';
@@ -37,8 +38,8 @@ const CallableOptions identityCallableOptions = CallableOptions(
 typedef IdentityDatabaseOpener = Future<RestDatabase> Function();
 
 /// Registers `link-or-create-tipper`, `update-tipper-alias`,
-/// `register-device-token` and `unregister-device-token`
-/// (DESIGN-database-rules-phase4.md, section 6f).
+/// `register-device-token`, `unregister-device-token` and `unlink-my-account`
+/// (DESIGN-database-rules-phase4.md, sections 6f and 6h).
 ///
 /// Every one of them:
 ///
@@ -134,6 +135,24 @@ void registerIdentityCallables(
         database: call.database,
         caller: call.caller,
         request: call.request,
+        checkpoint: call.checkpoint,
+      )).toJson(),
+    ),
+  );
+
+  firebase.https.onCall(
+    name: unlinkMyAccountEndpoint,
+    options: identityCallableOptions,
+    (request, response) => _serve<UnlinkMyAccountRequest>(
+      request,
+      callable: unlinkMyAccountEndpoint,
+      openDatabase: openDatabase,
+      deadline: handlerDeadline,
+      parse: UnlinkMyAccountRequest.fromJson,
+      handle: (call) async => (await unlinkMyAccount(
+        database: call.database,
+        caller: call.caller,
+        admission: call.admission,
         checkpoint: call.checkpoint,
       )).toJson(),
     ),

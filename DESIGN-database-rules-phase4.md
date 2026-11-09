@@ -1007,6 +1007,57 @@ non-admin's own `TipperPrivate/{id}`.
 **Rollback:** `--install-rules --variant r1`, commit, deploy. That is safe while no R2 client exists; once one does,
 fix forward on `r1-compat` instead, because that client reads both nodes (section 9).
 
+### 6h. Progress: M4c, scoped to what the app does (9 November 2026; `unlink-my-account` built and tested, not deployed)
+
+**Scope, after the scope reset.** The plan listed six admin callables with leases, an operations journal and a
+reaper. Reading the admin screens (`admin_tippers_edit_add.dart`, `admin_tipper_merge.dart`) shows the app does less:
+an admin **edits** an existing tipper (name, contact email, role, paid comps) and **merges** two tippers (moves the
+tips in every comp, optionally moves the login, deletes the original, copies its account link to the target). There
+is **no admin "create tipper"**, no admin delete outside merge, and no separate reassign, so those callables are not
+built. M4c is therefore: `unlink-my-account` (done), `adminUpdateTipper` (name through the existing claim move,
+contact email, role with a last-admin check; the paid toggle stays a direct leaf write), and `adminMergeTippers`
+(each step checks the current state, so running the same merge again finishes an interrupted one; no journal, no
+reaper). The existing admin endpoints keep the compile-time allowlist until cutover.
+
+**The gap found, and `unlink-my-account`.** The app's "delete account" removes only the sign-in account. The tipper
+record keeps naming it, and linking never checks whether an old account still exists (design decision 1 in 6f: any
+other owner is treated as a claim to respect), so signing up again with the same email would be refused as
+`claimed`. `unlink-my-account` detaches the record, keeping its name, claims, tips and tokens, so a later sign-up
+links back to it. **The client's delete flow (M7) must be: unregister the push token, then `unlink-my-account`,
+then delete the sign-in account.** Unlinking needs a linked account, so the token goes first.
+
+How it works, and the points that are easy to get wrong:
+- It finds the records from the verified uid alone, and from **both sides**: the account's `AuthIndex` entry and every
+  record whose private or public `authuid` names it. Once the index entry has gone the account no longer resolves
+  through the index, so a retry of a call cut short at any step finishes the job from the record itself.
+- Per record, under its tipper lease: release the `AuthIndex` entry (access ends first); **remove** the private
+  `authuid`; **blank** the public `authuid` to an empty string. Each is a compare-and-set on "this account", so a
+  record meanwhile linked to someone else is never touched.
+- **Removed, not blanked, in the private record:** linking treats only a *missing* `authuid` as free (`replaceIf`
+  tests for null), so an empty string would still be refused as claimed.
+- **Blanked, not removed, in the public record:** the 1.4.x client parses it as a non-null string (`data['authuid']
+  as String`) and would fail to read the tipper list without it. After the purge the public record has no such
+  field and this step does nothing.
+- An account with nothing attached is not an error (`unlinked: false`), and a second call changes nothing.
+
+**Tested.** Twelve handler tests, including: the person signs up again with a new account and is linked back to the
+same record, and the same sign-up without unlinking is refused as `claimed`; a record meanwhile linked elsewhere is
+untouched; the post-purge shape; a retry finishing a call cut short (index already gone, only the public copy left,
+crashes after each step); a stale duplicate naming the same account. Through the real callable pipeline it joins the
+authentication, App Check, mode and malformed-request tests of the other callables, and a signed-in call detaches the
+caller only, whatever the request names. Five deliberate breakages (index entry not released, private blanked not
+removed, public removed not blanked, private cleared without checking the account, records found from the index only)
+are each caught.
+
+**Not covered.** A 1.4.x client that deletes its account still leaves the dead link, as it always did; re-registering
+from an R2 client after that is refused as claimed until an administrator fixes it. This is rare and accepted.
+Deploying the function is a separate go, and as with the last four it may need its public-invoker setting added by hand
+(section 6f, B7 and `docs/backend-scoring-deploy.md`).
+
+**A mistake of mine, found and fixed on the way.** The earlier replay test skipped its test but not its `setUpAll`,
+which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy
+script's test gate. It is now skipped as a group, and the suite passes with and without the variable.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the

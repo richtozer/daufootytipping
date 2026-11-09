@@ -164,6 +164,35 @@ class UnregisterDeviceTokenResult {
   Map<String, Object?> toJson() => <String, Object?>{'removed': removed};
 }
 
+/// `unlink-my-account`. It takes nothing: the account is the caller's, from the
+/// verified token, never from the request. Anything sent is ignored.
+class UnlinkMyAccountRequest {
+  const UnlinkMyAccountRequest();
+
+  factory UnlinkMyAccountRequest.fromJson(Object? raw) =>
+      const UnlinkMyAccountRequest();
+
+  Map<String, Object?> toJson() => const <String, Object?>{};
+}
+
+class UnlinkMyAccountResult {
+  const UnlinkMyAccountResult({required this.unlinked});
+
+  /// Whether a tipper record was detached. False is not an error: the account
+  /// may never have been linked, or an earlier call already did it.
+  final bool unlinked;
+
+  factory UnlinkMyAccountResult.fromJson(Object? raw) {
+    final unlinked = _asMap(raw, 'the result')['unlinked'];
+    if (unlinked is! bool) {
+      throw const FormatException('unlinked must be true or false');
+    }
+    return UnlinkMyAccountResult(unlinked: unlinked);
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{'unlinked': unlinked};
+}
+
 Map<Object?, Object?> _asMap(Object? raw, String what) {
   if (raw is! Map) {
     throw FormatException('$what must be an object');
