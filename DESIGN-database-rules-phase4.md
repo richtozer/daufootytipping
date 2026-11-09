@@ -835,8 +835,25 @@ the new revision, and the wrapper finished `ok`; `tipWrittenAppBadge` also finis
 `app-badge-count` endpoint in that window (the badge path may be gated by its flag), so that endpoint is verified
 only as answering strangers. The project logged no entries at ERROR or above in the 25 minutes after the deploy.
 
-*Not yet verified.* A real signed-in request refused by `off` (the only check that reaches the production database
-opener, and it needs a real ID token and App Check token), and the pilot, which is a separate go.
+*Pilot replaced by a replay of the real data (9 November 2026).* The write-enabled pilot with a throwaway account
+was meant to show the identity logic copes with real data. It would also have written to production. A replay shows
+the same without that. `functions_dart/test/identity/replay_snapshot_test.dart` loads a copy of the identity data
+into the emulator and, for every linked account, runs the sign-in (`link-or-create-tipper`), a rename to the name
+already held, and a token register and unregister. The copy is the 21 October dry-run snapshot with the reviewed
+backfill patch applied, which is what production held after 22 October, so no production access was needed. The test
+is skipped unless `IDENTITY_SNAPSHOT` names a file under `test/data/` (git-ignored), and prints counts and opaque ids
+only. **Result: all 163 linked accounts refresh as `existing`; 161 renames to the current name work (the other two
+tippers have no public name); all 163 token round trips work; no link, alias claim or public name changed; the nine
+accounts that had no stored login were given one (`LogonIndex` 195 to 204); no lease, move or intent was left
+behind; a sign-in took a median 6 ms and at most 52 ms in the emulator** (each refresh reads every tipper record,
+which is fine at this size). The test fails on a deliberately damaged copy. *What it does not cover:* creating a
+new account, first-time linking, real tokens, and the production database client, which is the same client the
+scoring worker used successfully on 6 November. The reconstruction can be replaced by a fresh export and re-run in
+seconds. **Recommendation: skip the production pilot** unless a later change makes it worthwhile; it adds
+production writes and no new information.
+
+*Not yet verified.* A real signed-in request refused by `off`. It is the only check that needs real tokens, it is
+optional, and nothing depends on it.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
